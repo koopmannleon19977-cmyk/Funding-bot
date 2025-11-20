@@ -25,27 +25,27 @@ X10_DRY_RUN = False  # Kann später genutzt werden, um Order-Calls abzufangen
 # 1. POSITIONSGRÖSSEN & LIMITS (HYBRID-STRATEGIE)
 # ============================================================
 # Wir zielen auf eine Notional-Größe von $15 pro Trade.
-DESIRED_NOTIONAL_USD = 5
-MIN_POSITION_SIZE_USD = 5
+DESIRED_NOTIONAL_USD = 16.0
+MIN_POSITION_SIZE_USD = 16.0
 
 # Das ist die WICHTIGE neue Sicherheitsgrenze.
 # Wir erlauben, dass die Mindestgröße der Börse unsere "DESIRED"
 # Größe leicht überschreitet, aber NIEMALS mehr als $20.
-MAX_NOTIONAL_USD = 100
+MAX_NOTIONAL_USD = 20.0
 
-MAX_OPEN_TRADES = 5
+MAX_OPEN_TRADES = 4  # Erhöhe auf 6 wenn du mehr Diversifikation willst
 
 # ============================================================
 # 2. PROFIT-FILTER (EINSTIEG) - OPTIMIERT FÜR VOLUMEN
 # ============================================================
 # 5% APY ist ein exzellenter, risikofreier Gewinn und erhöht die Trade-Frequenz massiv.
-MIN_APY_FILTER = 0.22           # Entspricht 5% APY (war 0.001 daily = ~36.5% APY)
+MIN_APY_FILTER = 0.12  # Gesenkt von 0.5 (50% APY) auf 0.12 (12% APY)           # Entspricht 5% APY (war 0.001 daily = ~36.5% APY)
 MIN_DAILY_PROFIT_FILTER = MIN_APY_FILTER / 365  # Tägliche Rate für Kompatibilität
 
 # === DYNAMISCHE PROFITABILITÄTS-OPTIMIERUNG ===
 DYNAMIC_MIN_APY_ENABLED = True          # True = dynamisch aus DB, False = statisch
 DYNAMIC_MIN_APY_MULTIPLIER = 1.1       # Mindestens 25% über dem historischen Durchschnitt
-MIN_APY_FALLBACK = 1.20                 # ≈131% APY als absolute Untergrenze (sicher profitabel)
+MIN_APY_FALLBACK = 0.05                 # ≈131% APY als absolute Untergrenze (sicher profitabel)
 
 DYNAMIC_FEES_ENABLED = True             # True = Fees von API holen, False = hardcoded
 
@@ -77,7 +77,7 @@ DYNAMIC_TAKE_PROFIT_MULTIPLIER = 3.0
 # ============================================================
 # 6. ORDER GUARDIAN / EXECUTION SAFETY - ERHÖHTE ROBUSTHEIT
 # ============================================================
-ORDER_GUARDIAN_TIMEOUT_SECONDS = 8        
+ORDER_GUARDIAN_TIMEOUT_SECONDS = 10        
 ORDER_GUARDIAN_LEG2_RETRY = 1             # 1 Retry für Leg 2
 ORDER_GUARDIAN_RETRY_DELAY_SECONDS = 1.0  # 1.0s Pause zwischen Retries
 
@@ -91,7 +91,7 @@ X10_PRICE_EPSILON_PCT = 0.15
 # 8. SYSTEM / PERFORMANCE & LOGGING SETUP - AGGRESSIV FÜR VOLUMEN
 # ============================================================
 CONCURRENT_REQUEST_LIMIT = 2
-REFRESH_DELAY_SECONDS = 90       # Aggressiv: 90 Sekunden für mehr Trades
+REFRESH_DELAY_SECONDS = 300       # Aggressiv: 90 Sekunden für mehr Trades
 DB_FILE = "funding.db"
 
 # --- Lighter Live-Handel & Safety ---
@@ -244,14 +244,17 @@ def validate_runtime_config(logger=None):
 ROLLBACK_DELAY_SECONDS = 3 # Sekunden Wartezeit vor einem Rollback, um Timing-Probleme zu vermeiden
 
 # === RISIKOMANAGEMENT (das rettet dein Konto) ===
-MIN_FREE_MARGIN_PCT = 0.35          # 35% frei halten → sicher bei Volatilität
-MAX_EXPOSURE_PCT = 0.95              # Max 25% des Gesamtbalances in offenen Trades
-MAX_VOLATILITY_PCT_24H = 8.0         # >8% 24h Change → zu riskant (ZORA, KAITO oft 50–200%)
-MAX_TRADE_SIZE_USD = 500             # Hard-Cap pro Trade (auch wenn DESIRED höher)
+MIN_FREE_MARGIN_PCT = 0.05          # 35% frei halten → sicher bei Volatilität
+MAX_EXPOSURE_PCT = 5.0              # Max 25% des Gesamtbalances in offenen Trades
+MAX_VOLATILITY_PCT_24H = 50.0         # >8% 24h Change → zu riskant (ZORA, KAITO oft 50–200%)
+MAX_TRADE_SIZE_USD = 20.0             # Hard-Cap pro Trade (auch wenn DESIRED höher)
 
 # ==================== VOLUME FARM MODE ====================
-VOLUME_FARM_MODE = True                    # Aktiviert den Farm-Modus
+VOLUME_FARM_MODE = False                    # Aktiviert den Farm-Modus
 FARM_NOTIONAL_USD = 50                     # Kleine Positionen für Volumen
+FARM_RANDOM_SIZE_PCT = 0.25       # +/- 25% Variation der Größe
+FARM_MIN_HOLD_MINUTES = 15        # Minimum Haltedauer (zufällig variiert)
+FARM_MAX_HOLD_MINUTES = 120      # Maximum Haltedauer
 FARM_HOLD_SECONDS = 600                    # 7 Minuten halten → dann close (sicher vor Funding-Flip)
 FARM_MAX_CONCURRENT = 40                   # Max 20 kleine Farm-Trades gleichzeitig
 FARM_MIN_APY = 0.05                        # Mindestens ~18% APY (nicht komplett Müll)

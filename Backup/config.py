@@ -9,9 +9,9 @@ load_dotenv()  # Lädt die Variablen aus der .env-Datei
 # ============================================================
 # 0. GEBÜHREN-KONFIGURATION (für Berechnung von TOTAL_FEES_PERCENT)
 # ============================================================
-TAKER_FEE_X10 = 0.00025  # 0.025%
-MAKER_FEE_X10 = 0.00000  # 0.000%
-FEES_LIGHTER = 0.00000   # 0.000%
+TAKER_FEE_X10 = 0.00025  # 0.05% (Standard Taker Fee)
+MAKER_FEE_X10 = 0.0000  # 0.02% (Standard Maker Fee)
+FEES_LIGHTER = 0.0000   # 0.00% (Annahme)
 
 # ============================================================
 # 0a. MASTER-SCHALTER
@@ -22,71 +22,92 @@ LIVE_TRADING = True  # ACHTUNG: True = Echte Orders werden gesendet
 X10_DRY_RUN = False  # Kann später genutzt werden, um Order-Calls abzufangen
 
 # ============================================================
-# 1. POSITIONSGRÖSSEN & LIMITS
+# 1. POSITIONSGRÖSSEN & LIMITS (HYBRID-STRATEGIE)
 # ============================================================
-POSITION_SIZE_USD = 15         # NEU: Erhöhe auf 200 USD, um Mindestnotional zu garantieren
-MIN_POSITION_SIZE_USD = 5       
-MAX_OPEN_TRADES = 1
+# Wir zielen auf eine Notional-Größe von $15 pro Trade.
+DESIRED_NOTIONAL_USD = 16.0
+MIN_POSITION_SIZE_USD = 16.0
+
+# Das ist die WICHTIGE neue Sicherheitsgrenze.
+# Wir erlauben, dass die Mindestgröße der Börse unsere "DESIRED"
+# Größe leicht überschreitet, aber NIEMALS mehr als $20.
+MAX_NOTIONAL_USD = 20.0
+
+MAX_OPEN_TRADES = 4  # Erhöhe auf 6 wenn du mehr Diversifikation willst
 
 # ============================================================
-# 2. PROFIT-FILTER (EINSTIEG)
+# 2. PROFIT-FILTER (EINSTIEG) - OPTIMIERT FÜR VOLUMEN
 # ============================================================
-MIN_DAILY_PROFIT_FILTER = 0.1     # Mindesttäglicher Profit in Prozent (%)
-# Bei sehr niedrigen Werten kann der Bot viele Trades eröffnen → vorsichtig anpassen
+# 5% APY ist ein exzellenter, risikofreier Gewinn und erhöht die Trade-Frequenz massiv.
+MIN_APY_FILTER = 0.12  # Gesenkt von 0.5 (50% APY) auf 0.12 (12% APY)           # Entspricht 5% APY (war 0.001 daily = ~36.5% APY)
+MIN_DAILY_PROFIT_FILTER = MIN_APY_FILTER / 365  # Tägliche Rate für Kompatibilität
+
+# === DYNAMISCHE PROFITABILITÄTS-OPTIMIERUNG ===
+DYNAMIC_MIN_APY_ENABLED = True          # True = dynamisch aus DB, False = statisch
+DYNAMIC_MIN_APY_MULTIPLIER = 1.1       # Mindestens 25% über dem historischen Durchschnitt
+MIN_APY_FALLBACK = 0.05                 # ≈131% APY als absolute Untergrenze (sicher profitabel)
+
+DYNAMIC_FEES_ENABLED = True             # True = Fees von API holen, False = hardcoded
 
 # ============================================================
-# 3. RISIKO-FILTER (EINSTIEG)
+# 3. RISIKO-FILTER (EINSTIEG) - DEINE WAHL
 # ============================================================
-MAX_SPREAD_FILTER_PERCENT = 2.0   # Maximal tolerierter Eröffnungs-Spread in %
+MAX_SPREAD_FILTER_PERCENT = 0.15   # 0.15% für höchste Qualität
 
 # ============================================================
-# 4. DYNAMISCHE SCHLIESS-LOGIK (AUSSTIEG)
+# 4. DYNAMISCHE SCHLIESS-LOGIK (AUSSTIEG) - OPTIMIERT FÜR KAPITAL-EFFIZIENZ
 # ============================================================
-DYNAMIC_CONVERGENCE_TARGET = 0.5          # Schließen bei x% Reduktion des ursprünglichen Spreads
-DYNAMIC_HOLD_TIME_MULTIPLIER = 1.5        # Faktor * Break-Even-Tage
-DYNAMIC_HOLD_MIN_DAYS = 3.0               # Mindesthaltedauer (Tage)
-DYNAMIC_HOLD_MAX_DAYS = 10.0              # Maximalhaltedauer (Tage)
+
+# Wenn die Rate kippt, warten wir nur 8 Stunden. Länger verbrennt Geld.
+FUNDING_FLIP_HOURS_THRESHOLD = 8 
+
+# Mindest- und Maximalhaltedauer optimiert für Kapital-Effizienz
+DYNAMIC_HOLD_MAX_DAYS = 7.0              # Nach 7 Tagen Kapital freimachen
 
 # ============================================================
-# 5. HARTE STOPPS (PnL-basiert)
+# 5. DYNAMISCHER STOP-LOSS & TAKE-PROFIT - OPTIMIERT FÜR EFFIZIENZ
 # ============================================================
-STOP_LOSS_USD = -10.00    # Bei diesem Verlust schließen
-TAKE_PROFIT_USD = 0.10    # NEU: Auf 0.10 setzen
+# Stop-Loss: Verlust ist 2.5x die Einstiegskosten. Fair, aber nicht zu locker.
+DYNAMIC_STOP_LOSS_MULTIPLIER = 2.0
+# Take-Profit: Gewinn ist 3.5x die Einstiegskosten. Sichert Gewinne schnell.
+DYNAMIC_TAKE_PROFIT_MULTIPLIER = 3.0
+
+ 
 
 # ============================================================
-# 6. ORDER GUARDIAN / EXECUTION SAFETY
+# 6. ORDER GUARDIAN / EXECUTION SAFETY - ERHÖHTE ROBUSTHEIT
 # ============================================================
-ORDER_GUARDIAN_TIMEOUT_SECONDS = 8        # Timeout pro Leg (Sekunden)
-ORDER_GUARDIAN_LEG2_RETRY = 0             # Anzahl Retries für Leg 2 (0 = deaktiviert)
-ORDER_GUARDIAN_RETRY_DELAY_SECONDS = 1.0  # Wartezeit zwischen Retries (falls aktiviert)
+ORDER_GUARDIAN_TIMEOUT_SECONDS = 10        
+ORDER_GUARDIAN_LEG2_RETRY = 1             # 1 Retry für Leg 2
+ORDER_GUARDIAN_RETRY_DELAY_SECONDS = 1.0  # 1.0s Pause zwischen Retries
 
 # ============================================================
 # 7. X10 ORDER-SAFETY (Limitpreis & Slippage)
 # ============================================================
-X10_MAX_SLIPPAGE_PCT = 0.6        # Max. erlaubter Abstand Limit vs Mark (%)
-X10_PRICE_EPSILON_PCT = 0.25      # Auf-/Abschlag auf Ask/Bid zur aggressiven Ausführung (%)
+X10_MAX_SLIPPAGE_PCT = 0.6        
+X10_PRICE_EPSILON_PCT = 0.15      
 
 # ============================================================
-# 8. SYSTEM / PERFORMANCE & LOGGING SETUP
+# 8. SYSTEM / PERFORMANCE & LOGGING SETUP - AGGRESSIV FÜR VOLUMEN
 # ============================================================
-CONCURRENT_REQUEST_LIMIT = 5
-REFRESH_DELAY_SECONDS = 300       # Sekunden zwischen Scans (300 = 5 Minuten)
+CONCURRENT_REQUEST_LIMIT = 2
+REFRESH_DELAY_SECONDS = 300       # Aggressiv: 90 Sekunden für mehr Trades
 DB_FILE = "funding.db"
 
 # --- Lighter Live-Handel & Safety ---
-LIGHTER_DRY_RUN = False            # WICHTIG: Auf False setzen für Live-Trading
+LIGHTER_DRY_RUN = False            
 LIGHTER_MAX_SLIPPAGE_PCT = 0.6
 LIGHTER_PRICE_EPSILON_PCT = 0.25
 LIGHTER_ORDER_TIMEOUT_SECONDS = 8
-LIGHTER_MAX_API_KEY_INDEX = -1    # NEU: Hinzugefügt für SignerClient
+LIGHTER_MAX_API_KEY_INDEX = -1    
 
 # Lighter Account und API Key Indizes
 LIGHTER_ACCOUNT_INDEX = 60113             
-LIGHTER_API_KEY_INDEX = 3           # Basierend auf Ihrem gewählten Index
+LIGHTER_API_KEY_INDEX = 3           
 LIGHTER_AUTO_ACCOUNT_INDEX = False
 
 LOG_FILE = "funding_bot.log"
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 
 def setup_logging():
     """Richtet das Logging-System ein (Datei + Konsole) ohne doppelte Handler, mit UTF-8-Ausgabe auf Windows."""
@@ -123,14 +144,14 @@ def setup_logging():
 # ============================================================
 # 9. API & KEYS (aus .env)
 # ============================================================
-LIGHTER_BASE_URL = "" # Standard = "" (verwendet Lighter SDK Default Host)
-LIGHTER_PRIVATE_KEY = os.getenv("LIGHTER_PRIVATE_KEY")           # ETH/L1 Key (für Rotationen)
-LIGHTER_API_PRIVATE_KEY = os.getenv("LIGHTER_API_PRIVATE_KEY")   # API Key (für Orders)
+LIGHTER_BASE_URL = "https://mainnet.zklighter.elliot.ai"
+LIGHTER_PRIVATE_KEY = os.getenv("LIGHTER_PRIVATE_KEY")           
+LIGHTER_API_PRIVATE_KEY = os.getenv("LIGHTER_API_PRIVATE_KEY")   
 
 X10_PRIVATE_KEY = os.getenv("X10_PRIVATE_KEY")
 X10_PUBLIC_KEY = os.getenv("X10_PUBLIC_KEY")
 X10_API_KEY = os.getenv("X10_API_KEY")
-X10_VAULT_ID = os.getenv("X10_VAULT_ID")  # sollte numerisch sein
+X10_VAULT_ID = os.getenv("X10_VAULT_ID")
 
 # ============================================================
 # 11. VALIDIERUNG / HILFSFUNKTIONEN
@@ -155,7 +176,6 @@ def parse_float(value, default=None):
 def validate_runtime_config(logger=None):
     """
     Führt weiche Validierungen aus und gibt Warnungen aus.
-    (Kein harter Abbruch, damit der Bot bei fehlenden Teilen optional weiter im Paper-Modus laufen kann.)
     """
     _logger = logger or logging.getLogger()
 
@@ -167,9 +187,9 @@ def validate_runtime_config(logger=None):
         _logger.info("CONFIG INFO: X10_VAULT_ID fehlt – X10 Live-Trading nicht verfügbar.")
 
     # Positionsgröße prüfen
-    if POSITION_SIZE_USD < MIN_POSITION_SIZE_USD:
+    if DESIRED_NOTIONAL_USD < MIN_POSITION_SIZE_USD:
         _logger.warning(
-            f"CONFIG WARNUNG: POSITION_SIZE_USD ({POSITION_SIZE_USD}) < MIN_POSITION_SIZE_USD "
+            f"CONFIG WARNUNG: DESIRED_NOTIONAL_USD ({DESIRED_NOTIONAL_USD}) < MIN_POSITION_SIZE_USD "
             f"({MIN_POSITION_SIZE_USD}). Hebe sie für sinnvolle Trades an."
         )
 
@@ -220,3 +240,23 @@ def validate_runtime_config(logger=None):
 # validate_runtime_config(logger)
 #
 # Hier NICHT automatisch aufrufen, um Seiteneffekte beim Import zu vermeiden.
+
+ROLLBACK_DELAY_SECONDS = 3 # Sekunden Wartezeit vor einem Rollback, um Timing-Probleme zu vermeiden
+
+# === RISIKOMANAGEMENT (das rettet dein Konto) ===
+MIN_FREE_MARGIN_PCT = 0.05          # 35% frei halten → sicher bei Volatilität
+MAX_EXPOSURE_PCT = 5.0              # Max 25% des Gesamtbalances in offenen Trades
+MAX_VOLATILITY_PCT_24H = 50.0         # >8% 24h Change → zu riskant (ZORA, KAITO oft 50–200%)
+MAX_TRADE_SIZE_USD = 20.0             # Hard-Cap pro Trade (auch wenn DESIRED höher)
+
+# ==================== VOLUME FARM MODE ====================
+VOLUME_FARM_MODE = False                    # Aktiviert den Farm-Modus
+FARM_NOTIONAL_USD = 50                     # Kleine Positionen für Volumen
+FARM_RANDOM_SIZE_PCT = 0.25       # +/- 25% Variation der Größe
+FARM_MIN_HOLD_MINUTES = 15        # Minimum Haltedauer (zufällig variiert)
+FARM_MAX_HOLD_MINUTES = 120      # Maximum Haltedauer
+FARM_HOLD_SECONDS = 600                    # 7 Minuten halten → dann close (sicher vor Funding-Flip)
+FARM_MAX_CONCURRENT = 40                   # Max 20 kleine Farm-Trades gleichzeitig
+FARM_MIN_APY = 0.05                        # Mindestens ~18% APY (nicht komplett Müll)
+FARM_MAX_VOLATILITY_24H = 4.0              # Nur super stabile Coins (BTC, ETH, SOL, etc.)
+FARM_MAX_SPREAD_PCT = 0.15                 # Sehr enger Spread → fast kein Slippage
