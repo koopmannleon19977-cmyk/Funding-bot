@@ -30,6 +30,7 @@ class ParallelExecutionManager:
         
         async with self.execution_locks[symbol]:
             try:
+                # Fire both legs simultaneously (Gemini + Claude)
                 x10_task = asyncio.create_task(
                     self.x10.open_live_position(symbol, side_x10, float(size_x10), post_only=True)
                 )
@@ -37,9 +38,11 @@ class ParallelExecutionManager:
                     self.lighter.open_live_position(symbol, side_lighter, float(size_lighter), post_only=False)
                 )
                 
+                # Use return_exceptions to catch failures (Gemini)
                 results = await asyncio.gather(x10_task, lighter_task, return_exceptions=True)
                 x10_result, lighter_result = results
                 
+                # Check for exceptions (Gemini)
                 x10_success = not isinstance(x10_result, Exception) and x10_result[0]
                 lighter_success = not isinstance(lighter_result, Exception) and lighter_result[0]
                 
@@ -50,19 +53,16 @@ class ParallelExecutionManager:
                     logger.info(f" [PARALLEL] Both legs filled for {symbol}")
                     return True, x10_order, lighter_order
                 
+                # AGGRESSIVE ROLLBACK (Gemini - verhindert Zombies)
                 if x10_success and not lighter_success:
-                    logger.warning(f" [ROLLBACK] Lighter failed (Margin/Error), closing X10 for {symbol} IMMEDIATELY")
-                    
-                    # FIX: Keine lange Wartezeit mehr, um Abbruch-Risiko zu minimieren
-                    # Wir warten nur kurz (0.5s), damit die Order sicher im System ist
+                    logger.error(f" [ROLLBACK] Lighter failed, CLOSING X10 immediately for {symbol}")
                     await asyncio.sleep(0.5)
-                    
-                    # FIX: Pass original side, adapter handles opposite
                     await self._rollback_x10(symbol, side_x10, size_x10)
                     return False, x10_order, None
                 
                 if lighter_success and not x10_success:
-                    logger.warning(f" [ROLLBACK] X10 failed, closing Lighter for {symbol}")
+                    logger.error(f" [ROLLBACK] X10 failed, CLOSING Lighter immediately for {symbol}")
+                    await asyncio.sleep(0.5)
                     await self._rollback_lighter(symbol, side_lighter, size_lighter)
                     return False, None, None
                 
