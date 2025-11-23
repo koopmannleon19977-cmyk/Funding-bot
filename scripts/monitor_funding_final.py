@@ -49,7 +49,6 @@ OPPORTUNITY_LOG_CACHE = {}
 # ============================================================
 # GLOBALS (Ergänzung)
 # ============================================================
-FEE_CACHE = {'X10': {}, 'Lighter': {}}
 # Behalte IN_FLIGHT_MARGIN von vorher!
 # Define in-flight reservation globals (used when reserving trade notional)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
@@ -58,110 +57,61 @@ IN_FLIGHT_LOCK = asyncio.Lock()
 # FEE & STARTUP LOGIC
 # ============================================================
 async def load_fee_cache():
-    """Load historical fee stats from DB on startup"""
-    try:
-        async with aiosqlite.connect(config.DB_FILE) as conn:
-            # Ensure table exists first
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS fee_stats (
-                    exchange TEXT, symbol TEXT, 
-                    avg_fee_rate REAL, sample_size INTEGER, 
-                    last_updated TIMESTAMP,
-                    PRIMARY KEY (exchange, symbol)
-                )
-            """)
-            await conn.commit()
-            
-            async with conn.execute("SELECT exchange, symbol, avg_fee_rate FROM fee_stats") as cursor:
-                rows = await cursor.fetchall()
-                for ex, sym, rate in rows:
-                    FEE_CACHE.setdefault(ex, {})[sym] = float(rate)
-        logger.info(f"📊 Fee Cache loaded: {len(FEE_CACHE.get('X10', {}))} X10, {len(FEE_CACHE.get('Lighter', {}))} Lighter")
-    except Exception as e:
-        logger.error(f"Fee Cache load failed: {e}")
+    """Load historical fee stats from state manager on startup
 
-async def update_fee_stats(exchange: str, symbol: str, fee_rate: float):
-    """Update rolling average fee stats in DB and Cache with sanity checks."""
-    # Sanity: ignore zero/negative or absurdly large fee samples
-    if fee_rate <= 0 or fee_rate > 0.01:
-        return
+    Note: The `InMemoryStateManager.start()` now loads fee stats into
+    the running state; this function is kept as a no-op compatibility hook.
+    """
+    # State manager handles fee cache loading during startup
+    return
 
-    try:
-        # Update Memory Cache
-        FEE_CACHE.setdefault(exchange, {})[symbol] = fee_rate
-
-        async with aiosqlite.connect(config.DB_FILE) as conn:
-            # Create table if missing (failsafe)
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS fee_stats (
-                    exchange TEXT, symbol TEXT, 
-                    avg_fee_rate REAL, sample_size INTEGER, 
-                    last_updated TIMESTAMP,
-                    PRIMARY KEY (exchange, symbol)
-                )
-            """)
-
-            # Fetch existing
-            async with conn.execute(
-                "SELECT avg_fee_rate, sample_size FROM fee_stats WHERE exchange = ? AND symbol = ?",
-                (exchange, symbol)
-            ) as cursor:
-                row = await cursor.fetchone()
-
-            if row:
-                old_avg, count = row
-                # EMA Weighting: 30% new, 70% old
-                new_avg = (old_avg * 0.7) + (fee_rate * 0.3)
-                new_count = count + 1
-            else:
-                new_avg = fee_rate
-                new_count = 1
-
-            await conn.execute("""
-                INSERT OR REPLACE INTO fee_stats 
-                (exchange, symbol, avg_fee_rate, sample_size, last_updated) 
-                VALUES (?, ?, ?, ?, ?)
-            """, (exchange, symbol, float(new_avg), int(new_count), datetime.utcnow()))
-            await conn.commit()
-
-            logger.info(f"💰 Fee Update {exchange} {symbol}: {fee_rate*100:.4f}% (Avg: {new_avg*100:.4f}% )")
-
-    except Exception as e:
-        logger.error(f"Fee DB Error: {e}")
+# `update_fee_stats` removed: `state_manager.update_fee_stats()` is used instead.
 
 
-async def process_fee_update(adapter, symbol, order_id):
-    """Fetch order fee after execution and update stats (with retries)."""
+async def process_fee_update(adapter, symbol: str, order_id: str):
+    """Fetch order fee after execution and update stats via state manager."""
     if not order_id or order_id == "DRY_RUN":
         return
 
-    # Wait briefly to allow exchange to process fills
+    # Wait for order to settle
     await asyncio.sleep(3.0)
 
     for retry in range(2):
         try:
-            fee = await adapter.get_order_fee(order_id)
-            if fee > 0 or retry == 1:
-                await update_fee_stats(adapter.name, symbol, fee if fee > 0 else 0.0)
+            fee_rate = await adapter.get_order_fee(order_id)
+
+            if fee_rate > 0 or retry == 1:
+                # Update via state manager
+                if state_manager:
+                    await state_manager.update_fee_stats(
+                        exchange=adapter.name,
+                        symbol=symbol,
+                        fee_rate=fee_rate if fee_rate > 0 else config.TAKER_FEE_X10
+                    )
                 return
+
+            # Retry if zero (order might not be settled)
             await asyncio.sleep(2)
+
         except Exception as e:
             if retry == 1:
-                # Fallback on error
-                fallback = config.TAKER_FEE_X10 if getattr(adapter, 'name', '') == 'X10' else config.FEES_LIGHTER
-                await update_fee_stats(getattr(adapter, 'name', 'Unknown'), symbol, fallback)
+                # Fallback on final retry
+                fallback = config.TAKER_FEE_X10 if adapter.name == 'X10' else 0.0
+                if state_manager:
+                    await state_manager.update_fee_stats(adapter.name, symbol, fallback)
             await asyncio.sleep(1)
 
 def get_estimated_fee_rate(exchange: str, symbol: str) -> float:
-    """Get cached fee rate or fallback to config"""
-    cached = FEE_CACHE.get(exchange, {}).get(symbol)
-    if cached:
-        return cached
+    """Get cached fee rate from state manager"""
+    if state_manager:
+        try:
+            return state_manager.get_fee_estimate(exchange, symbol)
+        except Exception:
+            # If state manager call fails, fall back to defaults below
+            pass
 
-    # Fallbacks based on Config
-    if exchange == 'X10':
-        return config.TAKER_FEE_X10
-    return config.FEES_LIGHTER
+    # Fallback if state manager not initialized
+    return config.TAKER_FEE_X10 if exchange == 'X10' else 0.0
 
 telegram_bot = None
 
@@ -518,9 +468,9 @@ async def manage_open_trades(lighter, x10):
         curr_spread = abs(px - pl)
         spread_pnl = (entry_spread - curr_spread) / px * t['notional_usd']
 
-        # Fees (Real Estimate)
-        fee_x10 = get_estimated_fee_rate('X10', sym)
-        fee_lit = get_estimated_fee_rate('Lighter', sym)
+        # Fees (Dynamic from State Manager)
+        fee_x10 = state_manager.get_fee_estimate('X10', sym, default=config.TAKER_FEE_X10)
+        fee_lit = state_manager.get_fee_estimate('Lighter', sym, default=0.0)
         est_fees = t['notional_usd'] * (fee_x10 + fee_lit) * 2.0
 
         total_pnl = funding_pnl + spread_pnl - est_fees
@@ -844,8 +794,6 @@ async def main():
         await telegram_bot.start()
         logger.info("📱 Telegram Bot connected")
     await setup_database()
-    logger.info(" Loading Fee Cache...")
-    await load_fee_cache()   # <-- new: preload fees
     
     # 2. Init Adapters
     x10 = X10Adapter()

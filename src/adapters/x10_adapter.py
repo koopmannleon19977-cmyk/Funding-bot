@@ -58,16 +58,24 @@ class X10Adapter(BaseAdapter):
             logger.error(f" X10 Account Init Error: {e}")
 
     async def get_order_fee(self, order_id: str) -> float:
+        """
+        Fetch real fee from X10 order
+        
+        Returns:
+            Fee rate (e.g. 0.00025 = 0.025%)
+        """
         if not order_id or order_id == "DRY_RUN_ORDER_123":
             return 0.0
         
         try:
+            # Convert to int
             try:
                 order_id_int = int(order_id)
             except ValueError:
-                logger.error(f" X10: Invalid order_id format: {order_id}")
+                logger.error(f"X10: Invalid order_id format: {order_id}")
                 return config.TAKER_FEE_X10
             
+            # API call
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
             url = f"{base_url}/api/v1/user/orders/{order_id_int}"
             
@@ -84,6 +92,8 @@ class X10Adapter(BaseAdapter):
                     if resp.status == 200:
                         data = await resp.json()
                         order = data.get("data", {})
+                        
+                        # Extract fee data
                         fee_abs = order.get("fee")
                         filled = order.get("filled_amount_of_synthetic")
                         price = order.get("price")
@@ -97,15 +107,19 @@ class X10Adapter(BaseAdapter):
                                 
                                 if notional > 0:
                                     fee_rate = fee_usd / notional
-                                    if 0 <= fee_rate <= 0.001:
+                                    
+                                    # Sanity check
+                                    if 0 <= fee_rate <= 0.01:
                                         return fee_rate
                             except (ValueError, TypeError):
                                 pass
                         
+                        # Fallback: Check order status
                         status = order.get("status", "UNKNOWN")
                         if status in ["PENDING", "OPEN"]:
                             return 0.0
                         
+                        # Fallback: Check if maker/taker
                         time_in_force = order.get("time_in_force")
                         if time_in_force == "POST_ONLY":
                             return config.MAKER_FEE_X10
@@ -113,8 +127,10 @@ class X10Adapter(BaseAdapter):
                             return config.TAKER_FEE_X10
                             
                     elif resp.status == 404:
+                        # Order not found yet
                         return 0.0
                     elif resp.status == 429:
+                        # Rate limited
                         return config.TAKER_FEE_X10
                     else:
                         return config.TAKER_FEE_X10
@@ -122,7 +138,7 @@ class X10Adapter(BaseAdapter):
         except asyncio.TimeoutError:
             return config.TAKER_FEE_X10
         except Exception as e:
-            logger.error(f" X10 Fee Fetch Error fr {order_id}: {e}")
+            logger.error(f"X10 Fee Fetch Error for {order_id}: {e}")
             return config.TAKER_FEE_X10
 
     async def start_websocket(self):

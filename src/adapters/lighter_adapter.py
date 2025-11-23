@@ -53,9 +53,25 @@ class LighterAdapter(BaseAdapter):
         self._last_balance_update = 0.0
 
     async def get_order_fee(self, order_id: str) -> float:
+        """
+        Fetch real fee from Lighter order
+
+        Returns:
+            Fee rate (e.g. 0.0 for maker rebate)
+        """
         if not order_id or order_id == "DRY_RUN_ORDER_123":
             return 0.0
-        return 0.0
+
+        try:
+            # Lighter API doesn't expose order fee endpoint
+            # Fee is always 0% (maker rebate)
+            # Return 0.0 for now
+            
+            # Future: Could parse from transaction receipt if available
+            return 0.0
+        except Exception as e:
+            logger.error(f"Lighter Fee Fetch Error for {order_id}: {e}")
+            return 0.0
 
     async def start_websocket(self):
         ws_url = "wss://mainnet.zklighter.elliot.ai/stream"
