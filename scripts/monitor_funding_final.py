@@ -311,21 +311,23 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         return False
 
     async with lock:
-        # Basic existence & volatility checks (preserve existing logic)
+        # Check if already open
         existing = await get_open_trades()
         if any(t['symbol'] == symbol for t in existing):
             return False
 
+        # Volatility check
         vol_monitor = get_volatility_monitor()
         if not vol_monitor.can_enter_trade(symbol):
             return False
 
+        # Account rotation
         acct_mgr = get_account_manager()
         acc_x10 = acct_mgr.get_next_x10_account()
         acc_lit = acct_mgr.get_next_lighter_account()
         current_label = f"{acc_x10.get('label')}/{acc_lit.get('label')}"
 
-        # --- PREDICTION & SIZING (keep existing) ---
+        # Prediction
         btc_trend = x10.get_24h_change_pct("BTC-USD")
         predictor = get_predictor()
 
@@ -340,32 +342,41 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         if not opp.get('is_farm_trade') and pred_rate < abs(net_rate) * 0.8:
             return False
 
-        # Determine intended notional
+        # SIZE CALCULATION
         if opp.get('is_farm_trade'):
             final_usd = float(config.FARM_NOTIONAL_USD)
         else:
-            # snapshot balances under lock for sizing
+            # Get balances
             try:
-                async with IN_FLIGHT_LOCK:
-                    real_bal_x10 = await x10.get_real_available_balance()
-                    real_bal_lit = await lighter.get_real_available_balance()
-                    bal_x10 = max(0.0, real_bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
-                    bal_lit = max(0.0, real_bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-                    total_bal = bal_x10 + bal_lit
+                bal_x10_real = await x10.get_real_available_balance()
+                bal_lit_real = await lighter.get_real_available_balance()
             except Exception as e:
                 logger.error(f"Balance fetch error: {e}")
                 return False
 
-            size_calc = calculate_smart_size(conf, total_bal)
+            # Use 25% of weaker account (was 30-40%, too aggressive)
+            usable_x10 = max(0, bal_x10_real - 5.0)
+            usable_lit = max(0, bal_lit_real - 5.0)
+            
+            max_per_trade = min(usable_x10, usable_lit) * 0.25
+            
+            # Kelly sizing with confidence
+            size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
             size_calc *= vol_monitor.get_size_adjustment(symbol)
-            final_usd = float(min(size_calc, config.MAX_TRADE_SIZE_USD))
+            
+            final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
 
-        # Ensure min notionals
+        # Exchange minimum
         min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
         if final_usd < min_req:
             final_usd = float(min_req)
 
-        # --- 1. SIDE MAPPING ---
+        # Absolute minimum check
+        if final_usd < 12.0:
+            logger.debug(f"Size too small: ${final_usd:.1f}")
+            return False
+
+        # SIDE MAPPING
         ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
         ex2 = lighter if opp['leg1_exchange'] == 'X10' else x10
         side1 = opp['leg1_side']
@@ -374,177 +385,92 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         x10_side = side1 if getattr(ex1, 'name', '') == 'X10' else side2
         lighter_side = side2 if getattr(ex1, 'name', '') == 'X10' else side1
 
-        # === CRITICAL FIX: CHECK POSITION COUNTS FIRST ===
-        try:
-            x10_pos = await x10.fetch_open_positions()
-            lighter_pos = await lighter.fetch_open_positions()
-            
-            x10_count = len([p for p in (x10_pos or []) if abs(p.get('size', 0)) > 1e-8])
-            lighter_count = len([p for p in (lighter_pos or []) if abs(p.get('size', 0)) > 1e-8])
-            
-            # HARD BLOCK: If X10 has more positions, DO NOT allow new trades
-            if x10_count > lighter_count:
-                logger.warning(
-                    f"🚫 ASYMMETRY BLOCK: X10={x10_count} > Lighter={lighter_count}"
-                )
-                return False
-            elif lighter_count > x10_count:
-                logger.warning(
-                    f"🚫 ASYMMETRY BLOCK: Lighter={lighter_count} > X10={x10_count}"
-                )
-                return False
-        except Exception as e:
-            logger.error(f"Position check failed: {e}")
-            return False
-
-        # === BALANCE CHECK (SIMPLIFIED) ===
-        try:
-            bal_x10_real = await x10.get_real_available_balance()
-            bal_lit_real = await lighter.get_real_available_balance()
-            
-            # Absolute minimum to proceed
-            if bal_x10_real < 10.0 or bal_lit_real < 10.0:
-                logger.info(f"⏸️ Low margin: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
-                return False
-            
-            # Dynamic sizing based on WEAKER account
-            usable_balance = min(bal_x10_real, bal_lit_real) - 5.0  # Keep $5 safety buffer
-            max_size = usable_balance * 0.40  # Use up to 40% of weaker account
-            
-            # Adjust final_usd
-            if final_usd > max_size:
-                logger.info(f"📉 Reducing {symbol}: ${final_usd:.1f} -> ${max_size:.1f}")
-                final_usd = max_size
-            
-            # CRITICAL: If still below exchange minimum, use minimum
-            exchange_min = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
-            if final_usd < exchange_min:
-                logger.info(f"📈 Bumping {symbol} to exchange min: ${exchange_min:.1f}")
-                final_usd = float(exchange_min)
-            
-            # Final safety: If we can't afford minimum, skip
-            if final_usd > usable_balance * 0.80:
-                logger.warning(
-                    f"⚠️ SKIP {symbol}: Size ${final_usd:.1f} exceeds 80% of usable ${usable_balance:.1f} "
-                    f"(X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f})"
-                )
-                return False
-            
-            logger.info(f"✅ {symbol} sized at ${final_usd:.1f} (X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f})")
-                
-        except Exception as e:
-            logger.error(f"Balance check error: {e}")
-            return False
-
-    # --- 3. EXECUTION ---
-    try:
-        # Ensure min size after adjustments
-        if final_usd < 15.0:
-            logger.debug(f"SKIP {symbol}: Size too small after balancing: ${final_usd:.1f}")
-            return False
-
-        # Convergence check
-        if abs(current_rate_x10 - current_rate_lit) < 0.0001:
-            logger.warning(f"{symbol}: Rates converged, skip")
-            return False
-
-        # Log execution intent
-        logger.info(f" 🚀 EXEC {symbol} ${final_usd:.1f} | X10 {x10_side} / Lit {lighter_side}")
-        # Pre-flight check: Verify no existing position
+        # PRE-FLIGHT POSITION CHECK (informational only)
         try:
             x10_check = await x10.fetch_open_positions()
             lighter_check = await lighter.fetch_open_positions()
+            
             if any(p['symbol'] == symbol for p in (x10_check or [])):
-                logger.warning(f"{symbol} already open on X10 (pre-check)")
+                logger.debug(f"{symbol} already open on X10")
                 return False
             if any(p['symbol'] == symbol for p in (lighter_check or [])):
-                logger.warning(f"{symbol} already open on Lighter (pre-check)")
+                logger.debug(f"{symbol} already open on Lighter")
+                return False
+                
+        except Exception as e:
+            logger.debug(f"Pre-flight check failed: {e}")
+
+        # EXECUTION
+        logger.info(f"🚀 EXEC {symbol} ${final_usd:.1f} | X10 {x10_side} / Lit {lighter_side}")
+
+        try:
+            success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
+                symbol, x10_side, lighter_side,
+                Decimal(str(final_usd)), Decimal(str(final_usd)), None, None
+            )
+
+            if success:
+                # Verification
+                await asyncio.sleep(3)
+                try:
+                    x10_verify = await x10.fetch_open_positions()
+                    lighter_verify = await lighter.fetch_open_positions()
+
+                    x10_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (x10_verify or []))
+                    lighter_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (lighter_verify or []))
+
+                    if not x10_filled or not lighter_filled:
+                        logger.error(f"🚨 VERIFY FAIL {symbol}: X10={x10_filled}, Lit={lighter_filled}")
+                        
+                        # Rollback
+                        if x10_filled:
+                            await x10.close_live_position(symbol, side1 if ex1 == x10 else side2, final_usd)
+                        if lighter_filled:
+                            await lighter.close_live_position(symbol, side2 if ex1 == x10 else side1, final_usd)
+
+                        FAILED_COINS[symbol] = time.time()
+                        return False
+
+                    logger.info(f"✅ VERIFIED {symbol}")
+
+                except Exception as verify_err:
+                    logger.error(f"Verification error {symbol}: {verify_err}")
+
+                # Save trade
+                trade = opp.copy()
+                px = x10.fetch_mark_price(symbol) or 0.0
+                pl = lighter.fetch_mark_price(symbol) or 0.0
+                spread = abs(px - pl) / px if px > 0 else 0.0
+
+                trade.update({
+                    'notional_usd': final_usd,
+                    'entry_time': datetime.utcnow(),
+                    'entry_price_x10': px,
+                    'entry_price_lighter': pl,
+                    'initial_spread_pct': spread,
+                    'account_label': current_label,
+                    'initial_funding_rate_hourly': net_rate
+                })
+                await add_trade_to_state(trade)
+                
+                if telegram_bot:
+                    await telegram_bot.send_message(f"✅ {symbol} opened\n💰 ${final_usd:.0f} | Conf:{conf:.0%}")
+
+                # Fee tracking
+                if x10_id:
+                    asyncio.create_task(process_fee_update(x10, symbol, x10_id))
+                if lit_id:
+                    asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
+
+                return True
+            else:
+                FAILED_COINS[symbol] = time.time()
                 return False
 
-            # CRITICAL: Also check position count symmetry
-            try:
-                x10_count_check = len([p for p in (x10_check or []) if abs(p.get('size',0))>1e-8])
-                lighter_count_check = len([p for p in (lighter_check or []) if abs(p.get('size',0))>1e-8])
-                if x10_count_check != lighter_count_check:
-                    logger.warning(f"Pre-check: Asymmetric position count, skipping")
-                    return False
-            except Exception:
-                # If counting fails, don't block—fallback handled elsewhere
-                pass
         except Exception as e:
-            logger.warning(f"Pre-flight position check failed: {e}")
-            # Continue anyway - zombie cleanup will handle it
-
-        success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
-            symbol, x10_side, lighter_side,
-            Decimal(str(final_usd)), Decimal(str(final_usd)), None, None
-        )
-        # CRITICAL: Verify both legs actually filled
-        if success:
-            await asyncio.sleep(3)  # Wait for settlement
-            try:
-                x10_verify = await x10.fetch_open_positions()
-                lighter_verify = await lighter.fetch_open_positions()
-
-                x10_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (x10_verify or []))
-                lighter_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (lighter_verify or []))
-
-                if not x10_filled or not lighter_filled:
-                    logger.error(
-                        f"🚨 VERIFICATION FAILED {symbol}: "
-                        f"X10={x10_filled}, Lighter={lighter_filled}"
-                    )
-
-                    # Rollback any partial fills
-                    if x10_filled:
-                        await x10.close_live_position(symbol, side1 if ex1 == x10 else side2, final_usd)
-                    if lighter_filled:
-                        await lighter.close_live_position(symbol, side2 if ex1 == x10 else side1, final_usd)
-
-                    FAILED_COINS[symbol] = time.time()
-                    return False
-
-                logger.info(f"✅ VERIFIED {symbol}: Both legs confirmed filled")
-
-            except Exception as verify_err:
-                logger.error(f"Verification error {symbol}: {verify_err}")
-                # Continue anyway - zombie cleanup will catch it later
-
-        if success:
-            trade = opp.copy()
-            px = x10.fetch_mark_price(symbol) or 0.0
-            pl = lighter.fetch_mark_price(symbol) or 0.0
-            spread = abs(px - pl) / px if px > 0 else 0.0
-
-            trade.update({
-                'notional_usd': final_usd,
-                'entry_time': datetime.utcnow(),
-                'entry_price_x10': px,
-                'entry_price_lighter': pl,
-                'initial_spread_pct': spread,
-                'account_label': current_label,
-                'initial_funding_rate_hourly': net_rate
-            })
-            await add_trade_to_state(trade)
-            if telegram_bot:
-                await telegram_bot.send_message(f"✅ {symbol} opened\n💰 ${final_usd:.0f} | Conf:{conf:.0%}")
-
-            # --- 4. FEE HOOKS (NEW) ---
-            if x10_id:
-                asyncio.create_task(process_fee_update(x10, symbol, x10_id))
-            if lit_id:
-                asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
-
-            return True
-        else:
+            logger.error(f"Execution error {symbol}: {e}")
             FAILED_COINS[symbol] = time.time()
             return False
-
-    
-
-    except Exception as e:
-        logger.error(f"Execution error {symbol}: {e}")
-        return False
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
@@ -784,85 +710,77 @@ async def cleanup_finished_tasks():
 
 
 async def logic_loop(lighter, x10, price_event, parallel_exec):
-    """Main Logic Loop - Non-Blocking Refactor (Roadmap #2)"""
-    logger.info(" 🧠 Logic Loop started (Non-Blocking).")
+    """Main Logic Loop"""
+    logger.info("🧠 Logic Loop started")
     last_zombie = 0
     management_task = None
     
     while True:
         try:
-            # 1. Wait for Trigger (Price Update or Timeout)
+            # Wait for trigger
             try:
-                await asyncio.wait_for(price_event.wait(), timeout=1.0)
+                await asyncio.wait_for(price_event.wait(), timeout=5.0)  # Increased from 1.0
             except asyncio.TimeoutError:
                 pass
             price_event.clear()
 
-            # 2. Cleanup Old Tasks
+            # Cleanup
             await cleanup_finished_tasks()
 
-            # 3. Manage Open Trades (Non-Blocking)
-            # Only spawn if previous cycle finished to prevent overlap race conditions
+            # Manage trades
             if management_task is None or management_task.done():
                 if management_task and management_task.exception():
                     logger.error(f"Manage Task Error: {management_task.exception()}")
                 management_task = asyncio.create_task(manage_open_trades(lighter, x10))
 
-            # 4. Zombie Cleanup (every 5 min)
+            # Zombie cleanup
             now = time.time()
-            if now - last_zombie > 300:
+            if now - last_zombie > 180:  # Reduced from 300 to 180s
                 try:
                     await cleanup_zombie_positions(lighter, x10)
                 except Exception as ze:
-                    logger.error(f"Zombie cleanup error: {ze}")
-                    if telegram_bot:
-                        await telegram_bot.send_error(f"Zombie: {ze}")
+                    logger.error(f"Zombie cleanup: {ze}")
                 last_zombie = now
 
-            # 5. Check Opportunities
+            # Check opportunities
             trades = await get_open_trades()
-
-            # (Global asymmetry brake removed — simplified policy)
-
-            # CRITICAL FIX: Limit concurrent executions to prevent margin exhaustion
-            # Max 2 new executions at a time, even if we have slots
-            MAX_CONCURRENT_NEW = 2
+            
+            # REMOVED all asymmetry checks - they were blocking trades
+            
             current_executing = len(ACTIVE_TASKS)
             current_open = len(trades)
             total_busy = current_open + current_executing
             
+            # Allow up to 5 concurrent new executions (was 2-3)
+            MAX_CONCURRENT_NEW = 5
+            
             if total_busy < config.MAX_OPEN_TRADES:
                 open_syms = {t['symbol'] for t in trades}
-                
-                # Calculate how many new trades we can start
                 slots_available = config.MAX_OPEN_TRADES - total_busy
                 new_trades_allowed = min(MAX_CONCURRENT_NEW, slots_available)
                 
-                logger.debug(
-                    f"Slots: Open={current_open}, Executing={current_executing}, "
-                    f"Available={slots_available}, Will start={new_trades_allowed}"
-                )
+                logger.debug(f"Slots: Open={current_open}, Exec={current_executing}, New={new_trades_allowed}")
                 
-                # A. Latency Arb (limit to 1)
+                # Latency arb (limit 1)
                 if new_trades_allowed > 0:
                     detector = get_detector()
                     for sym in ["BTC-USD", "ETH-USD", "SOL-USD"]:
-                        if sym in open_syms or sym in ACTIVE_TASKS: continue
+                        if sym in open_syms or sym in ACTIVE_TASKS:
+                            continue
                         
                         opp = await detector.detect_lag_opportunity(
                             sym, x10.fetch_funding_rate(sym) or 0, 
                             lighter.fetch_funding_rate(sym) or 0, x10, lighter
                         )
                         if opp:
-                            async with await get_execution_lock(sym):
-                                if sym not in ACTIVE_TASKS:
-                                    ACTIVE_TASKS[sym] = asyncio.create_task(
-                                        execute_trade_task(opp, lighter, x10, parallel_exec)
-                                    )
-                                    new_trades_allowed -= 1
+                            if sym not in ACTIVE_TASKS:
+                                ACTIVE_TASKS[sym] = asyncio.create_task(
+                                    execute_trade_task(opp, lighter, x10, parallel_exec)
+                                )
+                                new_trades_allowed -= 1
                             break
                 
-                # B. Standard Funding Arb (limited by new_trades_allowed)
+                # Standard funding arb
                 if new_trades_allowed > 0:
                     opps = await find_opportunities(lighter, x10, open_syms)
                     started = 0
@@ -874,12 +792,12 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         if sym in ACTIVE_TASKS:
                             continue
                         
-                        async with await get_execution_lock(sym):
-                            if sym not in ACTIVE_TASKS:
-                                ACTIVE_TASKS[sym] = asyncio.create_task(
-                                    execute_trade_task(opp, lighter, x10, parallel_exec)
-                                )
-                                started += 1
+                        if sym not in ACTIVE_TASKS:
+                            ACTIVE_TASKS[sym] = asyncio.create_task(
+                                execute_trade_task(opp, lighter, x10, parallel_exec)
+                            )
+                            started += 1
+                            await asyncio.sleep(0.5)  # Small delay between spawns
 
         except asyncio.CancelledError:
             break
@@ -888,7 +806,7 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             traceback.print_exc()
             if telegram_bot:
                 await telegram_bot.send_error(f"Logic: {str(e)[:200]}")
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
 async def maintenance_loop(lighter, x10):
     """Background tasks: Funding rates"""
