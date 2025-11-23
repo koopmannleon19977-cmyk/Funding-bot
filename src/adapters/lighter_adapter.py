@@ -446,7 +446,7 @@ class LighterAdapter(BaseAdapter):
         return self.price_cache.get(symbol)
     
     async def get_real_available_balance(self) -> float:
-        if time.time() - self._last_balance_update < 60.0:
+        if time.time() - self._last_balance_update < 2.0:
             return self._balance_cache
         
         try:

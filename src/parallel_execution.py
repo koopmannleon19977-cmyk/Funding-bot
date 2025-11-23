@@ -51,8 +51,11 @@ class ParallelExecutionManager:
                     return True, x10_order, lighter_order
                 
                 if x10_success and not lighter_success:
-                    logger.warning(f" [ROLLBACK] Lighter failed, closing X10 for {symbol}")
-                    await asyncio.sleep(3.0)
+                    logger.warning(f" [ROLLBACK] Lighter failed (Margin/Error), closing X10 for {symbol} IMMEDIATELY")
+                    
+                    # FIX: Keine lange Wartezeit mehr, um Abbruch-Risiko zu minimieren
+                    # Wir warten nur kurz (0.5s), damit die Order sicher im System ist
+                    await asyncio.sleep(0.5)
                     
                     # FIX: Pass original side, adapter handles opposite
                     await self._rollback_x10(symbol, side_x10, size_x10)

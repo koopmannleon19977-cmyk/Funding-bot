@@ -3,6 +3,7 @@ import os
 import sys
 import logging
 import io
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -188,7 +189,7 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "") if os.getenv("TELEGRAM_CHAT
 # ============================================================
 # LOGGING SETUP
 # ============================================================
-def setup_logging():
+def setup_logging(per_run: bool = False, run_id: str | None = None, timestamp_format: str = "%Y%m%d_%H%M%S"):
     if sys.platform == 'win32':
         os.environ['PYTHONIOENCODING'] = 'utf-8'
     
@@ -204,7 +205,26 @@ def setup_logging():
         datefmt='%H:%M:%S'
     )
 
-    file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+    # determine filename: default `LOG_FILE` or per-run timestamped file
+    if per_run:
+        ts = datetime.now().strftime(timestamp_format)
+        if run_id:
+            log_file = f"funding_bot_{run_id}_{ts}.log"
+        else:
+            log_file = f"funding_bot_{ts}.log"
+    else:
+        log_file = LOG_FILE
+
+    # ensure directory exists when a path with directory is provided
+    log_dir = os.path.dirname(log_file)
+    if log_dir:
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except Exception:
+            pass
+
+    file_handler = logging.FileHandler(log_file, mode='a', encoding="utf-8")
+    file_handler.setLevel(LOG_LEVEL)
     file_handler.setFormatter(log_format)
 
     console_stream = io.TextIOWrapper(
@@ -215,6 +235,7 @@ def setup_logging():
     )
 
     console_handler = logging.StreamHandler(console_stream)
+    console_handler.setLevel(LOG_LEVEL)
     console_handler.setFormatter(log_format)
 
     logger.addHandler(file_handler)

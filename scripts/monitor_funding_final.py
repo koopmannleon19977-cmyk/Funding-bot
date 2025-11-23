@@ -33,7 +33,7 @@ from src.websocket_manager import WebSocketManager
 from src.prediction import calculate_smart_size
 
 # Logging Setup
-logger = config.setup_logging()
+logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
 
 # Globals
