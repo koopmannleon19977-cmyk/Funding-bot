@@ -314,7 +314,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         x10_side = side1 if getattr(ex1, 'name', '') == 'X10' else side2
         lighter_side = side2 if getattr(ex1, 'name', '') == 'X10' else side1
 
-        # --- 2. SAFETY: IN-FLIGHT MARGIN CHECK ---
+        # === CRITICAL FIX: BOTH EXCHANGES MUST HAVE MARGIN ===
         async with IN_FLIGHT_LOCK:
             try:
                 bal_x10_real = await x10.get_real_available_balance()
@@ -325,16 +325,18 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             except Exception:
                 return False
 
-            min_req_buf = final_usd * 1.10
-            b1 = bal_x10 if getattr(ex1, 'name', '') == 'X10' else bal_lit
-            b2 = bal_lit if getattr(ex2, 'name', '') == 'Lighter' else bal_x10
-
-            if b1 < min_req_buf or b2 < min_req_buf:
-                logger.debug(f"SKIP {symbol}: Insuff Balance. Need {min_req_buf:.1f}, Have {b1:.1f}/{b2:.1f}")
+            min_req_buf = final_usd * 1.15  # 15% buffer für Margin
+            
+            # BOTH must have margin
+            if bal_x10 < min_req_buf or bal_lit < min_req_buf:
+                logger.debug(
+                    f"SKIP {symbol}: Asymmetric Balance. "
+                    f"X10: ${bal_x10:.1f}, Lighter: ${bal_lit:.1f}, Need: ${min_req_buf:.1f}"
+                )
                 return False
 
-            IN_FLIGHT_MARGIN[ex1.name] = IN_FLIGHT_MARGIN.get(ex1.name, 0.0) + final_usd
-            IN_FLIGHT_MARGIN[ex2.name] = IN_FLIGHT_MARGIN.get(ex2.name, 0.0) + final_usd
+            IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
+            IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
 
     # --- 3. EXECUTION ---
     try:
@@ -562,8 +564,8 @@ async def cleanup_zombie_positions(lighter, x10):
     try:
         x_pos, l_pos = await get_cached_positions(lighter, x10, force=True)
         
-        x_syms = {p['symbol'] for p in x_pos if abs(p['size']) > 1e-8}
-        l_syms = {p['symbol'] for p in l_pos if abs(p['size']) > 1e-8}
+        x_syms = {p['symbol'] for p in x_pos if abs(p.get('size', 0)) > 1e-8}
+        l_syms = {p['symbol'] for p in l_pos if abs(p.get('size', 0)) > 1e-8}
         
         db_trades = await get_open_trades()
         db_syms = {t['symbol'] for t in db_trades}
@@ -575,14 +577,22 @@ async def cleanup_zombie_positions(lighter, x10):
         if zombies:
             logger.warning(f" 🧟 ZOMBIES DETECTED: {zombies}")
             for sym in zombies:
-                # Close X10
+                # FIXED: Get actual position size and side
                 if sym in x_syms:
-                    p = next(p for p in x_pos if p['symbol'] == sym)
-                    await x10.close_live_position(sym, "BUY" if p['size'] > 0 else "SELL", abs(p['size'] * 100)) # Approx notional
-                # Close Lighter
+                    p = next((pos for pos in x_pos if pos['symbol'] == sym), None)
+                    if p:
+                        size_usd = abs(p.get('size', 0)) * x10.fetch_mark_price(sym)
+                        side = "BUY" if p.get('size', 0) < 0 else "SELL"  # Opposite side to close
+                        logger.info(f" Closing X10 zombie {sym}: {side} ${size_usd:.1f}")
+                        await x10.close_live_position(sym, side, size_usd)
+                
                 if sym in l_syms:
-                    p = next(p for p in l_pos if p['symbol'] == sym)
-                    await lighter.close_live_position(sym, "BUY" if p['size'] > 0 else "SELL", abs(p['size'] * 100))
+                    p = next((pos for pos in l_pos if pos['symbol'] == sym), None)
+                    if p:
+                        size_usd = abs(p.get('size', 0)) * lighter.fetch_mark_price(sym)
+                        side = "BUY" if p.get('size', 0) < 0 else "SELL"
+                        logger.info(f" Closing Lighter zombie {sym}: {side} ${size_usd:.1f}")
+                        await lighter.close_live_position(sym, side, size_usd)
                     
         # 2. DB Ghosts (Open in DB, Closed on Exchange)
         ghosts = db_syms - all_exchange
