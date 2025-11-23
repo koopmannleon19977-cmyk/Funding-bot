@@ -343,41 +343,34 @@ async def manage_open_trades(lighter, x10):
         if not px or not pl: continue
 
         # Calculate PnL
-        rx = x10.fetch_funding_rate(sym) or 0.0
-        rl = lighter.fetch_funding_rate(sym) or 0.0
+        rx = x10.fetch_funding_rate(sym) or 0
+        rl = lighter.fetch_funding_rate(sym) or 0
+        net = rl - rx # Lighter pays X10? 
         
-        # 1. FIX: Robuste Net Rate Calculation
-        if t['leg1_exchange'] == 'Lighter':
-            if t.get('leg1_side') == 'SELL':
-                current_net = rl - rx # Short Lighter (receive), Long X10 (pay)
-            else:
-                current_net = rx - rl # Long Lighter (pay), Short X10 (receive)
-        else: # Leg1 = X10
-            if t.get('leg1_side') == 'BUY':
-                current_net = rl - rx # Long X10 (pay), Short Lighter (receive)
-            else:
-                current_net = rx - rl # Short X10 (receive), Long Lighter (pay)
+        # Fix logic: If we are Short Lighter / Long X10:
+        # We pay Lighter rate, Receive X10 rate.
+        # If leg1=X10 (Long X10), leg2=Lighter (Short Lighter)
+        # Net = X10_Rate - Lighter_Rate
+        if t['leg1_exchange'] == 'X10':
+            current_net = rx - rl
+        else:
+            current_net = rl - rx
 
         # PnL Calculation
         entry_time = t['entry_time']
         if isinstance(entry_time, str):
-            try: entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
+            try: entry_time = datetime.fromisoformat(entry_time)
             except: entry_time = datetime.utcnow()
             
         hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
         funding_pnl = current_net * hold_hours * t['notional_usd']
         
-        # 2. FIX: Spread PnL in % (Korrekt)
-        # entry_spread_pct ist schon in %, curr_spread_pct auch. NICHT durch Preis teilen.
-        entry_spread_pct = abs(t['entry_price_x10'] - t['entry_price_lighter']) / t['entry_price_x10']
-        current_spread_pct = abs(px - pl) / px
+        # Spread PnL (Approx)
+        entry_spread = abs(t['entry_price_x10'] - t['entry_price_lighter'])
+        curr_spread = abs(px - pl)
+        spread_pnl = (entry_spread - curr_spread) / px * t['notional_usd']
         
-        spread_pnl = (entry_spread_pct - current_spread_pct) * t['notional_usd']
-        
-        # Fees approx (0.05% * 2 round trip + buffer)
-        fees = t['notional_usd'] * 0.0012 
-        
-        total_pnl = funding_pnl + spread_pnl - fees
+        total_pnl = funding_pnl + spread_pnl
         
         # Check Exits
         reason = None
@@ -398,37 +391,29 @@ async def manage_open_trades(lighter, x10):
         elif total_pnl > t['notional_usd'] * 0.05: # 5% TP
             reason = "TAKE_PROFIT"
             
-        # D. Funding Flip (FIX: Explicit Sign Check)
-        elif t.get('initial_funding_rate_hourly') is not None:
-            initial_net = t['initial_funding_rate_hourly']
-            # Check if signs differ significantly (avoid 0.0 vs -0.000001 noise)
-            has_flipped = (initial_net > 1e-9 and current_net < -1e-9) or (initial_net < -1e-9 and current_net > 1e-9)
-            
-            if has_flipped:
-                if not t.get('funding_flip_start_time'):
-                    now_ts = datetime.utcnow()
-                    t['funding_flip_start_time'] = now_ts
-                    await state_manager.update_trade(sym, {'funding_flip_start_time': now_ts})
-                    logger.info(f" 🔄 {sym} Funding Flipped! Init: {initial_net:.6f} -> Now: {current_net:.6f}")
-                else:
-                    flip_start = t['funding_flip_start_time']
-                    if isinstance(flip_start, str): 
-                        try: flip_start = datetime.fromisoformat(flip_start.replace('Z', '+00:00'))
-                        except: flip_start = datetime.utcnow()
-                    
-                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                        reason = "FUNDING_FLIPPED_CONFIRMED"
+        # D. Funding Flip
+        elif t.get('initial_funding_rate_hourly', 0) * current_net < 0:
+            # Signs different = Flip
+            if not t.get('funding_flip_start_time'):
+                t['funding_flip_start_time'] = datetime.utcnow()
+                # Update DB to mark flip start
+                await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+            else:
+                flip_start = t['funding_flip_start_time']
+                if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
+                if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
+                    reason = "FUNDING_FLIPPED"
         
         # Execute Close
         if reason:
-            logger.info(f" Exiting {sym}: {reason} (PnL: ${total_pnl:.2f} | Fund: ${funding_pnl:.2f} | Spread: ${spread_pnl:.2f})")
+            logger.info(f" Exiting {sym}: {reason} (PnL: ${total_pnl:.2f})")
             if await close_trade(t, lighter, x10):
                 await close_trade_in_state(sym)
                 await archive_trade_to_history(t, reason, {
                     'total_net_pnl': total_pnl,
                     'funding_pnl': funding_pnl,
                     'spread_pnl': spread_pnl,
-                    'fees': fees
+                    'fees': 0.0
                 })
 
 async def cleanup_zombie_positions(lighter, x10):

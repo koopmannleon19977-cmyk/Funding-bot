@@ -74,16 +74,16 @@ class ParallelExecutionManager:
     
     async def _rollback_x10(self, symbol: str, side: str, size: Decimal):
         try:
-            # FIX: Adapter expects the OPEN side (e.g. BUY) and flips it internally to SELL
-            await self.x10.close_live_position(symbol, side, float(size))
+            opposite_side = "SELL" if side == "BUY" else "BUY"
+            await self.x10.close_live_position(symbol, opposite_side, float(size))
             logger.info(f" X10 rollback executed for {symbol}")
         except Exception as e:
             logger.error(f" X10 rollback failed: {e}")
     
     async def _rollback_lighter(self, symbol: str, side: str, size: Decimal):
         try:
-            # FIX: Adapter expects the OPEN side
-            await self.lighter.close_live_position(symbol, side, float(size))
+            opposite_side = "SELL" if side == "BUY" else "BUY"
+            await self.lighter.close_live_position(symbol, opposite_side, float(size))
             logger.info(f" Lighter rollback executed for {symbol}")
         except Exception as e:
             logger.error(f" Lighter rollback failed: {e}")
