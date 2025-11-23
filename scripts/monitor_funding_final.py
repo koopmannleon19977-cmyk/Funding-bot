@@ -46,9 +46,122 @@ LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 OPPORTUNITY_LOG_CACHE = {}
 
-# NEW: In-flight margin reservation to avoid double-counting balance in parallel tasks
+# ============================================================
+# GLOBALS (Ergänzung)
+# ============================================================
+FEE_CACHE = {'X10': {}, 'Lighter': {}}
+# Behalte IN_FLIGHT_MARGIN von vorher!
+# Define in-flight reservation globals (used when reserving trade notional)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
+# ============================================================
+# FEE & STARTUP LOGIC
+# ============================================================
+async def load_fee_cache():
+    """Load historical fee stats from DB on startup"""
+    try:
+        async with aiosqlite.connect(config.DB_FILE) as conn:
+            # Ensure table exists first
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS fee_stats (
+                    exchange TEXT, symbol TEXT, 
+                    avg_fee_rate REAL, sample_size INTEGER, 
+                    last_updated TIMESTAMP,
+                    PRIMARY KEY (exchange, symbol)
+                )
+            """)
+            await conn.commit()
+            
+            async with conn.execute("SELECT exchange, symbol, avg_fee_rate FROM fee_stats") as cursor:
+                rows = await cursor.fetchall()
+                for ex, sym, rate in rows:
+                    FEE_CACHE.setdefault(ex, {})[sym] = float(rate)
+        logger.info(f"📊 Fee Cache loaded: {len(FEE_CACHE.get('X10', {}))} X10, {len(FEE_CACHE.get('Lighter', {}))} Lighter")
+    except Exception as e:
+        logger.error(f"Fee Cache load failed: {e}")
+
+async def update_fee_stats(exchange: str, symbol: str, fee_rate: float):
+    """Update rolling average fee stats in DB and Cache with sanity checks."""
+    # Sanity: ignore zero/negative or absurdly large fee samples
+    if fee_rate <= 0 or fee_rate > 0.01:
+        return
+
+    try:
+        # Update Memory Cache
+        FEE_CACHE.setdefault(exchange, {})[symbol] = fee_rate
+
+        async with aiosqlite.connect(config.DB_FILE) as conn:
+            # Create table if missing (failsafe)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS fee_stats (
+                    exchange TEXT, symbol TEXT, 
+                    avg_fee_rate REAL, sample_size INTEGER, 
+                    last_updated TIMESTAMP,
+                    PRIMARY KEY (exchange, symbol)
+                )
+            """)
+
+            # Fetch existing
+            async with conn.execute(
+                "SELECT avg_fee_rate, sample_size FROM fee_stats WHERE exchange = ? AND symbol = ?",
+                (exchange, symbol)
+            ) as cursor:
+                row = await cursor.fetchone()
+
+            if row:
+                old_avg, count = row
+                # EMA Weighting: 30% new, 70% old
+                new_avg = (old_avg * 0.7) + (fee_rate * 0.3)
+                new_count = count + 1
+            else:
+                new_avg = fee_rate
+                new_count = 1
+
+            await conn.execute("""
+                INSERT OR REPLACE INTO fee_stats 
+                (exchange, symbol, avg_fee_rate, sample_size, last_updated) 
+                VALUES (?, ?, ?, ?, ?)
+            """, (exchange, symbol, float(new_avg), int(new_count), datetime.utcnow()))
+            await conn.commit()
+
+            logger.info(f"💰 Fee Update {exchange} {symbol}: {fee_rate*100:.4f}% (Avg: {new_avg*100:.4f}% )")
+
+    except Exception as e:
+        logger.error(f"Fee DB Error: {e}")
+
+
+async def process_fee_update(adapter, symbol, order_id):
+    """Fetch order fee after execution and update stats (with retries)."""
+    if not order_id or order_id == "DRY_RUN":
+        return
+
+    # Wait briefly to allow exchange to process fills
+    await asyncio.sleep(3.0)
+
+    for retry in range(2):
+        try:
+            fee = await adapter.get_order_fee(order_id)
+            if fee > 0 or retry == 1:
+                await update_fee_stats(adapter.name, symbol, fee if fee > 0 else 0.0)
+                return
+            await asyncio.sleep(2)
+        except Exception as e:
+            if retry == 1:
+                # Fallback on error
+                fallback = config.TAKER_FEE_X10 if getattr(adapter, 'name', '') == 'X10' else config.FEES_LIGHTER
+                await update_fee_stats(getattr(adapter, 'name', 'Unknown'), symbol, fallback)
+            await asyncio.sleep(1)
+
+def get_estimated_fee_rate(exchange: str, symbol: str) -> float:
+    """Get cached fee rate or fallback to config"""
+    cached = FEE_CACHE.get(exchange, {}).get(symbol)
+    if cached:
+        return cached
+
+    # Fallbacks based on Config
+    if exchange == 'X10':
+        return config.TAKER_FEE_X10
+    return config.FEES_LIGHTER
 
 telegram_bot = None
 
@@ -60,19 +173,6 @@ async def get_execution_lock(symbol: str) -> asyncio.Lock:
         if symbol not in EXECUTION_LOCKS:
             EXECUTION_LOCKS[symbol] = asyncio.Lock()
         return EXECUTION_LOCKS[symbol]
-
-async def update_fee_stats(exchange: str, symbol: str, fee: float):
-    # Simplifizierte Fee-Stats, da wir primär StateManager nutzen
-    # Für Phase 4 optional, hier minimal implementiert
-    pass 
-
-async def process_fee_update(adapter, symbol, order_id):
-    if not order_id: return
-    try:
-        fee = await adapter.get_order_fee(order_id)
-        await update_fee_stats(adapter.name, symbol, fee)
-    except:
-        pass
 
 # ============================================================
 # STATE & DB WRAPPERS
@@ -192,179 +292,152 @@ async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
             del ACTIVE_TASKS[symbol]
 
 async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool:
-    if SHUTDOWN_FLAG: return False
+    if SHUTDOWN_FLAG:
+        return False
+
     symbol = opp['symbol']
-    
     lock = await get_execution_lock(symbol)
-    if lock.locked(): return False
+    if lock.locked():
+        return False
 
     async with lock:
-        # 1. Re-Check Existence
+        # Basic existence & volatility checks (preserve existing logic)
         existing = await get_open_trades()
-        if any(t['symbol'] == symbol for t in existing): return False
+        if any(t['symbol'] == symbol for t in existing):
+            return False
 
-        # 2. Volatility Check
         vol_monitor = get_volatility_monitor()
-        if not vol_monitor.can_enter_trade(symbol): return False
-        
-        # 3. Account Rotation (Phase 4 Feature)
+        if not vol_monitor.can_enter_trade(symbol):
+            return False
+
         acct_mgr = get_account_manager()
         acc_x10 = acct_mgr.get_next_x10_account()
         acc_lit = acct_mgr.get_next_lighter_account()
         current_label = f"{acc_x10.get('label')}/{acc_lit.get('label')}"
 
-        # 4. Prediction & Sizing
+        # --- PREDICTION & SIZING (keep existing) ---
         btc_trend = x10.get_24h_change_pct("BTC-USD")
         predictor = get_predictor()
-        
+
         current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
         current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
         net_rate = current_rate_lit - current_rate_x10
-        
+
         pred_rate, _, conf = await predictor.predict_next_funding_rate(
             symbol, abs(net_rate), lighter, x10, btc_trend
         )
-        
-        # Skip if prediction is bad (unless farming)
+
         if not opp.get('is_farm_trade') and pred_rate < abs(net_rate) * 0.8:
             return False
 
-        # --- REPLACED: Race-safe balance snapshot + atomic reservation ---
-        # Determine adapter identities (used for logging/reservation keys)
-        ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
-        ex2 = lighter if ex1 is x10 else x10
-
-        reserved = False
-        final_usd = 0.0
-        try:
-            async with IN_FLIGHT_LOCK:
-                try:
+        # Determine intended notional
+        if opp.get('is_farm_trade'):
+            final_usd = float(config.FARM_NOTIONAL_USD)
+        else:
+            # snapshot balances under lock for sizing
+            try:
+                async with IN_FLIGHT_LOCK:
                     real_bal_x10 = await x10.get_real_available_balance()
                     real_bal_lit = await lighter.get_real_available_balance()
-                except Exception as e:
-                    logger.error(f"Balance fetch error: {e}")
-                    return False
+                    bal_x10 = max(0.0, real_bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                    bal_lit = max(0.0, real_bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
+                    total_bal = bal_x10 + bal_lit
+            except Exception as e:
+                logger.error(f"Balance fetch error: {e}")
+                return False
 
-                # Subtract already reserved in-flight amounts to get usable free balance
-                bal_x10 = max(0.0, real_bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
-                bal_lit = max(0.0, real_bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-                total_bal = bal_x10 + bal_lit
+            size_calc = calculate_smart_size(conf, total_bal)
+            size_calc *= vol_monitor.get_size_adjustment(symbol)
+            final_usd = float(min(size_calc, config.MAX_TRADE_SIZE_USD))
 
-                # Determine intended size
-                if opp.get('is_farm_trade'):
-                    final_usd = float(config.FARM_NOTIONAL_USD)
-                else:
-                    size_calc = calculate_smart_size(conf, total_bal)
-                    size_calc *= vol_monitor.get_size_adjustment(symbol)
-                    final_usd = float(min(size_calc, config.MAX_TRADE_SIZE_USD))
+        # Ensure min notionals
+        min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
+        if final_usd < min_req:
+            final_usd = float(min_req)
 
-                # Ensure min notionals
-                min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
-                if final_usd < min_req:
-                    final_usd = float(min_req)
+        # --- 1. SIDE MAPPING ---
+        ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
+        ex2 = lighter if opp['leg1_exchange'] == 'X10' else x10
+        side1 = opp['leg1_side']
+        side2 = "SELL" if side1 == "BUY" else "BUY"
 
-                # Buffer to avoid small slippage; require both exchanges to have at least 110% of notional
-                min_required = final_usd * 1.10
-                if bal_x10 < min_required or bal_lit < min_required:
-                    logger.debug(f"SKIP {symbol}: Insuff Balance (Real-InFlight). Need {min_required:.1f}, Have X10 {bal_x10:.1f} / Lit {bal_lit:.1f}")
-                    return False
+        x10_side = side1 if getattr(ex1, 'name', '') == 'X10' else side2
+        lighter_side = side2 if getattr(ex1, 'name', '') == 'X10' else side1
 
-                # Reserve atomically
-                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
-                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
-                reserved = True
-        except Exception as e:
-            logger.error(f"In-flight reservation error: {e}")
-            return False
+        # --- 2. SAFETY: IN-FLIGHT MARGIN CHECK ---
+        async with IN_FLIGHT_LOCK:
+            try:
+                bal_x10_real = await x10.get_real_available_balance()
+                bal_lit_real = await lighter.get_real_available_balance()
 
-        # Keep backward-compatible 'size' variable used below
-        size = final_usd
+                bal_x10 = bal_x10_real - IN_FLIGHT_MARGIN.get('X10', 0.0)
+                bal_lit = bal_lit_real - IN_FLIGHT_MARGIN.get('Lighter', 0.0)
+            except Exception:
+                return False
 
-        # 5. Execute - determine best strategy / sides (existing logic preserved)
-        # FIX #1: Calculate sides based on NET profitability
-        current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
-        current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
-        
+            min_req_buf = final_usd * 1.10
+            b1 = bal_x10 if getattr(ex1, 'name', '') == 'X10' else bal_lit
+            b2 = bal_lit if getattr(ex2, 'name', '') == 'Lighter' else bal_x10
+
+            if b1 < min_req_buf or b2 < min_req_buf:
+                logger.debug(f"SKIP {symbol}: Insuff Balance. Need {min_req_buf:.1f}, Have {b1:.1f}/{b2:.1f}")
+                return False
+
+            IN_FLIGHT_MARGIN[ex1.name] = IN_FLIGHT_MARGIN.get(ex1.name, 0.0) + final_usd
+            IN_FLIGHT_MARGIN[ex2.name] = IN_FLIGHT_MARGIN.get(ex2.name, 0.0) + final_usd
+
+    # --- 3. EXECUTION ---
+    try:
+        # Basic convergence check
         if abs(current_rate_x10 - current_rate_lit) < 0.00001:
             logger.warning(f"{symbol}: Rates converged, skip")
-            # Release reservation promptly
-            # Note: finally block will release, but we can release earlier by toggling reserved False and adjusting margins
-            # We'll just return and let finally release handle it.
-            return False
-        
-        net_strategy1 = -current_rate_x10 - current_rate_lit
-        net_strategy2 = -current_rate_lit - current_rate_x10
-        
-        if net_strategy1 > net_strategy2:
-            side_x10 = "BUY"
-            side_lit = "SELL"
-            expected_net = net_strategy1
-        else:
-            side_x10 = "SELL"
-            side_lit = "BUY"
-            expected_net = net_strategy2
-        
-        logger.debug(
-            f"{symbol}: X10={current_rate_x10:.6f} Lit={current_rate_lit:.6f} "
-            f"→ X10 {side_x10} / Lit {side_lit} (Net: {expected_net:.6f})"
-        )
-        
-        # Sanity check: Net should be positive
-        if expected_net <= 0:
-            logger.warning(f"{symbol}: Expected net {expected_net:.6f} <= 0, skip")
             return False
 
-        logger.info(
-            f"⚡ EXEC {symbol} ${size:.1f} | "
-            f"X10 {side_x10} ({current_rate_x10:+.6f}) / "
-            f"Lit {side_lit} ({current_rate_lit:+.6f}) | "
-            f"Expected Net: {expected_net:.6f} | "
-            f"Conf: {conf:.2%}"
+        # Log execution intent
+        logger.info(f" 🚀 EXEC {symbol} ${final_usd:.1f} | X10 {x10_side} / Lit {lighter_side}")
+
+        success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
+            symbol, x10_side, lighter_side,
+            Decimal(str(final_usd)), Decimal(str(final_usd)), None, None
         )
 
-        try:
-            success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
-                symbol,
-                side_x10,
-                side_lit,
-                Decimal(str(size)),
-                Decimal(str(size))
-            )
+        if success:
+            trade = opp.copy()
+            px = x10.fetch_mark_price(symbol) or 0.0
+            pl = lighter.fetch_mark_price(symbol) or 0.0
+            spread = abs(px - pl) / px if px > 0 else 0.0
 
-            if success:
-                trade = opp.copy()
-                px = x10.fetch_mark_price(symbol) or 0.0
-                pl = lighter.fetch_mark_price(symbol) or 0.0
-                spread = abs(px - pl) / px if px > 0 else 0.0
+            trade.update({
+                'notional_usd': final_usd,
+                'entry_time': datetime.utcnow(),
+                'entry_price_x10': px,
+                'entry_price_lighter': pl,
+                'initial_spread_pct': spread,
+                'account_label': current_label,
+                'initial_funding_rate_hourly': net_rate
+            })
+            await add_trade_to_state(trade)
+            if telegram_bot:
+                await telegram_bot.send_message(f"✅ {symbol} opened\n💰 ${final_usd:.0f} | Conf:{conf:.0%}")
 
-                trade.update({
-                    'notional_usd': size,
-                    'entry_time': datetime.utcnow(),
-                    'entry_price_x10': px,
-                    'entry_price_lighter': pl,
-                    'initial_spread_pct': spread,
-                    'account_label': current_label,
-                    'initial_funding_rate_hourly': net_rate
-                })
-                await add_trade_to_state(trade)
-                if telegram_bot:
-                    await telegram_bot.send_message(
-                        f"✅ {symbol} opened\n💰 ${size:.0f} | Conf:{conf:.0%}"
-                    )
+            # --- 4. FEE HOOKS (NEW) ---
+            if x10_id:
                 asyncio.create_task(process_fee_update(x10, symbol, x10_id))
+            if lit_id:
                 asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
-                return True
-            else:
-                FAILED_COINS[symbol] = time.time()
-                return False
-        finally:
-            # Release reservation after slight delay to allow exchanges to debit (prevent tight races)
+
+            return True
+        else:
+            FAILED_COINS[symbol] = time.time()
+            return False
+
+    finally:
+        # --- 5. RELEASE MARGIN ---
+        await asyncio.sleep(2.0)
+        async with IN_FLIGHT_LOCK:
             try:
-                if reserved:
-                    await asyncio.sleep(1.5)
-                    async with IN_FLIGHT_LOCK:
-                        IN_FLIGHT_MARGIN['X10'] = max(0.0, IN_FLIGHT_MARGIN.get('X10', 0.0) - final_usd)
-                        IN_FLIGHT_MARGIN['Lighter'] = max(0.0, IN_FLIGHT_MARGIN.get('Lighter', 0.0) - final_usd)
+                IN_FLIGHT_MARGIN[ex1.name] = max(0.0, IN_FLIGHT_MARGIN.get(ex1.name, 0.0) - final_usd)
+                IN_FLIGHT_MARGIN[ex2.name] = max(0.0, IN_FLIGHT_MARGIN.get(ex2.name, 0.0) - final_usd)
             except Exception as e:
                 logger.error(f"Error releasing in-flight margin for {symbol}: {e}")
 
@@ -415,7 +488,6 @@ async def manage_open_trades(lighter, x10):
     trades = await get_open_trades()
     if not trades: return
 
-    # 1. Update Prices for PnL
     try:
         p_x10, p_lit = await get_cached_positions(lighter, x10)
     except:
@@ -423,102 +495,71 @@ async def manage_open_trades(lighter, x10):
 
     for t in trades:
         sym = t['symbol']
-        px = x10.fetch_mark_price(sym)
-        pl = lighter.fetch_mark_price(sym)
+        px, pl = x10.fetch_mark_price(sym), lighter.fetch_mark_price(sym)
         if not px or not pl: continue
 
-        # Calculate PnL
-        rx = x10.fetch_funding_rate(sym) or 0.0
-        rl = lighter.fetch_funding_rate(sym) or 0.0
-        
-        # 1. FIX: Robuste Net Rate Calculation
-        if t['leg1_exchange'] == 'Lighter':
-            if t.get('leg1_side') == 'SELL':
-                current_net = rl - rx # Short Lighter (receive), Long X10 (pay)
-            else:
-                current_net = rx - rl # Long Lighter (pay), Short X10 (receive)
-        else: # Leg1 = X10
-            if t.get('leg1_side') == 'BUY':
-                current_net = rl - rx # Long X10 (pay), Short Lighter (receive)
-            else:
-                current_net = rx - rl # Short X10 (receive), Long Lighter (pay)
+        rx = x10.fetch_funding_rate(sym) or 0
+        rl = lighter.fetch_funding_rate(sym) or 0
+        # Improved Net Calc
+        base_net = rl - rx
+        current_net = -base_net if t['leg1_exchange'] == 'X10' else base_net
 
-        # FIX #2: Calculate net based on position direction
+        # PnL & Duration
         entry_time = t['entry_time']
         if isinstance(entry_time, str):
             try: entry_time = datetime.fromisoformat(entry_time)
             except: entry_time = datetime.utcnow()
+
         hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
-        initial_net = t.get('initial_funding_rate_hourly', 0)
-        if initial_net > 0:
-            current_net = rl - rx
-        else:
-            current_net = rx - rl
         funding_pnl = current_net * hold_hours * t['notional_usd']
-        
-        # 2. FIX: Spread PnL in % (Korrekt)
-        # entry_spread_pct ist schon in %, curr_spread_pct auch. NICHT durch Preis teilen.
-        entry_spread_pct = abs(t['entry_price_x10'] - t['entry_price_lighter']) / t['entry_price_x10']
-        current_spread_pct = abs(px - pl) / px
-        
-        spread_pnl = (entry_spread_pct - current_spread_pct) * t['notional_usd']
-        
-        # Fees approx (0.05% * 2 round trip + buffer)
-        fees = t['notional_usd'] * 0.0012 
-        
-        total_pnl = funding_pnl + spread_pnl - fees
-        
+
+        # Spread
+        entry_spread = abs(t['entry_price_x10'] - t['entry_price_lighter'])
+        curr_spread = abs(px - pl)
+        spread_pnl = (entry_spread - curr_spread) / px * t['notional_usd']
+
+        # Fees (Real Estimate)
+        fee_x10 = get_estimated_fee_rate('X10', sym)
+        fee_lit = get_estimated_fee_rate('Lighter', sym)
+        est_fees = t['notional_usd'] * (fee_x10 + fee_lit) * 2.0
+
+        total_pnl = funding_pnl + spread_pnl - est_fees
+
         # Check Exits
         reason = None
-        
-        # A. Volatility Panic
         vol_mon = get_volatility_monitor()
+
         if vol_mon.should_close_due_to_volatility(sym):
             reason = "VOLATILITY_PANIC"
-            
-        # B. Farm Timeout
-        elif t.get('is_farm_trade'):
-            if hold_hours * 3600 > config.FARM_HOLD_SECONDS:
-                reason = "FARM_COMPLETE"
-                
-        # C. Stop Loss / Take Profit
-        elif total_pnl < -t['notional_usd'] * 0.03: # 3% Stop
+        elif t.get('is_farm_trade') and hold_hours * 3600 > config.FARM_HOLD_SECONDS:
+            reason = "FARM_COMPLETE"
+        elif total_pnl < -t['notional_usd'] * 0.03:
             reason = "STOP_LOSS"
-        elif total_pnl > t['notional_usd'] * 0.05: # 5% TP
+        elif total_pnl > t['notional_usd'] * 0.05:
             reason = "TAKE_PROFIT"
-            
-        # D. Funding Flip (FIX: Explicit Sign Check)
-        # D. Funding Flip (FIX: Use initial_net consistently)
-        elif initial_net * current_net < 0:
+        elif t.get('initial_funding_rate_hourly', 0) * current_net < 0:
             if not t.get('funding_flip_start_time'):
-                now_ts = datetime.utcnow()
-                t['funding_flip_start_time'] = now_ts
+                t['funding_flip_start_time'] = datetime.utcnow()
                 if state_manager:
-                    await state_manager.update_trade(sym, {
-                        'funding_flip_start_time': datetime.utcnow()
-                    })
-                logger.info(f" 🔄 {sym} Funding Flipped! Init: {initial_net:.6f} -> Now: {current_net:.6f}")
+                    await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
             else:
                 flip_start = t['funding_flip_start_time']
                 if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
                 if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                    reason = "FUNDING_FLIPPED"
-        
-        # Execute Close
+                    reason = "FUNDING_FLIP"
+        else:
+            if t.get('funding_flip_start_time'):
+                if state_manager:
+                    await state_manager.update_trade(sym, {'funding_flip_start_time': None})
+
         if reason:
-            logger.info(f" Exiting {sym}: {reason} (PnL: ${total_pnl:.2f} | Fund: ${funding_pnl:.2f} | Spread: ${spread_pnl:.2f})")
+            logger.info(f" 💸 EXIT {sym}: {reason} | PnL ${total_pnl:.2f} (Fees: ${est_fees:.2f})")
             if await close_trade(t, lighter, x10):
                 await close_trade_in_state(sym)
                 await archive_trade_to_history(t, reason, {
-                    'total_net_pnl': total_pnl,
-                    'funding_pnl': funding_pnl,
-                    'spread_pnl': spread_pnl,
-                    'fees': 0.0
+                    'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
+                    'spread_pnl': spread_pnl, 'fees': est_fees
                 })
-                if telegram_bot:
-                    await telegram_bot.send_message(
-                        f"🏁 {sym} closed: {reason}\n💰 PnL: ${total_pnl:.2f}"
-                    )
 
 async def cleanup_zombie_positions(lighter, x10):
     """Full Zombie Cleanup Implementation"""
@@ -776,6 +817,15 @@ async def setup_database():
                 account_label TEXT
             )
         """)
+        # Fee table also ensured here (defensive - load_fee_cache also creates it)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS fee_stats (
+                exchange TEXT, symbol TEXT, 
+                avg_fee_rate REAL, sample_size INTEGER, 
+                last_updated TIMESTAMP,
+                PRIMARY KEY (exchange, symbol)
+            )
+        """)
         await conn.commit()
 
 # ============================================================
@@ -794,6 +844,8 @@ async def main():
         await telegram_bot.start()
         logger.info("📱 Telegram Bot connected")
     await setup_database()
+    logger.info(" Loading Fee Cache...")
+    await load_fee_cache()   # <-- new: preload fees
     
     # 2. Init Adapters
     x10 = X10Adapter()
