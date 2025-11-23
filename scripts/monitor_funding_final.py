@@ -3,6 +3,7 @@ import sys
 import os
 import time
 import asyncio
+import inspect
 import aiosqlite
 import logging
 import random
@@ -163,6 +164,9 @@ async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data
             logger.info(f" 💰 PnL {trade_data['symbol']}: ${pnl_data['total_net_pnl']:.2f} ({close_reason})")
     except Exception as e:
         logger.error(f"Archive Error: {e}")
+        return False
+
+    return True
 
 # ============================================================
 # CORE TRADING LOGIC
@@ -175,62 +179,118 @@ def is_tradfi_or_fx(symbol: str) -> bool:
     return False
 
 async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
-    opps = []
+    opps: List[Dict] = []
     common = set(lighter.price_cache.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
-    
-    # Update Threshold Metrics
-    current_rates = [lighter.fetch_funding_rate(s) for s in common if lighter.fetch_funding_rate(s) is not None]
-    threshold_manager.update_metrics(current_rates)
 
-    for s in common:
-        if s in open_syms or s in config.BLACKLIST_SYMBOLS or is_tradfi_or_fx(s): continue
-        if s in FAILED_COINS and (time.time() - FAILED_COINS[s] < 300): continue
-        
-        # Volatility Update
-        if px := x10.fetch_mark_price(s):
-            get_volatility_monitor().update_price(s, px)
+    logger.info(
+        f"🔍 Scanning {len(common)} pairs. "
+        f"Lighter cache: {len(lighter.price_cache)}, X10 markets: {len(x10.market_info)}"
+    )
 
-        rl = lighter.fetch_funding_rate(s)
-        rx = x10.fetch_funding_rate(s)
-        if rl is None or rx is None: continue
-        
+    semaphore = asyncio.Semaphore(20)
+
+    async def maybe_await(func, *args):
+        try:
+            res = func(*args)
+        except Exception:
+            # Let caller handle/log exceptions per-symbol
+            raise
+        if inspect.isawaitable(res):
+            return await res
+        return res
+
+    async def fetch_symbol(s: str):
+        async with semaphore:
+            try:
+                lr = await maybe_await(lighter.fetch_funding_rate, s)
+                xr = await maybe_await(x10.fetch_funding_rate, s)
+                px = await maybe_await(x10.fetch_mark_price, s)
+                pl = await maybe_await(lighter.fetch_mark_price, s)
+                return (s, lr, xr, px, pl)
+            except Exception as e:
+                logger.debug(f"Error fetching data for {s}: {e}")
+                return (s, None, None, None, None)
+
+    # Launch concurrent fetches
+    tasks = [asyncio.create_task(fetch_symbol(s)) for s in common]
+    results = await asyncio.gather(*tasks)
+
+    # Update threshold manager using collected lighter rates
+    current_rates = [lr for (_s, lr, _xr, _px, _pl) in results if lr is not None]
+    try:
+        threshold_manager.update_metrics(current_rates)
+    except Exception as e:
+        logger.debug(f"Failed to update threshold metrics: {e}")
+
+    now_ts = time.time()
+    for s, rl, rx, px, pl in results:
+        if s in open_syms or s in config.BLACKLIST_SYMBOLS or is_tradfi_or_fx(s):
+            continue
+
+        if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 300):
+            continue
+
+        if rl is None or rx is None:
+            logger.debug(f"Skip {s}: Missing rates (L={rl}, X={rx})")
+            continue
+
+        if px is not None:
+            try:
+                get_volatility_monitor().update_price(s, px)
+            except Exception as e:
+                logger.debug(f"Volatility monitor update failed for {s}: {e}")
+
         net = rl - rx
         apy = abs(net) * 24 * 365
-        
-        # Dynamic Threshold
+
         req_apy = threshold_manager.get_threshold(s, is_maker=True)
-        if apy < req_apy: continue
-        
-        px = x10.fetch_mark_price(s)
-        pl = lighter.fetch_mark_price(s)
-        if not px or not pl: continue
-        
+        if apy < req_apy:
+            continue
+
+        # Best-effort fetch missing prices
+        if px is None:
+            try:
+                px = await maybe_await(x10.fetch_mark_price, s)
+                if px is not None:
+                    try:
+                        get_volatility_monitor().update_price(s, px)
+                    except Exception:
+                        pass
+            except Exception:
+                px = None
+
+        if pl is None:
+            try:
+                pl = await maybe_await(lighter.fetch_mark_price, s)
+            except Exception:
+                pl = None
+
+        if not px or not pl:
+            logger.debug(f"Skip {s}: Missing prices")
+            continue
+
         spread = abs(px - pl) / px
-        if spread > config.MAX_SPREAD_FILTER_PERCENT: continue
-        
-        # Log Opportunity
+        if spread > config.MAX_SPREAD_FILTER_PERCENT:
+            logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
+            continue
+
         if apy > 0.5:
-            now = time.time()
-            if now - OPPORTUNITY_LOG_CACHE.get(s, 0) > 60:
-                logger.info(f" 💎 OPP: {s} | APY: {apy*100:.1f}% | Net: {net:.6f}")
-                OPPORTUNITY_LOG_CACHE[s] = now
+            if now_ts - OPPORTUNITY_LOG_CACHE.get(s, 0) > 60:
+                logger.info(f"💎 {s} | APY: {apy*100:.1f}%")
+                OPPORTUNITY_LOG_CACHE[s] = now_ts
 
         opps.append({
             'symbol': s,
             'apy': apy * 100,
             'net_funding_hourly': net,
             'leg1_exchange': 'Lighter' if rl > rx else 'X10',
-            'leg1_side': 'SELL' if rl > rx else 'BUY', # If Lighter pays X10 (rl > rx): Short Lighter, Long X10
-            # Wait: Logic fix. 
-            # If rl > rx: Lighter Rate Positive (Pays). X10 Rate Lower.
-            # Strategy: Short Lighter (Earn), Long X10 (Pay less).
-            # Correct.
-            # If leg1=Lighter, leg1_side=SELL (Short).
+            'leg1_side': 'SELL' if rl > rx else 'BUY',
             'is_farm_trade': False
         })
-    
+
     opps.sort(key=lambda x: x['apy'], reverse=True)
+    logger.info(f"✅ Found {len(opps)} opportunities")
     return opps[:config.MAX_OPEN_TRADES]
 
 async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
@@ -314,36 +374,67 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         x10_side = side1 if getattr(ex1, 'name', '') == 'X10' else side2
         lighter_side = side2 if getattr(ex1, 'name', '') == 'X10' else side1
 
-        # === ENHANCED: POSITION SYMMETRY + BALANCE-AWARE SIZING ===
-        async with IN_FLIGHT_LOCK:
-            try:
-                # 2. BALANCE CHECK (beide)
-                bal_x10_real = await x10.get_real_available_balance()
-                bal_lit_real = await lighter.get_real_available_balance()
-
-                bal_x10 = bal_x10_real - IN_FLIGHT_MARGIN.get('X10', 0.0)
-                bal_lit = bal_lit_real - IN_FLIGHT_MARGIN.get('Lighter', 0.0)
-
-                # 3. SAFETY: Beide müssen mindestens für 1 Trade reichen
-                if bal_x10_real < 16.0 or bal_lit_real < 16.0:
-                    logger.info(f"⏸️  Low margin: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
-                    return False
-            except Exception:
+        # === CRITICAL FIX: CHECK POSITION COUNTS FIRST ===
+        try:
+            x10_pos = await x10.fetch_open_positions()
+            lighter_pos = await lighter.fetch_open_positions()
+            
+            x10_count = len([p for p in (x10_pos or []) if abs(p.get('size', 0)) > 1e-8])
+            lighter_count = len([p for p in (lighter_pos or []) if abs(p.get('size', 0)) > 1e-8])
+            
+            # HARD BLOCK: If X10 has more positions, DO NOT allow new trades
+            if x10_count > lighter_count:
+                logger.warning(
+                    f"🚫 ASYMMETRY BLOCK: X10={x10_count} > Lighter={lighter_count}"
+                )
                 return False
-
-            # 4. DYNAMIC SIZING (use weaker account)
-            max_per_exchange = min(bal_x10, bal_lit) * 0.30  # 30% max
-            final_usd = min(final_usd, max_per_exchange)
-            final_usd = max(final_usd, 16.0)  # Floor at min size
-
-            # 5. BUFFER CHECK - Simplified
-            min_req = final_usd * 1.05  # Only 5% buffer
-            if bal_x10 < min_req or bal_lit < min_req:
-                logger.info(f"⏸️  SKIP {symbol}: Need ${min_req:.1f} buffer, have X10=${bal_x10:.1f}, Lit=${bal_lit:.1f}")
+            elif lighter_count > x10_count:
+                logger.warning(
+                    f"🚫 ASYMMETRY BLOCK: Lighter={lighter_count} > X10={x10_count}"
+                )
                 return False
+        except Exception as e:
+            logger.error(f"Position check failed: {e}")
+            return False
 
-            IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
-            IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
+        # === BALANCE CHECK (SIMPLIFIED) ===
+        try:
+            bal_x10_real = await x10.get_real_available_balance()
+            bal_lit_real = await lighter.get_real_available_balance()
+            
+            # Absolute minimum to proceed
+            if bal_x10_real < 10.0 or bal_lit_real < 10.0:
+                logger.info(f"⏸️ Low margin: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
+                return False
+            
+            # Dynamic sizing based on WEAKER account
+            usable_balance = min(bal_x10_real, bal_lit_real) - 5.0  # Keep $5 safety buffer
+            max_size = usable_balance * 0.40  # Use up to 40% of weaker account
+            
+            # Adjust final_usd
+            if final_usd > max_size:
+                logger.info(f"📉 Reducing {symbol}: ${final_usd:.1f} -> ${max_size:.1f}")
+                final_usd = max_size
+            
+            # CRITICAL: If still below exchange minimum, use minimum
+            exchange_min = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
+            if final_usd < exchange_min:
+                logger.info(f"📈 Bumping {symbol} to exchange min: ${exchange_min:.1f}")
+                final_usd = float(exchange_min)
+            
+            # Final safety: If we can't afford minimum, skip
+            if final_usd > usable_balance * 0.80:
+                logger.warning(
+                    f"⚠️ SKIP {symbol}: Size ${final_usd:.1f} exceeds 80% of usable ${usable_balance:.1f} "
+                    f"(X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f})"
+                )
+                return False
+            
+            logger.info(f"✅ {symbol} sized at ${final_usd:.1f} (X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f})")
+                
+        except Exception as e:
+            logger.error(f"Balance check error: {e}")
+            return False
 
     # --- 3. EXECUTION ---
     try:
@@ -449,15 +540,11 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             FAILED_COINS[symbol] = time.time()
             return False
 
-    finally:
-        # --- 5. RELEASE MARGIN ---
-        await asyncio.sleep(2.0)
-        async with IN_FLIGHT_LOCK:
-            try:
-                IN_FLIGHT_MARGIN[ex1.name] = max(0.0, IN_FLIGHT_MARGIN.get(ex1.name, 0.0) - final_usd)
-                IN_FLIGHT_MARGIN[ex2.name] = max(0.0, IN_FLIGHT_MARGIN.get(ex2.name, 0.0) - final_usd)
-            except Exception as e:
-                logger.error(f"Error releasing in-flight margin for {symbol}: {e}")
+    
+
+    except Exception as e:
+        logger.error(f"Execution error {symbol}: {e}")
+        return False
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
