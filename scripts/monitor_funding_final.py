@@ -248,25 +248,51 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # 5. Execute
         ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
         ex2 = lighter if opp['leg1_exchange'] == 'X10' else x10
-        # FIX #1: Calculate sides based on CURRENT rates
+        # FIX #1: Calculate sides based on NET profitability
+        # Funding rates can be NEGATIVE (exchange pays us)
         current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
         current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
+        
         if abs(current_rate_x10 - current_rate_lit) < 0.00001:
             logger.warning(f"{symbol}: Rates converged, skip")
             return False
-        if current_rate_x10 > current_rate_lit:
-            side_x10 = "SELL"
-            side_lit = "BUY"
-        else:
+        
+        # Calculate expected net for both strategies
+        # Strategy 1: Long X10 (BUY), Short Lighter (SELL)
+        # Net = What X10 pays us - What we pay Lighter
+        # Note: Negative rate means exchange pays us
+        net_strategy1 = -current_rate_x10 - current_rate_lit
+        
+        # Strategy 2: Short X10 (SELL), Long Lighter (BUY)
+        # Net = What Lighter pays us - What we pay X10
+        net_strategy2 = -current_rate_lit - current_rate_x10
+        
+        # Choose strategy with highest net receive
+        if net_strategy1 > net_strategy2:
             side_x10 = "BUY"
             side_lit = "SELL"
+            expected_net = net_strategy1
+        else:
+            side_x10 = "SELL"
+            side_lit = "BUY"
+            expected_net = net_strategy2
+        
         logger.debug(
             f"{symbol}: X10={current_rate_x10:.6f} Lit={current_rate_lit:.6f} "
-            f"→ X10 {side_x10} / Lighter {side_lit}"
+            f"→ X10 {side_x10} / Lit {side_lit} (Net: {expected_net:.6f})"
         )
+        
+        # Sanity check: Net should be positive
+        if expected_net <= 0:
+            logger.warning(f"{symbol}: Expected net {expected_net:.6f} <= 0, skip")
+            return False
 
         logger.info(
-            f"⚡ EXEC {symbol} ${size:.1f} | X10 {side_x10} / Lit {side_lit} | Conf:{conf:.2f}"
+            f"⚡ EXEC {symbol} ${size:.1f} | "
+            f"X10 {side_x10} ({current_rate_x10:+.6f}) / "
+            f"Lit {side_lit} ({current_rate_lit:+.6f}) | "
+            f"Expected Net: {expected_net:.6f} | "
+            f"Conf: {conf:.2%}"
         )
 
         success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
@@ -601,41 +627,64 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 last_zombie = now
 
             # 5. Check Opportunities
-            # Only check if we have slots open or can add tasks
             trades = await get_open_trades()
-            if len(trades) + len(ACTIVE_TASKS) < config.MAX_OPEN_TRADES:
+            
+            # CRITICAL FIX: Limit concurrent executions to prevent margin exhaustion
+            # Max 2 new executions at a time, even if we have slots
+            MAX_CONCURRENT_NEW = 2
+            current_executing = len(ACTIVE_TASKS)
+            current_open = len(trades)
+            total_busy = current_open + current_executing
+            
+            if total_busy < config.MAX_OPEN_TRADES:
                 open_syms = {t['symbol'] for t in trades}
                 
-                # A. Latency Arb
-                detector = get_detector()
-                for sym in ["BTC-USD", "ETH-USD", "SOL-USD"]:
-                    if sym in open_syms or sym in ACTIVE_TASKS: continue
-                    
-                    # Async check to avoid blocking loop
-                    opp = await detector.detect_lag_opportunity(
-                        sym, x10.fetch_funding_rate(sym) or 0, 
-                        lighter.fetch_funding_rate(sym) or 0, x10, lighter
-                    )
-                    if opp:
+                # Calculate how many new trades we can start
+                slots_available = config.MAX_OPEN_TRADES - total_busy
+                new_trades_allowed = min(MAX_CONCURRENT_NEW, slots_available)
+                
+                logger.debug(
+                    f"Slots: Open={current_open}, Executing={current_executing}, "
+                    f"Available={slots_available}, Will start={new_trades_allowed}"
+                )
+                
+                # A. Latency Arb (limit to 1)
+                if new_trades_allowed > 0:
+                    detector = get_detector()
+                    for sym in ["BTC-USD", "ETH-USD", "SOL-USD"]:
+                        if sym in open_syms or sym in ACTIVE_TASKS: continue
+                        
+                        opp = await detector.detect_lag_opportunity(
+                            sym, x10.fetch_funding_rate(sym) or 0, 
+                            lighter.fetch_funding_rate(sym) or 0, x10, lighter
+                        )
+                        if opp:
+                            async with await get_execution_lock(sym):
+                                if sym not in ACTIVE_TASKS:
+                                    ACTIVE_TASKS[sym] = asyncio.create_task(
+                                        execute_trade_task(opp, lighter, x10, parallel_exec)
+                                    )
+                                    new_trades_allowed -= 1
+                            break
+                
+                # B. Standard Funding Arb (limited by new_trades_allowed)
+                if new_trades_allowed > 0:
+                    opps = await find_opportunities(lighter, x10, open_syms)
+                    started = 0
+                    for opp in opps:
+                        if started >= new_trades_allowed:
+                            break
+                        
+                        sym = opp['symbol']
+                        if sym in ACTIVE_TASKS:
+                            continue
+                        
                         async with await get_execution_lock(sym):
                             if sym not in ACTIVE_TASKS:
                                 ACTIVE_TASKS[sym] = asyncio.create_task(
                                     execute_trade_task(opp, lighter, x10, parallel_exec)
                                 )
-                
-                # B. Standard Funding Arb
-                opps = await find_opportunities(lighter, x10, open_syms)
-                for opp in opps:
-                    if len(trades) + len(ACTIVE_TASKS) >= config.MAX_OPEN_TRADES: break
-                    sym = opp['symbol']
-                    
-                    if sym in ACTIVE_TASKS: continue
-                    
-                    async with await get_execution_lock(sym):
-                        if sym not in ACTIVE_TASKS:
-                            ACTIVE_TASKS[sym] = asyncio.create_task(
-                                execute_trade_task(opp, lighter, x10, parallel_exec)
-                            )
+                                started += 1
 
         except asyncio.CancelledError:
             break

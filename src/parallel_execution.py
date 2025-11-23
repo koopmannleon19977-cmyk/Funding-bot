@@ -74,16 +74,42 @@ class ParallelExecutionManager:
     
     async def _rollback_x10(self, symbol: str, side: str, size: Decimal):
         try:
-            # FIX: Adapter expects the OPEN side (e.g. BUY) and flips it internally to SELL
-            await self.x10.close_live_position(symbol, side, float(size))
-            logger.info(f" X10 rollback executed for {symbol}")
+            # CRITICAL: Wait for position to finalize on exchange
+            # Without this, we get "Reduce-only order size exceeds position size"
+            logger.info(f" Waiting 2s for X10 {symbol} position to finalize before rollback...")
+            await asyncio.sleep(2.0)
+            
+            opposite_side = "SELL" if side == "BUY" else "BUY"
+            success, oid = await self.x10.close_live_position(
+                symbol, opposite_side, float(size)
+            )
+            
+            if success:
+                logger.info(f"✅ X10 rollback executed for {symbol}")
+            else:
+                logger.warning(f"⚠️ X10 rollback returned False for {symbol}")
+                
         except Exception as e:
-            logger.error(f" X10 rollback failed: {e}")
+            # Don't crash on rollback failure - position might be partially filled
+            logger.error(f"❌ X10 rollback failed for {symbol}: {e}")
+            logger.error(f"   Manual intervention may be required!")
     
     async def _rollback_lighter(self, symbol: str, side: str, size: Decimal):
         try:
-            # FIX: Adapter expects the OPEN side
-            await self.lighter.close_live_position(symbol, side, float(size))
-            logger.info(f" Lighter rollback executed for {symbol}")
+            # Wait for settlement
+            logger.info(f" Waiting 1.5s for Lighter {symbol} position to finalize before rollback...")
+            await asyncio.sleep(1.5)
+            
+            opposite_side = "SELL" if side == "BUY" else "BUY"
+            success, oid = await self.lighter.close_live_position(
+                symbol, opposite_side, float(size)
+            )
+            
+            if success:
+                logger.info(f"✅ Lighter rollback executed for {symbol}")
+            else:
+                logger.warning(f"⚠️ Lighter rollback returned False for {symbol}")
+                
         except Exception as e:
-            logger.error(f" Lighter rollback failed: {e}")
+            logger.error(f"❌ Lighter rollback failed for {symbol}: {e}")
+            logger.error(f"   Manual intervention may be required!")
