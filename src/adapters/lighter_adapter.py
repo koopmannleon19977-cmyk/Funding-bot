@@ -675,7 +675,7 @@ class LighterAdapter(BaseAdapter):
                     time_in_force=SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME,
                     reduce_only=True,
                     trigger_price=SignerClient.NIL_TRIGGER_PRICE,
-                    order_expiry=int(time.time() * 1000) + 10000
+                    order_expiry=SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
                 )
                 
                 if err:
