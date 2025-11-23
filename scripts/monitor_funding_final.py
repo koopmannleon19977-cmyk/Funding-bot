@@ -317,56 +317,29 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # === ENHANCED: POSITION SYMMETRY + BALANCE-AWARE SIZING ===
         async with IN_FLIGHT_LOCK:
             try:
-                # 1. POSITION SYMMETRY CHECK
-                x10_pos = await x10.fetch_open_positions()
-                lighter_pos = await lighter.fetch_open_positions()
-
-                x10_count = len([p for p in (x10_pos or []) if abs(p.get('size', 0)) > 1e-8])
-                lighter_count = len([p for p in (lighter_pos or []) if abs(p.get('size', 0)) > 1e-8])
-
-                # CRITICAL: Reject if asymmetric positions exist
-                if abs(x10_count - lighter_count) > 1:
-                    logger.warning(
-                        f"⛔ ASYMMETRIC POSITIONS: X10={x10_count}, Lighter={lighter_count}. "
-                        f"Skipping {symbol} until balanced."
-                    )
-                    return False
-
-                # 2. BALANCE CHECK (both exchanges)
+                # 2. BALANCE CHECK (beide)
                 bal_x10_real = await x10.get_real_available_balance()
                 bal_lit_real = await lighter.get_real_available_balance()
 
                 bal_x10 = bal_x10_real - IN_FLIGHT_MARGIN.get('X10', 0.0)
                 bal_lit = bal_lit_real - IN_FLIGHT_MARGIN.get('Lighter', 0.0)
 
-                # 3. HARD MINIMUMS (safety)
-                LIGHTER_MIN_MARGIN = 10.0
-                X10_MIN_MARGIN = 5.0
-
-                if bal_lit_real < LIGHTER_MIN_MARGIN:
-                    logger.warning(
-                        f"⛔ LIGHTER MARGIN LOW: ${bal_lit_real:.2f} (Min: ${LIGHTER_MIN_MARGIN}) - HALTING"
-                    )
-                    return False
-
-                if bal_x10_real < X10_MIN_MARGIN:
-                    logger.warning(f"⛔ X10 MARGIN LOW: ${bal_x10_real:.2f}")
+                # 3. SAFETY: Beide müssen mindestens für 1 Trade reichen
+                if bal_x10_real < 16.0 or bal_lit_real < 16.0:
+                    logger.info(f"⏸️  Low margin: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
                     return False
             except Exception:
                 return False
 
-            # 4. DYNAMIC SIZING (reduce instead of reject when possible)
-            max_per_exchange = min(bal_x10, bal_lit) * 0.25  # max 25% of weaker account
-            if final_usd > max_per_exchange and max_per_exchange > 0:
-                logger.info(
-                    f"⚖️  Reducing {symbol} size: ${final_usd:.1f} -> ${max_per_exchange:.1f} (limited by weaker account)"
-                )
-                final_usd = max_per_exchange
+            # 4. DYNAMIC SIZING (use weaker account)
+            max_per_exchange = min(bal_x10, bal_lit) * 0.30  # 30% max
+            final_usd = min(final_usd, max_per_exchange)
+            final_usd = max(final_usd, 16.0)  # Floor at min size
 
-            # 5. BUFFER CHECK
-            min_req_buf = final_usd * 1.25  # 25% buffer
-            if bal_x10 < min_req_buf or bal_lit < min_req_buf:
-                logger.debug(f"SKIP {symbol}: Insufficient margin buffer")
+            # 5. BUFFER CHECK - Simplified
+            min_req = final_usd * 1.05  # Only 5% buffer
+            if bal_x10 < min_req or bal_lit < min_req:
+                logger.info(f"⏸️  SKIP {symbol}: Need ${min_req:.1f} buffer, have X10=${bal_x10:.1f}, Lit=${bal_lit:.1f}")
                 return False
 
             IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
@@ -762,23 +735,7 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             # 5. Check Opportunities
             trades = await get_open_trades()
 
-            # === GLOBAL ASYMMETRY BRAKE ===
-            try:
-                x10_pos_live = await x10.fetch_open_positions()
-                lighter_pos_live = await lighter.fetch_open_positions()
-
-                x10_live_count = len([p for p in (x10_pos_live or []) if abs(p.get('size',0))>1e-8])
-                lighter_live_count = len([p for p in (lighter_pos_live or []) if abs(p.get('size',0))>1e-8])
-
-                # If asymmetric, pause new trades
-                if abs(x10_live_count - lighter_live_count) > 1:
-                    logger.warning(
-                        f"⚠️  ASYMMETRY DETECTED: X10={x10_live_count}, Lighter={lighter_live_count}. Pausing new trades until balanced."
-                    )
-                    await asyncio.sleep(5)
-                    continue
-            except Exception as pos_err:
-                logger.error(f"Position check error: {pos_err}")
+            # (Global asymmetry brake removed — simplified policy)
 
             # CRITICAL FIX: Limit concurrent executions to prevent margin exhaustion
             # Max 2 new executions at a time, even if we have slots
