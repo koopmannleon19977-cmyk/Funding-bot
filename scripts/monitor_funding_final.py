@@ -322,6 +322,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
                 bal_x10 = bal_x10_real - IN_FLIGHT_MARGIN.get('X10', 0.0)
                 bal_lit = bal_lit_real - IN_FLIGHT_MARGIN.get('Lighter', 0.0)
+                # Emergency brake: If Lighter has <$2, stop ALL new trades
+                if bal_lit_real < 2.0:
+                    logger.warning(f"⛔ LIGHTER MARGIN EXHAUSTED: ${bal_lit_real:.2f} - HALTING NEW TRADES")
+                    return False
             except Exception:
                 return False
 
@@ -610,7 +614,7 @@ async def farm_loop(lighter, x10, parallel_exec):
     logger.info(" 🚜 Farming Loop started.")
     while True:
         try:
-            if not getattr(config, 'VOLUME_FARM_MODE', False):
+            if True:  # DISABLED until zombies cleaned
                 await asyncio.sleep(10)
                 continue
 

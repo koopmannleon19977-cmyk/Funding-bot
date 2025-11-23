@@ -1,4 +1,5 @@
-# src/parallel_execution.py
+# src/parallel_execution.py - Kompletter Ersatz
+
 import asyncio
 import logging
 from typing import Optional, Tuple
@@ -24,12 +25,6 @@ class ParallelExecutionManager:
         price_x10: Optional[Decimal] = None,
         price_lighter: Optional[Decimal] = None
     ) -> Tuple[bool, Optional[str], Optional[str]]:
-        """
-        Execute both legs in parallel with rollback on failure
-        
-        Returns:
-            (success, x10_order_id, lighter_order_id)
-        """
         if symbol not in self.execution_locks:
             self.execution_locks[symbol] = asyncio.Lock()
         
@@ -55,34 +50,12 @@ class ParallelExecutionManager:
                     logger.info(f" [PARALLEL] Both legs filled for {symbol}")
                     return True, x10_order, lighter_order
                 
-                # REPLACED: smarter rollback when X10 succeeded but Lighter failed
                 if x10_success and not lighter_success:
-                    logger.warning(f" [ROLLBACK] Lighter failed, handling X10 rollback for {symbol}")
-                    logger.info(" Waiting 5s for X10 fill/cancellation before rollback...")
-                    await asyncio.sleep(5.0)
+                    logger.warning(f" [ROLLBACK] Lighter failed, closing X10 for {symbol}")
+                    await asyncio.sleep(3.0)
                     
-                    try:
-                        positions = await self.x10.fetch_open_positions()
-                        has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in positions)
-                    except Exception as e:
-                        logger.error(f" Error fetching X10 positions during rollback check: {e}")
-                        has_pos = True  # be conservative — attempt to close
-                    
-                    if has_pos:
-                        # Close the position using the same opposite side logic as helper would do
-                        opposite_side = "SELL" if side_x10 == "BUY" else "BUY"
-                        try:
-                            success, oid = await self.x10.close_live_position(symbol, opposite_side, float(size_x10))
-                            if success:
-                                logger.info(f"✅ X10 rollback executed for {symbol}")
-                            else:
-                                logger.warning(f"⚠️ X10 rollback returned False for {symbol}")
-                        except Exception as e:
-                            logger.error(f"❌ X10 rollback failed for {symbol}: {e}")
-                            logger.error(f"   Manual intervention may be required!")
-                    else:
-                        logger.info(f" X10 Rollback skipped: No open position for {symbol} (order likely cancelled/failed)")
-                    
+                    # FIX: Pass original side, adapter handles opposite
+                    await self._rollback_x10(symbol, side_x10, size_x10)
                     return False, x10_order, None
                 
                 if lighter_success and not x10_success:
@@ -97,44 +70,46 @@ class ParallelExecutionManager:
                 logger.error(f" [PARALLEL] Exception: {e}")
                 return False, None, None
     
-    async def _rollback_x10(self, symbol: str, side: str, size: Decimal):
+    async def _rollback_x10(self, symbol: str, original_side: str, size: Decimal):
         try:
-            # CRITICAL: Wait for position to finalize on exchange
-            # Without this, we get "Reduce-only order size exceeds position size"
-            logger.info(f" Waiting 2s for X10 {symbol} position to finalize before rollback...")
             await asyncio.sleep(2.0)
             
-            opposite_side = "SELL" if side == "BUY" else "BUY"
-            success, oid = await self.x10.close_live_position(
-                symbol, opposite_side, float(size)
-            )
+            positions = await self.x10.fetch_open_positions()
+            has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in (positions or []))
+            
+            if not has_pos:
+                logger.info(f" X10 Rollback skipped: No position for {symbol}")
+                return
+            
+            # FIX: Pass original_side - adapter reverses it
+            success, _ = await self.x10.close_live_position(symbol, original_side, float(size))
             
             if success:
                 logger.info(f"✅ X10 rollback executed for {symbol}")
             else:
-                logger.warning(f"⚠️ X10 rollback returned False for {symbol}")
+                logger.error(f"❌ X10 rollback FAILED for {symbol}")
                 
         except Exception as e:
-            # Don't crash on rollback failure - position might be partially filled
-            logger.error(f"❌ X10 rollback failed for {symbol}: {e}")
-            logger.error(f"   Manual intervention may be required!")
+            logger.error(f"❌ X10 rollback exception for {symbol}: {e}")
     
-    async def _rollback_lighter(self, symbol: str, side: str, size: Decimal):
+    async def _rollback_lighter(self, symbol: str, original_side: str, size: Decimal):
         try:
-            # Wait for settlement
-            logger.info(f" Waiting 1.5s for Lighter {symbol} position to finalize before rollback...")
             await asyncio.sleep(1.5)
             
-            opposite_side = "SELL" if side == "BUY" else "BUY"
-            success, oid = await self.lighter.close_live_position(
-                symbol, opposite_side, float(size)
-            )
+            positions = await self.lighter.fetch_open_positions()
+            has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in (positions or []))
+            
+            if not has_pos:
+                logger.info(f" Lighter Rollback skipped: No position for {symbol}")
+                return
+            
+            # FIX: Pass original_side - adapter reverses it
+            success, _ = await self.lighter.close_live_position(symbol, original_side, float(size))
             
             if success:
                 logger.info(f"✅ Lighter rollback executed for {symbol}")
             else:
-                logger.warning(f"⚠️ Lighter rollback returned False for {symbol}")
+                logger.error(f"❌ Lighter rollback FAILED for {symbol}")
                 
         except Exception as e:
-            logger.error(f"❌ Lighter rollback failed for {symbol}: {e}")
-            logger.error(f"   Manual intervention may be required!")
+            logger.error(f"❌ Lighter rollback exception for {symbol}: {e}")
