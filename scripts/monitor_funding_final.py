@@ -19,6 +19,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 import config
+from src.telegram_bot import get_telegram_bot
 from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
 from src.prediction_v2 import get_predictor
@@ -44,6 +45,8 @@ POSITION_CACHE_TTL = 10.0  # Increased to 10s to prevent API rate limits
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 OPPORTUNITY_LOG_CACHE = {}
+
+telegram_bot = None
 
 # ============================================================
 # HELPERS
@@ -245,17 +248,33 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # 5. Execute
         ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
         ex2 = lighter if opp['leg1_exchange'] == 'X10' else x10
-        side1 = opp['leg1_side']
-        side2 = "SELL" if side1 == "BUY" else "BUY"
+        # FIX #1: Calculate sides based on CURRENT rates
+        current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
+        current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
+        if abs(current_rate_x10 - current_rate_lit) < 0.00001:
+            logger.warning(f"{symbol}: Rates converged, skip")
+            return False
+        if current_rate_x10 > current_rate_lit:
+            side_x10 = "SELL"
+            side_lit = "BUY"
+        else:
+            side_x10 = "BUY"
+            side_lit = "SELL"
+        logger.debug(
+            f"{symbol}: X10={current_rate_x10:.6f} Lit={current_rate_lit:.6f} "
+            f"→ X10 {side_x10} / Lighter {side_lit}"
+        )
 
-        logger.info(f" 🚀 EXEC {symbol} ${size:.1f} [{current_label}] Conf:{conf:.2f}")
-        
-        # FIX: Unpack specific IDs to avoid swapping sides when mapping fees
+        logger.info(
+            f"⚡ EXEC {symbol} ${size:.1f} | X10 {side_x10} / Lit {side_lit} | Conf:{conf:.2f}"
+        )
+
         success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
             symbol,
-            side1 if ex1 == x10 else side2,
-            side2 if ex1 == x10 else side1,
-            Decimal(str(size)), Decimal(str(size))
+            side_x10,
+            side_lit,
+            Decimal(str(size)),
+            Decimal(str(size))
         )
 
         if success:
@@ -275,6 +294,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 'initial_funding_rate_hourly': net_rate
             })
             await add_trade_to_state(trade)
+            if telegram_bot:
+                await telegram_bot.send_message(
+                    f"✅ {symbol} opened\n💰 ${size:.0f} | Conf:{conf:.0%}"
+                )
             # FIX: Ensure fee processing uses the correct adapter and its returned id
             asyncio.create_task(process_fee_update(x10, symbol, x10_id))
             asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
@@ -358,13 +381,17 @@ async def manage_open_trades(lighter, x10):
             else:
                 current_net = rx - rl # Short X10 (receive), Long Lighter (pay)
 
-        # PnL Calculation
+        # FIX #2: Calculate net based on position direction
         entry_time = t['entry_time']
         if isinstance(entry_time, str):
-            try: entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
+            try: entry_time = datetime.fromisoformat(entry_time)
             except: entry_time = datetime.utcnow()
-            
         hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
+        initial_net = t.get('initial_funding_rate_hourly', 0)
+        if initial_net > 0:
+            current_net = rl - rx
+        else:
+            current_net = rx - rl
         funding_pnl = current_net * hold_hours * t['notional_usd']
         
         # 2. FIX: Spread PnL in % (Korrekt)
@@ -399,25 +426,21 @@ async def manage_open_trades(lighter, x10):
             reason = "TAKE_PROFIT"
             
         # D. Funding Flip (FIX: Explicit Sign Check)
-        elif t.get('initial_funding_rate_hourly') is not None:
-            initial_net = t['initial_funding_rate_hourly']
-            # Check if signs differ significantly (avoid 0.0 vs -0.000001 noise)
-            has_flipped = (initial_net > 1e-9 and current_net < -1e-9) or (initial_net < -1e-9 and current_net > 1e-9)
-            
-            if has_flipped:
-                if not t.get('funding_flip_start_time'):
-                    now_ts = datetime.utcnow()
-                    t['funding_flip_start_time'] = now_ts
-                    await state_manager.update_trade(sym, {'funding_flip_start_time': now_ts})
-                    logger.info(f" 🔄 {sym} Funding Flipped! Init: {initial_net:.6f} -> Now: {current_net:.6f}")
-                else:
-                    flip_start = t['funding_flip_start_time']
-                    if isinstance(flip_start, str): 
-                        try: flip_start = datetime.fromisoformat(flip_start.replace('Z', '+00:00'))
-                        except: flip_start = datetime.utcnow()
-                    
-                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                        reason = "FUNDING_FLIPPED_CONFIRMED"
+        # D. Funding Flip (FIX: Use initial_net consistently)
+        elif initial_net * current_net < 0:
+            if not t.get('funding_flip_start_time'):
+                now_ts = datetime.utcnow()
+                t['funding_flip_start_time'] = now_ts
+                if state_manager:
+                    await state_manager.update_trade(sym, {
+                        'funding_flip_start_time': datetime.utcnow()
+                    })
+                logger.info(f" 🔄 {sym} Funding Flipped! Init: {initial_net:.6f} -> Now: {current_net:.6f}")
+            else:
+                flip_start = t['funding_flip_start_time']
+                if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
+                if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
+                    reason = "FUNDING_FLIPPED"
         
         # Execute Close
         if reason:
@@ -428,8 +451,12 @@ async def manage_open_trades(lighter, x10):
                     'total_net_pnl': total_pnl,
                     'funding_pnl': funding_pnl,
                     'spread_pnl': spread_pnl,
-                    'fees': fees
+                    'fees': 0.0
                 })
+                if telegram_bot:
+                    await telegram_bot.send_message(
+                        f"🏁 {sym} closed: {reason}\n💰 PnL: ${total_pnl:.2f}"
+                    )
 
 async def cleanup_zombie_positions(lighter, x10):
     """Full Zombie Cleanup Implementation"""
@@ -565,7 +592,12 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             # 4. Zombie Cleanup (every 5 min)
             now = time.time()
             if now - last_zombie > 300:
-                asyncio.create_task(cleanup_zombie_positions(lighter, x10))
+                try:
+                    await cleanup_zombie_positions(lighter, x10)
+                except Exception as ze:
+                    logger.error(f"Zombie cleanup error: {ze}")
+                    if telegram_bot:
+                        await telegram_bot.send_error(f"Zombie: {ze}")
                 last_zombie = now
 
             # 5. Check Opportunities
@@ -610,6 +642,8 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
         except Exception as e:
             logger.error(f"Logic Loop Error: {e}")
             traceback.print_exc()
+            if telegram_bot:
+                await telegram_bot.send_error(f"Logic: {str(e)[:200]}")
             await asyncio.sleep(1)
 
 async def maintenance_loop(lighter, x10):
@@ -669,6 +703,11 @@ async def main():
     # 1. Init Infrastructure
     state_manager = InMemoryStateManager(config.DB_FILE)
     await state_manager.start()
+    global telegram_bot
+    telegram_bot = get_telegram_bot()
+    if telegram_bot.enabled:
+        await telegram_bot.start()
+        logger.info("📱 Telegram Bot connected")
     await setup_database()
     
     # 2. Init Adapters
