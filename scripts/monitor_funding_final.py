@@ -343,13 +343,23 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             return False
 
         # SIZE CALCULATION
+        # ---------------------------------------------------------
+        # CRITICAL: RESERVATION LOGIC TO PREVENT RACE CONDITIONS
+        # ---------------------------------------------------------
+        reserved_amount = 0.0
+
         if opp.get('is_farm_trade'):
             final_usd = float(config.FARM_NOTIONAL_USD)
         else:
-            # Get balances
+            # Get balances (lock-protected read and subtract in-flight reservations)
             try:
-                bal_x10_real = await x10.get_real_available_balance()
-                bal_lit_real = await lighter.get_real_available_balance()
+                async with IN_FLIGHT_LOCK:
+                    raw_x10 = await x10.get_real_available_balance()
+                    raw_lit = await lighter.get_real_available_balance()
+
+                    # Deduct currently executing trades
+                    bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                    bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
             except Exception as e:
                 logger.error(f"Balance fetch error: {e}")
                 return False
@@ -357,13 +367,13 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             # Use 25% of weaker account (was 30-40%, too aggressive)
             usable_x10 = max(0, bal_x10_real - 5.0)
             usable_lit = max(0, bal_lit_real - 5.0)
-            
+
             max_per_trade = min(usable_x10, usable_lit) * 0.25
-            
+
             # Kelly sizing with confidence
             size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
             size_calc *= vol_monitor.get_size_adjustment(symbol)
-            
+
             final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
 
         # Exchange minimum
@@ -374,6 +384,20 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # Absolute minimum check
         if final_usd < 12.0:
             logger.debug(f"Size too small: ${final_usd:.1f}")
+            return False
+
+        # RESERVE MARGIN
+        try:
+            async with IN_FLIGHT_LOCK:
+                if bal_x10_real < final_usd or bal_lit_real < final_usd:
+                    return False
+
+                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
+                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
+                reserved_amount = final_usd
+            logger.info(f"🔒 Reserved ${reserved_amount:.1f} margin. In-Flight: {IN_FLIGHT_MARGIN}")
+        except Exception as e:
+            logger.error(f"Reservation error: {e}")
             return False
 
         # SIDE MAPPING
@@ -471,6 +495,14 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             logger.error(f"Execution error {symbol}: {e}")
             FAILED_COINS[symbol] = time.time()
             return False
+
+        finally:
+            # ALWAYS RELEASE MARGIN
+            if reserved_amount > 0:
+                async with IN_FLIGHT_LOCK:
+                    IN_FLIGHT_MARGIN['X10'] = max(0.0, IN_FLIGHT_MARGIN['X10'] - reserved_amount)
+                    IN_FLIGHT_MARGIN['Lighter'] = max(0.0, IN_FLIGHT_MARGIN['Lighter'] - reserved_amount)
+                logger.debug(f"🔓 Released ${reserved_amount:.1f} margin.")
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
