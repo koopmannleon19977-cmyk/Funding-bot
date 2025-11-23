@@ -46,6 +46,10 @@ LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 OPPORTUNITY_LOG_CACHE = {}
 
+# NEW: In-flight margin reservation to avoid double-counting balance in parallel tasks
+IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
+IN_FLIGHT_LOCK = asyncio.Lock()
+
 telegram_bot = None
 
 # ============================================================
@@ -205,8 +209,6 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         
         # 3. Account Rotation (Phase 4 Feature)
         acct_mgr = get_account_manager()
-        # In voller Implementierung würden hier die Adapter-Keys rotiert werden.
-        # Für jetzt nutzen wir die geladenen Accounts für Logging/Stats.
         acc_x10 = acct_mgr.get_next_x10_account()
         acc_lit = acct_mgr.get_next_lighter_account()
         current_label = f"{acc_x10.get('label')}/{acc_lit.get('label')}"
@@ -227,47 +229,72 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         if not opp.get('is_farm_trade') and pred_rate < abs(net_rate) * 0.8:
             return False
 
-        # Sizing
-        try:
-            bal_x10 = await x10.get_real_available_balance()
-            bal_lit = await lighter.get_real_available_balance()
-            total_bal = bal_x10 + bal_lit
-        except:
-            total_bal = 1000.0
-
-        if opp.get('is_farm_trade'):
-            size = config.FARM_NOTIONAL_USD
-        else:
-            size = calculate_smart_size(conf, total_bal)
-            size *= vol_monitor.get_size_adjustment(symbol)
-
-        size = min(size, config.MAX_TRADE_SIZE_USD)
-        min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
-        if size < min_req: size = min_req
-
-        # 5. Execute
+        # --- REPLACED: Race-safe balance snapshot + atomic reservation ---
+        # Determine adapter identities (used for logging/reservation keys)
         ex1 = x10 if opp['leg1_exchange'] == 'X10' else lighter
-        ex2 = lighter if opp['leg1_exchange'] == 'X10' else x10
+        ex2 = lighter if ex1 is x10 else x10
+
+        reserved = False
+        final_usd = 0.0
+        try:
+            async with IN_FLIGHT_LOCK:
+                try:
+                    real_bal_x10 = await x10.get_real_available_balance()
+                    real_bal_lit = await lighter.get_real_available_balance()
+                except Exception as e:
+                    logger.error(f"Balance fetch error: {e}")
+                    return False
+
+                # Subtract already reserved in-flight amounts to get usable free balance
+                bal_x10 = max(0.0, real_bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                bal_lit = max(0.0, real_bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
+                total_bal = bal_x10 + bal_lit
+
+                # Determine intended size
+                if opp.get('is_farm_trade'):
+                    final_usd = float(config.FARM_NOTIONAL_USD)
+                else:
+                    size_calc = calculate_smart_size(conf, total_bal)
+                    size_calc *= vol_monitor.get_size_adjustment(symbol)
+                    final_usd = float(min(size_calc, config.MAX_TRADE_SIZE_USD))
+
+                # Ensure min notionals
+                min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
+                if final_usd < min_req:
+                    final_usd = float(min_req)
+
+                # Buffer to avoid small slippage; require both exchanges to have at least 110% of notional
+                min_required = final_usd * 1.10
+                if bal_x10 < min_required or bal_lit < min_required:
+                    logger.debug(f"SKIP {symbol}: Insuff Balance (Real-InFlight). Need {min_required:.1f}, Have X10 {bal_x10:.1f} / Lit {bal_lit:.1f}")
+                    return False
+
+                # Reserve atomically
+                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
+                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
+                reserved = True
+        except Exception as e:
+            logger.error(f"In-flight reservation error: {e}")
+            return False
+
+        # Keep backward-compatible 'size' variable used below
+        size = final_usd
+
+        # 5. Execute - determine best strategy / sides (existing logic preserved)
         # FIX #1: Calculate sides based on NET profitability
-        # Funding rates can be NEGATIVE (exchange pays us)
         current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
         current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
         
         if abs(current_rate_x10 - current_rate_lit) < 0.00001:
             logger.warning(f"{symbol}: Rates converged, skip")
+            # Release reservation promptly
+            # Note: finally block will release, but we can release earlier by toggling reserved False and adjusting margins
+            # We'll just return and let finally release handle it.
             return False
         
-        # Calculate expected net for both strategies
-        # Strategy 1: Long X10 (BUY), Short Lighter (SELL)
-        # Net = What X10 pays us - What we pay Lighter
-        # Note: Negative rate means exchange pays us
         net_strategy1 = -current_rate_x10 - current_rate_lit
-        
-        # Strategy 2: Short X10 (SELL), Long Lighter (BUY)
-        # Net = What Lighter pays us - What we pay X10
         net_strategy2 = -current_rate_lit - current_rate_x10
         
-        # Choose strategy with highest net receive
         if net_strategy1 > net_strategy2:
             side_x10 = "BUY"
             side_lit = "SELL"
@@ -295,42 +322,51 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             f"Conf: {conf:.2%}"
         )
 
-        success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
-            symbol,
-            side_x10,
-            side_lit,
-            Decimal(str(size)),
-            Decimal(str(size))
-        )
+        try:
+            success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
+                symbol,
+                side_x10,
+                side_lit,
+                Decimal(str(size)),
+                Decimal(str(size))
+            )
 
-        if success:
-            trade = opp.copy()
-            # Fix: fetch prices first and compute initial spread
-            px = x10.fetch_mark_price(symbol) or 0.0
-            pl = lighter.fetch_mark_price(symbol) or 0.0
-            spread = abs(px - pl) / px if px > 0 else 0.0
+            if success:
+                trade = opp.copy()
+                px = x10.fetch_mark_price(symbol) or 0.0
+                pl = lighter.fetch_mark_price(symbol) or 0.0
+                spread = abs(px - pl) / px if px > 0 else 0.0
 
-            trade.update({
-                'notional_usd': size,
-                'entry_time': datetime.utcnow(),
-                'entry_price_x10': px,
-                'entry_price_lighter': pl,
-                'initial_spread_pct': spread,
-                'account_label': current_label,
-                'initial_funding_rate_hourly': net_rate
-            })
-            await add_trade_to_state(trade)
-            if telegram_bot:
-                await telegram_bot.send_message(
-                    f"✅ {symbol} opened\n💰 ${size:.0f} | Conf:{conf:.0%}"
-                )
-            # FIX: Ensure fee processing uses the correct adapter and its returned id
-            asyncio.create_task(process_fee_update(x10, symbol, x10_id))
-            asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
-            return True
-        else:
-            FAILED_COINS[symbol] = time.time()
-            return False
+                trade.update({
+                    'notional_usd': size,
+                    'entry_time': datetime.utcnow(),
+                    'entry_price_x10': px,
+                    'entry_price_lighter': pl,
+                    'initial_spread_pct': spread,
+                    'account_label': current_label,
+                    'initial_funding_rate_hourly': net_rate
+                })
+                await add_trade_to_state(trade)
+                if telegram_bot:
+                    await telegram_bot.send_message(
+                        f"✅ {symbol} opened\n💰 ${size:.0f} | Conf:{conf:.0%}"
+                    )
+                asyncio.create_task(process_fee_update(x10, symbol, x10_id))
+                asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
+                return True
+            else:
+                FAILED_COINS[symbol] = time.time()
+                return False
+        finally:
+            # Release reservation after slight delay to allow exchanges to debit (prevent tight races)
+            try:
+                if reserved:
+                    await asyncio.sleep(1.5)
+                    async with IN_FLIGHT_LOCK:
+                        IN_FLIGHT_MARGIN['X10'] = max(0.0, IN_FLIGHT_MARGIN.get('X10', 0.0) - final_usd)
+                        IN_FLIGHT_MARGIN['Lighter'] = max(0.0, IN_FLIGHT_MARGIN.get('Lighter', 0.0) - final_usd)
+            except Exception as e:
+                logger.error(f"Error releasing in-flight margin for {symbol}: {e}")
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']

@@ -55,10 +55,35 @@ class ParallelExecutionManager:
                     logger.info(f" [PARALLEL] Both legs filled for {symbol}")
                     return True, x10_order, lighter_order
                 
+                # REPLACED: smarter rollback when X10 succeeded but Lighter failed
                 if x10_success and not lighter_success:
-                    logger.warning(f" [ROLLBACK] Lighter failed, closing X10 for {symbol}")
-                    await self._rollback_x10(symbol, side_x10, size_x10)
-                    return False, None, None
+                    logger.warning(f" [ROLLBACK] Lighter failed, handling X10 rollback for {symbol}")
+                    logger.info(" Waiting 5s for X10 fill/cancellation before rollback...")
+                    await asyncio.sleep(5.0)
+                    
+                    try:
+                        positions = await self.x10.fetch_open_positions()
+                        has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in positions)
+                    except Exception as e:
+                        logger.error(f" Error fetching X10 positions during rollback check: {e}")
+                        has_pos = True  # be conservative — attempt to close
+                    
+                    if has_pos:
+                        # Close the position using the same opposite side logic as helper would do
+                        opposite_side = "SELL" if side_x10 == "BUY" else "BUY"
+                        try:
+                            success, oid = await self.x10.close_live_position(symbol, opposite_side, float(size_x10))
+                            if success:
+                                logger.info(f"✅ X10 rollback executed for {symbol}")
+                            else:
+                                logger.warning(f"⚠️ X10 rollback returned False for {symbol}")
+                        except Exception as e:
+                            logger.error(f"❌ X10 rollback failed for {symbol}: {e}")
+                            logger.error(f"   Manual intervention may be required!")
+                    else:
+                        logger.info(f" X10 Rollback skipped: No open position for {symbol} (order likely cancelled/failed)")
+                    
+                    return False, x10_order, None
                 
                 if lighter_success and not x10_success:
                     logger.warning(f" [ROLLBACK] X10 failed, closing Lighter for {symbol}")
