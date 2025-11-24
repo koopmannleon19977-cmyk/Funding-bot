@@ -145,11 +145,8 @@ class AdaptiveThresholdManager:
             safe_floor = getattr(config, 'MIN_SAFE_THRESHOLD', 0.03)
             new_base = base - discount
             base = max(self.min_limit, max(safe_floor, new_base))
-
-            logger.debug(
-                f"Rebate discount {symbol or 'unknown'}: "
-                f"-{discount*100:.2f}% APY -> threshold {base*100:.2f}%"
-            )
+            if discount > 0.01:
+                logger.info(f"Rebate discount {symbol or 'unknown'}: -{discount*100:.2f}% APY -> threshold {base*100:.2f}%")
 
         return max(self.min_limit, base)
 

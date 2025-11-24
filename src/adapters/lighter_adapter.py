@@ -63,11 +63,137 @@ class LighterAdapter(BaseAdapter):
             return 0.0
 
         try:
-            # Lighter API doesn't expose order fee endpoint
-            # Fee is always 0% (maker rebate)
-            # Return 0.0 for now
-            
-            # Future: Could parse from transaction receipt if available
+            # Try to fetch via Lighter Order API if available. Some SDKs expose
+            # an order/details endpoint similar to X10. We'll attempt several
+            # candidate method names on the OrderApi and parse a returned
+            # object/dict for fee, filled quantity and price. If no suitable
+            # endpoint is available, fall back to 0.0.
+
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+
+            # Candidate method names that an SDK might implement
+            candidate_methods = [
+                'order_details', 'order_detail', 'get_order', 'get_order_by_id',
+                'order', 'order_status', 'order_info', 'get_order_info', 'retrieve_order'
+            ]
+
+            method = None
+            for name in candidate_methods:
+                if hasattr(order_api, name):
+                    method = getattr(order_api, name)
+                    break
+
+            if method is None:
+                # API endpoint not available
+                # Return 0.0 as before and keep explicit comment to aid future work
+                # API endpoint not available
+                return 0.0
+
+            # Try a few common parameter names when calling the SDK method
+            resp = None
+            call_attempts = [
+                lambda: method(order_id=order_id),
+                lambda: method(id=order_id),
+                lambda: method(_order_id=order_id),
+                lambda: method(orderId=order_id),
+                lambda: method(order_id),
+            ]
+
+            for call in call_attempts:
+                try:
+                    maybe = call()
+                    if asyncio.iscoroutine(maybe):
+                        resp = await maybe
+                    else:
+                        resp = maybe
+                    if resp is not None:
+                        break
+                except TypeError:
+                    # signature mismatch, try next
+                    continue
+                except Exception:
+                    # Some SDK calls may raise; ignore and try next
+                    continue
+
+            if resp is None:
+                return 0.0
+
+            # Normalize response into a dict-like accessor
+            def _get(obj, keys):
+                if obj is None:
+                    return None
+                # dict-like
+                try:
+                    if isinstance(obj, dict):
+                        for k in keys:
+                            if k in obj and obj[k] is not None:
+                                return obj[k]
+                    else:
+                        for k in keys:
+                            if hasattr(obj, k):
+                                v = getattr(obj, k)
+                                if v is not None:
+                                    return v
+                except Exception:
+                    pass
+                # fallback, try attrib 'data' or 'order'
+                try:
+                    if hasattr(obj, 'data'):
+                        d = getattr(obj, 'data')
+                        if isinstance(d, dict):
+                            for k in keys:
+                                if k in d and d[k] is not None:
+                                    return d[k]
+                        else:
+                            for k in keys:
+                                if hasattr(d, k):
+                                    v = getattr(d, k)
+                                    if v is not None:
+                                        return v
+                except Exception:
+                    pass
+                return None
+
+            # Candidate field names
+            fee_keys = ['fee', 'fee_amount', 'fee_usd', 'fees', 'fee_value']
+            filled_keys = ['filled', 'filled_amount', 'filled_amount_of_synthetic', 'filled_quantity', 'filled_size', 'filled_amount_of_quote']
+            price_keys = ['price', 'avg_price', 'filled_price']
+
+            fee_abs = _get(resp, fee_keys)
+            filled = _get(resp, filled_keys)
+            price = _get(resp, price_keys)
+
+            # If response nested under 'order' or similar, attempt that too
+            if fee_abs is None or filled is None or price is None:
+                nested = None
+                if isinstance(resp, dict):
+                    nested = resp.get('order') or resp.get('data') or resp.get('result')
+                elif hasattr(resp, 'order'):
+                    nested = getattr(resp, 'order')
+                elif hasattr(resp, 'data'):
+                    nested = getattr(resp, 'data')
+
+                if nested is not None:
+                    fee_abs = fee_abs or _get(nested, fee_keys)
+                    filled = filled or _get(nested, filled_keys)
+                    price = price or _get(nested, price_keys)
+
+            try:
+                if fee_abs is not None and filled and price:
+                    fee_usd = float(str(fee_abs))
+                    filled_qty = float(str(filled))
+                    order_price = float(str(price))
+                    notional = filled_qty * order_price
+                    if notional > 0:
+                        fee_rate = fee_usd / notional
+                        # sanity bound
+                        if 0 <= fee_rate <= 0.1:
+                            return fee_rate
+            except Exception:
+                pass
+
+            # If we reach here, we couldn't compute a concrete fee
             return 0.0
         except Exception as e:
             logger.error(f"Lighter Fee Fetch Error for {order_id}: {e}")

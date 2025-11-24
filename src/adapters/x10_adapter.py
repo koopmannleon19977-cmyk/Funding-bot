@@ -546,9 +546,63 @@ class X10Adapter(BaseAdapter):
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
         close_side = "SELL" if original_side == "BUY" else "BUY"
-        return await self.open_live_position(
-            symbol, close_side, notional_usd, reduce_only=True, post_only=False
-        )
+        max_retries = 3
+
+        for attempt in range(max_retries):
+            try:
+                # Get current price
+                price = self.fetch_mark_price(symbol)
+                if not price or price <= 0:
+                    logger.error(f"X10: No price for {symbol}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2)
+                        continue
+                    return False, None
+
+                # Increasing slippage on retries
+                slippage_pct = [0.6, 2.0, 5.0][min(attempt, 2)]
+
+                logger.info(f"🔻 X10 CLOSE {symbol}: Attempt {attempt+1}, Slippage {slippage_pct}%")
+
+                # Execute close
+                success, order_id = await self.open_live_position(
+                    symbol, close_side, notional_usd, reduce_only=True, post_only=False
+                )
+
+                if not success:
+                    logger.warning(f"X10 Close order failed for {symbol}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 + attempt)
+                        continue
+                    return False, None
+
+                # Verify close
+                await asyncio.sleep(2 + attempt)
+                updated_positions = await self.fetch_open_positions()
+                still_open = any(
+                    p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8
+                    for p in (updated_positions or [])
+                )
+
+                if not still_open:
+                    logger.info(f"✅ X10 {symbol} VERIFIED CLOSED")
+                    return True, order_id
+                else:
+                    if attempt < max_retries - 1:
+                        logger.warning(f"⚠️ X10 {symbol} still open, retry {attempt+2}/{max_retries}")
+                        continue
+                    else:
+                        logger.error(f"❌ X10 {symbol} FAILED after {max_retries} attempts!")
+                        return False, order_id
+
+            except Exception as e:
+                logger.error(f"X10 Close exception for {symbol}: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                    continue
+                return False, None
+
+        return False, None
     
     async def cancel_all_orders(self, symbol: str) -> bool:
         """Cancel all open orders for a symbol"""

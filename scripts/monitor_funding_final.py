@@ -513,6 +513,12 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 logger.error(f"🚨 MISMATCH {symbol}: success={success} but X10={x10_opened}, Lit={lit_opened}")
                 success = False
             
+            # Fee tracking (run regardless of final success state to capture partial fills)
+            if x10_id:
+                asyncio.create_task(process_fee_update(x10, symbol, x10_id))
+            if lit_id:
+                asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
+            
             # CRITICAL: If execution reported failure but positions exist → FORCE CLEANUP
             if not success and (x10_opened or lit_opened):
                 logger.error(f"🧟 GHOST CREATED {symbol}: success={success} but X10={x10_opened}, Lit={lit_opened}")
@@ -579,12 +585,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 if telegram_bot:
                     await telegram_bot.send_message(f"✅ {symbol} opened\n💰 ${final_usd:.0f} | Conf:{conf:.0%}")
 
-                # Fee tracking
-                if x10_id:
-                    asyncio.create_task(process_fee_update(x10, symbol, x10_id))
-                if lit_id:
-                    asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
-
+                
                 return True
             else:
                 logger.error(f"🚨 EXEC FAILED {symbol} - AGGRESSIVE CLEANUP")
@@ -813,7 +814,7 @@ async def farm_loop(lighter, x10, parallel_exec):
     logger.info(" 🚜 Farming Loop started.")
     while True:
         try:
-            if True:  # DISABLED until zombies cleaned
+            if not config.VOLUME_FARM_MODE:  # DISABLED until zombies cleaned
                 await asyncio.sleep(10)
                 continue
 
