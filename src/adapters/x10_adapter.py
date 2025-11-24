@@ -159,8 +159,15 @@ class X10Adapter(BaseAdapter):
             session = None
             try:
                 session = aiohttp.ClientSession()
+                # Add headers for X10 WebSocket
+                headers = {}
+                if self.stark_account and hasattr(self.stark_account, 'api_key'):
+                    headers['X-Api-Key'] = self.stark_account.api_key
+
+                logger.debug(f"X10 Trades: Connecting to {url}")
                 async with session.ws_connect(
                     url,
+                    headers=headers,
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
@@ -221,7 +228,7 @@ class X10Adapter(BaseAdapter):
                 logger.info("🛑 X10 Trades WS stopped")
                 break
             except Exception as e:
-                logger.error(f"❌ X10 Trades WS error: {e}. Reconnect in {retry_delay}s")
+                logger.error(f"❌ X10 Trades WS error connecting to {url}: {repr(e)}. Reconnect in {retry_delay}s")
                 await asyncio.sleep(retry_delay)
             finally:
                 if session and not session.closed:
@@ -235,8 +242,15 @@ class X10Adapter(BaseAdapter):
             session = None
             try:
                 session = aiohttp.ClientSession()
+                # Add headers for X10 WebSocket
+                headers = {}
+                if self.stark_account and hasattr(self.stark_account, 'api_key'):
+                    headers['X-Api-Key'] = self.stark_account.api_key
+
+                logger.debug(f"X10 Orderbook: Connecting to {url}")
                 async with session.ws_connect(
                     url,
+                    headers=headers,
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:

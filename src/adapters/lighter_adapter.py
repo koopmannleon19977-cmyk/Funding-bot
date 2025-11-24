@@ -211,6 +211,7 @@ class LighterAdapter(BaseAdapter):
                 if not self.market_info:
                     await self.load_market_cache(force=True)
 
+                logger.debug(f"Lighter: Connecting to {ws_url}")
                 session = aiohttp.ClientSession()
                 async with session.ws_connect(
                     ws_url,
@@ -218,6 +219,7 @@ class LighterAdapter(BaseAdapter):
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
                     logger.info("🟢 Lighter WebSocket connected")
+                    logger.debug(f"Lighter: Connection state: {ws.closed}")
                     retry_delay = 5
                     
                     # CRITICAL: Verify market_info loaded before subscribing
