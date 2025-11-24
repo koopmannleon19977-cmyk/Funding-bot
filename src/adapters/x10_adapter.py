@@ -159,15 +159,10 @@ class X10Adapter(BaseAdapter):
             session = None
             try:
                 session = aiohttp.ClientSession()
-                # Add headers for X10 WebSocket
-                headers = {}
-                if self.stark_account and hasattr(self.stark_account, 'api_key'):
-                    headers['X-Api-Key'] = self.stark_account.api_key
-
+                # X10 public streams don't require authentication
                 logger.debug(f"X10 Trades: Connecting to {url}")
                 async with session.ws_connect(
                     url,
-                    headers=headers,
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
@@ -180,22 +175,24 @@ class X10Adapter(BaseAdapter):
                         await asyncio.sleep(5)
                         break
 
-                    logger.info(f"📊 X10: {len(self.market_info)} markets available for streaming")
-                    # X10 doesn't require explicit subscription - it streams all markets automatically
-                    # Just listen for incoming messages
-                    logger.debug("X10 Trades: Listening for trade messages...")
-
+                    logger.info(f"📊 X10 Trades: Listening for {len(self.market_info)} markets")
+                    logger.debug("X10 Trades: Waiting for trade messages...")
+                    
+                    # X10 streams ALL markets automatically - no subscription needed
                     # Wait for first message with timeout to detect issues
                     try:
                         first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
                         if first_msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(first_msg.data)
-                                logger.info(f"✅ X10 Trades: First message received, keys: {list(data.keys())}")
+                                logger.info(f"✅ X10 Trades: First message received, seq={data.get('seq')}, trades={len(data.get('data', []))}")
                             except Exception:
                                 logger.info("✅ X10 Trades: First message received (unparseable)")
                         elif first_msg.type == aiohttp.WSMsgType.CLOSE:
-                            logger.error(f"❌ X10 Trades: Server sent CLOSE: {first_msg.data}")
+                            logger.error(f"❌ X10 Trades: Server sent CLOSE code={first_msg.data}")
+                            break
+                        elif first_msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"❌ X10 Trades: Connection error")
                             break
                     except asyncio.TimeoutError:
                         logger.warning("⚠️ X10 Trades: No message in 10s, connection might be idle")
@@ -257,15 +254,10 @@ class X10Adapter(BaseAdapter):
             session = None
             try:
                 session = aiohttp.ClientSession()
-                # Add headers for X10 WebSocket
-                headers = {}
-                if self.stark_account and hasattr(self.stark_account, 'api_key'):
-                    headers['X-Api-Key'] = self.stark_account.api_key
-
+                # X10 public streams don't require authentication
                 logger.debug(f"X10 Orderbook: Connecting to {url}")
                 async with session.ws_connect(
                     url,
-                    headers=headers,
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
@@ -278,38 +270,21 @@ class X10Adapter(BaseAdapter):
                         await asyncio.sleep(5)
                         break
 
-                    priority_symbols = list(self.market_info.keys())[:5]
-                    logger.info(f"📊 X10 Orderbook: Subscribing to {len(priority_symbols)} priority symbols")
-
-                    # Send subscriptions with debug logging
-                    for symbol in priority_symbols:
-                        sub_msg = {
-                            "method": "subscribe",
-                            "params": {
-                                "channel": "orderbook",
-                                "market": symbol
-                            }
-                        }
-                        logger.debug(f"X10 OB: Subscribing to {symbol}")
-                        try:
-                            await ws.send_json(sub_msg)
-                        except Exception as e:
-                            logger.debug(f"Orderbook subscribe failed for {symbol}: {e}")
-                        await asyncio.sleep(0.05)
-
+                    logger.info(f"📊 X10 Orderbook: Listening for {len(self.market_info)} markets")
                     logger.debug("X10 Orderbook: Waiting for messages...")
-
-                    # Wait for first message (subscription confirmation or data)
+                    
+                    # X10 streams ALL markets automatically - no subscription needed
+                    # Wait for first message (should be orderbook snapshot)
                     try:
                         first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
                         if first_msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(first_msg.data)
-                                logger.info(f"✅ X10 Orderbook: First message received: {data}")
+                                logger.info(f"✅ X10 Orderbook: First message received, type={data.get('type')}, market={data.get('data', {}).get('m')}")
                             except Exception:
                                 logger.info("✅ X10 Orderbook: First message received (unparseable)")
                         elif first_msg.type == aiohttp.WSMsgType.CLOSE:
-                            logger.error(f"❌ X10 Orderbook: Server sent CLOSE: {first_msg.data}")
+                            logger.error(f"❌ X10 Orderbook: Server sent CLOSE code={first_msg.data}")
                             break
                         elif first_msg.type == aiohttp.WSMsgType.ERROR:
                             logger.error(f"❌ X10 Orderbook: Connection error")
@@ -373,10 +348,12 @@ class X10Adapter(BaseAdapter):
                         pass
 
     async def _get_ws_urls(self) -> dict:
+        # X10 Public WebSocket endpoints - no {market} param = ALL markets
         return {
-            "orderbook": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks",
             "trades": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades",
-            "funding": None
+            "orderbook": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks",
+            "funding": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding",
+            "mark_price": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/prices/mark"
         }
 
     async def _get_auth_client(self) -> PerpetualTradingClient:
