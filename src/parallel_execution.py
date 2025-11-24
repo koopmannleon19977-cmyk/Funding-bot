@@ -88,12 +88,17 @@ class ParallelExecutionManager:
             actual_pos = next(p for p in positions if p.get('symbol') == symbol)
             actual_size = actual_pos.get('size', 0)
             
-            # Determine close side (opposite of current position)
-            close_side = "SELL" if actual_size > 0 else "BUY"
+            # Determine ORIGINAL side based on current position
+            # Positive size = LONG (opened with BUY) → original_side = "BUY"
+            # Negative size = SHORT (opened with SELL) → original_side = "SELL"
+            if actual_size > 0:
+                original_side_corrected = "BUY"
+            else:
+                original_side_corrected = "SELL"
             
-            logger.info(f"→ X10 Rollback {symbol}: pos_size={actual_size:.6f}, close={close_side}")
+            logger.info(f"→ X10 Rollback {symbol}: pos_size={actual_size:.6f}, original={original_side_corrected}")
             
-            success, _ = await self.x10.close_live_position(symbol, close_side, float(size))
+            success, _ = await self.x10.close_live_position(symbol, original_side_corrected, float(size))
             
             if success:
                 logger.info(f"✓ X10 rollback executed for {symbol}")
@@ -118,12 +123,15 @@ class ParallelExecutionManager:
             actual_pos = next(p for p in positions if p.get('symbol') == symbol)
             actual_size = actual_pos.get('size', 0)
             
-            # Determine close side (opposite of current position)
-            close_side = "SELL" if actual_size > 0 else "BUY"
+            # Determine ORIGINAL side based on current position
+            if actual_size > 0:
+                original_side_corrected = "BUY"
+            else:
+                original_side_corrected = "SELL"
             
-            logger.info(f"→ Lighter Rollback {symbol}: pos_size={actual_size:.6f}, close={close_side}")
+            logger.info(f"→ Lighter Rollback {symbol}: pos_size={actual_size:.6f}, original={original_side_corrected}")
             
-            success, _ = await self.lighter.close_live_position(symbol, close_side, float(size))
+            success, _ = await self.lighter.close_live_position(symbol, original_side_corrected, float(size))
             
             if success:
                 logger.info(f"✓ Lighter rollback executed for {symbol}")

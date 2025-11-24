@@ -287,7 +287,12 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
         if not has_prices:
             logger.debug(f"Skip {s}: Missing prices (X={px}, L={pl})")
             continue
-
+        
+        # CRITICAL: Guard against division by zero
+        if px <= 0 or pl <= 0:
+            logger.debug(f"Skip {s}: Invalid prices (X={px}, L={pl})")
+            continue
+        
         spread = abs(px - pl) / px
         if spread > config.MAX_SPREAD_FILTER_PERCENT:
             logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
@@ -380,7 +385,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
                 
-                logger.info(f"💰 Balances: X10=${bal_x10_real:.1f} (raw=${raw_x10:.1f}), Lit=${bal_lit_real:.1f} (raw=${raw_lit:.1f})")
+                logger.info(
+                    f"💰 Balances: X10=${bal_x10_real:.1f} (raw=${raw_x10:.1f}, reserved=${IN_FLIGHT_MARGIN.get('X10', 0.0):.1f}), "
+                    f"Lit=${bal_lit_real:.1f} (raw=${raw_lit:.1f}, reserved=${IN_FLIGHT_MARGIN.get('Lighter', 0.0):.1f})"
+                )
         except Exception as e:
             logger.error(f"Balance fetch error: {e}")
             return False
@@ -392,7 +400,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         else:
             # Check minimum balance requirement
             if bal_x10_real < 20.0 or bal_lit_real < 20.0:
-                logger.debug(f"Insufficient balance: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
+                logger.warning(
+                    f"⚠️ Insufficient balance for {symbol}: "
+                    f"X10=${bal_x10_real:.1f} (need $20), Lit=${bal_lit_real:.1f} (need $20)"
+                )
                 return False
 
             max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20  # Conservative 20%
