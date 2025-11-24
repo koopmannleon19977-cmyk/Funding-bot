@@ -185,6 +185,21 @@ class X10Adapter(BaseAdapter):
                     # Just listen for incoming messages
                     logger.debug("X10 Trades: Listening for trade messages...")
 
+                    # Wait for first message with timeout to detect issues
+                    try:
+                        first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
+                        if first_msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(first_msg.data)
+                                logger.info(f"✅ X10 Trades: First message received, keys: {list(data.keys())}")
+                            except Exception:
+                                logger.info("✅ X10 Trades: First message received (unparseable)")
+                        elif first_msg.type == aiohttp.WSMsgType.CLOSE:
+                            logger.error(f"❌ X10 Trades: Server sent CLOSE: {first_msg.data}")
+                            break
+                    except asyncio.TimeoutError:
+                        logger.warning("⚠️ X10 Trades: No message in 10s, connection might be idle")
+
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
@@ -283,6 +298,24 @@ class X10Adapter(BaseAdapter):
                         await asyncio.sleep(0.05)
 
                     logger.debug("X10 Orderbook: Waiting for messages...")
+
+                    # Wait for first message (subscription confirmation or data)
+                    try:
+                        first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
+                        if first_msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(first_msg.data)
+                                logger.info(f"✅ X10 Orderbook: First message received: {data}")
+                            except Exception:
+                                logger.info("✅ X10 Orderbook: First message received (unparseable)")
+                        elif first_msg.type == aiohttp.WSMsgType.CLOSE:
+                            logger.error(f"❌ X10 Orderbook: Server sent CLOSE: {first_msg.data}")
+                            break
+                        elif first_msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"❌ X10 Orderbook: Connection error")
+                            break
+                    except asyncio.TimeoutError:
+                        logger.warning("⚠️ X10 Orderbook: No message in 10s")
 
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
