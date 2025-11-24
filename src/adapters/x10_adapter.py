@@ -174,11 +174,21 @@ class X10Adapter(BaseAdapter):
                         break
 
                     logger.info(f"📊 X10: {len(self.market_info)} markets available for streaming")
+                    # X10 doesn't require explicit subscription - it streams all markets automatically
+                    # Just listen for incoming messages
+                    logger.debug("X10 Trades: Listening for trade messages...")
 
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(msg.data)
+                                # Debug first message to verify format
+                                if not hasattr(self, '_debug_logged'):
+                                    try:
+                                        logger.debug(f"X10 Trades first message keys: {list(data.keys())}")
+                                    except Exception:
+                                        logger.debug("X10 Trades first message received (unable to list keys)")
+                                    self._debug_logged = True
                             except Exception:
                                 continue
 
@@ -242,6 +252,7 @@ class X10Adapter(BaseAdapter):
                     priority_symbols = list(self.market_info.keys())[:5]
                     logger.info(f"📊 X10 Orderbook: Subscribing to {len(priority_symbols)} priority symbols")
 
+                    # Send subscriptions with debug logging
                     for symbol in priority_symbols:
                         sub_msg = {
                             "method": "subscribe",
@@ -250,16 +261,26 @@ class X10Adapter(BaseAdapter):
                                 "market": symbol
                             }
                         }
+                        logger.debug(f"X10 OB: Subscribing to {symbol}")
                         try:
                             await ws.send_json(sub_msg)
                         except Exception as e:
                             logger.debug(f"Orderbook subscribe failed for {symbol}: {e}")
                         await asyncio.sleep(0.05)
 
+                    logger.debug("X10 Orderbook: Waiting for messages...")
+
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(msg.data)
+                                # Debug first message
+                                if not hasattr(self, '_ob_debug_logged'):
+                                    try:
+                                        logger.debug(f"X10 OB first message: {data}")
+                                    except Exception:
+                                        logger.debug("X10 OB first message received (unable to stringify)")
+                                    self._ob_debug_logged = True
                             except Exception:
                                 continue
 

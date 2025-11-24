@@ -230,13 +230,31 @@ class LighterAdapter(BaseAdapter):
                     logger.info(f"📊 Lighter: Subscribing to {len(market_ids)} markets")
                     priority_markets = market_ids[:20]
                     
-                    await ws.send_json({
+                    sub_msg = {
                         "method": "subscribe",
                         "params": ["trade", "order_book", priority_markets],
                         "id": 1
-                    })
+                    }
+                    
+                    logger.debug(f"Lighter: Sending subscription for {len(priority_markets)} markets")
+                    await ws.send_json(sub_msg)
+                    
+                    logger.debug("Lighter: Waiting for subscription confirmation...")
                     
                     async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                
+                                # Debug first message
+                                if not hasattr(self, '_ws_debug_logged'):
+                                    try:
+                                        logger.debug(f"Lighter first message: {data}")
+                                    except Exception:
+                                        logger.debug("Lighter first message received (unable to stringify)")
+                                    self._ws_debug_logged = True
+                            except Exception:
+                                continue
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             data = json.loads(msg.data)
                             
