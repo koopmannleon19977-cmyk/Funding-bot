@@ -189,6 +189,26 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
     opps: List[Dict] = []
     common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
+    # Verify market data is loaded
+    if not common:
+        logger.warning("⚠️ No common markets found")
+        logger.debug(f"X10 markets: {len(x10.market_info)}, Lighter: {len(lighter.market_info)}")
+        return []
+    
+    # Verify price cache has data
+    x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None])
+    lit_prices = len([s for s in common if lighter.fetch_mark_price(s) is not None])
+    
+    logger.debug(f"Price cache status: X10={x10_prices}/{len(common)}, Lighter={lit_prices}/{len(common)}")
+    
+    if x10_prices == 0 and lit_prices == 0:
+        logger.warning("⚠️ Price cache completely empty - WebSocket streams may not be working")
+        # Force reload
+        await asyncio.gather(
+            x10.load_market_cache(force=True),
+            lighter.load_market_cache(force=True),
+            lighter.load_funding_rates_and_prices()
+        )
 
     logger.info(
         f"🔍 Scanning {len(common)} pairs. "
@@ -200,28 +220,21 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
     async def fetch_symbol_data(s: str):
         async with semaphore:
             try:
-                # Force fresh data fetch with retries
-                await asyncio.sleep(0.05)  # Rate limit protection
+                await asyncio.sleep(0.05)
                 
-                # Try funding rates from cache first, then force fetch
+                # Get funding rates (from cache, updated by maintenance_loop)
                 lr = lighter.fetch_funding_rate(s)
                 xr = x10.fetch_funding_rate(s)
                 
-                # If cache miss, force reload
-                if lr is None or xr is None:
-                    await lighter.load_funding_rates_and_prices()
-                    lr = lighter.fetch_funding_rate(s)
-                    xr = x10.fetch_funding_rate(s)
-                
-                # Prices from cache (updated by WebSocket)
+                # Get prices (from cache, updated by WebSocket)
                 px = x10.fetch_mark_price(s)
                 pl = lighter.fetch_mark_price(s)
                 
-                # If price missing, try direct fetch
-                if px is None:
-                    px = x10.fetch_mark_price(s)
-                if pl is None:
-                    pl = lighter.fetch_mark_price(s)
+                # Log missing data for debugging
+                if lr is None or xr is None:
+                    logger.debug(f"{s}: Missing rates (L={lr}, X={xr})")
+                if px is None or pl is None:
+                    logger.debug(f"{s}: Missing prices (X={px}, L={pl})")
                 
                 return (s, lr, xr, px, pl)
                 
@@ -288,14 +301,28 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
             logger.debug(f"Skip {s}: Missing prices (X={px}, L={pl})")
             continue
         
-        # CRITICAL: Guard against division by zero
-        if px <= 0 or pl <= 0:
-            logger.debug(f"Skip {s}: Invalid prices (X={px}, L={pl})")
-            continue
-        
-        spread = abs(px - pl) / px
-        if spread > config.MAX_SPREAD_FILTER_PERCENT:
-            logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
+        # CRITICAL: Guard against division by zero AND invalid prices
+        try:
+            if px is None or pl is None or px <= 0 or pl <= 0:
+                logger.debug(f"Skip {s}: Invalid prices (X={px}, L={pl})")
+                continue
+            
+            # Safe spread calculation with explicit float conversion
+            px_float = float(px)
+            pl_float = float(pl)
+            
+            if px_float <= 0:
+                logger.debug(f"Skip {s}: X10 price is zero/negative ({px_float})")
+                continue
+                
+            spread = abs(px_float - pl_float) / px_float
+            
+            if spread > config.MAX_SPREAD_FILTER_PERCENT:
+                logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
+                continue
+                
+        except (TypeError, ValueError, ZeroDivisionError) as e:
+            logger.debug(f"Skip {s}: Price calculation error - {e}")
             continue
 
         # Log high APY opportunities
@@ -1015,10 +1042,18 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
         try:
             # Wait for trigger
             try:
-                await asyncio.wait_for(price_event.wait(), timeout=5.0)  # Increased from 1.0
+                await asyncio.wait_for(price_event.wait(), timeout=5.0)
+                logger.debug("📡 Price update event triggered")
             except asyncio.TimeoutError:
-                pass
+                logger.debug("⏱️ Logic loop timeout (no price updates in 5s)")
             price_event.clear()
+            
+            # Verify WebSocket streams are alive
+            x10_cache_size = len(x10.price_cache)
+            lit_cache_size = len(lighter.price_cache)
+            
+            if x10_cache_size == 0 and lit_cache_size == 0:
+                logger.warning("⚠️ Both price caches empty - WebSocket streams may be down")
 
             # Cleanup
             await cleanup_finished_tasks()
@@ -1202,15 +1237,67 @@ async def main():
     ws_manager = WebSocketManager([x10, lighter])
     parallel_exec = ParallelExecutionManager(x10, lighter)
     
+    # 3.5. Start WebSocket Streams BEFORE loading data
+    logger.info("🌐 Starting WebSocket streams...")
+    await ws_manager.start()
+    
+    # Wait for WS connections
+    logger.info("⏳ Waiting for WebSocket connections...")
+    await asyncio.sleep(3)
+    
     # 4. Load Initial Data
-    logger.info(" Loading Market Data...")
-    await x10.load_market_cache(force=True)
-    await lighter.load_market_cache(force=True)
+    logger.info("📊 Loading Market Data...")
+    try:
+        # Load markets with retries
+        for attempt in range(3):
+            try:
+                await asyncio.gather(
+                    x10.load_market_cache(force=True),
+                    lighter.load_market_cache(force=True)
+                )
+                
+                x10_count = len(x10.market_info)
+                lit_count = len(lighter.market_info)
+                
+                logger.info(f"✅ Markets loaded: X10={x10_count}, Lighter={lit_count}")
+                
+                if x10_count == 0 or lit_count == 0:
+                    raise ValueError("Market cache empty")
+                    
+                break
+            except Exception as e:
+                if attempt == 2:
+                    raise
+                logger.warning(f"Market load attempt {attempt+1} failed: {e}")
+                await asyncio.sleep(5)
+        
+        # Load initial funding rates
+        logger.info("📈 Loading initial funding rates...")
+        await lighter.load_funding_rates_and_prices()
+        
+        # Verify data loaded
+        test_syms = ["BTC-USD", "ETH-USD", "SOL-USD"]
+        loaded_ok = False
+        for sym in test_syms:
+            if sym in x10.market_info and sym in lighter.market_info:
+                px = x10.fetch_mark_price(sym)
+                pl = lighter.fetch_mark_price(sym)
+                if px and pl and px > 0 and pl > 0:
+                    logger.info(f"✅ Data OK: {sym} X10=${px:.2f}, Lighter=${pl:.2f}")
+                    loaded_ok = True
+                    break
+        
+        if not loaded_ok:
+            raise ValueError("No valid market data after load")
+            
+    except Exception as e:
+        logger.critical(f"❌ FATAL: Market data load failed: {e}")
+        return
     
     # 5. Start Background Loops
-    logger.info(" Spawning Tasks...")
+    logger.info("🚀 Spawning Tasks...")
     tasks = [
-        asyncio.create_task(ws_manager.start()),
+        # WebSocket manager already started in step 3.5
         asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec)),
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec)),
         asyncio.create_task(maintenance_loop(lighter, x10))

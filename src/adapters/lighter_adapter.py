@@ -216,10 +216,20 @@ class LighterAdapter(BaseAdapter):
                     heartbeat=15,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
-                    logger.info(" Lighter WebSocket verbunden.")
+                    logger.info("🟢 Lighter WebSocket connected")
                     retry_delay = 5
                     
+                    # Ensure markets loaded
+                    if not self.market_info:
+                        logger.warning("⚠️ Lighter: No markets loaded, loading now...")
+                        await self.load_market_cache(force=True)
+                    
+                    if not self.market_info:
+                        logger.error("❌ Lighter: Still no markets after load")
+                        break
+                    
                     market_ids = [m['i'] for m in self.market_info.values()]
+                    logger.info(f"📊 Lighter: Subscribing to {len(market_ids)} markets")
                     priority_markets = market_ids[:20]
                     
                     await ws.send_json({

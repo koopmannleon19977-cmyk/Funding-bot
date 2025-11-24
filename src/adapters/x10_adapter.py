@@ -164,11 +164,18 @@ class X10Adapter(BaseAdapter):
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
-                    logger.info(" X10 Trades WS connected")
+                    logger.info("🟢 X10 Trades WS connected")
                     retry_delay = 5
                     
                     if not self.market_info:
+                        logger.warning("⚠️ X10: No markets loaded, loading now...")
                         await self.load_market_cache(force=True)
+                    
+                    if not self.market_info:
+                        logger.error("❌ X10: Still no markets after load")
+                        break
+                    
+                    logger.info(f"📊 X10: {len(self.market_info)} markets available for streaming")
                     
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
@@ -215,13 +222,19 @@ class X10Adapter(BaseAdapter):
                     heartbeat=10,
                     timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
                 ) as ws:
-                    logger.info(" X10 Orderbook WS connected")
+                    logger.info("🟢 X10 Orderbook WS connected")
                     retry_delay = 5
                     
                     if not self.market_info:
+                        logger.warning("⚠️ X10 Orderbook: No markets loaded, loading now...")
                         await self.load_market_cache(force=True)
                     
+                    if not self.market_info:
+                        logger.error("❌ X10 Orderbook: Still no markets after load")
+                        break
+                    
                     priority_symbols = list(self.market_info.keys())[:5]
+                    logger.info(f"📊 X10 Orderbook: Subscribing to {len(priority_symbols)} priority symbols")
                     
                     for symbol in priority_symbols:
                         sub_msg = {
