@@ -243,6 +243,21 @@ class LighterAdapter(BaseAdapter):
                     
                     logger.debug("Lighter: Waiting for subscription confirmation...")
                     
+                    # Wait for subscription response
+                    try:
+                        first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
+                        if first_msg.type == aiohttp.WSMsgType.TEXT:
+                            data = json.loads(first_msg.data)
+                            logger.info(f"✅ Lighter: Subscription response: {data}")
+                        elif first_msg.type == aiohttp.WSMsgType.CLOSE:
+                            logger.error(f"❌ Lighter: Server sent CLOSE: {first_msg.data}")
+                            break
+                        elif first_msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.error(f"❌ Lighter: Connection error")
+                            break
+                    except asyncio.TimeoutError:
+                        logger.warning("⚠️ Lighter: No subscription response in 10s")
+                    
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
