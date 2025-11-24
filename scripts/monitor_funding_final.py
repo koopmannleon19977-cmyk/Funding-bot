@@ -145,8 +145,15 @@ async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data
             exit_time = datetime.utcnow()
             entry_time = trade_data.get('entry_time')
             if isinstance(entry_time, str):
-                try: entry_time = datetime.fromisoformat(entry_time)
-                except: entry_time = datetime.utcnow() # Fallback
+                try:
+                    entry_time = datetime.strptime(entry_time, '%Y-%m-%d %H:%M:%S.%f')
+                except Exception:
+                    try:
+                        entry_time = datetime.strptime(entry_time, '%Y-%m-%d %H:%M:%S')
+                    except Exception:
+                        entry_time = datetime.utcnow()
+            elif not isinstance(entry_time, datetime):
+                entry_time = datetime.utcnow()
             
             duration = (exit_time - entry_time).total_seconds() / 3600 if entry_time else 0
             
@@ -367,10 +374,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             except Exception as e:
                 logger.error(f"Balance fetch error: {e}")
                 return False
-            # CRITICAL: Check minimum balance BEFORE reservation
-            if bal_x10_real < 20.0 or bal_lit_real < 20.0:
-                logger.warning(f"⚠️ Insufficient balance for {symbol}: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
-                return False
+            # NOTE: minimum-balance check deferred until final_usd is calculated
 
             max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20  # Conservative 20%
 
@@ -901,13 +905,14 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     logger.error(f"Manage Task Error: {management_task.exception()}")
                 management_task = asyncio.create_task(manage_open_trades(lighter, x10))
 
-            # Zombie cleanup
-            now = time.time()
-            if now - last_zombie > 180:  # Reduced from 300 to 180s
+            # Zombie cleanup (run at most once every 180 seconds)
+            now = time.monotonic()
+            if now - last_zombie > 180:
                 try:
                     await cleanup_zombie_positions(lighter, x10)
                 except Exception as ze:
                     logger.error(f"Zombie cleanup: {ze}")
+                # record monotonic timestamp to throttle next run
                 last_zombie = now
 
             # Check opportunities

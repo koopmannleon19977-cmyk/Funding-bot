@@ -302,31 +302,29 @@ class InMemoryStateManager:
     
     async def add_trade(self, trade_data: dict):
         symbol = trade_data['symbol']
-        
+
+        # Normalize datetime fields to strings FIRST
+        for date_field in ['entry_time', 'funding_flip_start_time']:
+            val = trade_data.get(date_field)
+            if val is not None and isinstance(val, datetime):
+                trade_data[date_field] = val.strftime('%Y-%m-%d %H:%M:%S.%f')
+
+        # Set defaults
         if 'is_farm_trade' not in trade_data:
             trade_data['is_farm_trade'] = False
-        
-        if 'funding_flip_start_time' not in trade_data:
-            trade_data['funding_flip_start_time'] = None
-        
+
         if 'account_label' not in trade_data:
             trade_data['account_label'] = 'Main'
-        
-        if isinstance(trade_data.get('entry_time'), datetime):
-            entry_str = trade_data['entry_time'].strftime('%Y-%m-%d %H:%M:%S.%f')
-        else:
-            entry_str = trade_data.get('entry_time')
-        
+
+        # Store in memory (already normalized)
         self.open_trades[symbol] = trade_data
-        
-        db_data = trade_data.copy()
-        db_data['entry_time'] = entry_str
-        
+
+        # Queue for DB
         await self.write_queue.put({
             'op': 'INSERT',
-            'data': db_data
+            'data': trade_data
         })
-        
+
         logger.debug(f"Trade {symbol} added to state (queued for DB)")
     
     async def update_trade(self, symbol: str, updates: dict):
