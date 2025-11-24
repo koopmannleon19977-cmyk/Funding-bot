@@ -1237,15 +1237,7 @@ async def main():
     ws_manager = WebSocketManager([x10, lighter])
     parallel_exec = ParallelExecutionManager(x10, lighter)
     
-    # 3.5. Start WebSocket Streams BEFORE loading data
-    logger.info("🌐 Starting WebSocket streams...")
-    await ws_manager.start()
-    
-    # Wait for WS connections
-    logger.info("⏳ Waiting for WebSocket connections...")
-    await asyncio.sleep(3)
-    
-    # 4. Load Initial Data
+    # 4. Load Initial Data FIRST (required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")
     try:
         # Load markets with retries
@@ -1293,6 +1285,14 @@ async def main():
     except Exception as e:
         logger.critical(f"❌ FATAL: Market data load failed: {e}")
         return
+    
+    # 4.5. NOW Start WebSocket Streams (after markets loaded)
+    logger.info("🌐 Starting WebSocket streams...")
+    await ws_manager.start()
+    
+    # Wait for WS connections
+    logger.info("⏳ Waiting for WebSocket connections...")
+    await asyncio.sleep(3)
     
     # 5. Start Background Loops
     logger.info("🚀 Spawning Tasks...")

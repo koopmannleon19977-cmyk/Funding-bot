@@ -219,13 +219,10 @@ class LighterAdapter(BaseAdapter):
                     logger.info("🟢 Lighter WebSocket connected")
                     retry_delay = 5
                     
-                    # Ensure markets loaded
+                    # Market info must be loaded before WS start
                     if not self.market_info:
-                        logger.warning("⚠️ Lighter: No markets loaded, loading now...")
-                        await self.load_market_cache(force=True)
-                    
-                    if not self.market_info:
-                        logger.error("❌ Lighter: Still no markets after load")
+                        logger.error("❌ Lighter: No markets available - cannot subscribe")
+                        await asyncio.sleep(5)
                         break
                     
                     market_ids = [m['i'] for m in self.market_info.values()]

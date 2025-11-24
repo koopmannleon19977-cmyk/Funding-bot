@@ -168,11 +168,8 @@ class X10Adapter(BaseAdapter):
                     retry_delay = 5
                     
                     if not self.market_info:
-                        logger.warning("⚠️ X10: No markets loaded, loading now...")
-                        await self.load_market_cache(force=True)
-                    
-                    if not self.market_info:
-                        logger.error("❌ X10: Still no markets after load")
+                        logger.error("❌ X10: No markets available - cannot stream")
+                        await asyncio.sleep(5)
                         break
                     
                     logger.info(f"📊 X10: {len(self.market_info)} markets available for streaming")
@@ -226,11 +223,8 @@ class X10Adapter(BaseAdapter):
                     retry_delay = 5
                     
                     if not self.market_info:
-                        logger.warning("⚠️ X10 Orderbook: No markets loaded, loading now...")
-                        await self.load_market_cache(force=True)
-                    
-                    if not self.market_info:
-                        logger.error("❌ X10 Orderbook: Still no markets after load")
+                        logger.error("❌ X10 Orderbook: No markets available - cannot subscribe")
+                        await asyncio.sleep(5)
                         break
                     
                     priority_symbols = list(self.market_info.keys())[:5]
