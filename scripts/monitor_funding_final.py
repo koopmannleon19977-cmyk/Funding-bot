@@ -360,6 +360,9 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             final_usd = float(config.FARM_NOTIONAL_USD)
             final_usd = 16.0  # FORCE LOWER SIZE
         else:
+            # Prepare balance variables (ensure available in outer scope)
+            bal_x10_real = 0.0
+            bal_lit_real = 0.0
             # Get balances (lock-protected read and subtract in-flight reservations)
             try:
                 async with IN_FLIGHT_LOCK:
