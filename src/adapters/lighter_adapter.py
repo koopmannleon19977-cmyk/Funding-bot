@@ -607,26 +607,71 @@ class LighterAdapter(BaseAdapter):
 
     async def fetch_open_positions(self) -> List[dict]:
         if not getattr(config, "LIVE_TRADING", False):
+            logger.debug("Lighter: LIVE_TRADING=False, returning []")
             return []
         
         try:
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
-            await asyncio.sleep(0.2)
+            
+            logger.debug(f"Lighter: Fetching positions for account_index={self._resolved_account_index}")
+            
+            await asyncio.sleep(0.2)  # Rate limit protection
+            
             response = await account_api.account(
                 by="index", 
                 value=str(self._resolved_account_index)
             )
+            
+            if not response:
+                logger.warning("Lighter: API returned None")
+                return []
+            
+            if not response.accounts:
+                logger.warning("Lighter: API returned no accounts")
+                return []
+            
+            if not response.accounts[0]:
+                logger.warning("Lighter: API returned empty account")
+                return []
+            
+            account = response.accounts[0]
+            
+            if not hasattr(account, 'positions') or not account.positions:
+                logger.debug("Lighter: Account has no positions")
+                return []
+            
             positions = []
-            if response and response.accounts and response.accounts[0].positions:
-                for p in response.accounts[0].positions:
-                    multiplier = 1 if int(p.sign) == 0 else -1
-                    size = float(p.position or 0.0) * multiplier
-                    if abs(size) > 1e-8:
-                        symbol = f"{p.symbol}-USD" if not p.symbol.endswith("-USD") else p.symbol
-                        positions.append({'symbol': symbol, 'size': size})
+            for p in account.positions:
+                symbol_raw = getattr(p, 'symbol', None)
+                position_qty = getattr(p, 'position', None)
+                sign = getattr(p, 'sign', None)
+                
+                if not symbol_raw or position_qty is None or sign is None:
+                    continue
+                
+                multiplier = 1 if int(sign) == 0 else -1
+                size = float(position_qty) * multiplier
+                
+                logger.debug(f"Lighter: Position {symbol_raw} sign={sign} qty={position_qty} size={size}")
+                
+                if abs(size) > 1e-8:
+                    symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
+                    positions.append({
+                        'symbol': symbol, 
+                        'size': size
+                    })
+            
+            logger.info(f"Lighter: Found {len(positions)} open positions")
+            if positions:
+                logger.info(f"Lighter: {[(p['symbol'], p['size']) for p in positions]}")
+            
             return positions
-        except Exception:
+            
+        except Exception as e:
+            logger.error(f"Lighter Positions Error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:

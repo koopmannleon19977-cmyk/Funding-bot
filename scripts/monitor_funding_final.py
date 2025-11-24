@@ -187,61 +187,90 @@ def is_tradfi_or_fx(symbol: str) -> bool:
 
 async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
     opps: List[Dict] = []
-    common = set(lighter.price_cache.keys()) & set(x10.market_info.keys())
+    common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
 
     logger.info(
         f"🔍 Scanning {len(common)} pairs. "
-        f"Lighter cache: {len(lighter.price_cache)}, X10 markets: {len(x10.market_info)}"
+        f"Lighter markets: {len(lighter.market_info)}, X10 markets: {len(x10.market_info)}"
     )
 
-    semaphore = asyncio.Semaphore(20)
+    semaphore = asyncio.Semaphore(10)  # Reduced from 20 to avoid rate limits
 
-    async def maybe_await(func, *args):
-        try:
-            res = func(*args)
-        except Exception:
-            # Let caller handle/log exceptions per-symbol
-            raise
-        if inspect.isawaitable(res):
-            return await res
-        return res
-
-    async def fetch_symbol(s: str):
+    async def fetch_symbol_data(s: str):
         async with semaphore:
             try:
-                lr = await maybe_await(lighter.fetch_funding_rate, s)
-                xr = await maybe_await(x10.fetch_funding_rate, s)
-                px = await maybe_await(x10.fetch_mark_price, s)
-                pl = await maybe_await(lighter.fetch_mark_price, s)
+                # Force fresh data fetch with retries
+                await asyncio.sleep(0.05)  # Rate limit protection
+                
+                # Try funding rates from cache first, then force fetch
+                lr = lighter.fetch_funding_rate(s)
+                xr = x10.fetch_funding_rate(s)
+                
+                # If cache miss, force reload
+                if lr is None or xr is None:
+                    await lighter.load_funding_rates_and_prices()
+                    lr = lighter.fetch_funding_rate(s)
+                    xr = x10.fetch_funding_rate(s)
+                
+                # Prices from cache (updated by WebSocket)
+                px = x10.fetch_mark_price(s)
+                pl = lighter.fetch_mark_price(s)
+                
+                # If price missing, try direct fetch
+                if px is None:
+                    px = x10.fetch_mark_price(s)
+                if pl is None:
+                    pl = lighter.fetch_mark_price(s)
+                
                 return (s, lr, xr, px, pl)
+                
             except Exception as e:
-                logger.debug(f"Error fetching data for {s}: {e}")
+                logger.debug(f"Error fetching {s}: {e}")
                 return (s, None, None, None, None)
 
     # Launch concurrent fetches
-    tasks = [asyncio.create_task(fetch_symbol(s)) for s in common]
-    results = await asyncio.gather(*tasks)
+    tasks = [asyncio.create_task(fetch_symbol_data(s)) for s in common]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Update threshold manager using collected lighter rates
-    current_rates = [lr for (_s, lr, _xr, _px, _pl) in results if lr is not None]
-    try:
-        threshold_manager.update_metrics(current_rates)
-    except Exception as e:
-        logger.debug(f"Failed to update threshold metrics: {e}")
+    # Filter out exceptions
+    clean_results = []
+    for r in results:
+        if isinstance(r, Exception):
+            logger.debug(f"Task exception: {r}")
+            continue
+        clean_results.append(r)
+
+    # Update threshold manager
+    current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
+    if current_rates:
+        try:
+            threshold_manager.update_metrics(current_rates)
+        except Exception as e:
+            logger.debug(f"Failed to update threshold metrics: {e}")
 
     now_ts = time.time()
-    for s, rl, rx, px, pl in results:
+    valid_pairs = 0
+    
+    for s, rl, rx, px, pl in clean_results:
         if s in open_syms or s in config.BLACKLIST_SYMBOLS or is_tradfi_or_fx(s):
             continue
 
         if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 300):
             continue
 
-        if rl is None or rx is None:
+        # Count valid data
+        has_rates = rl is not None and rx is not None
+        has_prices = px is not None and pl is not None
+        
+        if has_rates and has_prices:
+            valid_pairs += 1
+
+        if not has_rates:
             logger.debug(f"Skip {s}: Missing rates (L={rl}, X={rx})")
             continue
 
+        # Update volatility monitor
         if px is not None:
             try:
                 get_volatility_monitor().update_price(s, px)
@@ -255,26 +284,8 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
         if apy < req_apy:
             continue
 
-        # Best-effort fetch missing prices
-        if px is None:
-            try:
-                px = await maybe_await(x10.fetch_mark_price, s)
-                if px is not None:
-                    try:
-                        get_volatility_monitor().update_price(s, px)
-                    except Exception:
-                        pass
-            except Exception:
-                px = None
-
-        if pl is None:
-            try:
-                pl = await maybe_await(lighter.fetch_mark_price, s)
-            except Exception:
-                pl = None
-
-        if not px or not pl:
-            logger.debug(f"Skip {s}: Missing prices")
+        if not has_prices:
+            logger.debug(f"Skip {s}: Missing prices (X={px}, L={pl})")
             continue
 
         spread = abs(px - pl) / px
@@ -282,6 +293,7 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
             logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
             continue
 
+        # Log high APY opportunities
         if apy > 0.5:
             if now_ts - OPPORTUNITY_LOG_CACHE.get(s, 0) > 60:
                 logger.info(f"💎 {s} | APY: {apy*100:.1f}%")
@@ -296,8 +308,10 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
             'is_farm_trade': False
         })
 
+    logger.info(f"✅ Found {len(opps)} opportunities from {valid_pairs} valid pairs (scanned {len(clean_results)})")
+    
     opps.sort(key=lambda x: x['apy'], reverse=True)
-    logger.info(f"✅ Found {len(opps)} opportunities")
+    return opps[:config.MAX_OPEN_TRADES]
     return opps[:config.MAX_OPEN_TRADES]
 
 async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
@@ -355,29 +369,31 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # ---------------------------------------------------------
         global IN_FLIGHT_MARGIN, IN_FLIGHT_LOCK
         reserved_amount = 0.0
+        
+        # ALWAYS fetch balances first (regardless of farm/normal mode)
+        try:
+            async with IN_FLIGHT_LOCK:
+                raw_x10 = await x10.get_real_available_balance()
+                raw_lit = await lighter.get_real_available_balance()
 
+                # Deduct currently executing trades
+                bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
+                
+                logger.info(f"💰 Balances: X10=${bal_x10_real:.1f} (raw=${raw_x10:.1f}), Lit=${bal_lit_real:.1f} (raw=${raw_lit:.1f})")
+        except Exception as e:
+            logger.error(f"Balance fetch error: {e}")
+            return False
+
+        # Determine size based on mode
         if opp.get('is_farm_trade'):
             final_usd = float(config.FARM_NOTIONAL_USD)
             final_usd = 16.0  # FORCE LOWER SIZE
         else:
-            # Prepare balance variables (ensure available in outer scope)
-            bal_x10_real = 0.0
-            bal_lit_real = 0.0
-            # Get balances (lock-protected read and subtract in-flight reservations)
-            try:
-                async with IN_FLIGHT_LOCK:
-                    raw_x10 = await x10.get_real_available_balance()
-                    raw_lit = await lighter.get_real_available_balance()
-
-                    # Deduct currently executing trades
-                    bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
-                    bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-                    
-                    logger.info(f"💰 Balances: X10=${bal_x10_real:.1f} (raw=${raw_x10:.1f}), Lit=${bal_lit_real:.1f} (raw=${raw_lit:.1f})")
-            except Exception as e:
-                logger.error(f"Balance fetch error: {e}")
+            # Check minimum balance requirement
+            if bal_x10_real < 20.0 or bal_lit_real < 20.0:
+                logger.debug(f"Insufficient balance: X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}")
                 return False
-            # NOTE: minimum-balance check deferred until final_usd is calculated
 
             max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20  # Conservative 20%
 
@@ -408,7 +424,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 bal_lit_check = max(0.0, raw_lit_check - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
                 
                 # ABORT if insufficient after re-check
-                if bal_x10_real < final_usd or bal_lit_real < final_usd:
+                if bal_x10_check < final_usd or bal_lit_check < final_usd:
                     logger.error(f"🚫 ABORT {symbol}: Insufficient after lock - X10=${bal_x10_check:.1f}, Lit=${bal_lit_check:.1f}, Need=${final_usd:.1f}")
                     return False
 
@@ -673,22 +689,65 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
 # LOOPS & MANAGEMENT
 # ============================================================
 async def get_cached_positions(lighter, x10, force=False):
+    """Fetch positions with proper caching and error handling"""
     now = time.time()
-    if not force and (now - POSITION_CACHE['last_update']) < POSITION_CACHE_TTL:
+    
+    # Always force refresh if cache is empty or stale
+    cache_age = now - POSITION_CACHE['last_update']
+    cache_empty = (len(POSITION_CACHE['x10']) == 0 and len(POSITION_CACHE['lighter']) == 0)
+    
+    if not force and not cache_empty and cache_age < POSITION_CACHE_TTL:
+        logger.debug(f"Using cached positions (age: {cache_age:.1f}s)")
         return POSITION_CACHE['x10'], POSITION_CACHE['lighter']
     
     try:
+        logger.debug(f"Fetching fresh positions (force={force}, cache_age={cache_age:.1f}s)")
+        
+        # Fetch with timeout
         t1 = asyncio.create_task(x10.fetch_open_positions())
         t2 = asyncio.create_task(lighter.fetch_open_positions())
-        p_x10, p_lit = await asyncio.gather(t1, t2, return_exceptions=True)
         
-        POSITION_CACHE['x10'] = p_x10 if isinstance(p_x10, list) else []
-        POSITION_CACHE['lighter'] = p_lit if isinstance(p_lit, list) else []
+        p_x10, p_lit = await asyncio.wait_for(
+            asyncio.gather(t1, t2, return_exceptions=True),
+            timeout=10.0
+        )
+        
+        # Handle exceptions
+        if isinstance(p_x10, Exception):
+            logger.error(f"X10 position fetch failed: {p_x10}")
+            p_x10 = POSITION_CACHE.get('x10', [])
+        
+        if isinstance(p_lit, Exception):
+            logger.error(f"Lighter position fetch failed: {p_lit}")
+            p_lit = POSITION_CACHE.get('lighter', [])
+        
+        # Ensure lists
+        p_x10 = p_x10 if isinstance(p_x10, list) else []
+        p_lit = p_lit if isinstance(p_lit, list) else []
+        
+        # Update cache
+        POSITION_CACHE['x10'] = p_x10
+        POSITION_CACHE['lighter'] = p_lit
         POSITION_CACHE['last_update'] = now
-    except Exception as e:
-        logger.error(f"Pos Cache Error: {e}")
         
-    return POSITION_CACHE['x10'], POSITION_CACHE['lighter']
+        logger.info(f"📊 Positions: X10={len(p_x10)}, Lighter={len(p_lit)}")
+        
+        # Debug log actual positions
+        if p_x10:
+            logger.debug(f"X10 positions: {[p.get('symbol') for p in p_x10]}")
+        if p_lit:
+            logger.debug(f"Lighter positions: {[p.get('symbol') for p in p_lit]}")
+        
+        return p_x10, p_lit
+        
+    except asyncio.TimeoutError:
+        logger.error("Position fetch timeout, using stale cache")
+        return POSITION_CACHE['x10'], POSITION_CACHE['lighter']
+    except Exception as e:
+        logger.error(f"Position cache error: {e}")
+        import traceback
+        traceback.print_exc()
+        return POSITION_CACHE.get('x10', []), POSITION_CACHE.get('lighter', [])
 
 async def manage_open_trades(lighter, x10):
     trades = await get_open_trades()
@@ -771,48 +830,99 @@ async def manage_open_trades(lighter, x10):
                     await telegram.send_trade_alert(sym, reason, t['notional_usd'], total_pnl)
 
 async def cleanup_zombie_positions(lighter, x10):
-    """Full Zombie Cleanup Implementation"""
+    """Full Zombie Cleanup Implementation with Correct Side Detection"""
     try:
         x_pos, l_pos = await get_cached_positions(lighter, x10, force=True)
-        
+
         x_syms = {p['symbol'] for p in x_pos if abs(p.get('size', 0)) > 1e-8}
         l_syms = {p['symbol'] for p in l_pos if abs(p.get('size', 0)) > 1e-8}
-        
+
         db_trades = await get_open_trades()
         db_syms = {t['symbol'] for t in db_trades}
-        
+
         # 1. Exchange Zombies (Open on Exchange, Closed in DB)
         all_exchange = x_syms | l_syms
         zombies = all_exchange - db_syms
-        
+
         if zombies:
-            logger.warning(f" 🧟 ZOMBIES DETECTED: {zombies}")
+            logger.warning(f"🧟 ZOMBIES DETECTED: {zombies}")
             for sym in zombies:
-                # FIXED: Get actual position size and side
+                # X10 Zombie Cleanup
                 if sym in x_syms:
                     p = next((pos for pos in x_pos if pos['symbol'] == sym), None)
                     if p:
-                        size_usd = abs(p.get('size', 0)) * x10.fetch_mark_price(sym)
-                        side = "BUY" if p.get('size', 0) < 0 else "SELL"  # Opposite side to close
-                        logger.info(f" Closing X10 zombie {sym}: {side} ${size_usd:.1f}")
-                        await x10.close_live_position(sym, side, size_usd)
-                
+                        position_size = p.get('size', 0)
+
+                        # CRITICAL FIX: Determine close side based on CURRENT position
+                        # Positive size = LONG position → close with SELL
+                        # Negative size = SHORT position → close with BUY
+                        if position_size > 0:
+                            close_side = "SELL"  # Close LONG
+                            original_side = "BUY"
+                        else:
+                            close_side = "BUY"   # Close SHORT
+                            original_side = "SELL"
+
+                        size_usd = abs(position_size) * (x10.fetch_mark_price(sym) or 0.0)
+
+                        if size_usd < 1.0:
+                            logger.warning(f"⚠️ X10 zombie {sym} too small (${size_usd:.2f}), skipping")
+                            continue
+
+                        logger.info(f"🔻 Closing X10 zombie {sym}: pos_size={position_size:.6f}, close={close_side}, ${size_usd:.1f}")
+
+                        # Use close_live_position with ORIGINAL side (it handles inversion internally)
+                        try:
+                            success, _ = await x10.close_live_position(sym, original_side, size_usd)
+                            if not success:
+                                logger.error(f"❌ Failed to close X10 zombie {sym}")
+                            else:
+                                logger.info(f"✅ Closed X10 zombie {sym}")
+                        except Exception as e:
+                            logger.error(f"X10 zombie close exception for {sym}: {e}")
+
+                # Lighter Zombie Cleanup
                 if sym in l_syms:
                     p = next((pos for pos in l_pos if pos['symbol'] == sym), None)
                     if p:
-                        size_usd = abs(p.get('size', 0)) * lighter.fetch_mark_price(sym)
-                        side = "BUY" if p.get('size', 0) < 0 else "SELL"
-                        logger.info(f" Closing Lighter zombie {sym}: {side} ${size_usd:.1f}")
-                        await lighter.close_live_position(sym, side, size_usd)
-                    
+                        position_size = p.get('size', 0)
+
+                        # CRITICAL FIX: Same logic for Lighter
+                        if position_size > 0:
+                            close_side = "SELL"
+                            original_side = "BUY"
+                        else:
+                            close_side = "BUY"
+                            original_side = "SELL"
+
+                        size_usd = abs(position_size) * (lighter.fetch_mark_price(sym) or 0.0)
+
+                        if size_usd < 1.0:
+                            logger.warning(f"⚠️ Lighter zombie {sym} too small (${size_usd:.2f}), skipping")
+                            continue
+
+                        logger.info(f"🔻 Closing Lighter zombie {sym}: pos_size={position_size:.6f}, close={close_side}, ${size_usd:.1f}")
+
+                        try:
+                            success, _ = await lighter.close_live_position(sym, original_side, size_usd)
+                            if not success:
+                                logger.error(f"❌ Failed to close Lighter zombie {sym}")
+                            else:
+                                logger.info(f"✅ Closed Lighter zombie {sym}")
+                        except Exception as e:
+                            logger.error(f"Lighter zombie close exception for {sym}: {e}")
+
         # 2. DB Ghosts (Open in DB, Closed on Exchange)
         ghosts = db_syms - all_exchange
         if ghosts:
-            logger.warning(f" 👻 GHOSTS DETECTED: {ghosts}")
+            logger.warning(f"👻 GHOSTS DETECTED: {ghosts}")
             for sym in ghosts:
-                logger.info(f" Closing ghost {sym} in DB")
-                await close_trade_in_state(sym)
-                
+                logger.info(f"Closing ghost {sym} in DB")
+                try:
+                    await close_trade_in_state(sym)
+                except Exception as e:
+                    logger.error(f"Failed to close ghost {sym} in DB: {e}")
+
     except Exception as e:
         logger.error(f"Zombie Cleanup Error: {e}")
 

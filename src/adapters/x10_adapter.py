@@ -413,23 +413,49 @@ class X10Adapter(BaseAdapter):
 
     async def fetch_open_positions(self) -> list:
         if not self.stark_account:
+            logger.warning("X10: No stark_account configured")
             return []
         
         try:
             client = await self._get_auth_client()
+            logger.debug(f"X10: Fetching positions via API...")
+            
             resp = await client.account.get_positions()
+            
+            if not resp:
+                logger.warning("X10: API returned None response")
+                return []
+            
+            if not resp.data:
+                logger.debug("X10: API returned empty data")
+                return []
+            
             positions = []
-            if resp and resp.data:
-                for p in resp.data:
-                    if p.status == "OPENED" and abs(float(p.size)) > 1e-8:
-                        positions.append({
-                            "symbol": p.market,
-                            "size": float(p.size),
-                            "entry_price": float(p.open_price) if p.open_price else 0.0
-                        })
+            for p in resp.data:
+                status = getattr(p, 'status', 'UNKNOWN')
+                size = float(getattr(p, 'size', 0))
+                symbol = getattr(p, 'market', 'UNKNOWN')
+                
+                logger.debug(f"X10: Position {symbol} status={status} size={size}")
+                
+                if status == "OPENED" and abs(size) > 1e-8:
+                    entry_price = float(p.open_price) if hasattr(p, 'open_price') and p.open_price else 0.0
+                    positions.append({
+                        "symbol": symbol,
+                        "size": size,
+                        "entry_price": entry_price
+                    })
+            
+            logger.info(f"X10: Found {len(positions)} open positions")
+            if positions:
+                logger.info(f"X10: {[(p['symbol'], p['size']) for p in positions]}")
+            
             return positions
+            
         except Exception as e:
-            logger.error(f" X10 Positions Error: {e}")
+            logger.error(f"X10 Positions Error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     async def open_live_position(
