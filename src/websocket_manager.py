@@ -23,14 +23,16 @@ class WebSocketManager:
         logger.info(f"WebSocket Manager: Starting streams for {len(self.adapters)} adapters...")
         
         for adapter in self.adapters:
-            if hasattr(adapter, 'start_websocket'):
+            # Check if method exists AND is callable
+            if hasattr(adapter, 'start_websocket') and callable(getattr(adapter, 'start_websocket', None)):
                 # Wrap adapter's WS loop in a supervisor task
                 task = asyncio.create_task(self._supervisor(adapter))
                 self.tasks.append(task)
+                logger.info(f"✅ WebSocket Manager: Started stream for {adapter.name}")
             else:
-                logger.warning(f"Adapter {adapter.name} has no start_websocket() method.")
+                logger.warning(f"⚠️ Adapter {adapter.name} has no start_websocket() method.")
         
-        logger.info("WebSocket Manager: All streams initialized.")
+        logger.info(f"WebSocket Manager: {len(self.tasks)} streams initialized.")
 
     async def _supervisor(self, adapter):
         """
