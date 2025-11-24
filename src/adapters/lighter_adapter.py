@@ -381,42 +381,45 @@ class LighterAdapter(BaseAdapter):
         if not force and self._last_market_cache_at and (time.time() - self._last_market_cache_at < 300):
             return
 
-        logger.info(" Lighter: Aktualisiere Mrkte...")
-        signer = await self._get_signer()
-        order_api = OrderApi(signer.api_client)
-        
+        logger.info("⚙️ Lighter: Aktualisiere Märkte...")
+        signer = None
+        order_api = None
         try:
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+
             market_list = await order_api.order_books()
-            if not market_list or not market_list.order_books:
-                logger.warning(" Lighter: Keine Markets von API erhalten")
+            if not market_list or not getattr(market_list, 'order_books', None):
+                logger.warning("⚠️ Lighter: Keine Markets von API erhalten")
                 return
 
-            all_ids = [m.market_id for m in market_list.order_books if hasattr(m, 'market_id')]
+            all_ids = [getattr(m, 'market_id', None) for m in market_list.order_books]
+            all_ids = [mid for mid in all_ids if mid]
             total_markets = len(all_ids)
-            
+
             BATCH_SIZE = 5
             SLEEP_BETWEEN_BATCHES = 3.0
             MAX_RETRIES = max_retries
-            
+
             successful_loads = 0
             failed_markets = []
             processed_ids = set()
-            
+
             for batch_num, i in enumerate(range(0, len(all_ids), BATCH_SIZE), start=1):
                 batch_ids = all_ids[i:i + BATCH_SIZE]
-                
+
                 if batch_num > 1:
                     await asyncio.sleep(SLEEP_BETWEEN_BATCHES)
-                
+
                 for retry in range(MAX_RETRIES + 1):
                     tasks = [self._fetch_single_market(order_api, mid) for mid in batch_ids]
                     results = await asyncio.gather(*tasks, return_exceptions=True)
 
+                    # Re-evaluate which ids were actually loaded into market_info
                     batch_loaded_ids = []
                     for mid in batch_ids:
                         if mid in processed_ids:
                             continue
-
                         if any(m['i'] == mid for m in self.market_info.values()):
                             batch_loaded_ids.append(mid)
                             processed_ids.add(mid)
@@ -438,8 +441,7 @@ class LighterAdapter(BaseAdapter):
                     if has_429 and retry < MAX_RETRIES:
                         wait_time = (retry + 1) * 2
                         logger.warning(
-                            f" Lighter Batch {batch_num}: Rate Limited. "
-                            f"Retry {retry+1}/{MAX_RETRIES} in {wait_time}s..."
+                            f"⚠️ Lighter Batch {batch_num}: Rate Limited. Retry {retry+1}/{MAX_RETRIES} in {wait_time}s..."
                         )
                         await asyncio.sleep(wait_time)
                         continue
@@ -449,7 +451,7 @@ class LighterAdapter(BaseAdapter):
                         retry_tasks = [self._fetch_single_market(order_api, mid) for mid in batch_failed_ids]
                         await asyncio.gather(*retry_tasks, return_exceptions=True)
 
-                        for mid in batch_failed_ids:
+                        for mid in list(batch_failed_ids):
                             if any(m['i'] == mid for m in self.market_info.values()):
                                 successful_loads += 1
                                 batch_failed_ids.remove(mid)
@@ -458,24 +460,40 @@ class LighterAdapter(BaseAdapter):
                         failed_markets.extend(batch_failed_ids)
 
                     break
-            
+
             if successful_loads == 0 and max_retries > 0:
-                logger.warning(" 0 markets loaded, retry without batch retries...")
+                logger.warning("⚠️ 0 markets loaded, retry without batch retries...")
                 await self.load_market_cache(force=True, max_retries=0)
 
             self._last_market_cache_at = time.time()
             success_rate = (successful_loads / total_markets * 100) if total_markets > 0 else 0
-            
+
             if failed_markets:
                 logger.warning(
-                    f" Lighter: {successful_loads}/{total_markets} Mrkte geladen ({success_rate:.1f}%). "
-                    f"{len(failed_markets)} failed."
+                    f"⚙️ Lighter: {successful_loads}/{total_markets} Märkte geladen ({success_rate:.1f}%). {len(failed_markets)} failed."
                 )
             else:
-                logger.info(f" Lighter: {successful_loads} Mrkte geladen (100%).")
-                
+                logger.info(f"✅ Lighter: {successful_loads} Märkte geladen ({success_rate:.1f}%).")
+
         except Exception as e:
-            logger.error(f" Lighter Market Cache Error: {e}")
+            logger.error(f"❌ Lighter Market Cache Error: {e}")
+        finally:
+            # CRITICAL: Final cleanup attempt - ensure underlying HTTP/session objects closed
+            try:
+                if signer and hasattr(signer, 'api_client'):
+                    api_client = signer.api_client
+                    # aiohttp-based clients may expose 'close' as coroutine or regular
+                    if hasattr(api_client, 'close'):
+                        maybe = api_client.close()
+                        if asyncio.iscoroutine(maybe):
+                            await maybe
+                    # Some SDKs wrap an underlying session
+                    elif hasattr(api_client, 'session') and hasattr(api_client.session, 'close'):
+                        maybe2 = api_client.session.close()
+                        if asyncio.iscoroutine(maybe2):
+                            await maybe2
+            except Exception as e:
+                logger.debug(f"Session close attempt failed: {e}")
 
     async def load_funding_rates_and_prices(self):
         if not getattr(config, "LIVE_TRADING", False):
@@ -903,14 +921,42 @@ class LighterAdapter(BaseAdapter):
         return False, None
 
     async def aclose(self):
+        """Cleanup all sessions and connections"""
         if self._signer:
             try:
-                if hasattr(self._signer, 'api_client') and hasattr(self._signer.api_client, 'close'):
-                    await self._signer.api_client.close()
-                elif hasattr(self._signer, 'close'):
-                    await self._signer.close()
-            except:
-                pass
+                # Close API client session
+                if hasattr(self._signer, 'api_client'):
+                    api_client = self._signer.api_client
+                    try:
+                        if hasattr(api_client, 'close'):
+                            maybe = api_client.close()
+                            if asyncio.iscoroutine(maybe):
+                                await maybe
+                            logger.debug("Lighter: API client closed")
+                    except Exception:
+                        # try closing underlying session if present
+                        try:
+                            if hasattr(api_client, 'session') and hasattr(api_client.session, 'close'):
+                                maybe2 = api_client.session.close()
+                                if asyncio.iscoroutine(maybe2):
+                                    await maybe2
+                                logger.debug("Lighter: Session closed")
+                        except Exception:
+                            pass
+
+                # Close signer itself if it has close method
+                if hasattr(self._signer, 'close'):
+                    maybe_sig = self._signer.close()
+                    if asyncio.iscoroutine(maybe_sig):
+                        await maybe_sig
+                    logger.debug("Lighter: Signer closed")
+
+            except Exception as e:
+                logger.debug(f"Lighter cleanup warning: {e}")
+            finally:
+                self._signer = None
+
+        logger.info("✅ Lighter Adapter geschlossen.")
 
     async def cancel_all_orders(self, symbol: str) -> bool:
         """Cancel all open orders for a symbol"""
