@@ -550,6 +550,33 @@ class X10Adapter(BaseAdapter):
             symbol, close_side, notional_usd, reduce_only=True, post_only=False
         )
     
+    async def cancel_all_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            if not self.stark_account:
+                return False
+            
+            client = await self._get_auth_client()
+            
+            # Get open orders
+            orders_resp = await client.account.get_orders(market_name=symbol)
+            if not orders_resp or not orders_resp.data:
+                return True
+            
+            # Cancel each order
+            for order in orders_resp.data:
+                if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
+                    try:
+                        await client.cancel_order(order.id)
+                        await asyncio.sleep(0.1)
+                    except Exception as e:
+                        logger.debug(f"Cancel order {getattr(order, 'id', 'unknown')}: {e}")
+            
+            return True
+        except Exception as e:
+            logger.debug(f"X10 cancel_all_orders error: {e}")
+            return False
+    
     async def get_real_available_balance(self) -> float:
         try:
             client = await self._get_auth_client()

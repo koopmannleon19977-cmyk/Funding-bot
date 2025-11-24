@@ -723,3 +723,34 @@ class LighterAdapter(BaseAdapter):
                     await self._signer.close()
             except:
                 pass
+
+    async def cancel_all_orders(self, symbol: str) -> bool:
+        """Cancel all open orders for a symbol"""
+        try:
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+            
+            market_data = self.market_info.get(symbol)
+            if not market_data:
+                return False
+            
+            market_id = market_data.get('i')
+            
+            # Get open orders
+            orders_resp = await order_api.get_orders(market_id=market_id)
+            if not orders_resp or not orders_resp.orders:
+                return True
+            
+            # Cancel each order
+            for order in orders_resp.orders:
+                if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
+                    try:
+                        await order_api.cancel_order(order.id)
+                        await asyncio.sleep(0.1)
+                    except Exception as e:
+                        logger.debug(f"Cancel order {getattr(order, 'id', 'unknown')}: {e}")
+            
+            return True
+        except Exception as e:
+            logger.debug(f"Lighter cancel_all_orders error: {e}")
+            return False
