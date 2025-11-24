@@ -1233,11 +1233,7 @@ async def main():
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
     
-    # 3. Init Managers
-    ws_manager = WebSocketManager([x10, lighter])
-    parallel_exec = ParallelExecutionManager(x10, lighter)
-    
-    # 4. Load Initial Data FIRST (required for WebSocket subscriptions)
+    # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")
     try:
         # Load markets with retries
@@ -1286,18 +1282,37 @@ async def main():
         logger.critical(f"❌ FATAL: Market data load failed: {e}")
         return
     
-    # 4.5. NOW Start WebSocket Streams (after markets loaded)
+    # 4. NOW Start WebSocket Streams (AFTER markets loaded)
     logger.info("🌐 Starting WebSocket streams...")
+    ws_manager = WebSocketManager([x10, lighter])
     await ws_manager.start()
     
-    # Wait for WS connections
+    # Wait for WS connections and verify health
     logger.info("⏳ Waiting for WebSocket connections...")
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
     
-    # 5. Start Background Loops
+    # Verify WebSocket streams are receiving data
+    logger.info("🔍 Verifying WebSocket health...")
+    for check in range(3):
+        await asyncio.sleep(2)
+        x10_cache_size = len(x10.price_cache)
+        lit_cache_size = len(lighter.price_cache)
+        
+        logger.info(f"📊 Cache status: X10={x10_cache_size} prices, Lighter={lit_cache_size} prices")
+        
+        if x10_cache_size > 0 or lit_cache_size > 0:
+            logger.info("✅ WebSocket streams healthy - receiving price updates")
+            break
+            
+        if check == 2:
+            logger.warning("⚠️ WebSocket streams not receiving data - proceeding anyway")
+
+    # 5. Init Managers
+    parallel_exec = ParallelExecutionManager(x10, lighter)
+    
+    # 6. Start Background Loops
     logger.info("🚀 Spawning Tasks...")
     tasks = [
-        # WebSocket manager already started in step 3.5
         asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec)),
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec)),
         asyncio.create_task(maintenance_loop(lighter, x10))

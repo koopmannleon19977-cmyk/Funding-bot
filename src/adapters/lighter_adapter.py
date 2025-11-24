@@ -207,6 +207,7 @@ class LighterAdapter(BaseAdapter):
         while True:
             session = None
             try:
+                # CRITICAL: Load markets BEFORE connecting if not loaded
                 if not self.market_info:
                     await self.load_market_cache(force=True)
 
@@ -219,7 +220,7 @@ class LighterAdapter(BaseAdapter):
                     logger.info("🟢 Lighter WebSocket connected")
                     retry_delay = 5
                     
-                    # Market info must be loaded before WS start
+                    # CRITICAL: Verify market_info loaded before subscribing
                     if not self.market_info:
                         logger.error("❌ Lighter: No markets available - cannot subscribe")
                         await asyncio.sleep(5)
@@ -248,12 +249,18 @@ class LighterAdapter(BaseAdapter):
                                     updated = False
                                     for sym, info in self.market_info.items():
                                         if info['i'] == mid:
-                                            self.price_cache[sym] = float(price_str)
+                                            try:
+                                                self.price_cache[sym] = float(price_str)
+                                            except Exception:
+                                                pass
                                             updated = True
                                             break
 
                                     if updated and hasattr(self, 'price_update_event'):
-                                        self.price_update_event.set()
+                                        try:
+                                            self.price_update_event.set()
+                                        except Exception:
+                                            pass
 
                                 market_id = p.get("market_id")
                                 if market_id and "order_book" in p:
@@ -288,24 +295,27 @@ class LighterAdapter(BaseAdapter):
                                             }
                                             break
                         elif msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.warning(f" Lighter WS Error: {msg}")
+                            logger.warning(f"⚠️ Lighter WS Error: {msg}")
                             break
             except asyncio.CancelledError:
-                logger.info(" Lighter WS stopped (CancelledError)")
+                logger.info("🛑 Lighter WS stopped (CancelledError)")
                 break
             except Exception as e:
                 error_str = str(e).lower()
                 if "429" in error_str or "rate limit" in error_str:
                     retry_delay = min(retry_delay * 2, max_delay)
-                    logger.warning(f" Lighter WS Rate Limited! Backoff: {retry_delay}s")
+                    logger.warning(f"⚠️ Lighter WS Rate Limited! Backoff: {retry_delay}s")
                 else:
                     retry_delay = min(retry_delay * 1.5, max_delay)
-                    logger.error(f" Lighter WS Error: {e}. Reconnect in {retry_delay:.0f}s...")
+                    logger.error(f"❌ Lighter WS Error: {e}. Reconnect in {retry_delay:.0f}s...")
                 await asyncio.sleep(retry_delay)
             finally:
                 await asyncio.sleep(0)
                 if session and not session.closed:
-                    await session.close()
+                    try:
+                        await session.close()
+                    except Exception:
+                        pass
 
     def _get_base_url(self) -> str:
         return getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")

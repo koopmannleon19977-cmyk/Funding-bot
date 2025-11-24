@@ -166,19 +166,24 @@ class X10Adapter(BaseAdapter):
                 ) as ws:
                     logger.info("🟢 X10 Trades WS connected")
                     retry_delay = 5
-                    
+
+                    # CRITICAL: Verify market_info loaded before subscribing
                     if not self.market_info:
                         logger.error("❌ X10: No markets available - cannot stream")
                         await asyncio.sleep(5)
                         break
-                    
+
                     logger.info(f"📊 X10: {len(self.market_info)} markets available for streaming")
-                    
+
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
-                            data = json.loads(msg.data)
+                            try:
+                                data = json.loads(msg.data)
+                            except Exception:
+                                continue
+
                             trigger_update = False
-                            
+
                             if "data" in data:
                                 trades = data["data"]
                                 if isinstance(trades, list):
@@ -189,25 +194,31 @@ class X10Adapter(BaseAdapter):
                                             try:
                                                 self.price_cache[sym] = float(px_str)
                                                 trigger_update = True
-                                            except ValueError:
+                                            except (ValueError, TypeError):
                                                 pass
-                            
+
                             if trigger_update and hasattr(self, 'price_update_event'):
-                                self.price_update_event.set()
+                                try:
+                                    self.price_update_event.set()
+                                except Exception:
+                                    pass
 
                         elif msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.warning(f" X10 Trades WS Error: {msg}")
+                            logger.warning(f"⚠️ X10 Trades WS Error: {msg}")
                             break
-                            
+
             except asyncio.CancelledError:
-                logger.info(" X10 Trades WS stopped")
+                logger.info("🛑 X10 Trades WS stopped")
                 break
             except Exception as e:
-                logger.error(f" X10 Trades WS error: {e}. Reconnect in {retry_delay}s")
+                logger.error(f"❌ X10 Trades WS error: {e}. Reconnect in {retry_delay}s")
                 await asyncio.sleep(retry_delay)
             finally:
                 if session and not session.closed:
-                    await session.close()
+                    try:
+                        await session.close()
+                    except Exception:
+                        pass
     
     async def _ws_orderbook(self, url, retry_delay, max_delay):
         while True:
@@ -221,15 +232,16 @@ class X10Adapter(BaseAdapter):
                 ) as ws:
                     logger.info("🟢 X10 Orderbook WS connected")
                     retry_delay = 5
-                    
+
+                    # CRITICAL: Verify market_info loaded before subscribing
                     if not self.market_info:
                         logger.error("❌ X10 Orderbook: No markets available - cannot subscribe")
                         await asyncio.sleep(5)
                         break
-                    
+
                     priority_symbols = list(self.market_info.keys())[:5]
                     logger.info(f"📊 X10 Orderbook: Subscribing to {len(priority_symbols)} priority symbols")
-                    
+
                     for symbol in priority_symbols:
                         sub_msg = {
                             "method": "subscribe",
@@ -238,50 +250,59 @@ class X10Adapter(BaseAdapter):
                                 "market": symbol
                             }
                         }
-                        await ws.send_json(sub_msg)
+                        try:
+                            await ws.send_json(sub_msg)
+                        except Exception as e:
+                            logger.debug(f"Orderbook subscribe failed for {symbol}: {e}")
                         await asyncio.sleep(0.05)
-                    
+
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
-                            data = json.loads(msg.data)
-                            
+                            try:
+                                data = json.loads(msg.data)
+                            except Exception:
+                                continue
+
                             if data.get("channel") == "orderbook":
                                 symbol = data.get("market")
                                 ob_data = data.get("data", {})
-                                
+
                                 if symbol and ob_data:
                                     bids = []
                                     asks = []
-                                    
+
                                     for bid in ob_data.get("bids", []):
                                         try:
                                             bids.append([float(bid[0]), float(bid[1])])
-                                        except:
+                                        except Exception:
                                             pass
-                                    
+
                                     for ask in ob_data.get("asks", []):
                                         try:
                                             asks.append([float(ask[0]), float(ask[1])])
-                                        except:
+                                        except Exception:
                                             pass
-                                    
+
                                     self.orderbook_cache[symbol] = {
                                         'bids': bids,
                                         'asks': asks,
                                         'timestamp': time.time()
                                     }
                         elif msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.warning(f" X10 Orderbook WS Error: {msg}")
+                            logger.warning(f"⚠️ X10 Orderbook WS Error: {msg}")
                             break
             except asyncio.CancelledError:
-                logger.info(" X10 Orderbook WS stopped")
+                logger.info("🛑 X10 Orderbook WS stopped")
                 break
             except Exception as e:
-                logger.error(f" X10 Orderbook WS error: {e}")
+                logger.error(f"❌ X10 Orderbook WS error: {e}")
                 await asyncio.sleep(retry_delay)
             finally:
                 if session and not session.closed:
-                    await session.close()
+                    try:
+                        await session.close()
+                    except Exception:
+                        pass
 
     async def _get_ws_urls(self) -> dict:
         return {
