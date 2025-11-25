@@ -189,6 +189,7 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
     opps: List[Dict] = []
     common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
+    logger.info(f"🔍 Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
     # Verify market data is loaded
     if not common:
         logger.warning("⚠️ No common markets found")
@@ -1038,27 +1039,30 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
             # Cleanup
             await cleanup_finished_tasks()
-            
-            # CRITICAL: Remove tasks for symbols that are already open
+
+            # SINGLE call to get_open_trades - use everywhere
             try:
-                trades = await get_open_trades()
-                open_syms = {t['symbol'] for t in trades}
-
-                # Remove zombie tasks that correspond to already-open trades
-                zombie_tasks = [s for s in list(ACTIVE_TASKS.keys()) if s in open_syms]
-                for sym in zombie_tasks:
-                    logger.warning(f"🧟 Removing zombie task: {sym}")
-                    try:
-                        del ACTIVE_TASKS[sym]
-                    except KeyError:
-                        pass
+                current_trades = await get_open_trades()
             except Exception as e:
-                logger.error(f"Error syncing ACTIVE_TASKS with open trades: {e}")
+                logger.error(f"Error fetching open trades: {e}")
+                current_trades = []
 
-            # Manage trades
+            open_syms = {t['symbol'] for t in current_trades}
+
+            # Remove zombie tasks
+            zombie_tasks = [s for s in list(ACTIVE_TASKS.keys()) if s in open_syms]
+            for sym in zombie_tasks:
+                logger.warning(f"🧟 Removing zombie task: {sym}")
+                try:
+                    del ACTIVE_TASKS[sym]
+                except KeyError:
+                    pass
+
+            # Manage trades (use same current_trades)
             if management_task is None or management_task.done():
                 if management_task and management_task.exception():
                     logger.error(f"Manage Task Error: {management_task.exception()}")
+                # Pass current_trades to avoid second call (manage_open_trades may fetch again internally)
                 management_task = asyncio.create_task(manage_open_trades(lighter, x10))
 
             # Zombie cleanup (run at most once every 180 seconds)
@@ -1071,20 +1075,20 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 # record monotonic timestamp to throttle next run
                 last_zombie = now
 
-            # Check opportunities
-            trades = await get_open_trades()
-            
+            # Check opportunities (use cached current_trades)
+            logger.debug(f"📊 Current trades: {len(current_trades)}, symbols: {open_syms}")
+
             # REMOVED all asymmetry checks - they were blocking trades
-            
+
             current_executing = len(ACTIVE_TASKS)
-            current_open = len(trades)
+            current_open = len(current_trades)
             total_busy = current_open + current_executing
             
             # CRITICAL: Only allow 1 new execution at a time
             MAX_CONCURRENT_NEW = 1
             
             if total_busy < config.MAX_OPEN_TRADES:
-                open_syms = {t['symbol'] for t in trades}
+                open_syms = {t['symbol'] for t in current_trades}
                 active_syms = set(ACTIVE_TASKS.keys())
                 all_busy_syms = open_syms | active_syms
 
