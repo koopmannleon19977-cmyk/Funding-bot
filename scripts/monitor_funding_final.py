@@ -42,7 +42,7 @@ FAILED_COINS = {}
 ACTIVE_TASKS = {}
 SHUTDOWN_FLAG = False
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
-POSITION_CACHE_TTL = 10.0  # Increased to 10s to prevent API rate limits
+POSITION_CACHE_TTL = 30.0  # 10s -> 30s to reduce API calls
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 OPPORTUNITY_LOG_CACHE = {}
@@ -978,20 +978,20 @@ async def cleanup_zombie_positions(lighter, x10):
 
 async def farm_loop(lighter, x10, parallel_exec):
     """Aggressive Volume Farming Loop"""
-    logger.info(" 🚜 Farming Loop started.")
+    if not config.VOLUME_FARM_MODE:
+        logger.info("🚜 Farm Mode disabled - exiting")
+        return
+
+    logger.info("🚜 Farming Loop started.")
     while True:
         try:
-            if not config.VOLUME_FARM_MODE:  # DISABLED until zombies cleaned
-                await asyncio.sleep(10)
-                continue
-
             trades = await get_open_trades()
             if len(trades) >= config.FARM_MAX_CONCURRENT:
                 await asyncio.sleep(1)
                 continue
 
             open_syms = {t['symbol'] for t in trades}
-            
+
             # DISABLED: Farm loop creates zombies - use normal opportunity finding instead
             # TODO: Re-enable after zombie fix verified
             await asyncio.sleep(60)
@@ -1049,8 +1049,8 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
             open_syms = {t['symbol'] for t in current_trades}
 
-            # Remove zombie tasks
-            zombie_tasks = [s for s in list(ACTIVE_TASKS.keys()) if s in open_syms]
+            # Remove zombie tasks (only remove if task is finished)
+            zombie_tasks = [s for s, t in ACTIVE_TASKS.items() if s in open_syms and t.done()]
             for sym in zombie_tasks:
                 logger.warning(f"🧟 Removing zombie task: {sym}")
                 try:
@@ -1097,11 +1097,6 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 logger.debug(f"Slots: Open={current_open}, Exec={current_executing}, New={new_trades_allowed}")
 
-                # CRITICAL: Never start new trade if already executing
-                if current_executing > 0:
-                    logger.debug(f"⏳ Waiting for {current_executing} executions to finish")
-                    await asyncio.sleep(2)
-                    continue
                 
                 # Latency arb (limit 1)
                 if new_trades_allowed > 0:

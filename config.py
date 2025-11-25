@@ -42,7 +42,7 @@ MAX_OPEN_TRADES = 40
 # ============================================================
 # PROFIT-FILTER (EINSTIEG)
 # ============================================================
-MIN_APY_FILTER = 0.12
+MIN_APY_FILTER = 0.05  # lowered from 0.12 to 0.05
 MIN_DAILY_PROFIT_FILTER = MIN_APY_FILTER / 365
 
 DYNAMIC_MIN_APY_ENABLED = True

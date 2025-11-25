@@ -365,6 +365,23 @@ class LighterAdapter(BaseAdapter):
                                                 'timestamp': time.time()
                                             }
                                             break
+
+                            # Funding rate updates
+                            elif method == "funding_subscription" and isinstance(params, dict):
+                                mid = params.get("marketId")
+                                funding_data = params.get("data", {})
+                                rate = funding_data.get("rate")
+
+                                if mid and rate:
+                                    for sym, info in self.market_info.items():
+                                        if info['i'] == mid:
+                                            # Convert 8h rate to hourly
+                                            try:
+                                                self.funding_cache[sym] = float(rate) / 8.0
+                                                logger.debug(f"Lighter: Funding update {sym}={float(rate)/8.0:.6f}")
+                                            except Exception:
+                                                logger.debug(f"Lighter: Funding parse error for {sym}: {rate}")
+                                            break
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             logger.warning(f"⚠️ Lighter WS Error: {msg}")
                             break
