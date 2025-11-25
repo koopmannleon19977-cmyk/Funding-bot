@@ -159,8 +159,8 @@ FARM_MAX_SPREAD_PCT = 0.15
 # ============================================================
 # SYSTEM
 # ============================================================
-CONCURRENT_REQUEST_LIMIT = 2
-REFRESH_DELAY_SECONDS = 5
+CONCURRENT_REQUEST_LIMIT = 10  # Increased concurrency for aggressive scanning (2 -> 10)
+REFRESH_DELAY_SECONDS = 1  # Aggressive refresh: scan every second (5 -> 1)
 DB_FILE = "funding.db"
 LOG_FILE = "funding_bot.log"
 LOG_LEVEL = logging.DEBUG

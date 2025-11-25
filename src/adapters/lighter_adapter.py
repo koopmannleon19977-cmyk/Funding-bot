@@ -47,11 +47,11 @@ class LighterAdapter(BaseAdapter):
         self._signer = None
         self._resolved_account_index = None
         self._resolved_api_key_index = None
-        self.semaphore = asyncio.Semaphore(3)
+        self.semaphore = asyncio.Semaphore(10)  # Increased concurrency: 3 -> 10
         self.rate_limiter = AdaptiveRateLimiter(
-            initial_rate=3.0,
-            min_rate=1.0,
-            max_rate=15.0,
+            initial_rate=15.0,  # 3.0 → 15.0
+            min_rate=3.0,       # 1.0 → 3.0
+            max_rate=30.0,      # 15.0 → 30.0
             name="Lighter"
         )
         self._last_market_cache_at = None
@@ -256,6 +256,19 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(0.2)
                         await ws.send_json(sub_orderbook)
                         await asyncio.sleep(0.5)
+
+                    # Subscribe to funding rates channel
+                    try:
+                        sub_funding = {
+                            "type": "subscribe",
+                            "channel": "funding",
+                            "market_ids": market_ids
+                        }
+                        await ws.send_json(sub_funding)
+                        logger.info("📊 Lighter: Subscribed to funding rate updates")
+                        await asyncio.sleep(0.2)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Lighter: Funding subscription failed: {e}")
                     
                     logger.debug("Lighter: Waiting for subscription confirmation...")
                     
@@ -462,8 +475,8 @@ class LighterAdapter(BaseAdapter):
             all_ids = [m.market_id for m in market_list.order_books if hasattr(m, 'market_id')]
             total_markets = len(all_ids)
 
-            BATCH_SIZE = 3  # Reduced from 5 to be gentler with rate limits
-            SLEEP_BETWEEN_BATCHES = 5.0  # Increased from 3.0 to add breathing room
+            BATCH_SIZE = 10  # Increased from 3 to speed up market loading
+            SLEEP_BETWEEN_BATCHES = 1.0  # Reduced delay between batches (was 5.0)
             MAX_RETRIES = max_retries
 
             successful_loads = 0

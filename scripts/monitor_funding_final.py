@@ -266,10 +266,21 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
     valid_pairs = 0
     
     for s, rl, rx, px, pl in clean_results:
-        if s in open_syms or s in config.BLACKLIST_SYMBOLS or is_tradfi_or_fx(s):
+        # Debug: Log filter checks
+        if s in open_syms:
+            logger.debug(f"🔄 Skip {s}: Already open (in open_syms)")
+            continue
+            
+        if s in config.BLACKLIST_SYMBOLS:
+            logger.debug(f"⛔ Skip {s}: In BLACKLIST")
+            continue
+            
+        if is_tradfi_or_fx(s):
+            logger.debug(f"⛔ Skip {s}: TradFi/FX")
             continue
 
         if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 300):
+            logger.debug(f"⏰ Skip {s}: Failed cooldown")
             continue
 
         # Count valid data
@@ -1012,10 +1023,10 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
         try:
             # Wait for trigger
             try:
-                await asyncio.wait_for(price_event.wait(), timeout=5.0)
+                await asyncio.wait_for(price_event.wait(), timeout=0.5)  # 5.0 → 0.5 for faster reaction
                 logger.debug("📡 Price update event triggered")
             except asyncio.TimeoutError:
-                logger.debug("⏱️ Logic loop timeout (no price updates in 5s)")
+                pass  # Kein Log spam
             price_event.clear()
             
             # Verify WebSocket streams are alive
@@ -1027,6 +1038,22 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
             # Cleanup
             await cleanup_finished_tasks()
+            
+            # CRITICAL: Remove tasks for symbols that are already open
+            try:
+                trades = await get_open_trades()
+                open_syms = {t['symbol'] for t in trades}
+
+                # Remove zombie tasks that correspond to already-open trades
+                zombie_tasks = [s for s in list(ACTIVE_TASKS.keys()) if s in open_syms]
+                for sym in zombie_tasks:
+                    logger.warning(f"🧟 Removing zombie task: {sym}")
+                    try:
+                        del ACTIVE_TASKS[sym]
+                    except KeyError:
+                        pass
+            except Exception as e:
+                logger.error(f"Error syncing ACTIVE_TASKS with open trades: {e}")
 
             # Manage trades
             if management_task is None or management_task.done():
@@ -1097,22 +1124,39 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     started = 0
                     for opp in opps:
                         if started >= new_trades_allowed:
+                            logger.debug(f"⛔ Stopping: Max new trades reached ({new_trades_allowed})")
                             break
 
                         sym = opp['symbol']
+                        
+                        # Log EVERY opportunity with reason
                         if sym in ACTIVE_TASKS:
+                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): Already executing")
                             continue
+                        
+                        if sym in config.BLACKLIST_SYMBOLS:
+                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): BLACKLISTED")
+                            continue
+                        
+                        if sym in FAILED_COINS:
+                            cooldown_total = 300
+                            cooldown_elapsed = time.time() - FAILED_COINS.get(sym, 0)
+                            cooldown_remaining = max(0, cooldown_total - cooldown_elapsed)
+                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): FAILED cooldown ({cooldown_remaining:.0f}s left)")
+                            continue
+                        
+                        # Should execute!
+                        logger.info(f"🚀 EXECUTING {sym}: APY={opp.get('apy', 0):.1f}%, Net={opp.get('net_funding_hourly', 0):.6f}")
 
-                        if sym not in ACTIVE_TASKS:
-                            ACTIVE_TASKS[sym] = asyncio.create_task(
-                                execute_trade_task(opp, lighter, x10, parallel_exec)
-                            )
-                            started += 1
-                            
-                            # CRITICAL: Wait for execution to fully complete
-                            logger.info(f"⏳ Waiting for {sym} execution to complete...")
-                            await ACTIVE_TASKS[sym]
-                            await asyncio.sleep(3)  # Extra safety delay
+                        ACTIVE_TASKS[sym] = asyncio.create_task(
+                            execute_trade_task(opp, lighter, x10, parallel_exec)
+                        )
+                        started += 1
+                        
+                        # Wait for execution
+                        logger.info(f"⏳ Waiting for {sym} execution to complete...")
+                        await ACTIVE_TASKS[sym]
+                        await asyncio.sleep(3)
 
         except asyncio.CancelledError:
             break
@@ -1206,34 +1250,31 @@ async def main():
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")
     try:
-        # Load markets with retries
-        for attempt in range(3):
-            try:
-                await asyncio.gather(
-                    x10.load_market_cache(force=True),
-                    lighter.load_market_cache(force=True)
-                )
-                
-                x10_count = len(x10.market_info)
-                lit_count = len(lighter.market_info)
-                
-                logger.info(f"✅ Markets loaded: X10={x10_count}, Lighter={lit_count}")
-                
-                if x10_count == 0 and lit_count == 0:
-                    raise ValueError("No markets loaded from any exchange")
-                    
-                if lit_count == 0:
-                    logger.warning("⚠️ Lighter markets not loaded - bot will use X10 only")
-                    
-                if x10_count == 0:
-                    logger.warning("⚠️ X10 markets not loaded - bot will use Lighter only")
-                    
-                break
-            except Exception as e:
-                if attempt == 2:
-                    raise
-                logger.warning(f"Market load attempt {attempt+1} failed: {e}")
-                await asyncio.sleep(5)
+        # PARALLEL statt sequential: gather with return_exceptions to inspect errors
+        load_results = await asyncio.gather(
+            x10.load_market_cache(force=True),
+            lighter.load_market_cache(force=True),
+            return_exceptions=True
+        )
+
+        # Check for errors from the parallel load
+        for i, result in enumerate(load_results):
+            if isinstance(result, Exception):
+                logger.error(f"Market load failed: {result}")
+
+        x10_count = len(x10.market_info)
+        lit_count = len(lighter.market_info)
+
+        logger.info(f"✅ Markets loaded: X10={x10_count}, Lighter={lit_count}")
+
+        if x10_count == 0 and lit_count == 0:
+            raise ValueError("No markets loaded from any exchange")
+
+        if lit_count == 0:
+            logger.warning("⚠️ Lighter markets not loaded - bot will use X10 only")
+
+        if x10_count == 0:
+            logger.warning("⚠️ X10 markets not loaded - bot will use Lighter only")
         
         # Load initial funding rates
         logger.info("📈 Loading initial funding rates...")

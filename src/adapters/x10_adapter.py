@@ -37,9 +37,9 @@ class X10Adapter(BaseAdapter):
         self.price_update_event = None  # Will be set by main loop
 
         self.rate_limiter = AdaptiveRateLimiter(
-            initial_rate=10.0,
-            min_rate=3.0,
-            max_rate=20.0,
+            initial_rate=20.0,  # 10.0 → 20.0
+            min_rate=5.0,       # 3.0 → 5.0
+            max_rate=50.0,      # 20.0 → 50.0
             name="X10"
         )
 
@@ -212,6 +212,7 @@ class X10Adapter(BaseAdapter):
                             except Exception:
                                 continue
 
+                            # Remove hasattr check - always cache
                             trigger_update = False
 
                             if "data" in data:
@@ -225,9 +226,8 @@ class X10Adapter(BaseAdapter):
                                                 price_float = float(px_str)
                                                 self.price_cache[sym] = price_float
                                                 trigger_update = True
-                                                logger.debug(f"X10: Price update {sym}={price_float}")
-                                            except (ValueError, TypeError) as e:
-                                                logger.error(f"X10: Price parse error {sym}: {e}")
+                                            except (ValueError, TypeError):
+                                                pass
 
                             if trigger_update and hasattr(self, 'price_update_event'):
                                 try:
