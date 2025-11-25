@@ -240,13 +240,28 @@ class LighterAdapter(BaseAdapter):
                     batch_size = 50
                     for i in range(0, len(market_ids), batch_size):
                         batch = market_ids[i:i+batch_size]
-                        sub_msg = {
+                        # Subscribe to trades
+                        sub_trades = {
                             "method": "subscribe",
-                            "params": ["trade", "order_book", batch],
-                            "id": (i // batch_size) + 1
+                            "params": {
+                                "channel": "trades",
+                                "market_ids": batch
+                            },
+                            "id": (i // batch_size) * 2 + 1
+                        }
+                        # Subscribe to order_book
+                        sub_orderbook = {
+                            "method": "subscribe",
+                            "params": {
+                                "channel": "order_book",
+                                "market_ids": batch
+                            },
+                            "id": (i // batch_size) * 2 + 2
                         }
                         logger.debug(f"Lighter: Sending batch {(i // batch_size) + 1} with {len(batch)} markets")
-                        await ws.send_json(sub_msg)
+                        await ws.send_json(sub_trades)
+                        await asyncio.sleep(0.2)
+                        await ws.send_json(sub_orderbook)
                         await asyncio.sleep(0.5)
                     
                     logger.debug("Lighter: Waiting for subscription confirmation...")
@@ -532,22 +547,7 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"❌ Lighter Market Cache Error: {e}")
         finally:
-            # CRITICAL: Final cleanup attempt - ensure underlying HTTP/session objects closed
-            try:
-                if signer and hasattr(signer, 'api_client'):
-                    api_client = signer.api_client
-                    # aiohttp-based clients may expose 'close' as coroutine or regular
-                    if hasattr(api_client, 'close'):
-                        maybe = api_client.close()
-                        if asyncio.iscoroutine(maybe):
-                            await maybe
-                    # Some SDKs wrap an underlying session
-                    elif hasattr(api_client, 'session') and hasattr(api_client.session, 'close'):
-                        maybe2 = api_client.session.close()
-                        if asyncio.iscoroutine(maybe2):
-                            await maybe2
-            except Exception as e:
-                logger.debug(f"Session close attempt failed: {e}")
+            pass  # Session cleanup moved to `aclose()` on the adapter; signer persists for adapter lifetime
 
     async def load_funding_rates_and_prices(self):
         if not getattr(config, "LIVE_TRADING", False):
