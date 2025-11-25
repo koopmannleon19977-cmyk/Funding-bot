@@ -560,13 +560,14 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
         # EXECUTE PARALLEL
         try:
-            logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
-            
             # EXECUTE PARALLEL
-            success_x10, success_lit = False, False
-            x10_fill_price, lit_fill_price = None, None
-            
             try:
+                # CRITICAL: Snapshot prices BEFORE trade execution (Adapter returns order_id, not price)
+                est_px_x10 = x10.fetch_mark_price(symbol) or 0.0
+                est_px_lit = lighter.fetch_mark_price(symbol) or 0.0
+                
+                logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
+                
                 # Fire both simultaneously
                 x10_task = asyncio.create_task(
                     x10.open_live_position(symbol, x10_side, final_usd, post_only=True)
@@ -581,14 +582,16 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 # Check X10
                 if isinstance(x10_result, Exception):
                     logger.error(f"❌ X10 {symbol} failed: {x10_result}")
+                    success_x10 = False
                 else:
-                    success_x10, x10_fill_price = x10_result
+                    success_x10, _ = x10_result  # Ignore order_id
                 
                 # Check Lighter
                 if isinstance(lit_result, Exception):
                     logger.error(f"❌ Lighter {symbol} failed: {lit_result}")
+                    success_lit = False
                 else:
-                    success_lit, lit_fill_price = lit_result
+                    success_lit, _ = lit_result  # Ignore tx_hash
                 
                 # ROLLBACK if partial fill
                 if success_x10 and not success_lit:
@@ -609,7 +612,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 if success_x10 and success_lit:
                     logger.info(f"✅ {symbol} opened successfully")
                     
-                    # Store trade
+                    # Store trade with SNAPSHOT prices (not order IDs!)
                     trade_data = {
                         'symbol': symbol,
                         'entry_time': datetime.now(timezone.utc),
@@ -618,8 +621,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         'leg1_exchange': opp['leg1_exchange'],
                         'initial_spread_pct': opp.get('spread_pct', 0.0),
                         'initial_funding_rate_hourly': abs(net_rate),
-                        'entry_price_x10': x10_fill_price,
-                        'entry_price_lighter': lit_fill_price,
+                        'entry_price_x10': float(est_px_x10),
+                        'entry_price_lighter': float(est_px_lit),
                         'is_farm_trade': opp.get('is_farm_trade', False),
                         'account_label': current_label
                     }
@@ -627,7 +630,6 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     state_mgr = get_state_manager()
                     await state_mgr.add_trade(trade_data)
                     
-                    vol_monitor.record_trade_entry(symbol)
                     return True
                 
                 # BOTH FAILED
