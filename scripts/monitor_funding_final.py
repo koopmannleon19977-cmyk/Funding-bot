@@ -562,74 +562,102 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         try:
             logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
             
-            result = await parallel_exec.execute_with_rollback(
-                symbol=symbol,
-                x10_side=x10_side,
-                lighter_side=lighter_side,
-                notional_usd=final_usd,
-                x10_adapter=x10,
-                lighter_adapter=lighter,
-                max_retries=2
-            )
-
-            if result['success']:
-                logger.info(f"✅ {symbol} opened successfully")
+            # EXECUTE PARALLEL
+            success_x10, success_lit = False, False
+            x10_fill_price, lit_fill_price = None, None
+            
+            try:
+                # Fire both simultaneously
+                x10_task = asyncio.create_task(
+                    x10.open_live_position(symbol, x10_side, final_usd, post_only=True)
+                )
+                lit_task = asyncio.create_task(
+                    lighter.open_live_position(symbol, lighter_side, final_usd, post_only=False)
+                )
                 
-                # Store trade
-                trade_data = {
-                    'symbol': symbol,
-                    'entry_time': datetime.now(timezone.utc),
-                    'notional_usd': final_usd,
-                    'status': 'OPEN',
-                    'leg1_exchange': opp['leg1_exchange'],
-                    'initial_spread_pct': opp.get('spread_pct', 0.0),
-                    'initial_funding_rate_hourly': abs(net_rate),
-                    'entry_price_x10': result.get('x10_fill_price'),
-                    'entry_price_lighter': result.get('lighter_fill_price'),
-                    'is_farm_trade': opp.get('is_farm_trade', False),
-                    'account_label': current_label
-                }
+                results = await asyncio.gather(x10_task, lit_task, return_exceptions=True)
+                x10_result, lit_result = results
                 
-                state_mgr = get_state_manager()
-                await state_mgr.insert_trade(trade_data)
+                # Check X10
+                if isinstance(x10_result, Exception):
+                    logger.error(f"❌ X10 {symbol} failed: {x10_result}")
+                else:
+                    success_x10, x10_fill_price = x10_result
                 
-                vol_monitor.record_entry(symbol)
-                return True
-
-            else:
-                logger.error(f"❌ {symbol} failed: {result.get('reason')}")
+                # Check Lighter
+                if isinstance(lit_result, Exception):
+                    logger.error(f"❌ Lighter {symbol} failed: {lit_result}")
+                else:
+                    success_lit, lit_fill_price = lit_result
                 
-                # CLEANUP GHOST POSITIONS
-                await asyncio.sleep(2.0)
+                # ROLLBACK if partial fill
+                if success_x10 and not success_lit:
+                    logger.error(f"🔄 ROLLBACK {symbol}: X10 filled, Lighter failed")
+                    await asyncio.sleep(2)
+                    await x10.close_live_position(symbol, x10_side, final_usd)
+                    FAILED_COINS[symbol] = time.time()
+                    return False
                 
+                if success_lit and not success_x10:
+                    logger.error(f"🔄 ROLLBACK {symbol}: Lighter filled, X10 failed")
+                    await asyncio.sleep(2)
+                    await lighter.close_live_position(symbol, lighter_side, final_usd)
+                    FAILED_COINS[symbol] = time.time()
+                    return False
+                
+                # SUCCESS
+                if success_x10 and success_lit:
+                    logger.info(f"✅ {symbol} opened successfully")
+                    
+                    # Store trade
+                    trade_data = {
+                        'symbol': symbol,
+                        'entry_time': datetime.now(timezone.utc),
+                        'notional_usd': final_usd,
+                        'status': 'OPEN',
+                        'leg1_exchange': opp['leg1_exchange'],
+                        'initial_spread_pct': opp.get('spread_pct', 0.0),
+                        'initial_funding_rate_hourly': abs(net_rate),
+                        'entry_price_x10': x10_fill_price,
+                        'entry_price_lighter': lit_fill_price,
+                        'is_farm_trade': opp.get('is_farm_trade', False),
+                        'account_label': current_label
+                    }
+                    
+                    state_mgr = get_state_manager()
+                    await state_mgr.add_trade(trade_data)
+                    
+                    vol_monitor.record_entry(symbol)
+                    return True
+                
+                # BOTH FAILED
+                logger.error(f"❌ {symbol} failed: Both legs failed")
+                FAILED_COINS[symbol] = time.time()
+                return False
+                
+            except Exception as e:
+                logger.error(f"Execution error {symbol}: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                # CLEANUP any partial fills
+                await asyncio.sleep(2)
                 cleanup_x10 = await x10.fetch_open_positions()
                 cleanup_lit = await lighter.fetch_open_positions()
                 
                 x10_ghost = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (cleanup_x10 or []))
                 lit_ghost = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (cleanup_lit or []))
                 
-                if x10_ghost or lit_ghost:
-                    logger.error(f"🧟 GHOST DETECTED {symbol}: X10={x10_ghost}, Lit={lit_ghost}")
-                    
-                    if x10_ghost:
-                        actual_pos = next(p for p in cleanup_x10 if p['symbol'] == symbol)
-                        close_side = "SELL" if actual_pos.get('size', 0) > 0 else "BUY"
-                        await x10.close_live_position(symbol, close_side, final_usd)
-                    
-                    if lit_ghost:
-                        actual_pos = next(p for p in cleanup_lit if p['symbol'] == symbol)
-                        close_side = "SELL" if actual_pos.get('size', 0) > 0 else "BUY"
-                        await lighter.close_live_position(symbol, close_side, final_usd)
-
+                if x10_ghost:
+                    logger.error(f"🧟 Cleaning X10 ghost for {symbol}")
+                    await x10.close_live_position(symbol, x10_side, final_usd)
+                
+                if lit_ghost:
+                    logger.error(f"🧟 Cleaning Lighter ghost for {symbol}")
+                    await lighter.close_live_position(symbol, lighter_side, final_usd)
+                
                 FAILED_COINS[symbol] = time.time()
                 return False
-
-        except Exception as e:
-            logger.error(f"Execution error {symbol}: {e}")
-            import traceback
-            traceback.print_exc()
-            FAILED_COINS[symbol] = time.time()
-            return False
 
         finally:
             # ═══════════════════════════════════════════════════════════════
