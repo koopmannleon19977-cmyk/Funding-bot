@@ -240,15 +240,15 @@ class LighterAdapter(BaseAdapter):
                     batch_size = 50
                     for i in range(0, len(market_ids), batch_size):
                         batch = market_ids[i:i+batch_size]
-                        # Lighter expects flat format using "type" and "channel"
+                        # Lighter API uses singular "trade" and "orderbook" (no underscore)
                         sub_trades = {
                             "type": "subscribe",
-                            "channel": "trades",
+                            "channel": "trade",
                             "market_ids": batch
                         }
                         sub_orderbook = {
-                            "type": "subscribe",
-                            "channel": "order_book",
+                            "type": "subscribe", 
+                            "channel": "orderbook",
                             "market_ids": batch
                         }
                         logger.debug(f"Lighter: Sending batch {(i // batch_size) + 1} with {len(batch)} markets")
@@ -259,12 +259,12 @@ class LighterAdapter(BaseAdapter):
                     
                     logger.debug("Lighter: Waiting for subscription confirmation...")
                     
-                    # Wait for subscription response
+                    # Wait for subscription response (log details to help debugging)
                     try:
                         first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
                         if first_msg.type == aiohttp.WSMsgType.TEXT:
                             data = json.loads(first_msg.data)
-                            logger.info(f"✅ Lighter: Subscription response: {data}")
+                            logger.info(f"✅ Lighter: First message received: {json.dumps(data, indent=2)[:500]}")
                         elif first_msg.type == aiohttp.WSMsgType.CLOSE:
                             logger.error(f"❌ Lighter: Server sent CLOSE: {first_msg.data}")
                             break
@@ -272,12 +272,21 @@ class LighterAdapter(BaseAdapter):
                             logger.error(f"❌ Lighter: Connection error")
                             break
                     except asyncio.TimeoutError:
-                        logger.warning("⚠️ Lighter: No subscription response in 10s")
+                        logger.warning("⚠️ Lighter: No message in 10s - checking connection...")
+                        # Log connection state
+                        logger.info(f"WS closed={ws.closed}, markets_subscribed={len(market_ids)}")
                     
                     async for msg in ws:
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(msg.data)
+
+                                # CRITICAL: Log first 10 messages raw to debug format
+                                if not hasattr(self, '_lighter_msg_count'):
+                                    self._lighter_msg_count = 0
+                                if self._lighter_msg_count < 10:
+                                    logger.info(f"🔍 Lighter MSG #{self._lighter_msg_count}: {json.dumps(data, indent=2)[:300]}")
+                                    self._lighter_msg_count += 1
 
                                 # Debug first message (raw trimmed dump) to help format troubleshooting
                                 if not hasattr(self, '_ws_debug_logged'):
@@ -286,11 +295,10 @@ class LighterAdapter(BaseAdapter):
                                     except Exception:
                                         logger.info("Lighter: First raw message received (unable to stringify)")
                                     self._ws_debug_logged = True
-                            except Exception:
+                            except Exception as e:
+                                logger.error(f"JSON parse error: {e}")
                                 continue
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            data = json.loads(msg.data)
-                            
+
                             if "params" in data and isinstance(data["params"], dict):
                                 p = data["params"]
                                 mid = p.get("marketId")
