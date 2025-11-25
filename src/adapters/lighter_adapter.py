@@ -299,58 +299,53 @@ class LighterAdapter(BaseAdapter):
                                 logger.error(f"JSON parse error: {e}")
                                 continue
 
-                            if "params" in data and isinstance(data["params"], dict):
-                                p = data["params"]
-                                mid = p.get("marketId")
-                                price_str = p.get("price")
+                            # Parse JSON-RPC 2.0 format (method + params)
+                            method = data.get("method")
+                            params = data.get("params", {})
+
+                            # Trade updates
+                            if method == "trade_subscription" and isinstance(params, dict):
+                                mid = params.get("marketId")
+                                trade_data = params.get("data", {})
+                                price_str = trade_data.get("price")
 
                                 if mid and price_str:
-                                    updated = False
                                     for sym, info in self.market_info.items():
                                         if info['i'] == mid:
                                             try:
                                                 price_float = float(price_str)
                                                 self.price_cache[sym] = price_float
-                                                updated = True
                                                 logger.debug(f"Lighter: Price update {sym}={price_float}")
+                                                
+                                                if hasattr(self, 'price_update_event') and self.price_update_event:
+                                                    self.price_update_event.set()
                                                 break
                                             except (ValueError, TypeError) as e:
                                                 logger.error(f"Lighter: Price parse error {sym}: {e}")
-
-                                    if updated and hasattr(self, 'price_update_event'):
-                                        try:
-                                            if getattr(self, 'price_update_event', None):
-                                                self.price_update_event.set()
-                                                logger.debug(f"Lighter: Event triggered, cache size={len(self.price_cache)}")
-                                        except Exception as e:
-                                            logger.error(f"Lighter: Event trigger failed: {e}")
-
-                                market_id = p.get("market_id")
-                                if market_id and "order_book" in p:
+                            
+                            # Orderbook updates
+                            elif method == "orderbook_subscription" and isinstance(params, dict):
+                                mid = params.get("marketId")
+                                ob_data = params.get("data", {})
+                                
+                                if mid and ob_data:
                                     for sym, info in self.market_info.items():
-                                        if info.get('i') == market_id:
-                                            ob_data = p["order_book"]
+                                        if info['i'] == mid:
                                             bids = []
                                             asks = []
-
+                                            
                                             for bid in ob_data.get("bids", []):
                                                 try:
-                                                    bids.append([
-                                                        float(bid.get("price", 0)),
-                                                        float(bid.get("size", 0))
-                                                    ])
+                                                    bids.append([float(bid.get("price", 0)), float(bid.get("size", 0))])
                                                 except Exception:
                                                     pass
-
+                                            
                                             for ask in ob_data.get("asks", []):
                                                 try:
-                                                    asks.append([
-                                                        float(ask.get("price", 0)),
-                                                        float(ask.get("size", 0))
-                                                    ])
+                                                    asks.append([float(ask.get("price", 0)), float(ask.get("size", 0))])
                                                 except Exception:
                                                     pass
-
+                                            
                                             self.orderbook_cache[sym] = {
                                                 'bids': bids,
                                                 'asks': asks,
