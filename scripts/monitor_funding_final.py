@@ -562,7 +562,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         try:
             logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
             
-            result = await parallel_exec.execute_trade_with_rollback(
+            result = await parallel_exec.execute_with_rollback(
                 symbol=symbol,
                 x10_side=x10_side,
                 lighter_side=lighter_side,
