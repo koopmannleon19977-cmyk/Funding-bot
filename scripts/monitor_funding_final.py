@@ -627,7 +627,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     state_mgr = get_state_manager()
                     await state_mgr.add_trade(trade_data)
                     
-                    vol_monitor.record_entry(symbol)
+                    vol_monitor.record_trade_entry(symbol)
                     return True
                 
                 # BOTH FAILED
