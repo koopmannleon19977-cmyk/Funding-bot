@@ -662,6 +662,9 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 return True
             else:
                 logger.error(f"🚨 EXEC FAILED {symbol} - AGGRESSIVE CLEANUP")
+                logger.error(f"  - X10 order: {x10_id}")
+                logger.error(f"  - Lighter order: {lit_id}")
+                logger.error(f"  - Check adapter logs for details")
                 
                 # Step 1: Cancel orders immediately
                 await asyncio.gather(
@@ -697,11 +700,13 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
         except Exception as e:
             logger.error(f"Execution error {symbol}: {e}")
+            import traceback
+            traceback.print_exc()  # FULL STACK TRACE
             FAILED_COINS[symbol] = time.time()
             return False
 
         finally:
-            # ALWAYS RELEASE MARGIN
+            # ALWAYS RELEASE MARGIN (check not already released)
             if reserved_amount > 0.01:
                 async with IN_FLIGHT_LOCK:
                     old_x10 = IN_FLIGHT_MARGIN.get('X10', 0.0)
@@ -711,7 +716,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     IN_FLIGHT_MARGIN['Lighter'] = max(0.0, old_lit - reserved_amount)
                     
                     logger.info(f"🔓 Released ${reserved_amount:.1f} | Remaining: X10=${IN_FLIGHT_MARGIN['X10']:.1f}, Lit=${IN_FLIGHT_MARGIN['Lighter']:.1f}")
-                    reserved_amount = 0.0
+                    reserved_amount = 0.0  # CRITICAL: Mark as released!
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
@@ -1070,6 +1075,15 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             if now - last_zombie > 180:
                 try:
                     await cleanup_zombie_positions(lighter, x10)
+                    
+                    # Clear old failed coins (older than 5min)
+                    expired = [s for s, t in FAILED_COINS.items() if time.time() - t > 300]
+                    for s in expired:
+                        try:
+                            del FAILED_COINS[s]
+                            logger.info(f"🔄 Cleared cooldown: {s}")
+                        except KeyError:
+                            pass
                 except Exception as ze:
                     logger.error(f"Zombie cleanup: {ze}")
                 # record monotonic timestamp to throttle next run

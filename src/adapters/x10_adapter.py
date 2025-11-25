@@ -182,7 +182,7 @@ class X10Adapter(BaseAdapter):
                     # X10 streams ALL markets automatically - no subscription needed
                     # Wait for first message with timeout to detect issues
                     try:
-                        first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
+                        first_msg = await asyncio.wait_for(ws.receive(), timeout=5.0)
                         if first_msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(first_msg.data)
