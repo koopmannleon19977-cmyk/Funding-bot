@@ -8,7 +8,7 @@ import aiosqlite
 import logging
 import random
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from decimal import Decimal
 
@@ -124,6 +124,10 @@ async def get_execution_lock(symbol: str) -> asyncio.Lock:
         if symbol not in EXECUTION_LOCKS:
             EXECUTION_LOCKS[symbol] = asyncio.Lock()
         return EXECUTION_LOCKS[symbol]
+
+# Add small helper to return the global state manager instance used elsewhere
+def get_state_manager():
+    return state_manager
 
 # ============================================================
 # STATE & DB WRAPPERS
@@ -373,6 +377,36 @@ async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
             except KeyError:
                 pass
 
+async def launch_trade_task(opp: Dict, lighter, x10, parallel_exec):
+    """Launch trade execution in background task."""
+    symbol = opp['symbol']
+    
+    # CRITICAL: Check FAILED_COINS before creating task
+    if symbol in FAILED_COINS:
+        cooldown = time.time() - FAILED_COINS[symbol]
+        if cooldown < 180:  # 3min cooldown
+            return
+    
+    if symbol in ACTIVE_TASKS:
+        return
+
+    async def _task_wrapper():
+        try:
+            await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+        except Exception as e:
+            logger.error(f"Task {symbol} error: {e}")
+        finally:
+            # CRITICAL: ALWAYS remove from ACTIVE_TASKS
+            if symbol in ACTIVE_TASKS:
+                try:
+                    del ACTIVE_TASKS[symbol]
+                    logger.debug(f"🧹 Cleaned task: {symbol}")
+                except KeyError:
+                    pass
+
+    task = asyncio.create_task(_task_wrapper())
+    ACTIVE_TASKS[symbol] = task
+
 async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool:
     if SHUTDOWN_FLAG:
         return False
@@ -414,111 +448,87 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         if not opp.get('is_farm_trade') and pred_rate < abs(net_rate) * 0.8:
             return False
 
-        # SIZE CALCULATION
-        # ---------------------------------------------------------
-        # CRITICAL: RESERVATION LOGIC TO PREVENT RACE CONDITIONS
-        # ---------------------------------------------------------
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL FIX: CHECK BALANCE **BEFORE** RESERVATION
+        # ═══════════════════════════════════════════════════════════════
         global IN_FLIGHT_MARGIN, IN_FLIGHT_LOCK
         reserved_amount = 0.0
         
-        # ALWAYS fetch balances first (regardless of farm/normal mode)
         try:
+            # STEP 1: GET AVAILABLE BALANCE (with lock)
             async with IN_FLIGHT_LOCK:
                 raw_x10 = await x10.get_real_available_balance()
                 raw_lit = await lighter.get_real_available_balance()
-
-                # Deduct currently executing trades
+                
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-                
-                logger.info(
-                    f"💰 Balances: X10=${bal_x10_real:.1f} (raw=${raw_x10:.1f}, reserved=${IN_FLIGHT_MARGIN.get('X10', 0.0):.1f}), "
-                    f"Lit=${bal_lit_real:.1f} (raw=${raw_lit:.1f}, reserved=${IN_FLIGHT_MARGIN.get('Lighter', 0.0):.1f})"
-                )
-        except Exception as e:
-            logger.error(f"Balance fetch error: {e}")
-            return False
-
-        # Determine size based on mode
-        if opp.get('is_farm_trade'):
-            final_usd = float(config.FARM_NOTIONAL_USD)
-            final_usd = 16.0  # FORCE LOWER SIZE
-        else:
-            # Check minimum balance requirement
-            if bal_x10_real < 20.0 or bal_lit_real < 20.0:
-                logger.warning(
-                    f"⚠️ Insufficient balance for {symbol}: "
-                    f"X10=${bal_x10_real:.1f} (need $20), Lit=${bal_lit_real:.1f} (need $20)"
-                )
-                return False
-
-            max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20  # Conservative 20%
-
-            # Kelly sizing with confidence
-            size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
-            size_calc *= vol_monitor.get_size_adjustment(symbol)
-
-            final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
-
-        # Exchange minimum (but cap at 18 to prevent oversizing)
-        min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
-        if final_usd < min_req:
-            final_usd = float(min_req)
-
-        # Absolute minimum check
-        if final_usd < 12.0:
-            logger.debug(f"Size too small: ${final_usd:.1f}")
-            return False
-
-        # CRITICAL FIX: Check balance BEFORE attempting reservation
-        try:
-            raw_x10 = await x10.get_real_available_balance()
-            raw_lit = await lighter.get_real_available_balance()
             
-            # Account for in-flight
-            async with IN_FLIGHT_LOCK:
-                available_x10 = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
-                available_lit = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-            
-            # ABORT if insufficient balance (prevents infinite loop)
-            min_required = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
-            if available_x10 < min_required or available_lit < min_required:
-                logger.warning(
-                    f"⚠️ Insufficient balance for {symbol}: "
-                    f"X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${min_required:.1f}"
-                )
-                FAILED_COINS[symbol] = time.time()
-                return False
-            
-            logger.info(
-                f"💰 Available: X10=${available_x10:.1f}, Lit=${available_lit:.1f}"
-            )
-        except Exception as e:
-            logger.error(f"Balance check error: {e}")
-            return False
-
-        # RESERVE MARGIN
-        try:
-            async with IN_FLIGHT_LOCK:
-                # RE-CHECK balances after acquiring lock
-                raw_x10_check = await x10.get_real_available_balance()
-                raw_lit_check = await lighter.get_real_available_balance()
-                
-                bal_x10_check = max(0.0, raw_x10_check - IN_FLIGHT_MARGIN.get('X10', 0.0))
-                bal_lit_check = max(0.0, raw_lit_check - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
-                
-                # ABORT if insufficient after re-check
-                if bal_x10_check < final_usd or bal_lit_check < final_usd:
-                    logger.error(f"🚫 ABORT {symbol}: Insufficient after lock - X10=${bal_x10_check:.1f}, Lit=${bal_lit_check:.1f}, Need=${final_usd:.1f}")
+            # STEP 2: CALCULATE SIZE
+            if opp.get('is_farm_trade'):
+                final_usd = 16.0
+            else:
+                # ABORT EARLY if insufficient
+                if bal_x10_real < 20.0 or bal_lit_real < 20.0:
+                    logger.warning(
+                        f"⚠️ Insufficient balance for {symbol}: "
+                        f"X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}"
+                    )
+                    FAILED_COINS[symbol] = time.time()
                     return False
 
+                max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20
+                size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
+                size_calc *= vol_monitor.get_size_adjustment(symbol)
+                final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
+
+            # Exchange minimum
+            min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
+            if final_usd < min_req:
+                final_usd = float(min_req)
+
+            # Absolute minimum
+            if final_usd < 12.0:
+                logger.debug(f"Size too small: ${final_usd:.1f}")
+                return False
+
+            # STEP 3: FINAL BALANCE CHECK BEFORE RESERVATION
+            async with IN_FLIGHT_LOCK:
+                # RE-CHECK after lock (race condition protection)
+                raw_x10 = await x10.get_real_available_balance()
+                raw_lit = await lighter.get_real_available_balance()
+                
+                bal_x10_check = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                bal_lit_check = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
+                
+                # ABORT if insufficient BEFORE reservation
+                if bal_x10_check < final_usd or bal_lit_check < final_usd:
+                    logger.error(
+                        f"🚫 ABORT {symbol}: Insufficient balance - "
+                        f"X10=${bal_x10_check:.1f}, Lit=${bal_lit_check:.1f}, Need=${final_usd:.1f}"
+                    )
+                    FAILED_COINS[symbol] = time.time()
+                    # CRITICAL: Remove from ACTIVE_TASKS immediately
+                    if symbol in ACTIVE_TASKS:
+                        try:
+                            del ACTIVE_TASKS[symbol]
+                            logger.debug(f"🧹 Cleaned task after balance abort: {symbol}")
+                        except KeyError:
+                            pass
+                    return False
+                
+                # STEP 4: NOW RESERVE (balance is confirmed sufficient)
                 IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
                 IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
                 reserved_amount = final_usd
                 
-                logger.info(f"🔒 Reserved ${reserved_amount:.1f} | Total In-Flight: X10=${IN_FLIGHT_MARGIN['X10']:.1f}, Lit=${IN_FLIGHT_MARGIN['Lighter']:.1f}")
+                logger.info(
+                    f"🔒 Reserved ${reserved_amount:.1f} for {symbol} | "
+                    f"In-Flight: X10=${IN_FLIGHT_MARGIN['X10']:.1f}, Lit=${IN_FLIGHT_MARGIN['Lighter']:.1f}"
+                )
+
         except Exception as e:
-            logger.error(f"Reservation error: {e}")
+            logger.error(f"Balance check/reservation error {symbol}: {e}")
+            FAILED_COINS[symbol] = time.time()
             return False
 
         # SIDE MAPPING
@@ -530,192 +540,74 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         x10_side = side1 if getattr(ex1, 'name', '') == 'X10' else side2
         lighter_side = side2 if getattr(ex1, 'name', '') == 'X10' else side1
 
-        # FINAL SANITY CHECK: Verify size doesn't exceed minimums
-        if final_usd < 14.0 or final_usd > 20.0:
-            logger.error(f"🚫 ABORT {symbol}: Invalid size ${final_usd:.1f}")
-            async with IN_FLIGHT_LOCK:
-                IN_FLIGHT_MARGIN['X10'] -= reserved_amount
-                IN_FLIGHT_MARGIN['Lighter'] -= reserved_amount
-            return False
-
-        # PRE-FLIGHT POSITION CHECK (informational only)
+        # PRE-FLIGHT POSITION CHECK
         try:
             x10_check = await x10.fetch_open_positions()
             lighter_check = await lighter.fetch_open_positions()
             
             if any(p['symbol'] == symbol for p in (x10_check or [])):
-                logger.debug(f"{symbol} already open on X10")
+                logger.error(f"🚫 ABORT {symbol}: Already open on X10")
+                FAILED_COINS[symbol] = time.time()
                 return False
+            
             if any(p['symbol'] == symbol for p in (lighter_check or [])):
-                logger.debug(f"{symbol} already open on Lighter")
-                return False
-                
-        except Exception as e:
-            logger.debug(f"Pre-flight check failed: {e}")
-
-        # EXECUTION
-        logger.info(f"🚀 EXEC {symbol} ${final_usd:.1f} | X10 {x10_side} / Lit {lighter_side}")
-
-        # CRITICAL: Cancel all pending orders first (prevents ghost fills)
-        try:
-            await asyncio.gather(
-                x10.cancel_all_orders(symbol) if hasattr(x10, 'cancel_all_orders') else asyncio.sleep(0),
-                lighter.cancel_all_orders(symbol) if hasattr(lighter, 'cancel_all_orders') else asyncio.sleep(0),
-                return_exceptions=True
-            )
-            await asyncio.sleep(0.5)
-        except Exception as e:
-            logger.debug(f"Pre-exec cancel: {e}")
-
-        # CRITICAL: Double-check no position exists before execution
-        existing_in_state = await get_open_trades()
-        if any(t['symbol'] == symbol for t in existing_in_state):
-            logger.error(f"🚫 ABORT {symbol}: Already in state DB")
-            async with IN_FLIGHT_LOCK:
-                IN_FLIGHT_MARGIN['X10'] -= reserved_amount
-                IN_FLIGHT_MARGIN['Lighter'] -= reserved_amount
-            return False
-
-        try:
-            pre_check_x10 = await x10.fetch_open_positions()
-            pre_check_lit = await lighter.fetch_open_positions()
-            if any(p['symbol'] == symbol for p in (pre_check_x10 or [])) or \
-               any(p['symbol'] == symbol for p in (pre_check_lit or [])):
-                logger.error(f"🚨 ABORT {symbol}: Position exists before exec")
-                async with IN_FLIGHT_LOCK:
-                    IN_FLIGHT_MARGIN['X10'] -= reserved_amount
-                    IN_FLIGHT_MARGIN['Lighter'] -= reserved_amount
-                return False
-        except Exception as e:
-            logger.error(f"Pre-check error {symbol}: {e}")
-            async with IN_FLIGHT_LOCK:
-                IN_FLIGHT_MARGIN['X10'] -= reserved_amount
-                IN_FLIGHT_MARGIN['Lighter'] -= reserved_amount
-            return False
-
-        try:
-            # Store initial positions for rollback comparison
-            initial_x10_pos = await x10.fetch_open_positions()
-            initial_lit_pos = await lighter.fetch_open_positions()
-            
-            initial_x10_syms = {p['symbol'] for p in (initial_x10_pos or [])}
-            initial_lit_syms = {p['symbol'] for p in (initial_lit_pos or [])}
-            
-            success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
-                symbol, x10_side, lighter_side,
-                Decimal(str(final_usd)), Decimal(str(final_usd)), None, None
-            )
-            
-            # CRITICAL: Always verify actual positions after execution
-            await asyncio.sleep(2)
-            
-            final_x10_pos = await x10.fetch_open_positions()
-            final_lit_pos = await lighter.fetch_open_positions()
-            
-            x10_opened = any(p['symbol'] == symbol for p in (final_x10_pos or []) if p['symbol'] not in initial_x10_syms)
-            lit_opened = any(p['symbol'] == symbol for p in (final_lit_pos or []) if p['symbol'] not in initial_lit_syms)
-            
-            # CRITICAL: If execution reported success but positions don't match → FORCE ROLLBACK
-            if success and (not x10_opened or not lit_opened):
-                logger.error(f"🚨 MISMATCH {symbol}: success={success} but X10={x10_opened}, Lit={lit_opened}")
-                success = False
-            
-            # Fee tracking (run regardless of final success state to capture partial fills)
-            if x10_id:
-                asyncio.create_task(process_fee_update(x10, symbol, x10_id))
-            if lit_id:
-                asyncio.create_task(process_fee_update(lighter, symbol, lit_id))
-            
-            # CRITICAL: If execution reported failure but positions exist → FORCE CLEANUP
-            if not success and (x10_opened or lit_opened):
-                logger.error(f"🧟 GHOST CREATED {symbol}: success={success} but X10={x10_opened}, Lit={lit_opened}")
-                
-                if x10_opened:
-                    x10_pos = next(p for p in final_x10_pos if p['symbol'] == symbol)
-                    close_side = "SELL" if x10_pos.get('size', 0) > 0 else "BUY"
-                    logger.error(f"→ FORCE CLOSE X10 {symbol} {close_side}")
-                    await x10.close_live_position(symbol, close_side, final_usd)
-                
-                if lit_opened:
-                    lit_pos = next(p for p in final_lit_pos if p['symbol'] == symbol)
-                    close_side = "SELL" if lit_pos.get('size', 0) > 0 else "BUY"
-                    logger.error(f"→ FORCE CLOSE Lighter {symbol} {close_side}")
-                    await lighter.close_live_position(symbol, close_side, final_usd)
-                
+                logger.error(f"🚫 ABORT {symbol}: Already open on Lighter")
                 FAILED_COINS[symbol] = time.time()
                 return False
 
-            if success:
-                # Verification
-                await asyncio.sleep(3)
-                try:
-                    x10_verify = await x10.fetch_open_positions()
-                    lighter_verify = await lighter.fetch_open_positions()
+        except Exception as e:
+            logger.warning(f"Pre-flight check error {symbol}: {e}")
 
-                    x10_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (x10_verify or []))
-                    lighter_filled = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (lighter_verify or []))
+        # EXECUTE PARALLEL
+        try:
+            logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
+            
+            result = await parallel_exec.execute_trade_with_rollback(
+                symbol=symbol,
+                x10_side=x10_side,
+                lighter_side=lighter_side,
+                notional_usd=final_usd,
+                x10_adapter=x10,
+                lighter_adapter=lighter,
+                max_retries=2
+            )
 
-                    if not x10_filled or not lighter_filled:
-                        logger.error(f"🚨 VERIFY FAIL {symbol}: X10={x10_filled}, Lit={lighter_filled}")
-                        
-                        # Rollback
-                        if x10_filled:
-                            await x10.close_live_position(symbol, side1 if ex1 == x10 else side2, final_usd)
-                        if lighter_filled:
-                            await lighter.close_live_position(symbol, side2 if ex1 == x10 else side1, final_usd)
-
-                        FAILED_COINS[symbol] = time.time()
-                        return False
-
-                    logger.info(f"✅ VERIFIED {symbol}")
-
-                except Exception as verify_err:
-                    logger.error(f"Verification error {symbol}: {verify_err}")
-
-                # Save trade
-                trade = opp.copy()
-                px = x10.fetch_mark_price(symbol) or 0.0
-                pl = lighter.fetch_mark_price(symbol) or 0.0
-                spread = abs(px - pl) / px if px > 0 else 0.0
-
-                trade.update({
+            if result['success']:
+                logger.info(f"✅ {symbol} opened successfully")
+                
+                # Store trade
+                trade_data = {
+                    'symbol': symbol,
+                    'entry_time': datetime.now(timezone.utc),
                     'notional_usd': final_usd,
-                    'entry_time': datetime.utcnow(),
-                    'entry_price_x10': px,
-                    'entry_price_lighter': pl,
-                    'initial_spread_pct': spread,
-                    'account_label': current_label,
-                    'initial_funding_rate_hourly': net_rate
-                })
-                await add_trade_to_state(trade)
+                    'status': 'OPEN',
+                    'leg1_exchange': opp['leg1_exchange'],
+                    'initial_spread_pct': opp.get('spread_pct', 0.0),
+                    'initial_funding_rate_hourly': abs(net_rate),
+                    'entry_price_x10': result.get('x10_fill_price'),
+                    'entry_price_lighter': result.get('lighter_fill_price'),
+                    'is_farm_trade': opp.get('is_farm_trade', False),
+                    'account_label': current_label
+                }
                 
-                if telegram_bot:
-                    await telegram_bot.send_message(f"✅ {symbol} opened\n💰 ${final_usd:.0f} | Conf:{conf:.0%}")
-
+                state_mgr = get_state_manager()
+                await state_mgr.insert_trade(trade_data)
                 
+                vol_monitor.record_entry(symbol)
                 return True
+
             else:
-                logger.error(f"🚨 EXEC FAILED {symbol} - AGGRESSIVE CLEANUP")
-                logger.error(f"  - X10 order: {x10_id}")
-                logger.error(f"  - Lighter order: {lit_id}")
-                logger.error(f"  - Check adapter logs for details")
+                logger.error(f"❌ {symbol} failed: {result.get('reason')}")
                 
-                # Step 1: Cancel orders immediately
-                await asyncio.gather(
-                    x10.cancel_all_orders(symbol) if hasattr(x10, 'cancel_all_orders') else asyncio.sleep(0),
-                    lighter.cancel_all_orders(symbol) if hasattr(lighter, 'cancel_all_orders') else asyncio.sleep(0),
-                    return_exceptions=True
-                )
+                # CLEANUP GHOST POSITIONS
                 await asyncio.sleep(2.0)
                 
-                # Step 2: Force-fetch positions to detect ghost fills
                 cleanup_x10 = await x10.fetch_open_positions()
                 cleanup_lit = await lighter.fetch_open_positions()
                 
                 x10_ghost = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (cleanup_x10 or []))
                 lit_ghost = any(p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8 for p in (cleanup_lit or []))
                 
-                # Step 3: Close any ghost positions aggressively
                 if x10_ghost or lit_ghost:
                     logger.error(f"🧟 GHOST DETECTED {symbol}: X10={x10_ghost}, Lit={lit_ghost}")
                     
@@ -735,22 +627,23 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         except Exception as e:
             logger.error(f"Execution error {symbol}: {e}")
             import traceback
-            traceback.print_exc()  # FULL STACK TRACE
+            traceback.print_exc()
             FAILED_COINS[symbol] = time.time()
             return False
 
         finally:
-            # ALWAYS RELEASE MARGIN (check not already released)
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: ALWAYS RELEASE MARGIN ON **ANY** EXIT PATH
+            # ═══════════════════════════════════════════════════════════════
             if reserved_amount > 0.01:
                 async with IN_FLIGHT_LOCK:
-                    old_x10 = IN_FLIGHT_MARGIN.get('X10', 0.0)
-                    old_lit = IN_FLIGHT_MARGIN.get('Lighter', 0.0)
+                    IN_FLIGHT_MARGIN['X10'] = max(0.0, IN_FLIGHT_MARGIN.get('X10', 0.0) - reserved_amount)
+                    IN_FLIGHT_MARGIN['Lighter'] = max(0.0, IN_FLIGHT_MARGIN.get('Lighter', 0.0) - reserved_amount)
                     
-                    IN_FLIGHT_MARGIN['X10'] = max(0.0, old_x10 - reserved_amount)
-                    IN_FLIGHT_MARGIN['Lighter'] = max(0.0, old_lit - reserved_amount)
-                    
-                    logger.info(f"🔓 Released ${reserved_amount:.1f} | Remaining: X10=${IN_FLIGHT_MARGIN['X10']:.1f}, Lit=${IN_FLIGHT_MARGIN['Lighter']:.1f}")
-                    reserved_amount = 0.0  # CRITICAL: Mark as released!
+                    logger.info(
+                        f"🔓 Released ${reserved_amount:.1f} for {symbol} | "
+                        f"Remaining: X10=${IN_FLIGHT_MARGIN['X10']:.1f}, Lit=${IN_FLIGHT_MARGIN['Lighter']:.1f}"
+                    )
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
