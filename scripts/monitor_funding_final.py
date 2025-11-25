@@ -980,40 +980,10 @@ async def farm_loop(lighter, x10, parallel_exec):
 
             open_syms = {t['symbol'] for t in trades}
             
-            # Simple Farming Strategy: Low Spread Pairs
-            candidates = ["BTC-USD", "ETH-USD", "SOL-USD", "AVAX-USD", "ARB-USD"]
-            random.shuffle(candidates)
-
-            for sym in candidates:
-                if sym in open_syms: continue
-                
-                px = x10.fetch_mark_price(sym)
-                pl = lighter.fetch_mark_price(sym)
-                if not px or not pl: continue
-                
-                spread = abs(px - pl) / px
-                if spread > config.FARM_MAX_SPREAD_PCT: continue
-
-                # Just enter randomly 
-                opp = {
-                    'symbol': sym,
-                    'apy': 0,
-                    'net_funding_hourly': 0,
-                    'leg1_exchange': 'X10',
-                    'leg1_side': 'BUY',
-                    'is_farm_trade': True,
-                    'notional_usd': config.FARM_NOTIONAL_USD
-                }
-                
-                async with await get_execution_lock(sym):
-                    if sym not in ACTIVE_TASKS:
-                        task = asyncio.create_task(execute_trade_task(opp, lighter, x10, parallel_exec))
-                        ACTIVE_TASKS[sym] = task
-                
-                await asyncio.sleep(random.uniform(2, 5))
-                break
-
-            await asyncio.sleep(1)
+            # DISABLED: Farm loop creates zombies - use normal opportunity finding instead
+            # TODO: Re-enable after zombie fix verified
+            await asyncio.sleep(60)
+            continue
 
         except asyncio.CancelledError:
             break

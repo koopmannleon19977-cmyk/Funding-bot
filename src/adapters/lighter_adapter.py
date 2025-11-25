@@ -240,23 +240,16 @@ class LighterAdapter(BaseAdapter):
                     batch_size = 50
                     for i in range(0, len(market_ids), batch_size):
                         batch = market_ids[i:i+batch_size]
-                        # Subscribe to trades
+                        # Lighter expects flat format using "type" and "channel"
                         sub_trades = {
-                            "method": "subscribe",
-                            "params": {
-                                "channel": "trades",
-                                "market_ids": batch
-                            },
-                            "id": (i // batch_size) * 2 + 1
+                            "type": "subscribe",
+                            "channel": "trades",
+                            "market_ids": batch
                         }
-                        # Subscribe to order_book
                         sub_orderbook = {
-                            "method": "subscribe",
-                            "params": {
-                                "channel": "order_book",
-                                "market_ids": batch
-                            },
-                            "id": (i // batch_size) * 2 + 2
+                            "type": "subscribe",
+                            "channel": "order_book",
+                            "market_ids": batch
                         }
                         logger.debug(f"Lighter: Sending batch {(i // batch_size) + 1} with {len(batch)} markets")
                         await ws.send_json(sub_trades)
