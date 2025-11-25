@@ -1022,6 +1022,8 @@ class LighterAdapter(BaseAdapter):
                 
                 slippage_pct = [2.0, 5.0, 10.0][min(attempt, 2)]
                 slippage = Decimal(str(slippage_pct)) / Decimal(100)
+                # CRITICAL FIX: Reduce slippage to avoid "accidental price" error (21733)
+                slippage = Decimal('0.03')  # 3% instead of 10% - Exchange rejects prices outside band
                 price_decimal = Decimal(str(price))
                 
                 if close_side == "BUY":
@@ -1029,7 +1031,7 @@ class LighterAdapter(BaseAdapter):
                 else:
                     limit_price = price_decimal * (Decimal(1) - slippage)
                 
-                logger.info(f" AGGRESSIVE CLOSE {symbol}: Attempt {attempt+1}, Slippage {slippage_pct}%")
+                logger.info(f" AGGRESSIVE CLOSE {symbol}: Attempt {attempt+1}, Slippage {float(slippage * 100):.1f}%")
                 
                 qty = Decimal(str(notional_usd)) / limit_price
                 base, price_int = self._scale_amounts(symbol, qty, limit_price, close_side)

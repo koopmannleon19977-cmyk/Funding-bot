@@ -663,10 +663,15 @@ class X10Adapter(BaseAdapter):
                         continue
                     return False, None
 
-                # Increasing slippage on retries
-                slippage_pct = [0.6, 2.0, 5.0][min(attempt, 2)]
+                # Use 3% slippage to avoid "accidental price" errors
+                if close_side == "BUY":
+                    # Buying to close SHORT → pay slightly more
+                    limit_price = price * 1.03
+                else:
+                    # Selling to close LONG → accept slightly less
+                    limit_price = price * 0.97
 
-                logger.info(f"🔻 X10 CLOSE {symbol}: Attempt {attempt+1}, Slippage {slippage_pct}%")
+                logger.info(f"🔻 X10 CLOSE {symbol}: Attempt {attempt+1}, LimitPrice={limit_price}")
 
                 # Execute close
                 success, order_id = await self.open_live_position(

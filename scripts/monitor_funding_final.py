@@ -640,8 +640,9 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 import traceback
                 traceback.print_exc()
                 
-                # CLEANUP any partial fills
-                await asyncio.sleep(2)
+                # CLEANUP any partial fills (wait longer for positions to settle)
+                await asyncio.sleep(10.0)
+                
                 cleanup_x10 = await x10.fetch_open_positions()
                 cleanup_lit = await lighter.fetch_open_positions()
                 
