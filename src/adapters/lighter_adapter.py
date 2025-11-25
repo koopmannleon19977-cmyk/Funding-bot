@@ -234,7 +234,24 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(5)
                         break
                     
-                    market_ids = [m['i'] for m in self.market_info.values()]
+                    # CRITICAL FIX: Filter out invalid market IDs
+                    market_ids = []
+                    seen = set()
+                    for m in self.market_info.values():
+                        mid = m.get('i')
+                        if mid is None:
+                            continue
+                        # Accept ints or non-empty strings; normalize to original type
+                        if isinstance(mid, (int, str)) and str(mid).strip():
+                            if mid not in seen:
+                                seen.add(mid)
+                                market_ids.append(mid)
+                    
+                    if not market_ids:
+                        logger.error("❌ Lighter: No valid market IDs found")
+                        await asyncio.sleep(5)
+                        break
+                    
                     logger.info(f"📊 Lighter: Subscribing to {len(market_ids)} markets")
                     # Subscribe in batches to avoid message size limits
                     batch_size = 50
@@ -480,7 +497,53 @@ class LighterAdapter(BaseAdapter):
             order_api = OrderApi(signer.api_client)
 
             print(f"DEBUG: Calling order_books()...")
-            market_list = await order_api.order_books()
+            # Try the SDK method first, but fall back to raw API client GET if not available/empty.
+            market_list = None
+            api_client = getattr(signer, "api_client", None)
+
+            try:
+                if hasattr(order_api, "order_books"):
+                    market_list = await order_api.order_books()
+            except Exception:
+                market_list = None
+
+            # Fallback: try direct REST call on client (many clients expose .get or .request)
+            if not market_list:
+                try:
+                    resp = None
+                    if api_client is not None:
+                        if hasattr(api_client, "get"):
+                            resp = await api_client.get("/order-books")
+                        elif hasattr(api_client, "request"):
+                            resp = await api_client.request("GET", "/order-books")
+
+                    # Normalize dict/list responses into an object with .order_books
+                    if isinstance(resp, dict):
+                        markets_data = resp.get("data") or resp.get("order_books") or resp.get("result") or []
+                    elif isinstance(resp, list):
+                        markets_data = resp
+                    else:
+                        markets_data = []
+
+                    # Build a lightweight object expected by subsequent code
+                    class _ML: pass
+                    ml = _ML()
+                    objs = []
+                    for m in markets_data:
+                        # if items are already objects with market_id attr, keep as-is
+                        if hasattr(m, "market_id") or isinstance(m, type):
+                            objs.append(m)
+                        elif isinstance(m, dict):
+                            class M: pass
+                            o = M()
+                            for k, v in m.items():
+                                setattr(o, k, v)
+                            objs.append(o)
+                    ml.order_books = objs
+                    market_list = ml
+                except Exception:
+                    market_list = None
+
             print(f"DEBUG: market_list type: {type(market_list)}")
             print(f"DEBUG: market_list value: {market_list}")
             print(f"DEBUG: has order_books attr: {hasattr(market_list, 'order_books')}")
@@ -574,6 +637,33 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"❌ Lighter Market Cache Error: {e}")
         finally:
             pass  # Session cleanup moved to `aclose()` on the adapter; signer persists for adapter lifetime
+
+    async def initialize(self):
+        """Initialize the adapter"""
+        try:
+            logger.info("🔄 Lighter: Initializing...")
+            # FIX: Initialize API client first
+            try:
+                from lighter.lighter_client import ApiClient
+            except Exception:
+                # fall back to alternate import path if package layout differs
+                from lighter.client import ApiClient
+
+            # create and attach api client for use by SDK wrappers / signers
+            self.api_client = ApiClient()
+            # Explicitly set the host to a known API endpoint (per request)
+            self.api_client.configuration.host = "https://api.lighter.xyz"
+
+            # Give other components a chance to use this client and populate markets
+            await self.load_market_cache()
+
+            if not self.market_info:
+                logger.error("❌ Lighter: Market cache empty after load")
+                return
+
+            logger.info(f"✅ Lighter: Loaded {len(self.market_info)} markets")
+        except Exception as e:
+            logger.error(f"❌ Lighter init error: {e}")
 
     async def load_funding_rates_and_prices(self):
         if not getattr(config, "LIVE_TRADING", False):
@@ -1050,19 +1140,97 @@ class LighterAdapter(BaseAdapter):
             
             market_id = market_data.get('i')
             
-            # Get open orders
-            orders_resp = await order_api.get_orders(market_id=market_id)
-            if not orders_resp or not orders_resp.orders:
+            # Try multiple SDK method names and call signatures to fetch orders
+            orders_resp = None
+            candidate_methods = ['list_orders', 'get_open_orders', 'get_orders', 'orders', 'list_open_orders']
+            for method_name in candidate_methods:
+                if hasattr(order_api, method_name):
+                    method = getattr(order_api, method_name)
+                    try:
+                        try:
+                            orders_resp = await method(market_id=market_id)
+                        except TypeError:
+                            try:
+                                orders_resp = await method(market=market_id)
+                            except TypeError:
+                                orders_resp = await method()
+                        break
+                    except Exception:
+                        orders_resp = None
+                        continue
+            
+            # Normalize to a list of orders
+            orders_list = None
+            if orders_resp is None:
+                return True
+            if hasattr(orders_resp, 'orders'):
+                orders_list = orders_resp.orders
+            elif isinstance(orders_resp, dict):
+                orders_list = orders_resp.get('orders') or orders_resp.get('data') or orders_resp.get('result') or None
+                # if data/result is dict with orders inside
+                if isinstance(orders_list, dict) and orders_list.get('orders'):
+                    orders_list = orders_list.get('orders')
+            elif hasattr(orders_resp, 'data') and getattr(orders_resp, 'data') is not None:
+                data = getattr(orders_resp, 'data')
+                if isinstance(data, list):
+                    orders_list = data
+                elif isinstance(data, dict) and data.get('orders'):
+                    orders_list = data.get('orders')
+            elif isinstance(orders_resp, list):
+                orders_list = orders_resp
+
+            if not orders_list:
                 return True
             
-            # Cancel each order
-            for order in orders_resp.orders:
-                if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
+            # Cancel each order: try multiple cancel method names/signatures
+            cancel_candidates = ['cancel_order', 'cancel', 'cancel_order_by_id', 'delete_order']
+            for order in orders_list:
+                # extract id and status robustly
+                if isinstance(order, dict):
+                    oid = order.get('id') or order.get('order_id') or order.get('orderId') or order.get('client_order_id')
+                    status = order.get('status')
+                else:
+                    oid = getattr(order, 'id', None) or getattr(order, 'order_id', None) or getattr(order, 'orderId', None)
+                    status = getattr(order, 'status', None)
+                
+                # Skip if no id
+                if not oid:
+                    continue
+                
+                # Only attempt cancellation for open/pending statuses (if present)
+                if status and status not in ["PENDING", "OPEN"]:
+                    continue
+
+                cancelled = False
+                for cancel_name in cancel_candidates:
+                    if hasattr(order_api, cancel_name):
+                        cancel_method = getattr(order_api, cancel_name)
+                        try:
+                            try:
+                                await cancel_method(order_id=oid)
+                            except TypeError:
+                                try:
+                                    await cancel_method(id=oid)
+                                except TypeError:
+                                    await cancel_method(oid)
+                            cancelled = True
+                            await asyncio.sleep(0.1)
+                            break
+                        except Exception as e:
+                            logger.debug(f"Cancel order {oid} via {cancel_name} failed: {e}")
+                            continue
+
+                # fallback to signer-level cancel if adapter/signature exposes it
+                if not cancelled:
                     try:
-                        await order_api.cancel_order(order.id)
-                        await asyncio.sleep(0.1)
+                        if hasattr(signer, 'cancel_order'):
+                            try:
+                                await signer.cancel_order(oid)
+                                await asyncio.sleep(0.1)
+                            except TypeError:
+                                await signer.cancel_order(order_id=oid)
                     except Exception as e:
-                        logger.debug(f"Cancel order {getattr(order, 'id', 'unknown')}: {e}")
+                        logger.debug(f"Signer cancel order {oid} failed: {e}")
             
             return True
         except Exception as e:

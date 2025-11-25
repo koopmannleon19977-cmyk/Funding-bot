@@ -362,9 +362,16 @@ async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
     symbol = opp['symbol']
     try:
         await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+    except Exception as e:
+        logger.error(f"Task {symbol} error: {e}")
     finally:
+        # CRITICAL FIX: Always remove from ACTIVE_TASKS
         if symbol in ACTIVE_TASKS:
-            del ACTIVE_TASKS[symbol]
+            try:
+                del ACTIVE_TASKS[symbol]
+                logger.debug(f"🧹 Cleaned task: {symbol}")
+            except KeyError:
+                pass
 
 async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool:
     if SHUTDOWN_FLAG:
@@ -461,6 +468,33 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # Absolute minimum check
         if final_usd < 12.0:
             logger.debug(f"Size too small: ${final_usd:.1f}")
+            return False
+
+        # CRITICAL FIX: Check balance BEFORE attempting reservation
+        try:
+            raw_x10 = await x10.get_real_available_balance()
+            raw_lit = await lighter.get_real_available_balance()
+            
+            # Account for in-flight
+            async with IN_FLIGHT_LOCK:
+                available_x10 = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
+                available_lit = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
+            
+            # ABORT if insufficient balance (prevents infinite loop)
+            min_required = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
+            if available_x10 < min_required or available_lit < min_required:
+                logger.warning(
+                    f"⚠️ Insufficient balance for {symbol}: "
+                    f"X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${min_required:.1f}"
+                )
+                FAILED_COINS[symbol] = time.time()
+                return False
+            
+            logger.info(
+                f"💰 Available: X10=${available_x10:.1f}, Lit=${available_lit:.1f}"
+            )
+        except Exception as e:
+            logger.error(f"Balance check error: {e}")
             return False
 
         # RESERVE MARGIN

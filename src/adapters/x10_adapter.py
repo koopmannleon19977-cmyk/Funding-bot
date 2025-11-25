@@ -716,16 +716,34 @@ class X10Adapter(BaseAdapter):
             
             client = await self._get_auth_client()
             
-            # Get open orders
-            orders_resp = await client.account.get_orders(market_name=symbol)
-            if not orders_resp or not orders_resp.data:
+            # FIX: Use correct SDK method name - try multiple possible method names
+            orders_resp = None
+            candidate_methods = [
+                'get_open_orders', 'list_orders', 'get_orders', 'list_open_orders', 'orders'
+            ]
+            for method_name in candidate_methods:
+                if hasattr(client.account, method_name):
+                    method = getattr(client.account, method_name)
+                    try:
+                        # Try calling with market_name first (common), fallback to no-arg call
+                        try:
+                            orders_resp = await method(market_name=symbol)
+                        except TypeError:
+                            orders_resp = await method()
+                        break
+                    except Exception:
+                        # If this method exists but calling it failed, try the next candidate
+                        orders_resp = None
+                        continue
+            
+            if not orders_resp or not getattr(orders_resp, 'data', None):
                 return True
             
             # Cancel each order
             for order in orders_resp.data:
                 if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
                     try:
-                        await client.cancel_order(order.id)
+                        await client.cancel_order(getattr(order, 'id', order))
                         await asyncio.sleep(0.1)
                     except Exception as e:
                         logger.debug(f"Cancel order {getattr(order, 'id', 'unknown')}: {e}")

@@ -175,6 +175,34 @@ class InMemoryStateManager:
                     data = item['data']
                     
                     if op == 'INSERT':
+                        # Ensure all named params exist so sqlite binding doesn't raise KeyError.
+                        # Normalize datetime fields to strings; keep None as NULL in DB.
+                        # Provide defaults for optional fields.
+                        for key, default in {
+                            'symbol': None,
+                            'entry_time': None,
+                            'notional_usd': None,
+                            'leg1_exchange': None,
+                            'initial_spread_pct': None,
+                            'initial_funding_rate_hourly': None,
+                            'entry_price_x10': None,
+                            'entry_price_lighter': None,
+                            'funding_flip_start_time': None,
+                            'is_farm_trade': False,
+                            'account_label': 'Main'
+                        }.items():
+                            if key not in data:
+                                data[key] = default
+                        
+                        # Normalize datetimes to string or None
+                        for date_field in ('entry_time', 'funding_flip_start_time'):
+                            val = data.get(date_field)
+                            if val is None:
+                                data[date_field] = None
+                            elif isinstance(val, datetime):
+                                data[date_field] = val.strftime('%Y-%m-%d %H:%M:%S.%f')
+                            # leave string values as-is (assumed already formatted)
+                        
                         await conn.execute("""
                             INSERT OR REPLACE INTO trades (
                                 symbol, entry_time, notional_usd, status, leg1_exchange,
