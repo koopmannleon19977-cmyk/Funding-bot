@@ -422,6 +422,9 @@ class LighterAdapter(BaseAdapter):
             return False
 
     async def load_market_cache(self, force: bool = False, max_retries: int = 1):
+        print(f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}")
+        print(f"DEBUG: market_info type: {type(getattr(self, 'market_info', 'MISSING'))}")
+
         if not getattr(config, "LIVE_TRADING", False):
             return
 
@@ -435,7 +438,7 @@ class LighterAdapter(BaseAdapter):
             signer = await self._get_signer()
             order_api = OrderApi(signer.api_client)
 
-            market_list = await order_api.order_books()
+            market_list = order_api.order_books()
             if not market_list or not getattr(market_list, 'order_books', None):
                 logger.warning("⚠️ Lighter: Keine Markets von API erhalten")
                 return
