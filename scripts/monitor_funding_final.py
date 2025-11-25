@@ -1249,8 +1249,14 @@ async def main():
                 
                 logger.info(f"✅ Markets loaded: X10={x10_count}, Lighter={lit_count}")
                 
-                if x10_count == 0 or lit_count == 0:
-                    raise ValueError("Market cache empty")
+                if x10_count == 0 and lit_count == 0:
+                    raise ValueError("No markets loaded from any exchange")
+                    
+                if lit_count == 0:
+                    logger.warning("⚠️ Lighter markets not loaded - bot will use X10 only")
+                    
+                if x10_count == 0:
+                    logger.warning("⚠️ X10 markets not loaded - bot will use Lighter only")
                     
                 break
             except Exception as e:

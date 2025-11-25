@@ -443,16 +443,16 @@ class LighterAdapter(BaseAdapter):
             print(f"DEBUG: market_list type: {type(market_list)}")
             print(f"DEBUG: market_list value: {market_list}")
             print(f"DEBUG: has order_books attr: {hasattr(market_list, 'order_books')}")
-
-            if not market_list or not market_list.get('order_books'):
+            
+            if not market_list or not hasattr(market_list, 'order_books') or not market_list.order_books:
                 logger.warning("⚠️ Lighter: Keine Markets von API erhalten")
                 return
 
-            all_ids = [m.get('market_id') for m in market_list.get('order_books', []) if m.get('market_id')]
+            all_ids = [m.market_id for m in market_list.order_books if hasattr(m, 'market_id')]
             total_markets = len(all_ids)
 
-            BATCH_SIZE = 5
-            SLEEP_BETWEEN_BATCHES = 3.0
+            BATCH_SIZE = 3  # Reduced from 5 to be gentler with rate limits
+            SLEEP_BETWEEN_BATCHES = 5.0  # Increased from 3.0 to add breathing room
             MAX_RETRIES = max_retries
 
             successful_loads = 0
