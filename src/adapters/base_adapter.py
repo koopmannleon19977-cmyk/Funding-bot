@@ -8,8 +8,10 @@ logger = logging.getLogger(__name__)
 
 class BaseAdapter:
     def __init__(self, name: str):
-        self.name = name
-        logger.info(f"Initialisiere {self.name}Adapter...")
+        # Do not overwrite if a subclass already provided a `name` attribute
+        if not hasattr(self, "name") or self.name is None:
+            self.name = name
+        logger.info(f"Initialisiere {self.name} Adapter...")
 
     async def load_market_cache(self, force: bool = False):
         if not getattr(config, "LIVE_TRADING", False):

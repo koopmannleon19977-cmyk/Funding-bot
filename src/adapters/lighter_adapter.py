@@ -8,6 +8,8 @@ import random
 from typing import Dict, Tuple, Optional, List
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 
+print("DEBUG: lighter_adapter.py module loading...")
+
 import config
 
 try:
@@ -33,15 +35,18 @@ MARKET_OVERRIDES = {
 
 class LighterAdapter(BaseAdapter):
     def __init__(self):
+        # debug: verify constructor is called
+        print(f"DEBUG: LighterAdapter.__init__ called at {time.time()}")
         super().__init__("Lighter")
-        self.market_info: Dict[str, dict] = {}
-        self.funding_cache: Dict[str, float] = {}
-        self.price_cache: Dict[str, float] = {}
-        self.orderbook_cache: Dict[str, dict] = {}
-        self.price_update_event = None  # Will be set by main loop
-        self._signer: Optional[SignerClient] = None
-        self._resolved_account_index: Optional[int] = None
-        self._resolved_api_key_index: Optional[int] = None
+        self.market_info = {}
+        print(f"DEBUG: market_info initialized: {hasattr(self, 'market_info')}")
+        self.funding_cache = {}
+        self.price_cache = {}
+        self.orderbook_cache = {}
+        self.price_update_event = None
+        self._signer = None
+        self._resolved_account_index = None
+        self._resolved_api_key_index = None
         self.semaphore = asyncio.Semaphore(3)
         self.rate_limiter = AdaptiveRateLimiter(
             initial_rate=3.0,
@@ -49,7 +54,7 @@ class LighterAdapter(BaseAdapter):
             max_rate=15.0,
             name="Lighter"
         )
-        self._last_market_cache_at: Optional[float] = None
+        self._last_market_cache_at = None
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
 
