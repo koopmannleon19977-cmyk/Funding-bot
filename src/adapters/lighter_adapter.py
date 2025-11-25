@@ -438,13 +438,17 @@ class LighterAdapter(BaseAdapter):
             signer = await self._get_signer()
             order_api = OrderApi(signer.api_client)
 
-            market_list = order_api.order_books()
-            if not market_list or not getattr(market_list, 'order_books', None):
+            print(f"DEBUG: Calling order_books()...")
+            market_list = await order_api.order_books()
+            print(f"DEBUG: market_list type: {type(market_list)}")
+            print(f"DEBUG: market_list value: {market_list}")
+            print(f"DEBUG: has order_books attr: {hasattr(market_list, 'order_books')}")
+
+            if not market_list or not market_list.get('order_books'):
                 logger.warning("⚠️ Lighter: Keine Markets von API erhalten")
                 return
 
-            all_ids = [getattr(m, 'market_id', None) for m in market_list.order_books]
-            all_ids = [mid for mid in all_ids if mid]
+            all_ids = [m.get('market_id') for m in market_list.get('order_books', []) if m.get('market_id')]
             total_markets = len(all_ids)
 
             BATCH_SIZE = 5
