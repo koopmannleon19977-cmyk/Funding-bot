@@ -38,6 +38,7 @@ class LighterAdapter(BaseAdapter):
         self.funding_cache: Dict[str, float] = {}
         self.price_cache: Dict[str, float] = {}
         self.orderbook_cache: Dict[str, dict] = {}
+        self.price_update_event = None  # Will be set by main loop
         self._signer: Optional[SignerClient] = None
         self._resolved_account_index: Optional[int] = None
         self._resolved_api_key_index: Optional[int] = None
@@ -230,16 +231,18 @@ class LighterAdapter(BaseAdapter):
                     
                     market_ids = [m['i'] for m in self.market_info.values()]
                     logger.info(f"📊 Lighter: Subscribing to {len(market_ids)} markets")
-                    priority_markets = market_ids[:20]
-                    
-                    sub_msg = {
-                        "method": "subscribe",
-                        "params": ["trade", "order_book", priority_markets],
-                        "id": 1
-                    }
-                    
-                    logger.debug(f"Lighter: Sending subscription for {len(priority_markets)} markets")
-                    await ws.send_json(sub_msg)
+                    # Subscribe in batches to avoid message size limits
+                    batch_size = 50
+                    for i in range(0, len(market_ids), batch_size):
+                        batch = market_ids[i:i+batch_size]
+                        sub_msg = {
+                            "method": "subscribe",
+                            "params": ["trade", "order_book", batch],
+                            "id": (i // batch_size) + 1
+                        }
+                        logger.debug(f"Lighter: Sending batch {(i // batch_size) + 1} with {len(batch)} markets")
+                        await ws.send_json(sub_msg)
+                        await asyncio.sleep(0.5)
                     
                     logger.debug("Lighter: Waiting for subscription confirmation...")
                     
@@ -262,13 +265,13 @@ class LighterAdapter(BaseAdapter):
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(msg.data)
-                                
-                                # Debug first message
+
+                                # Debug first message (raw trimmed dump) to help format troubleshooting
                                 if not hasattr(self, '_ws_debug_logged'):
                                     try:
-                                        logger.debug(f"Lighter first message: {data}")
+                                        logger.info(f"Lighter RAW MESSAGE: {json.dumps(data, indent=2)[:500]}")
                                     except Exception:
-                                        logger.debug("Lighter first message received (unable to stringify)")
+                                        logger.info("Lighter: First raw message received (unable to stringify)")
                                     self._ws_debug_logged = True
                             except Exception:
                                 continue
@@ -285,17 +288,21 @@ class LighterAdapter(BaseAdapter):
                                     for sym, info in self.market_info.items():
                                         if info['i'] == mid:
                                             try:
-                                                self.price_cache[sym] = float(price_str)
-                                            except Exception:
-                                                pass
-                                            updated = True
-                                            break
+                                                price_float = float(price_str)
+                                                self.price_cache[sym] = price_float
+                                                updated = True
+                                                logger.debug(f"Lighter: Price update {sym}={price_float}")
+                                                break
+                                            except (ValueError, TypeError) as e:
+                                                logger.error(f"Lighter: Price parse error {sym}: {e}")
 
                                     if updated and hasattr(self, 'price_update_event'):
                                         try:
-                                            self.price_update_event.set()
-                                        except Exception:
-                                            pass
+                                            if getattr(self, 'price_update_event', None):
+                                                self.price_update_event.set()
+                                                logger.debug(f"Lighter: Event triggered, cache size={len(self.price_cache)}")
+                                        except Exception as e:
+                                            logger.error(f"Lighter: Event trigger failed: {e}")
 
                                 market_id = p.get("market_id")
                                 if market_id and "order_book" in p:

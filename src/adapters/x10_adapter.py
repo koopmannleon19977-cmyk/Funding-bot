@@ -34,6 +34,7 @@ class X10Adapter(BaseAdapter):
         self.price_cache = {}
         self.funding_cache = {}
         self.orderbook_cache = {}
+        self.price_update_event = None  # Will be set by main loop
 
         self.rate_limiter = AdaptiveRateLimiter(
             initial_rate=10.0,
@@ -201,12 +202,12 @@ class X10Adapter(BaseAdapter):
                         if msg.type == aiohttp.WSMsgType.TEXT:
                             try:
                                 data = json.loads(msg.data)
-                                # Debug first message to verify format
+                                # Log raw first message (trimmed) to help debug unexpected formats
                                 if not hasattr(self, '_debug_logged'):
                                     try:
-                                        logger.debug(f"X10 Trades first message keys: {list(data.keys())}")
+                                        logger.info(f"X10 Trades RAW MESSAGE: {json.dumps(data, indent=2)[:500]}")
                                     except Exception:
-                                        logger.debug("X10 Trades first message received (unable to list keys)")
+                                        logger.info("X10 Trades: First raw message received (unable to stringify)")
                                     self._debug_logged = True
                             except Exception:
                                 continue
@@ -221,16 +222,20 @@ class X10Adapter(BaseAdapter):
                                         px_str = trade.get("p")
                                         if sym and px_str:
                                             try:
-                                                self.price_cache[sym] = float(px_str)
+                                                price_float = float(px_str)
+                                                self.price_cache[sym] = price_float
                                                 trigger_update = True
-                                            except (ValueError, TypeError):
-                                                pass
+                                                logger.debug(f"X10: Price update {sym}={price_float}")
+                                            except (ValueError, TypeError) as e:
+                                                logger.error(f"X10: Price parse error {sym}: {e}")
 
                             if trigger_update and hasattr(self, 'price_update_event'):
                                 try:
-                                    self.price_update_event.set()
-                                except Exception:
-                                    pass
+                                    if getattr(self, 'price_update_event', None):
+                                        self.price_update_event.set()
+                                        logger.debug(f"X10: Event triggered, cache size={len(self.price_cache)}")
+                                except Exception as e:
+                                    logger.error(f"X10: Event trigger failed: {e}")
 
                         elif msg.type == aiohttp.WSMsgType.ERROR:
                             logger.warning(f"⚠️ X10 Trades WS Error: {msg}")
@@ -351,7 +356,7 @@ class X10Adapter(BaseAdapter):
         # X10 Public WebSocket endpoints - no {market} param = ALL markets
         return {
             "trades": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades",
-            "orderbook": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks",
+            "orderbook": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks?depth=1",
             "funding": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding",
             "mark_price": "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/prices/mark"
         }
