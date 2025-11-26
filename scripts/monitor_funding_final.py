@@ -284,7 +284,7 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
             logger.debug(f"⛔ Skip {s}: TradFi/FX")
             continue
 
-        if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 300):
+        if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 60):
             logger.debug(f"⏰ Skip {s}: Failed cooldown")
             continue
 
@@ -597,7 +597,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 if success_x10 and not success_lit:
                     logger.error(f"🔄 ROLLBACK {symbol}: X10 filled, Lighter failed")
                     await asyncio.sleep(2)
-                    await x10.close_live_position(symbol, x10_side, final_usd)
+                    await safe_close_x10_position(x10, symbol, x10_side, final_usd)
                     FAILED_COINS[symbol] = time.time()
                     return False
                 
@@ -653,7 +653,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 
                 if x10_ghost:
                     logger.error(f"🧟 Cleaning X10 ghost for {symbol}")
-                    await x10.close_live_position(symbol, x10_side, final_usd)
+                    await safe_close_x10_position(x10, symbol, x10_side, final_usd)
                 
                 if lit_ghost:
                     logger.error(f"🧟 Cleaning Lighter ghost for {symbol}")
@@ -697,6 +697,23 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     
     logger.warning(f" Close partial fail {symbol}: X10={s1}, Lit={s2}")
     return False # Retry logic handles this
+
+# --- Neue Hilfsfunktion: sichere X10-Schließung mit Positions-Check ---
+async def safe_close_x10_position(x10, symbol, side, notional):
+    """Close X10 position with size validation"""
+    try:
+        positions = await x10.fetch_open_positions()
+        actual_pos = next((p for p in (positions or []) if p['symbol'] == symbol), None)
+        
+        if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
+            logger.warning(f"No position to close for {symbol}")
+            return
+        
+        # Use actual position size, not notional
+        await x10.close_live_position(symbol, side, abs(actual_pos['size']))
+        logger.info(f"✅ Closed {symbol} on X10")
+    except Exception as e:
+        logger.error(f"Close failed for {symbol}: {e}")
 
 # ============================================================
 # LOOPS & MANAGEMENT
@@ -945,25 +962,75 @@ async def farm_loop(lighter, x10, parallel_exec):
         logger.info("🚜 Farm Mode disabled - exiting")
         return
 
-    logger.info("🚜 Farming Loop started.")
+    logger.info("🚜 Farm Mode ACTIVE")
+
     while True:
         try:
+            if SHUTDOWN_FLAG:
+                break
+                
             trades = await get_open_trades()
-            if len(trades) >= config.FARM_MAX_CONCURRENT:
-                await asyncio.sleep(1)
+            farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
+            
+            if farm_count >= config.FARM_MAX_CONCURRENT:
+                await asyncio.sleep(5)
                 continue
-
-            open_syms = {t['symbol'] for t in trades}
-
-            # DISABLED: Farm loop creates zombies - use normal opportunity finding instead
-            # TODO: Re-enable after zombie fix verified
-            await asyncio.sleep(60)
-            continue
-
+            
+            # Find low-spread opportunities
+            common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
+            
+            for sym in common:
+                if sym in [t['symbol'] for t in trades]:
+                    continue
+                    
+                px = x10.fetch_mark_price(sym)
+                pl = lighter.fetch_mark_price(sym)
+                
+                if not px or not pl:
+                    continue
+                
+                spread = abs(px - pl) / px
+                
+                if spread > config.FARM_MAX_SPREAD_PCT:
+                    continue
+                
+                # Check volatility
+                vol_24h = abs(x10.get_24h_change_pct(sym) or 0)
+                if vol_24h > config.FARM_MAX_VOLATILITY_24H:
+                    continue
+                
+                rl = lighter.fetch_funding_rate(sym) or 0
+                rx = x10.fetch_funding_rate(sym) or 0
+                apy = abs(rl - rx) * 24 * 365
+                
+                if apy < config.FARM_MIN_APY:
+                    continue
+                
+                # Create farm opportunity
+                opp = {
+                    'symbol': sym,
+                    'apy': apy * 100,
+                    'net_funding_hourly': rl - rx,
+                    'leg1_exchange': 'Lighter' if rl > rx else 'X10',
+                    'leg1_side': 'SELL' if rl > rx else 'BUY',
+                    'is_farm_trade': True
+                }
+                
+                logger.info(f"🚜 Farm: {sym} APY={apy*100:.1f}%")
+                
+                if sym not in ACTIVE_TASKS:
+                    ACTIVE_TASKS[sym] = asyncio.create_task(
+                        execute_trade_task(opp, lighter, x10, parallel_exec)
+                    )
+                    await asyncio.sleep(2)
+                    break
+            
+            await asyncio.sleep(10)
+            
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Farm Loop Error: {e}")
+            logger.error(f"Farm Error: {e}")
             await asyncio.sleep(5)
 
 async def cleanup_finished_tasks():

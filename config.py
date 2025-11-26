@@ -30,6 +30,8 @@ BLACKLIST_SYMBOLS = {
     "MEGA-USD",
 }
 
+TRADE_COOLDOWN_SECONDS = 60
+
 # ============================================================
 # POSITIONSGRÖSSEN & LIMITS
 # ============================================================
@@ -146,12 +148,12 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # VOLUME FARM MODE
 # ============================================================
 VOLUME_FARM_MODE = True
-FARM_NOTIONAL_USD = 50
+FARM_NOTIONAL_USD = 16
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 15
 FARM_MAX_HOLD_MINUTES = 120
 FARM_HOLD_SECONDS = 600
-FARM_MAX_CONCURRENT = 32
+FARM_MAX_CONCURRENT = 5
 FARM_MIN_APY = 0.03
 FARM_MAX_VOLATILITY_24H = 4.0
 FARM_MAX_SPREAD_PCT = 0.15
