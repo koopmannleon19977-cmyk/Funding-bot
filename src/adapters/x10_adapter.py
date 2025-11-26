@@ -644,16 +644,52 @@ class X10Adapter(BaseAdapter):
             return False, None
 
     async def close_live_position(
-        self, 
-        symbol: str, 
-        original_side: str, 
+        self,
+        symbol: str,
+        original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        close_side = "SELL" if original_side == "BUY" else "BUY"
+        """Close position using ACTUAL position size from exchange
+
+        Args:
+            symbol: Trading symbol
+            original_side: Original opening side (BUY/SELL) - DEPRECATED, we fetch actual
+            notional_usd: Notional USD - DEPRECATED, we fetch actual size
+
+        Returns:
+            (success, order_id)
+        """
         max_retries = 3
 
         for attempt in range(max_retries):
             try:
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Fetch ACTUAL position BEFORE close
+                # ═══════════════════════════════════════════════════════════════
+                positions = await self.fetch_open_positions()
+                actual_pos = next(
+                    (p for p in (positions or []) if p.get('symbol') == symbol),
+                    None
+                )
+
+                if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
+                    logger.info(f"✅ X10 {symbol} already closed (no position found)")
+                    return True, None
+
+                # Get ACTUAL size in coins
+                actual_size = actual_pos.get('size', 0)
+                actual_size_abs = abs(actual_size)
+
+                # Determine close side from CURRENT position (not original_side param)
+                # Positive size = LONG position → close with SELL
+                # Negative size = SHORT position → close with BUY
+                if actual_size > 0:
+                    close_side = "SELL"
+                    position_type = "LONG"
+                else:
+                    close_side = "BUY"
+                    position_type = "SHORT"
+
                 # Get current price
                 price = self.fetch_mark_price(symbol)
                 if not price or price <= 0:
@@ -663,6 +699,15 @@ class X10Adapter(BaseAdapter):
                         continue
                     return False, None
 
+                # Calculate notional from actual size
+                actual_notional = actual_size_abs * price
+
+                logger.info(
+                    f"🔻 X10 CLOSE {symbol} (Attempt {attempt+1}): "
+                    f"pos={position_type}, size={actual_size_abs:.6f} coins, "
+                    f"notional=${actual_notional:.2f}, side={close_side}"
+                )
+
                 # Use 3% slippage to avoid "accidental price" errors
                 if close_side == "BUY":
                     # Buying to close SHORT → pay slightly more
@@ -671,11 +716,15 @@ class X10Adapter(BaseAdapter):
                     # Selling to close LONG → accept slightly less
                     limit_price = price * 0.97
 
-                logger.info(f"🔻 X10 CLOSE {symbol}: Attempt {attempt+1}, LimitPrice={limit_price}")
-
-                # Execute close
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Use ACTUAL notional (calculated from real position)
+                # ═══════════════════════════════════════════════════════════════
                 success, order_id = await self.open_live_position(
-                    symbol, close_side, notional_usd, reduce_only=True, post_only=False
+                    symbol,
+                    close_side,
+                    actual_notional,  # ✅ USE ACTUAL NOTIONAL
+                    reduce_only=True,
+                    post_only=False
                 )
 
                 if not success:
@@ -694,7 +743,7 @@ class X10Adapter(BaseAdapter):
                 )
 
                 if not still_open:
-                    logger.info(f"✅ X10 {symbol} VERIFIED CLOSED")
+                    logger.info(f"✅ X10 {symbol} VERIFIED CLOSED ({actual_size_abs:.6f} coins)")
                     return True, order_id
                 else:
                     if attempt < max_retries - 1:

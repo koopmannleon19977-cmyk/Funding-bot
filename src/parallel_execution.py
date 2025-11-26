@@ -75,19 +75,20 @@ class ParallelExecutionManager:
     
     async def _rollback_x10(self, symbol: str, original_side: str, size: Decimal):
         try:
-            await asyncio.sleep(2.0)
-            
+            # Wait longer for position to fully settle
+            await asyncio.sleep(5.0)
+
             positions = await self.x10.fetch_open_positions()
             has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in (positions or []))
-            
+
             if not has_pos:
                 logger.info(f"✓ X10 Rollback skipped: No position for {symbol}")
                 return
-            
-            # CRITICAL FIX: Get actual position side from exchange
+
+            # CRITICAL FIX: Get actual position from exchange
             actual_pos = next(p for p in positions if p.get('symbol') == symbol)
             actual_size = actual_pos.get('size', 0)
-            
+
             # Determine ORIGINAL side based on current position
             # Positive size = LONG (opened with BUY) → original_side = "BUY"
             # Negative size = SHORT (opened with SELL) → original_side = "SELL"
@@ -95,48 +96,79 @@ class ParallelExecutionManager:
                 original_side_corrected = "BUY"
             else:
                 original_side_corrected = "SELL"
-            
-            logger.info(f"→ X10 Rollback {symbol}: pos_size={actual_size:.6f}, original={original_side_corrected}")
-            
-            success, _ = await self.x10.close_live_position(symbol, original_side_corrected, float(size))
-            
+
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL FIX: Use ACTUAL position size, not notional USD!
+            # ═══════════════════════════════════════════════════════════════
+            actual_size_abs = abs(actual_size)
+
+            logger.info(
+                f"→ X10 Rollback {symbol}: "
+                f"actual_size={actual_size:.6f} coins, "
+                f"side={original_side_corrected}, "
+                f"requested_notional=${float(size):.2f}"
+            )
+
+            # Pass actual coin size, NOT notional USD
+            success, _ = await self.x10.close_live_position(
+                symbol,
+                original_side_corrected,
+                actual_size_abs  # ✅ USE ACTUAL POSITION SIZE
+            )
+
             if success:
-                logger.info(f"✓ X10 rollback executed for {symbol}")
+                logger.info(f"✓ X10 rollback executed for {symbol} ({actual_size_abs:.6f} coins)")
             else:
                 logger.error(f"✗ X10 rollback FAILED for {symbol}")
-                
+
         except Exception as e:
             logger.error(f"✗ X10 rollback exception for {symbol}: {e}")
 
     async def _rollback_lighter(self, symbol: str, original_side: str, size: Decimal):
         try:
-            await asyncio.sleep(1.5)
-            
+            # Wait longer for position to fully settle
+            await asyncio.sleep(5.0)
+
             positions = await self.lighter.fetch_open_positions()
             has_pos = any(p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8 for p in (positions or []))
-            
+
             if not has_pos:
                 logger.info(f"✓ Lighter Rollback skipped: No position for {symbol}")
                 return
-            
-            # CRITICAL FIX: Get actual position side from exchange
+
+            # CRITICAL FIX: Get actual position from exchange
             actual_pos = next(p for p in positions if p.get('symbol') == symbol)
             actual_size = actual_pos.get('size', 0)
-            
+
             # Determine ORIGINAL side based on current position
             if actual_size > 0:
                 original_side_corrected = "BUY"
             else:
                 original_side_corrected = "SELL"
-            
-            logger.info(f"→ Lighter Rollback {symbol}: pos_size={actual_size:.6f}, original={original_side_corrected}")
-            
-            success, _ = await self.lighter.close_live_position(symbol, original_side_corrected, float(size))
-            
+
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL FIX: Use ACTUAL position size, not notional USD!
+            # ═══════════════════════════════════════════════════════════════
+            actual_size_abs = abs(actual_size)
+
+            logger.info(
+                f"→ Lighter Rollback {symbol}: "
+                f"actual_size={actual_size:.6f} coins, "
+                f"side={original_side_corrected}, "
+                f"requested_notional=${float(size):.2f}"
+            )
+
+            # Pass actual coin size, NOT notional USD
+            success, _ = await self.lighter.close_live_position(
+                symbol,
+                original_side_corrected,
+                actual_size_abs  # ✅ USE ACTUAL POSITION SIZE
+            )
+
             if success:
-                logger.info(f"✓ Lighter rollback executed for {symbol}")
+                logger.info(f"✓ Lighter rollback executed for {symbol} ({actual_size_abs:.6f} coins)")
             else:
                 logger.error(f"✗ Lighter rollback FAILED for {symbol}")
-                
+
         except Exception as e:
             logger.error(f"✗ Lighter rollback exception for {symbol}: {e}")

@@ -42,7 +42,7 @@ FAILED_COINS = {}
 ACTIVE_TASKS = {}
 SHUTDOWN_FLAG = False
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
-POSITION_CACHE_TTL = 30.0  # 10s -> 30s to reduce API calls
+POSITION_CACHE_TTL = 5.0  # 5s for fresher data (was 30s)
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 OPPORTUNITY_LOG_CACHE = {}
@@ -583,16 +583,44 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 est_px_lit = lighter.fetch_mark_price(symbol) or 0.0
                 
                 logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
-                
-                # Fire both simultaneously
+
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL: FRESH BALANCE CHECK IMMEDIATELY BEFORE ORDER
+                # ═══════════════════════════════════════════════════════════════
+                fresh_x10 = await x10.get_real_available_balance()
+                fresh_lit = await lighter.get_real_available_balance()
+
+                if fresh_x10 < final_usd:
+                    logger.error(f"🚫 ABORT {symbol}: X10 balance too low (${fresh_x10:.1f} < ${final_usd:.1f})")
+                    FAILED_COINS[symbol] = time.time()
+                    return False
+
+                if fresh_lit < final_usd:
+                    logger.error(f"🚫 ABORT {symbol}: Lighter balance too low (${fresh_lit:.1f} < ${final_usd:.1f})")
+                    FAILED_COINS[symbol] = time.time()
+                    return False
+
+                logger.debug(f"✅ Fresh balance OK: X10=${fresh_x10:.1f}, Lit=${fresh_lit:.1f}")
+
+                # ═══════════════════════════════════════════════════════════════
+                # SEQUENTIAL EXECUTION with delay (prevent race condition)
+                # ═══════════════════════════════════════════════════════════════
+                # Execute X10 first (post_only, faster)
                 x10_task = asyncio.create_task(
                     x10.open_live_position(symbol, x10_side, final_usd, post_only=True)
                 )
+                x10_result = await x10_task
+
+                # Wait for X10 to settle
+                await asyncio.sleep(2.0)
+
+                # Then execute Lighter
                 lit_task = asyncio.create_task(
                     lighter.open_live_position(symbol, lighter_side, final_usd, post_only=False)
                 )
-                
-                results = await asyncio.gather(x10_task, lit_task, return_exceptions=True)
+                lit_result = await lit_task
+
+                results = [x10_result, lit_result]
                 x10_result, lit_result = results
                 
                 # Check X10
@@ -717,20 +745,47 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
 
 # --- Neue Hilfsfunktion: sichere X10-Schließung mit Positions-Check ---
 async def safe_close_x10_position(x10, symbol, side, notional):
-    """Close X10 position with size validation"""
+    """Close X10 position with size validation
+
+    Args:
+        x10: X10 adapter
+        symbol: Trading symbol
+        side: Original opening side (BUY/SELL)
+        notional: Notional USD (not used, kept for compatibility)
+    """
     try:
+        # Wait for position to settle
+        await asyncio.sleep(2.0)
+
         positions = await x10.fetch_open_positions()
         actual_pos = next((p for p in (positions or []) if p['symbol'] == symbol), None)
-        
+
         if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
             logger.warning(f"No position to close for {symbol}")
             return
-        
-        # Use actual position size, not notional
-        await x10.close_live_position(symbol, side, abs(actual_pos['size']))
-        logger.info(f"✅ Closed {symbol} on X10")
+
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL FIX: Use ACTUAL position size in coins, not notional USD!
+        # ═══════════════════════════════════════════════════════════════
+        actual_size = actual_pos.get('size', 0)
+        actual_size_abs = abs(actual_size)
+
+        logger.info(
+            f"→ Closing X10 {symbol}: "
+            f"actual_size={actual_size:.6f} coins, "
+            f"side={side}"
+        )
+
+        # Pass actual coin size, NOT notional USD
+        success, _ = await x10.close_live_position(symbol, side, actual_size_abs)
+
+        if success:
+            logger.info(f"✅ Closed {symbol} on X10 ({actual_size_abs:.6f} coins)")
+        else:
+            logger.error(f"❌ Close failed for {symbol}")
+
     except Exception as e:
-        logger.error(f"Close failed for {symbol}: {e}")
+        logger.error(f"Close exception for {symbol}: {e}")
 
 # ============================================================
 # LOOPS & MANAGEMENT
