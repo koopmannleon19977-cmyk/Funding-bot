@@ -1006,34 +1006,82 @@ class LighterAdapter(BaseAdapter):
             return False, None
 
     async def close_live_position(
-        self, 
-        symbol: str, 
-        original_side: str, 
+        self,
+        symbol: str,
+        original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        close_side = "SELL" if original_side == "BUY" else "BUY"
+        """Close position using ACTUAL position size from exchange
+
+        Args:
+            symbol: Trading symbol
+            original_side: Original opening side (BUY/SELL) - DEPRECATED, we fetch actual
+            notional_usd: Notional USD - DEPRECATED, we fetch actual size
+
+        Returns:
+            (success, tx_hash)
+        """
         max_retries = 3
-        
+
         for attempt in range(max_retries):
             try:
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Fetch ACTUAL position BEFORE close
+                # ═══════════════════════════════════════════════════════════════
+                positions = await self.fetch_open_positions()
+                actual_pos = next(
+                    (p for p in (positions or []) if p.get('symbol') == symbol),
+                    None
+                )
+
+                if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
+                    logger.info(f"✅ Lighter {symbol} already closed (no position found)")
+                    return True, None
+
+                # Get ACTUAL size in coins
+                actual_size = actual_pos.get('size', 0)
+                actual_size_abs = abs(actual_size)
+
+                # Determine close side from CURRENT position (not original_side param)
+                # Positive size = LONG position → close with SELL
+                # Negative size = SHORT position → close with BUY
+                if actual_size > 0:
+                    close_side = "SELL"
+                    position_type = "LONG"
+                else:
+                    close_side = "BUY"
+                    position_type = "SHORT"
+
                 price = self.fetch_mark_price(symbol)
                 if not price or price <= 0:
+                    logger.error(f"Lighter: No price for {symbol}")
                     return False, None
-                
+
+                # Calculate notional from actual size
+                actual_notional = actual_size_abs * price
+
                 slippage_pct = [2.0, 5.0, 10.0][min(attempt, 2)]
                 slippage = Decimal(str(slippage_pct)) / Decimal(100)
                 # CRITICAL FIX: Reduce slippage to avoid "accidental price" error (21733)
                 slippage = Decimal('0.03')  # 3% instead of 10% - Exchange rejects prices outside band
                 price_decimal = Decimal(str(price))
-                
+
                 if close_side == "BUY":
                     limit_price = price_decimal * (Decimal(1) + slippage)
                 else:
                     limit_price = price_decimal * (Decimal(1) - slippage)
-                
-                logger.info(f" AGGRESSIVE CLOSE {symbol}: Attempt {attempt+1}, Slippage {float(slippage * 100):.1f}%")
-                
-                qty = Decimal(str(notional_usd)) / limit_price
+
+                logger.info(
+                    f"🔻 Lighter CLOSE {symbol} (Attempt {attempt+1}): "
+                    f"pos={position_type}, size={actual_size_abs:.6f} coins, "
+                    f"notional=${actual_notional:.2f}, side={close_side}, "
+                    f"slippage={float(slippage * 100):.1f}%"
+                )
+
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Use ACTUAL notional (calculated from real position)
+                # ═══════════════════════════════════════════════════════════════
+                qty = Decimal(str(actual_notional)) / limit_price  # ✅ USE ACTUAL NOTIONAL
                 base, price_int = self._scale_amounts(symbol, qty, limit_price, close_side)
                 
                 if base == 0:
@@ -1074,13 +1122,14 @@ class LighterAdapter(BaseAdapter):
                 )
                 
                 if not still_open:
-                    logger.info(f" {symbol} VERIFIED CLOSED")
+                    logger.info(f"✅ Lighter {symbol} VERIFIED CLOSED ({actual_size_abs:.6f} coins)")
                     return True, str(tx_hash)
                 else:
                     if attempt < max_retries - 1:
+                        logger.warning(f"⚠️ Lighter {symbol} still open, retry {attempt+2}/{max_retries}")
                         continue
                     else:
-                        logger.error(f" {symbol} FAILED after {max_retries} attempts!")
+                        logger.error(f"❌ Lighter {symbol} FAILED after {max_retries} attempts!")
                         return False, str(tx_hash)
             
             except Exception as e:
