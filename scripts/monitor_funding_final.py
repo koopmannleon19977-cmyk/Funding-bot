@@ -189,11 +189,26 @@ def is_tradfi_or_fx(symbol: str) -> bool:
     if s.startswith(("SPX", "NDX", "US30", "DJI", "NAS")): return True
     return False
 
-async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
+async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None) -> List[Dict]:
+    """
+    Find trading opportunities
+
+    Args:
+        lighter: Lighter adapter
+        x10: X10 adapter
+        open_syms: Set of already open symbols
+        is_farm_mode: If True, mark all trades as farm trades. If None, auto-detect from config.
+    """
+    # Auto-detect farm mode if not specified
+    if is_farm_mode is None:
+        is_farm_mode = config.VOLUME_FARM_MODE
+
     opps: List[Dict] = []
     common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
-    logger.info(f"🔍 Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
+
+    mode_indicator = "🚜 FARM" if is_farm_mode else "💎 ARB"
+    logger.info(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
     # Verify market data is loaded
     if not common:
         logger.warning("⚠️ No common markets found")
@@ -353,7 +368,7 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
             'net_funding_hourly': net,
             'leg1_exchange': 'Lighter' if rl > rx else 'X10',
             'leg1_side': 'SELL' if rl > rx else 'BUY',
-            'is_farm_trade': False
+            'is_farm_trade': is_farm_mode  # ✅ DYNAMIC: Set based on mode
         })
 
     logger.info(f"✅ Found {len(opps)} opportunities from {valid_pairs} valid pairs (scanned {len(clean_results)})")
@@ -611,8 +626,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 
                 # SUCCESS
                 if success_x10 and success_lit:
-                    logger.info(f"✅ {symbol} opened successfully")
-                    
+                    is_farm = opp.get('is_farm_trade', False)
+                    farm_indicator = "🚜 FARM" if is_farm else "💎 ARB"
+                    logger.info(f"✅ {farm_indicator} {symbol} opened successfully")
+
                     # Store trade with SNAPSHOT prices (not order IDs!)
                     trade_data = {
                         'symbol': symbol,
@@ -624,7 +641,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         'initial_funding_rate_hourly': abs(net_rate),
                         'entry_price_x10': float(est_px_x10),
                         'entry_price_lighter': float(est_px_lit),
-                        'is_farm_trade': opp.get('is_farm_trade', False),  # PRESERVE FLAG
+                        'is_farm_trade': is_farm,  # ✅ PRESERVE FLAG with explicit variable
                         'account_label': current_label
                     }
                     state_mgr = get_state_manager()
