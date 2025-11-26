@@ -247,7 +247,7 @@ async def find_opportunities(lighter, x10, open_syms) -> List[Dict]:
                 logger.debug(f"Error fetching {s}: {e}")
                 return (s, None, None, None, None)
 
-    # Launch concurrent fetches
+    # Launch concurrent fetchs
     tasks = [asyncio.create_task(fetch_symbol_data(s)) for s in common]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -465,7 +465,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             
             # STEP 2: CALCULATE SIZE
             if opp.get('is_farm_trade'):
-                final_usd = 16.0
+                final_usd = config.FARM_NOTIONAL_USD  # Use config value
+                logger.info(f"🚜 Farm trade {symbol}: ${final_usd}")
             else:
                 # ABORT EARLY if insufficient
                 if bal_x10_real < 20.0 or bal_lit_real < 20.0:
@@ -623,10 +624,9 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         'initial_funding_rate_hourly': abs(net_rate),
                         'entry_price_x10': float(est_px_x10),
                         'entry_price_lighter': float(est_px_lit),
-                        'is_farm_trade': opp.get('is_farm_trade', False),
+                        'is_farm_trade': opp.get('is_farm_trade', False),  # PRESERVE FLAG
                         'account_label': current_label
                     }
-                    
                     state_mgr = get_state_manager()
                     await state_mgr.add_trade(trade_data)
                     
@@ -957,13 +957,12 @@ async def cleanup_zombie_positions(lighter, x10):
         logger.error(f"Zombie Cleanup Error: {e}")
 
 async def farm_loop(lighter, x10, parallel_exec):
-    """Aggressive Volume Farming Loop"""
+    """Volume Farming"""
     if not config.VOLUME_FARM_MODE:
-        logger.info("🚜 Farm Mode disabled - exiting")
         return
 
     logger.info("🚜 Farm Mode ACTIVE")
-
+    
     while True:
         try:
             if SHUTDOWN_FLAG:
@@ -972,15 +971,26 @@ async def farm_loop(lighter, x10, parallel_exec):
             trades = await get_open_trades()
             farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
             
+            # Check if we can farm
             if farm_count >= config.FARM_MAX_CONCURRENT:
-                await asyncio.sleep(5)
+                await asyncio.sleep(10)
                 continue
             
-            # Find low-spread opportunities
+            # Get balance
+            bal_x10 = await x10.get_real_available_balance()
+            bal_lit = await lighter.get_real_available_balance()
+            
+            if bal_x10 < config.FARM_NOTIONAL_USD or bal_lit < config.FARM_NOTIONAL_USD:
+                logger.debug(f"🚜 Farm paused: Low balance X10=${bal_x10:.0f} Lit=${bal_lit:.0f}")
+                await asyncio.sleep(30)
+                continue
+            
+            # Find farm opportunity
             common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
+            open_syms = {t['symbol'] for t in trades}
             
             for sym in common:
-                if sym in [t['symbol'] for t in trades]:
+                if sym in open_syms or sym in ACTIVE_TASKS:
                     continue
                     
                 px = x10.fetch_mark_price(sym)
@@ -990,11 +1000,9 @@ async def farm_loop(lighter, x10, parallel_exec):
                     continue
                 
                 spread = abs(px - pl) / px
-                
                 if spread > config.FARM_MAX_SPREAD_PCT:
                     continue
                 
-                # Check volatility
                 vol_24h = abs(x10.get_24h_change_pct(sym) or 0)
                 if vol_24h > config.FARM_MAX_VOLATILITY_24H:
                     continue
@@ -1006,24 +1014,25 @@ async def farm_loop(lighter, x10, parallel_exec):
                 if apy < config.FARM_MIN_APY:
                     continue
                 
-                # Create farm opportunity
+                # CRITICAL: Mark as farm trade
                 opp = {
                     'symbol': sym,
                     'apy': apy * 100,
                     'net_funding_hourly': rl - rx,
                     'leg1_exchange': 'Lighter' if rl > rx else 'X10',
                     'leg1_side': 'SELL' if rl > rx else 'BUY',
-                    'is_farm_trade': True
+                    'is_farm_trade': True,  # CRITICAL FLAG
+                    'spread_pct': spread
                 }
                 
-                logger.info(f"🚜 Farm: {sym} APY={apy*100:.1f}%")
+                logger.info(f"🚜 Opening FARM: {sym} APY={apy*100:.1f}%")
                 
-                if sym not in ACTIVE_TASKS:
-                    ACTIVE_TASKS[sym] = asyncio.create_task(
-                        execute_trade_task(opp, lighter, x10, parallel_exec)
-                    )
-                    await asyncio.sleep(2)
-                    break
+                ACTIVE_TASKS[sym] = asyncio.create_task(
+                    execute_trade_task(opp, lighter, x10, parallel_exec)
+                )
+                
+                await asyncio.sleep(3)  # Wait for execution
+                break
             
             await asyncio.sleep(10)
             
@@ -1031,7 +1040,7 @@ async def farm_loop(lighter, x10, parallel_exec):
             break
         except Exception as e:
             logger.error(f"Farm Error: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
 
 async def cleanup_finished_tasks():
     """Helper to clean up finished execution tasks"""
