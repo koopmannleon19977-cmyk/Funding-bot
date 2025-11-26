@@ -828,6 +828,7 @@ async def manage_open_trades(lighter, x10):
             reason = "VOLATILITY_PANIC"
         elif t.get('is_farm_trade') and hold_hours * 3600 > config.FARM_HOLD_SECONDS:
             reason = "FARM_COMPLETE"
+            logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min")
         elif total_pnl < -t['notional_usd'] * 0.03:
             reason = "STOP_LOSS"
         elif total_pnl > t['notional_usd'] * 0.05:
@@ -990,7 +991,8 @@ async def farm_loop(lighter, x10, parallel_exec):
             open_syms = {t['symbol'] for t in trades}
             
             for sym in common:
-                if sym in open_syms or sym in ACTIVE_TASKS:
+                # Prevent spam / re-triggers: skip if open, already executing, or recently failed
+                if sym in open_syms or sym in ACTIVE_TASKS or sym in FAILED_COINS:
                     continue
                     
                 px = x10.fetch_mark_price(sym)
