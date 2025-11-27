@@ -850,100 +850,138 @@ async def manage_open_trades(lighter, x10):
         return
 
     for t in trades:
-        sym = t['symbol']
-        px, pl = x10.fetch_mark_price(sym), lighter.fetch_mark_price(sym)
+        try:
+            sym = t['symbol']
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Daten-Sanitizing für ALLE numerischen Felder
+            # ═══════════════════════════════════════════════════════════════
+            
+            # 1. Notional sanitizen
+            notional = t.get('notional_usd')
+            notional = float(notional) if notional is not None else 0.0
 
-        # ═══════════════════════════════════════════════════════════════
-        # HOTFIX: Schutz gegen NoneType Fehler (Crash Prevention)
-        # ═══════════════════════════════════════════════════════════════
-        if px is None or pl is None:
-            logger.warning(f"⚠️ Skip Exit-Check {sym}: Preis fehlt (X10={px}, Lit={pl})")
-            continue
-        # ═══════════════════════════════════════════════════════════════
+            # 2. Initial Funding sanitizen (DAS HAT GEFEHLT!)
+            init_funding = t.get('initial_funding_rate_hourly')
+            init_funding = float(init_funding) if init_funding is not None else 0.0
+            
+            # ═══════════════════════════════════════════════════════════════
+            
+            px = x10.fetch_mark_price(sym)
+            pl = lighter.fetch_mark_price(sym)
 
-        rx = x10.fetch_funding_rate(sym) or 0
-        rl = lighter.fetch_funding_rate(sym) or 0
-        # Improved Net Calc
-        base_net = rl - rx
-        current_net = -base_net if t['leg1_exchange'] == 'X10' else base_net
+            if px is None or pl is None:
+                continue
 
-        # PnL & Duration
-        entry_time = t['entry_time']
-        if isinstance(entry_time, str):
-            try: entry_time = datetime.fromisoformat(entry_time)
-            except: entry_time = datetime.utcnow()
+            rx = x10.fetch_funding_rate(sym) or 0.0
+            rl = lighter.fetch_funding_rate(sym) or 0.0
+            
+            # Net Calc
+            base_net = rl - rx
+            current_net = -base_net if t.get('leg1_exchange') == 'X10' else base_net
 
-        hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
-        funding_pnl = current_net * hold_hours * t['notional_usd']
+            # PnL & Duration
+            entry_time = t.get('entry_time')
+            if isinstance(entry_time, str):
+                try: entry_time = datetime.fromisoformat(entry_time)
+                except: entry_time = datetime.utcnow()
+            elif entry_time is None:
+                entry_time = datetime.utcnow()
 
-        # Spread
-        entry_spread = abs(t['entry_price_x10'] - t['entry_price_lighter'])
-        curr_spread = abs(px - pl)
-        spread_pnl = (entry_spread - curr_spread) / px * t['notional_usd']
+            hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
+            funding_pnl = current_net * hold_hours * notional
 
-        # Fees (Dynamic from State Manager)
-        fee_x10 = state_manager.get_fee_estimate('X10', sym, default=config.TAKER_FEE_X10)
-        fee_lit = state_manager.get_fee_estimate('Lighter', sym, default=0.0)
-        est_fees = t['notional_usd'] * (fee_x10 + fee_lit) * 2.0
+            # Spread PnL
+            ep_x10 = float(t.get('entry_price_x10') or px) 
+            ep_lit = float(t.get('entry_price_lighter') or pl)
+            
+            entry_spread = abs(ep_x10 - ep_lit)
+            curr_spread = abs(px - pl)
+            
+            if px > 0:
+                spread_pnl = (entry_spread - curr_spread) / px * notional
+            else:
+                spread_pnl = 0.0
 
-        total_pnl = funding_pnl + spread_pnl - est_fees
+            # Fees
+            # Extra Safety: Ensure fees are floats (prevent NoneType error)
+            raw_fx = state_manager.get_fee_estimate('X10', sym, default=config.TAKER_FEE_X10)
+            raw_fl = state_manager.get_fee_estimate('Lighter', sym, default=0.0)
+            fee_x10 = float(raw_fx) if raw_fx is not None else config.TAKER_FEE_X10
+            fee_lit = float(raw_fl) if raw_fl is not None else 0.0
+            est_fees = notional * (fee_x10 + fee_lit) * 2.0
 
-        # Check Exits
-        reason = None
-        
-        # 1. Farm Check (Priorität!)
-        if not reason and t.get('is_farm_trade'):
-            limit_seconds = getattr(config, 'FARM_HOLD_SECONDS', 60)
-            if hold_hours * 3600 > limit_seconds:
-                reason = "FARM_COMPLETE"
-                logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min > {limit_seconds}s")
+            total_pnl = funding_pnl + spread_pnl - est_fees
 
-        # 2. Volatility Panic
-        if not reason:
-            try:
-                vol_mon = get_volatility_monitor()
-                if hasattr(vol_mon, 'should_close_due_to'):
+            # Check Exits
+            reason = None
+            
+            # 1. Farm Check
+            if not reason and t.get('is_farm_trade'):
+                limit_seconds = getattr(config, 'FARM_HOLD_SECONDS', 60)
+                if hold_hours * 3600 > limit_seconds:
+                    reason = "FARM_COMPLETE"
+                    logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min > {limit_seconds}s")
+
+            # 2. Volatility Panic
+            if not reason:
+                try:
+                    vol_mon = get_volatility_monitor()
                     vol = 0.0
                     if hasattr(vol_mon, 'get_volatility'):
-                        vol = vol_mon.get_volatility(sym)
+                        val = vol_mon.get_volatility(sym)
+                        if val is not None:
+                            vol = float(val)
                     
-                    if vol_mon.should_close_due_to(vol):
-                        reason = "VOLATILITY_PANIC"
-            except Exception as e:
-                logger.warning(f"VolCheck Error {sym}: {e}")
+                    if hasattr(vol_mon, 'should_close_due_to'):
+                        if vol_mon.should_close_due_to(vol):
+                            reason = "VOLATILITY_PANIC"
+                except Exception as e:
+                    logger.warning(f"VolCheck Warning {sym}: {e}")
 
-        # 3. Stop Loss / Take Profit
-        if not reason:
-            if total_pnl < -t['notional_usd'] * 0.03:
-                reason = "STOP_LOSS"
-            elif total_pnl > t['notional_usd'] * 0.05:
-                reason = "TAKE_PROFIT"
-            elif t.get('initial_funding_rate_hourly', 0) * current_net < 0:
-                if not t.get('funding_flip_start_time'):
-                    t['funding_flip_start_time'] = datetime.utcnow()
-                    if state_manager:
-                        await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+            # 3. Stop Loss / Take Profit
+            if not reason:
+                if notional > 0:
+                    if total_pnl < -notional * 0.03:
+                        reason = "STOP_LOSS"
+                    elif total_pnl > notional * 0.05:
+                        reason = "TAKE_PROFIT"
+                
+                # Funding Flip Check (Nutze jetzt das sichere init_funding)
+                if init_funding * current_net < 0:
+                    if not t.get('funding_flip_start_time'):
+                        t['funding_flip_start_time'] = datetime.utcnow()
+                        if state_manager:
+                            await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+                    else:
+                        flip_start = t['funding_flip_start_time']
+                        if isinstance(flip_start, str): 
+                            try: flip_start = datetime.fromisoformat(flip_start)
+                            except: flip_start = datetime.utcnow()
+                        
+                        if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
+                            reason = "FUNDING_FLIP"
                 else:
-                    flip_start = t['funding_flip_start_time']
-                    if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
-                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                        reason = "FUNDING_FLIP"
-            else:
-                if t.get('funding_flip_start_time'):
-                    if state_manager:
-                        await state_manager.update_trade(sym, {'funding_flip_start_time': None})
+                    if t.get('funding_flip_start_time'):
+                        if state_manager:
+                            await state_manager.update_trade(sym, {'funding_flip_start_time': None})
 
-        if reason:
-            logger.info(f" 💸 EXIT {sym}: {reason} | PnL ${total_pnl:.2f} (Fees: ${est_fees:.2f})")
-            if await close_trade(t, lighter, x10):
-                await close_trade_in_state(sym)
-                await archive_trade_to_history(t, reason, {
-                    'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
-                    'spread_pnl': spread_pnl, 'fees': est_fees
-                })
-                telegram = get_telegram_bot()
-                if telegram.enabled:
-                    await telegram.send_trade_alert(sym, reason, t['notional_usd'], total_pnl)
+            if reason:
+                logger.info(f" 💸 EXIT {sym}: {reason} | PnL ${total_pnl:.2f} (Fees: ${est_fees:.2f})")
+                if await close_trade(t, lighter, x10):
+                    await close_trade_in_state(sym)
+                    await archive_trade_to_history(t, reason, {
+                        'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
+                        'spread_pnl': spread_pnl, 'fees': est_fees
+                    })
+                    telegram = get_telegram_bot()
+                    if telegram.enabled:
+                        await telegram.send_trade_alert(sym, reason, notional, total_pnl)
+
+        except Exception as e:
+            logger.error(f"Trade Loop Error for {t.get('symbol', 'UNKNOWN')}: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
 
 async def cleanup_zombie_positions(lighter, x10):
     """Full Zombie Cleanup Implementation with Correct Side Detection"""
