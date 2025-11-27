@@ -174,6 +174,11 @@ class VolatilityMonitor:
         safety = self.check_trade_safety(symbol)
         return safety.get('close_existing', False)
         
+    def should_close_due_to(self, volatility: float) -> bool:
+        """Check if volatility exceeds critical threshold"""
+        # Fallback auf Config-Wert oder Standard 50%
+        limit = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
+        return volatility > limit
     def can_enter_trade(self, symbol: str) -> bool:
         """Quick check if new trades allowed"""
         safety = self.check_trade_safety(symbol)

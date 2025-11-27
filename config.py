@@ -55,10 +55,10 @@ TRADE_COOLDOWN_SECONDS = 120
 # ═════════════════════════════════════════════════════════════════════════════==
 # REALISTISCH für $63 Total Balance ($35 X10 + $28 Lighter)
 # ═════════════════════════════════════════════════════════════════════════════==
-DESIRED_NOTIONAL_USD = 15.0   # OK
+DESIRED_NOTIONAL_USD = 22.0   # OK
 MIN_POSITION_SIZE_USD = 5.0  # Gesenkt von 5.0 auf 5.0 (passt)
 MAX_NOTIONAL_USD = 18.0      # GESENKT von 10.0 auf 15.0 (war schon 10, erhöhe leicht)
-MAX_TRADE_SIZE_USD = 15.0    # GESENKT von 20.0 auf 15.0
+MAX_TRADE_SIZE_USD = 24.0    # GESENKT von 20.0 auf 15.0
 MAX_OPEN_TRADES = 5           # NUR 5 TRADES GLEICHZEITIG (vorher 40!)
 
 # Safety: Reserve 30% per exchange
@@ -188,7 +188,7 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # VOLUME FARM MODE
 # ============================================================
 VOLUME_FARM_MODE = True
-FARM_NOTIONAL_USD = 8        # GESENKT von 10 auf 8 für mehr Buffer
+FARM_NOTIONAL_USD = 10        # GESENKT von 10 auf 8 für mehr Buffer
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 15
 FARM_MAX_HOLD_MINUTES = 120

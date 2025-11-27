@@ -745,7 +745,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 
                 # STEP 4: NOW RESERVE (balance is confirmed sufficient)
                 # Reserve with larger buffer to account for slippage/margin changes
-                reserved_amount = final_usd * 1.5  # 50% buffer for slippage
+                # ÄNDERUNG: Von 1.5 auf 1.05 gesenkt (5% statt 50% Puffer)
+                reserved_amount = final_usd * 1.05 
                 # We're already inside `async with IN_FLIGHT_LOCK` here, so update the shared
                 # `IN_FLIGHT_MARGIN` directly to avoid re-acquiring the lock.
                 IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + reserved_amount
@@ -815,7 +816,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
                 # Calculate required with buffers
                 required_x10 = final_usd * 1.05   # 5% buffer for X10
-                required_lit = final_usd * 1.20   # 20% buffer for Lighter (higher margin req)
+                # ÄNDERUNG: Von 1.20 auf 1.05 gesenkt
+                required_lit = final_usd * 1.05   # 5% buffer for Lighter (was 20%)
 
                 # ═══════════════════════════════════════════════════════════════
                 # CRITICAL: Log ACTUAL vs REQUIRED balance clearly (helps debugging reserved capital)
@@ -1108,31 +1110,53 @@ async def manage_open_trades(lighter, x10):
 
         # Check Exits
         reason = None
-        vol_mon = get_volatility_monitor()
+        
+        # 1. Farm Check (Priorität!)
+        # Zuerst prüfen, damit Farm-Trades sicher geschlossen werden
+        if not reason and t.get('is_farm_trade'):
+            # Farm Hold Time aus Config oder Default 60s
+            limit_seconds = getattr(config, 'FARM_HOLD_SECONDS', 60)
+            if hold_hours * 3600 > limit_seconds:
+                reason = "FARM_COMPLETE"
+                logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min > {limit_seconds}s")
 
-        if vol_mon.should_close_due_to(vol_mon.get_volatility(sym)):
-            reason = "VOLATILITY_PANIC"
-        elif t.get('is_farm_trade') and hold_hours * 3600 > config.FARM_HOLD_SECONDS:
-            reason = "FARM_COMPLETE"
-            logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min")
-        elif total_pnl < -t['notional_usd'] * 0.03:
-            reason = "STOP_LOSS"
-        elif total_pnl > t['notional_usd'] * 0.05:
-            reason = "TAKE_PROFIT"
-        elif t.get('initial_funding_rate_hourly', 0) * current_net < 0:
-            if not t.get('funding_flip_start_time'):
-                t['funding_flip_start_time'] = datetime.utcnow()
-                if state_manager:
-                    await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+        # 2. Volatility Panic (in try-block geschützt)
+        if not reason:
+            try:
+                vol_mon = get_volatility_monitor()
+                # Prüfen ob Methode existiert
+                if hasattr(vol_mon, 'should_close_due_to'):
+                    # Volatility sicher abrufen
+                    vol = 0.0
+                    if hasattr(vol_mon, 'get_volatility'):
+                        vol = vol_mon.get_volatility(sym)
+                    
+                    if vol_mon.should_close_due_to(vol):
+                        reason = "VOLATILITY_PANIC"
+            except Exception as e:
+                logger.warning(f"VolCheck Error {sym}: {e}")
+
+        # 3. Stop Loss / Take Profit
+        if not reason:
+            if total_pnl < -t['notional_usd'] * 0.03:
+                reason = "STOP_LOSS"
+            elif total_pnl > t['notional_usd'] * 0.05:
+                reason = "TAKE_PROFIT"
+            elif t.get('initial_funding_rate_hourly', 0) * current_net < 0:
+                # ... bestehende Funding Flip Logik ...
+                if not t.get('funding_flip_start_time'):
+                    t['funding_flip_start_time'] = datetime.utcnow()
+                    if state_manager:
+                        await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+                else:
+                    flip_start = t['funding_flip_start_time']
+                    if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
+                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
+                        reason = "FUNDING_FLIP"
             else:
-                flip_start = t['funding_flip_start_time']
-                if isinstance(flip_start, str): flip_start = datetime.fromisoformat(flip_start)
-                if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                    reason = "FUNDING_FLIP"
-        else:
-            if t.get('funding_flip_start_time'):
-                if state_manager:
-                    await state_manager.update_trade(sym, {'funding_flip_start_time': None})
+                if t.get('funding_flip_start_time'):
+                    if state_manager:
+                        await state_manager.update_trade(sym, {'funding_flip_start_time': None})
 
         if reason:
             logger.info(f" 💸 EXIT {sym}: {reason} | PnL ${total_pnl:.2f} (Fees: ${est_fees:.2f})")
@@ -1793,6 +1817,20 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             traceback.print_exc()
             await asyncio.sleep(5)
 
+async def trade_management_loop(lighter, x10):
+    """Überwacht offene Trades und schließt sie nach Kriterien (Farm-Timer, TP/SL, etc.)"""
+    logger.info("🛡️ Trade Management Loop gestartet")
+    while not SHUTDOWN_FLAG:
+        try:
+            # Ruft die Logik auf, die du bereits hast, aber die nie lief
+            await manage_open_trades(lighter, x10)
+            await asyncio.sleep(1)  # Jede Sekunde prüfen
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Trade Management Error: {e}")
+            await asyncio.sleep(5)
+
 async def maintenance_loop(lighter, x10):
     """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges"""
     funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
@@ -2092,7 +2130,10 @@ async def main():
         asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec), name="logic_loop"),
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec), name="farm_loop"),
         asyncio.create_task(maintenance_loop(lighter, x10), name="maintenance_loop"),
-        asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks")   # ← PUNKT 2
+        asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks"),   # ← PUNKT 2
+
+        # ➤ NEU: Dieser Task hat gefehlt! Er schließt die Trades.
+        asyncio.create_task(trade_management_loop(lighter, x10), name="trade_management_loop")
     ]
 
     # Task-Überwachung: Eine Task crasht → Bot läuft weiter
