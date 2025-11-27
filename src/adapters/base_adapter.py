@@ -3,6 +3,7 @@ import logging
 import config
 import random
 from typing import Optional, List, Tuple
+import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,31 @@ class BaseAdapter:
         if not hasattr(self, "name") or self.name is None:
             self.name = name
         logger.info(f"Initialisiere {self.name} Adapter...")
+        # Wird von den konkreten Adaptern überschrieben
+        self.rate_limiter = None
+
+    async def _request_with_ratelimit(self, method: str, url: str, **kwargs):
+        """Zentrale Methode – alle HTTP-Requests gehen hier durch"""
+        if self.rate_limiter is None:
+            raise RuntimeError(f"Rate limiter nicht initialisiert für {self.name}")
+
+        await self.rate_limiter.acquire()
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.request(method, url, **kwargs) as resp:
+                    if resp.status == 429:
+                        self.rate_limiter.penalize_429()
+                        resp.raise_for_status()  # wirft weiter
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        logger.error(f"{self.name} HTTP {resp.status} {url} → {text}")
+                    resp.raise_for_status()
+                    return await resp.json()
+        except aiohttp.ClientResponseError as e:
+            if e.status == 429:
+                self.rate_limiter.penalize_429()
+            raise
 
     async def load_market_cache(self, force: bool = False):
         if not getattr(config, "LIVE_TRADING", False):
@@ -84,4 +110,10 @@ class BaseAdapter:
         raise NotImplementedError(f"{self.name}.get_real_available_balance() muss implementiert werden.")
 
     async def aclose(self):
-        logger.info(f" {self.name} Adapter geschlossen.")
+        """Cleanup all resources"""
+        if hasattr(self, "_session") and getattr(self, "_session"):
+            try:
+                await self._session.close()
+            except Exception:
+                logger.exception(f"{self.name}: Fehler beim Schließen der Session")
+        logger.info(f"✅ {self.name} Adapter geschlossen.")

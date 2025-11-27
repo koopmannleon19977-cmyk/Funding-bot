@@ -1,114 +1,89 @@
-# src/rate_limiter.py
 import asyncio
 import time
 import logging
-from math import ceil
 
 logger = logging.getLogger(__name__)
 
-class TokenBucketLimiter:
-    def __init__(self, max_tokens: int, refill_per_second: float, name: str = "limiter"):
-        self.max_tokens = float(max_tokens)
-        self.refill_per_second = refill_per_second
-        self.name = name
-        self.tokens = self.max_tokens
-        self.last_refill = time.time()
-        self.lock = asyncio.Lock()
-        
-    async def acquire(self, tokens: float = 1.0) -> bool:
-        async with self.lock:
-            while True:
-                now = time.time()
-                elapsed = now - self.last_refill
-                self.tokens = min(
-                    self.max_tokens,
-                    self.tokens + (elapsed * self.refill_per_second)
-                )
-                self.last_refill = now
-                
-                if self.tokens >= tokens:
-                    self.tokens -= tokens
-                    return True
-                
-                deficit = tokens - self.tokens
-                wait_time = deficit / self.refill_per_second
-                await asyncio.sleep(wait_time)
-
-class AdaptiveRateLimiter:
+class ProActiveTokenBucket:
+    """
+    Punkt 3 – Der ultimative, unbannbare Rate Limiter
+    Pro-aktiv, adaptiv, mit 429-Autorecovery und Burst-Support
+    """
     def __init__(
         self,
-        initial_rate: float = 10.0,
-        min_rate: float = 0.5,
-        max_rate: float = 20.0,
-        name: str = "adaptive"
+        name: str,
+        initial_rate: float = 30.0,   # Startwert
+        min_rate: float = 5.0,
+        max_rate: float = 80.0,       # X10 & Lighter halten das locker aus
+        burst_tokens: int = 100,      # Sofort verfügbar bei Start/Recovery
     ):
-        self.current_rate = max(initial_rate, min_rate)
+        self.name = name
         self.min_rate = min_rate
         self.max_rate = max_rate
-        self.name = name
-        
-        max_tokens = ceil(self.current_rate * 5)
-        
-        self.bucket = TokenBucketLimiter(
-            max_tokens=max_tokens,
-            refill_per_second=self.current_rate,
-            name=name
-        )
-        
-        self.consecutive_429s = 0
-        self.consecutive_successes = 0
-        self.last_adjustment = time.time()
-        self.last_429_time = 0
-        
-    async def acquire(self) -> bool:
-        return await self.bucket.acquire()
-    
-    def on_success(self):
-        now = time.time()
-        self.consecutive_429s = 0
-        self.consecutive_successes += 1
-        
-        time_since_429 = now - self.last_429_time if self.last_429_time > 0 else 999
-        
-        if time_since_429 > 60 and self.consecutive_successes >= 30:
-            if now - self.last_adjustment > 20:
-                old_rate = self.current_rate
-                self.current_rate = min(self.max_rate, self.current_rate * 1.2)
-                
-                if self.current_rate > old_rate + 0.01:
-                    logger.info(
-                        f" {self.name}: Rate recovery "
-                        f"{old_rate:.1f} -> {self.current_rate:.1f} req/s"
-                    )
-                    
-                    self.bucket.refill_per_second = self.current_rate
-                    self.bucket.max_tokens = ceil(self.current_rate * 5)
-                    self.bucket.tokens = self.bucket.max_tokens
-                    
-                    self.last_adjustment = now
-                    self.consecutive_successes = 0
-    
-    def on_429(self):
-        now = time.time()
-        self.consecutive_successes = 0
-        self.consecutive_429s += 1
+        self.current_rate = max(min_rate, min(initial_rate, max_rate))
+
+        self.max_tokens = burst_tokens
+        self.tokens = float(burst_tokens)
+        self.refill_rate = self.current_rate
+        self.last_refill = time.monotonic()
+        self.lock = asyncio.Lock()
+
+        self.consecutive_429 = 0
+        self.last_429_time = 0.0
+        self.success_streak = 0
+
+    async def acquire(self, cost: float = 1.0) -> None:
+        async with self.lock:
+            while True:
+                now = time.monotonic()
+                elapsed = now - self.last_refill
+                refill = elapsed * self.refill_rate
+                self.tokens = min(self.max_tokens, self.tokens + refill)
+                self.last_refill = now
+
+                if self.tokens >= cost:
+                    self.tokens -= cost
+                    self.success_streak += 1
+                    # Recovery-Logik: alle 50 Erfolge hochschalten
+                    if self.success_streak >= 50 and self.refill_rate < self.max_rate:
+                        old = self.refill_rate
+                        self.refill_rate = min(self.max_rate, self.refill_rate * 1.3)
+                        self.max_tokens = max(100, int(self.refill_rate * 4))
+                        logger.info(f"{self.name} Rate ↑ RECOVERY: {old:.1f} → {self.refill_rate:.1f} req/s")
+                        self.success_streak = 0
+                    return
+
+                # Nicht genug Tokens → warten
+                wait = (cost - self.tokens) / max(self.refill_rate, 1e-6)
+                await asyncio.sleep(wait)
+
+    def penalize_429(self) -> None:
+        """Wird bei HTTP 429 aufgerufen – sofortige & harte Reduktion"""
+        now = time.monotonic()
+        self.consecutive_429 += 1
         self.last_429_time = now
-        
-        old_rate = self.current_rate
-        
-        if self.consecutive_429s == 1:
-            self.current_rate = max(self.min_rate, self.current_rate * 0.4)
-        elif self.consecutive_429s == 2:
-            self.current_rate = max(self.min_rate, self.current_rate * 0.3)
+        self.success_streak = 0
+
+        old_rate = self.refill_rate
+        if self.consecutive_429 == 1:
+            self.refill_rate = max(self.min_rate, self.refill_rate * 0.5)
+        elif self.consecutive_429 == 2:
+            self.refill_rate = max(self.min_rate, self.refill_rate * 0.5)
         else:
-            self.current_rate = self.min_rate
-        
+            self.refill_rate = self.min_rate
+
+        self.max_tokens = max(20, int(self.refill_rate * 5))
+        self.tokens = self.max_tokens
+
         logger.warning(
-            f" {self.name}: 429 #{self.consecutive_429s}! "
-            f"{old_rate:.1f} -> {self.current_rate:.1f} req/s"
+            f"{self.name} 429 DETECTED #{self.consecutive_429} → Rate ↓ {old_rate:.1f} → {self.refill_rate:.1f} req/s"
         )
-        
-        self.bucket.refill_per_second = self.current_rate
-        self.bucket.max_tokens = ceil(self.current_rate * 5)
-        self.bucket.tokens = self.bucket.max_tokens
-        self.last_adjustment = now
+
+    def on_success(self) -> None:
+        """Optional: für sehr konservative Strategien"""
+        self.success_streak += 1
+
+
+# Globale Instanzen – werden in den Adaptern verwendet
+X10_RATE_LIMITER = ProActiveTokenBucket("X10", initial_rate=40.0, max_rate=80.0)
+LIGHTER_RATE_LIMITER = ProActiveTokenBucket("Lighter", initial_rate=35.0, max_rate=70.0)

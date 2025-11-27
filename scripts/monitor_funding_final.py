@@ -39,7 +39,8 @@ config.validate_runtime_config(logger)
 
 # Globals
 FAILED_COINS = {}
-ACTIVE_TASKS = {}
+ACTIVE_TASKS: dict[str, asyncio.Task] = {}           # symbol → Task (nur eine pro Symbol gleichzeitig)
+SYMBOL_LOCKS: dict[str, asyncio.Lock] = {}           # symbol → asyncio.Lock() für race-free execution
 SHUTDOWN_FLAG = False
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
 POSITION_CACHE_TTL = 5.0  # 5s for fresher data (was 30s)
@@ -102,6 +103,124 @@ async def process_fee_update(adapter, symbol: str, order_id: str):
                     await state_manager.update_fee_stats(adapter.name, symbol, fallback)
             await asyncio.sleep(1)
 
+async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter, 
+                          parallel_exec: ParallelExecutionManager, lock: asyncio.Lock):
+    """Einzelne Symbol-Verarbeitung mit OI-Integration"""
+    async with lock:
+        try:
+            # Quick guards: blacklist, recent failures
+            if symbol in config.BLACKLIST_SYMBOLS:
+                logger.debug(f"{symbol}: in BLACKLIST, skip")
+                return
+
+            if symbol in FAILED_COINS and (time.time() - FAILED_COINS[symbol] < 300):
+                logger.debug(f"{symbol}: in FAILED_COINS cooldown, skip")
+                return
+
+            # Check if already have open position
+            open_trades = await get_open_trades()
+            open_symbols = {t['symbol'] for t in open_trades}
+            if symbol in open_symbols:
+                logger.debug(f"{symbol}: already have open position, skip")
+                return
+
+            # Check max open trades limit
+            if len(open_trades) >= config.MAX_OPEN_TRADES:
+                logger.debug(f"{symbol}: MAX_OPEN_TRADES ({config.MAX_OPEN_TRADES}) reached, skip")
+                return
+
+            # Prices and funding rates (cached fetches)
+            px = x10.fetch_mark_price(symbol)
+            pl = lighter.fetch_mark_price(symbol)
+            rl = lighter.fetch_funding_rate(symbol)
+            rx = x10.fetch_funding_rate(symbol)
+
+            if rl is None or rx is None:
+                logger.debug(f"{symbol}: missing funding rates (rl={rl}, rx={rx})")
+                return
+
+            if px is None or pl is None:
+                logger.debug(f"{symbol}: missing prices (px={px}, pl={pl})")
+                return
+
+            # Update volatility monitor with latest price
+            try:
+                get_volatility_monitor().update_price(symbol, float(px))
+            except Exception:
+                pass
+
+            net = rl - rx
+            apy = abs(net) * 24 * 365  # Calculate annualized percentage yield
+
+            # Threshold check
+            threshold_manager = get_threshold_manager()
+            req_apy = threshold_manager.get_threshold(symbol, is_maker=True)
+            if apy < req_apy:
+                logger.debug(f"{symbol}: APY {apy*100:.2f}% < required {req_apy*100:.2f}%")
+                return
+
+            # Price validity & spread
+            try:
+                px_f = float(px)
+                pl_f = float(pl)
+                if px_f <= 0 or pl_f <= 0:
+                    logger.debug(f"{symbol}: invalid prices px={px_f}, pl={pl_f}")
+                    return
+                spread = abs(px_f - pl_f) / px_f
+                if spread > config.MAX_SPREAD_FILTER_PERCENT:
+                    logger.debug(f"{symbol}: spread {spread*100:.2f}% > max {config.MAX_SPREAD_FILTER_PERCENT*100:.2f}%")
+                    return
+            except Exception as e:
+                logger.debug(f"{symbol}: price parsing error: {e}")
+                return
+
+            # ============================================================
+            # Open Interest Check
+            # ============================================================
+            oi_x10 = 0.0
+            oi_lighter = 0.0
+            try:
+                oi_x10 = await x10.fetch_open_interest(symbol)
+            except Exception:
+                pass
+            try:
+                oi_lighter = await lighter.fetch_open_interest(symbol)
+            except Exception:
+                pass
+            
+            total_oi = oi_x10 + oi_lighter
+            
+            # OI-basierte Validierung: Skip wenn OI zu niedrig (illiquide)
+            min_oi_usd = getattr(config, 'MIN_OPEN_INTEREST_USD', 50000)
+            if total_oi > 0 and total_oi < min_oi_usd:
+                logger.debug(f"{symbol}: OI ${total_oi:.0f} < min ${min_oi_usd:.0f}")
+                return
+
+            # Build opportunity payload
+            opp = {
+                'symbol': symbol,
+                'apy': apy * 100,
+                'net_funding_hourly': net,
+                'leg1_exchange': 'Lighter' if rl > rx else 'X10',
+                'leg1_side': 'SELL' if rl > rx else 'BUY',
+                'is_farm_trade': False,
+                'spread_pct': spread,
+                'open_interest': total_oi,
+                'prediction_confidence': 0.5
+            }
+
+            logger.info(f"✅ {symbol}: EXECUTING trade APY={opp['apy']:.2f}% spread={spread*100:.2f}% OI=${total_oi:.0f}")
+
+            # Execute using the deeper routine that handles reservations & cleanup
+            await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+
+        except Exception as e:
+            logger.error(f"Fehler bei Verarbeitung von {symbol}: {e}", exc_info=e)
+            if telegram_bot and telegram_bot.enabled:
+                asyncio.create_task(telegram_bot.send_error(f"Symbol Error {symbol}: {e}"))
+        finally:
+            # WICHTIG: Task aus ACTIVE_TASKS entfernen → cleanup kann laufen
+            ACTIVE_TASKS.pop(symbol, None)
 def get_estimated_fee_rate(exchange: str, symbol: str) -> float:
     """Get cached fee rate from state manager"""
     if state_manager:
@@ -368,13 +487,21 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'net_funding_hourly': net,
             'leg1_exchange': 'Lighter' if rl > rx else 'X10',
             'leg1_side': 'SELL' if rl > rx else 'BUY',
-            'is_farm_trade': is_farm_mode  # ✅ DYNAMIC: Set based on mode
+            'is_farm_trade': is_farm_mode,  # ✅ DYNAMIC: Set based on mode
+            'spread_pct': spread,
+            'price_x10': px_float,
+            'price_lighter': pl_float
         })
 
-    logger.info(f"✅ Found {len(opps)} opportunities from {valid_pairs} valid pairs (scanned {len(clean_results)})")
-    
+    # IMPORTANT: Set farm flag based on config (ensure farm loop state applies)
+    farm_mode_active = getattr(config, 'VOLUME_FARM_MODE', False)
+    for opp in opps:
+        if farm_mode_active:
+            opp['is_farm_trade'] = True
+
+    logger.info(f"✅ Found {len(opps)} opportunities from {valid_pairs} valid pairs (farm_mode={farm_mode_active}, scanned={len(clean_results)})")
+
     opps.sort(key=lambda x: x['apy'], reverse=True)
-    return opps[:config.MAX_OPEN_TRADES]
     return opps[:config.MAX_OPEN_TRADES]
 
 async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
@@ -427,6 +554,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         return False
 
     symbol = opp['symbol']
+    reserved_amount = 0.0  # Initialize so `finally` can always reference it
     lock = await get_execution_lock(symbol)
     if lock.locked():
         return False
@@ -456,25 +584,79 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
         net_rate = current_rate_lit - current_rate_x10
 
-        pred_rate, _, conf = await predictor.predict_next_funding_rate(
-            symbol, abs(net_rate), lighter, x10, btc_trend
+        pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+            symbol=symbol,
+            current_lighter_rate=current_rate_lit,
+            current_x10_rate=current_rate_x10,
+            lighter_adapter=lighter,      # ← Adapter-Objekt
+            x10_adapter=x10,              # ← Adapter-Objekt
+            btc_price=x10.fetch_mark_price("BTC-USD")
         )
 
-        if not opp.get('is_farm_trade') and pred_rate < abs(net_rate) * 0.8:
+        logger.debug(
+            f"Predictor result for {symbol}: pred_rate={pred_rate:.6f}, delta={delta:.6f}, "
+            f"conf={conf:.3f}, net_rate={net_rate:.6f}"
+        )
+
+        # Revised predictor filter: only skip when predictor gives a strong
+        # negative signal or when predictor is very uncertain and the net rate
+        # is negligibly small. This avoids blocking valid trades when the
+        # predictor returns lower absolute values by default.
+        skip_due_to_prediction = False
+        if not opp.get('is_farm_trade'):
+            if conf > 0.7 and delta < -0.00001:
+                # Predictor is confident the rate will worsen
+                logger.info(f"Skipping {symbol}: predictor predicts rate decline (delta={delta:.6f}, conf={conf:.2f})")
+                skip_due_to_prediction = True
+            elif conf < 0.3 and abs(net_rate) < 0.0001:
+                # Predictor uncertain AND rate is too small to justify trade
+                logger.debug(f"Skipping {symbol}: weak signal (conf={conf:.2f}, net={net_rate:.6f})")
+                skip_due_to_prediction = True
+
+        if skip_due_to_prediction:
             return False
+
+        logger.debug(f"✅ Predictor OK for {symbol}: delta={delta:.6f}, conf={conf:.2f}")
 
         # ═══════════════════════════════════════════════════════════════
         # CRITICAL FIX: CHECK BALANCE **BEFORE** RESERVATION
         # ═══════════════════════════════════════════════════════════════
+
         global IN_FLIGHT_MARGIN, IN_FLIGHT_LOCK
-        reserved_amount = 0.0
+
+        spread_pct = opp.get('spread_pct', 0.0)
+        # Enrich logging: include leg info, signed spread, net funding, OI and prediction
+        apy = opp.get('apy', 0.0)
+        net_hourly = opp.get('net_funding_hourly', 0.0)
+        oi = opp.get('open_interest', 0.0)
+        leg1 = opp.get('leg1_exchange', 'N/A')
+        side1 = opp.get('leg1_side', 'N/A')
+        pred_conf = opp.get('prediction_confidence', 0.0)
+
+        logger.info(
+            f"Preparing execution for {symbol} | "
+            f"leg={leg1}:{side1} | "
+            f"spread={spread_pct*100:+.3f}% | APY={apy:.1f}% | "
+            f"net_hr={net_hourly:+.6f} | OI=${oi:,.0f} | "
+            f"acct={current_label} | pred={pred_conf:.2f}"
+        )
         
         try:
             # STEP 1: GET AVAILABLE BALANCE (with lock)
             async with IN_FLIGHT_LOCK:
-                raw_x10 = await x10.get_real_available_balance()
-                raw_lit = await lighter.get_real_available_balance()
-                
+                if SHUTDOWN_FLAG:
+                    logger.debug(f"Shutdown detected before initial balance check for {symbol}")
+                    return False
+                try:
+                    raw_x10 = await x10.get_real_available_balance()
+                    raw_lit = await lighter.get_real_available_balance()
+                except Exception as e:
+                    if SHUTDOWN_FLAG:
+                        logger.debug(f"Balance fetch cancelled during shutdown for {symbol}")
+                        return False
+                    logger.error(f"Balance fetch failed for {symbol}: {e}")
+                    return False
+
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
             
@@ -489,13 +671,18 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         f"⚠️ Insufficient balance for {symbol}: "
                         f"X10=${bal_x10_real:.1f}, Lit=${bal_lit_real:.1f}"
                     )
-                    FAILED_COINS[symbol] = time.time()
+                    # Balance is temporarily low — do not mark as failed (no cooldown)
                     return False
 
                 max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20
                 size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
                 size_calc *= vol_monitor.get_size_adjustment(symbol)
                 final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
+
+                logger.info(
+                    f"Sizing for {symbol}: size_calc=${size_calc:.2f}, max_per_trade=${max_per_trade:.2f}, "
+                    f"final_usd=${final_usd:.2f} (vol_adj={vol_monitor.get_size_adjustment(symbol):.2f})"
+                )
 
             # Exchange minimum
             min_req = max(x10.min_notional_usd(symbol), lighter.min_notional_usd(symbol))
@@ -510,9 +697,19 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             # STEP 3: FINAL BALANCE CHECK BEFORE RESERVATION
             async with IN_FLIGHT_LOCK:
                 # RE-CHECK after lock (race condition protection)
-                raw_x10 = await x10.get_real_available_balance()
-                raw_lit = await lighter.get_real_available_balance()
-                
+                if SHUTDOWN_FLAG:
+                    logger.debug(f"Shutdown detected before final balance re-check for {symbol}")
+                    return False
+                try:
+                    raw_x10 = await x10.get_real_available_balance()
+                    raw_lit = await lighter.get_real_available_balance()
+                except Exception as e:
+                    if SHUTDOWN_FLAG:
+                        logger.debug(f"Balance re-check cancelled during shutdown for {symbol}")
+                        return False
+                    logger.error(f"Balance re-check failed for {symbol}: {e}")
+                    return False
+
                 bal_x10_check = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_check = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
                 
@@ -522,7 +719,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         f"🚫 ABORT {symbol}: Insufficient balance - "
                         f"X10=${bal_x10_check:.1f}, Lit=${bal_lit_check:.1f}, Need=${final_usd:.1f}"
                     )
-                    FAILED_COINS[symbol] = time.time()
+                    # Do NOT set FAILED_COINS for balance aborts — temporary condition
                     # CRITICAL: Remove from ACTIVE_TASKS immediately
                     if symbol in ACTIVE_TASKS:
                         try:
@@ -533,9 +730,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     return False
                 
                 # STEP 4: NOW RESERVE (balance is confirmed sufficient)
-                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + final_usd
-                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + final_usd
-                reserved_amount = final_usd
+                # Reserve with buffer to account for higher lighter margin requirements
+                reserved_amount = final_usd * 1.2
+                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + reserved_amount
+                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + reserved_amount
                 
                 logger.info(
                     f"🔒 Reserved ${reserved_amount:.1f} for {symbol} | "
@@ -581,82 +779,98 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 # CRITICAL: Snapshot prices BEFORE trade execution (Adapter returns order_id, not price)
                 est_px_x10 = x10.fetch_mark_price(symbol) or 0.0
                 est_px_lit = lighter.fetch_mark_price(symbol) or 0.0
-                
+
                 logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f}, X10={x10_side}, Lit={lighter_side}")
+                logger.debug(f"Price snapshot: X10={est_px_x10:.6f}, Lighter={est_px_lit:.6f}")
 
-                # ═══════════════════════════════════════════════════════════════
-                # CRITICAL: FRESH BALANCE CHECK IMMEDIATELY BEFORE ORDER
-                # ═══════════════════════════════════════════════════════════════
-                fresh_x10 = await x10.get_real_available_balance()
-                fresh_lit = await lighter.get_real_available_balance()
-
-                if fresh_x10 < final_usd:
-                    logger.error(f"🚫 ABORT {symbol}: X10 balance too low (${fresh_x10:.1f} < ${final_usd:.1f})")
-                    FAILED_COINS[symbol] = time.time()
+                # ✅ CRITICAL: Fetch FRESH balance immediately before execution
+                logger.info("🔍 Fetching fresh balance before execution...")
+                if SHUTDOWN_FLAG:
+                    logger.debug(f"Shutdown detected before fresh balance fetch for {symbol}")
+                    return False
+                try:
+                    fresh_x10 = await x10.get_real_available_balance()
+                    fresh_lit = await lighter.get_real_available_balance()
+                except Exception as e:
+                    if SHUTDOWN_FLAG:
+                        logger.debug(f"Balance fetch cancelled during shutdown for {symbol}")
+                        return False
+                    logger.error(f"Balance fetch failed for {symbol}: {e}")
                     return False
 
-                if fresh_lit < final_usd:
-                    logger.error(f"🚫 ABORT {symbol}: Lighter balance too low (${fresh_lit:.1f} < ${final_usd:.1f})")
-                    FAILED_COINS[symbol] = time.time()
+                logger.info(f"💰 Fresh Balance: X10=${fresh_x10:.2f}, Lighter=${fresh_lit:.2f}")
+
+                # Calculate required with buffers
+                required_x10 = final_usd * 1.05   # 5% buffer for X10
+                required_lit = final_usd * 1.20   # 20% buffer for Lighter (higher margin req)
+
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL: Log ACTUAL vs REQUIRED balance clearly (helps debugging reserved capital)
+                # ═══════════════════════════════════════════════════════════════
+                logger.debug(
+                    f"💰 Balance check {symbol}: "
+                    f"X10=${fresh_x10:.1f} (need=${required_x10:.1f}), "
+                    f"Lit=${fresh_lit:.1f} (need=${required_lit:.1f})"
+                )
+
+                # Strict pre-flight check (combined — no cooldown on balance abort)
+                if fresh_x10 < required_x10 or fresh_lit < required_lit:
+                    logger.error(
+                        f"🚫 ABORT {symbol}: Insufficient balance - "
+                        f"X10=${fresh_x10:.1f}, Lit=${fresh_lit:.1f}, Need=${max(required_x10, required_lit):.1f}"
+                    )
+                    # KEIN FAILED_COINS[symbol] setzen bei Balance-Problem!
                     return False
 
-                logger.debug(f"✅ Fresh balance OK: X10=${fresh_x10:.1f}, Lit=${fresh_lit:.1f}")
+                logger.info(f"✅ Balance OK: X10=${fresh_x10:.2f} >= ${required_x10:.2f}, Lit=${fresh_lit:.2f} >= ${required_lit:.2f}")
+
+                logger.debug(
+                    f"Execution details for {symbol}: final_usd=${final_usd:.2f}, required_x10=${required_x10:.2f}, "
+                    f"required_lit=${required_lit:.2f}, x10_side={x10_side}, lit_side={lighter_side}"
+                )
 
                 # ═══════════════════════════════════════════════════════════════
-                # SEQUENTIAL EXECUTION with delay (prevent race condition)
-                # ═══════════════════════════════════════════════════════════════
-                # Execute X10 first (post_only, faster)
+                # ✅ TRUE PARALLEL EXECUTION (as per Roadmap #1)
+                logger.info(f"🚀 Opening {symbol}: PARALLEL execution")
+
+                # Fire both simultaneously
                 x10_task = asyncio.create_task(
                     x10.open_live_position(symbol, x10_side, final_usd, post_only=True)
                 )
-                x10_result = await x10_task
-
-                # Wait for X10 to settle
-                await asyncio.sleep(2.0)
-
-                # Then execute Lighter
                 lit_task = asyncio.create_task(
                     lighter.open_live_position(symbol, lighter_side, final_usd, post_only=False)
                 )
-                lit_result = await lit_task
 
-                results = [x10_result, lit_result]
-                x10_result, lit_result = results
-                
+                # Wait for BOTH (use gather with return_exceptions to handle failures)
+                results = await asyncio.gather(x10_task, lit_task, return_exceptions=True)
+
+                logger.debug(f"Raw execution results for {symbol}: {results}")
+
+                # Parse results
+                x10_result = results[0]
+                lit_result = results[1]
+
                 # Check X10
                 if isinstance(x10_result, Exception):
-                    logger.error(f"❌ X10 {symbol} failed: {x10_result}")
-                    success_x10 = False
+                    logger.error(f"❌ X10 exception: {x10_result}")
+                    x10_success = False
+                    x10_order = None
                 else:
-                    success_x10, _ = x10_result  # Ignore order_id
-                
+                    x10_success, x10_order = x10_result
+
                 # Check Lighter
                 if isinstance(lit_result, Exception):
-                    logger.error(f"❌ Lighter {symbol} failed: {lit_result}")
-                    success_lit = False
+                    logger.error(f"❌ Lighter exception: {lit_result}")
+                    lit_success = False
+                    lit_order = None
                 else:
-                    success_lit, _ = lit_result  # Ignore tx_hash
-                
-                # ROLLBACK if partial fill
-                if success_x10 and not success_lit:
-                    logger.error(f"🔄 ROLLBACK {symbol}: X10 filled, Lighter failed")
-                    await asyncio.sleep(2)
-                    await safe_close_x10_position(x10, symbol, x10_side, final_usd)
-                    FAILED_COINS[symbol] = time.time()
-                    return False
-                
-                if success_lit and not success_x10:
-                    logger.error(f"🔄 ROLLBACK {symbol}: Lighter filled, X10 failed")
-                    await asyncio.sleep(2)
-                    await lighter.close_live_position(symbol, lighter_side, final_usd)
-                    FAILED_COINS[symbol] = time.time()
-                    return False
-                
-                # SUCCESS
-                if success_x10 and success_lit:
+                    lit_success, lit_order = lit_result
+
+                # Handle outcomes
+                if x10_success and lit_success:
                     is_farm = opp.get('is_farm_trade', False)
                     farm_indicator = "🚜 FARM" if is_farm else "💎 ARB"
-                    logger.info(f"✅ {farm_indicator} {symbol} opened successfully")
+                    logger.info(f"✅ BOTH LEGS FILLED: {symbol}")
 
                     # Store trade with SNAPSHOT prices (not order IDs!)
                     trade_data = {
@@ -669,18 +883,31 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         'initial_funding_rate_hourly': abs(net_rate),
                         'entry_price_x10': float(est_px_x10),
                         'entry_price_lighter': float(est_px_lit),
-                        'is_farm_trade': is_farm,  # ✅ PRESERVE FLAG with explicit variable
+                        'is_farm_trade': is_farm,
                         'account_label': current_label
                     }
                     state_mgr = get_state_manager()
                     await state_mgr.add_trade(trade_data)
-                    
                     return True
-                
-                # BOTH FAILED
-                logger.error(f"❌ {symbol} failed: Both legs failed")
-                FAILED_COINS[symbol] = time.time()
-                return False
+
+                elif x10_success and not lit_success:
+                    logger.error(f"🔄 ROLLBACK {symbol}: X10 filled, Lighter failed")
+                    await asyncio.sleep(2)
+                    await safe_close_x10_position(x10, symbol, x10_side, final_usd)
+                    FAILED_COINS[symbol] = time.time()
+                    return False
+
+                elif lit_success and not x10_success:
+                    logger.error(f"🔄 ROLLBACK {symbol}: Lighter filled, X10 failed")
+                    await asyncio.sleep(2)
+                    await lighter.close_live_position(symbol, lighter_side, final_usd)
+                    FAILED_COINS[symbol] = time.time()
+                    return False
+
+                else:
+                    logger.error(f"❌ BOTH LEGS FAILED: {symbol}")
+                    FAILED_COINS[symbol] = time.time()
+                    return False
                 
             except Exception as e:
                 logger.error(f"Execution error {symbol}: {e}")
@@ -743,49 +970,59 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     logger.warning(f" Close partial fail {symbol}: X10={s1}, Lit={s2}")
     return False # Retry logic handles this
 
-# --- Neue Hilfsfunktion: sichere X10-Schließung mit Positions-Check ---
-async def safe_close_x10_position(x10, symbol, side, notional):
-    """Close X10 position with size validation
-
-    Args:
-        x10: X10 adapter
-        symbol: Trading symbol
-        side: Original opening side (BUY/SELL)
-        notional: Notional USD (not used, kept for compatibility)
-    """
+async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
+    """Get actual position size in coins from exchange"""
     try:
-        # Wait for position to settle
-        await asyncio.sleep(2.0)
-
-        positions = await x10.fetch_open_positions()
-        actual_pos = next((p for p in (positions or []) if p['symbol'] == symbol), None)
-
-        if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
-            logger.warning(f"No position to close for {symbol}")
-            return
-
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL FIX: Use ACTUAL position size in coins, not notional USD!
-        # ═══════════════════════════════════════════════════════════════
-        actual_size = actual_pos.get('size', 0)
-        actual_size_abs = abs(actual_size)
-
-        logger.info(
-            f"→ Closing X10 {symbol}: "
-            f"actual_size={actual_size:.6f} coins, "
-            f"side={side}"
-        )
-
-        # Pass actual coin size, NOT notional USD
-        success, _ = await x10.close_live_position(symbol, side, actual_size_abs)
-
-        if success:
-            logger.info(f"✅ Closed {symbol} on X10 ({actual_size_abs:.6f} coins)")
-        else:
-            logger.error(f"❌ Close failed for {symbol}")
-
+        positions = await adapter.fetch_open_positions()
+        for p in (positions or []):
+            if p.get('symbol') == symbol:
+                return p.get('size', 0)
+        return None
     except Exception as e:
-        logger.error(f"Close exception for {symbol}: {e}")
+        logger.error(f"Failed to get position size for {symbol}: {e}")
+        return None
+
+
+async def safe_close_x10_position(x10, symbol, side, notional):
+    """Close X10 position using ACTUAL position size"""
+    try:
+        # Wait for settlement
+        await asyncio.sleep(3.0)
+        
+        # Get ACTUAL position
+        actual_size = await get_actual_position_size(x10, symbol)
+        
+        if actual_size is None or abs(actual_size) < 1e-8:
+            logger.info(f"✅ No X10 position to close for {symbol}")
+            return
+        
+        actual_size_abs = abs(actual_size)
+        
+        # Determine side from position
+        if actual_size > 0:
+            original_side = "BUY"  # LONG
+        else:
+            original_side = "SELL"  # SHORT
+        
+        logger.info(f"🔻 Closing X10 {symbol}: size={actual_size_abs:.6f} coins, side={original_side}")
+        
+        # Close with ACTUAL coin size
+        price = x10.fetch_mark_price(symbol)
+        if not price:
+            logger.error(f"No price for {symbol}")
+            return
+        
+        notional_actual = actual_size_abs * price
+        
+        success, _ = await x10.close_live_position(symbol, original_side, notional_actual)
+        
+        if success:
+            logger.info(f"✅ X10 {symbol} closed ({actual_size_abs:.6f} coins)")
+        else:
+            logger.error(f"❌ X10 close failed for {symbol}")
+    
+    except Exception as e:
+        logger.error(f"X10 close exception: {e}")
 
 # ============================================================
 # LOOPS & MANAGEMENT
@@ -1018,46 +1255,121 @@ async def cleanup_zombie_positions(lighter, x10):
         # 2. DB Ghosts (Open in DB, Closed on Exchange)
         ghosts = db_syms - all_exchange
         if ghosts:
-            logger.warning(f"👻 GHOSTS DETECTED: {ghosts}")
+            # ✅ NEW: Filter out recent trades (< 30s old) to avoid false positives
+            real_ghosts = set()
             for sym in ghosts:
-                logger.info(f"Closing ghost {sym} in DB")
-                try:
-                    await close_trade_in_state(sym)
-                except Exception as e:
-                    logger.error(f"Failed to close ghost {sym} in DB: {e}")
+                trade = next((t for t in db_trades if t['symbol'] == sym), None)
+                if not trade:
+                    continue
+
+                entry_time = trade.get('entry_time')
+                if isinstance(entry_time, str):
+                    try:
+                        entry_time = datetime.fromisoformat(entry_time)
+                    except:
+                        entry_time = datetime.utcnow()
+                elif not isinstance(entry_time, datetime):
+                    entry_time = datetime.utcnow()
+
+                age_seconds = (datetime.utcnow() - entry_time).total_seconds()
+
+                # Only treat as ghost if trade is older than 30s
+                if age_seconds > 30:
+                    real_ghosts.add(sym)
+                else:
+                    logger.debug(f"👻 {sym} is new trade ({age_seconds:.1f}s old), not a ghost")
+
+            if real_ghosts:
+                logger.warning(f"👻 REAL GHOSTS DETECTED: {real_ghosts}")
+                for sym in real_ghosts:
+                    logger.info(f"Closing ghost {sym} in DB")
+                    try:
+                        await close_trade_in_state(sym)
+                    except Exception as e:
+                        logger.error(f"Failed to close ghost {sym} in DB: {e}")
 
     except Exception as e:
         logger.error(f"Zombie Cleanup Error: {e}")
 
+
+async def emergency_position_cleanup(lighter, x10, max_age_hours: float = 48.0, interval_seconds: int = 3600):
+    """Emergency background task to perform periodic zombie/ghost cleanup.
+
+    This is a defensive fallback if no external emergency cleanup routine
+    is provided elsewhere in the codebase. It simply runs
+    `cleanup_zombie_positions` on an interval and logs any exceptions.
+    """
+    logger.info(f"Starting emergency_position_cleanup (interval={interval_seconds}s, max_age_hours={max_age_hours})")
+    try:
+        while not SHUTDOWN_FLAG:
+            try:
+                await cleanup_zombie_positions(lighter, x10)
+            except Exception as e:
+                logger.error(f"Emergency cleanup iteration failed: {e}")
+            await asyncio.sleep(interval_seconds)
+    except asyncio.CancelledError:
+        logger.info("emergency_position_cleanup cancelled")
+    except Exception as e:
+        logger.error(f"emergency_position_cleanup error: {e}")
+
 async def farm_loop(lighter, x10, parallel_exec):
     """Volume Farming"""
-    if not config.VOLUME_FARM_MODE:
-        return
+    # Rate limiter state (local to function to avoid global mutation)
+    last_trades: List[float] = []
 
-    logger.info("🚜 Farm Mode ACTIVE")
-    
+    # Keep this coroutine alive even when farming is disabled.
+    # Return would terminate the background task and leave the bot without the farm loop.
     while True:
         try:
+            # If farming disabled, sleep and continue — don't exit the task
+            if not config.VOLUME_FARM_MODE:
+                await asyncio.sleep(60)
+                continue
+
+            # Announce when farm mode is active (logged each loop iteration when active)
+            logger.info("🚜 Farm Mode ACTIVE")
             if SHUTDOWN_FLAG:
                 break
-                
-            trades = await get_open_trades()
-            farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
             
-            # Check if we can farm
-            if farm_count >= config.FARM_MAX_CONCURRENT:
-                await asyncio.sleep(10)
+            # Clean rate limiter history
+            now = time.time()
+            last_trades = [t for t in last_trades if now - t < 60]
+            
+            # Check burst limit (safe default)
+            burst_limit = getattr(config, 'FARM_BURST_LIMIT', 10)
+            if len(last_trades) >= burst_limit:
+                oldest = last_trades[0]
+                wait_time = 60 - (now - oldest)
+                logger.info(f"🚜 Rate limited: wait {wait_time:.1f}s")
+                await asyncio.sleep(max(wait_time, 5))
                 continue
             
+            # Standard farm logic
+            trades = await get_open_trades()
+            farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
+
+            # Check concurrency limit
+            if farm_count >= getattr(config, 'FARM_MAX_CONCURRENT', 3):
+                await asyncio.sleep(10)
+                continue
+
+            # Check min interval since last trade
+            min_interval = getattr(config, 'FARM_MIN_INTERVAL_SECONDS', 15)
+            if last_trades:
+                last_trade = last_trades[-1]
+                time_since = now - last_trade
+                if time_since < min_interval:
+                    await asyncio.sleep(max(0.0, min_interval - time_since))
+
             # Get balance
             bal_x10 = await x10.get_real_available_balance()
             bal_lit = await lighter.get_real_available_balance()
             
-            if bal_x10 < config.FARM_NOTIONAL_USD or bal_lit < config.FARM_NOTIONAL_USD:
+            if bal_x10 < getattr(config, 'FARM_NOTIONAL_USD', 0) or bal_lit < getattr(config, 'FARM_NOTIONAL_USD', 0):
                 logger.debug(f"🚜 Farm paused: Low balance X10=${bal_x10:.0f} Lit=${bal_lit:.0f}")
                 await asyncio.sleep(30)
                 continue
-            
+
             # Find farm opportunity
             common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
             open_syms = {t['symbol'] for t in trades}
@@ -1066,26 +1378,26 @@ async def farm_loop(lighter, x10, parallel_exec):
                 # Prevent spam / re-triggers: skip if open, already executing, or recently failed
                 if sym in open_syms or sym in ACTIVE_TASKS or sym in FAILED_COINS:
                     continue
-                    
+                
                 px = x10.fetch_mark_price(sym)
                 pl = lighter.fetch_mark_price(sym)
                 
                 if not px or not pl:
                     continue
                 
-                spread = abs(px - pl) / px
-                if spread > config.FARM_MAX_SPREAD_PCT:
+                spread = abs(px - pl) / px if px else 1.0
+                if spread > getattr(config, 'FARM_MAX_SPREAD_PCT', 0.01):
                     continue
                 
                 vol_24h = abs(x10.get_24h_change_pct(sym) or 0)
-                if vol_24h > config.FARM_MAX_VOLATILITY_24H:
+                if vol_24h > getattr(config, 'FARM_MAX_VOLATILITY_24H', 0.05):
                     continue
                 
                 rl = lighter.fetch_funding_rate(sym) or 0
                 rx = x10.fetch_funding_rate(sym) or 0
                 apy = abs(rl - rx) * 24 * 365
                 
-                if apy < config.FARM_MIN_APY:
+                if apy < getattr(config, 'FARM_MIN_APY', 0.01):
                     continue
                 
                 # CRITICAL: Mark as farm trade
@@ -1095,7 +1407,7 @@ async def farm_loop(lighter, x10, parallel_exec):
                     'net_funding_hourly': rl - rx,
                     'leg1_exchange': 'Lighter' if rl > rx else 'X10',
                     'leg1_side': 'SELL' if rl > rx else 'BUY',
-                    'is_farm_trade': True,  # CRITICAL FLAG
+                    'is_farm_trade': True,
                     'spread_pct': spread
                 }
                 
@@ -1105,199 +1417,292 @@ async def farm_loop(lighter, x10, parallel_exec):
                     execute_trade_task(opp, lighter, x10, parallel_exec)
                 )
                 
-                await asyncio.sleep(3)  # Wait for execution
+                # Record this trade attempt in local rate limiter
+                last_trades.append(now)
+
+                await asyncio.sleep(10)  # Wait longer between farm trades
                 break
             
-            await asyncio.sleep(10)
+            await asyncio.sleep(30)  # Longer idle time between scans
             
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Farm Error: {e}")
-            await asyncio.sleep(10)
+            logger.error(f"❌ Farm Error: {e}")
+            import traceback
+            traceback.print_exc()
+            await asyncio.sleep(30)  # Long cooldown on error
 
-async def cleanup_finished_tasks():
-    """Helper to clean up finished execution tasks"""
-    finished = [s for s, t in ACTIVE_TASKS.items() if t.done()]
-    for s in finished:
+async def cleanup_finished_tasks() -> None:
+    """Entfernt abgeschlossene/cancelled Tasks aus ACTIVE_TASKS – läuft alle 10s"""
+    while not SHUTDOWN_FLAG:
         try:
-            await ACTIVE_TASKS[s]
+            done_symbols = [
+                sym for sym, task in list(ACTIVE_TASKS.items())
+                if task.done() or task.cancelled()
+            ]
+            for sym in done_symbols:
+                task = ACTIVE_TASKS.pop(sym, None)
+                if task and task.done() and not task.cancelled():
+                    exc = task.exception()
+                    if exc:
+                        logger.error(f"Task für {sym} beendet mit Exception: {exc}", exc_info=exc)
+                # Remove symbol lock if exists
+                try:
+                    del SYMBOL_LOCKS[sym]
+                except KeyError:
+                    pass
+                logger.debug(f"Cleaned up task & lock für {sym}")
         except Exception as e:
-            logger.error(f"Task {s} failed: {e}")
-        del ACTIVE_TASKS[s]
+            logger.error(f"cleanup_finished_tasks error: {e}")
+        await asyncio.sleep(10)
+
+    async def emergency_position_cleanup(lighter, x10, max_age_hours: float = 48.0):
+        """
+        Emergency cleanup für stuck trades die länger als max_age_hours offen sind.
+        Wird alle 10 Minuten aufgerufen.
+        """
+        while not SHUTDOWN_FLAG:
+            try:
+                await asyncio.sleep(600)  # 10 min
+            
+                if SHUTDOWN_FLAG:
+                    break
+                
+                open_trades = await get_open_trades()
+                now = datetime.now()
+            
+                for trade in open_trades:
+                    entry_time = trade.get('entry_time')
+                    if not entry_time:
+                        continue
+                    
+                    if isinstance(entry_time, str):
+                        entry_time = datetime.fromisoformat(entry_time)
+                
+                    age_hours = (now - entry_time).total_seconds() / 3600
+                
+                    if age_hours > max_age_hours:
+                        symbol = trade['symbol']
+                        logger.warning(
+                            f"🚨 EMERGENCY CLOSE: {symbol} open for {age_hours:.1f}h (max={max_age_hours}h)"
+                        )
+                    
+                        # Force close via position_manager
+                        from src.position_manager import close_position_with_reason
+                        await close_position_with_reason(
+                            symbol, 
+                            "EMERGENCY_TIMEOUT", 
+                            lighter, 
+                            x10
+                        )
+                        await asyncio.sleep(2)
+                    
+            except asyncio.CancelledError:
+                logger.info("Emergency cleanup cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Emergency cleanup error: {e}")
+                await asyncio.sleep(60)
+
+def get_symbol_lock(symbol: str) -> asyncio.Lock:
+    """Thread-safe / async-safe Lock pro Symbol"""
+    if symbol not in SYMBOL_LOCKS:
+        SYMBOL_LOCKS[symbol] = asyncio.Lock()
+    return SYMBOL_LOCKS[symbol]
 
 
 async def logic_loop(lighter, x10, price_event, parallel_exec):
-    """Main Logic Loop"""
-    logger.info("🧠 Logic Loop started")
-    last_zombie = 0
-    management_task = None
+    """Main trading loop with opportunity detection and execution"""
+    REFRESH_DELAY = getattr(config, 'REFRESH_DELAY_SECONDS', 5)
+    logger.info(f"Logic Loop gestartet – REFRESH alle {REFRESH_DELAY}s")
+
+    while not SHUTDOWN_FLAG:
+        try:
+            open_trades = await get_open_trades()
+            open_syms = {t['symbol'] for t in open_trades}
+            
+            max_trades = getattr(config, 'MAX_OPEN_TRADES', 40)
+            if len(open_trades) >= max_trades:
+                logger.debug(f"MAX_OPEN_TRADES ({max_trades}) reached, waiting...")
+                await asyncio.sleep(REFRESH_DELAY)
+                continue
+
+            opportunities = await find_opportunities(lighter, x10, open_syms, is_farm_mode=None)
+            
+            if opportunities:
+                logger.info(f"🎯 Found {len(opportunities)} opportunities, executing best...")
+                
+                executed_count = 0
+                max_per_cycle = 3
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Pre-fetch balance ONCE per cycle
+                # CRITICAL FIX: Consider reserved capital from open trades
+                # ═══════════════════════════════════════════════════════════════
+                try:
+                    bal_x10 = await x10.get_real_available_balance()
+                    bal_lit = await lighter.get_real_available_balance()
+                except Exception as e:
+                    logger.warning(f"Balance fetch failed: {e}")
+                    await asyncio.sleep(REFRESH_DELAY)
+                    continue
+
+                # Subtract reserved capital from currently open trades
+                open_trades_count = len(open_trades)
+                avg_trade_size = getattr(config, 'DESIRED_NOTIONAL_USD', 12)
+                reserved_capital = open_trades_count * avg_trade_size
+
+                # Calculate available balance after in-flight + open trades
+                async with IN_FLIGHT_LOCK:
+                    available_x10 = bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0) - (reserved_capital * 0.5)
+                    available_lit = bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0) - (reserved_capital * 0.5)
+
+                logger.info(
+                    f"💰 Balance: X10=${bal_x10:.1f} (avail=${available_x10:.1f}), "
+                    f"Lit=${bal_lit:.1f} (avail=${available_lit:.1f}) | "
+                    f"Open={open_trades_count}, Reserved=${reserved_capital:.0f}"
+                )
+                
+                for opp in opportunities:
+                    if executed_count >= max_per_cycle:
+                        break
+                        
+                    symbol = opp['symbol']
+                    
+                    if symbol in ACTIVE_TASKS:
+                        continue
+                    
+                    if symbol in FAILED_COINS and (time.time() - FAILED_COINS[symbol] < 180):
+                        continue
+                    
+                    if symbol in open_syms:
+                        continue
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Check balance BEFORE launching task — use opportunity's
+                    # recommended notional when available, otherwise fall back
+                    # to farm/desired config defaults.
+                    is_farm = opp.get('is_farm_trade', False)
+                    base_default = getattr(config, 'FARM_NOTIONAL_USD', 12) if is_farm else getattr(config, 'DESIRED_NOTIONAL_USD', 16)
+
+                    # Prefer an explicit size provided by the opportunity payload
+                    trade_size = None
+                    for key in ('trade_size', 'notional_usd', 'trade_notional_usd', 'desired_notional_usd'):
+                        if key in opp and isinstance(opp[key], (int, float)):
+                            trade_size = float(opp[key])
+                            break
+
+                    if trade_size is None:
+                        trade_size = float(base_default)
+
+                    required_margin = trade_size * 1.2  # 20% buffer
+                    
+                    if available_x10 < required_margin or available_lit < required_margin:
+                        logger.debug(f"Skip {symbol}: Insufficient pre-check balance (X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${required_margin:.1f})")
+                        continue
+                    
+                    # Deduct from available balance for next iteration
+                    available_x10 -= required_margin
+                    available_lit -= required_margin
+                    
+                    logger.info(f"🚀 Launching trade for {symbol} (APY={opp['apy']:.1f}%)")
+                    await launch_trade_task(opp, lighter, x10, parallel_exec)
+                    executed_count += 1
+                    
+                    await asyncio.sleep(0.5)
+                
+                if executed_count > 0:
+                    logger.info(f"✅ Launched {executed_count} trade tasks this cycle")
+            
+            await asyncio.sleep(REFRESH_DELAY)
+            
+        except asyncio.CancelledError:
+            logger.info("Logic loop cancelled")
+            break
+        except Exception as e:
+            logger.error(f"Logic loop error: {e}")
+            import traceback
+            traceback.print_exc()
+            await asyncio.sleep(5)
+
+async def maintenance_loop(lighter, x10):
+    """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges"""
+    funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
+    last_x10_refresh = 0
+    last_lighter_refresh = 0
     
     while True:
         try:
-            # Wait for trigger
-            try:
-                await asyncio.wait_for(price_event.wait(), timeout=0.5)  # 5.0 → 0.5 for faster reaction
-                logger.debug("📡 Price update event triggered")
-            except asyncio.TimeoutError:
-                pass  # Kein Log spam
-            price_event.clear()
+            now = time.time()
             
-            # Verify WebSocket streams are alive
-            x10_cache_size = len(x10.price_cache)
-            lit_cache_size = len(lighter.price_cache)
+            # ============================================================
+            # X10 Funding Refresh (market_info neu laden enthält Funding)
+            # ============================================================
+            x10_funding_count = len(getattr(x10, 'funding_cache', {}))
             
-            if x10_cache_size == 0 and lit_cache_size == 0:
-                logger.warning("⚠️ Both price caches empty - WebSocket streams may be down")
+            if x10_funding_count < 20 or (now - last_x10_refresh > 60):
+                logger.debug(f"📊 X10 Funding Cache refresh (current={x10_funding_count})")
+                try:
+                    # X10 market_info enthält funding_rate
+                    await x10.load_market_cache(force=True)
+                    last_x10_refresh = now
+                    logger.debug(f"X10: Funding Refresh OK, cache={len(x10.funding_cache)}")
+                except Exception as e:
+                    logger.warning(f"X10 Funding Refresh failed: {e}")
 
-            # Cleanup
-            await cleanup_finished_tasks()
-
-            # SINGLE call to get_open_trades - use everywhere
+            # ============================================================
+            # Lighter Funding Refresh
+            # ============================================================
+            lighter_funding_count = len(getattr(lighter, 'funding_cache', {}))
+            
+            if lighter_funding_count < 50 or (now - last_lighter_refresh > 60):
+                logger.debug(f"📊 Lighter Funding Cache refresh (current={lighter_funding_count})")
+                try:
+                    await lighter.load_funding_rates_and_prices()
+                    last_lighter_refresh = now
+                    logger.debug(f"Lighter: Funding Refresh OK, cache={len(lighter.funding_cache)}")
+                except Exception as e:
+                    logger.warning(f"Lighter Funding Refresh failed: {e}")
+            
+            # --- Update predictor with fresh funding/OB/OI data ---
             try:
-                current_trades = await get_open_trades()
-            except Exception as e:
-                logger.error(f"Error fetching open trades: {e}")
-                current_trades = []
+                predictor = get_predictor()
+                common = set(getattr(lighter, 'market_info', {}).keys()) & set(getattr(x10, 'market_info', {}).keys())
+                
+                for symbol in list(common)[:50]:  # Limit to 50 symbols per cycle
+                    try:
+                        r_l = lighter.fetch_funding_rate(symbol) or 0.0
+                        r_x = x10.fetch_funding_rate(symbol) or 0.0
+                        current_rate = (float(r_l) + float(r_x)) / 2.0
 
-            open_syms = {t['symbol'] for t in current_trades}
-
-            # Remove zombie tasks (only remove if task is finished)
-            zombie_tasks = [s for s, t in ACTIVE_TASKS.items() if s in open_syms and t.done()]
-            for sym in zombie_tasks:
-                logger.warning(f"🧟 Removing zombie task: {sym}")
-                try:
-                    del ACTIVE_TASKS[sym]
-                except KeyError:
-                    pass
-
-            # Manage trades (use same current_trades)
-            if management_task is None or management_task.done():
-                if management_task and management_task.exception():
-                    logger.error(f"Manage Task Error: {management_task.exception()}")
-                # Pass current_trades to avoid second call (manage_open_trades may fetch again internally)
-                management_task = asyncio.create_task(manage_open_trades(lighter, x10))
-
-            # Zombie cleanup (run at most once every 180 seconds)
-            now = time.monotonic()
-            if now - last_zombie > 180:
-                try:
-                    await cleanup_zombie_positions(lighter, x10)
-                    
-                    # Clear old failed coins (older than 5min)
-                    expired = [s for s, t in FAILED_COINS.items() if time.time() - t > 300]
-                    for s in expired:
+                        # OI
+                        oi = 0.0
                         try:
-                            del FAILED_COINS[s]
-                            logger.info(f"🔄 Cleared cooldown: {s}")
-                        except KeyError:
+                            oi = await x10.fetch_open_interest(symbol)
+                        except Exception:
                             pass
-                except Exception as ze:
-                    logger.error(f"Zombie cleanup: {ze}")
-                # record monotonic timestamp to throttle next run
-                last_zombie = now
+                        if oi == 0.0:
+                            try:
+                                oi = await lighter.fetch_open_interest(symbol)
+                            except Exception:
+                                pass
 
-            # Check opportunities (use cached current_trades)
-            logger.debug(f"📊 Current trades: {len(current_trades)}, symbols: {open_syms}")
-
-            # REMOVED all asymmetry checks - they were blocking trades
-
-            current_executing = len(ACTIVE_TASKS)
-            current_open = len(current_trades)
-            total_busy = current_open + current_executing
+                        predictor._update_history(predictor.rate_history, symbol, float(current_rate), now)
+                        predictor.update_oi_velocity(symbol, float(oi))
+                        
+                    except Exception:
+                        continue
+            except Exception:
+                pass
             
-            # CRITICAL: Only allow 1 new execution at a time
-            MAX_CONCURRENT_NEW = 1
+            await asyncio.sleep(30)
             
-            if total_busy < config.MAX_OPEN_TRADES:
-                open_syms = {t['symbol'] for t in current_trades}
-                active_syms = set(ACTIVE_TASKS.keys())
-                all_busy_syms = open_syms | active_syms
-
-                slots_available = config.MAX_OPEN_TRADES - total_busy
-                new_trades_allowed = min(MAX_CONCURRENT_NEW, slots_available)
-
-                logger.debug(f"Slots: Open={current_open}, Exec={current_executing}, New={new_trades_allowed}")
-
-                
-                # Latency arb (limit 1)
-                if new_trades_allowed > 0:
-                    detector = get_detector()
-                    for sym in ["BTC-USD", "ETH-USD", "SOL-USD"]:
-                        if sym in open_syms or sym in ACTIVE_TASKS:
-                            continue
-                        
-                        opp = await detector.detect_lag_opportunity(
-                            sym, x10.fetch_funding_rate(sym) or 0, 
-                            lighter.fetch_funding_rate(sym) or 0, x10, lighter
-                        )
-                        if opp:
-                            if sym not in ACTIVE_TASKS:
-                                ACTIVE_TASKS[sym] = asyncio.create_task(
-                                    execute_trade_task(opp, lighter, x10, parallel_exec)
-                                )
-                                new_trades_allowed -= 1
-                            break
-                
-                # Standard funding arb
-                if new_trades_allowed > 0:
-                    opps = await find_opportunities(lighter, x10, all_busy_syms)
-                    started = 0
-                    for opp in opps:
-                        if started >= new_trades_allowed:
-                            logger.debug(f"⛔ Stopping: Max new trades reached ({new_trades_allowed})")
-                            break
-
-                        sym = opp['symbol']
-                        
-                        # Log EVERY opportunity with reason
-                        if sym in ACTIVE_TASKS:
-                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): Already executing")
-                            continue
-                        
-                        if sym in config.BLACKLIST_SYMBOLS:
-                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): BLACKLISTED")
-                            continue
-                        
-                        if sym in FAILED_COINS:
-                            cooldown_total = 300
-                            cooldown_elapsed = time.time() - FAILED_COINS.get(sym, 0)
-                            cooldown_remaining = max(0, cooldown_total - cooldown_elapsed)
-                            logger.info(f"❌ Skip {sym} (APY={opp.get('apy', 0):.1f}%): FAILED cooldown ({cooldown_remaining:.0f}s left)")
-                            continue
-                        
-                        # Should execute!
-                        logger.info(f"🚀 EXECUTING {sym}: APY={opp.get('apy', 0):.1f}%, Net={opp.get('net_funding_hourly', 0):.6f}")
-
-                        ACTIVE_TASKS[sym] = asyncio.create_task(
-                            execute_trade_task(opp, lighter, x10, parallel_exec)
-                        )
-                        started += 1
-                        
-                        # Wait for execution
-                        logger.info(f"⏳ Waiting for {sym} execution to complete...")
-                        await ACTIVE_TASKS[sym]
-                        await asyncio.sleep(3)
-
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error(f"Logic Loop Error: {e}")
-            traceback.print_exc()
-            if telegram_bot:
-                await telegram_bot.send_error(f"Logic: {str(e)[:200]}")
-            await asyncio.sleep(2)
-
-async def maintenance_loop(lighter, x10):
-    """Background tasks: Funding rates"""
-    while True:
-        try:
-            await lighter.load_funding_rates_and_prices()
-            await asyncio.sleep(60)
-        except asyncio.CancelledError:
-            break
-        except Exception:
-            await asyncio.sleep(60)
+            logger.error(f"Maintenance loop error: {e}")
+            await asyncio.sleep(30)
 
 async def setup_database():
     """Ensure Tables Exist"""
@@ -1343,6 +1748,32 @@ async def setup_database():
             )
         """)
         await conn.commit()
+#
+async def migrate_database():
+    """Migrate DB schema for new columns"""
+    try:
+        async with aiosqlite.connect(config.DB_FILE) as conn:
+            # Check if migration needed
+            cursor = await conn.execute("PRAGMA table_info(trade_history)")
+            columns = await cursor.fetchall()
+            has_account_label = any(col[1] == 'account_label' for col in columns)
+            
+            if not has_account_label:
+                logger.info("🔄 Migrating database schema...")
+                await conn.execute("ALTER TABLE trade_history ADD COLUMN account_label TEXT DEFAULT 'Main'")
+                await conn.execute("ALTER TABLE trades ADD COLUMN account_label TEXT DEFAULT 'Main'")
+                await conn.commit()
+                logger.info("✅ Database migration complete")
+            else:
+                logger.debug("✅ Database schema up to date")
+                
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+        logger.warning("⚠️ Deleting old database and recreating...")
+        import os
+        if os.path.exists(config.DB_FILE):
+            os.remove(config.DB_FILE)
+        await setup_database()
 
 # ============================================================
 # MAIN
@@ -1360,6 +1791,7 @@ async def main():
         await telegram_bot.start()
         logger.info("📱 Telegram Bot connected")
     await setup_database()
+    await migrate_database()
     
     # 2. Init Adapters
     x10 = X10Adapter()
@@ -1424,6 +1856,13 @@ async def main():
     logger.info("🌐 Starting WebSocket streams...")
     ws_manager = WebSocketManager([x10, lighter])
     await ws_manager.start()
+
+    # ═══════════════════════════════════════════════════════════════
+    # CRITICAL: Emergency cleanup for stuck trades
+    # ═══════════════════════════════════════════════════════════════
+    emergency_task = asyncio.create_task(
+        emergency_position_cleanup(lighter, x10, max_age_hours=48.0)
+    )
     
     # Wait for WS connections and verify health
     logger.info("⏳ Waiting for WebSocket connections...")
@@ -1440,6 +1879,12 @@ async def main():
         
         if x10_cache_size > 0 or lit_cache_size > 0:
             logger.info("✅ WebSocket streams healthy - receiving price updates")
+            # Refresh missing prices for symbols without trades
+            logger.info("📊 Refreshing missing prices...")
+            try:
+                await x10.refresh_missing_prices()
+            except Exception as e:
+                logger.warning(f"Price refresh warning: {e}")
             break
             
         if check == 2:
@@ -1448,34 +1893,72 @@ async def main():
     # 5. Init Managers
     parallel_exec = ParallelExecutionManager(x10, lighter)
     
-    # 6. Start Background Loops
-    logger.info("🚀 Spawning Tasks...")
+    # ===============================================
+    # PUNKT 1 – KORREKTE ENDLESS TASK SUPERVISION
+    # ===============================================
     tasks = [
-        asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec)),
-        asyncio.create_task(farm_loop(lighter, x10, parallel_exec)),
-        asyncio.create_task(maintenance_loop(lighter, x10))
+        asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec), name="logic_loop"),
+        asyncio.create_task(farm_loop(lighter, x10, parallel_exec), name="farm_loop"),
+        asyncio.create_task(maintenance_loop(lighter, x10), name="maintenance_loop"),
+        asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks")   # ← PUNKT 2
     ]
-    
-    logger.info(" ✅ BOT RUNNING. Press Ctrl+C to stop.")
+
+    # Task-Überwachung: Eine Task crasht → Bot läuft weiter
+    def task_watcher(task: asyncio.Task):
+        if task.cancelled():
+            logger.info(f"[SUPERVISOR] Task {task.get_name()} cancelled")
+            return
+        if exc := task.exception():
+            logger.critical(f"[SUPERVISOR] Task {task.get_name()} crashed!", exc_info=exc)
+            if telegram_bot and telegram_bot.enabled:
+                asyncio.create_task(telegram_bot.send_error(f"Task Crash: {task.get_name()}\n{exc}"))
+
+    for t in tasks:
+        t.add_done_callback(task_watcher)
+
+    logger.info("BOT LÄUFT 24/7 – Tasks überwacht | Ctrl+C = Stop")
+
+    # WICHTIG: Kein gather mehr! Nur Endlosschleife bis Ctrl+C
     try:
-        await asyncio.gather(*tasks)
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logger.critical(f"FATAL ERROR: {e}")
-        if telegram_bot and telegram_bot.enabled:
-            await telegram_bot.send_error(f"Bot Crashed: {e}")
+        while not SHUTDOWN_FLAG:
+            await asyncio.sleep(1)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("Shutdown angefordert – beende sauber...")
     finally:
         SHUTDOWN_FLAG = True
-        logger.info(" Stopping Managers...")
+
+        # ===============================================
+        # GRACEFUL SHUTDOWN – Alles sauber schließen
+        # ===============================================
+        logger.info("Stopping Managers...")
         await ws_manager.stop()
+
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Cancel emergency cleanup
+        # ═══════════════════════════════════════════════════════════════
+        if 'emergency_task' in locals() and not emergency_task.done():
+            emergency_task.cancel()
+            try:
+                await emergency_task
+            except asyncio.CancelledError:
+                pass
+
         await state_manager.stop()
+
         if telegram_bot and telegram_bot.enabled:
-            await telegram_bot.send_message("🛑 Bot Shutdown")
+            await telegram_bot.send_message("Bot Shutdown")
             await telegram_bot.stop()
+
         await x10.aclose()
         await lighter.aclose()
-        logger.info(" BOT SHUTDOWN COMPLETE.")
+        # Cancel alle noch laufenden Symbol-Tasks
+        for sym, task in list(ACTIVE_TASKS.items()):
+            if not task.done():
+                task.cancel()
+        if ACTIVE_TASKS:
+            await asyncio.gather(*ACTIVE_TASKS.values(), return_exceptions=True)
+
+        logger.info("BOT SHUTDOWN COMPLETE.")
 
 if __name__ == "__main__":
     if sys.platform == 'win32':

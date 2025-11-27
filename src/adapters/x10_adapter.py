@@ -2,13 +2,14 @@
 import asyncio
 import logging
 import json
+import websockets
 import aiohttp
 import time
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional
 
-from src.rate_limiter import AdaptiveRateLimiter
+from src.rate_limiter import X10_RATE_LIMITER
 import config
 from x10.perpetual.trading_client import PerpetualTradingClient
 from x10.perpetual.configuration import MAINNET_CONFIG
@@ -36,12 +37,10 @@ class X10Adapter(BaseAdapter):
         self.orderbook_cache = {}
         self.price_update_event = None  # Will be set by main loop
 
-        self.rate_limiter = AdaptiveRateLimiter(
-            initial_rate=20.0,  # 10.0 → 20.0
-            min_rate=5.0,       # 3.0 → 5.0
-            max_rate=50.0,      # 20.0 → 50.0
-            name="X10"
-        )
+        # WebSocket Streaming Support
+        self._ws_message_queue = asyncio.Queue()
+
+        self.rate_limiter = X10_RATE_LIMITER   # ← PUNKT 3 AKTIVIERT
 
         try:
             if config.X10_VAULT_ID:
@@ -143,17 +142,22 @@ class X10Adapter(BaseAdapter):
             return config.TAKER_FEE_X10
 
     async def start_websocket(self):
+        """Connect to X10 WebSocket for live price/funding updates"""
+        # KORRIGIERTE URLs aus _get_ws_urls()
         urls = await self._get_ws_urls()
-        orderbook_url = urls.get("orderbook")
-        trades_url = urls.get("trades")
         
-        retry_delay = 2
-        max_delay = 60
-        
-        trades_task = asyncio.create_task(self._ws_trades(trades_url, retry_delay, max_delay))
-        orderbook_task = asyncio.create_task(self._ws_orderbook(orderbook_url, retry_delay, max_delay))
-        
-        await asyncio.gather(trades_task, orderbook_task)
+        # Parallel alle relevanten Streams starten
+        await asyncio.gather(
+            self._ws_trades(urls["trades"], 5, 60),
+            self._ws_funding(urls["funding"], 5, 60),
+            self._ws_mark_price(urls["mark_price"], 5, 60),
+            return_exceptions=True
+        )
+
+    async def ws_message_stream(self):
+        """WebSocketManager nutzt das"""
+        while True:
+            yield await self._ws_message_queue.get()
 
     async def _ws_trades(self, url, retry_delay, max_delay):
         while True:
@@ -252,6 +256,171 @@ class X10Adapter(BaseAdapter):
                     try:
                         await session.close()
                     except Exception:
+                        pass
+    
+    async def _ws_funding(self, url: str, retry_delay: int, max_delay: int):
+        """WebSocket für Live Funding Rate Updates"""
+        while True:
+            session = None
+            try:
+                session = aiohttp.ClientSession()
+                logger.debug(f"X10 Funding WS: Connecting to {url}")
+                async with session.ws_connect(
+                    url,
+                    heartbeat=10,
+                    timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
+                ) as ws:
+                    logger.info("🟢 X10 Funding WS connected")
+                    retry_delay = 5
+
+                    # Debug: Log the very first message so we can see the incoming format
+                    first_msg_logged = False
+
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+
+                                if not first_msg_logged:
+                                    try:
+                                        logger.info(f"X10 Funding WS first message: {json.dumps(data)[:500]}")
+                                    except Exception:
+                                        logger.info(f"X10 Funding WS first message (raw): {str(data)[:500]}")
+                                    first_msg_logged = True
+
+                                # Try multiple possible shapes. Normalize into (symbol, rate) pairs.
+                                pairs = []
+
+                                # Shape A: single object with funding_rate and market
+                                if isinstance(data, dict) and ("funding_rate" in data or "fr" in data):
+                                    symbol = (data.get("market") or data.get("m") or "").replace("_", "-")
+                                    rate = data.get("funding_rate") if "funding_rate" in data else data.get("fr")
+                                    pairs.append((symbol, rate))
+
+                                # Shape B: bulk update under 'data' as list
+                                if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+                                    for item in data["data"]:
+                                        if not isinstance(item, dict):
+                                            continue
+                                        symbol = (item.get("m") or item.get("market") or "").replace("_", "-")
+                                        rate = item.get("fr") if item.get("fr") is not None else item.get("funding_rate")
+                                        pairs.append((symbol, rate))
+
+                                # Shape C: nested under 'result'
+                                if isinstance(data, dict) and "result" in data:
+                                    res = data["result"]
+                                    if isinstance(res, dict):
+                                        symbol = (res.get("market") or res.get("m") or "").replace("_", "-")
+                                        rate = res.get("funding_rate") if res.get("funding_rate") is not None else res.get("fr")
+                                        pairs.append((symbol, rate))
+                                    elif isinstance(res, list):
+                                        for item in res:
+                                            if not isinstance(item, dict):
+                                                continue
+                                            symbol = (item.get("m") or item.get("market") or "").replace("_", "-")
+                                            rate = item.get("fr") if item.get("fr") is not None else item.get("funding_rate")
+                                            pairs.append((symbol, rate))
+
+                                # Shape D: sometimes the payload is {'params': {'data': [...]}}
+                                if isinstance(data, dict) and "params" in data and isinstance(data.get("params"), dict):
+                                    p = data.get("params")
+                                    if isinstance(p.get("data"), list):
+                                        for item in p.get("data"):
+                                            if not isinstance(item, dict):
+                                                continue
+                                            symbol = (item.get("m") or item.get("market") or "").replace("_", "-")
+                                            rate = item.get("fr") if item.get("fr") is not None else item.get("funding_rate")
+                                            pairs.append((symbol, rate))
+
+                                # Process collected pairs
+                                for symbol, rate in pairs:
+                                    try:
+                                        if not symbol or rate is None:
+                                            continue
+                                        # Some feeds send strings
+                                        r = float(rate)
+                                        self.funding_cache[symbol] = r
+                                        logger.debug(f"X10 Funding: {symbol} = {r}")
+                                        # Update market_info if present
+                                        if symbol in self.market_info:
+                                            try:
+                                                self.market_info[symbol].market_stats.funding_rate = r
+                                            except Exception:
+                                                pass
+                                    except Exception as e:
+                                        logger.debug(f"X10 Funding parse value error for {symbol}: {e}")
+
+                            except Exception as e:
+                                logger.debug(f"X10 Funding parse error: {e}")
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            logger.warning(f"X10 Funding WS Error: {msg}")
+                            break
+            except asyncio.CancelledError:
+                logger.info("🛑 X10 Funding WS stopped")
+                break
+            except Exception as e:
+                logger.error(f"X10 Funding WS error: {e}. Reconnect in {retry_delay}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_delay)
+            finally:
+                if session and not session.closed:
+                    try:
+                        await session.close()
+                    except:
+                        pass
+
+    async def _ws_mark_price(self, url: str, retry_delay: int, max_delay: int):
+        """WebSocket für Live Mark Price Updates"""
+        while True:
+            session = None
+            try:
+                session = aiohttp.ClientSession()
+                logger.debug(f"X10 Mark Price WS: Connecting to {url}")
+                async with session.ws_connect(
+                    url,
+                    heartbeat=10,
+                    timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
+                ) as ws:
+                    logger.info("🟢 X10 Mark Price WS connected")
+                    retry_delay = 5
+                    
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            try:
+                                data = json.loads(msg.data)
+                                # Format: {"market": "BTC-USD", "mark_price": 90000.0, ...}
+                                if "mark_price" in data:
+                                    symbol = data.get("market", "").replace("_", "-")
+                                    price = float(data.get("mark_price", 0))
+                                    if symbol and price > 0:
+                                        self.price_cache[symbol] = price
+                                        if hasattr(self, 'price_update_event') and self.price_update_event:
+                                            self.price_update_event.set()
+                                # Bulk format
+                                elif "data" in data and isinstance(data["data"], list):
+                                    for item in data["data"]:
+                                        symbol = item.get("m", item.get("market", "")).replace("_", "-")
+                                        price = item.get("mp", item.get("mark_price"))
+                                        if symbol and price:
+                                            self.price_cache[symbol] = float(price)
+                                    if hasattr(self, 'price_update_event') and self.price_update_event:
+                                        self.price_update_event.set()
+                            except Exception as e:
+                                logger.debug(f"X10 Mark Price parse error: {e}")
+                        elif msg.type == aiohttp.WSMsgType.ERROR:
+                            break
+            except asyncio.CancelledError:
+                logger.info("🛑 X10 Mark Price WS stopped")
+                break
+            except Exception as e:
+                logger.error(f"X10 Mark Price WS error: {e}. Reconnect in {retry_delay}s")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_delay)
+            finally:
+                if session and not session.closed:
+                    try:
+                        await session.close()
+                    except:
                         pass
     
     async def _ws_orderbook(self, url, retry_delay, max_delay):
@@ -371,7 +540,7 @@ class X10Adapter(BaseAdapter):
     async def load_market_cache(self, force: bool = False):
         if self.market_info and not force:
             return
-        
+
         client = PerpetualTradingClient(self.client_env)
         try:
             await self.rate_limiter.acquire()
@@ -381,7 +550,30 @@ class X10Adapter(BaseAdapter):
                     name = getattr(m, "name", "")
                     if name.endswith("-USD"):
                         self.market_info[name] = m
-            logger.info(f" X10: {len(self.market_info)} Mrkte geladen")
+
+                        # Funding Cache befüllen (wenn vorhanden)
+                        if hasattr(m, 'market_stats') and hasattr(m.market_stats, 'funding_rate'):
+                            rate = getattr(m.market_stats, 'funding_rate', None)
+                            if rate is not None:
+                                self.funding_cache[name] = float(rate)
+
+                        # WICHTIG: Mark Price IMMER aus market_info laden (Fallback für WS)
+                        if hasattr(m, 'market_stats'):
+                            stats = m.market_stats
+                            # Versuche verschiedene Preis-Felder
+                            price = None
+                            for field in ['mark_price', 'index_price', 'last_price', 'price']:
+                                if hasattr(stats, field):
+                                    val = getattr(stats, field, None)
+                                    if val is not None and float(val) > 0:
+                                        price = float(val)
+                                        break
+                            # Nur setzen wenn Cache leer oder 0
+                            if price and price > 0:
+                                if name not in self.price_cache or self.price_cache.get(name, 0) == 0:
+                                    self.price_cache[name] = price
+
+            logger.info(f" X10: {len(self.market_info)} Märkte geladen, {len(self.funding_cache)} Funding Rates, {len(self.price_cache)} Preise")
             self.rate_limiter.on_success()
         except Exception as e:
             if "429" in str(e).lower():
@@ -391,14 +583,34 @@ class X10Adapter(BaseAdapter):
             await client.close()
 
     def fetch_mark_price(self, symbol: str):
+        """Mark Price aus Cache holen"""
+        # PRIORITÄT 1: Live Cache (von WebSocket)
         if symbol in self.price_cache:
             return self.price_cache[symbol]
+        # PRIORITÄT 2: Fallback auf market_info
         m = self.market_info.get(symbol)
-        return float(m.market_stats.mark_price) if m and hasattr(m.market_stats, "mark_price") else None
+        if m and hasattr(m, 'market_stats') and hasattr(m.market_stats, 'mark_price'):
+            price = getattr(m.market_stats, 'mark_price', None)
+            if price is not None:
+                price_float = float(price)
+                self.price_cache[symbol] = price_float
+                return price_float
+        return None
 
     def fetch_funding_rate(self, symbol: str):
+        """Funding Rate aus Cache holen (wird via WS live aktualisiert)"""
+        # PRIORITÄT 1: Live Cache (von WebSocket)
+        if symbol in self.funding_cache:
+            return self.funding_cache[symbol]
+        # PRIORITÄT 2: Fallback auf market_info (Startup-Daten)
         m = self.market_info.get(symbol)
-        return float(m.market_stats.funding_rate) if m and hasattr(m.market_stats, "funding_rate") else None
+        if m and hasattr(m, 'market_stats') and hasattr(m.market_stats, 'funding_rate'):
+            rate = getattr(m.market_stats, 'funding_rate', None)
+            if rate is not None:
+                rate_float = float(rate)
+                self.funding_cache[symbol] = rate_float  # Cache für nächsten Zugriff
+                return rate_float
+        return None
 
     def fetch_24h_vol(self, symbol: str) -> float:
         try:
@@ -493,29 +705,29 @@ class X10Adapter(BaseAdapter):
         if not self.stark_account:
             logger.warning("X10: No stark_account configured")
             return []
-        
+
         try:
             client = await self._get_auth_client()
             logger.debug(f"X10: Fetching positions via API...")
-            
+
             resp = await client.account.get_positions()
-            
+
             if not resp:
                 logger.warning("X10: API returned None response")
                 return []
-            
+
             if not resp.data:
                 logger.debug("X10: API returned empty data")
                 return []
-            
+
             positions = []
             for p in resp.data:
                 status = getattr(p, 'status', 'UNKNOWN')
                 size = float(getattr(p, 'size', 0))
                 symbol = getattr(p, 'market', 'UNKNOWN')
-                
+
                 logger.debug(f"X10: Position {symbol} status={status} size={size}")
-                
+
                 if status == "OPENED" and abs(size) > 1e-8:
                     entry_price = float(p.open_price) if hasattr(p, 'open_price') and p.open_price else 0.0
                     positions.append({
@@ -523,18 +735,63 @@ class X10Adapter(BaseAdapter):
                         "size": size,
                         "entry_price": entry_price
                     })
-            
+
             logger.info(f"X10: Found {len(positions)} open positions")
             if positions:
                 logger.info(f"X10: {[(p['symbol'], p['size']) for p in positions]}")
-            
+
             return positions
-            
+
         except Exception as e:
             logger.error(f"X10 Positions Error: {e}")
-            import traceback
-            traceback.print_exc()
             return []
+
+    async def refresh_missing_prices(self):
+        """REST Fallback für Symbole ohne WebSocket-Preis-Updates"""
+        try:
+            # Finde Symbole mit Preis 0
+            missing = [s for s in self.market_info.keys() 
+                      if s not in self.price_cache or self.price_cache.get(s, 0) == 0.0]
+            
+            if not missing:
+                return
+            
+            logger.debug(f"X10: Refreshing {len(missing)} missing prices via REST")
+            
+            # Versuche zuerst market_info neu zu laden
+            await self.load_market_cache(force=True)
+            
+            # Prüfe welche noch fehlen
+            still_missing = [s for s in missing if self.price_cache.get(s, 0) == 0.0]
+            
+            if still_missing and len(still_missing) <= 10:
+                # Für wenige fehlende Symbole: Orderbook-Fallback
+                client = PerpetualTradingClient(self.client_env)
+                try:
+                    for symbol in still_missing:
+                        try:
+                            await self.rate_limiter.acquire()
+                            resp = await client.order_books.get_order_book(market=symbol)
+                            if resp and resp.data:
+                                bids = resp.data.bids or []
+                                asks = resp.data.asks or []
+                                if bids and asks:
+                                    best_bid = float(bids[0].price) if bids else 0
+                                    best_ask = float(asks[0].price) if asks else 0
+                                    if best_bid > 0 and best_ask > 0:
+                                        mid_price = (best_bid + best_ask) / 2
+                                        self.price_cache[symbol] = mid_price
+                                        logger.debug(f"X10: Got price for {symbol} via orderbook: {mid_price:.4f}")
+                        except Exception as e:
+                            logger.debug(f"X10: Orderbook fallback failed for {symbol}: {e}")
+                finally:
+                    await client.close()
+            
+            logger.debug(f"X10: Price cache now has {len([v for v in self.price_cache.values() if v > 0])} valid prices")
+        except Exception as e:
+            logger.warning(f"X10 refresh_missing_prices error: {e}")
+        
+        
 
     async def open_live_position(
         self, 

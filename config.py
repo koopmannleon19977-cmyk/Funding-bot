@@ -1,3 +1,14 @@
+# Configuration for funding-bot
+
+# Confidence boost values per symbol
+SYMBOL_CONFIDENCE_BOOST = {
+    "BTC": 0.15,
+    "ETH": 0.12,
+    "SOL": 0.10,
+    "ARB": 0.08,
+    "AVAX": 0.08,
+    "BNB": 0.07,
+}
 # config.py
 import os
 import sys
@@ -30,13 +41,13 @@ BLACKLIST_SYMBOLS = {
     "MEGA-USD",
 }
 
-TRADE_COOLDOWN_SECONDS = 60
+TRADE_COOLDOWN_SECONDS = 120
 
 # ============================================================
 # POSITIONSGRÖSSEN & LIMITS
 # ============================================================
-DESIRED_NOTIONAL_USD = 16.0
-MIN_POSITION_SIZE_USD = 16.0
+DESIRED_NOTIONAL_USD = 12.0
+MIN_POSITION_SIZE_USD = 10.0
 MAX_NOTIONAL_USD = 20.0
 MAX_TRADE_SIZE_USD = 20.0
 MAX_OPEN_TRADES = 40
@@ -106,16 +117,33 @@ SYMBOL_CONFIDENCE_BOOST = {
 # ============================================================
 # RISIKO-FILTER
 # ============================================================
-MAX_SPREAD_FILTER_PERCENT = 0.15
+MAX_SPREAD_FILTER_PERCENT = 0.003
 MIN_FREE_MARGIN_PCT = 0.05
 MAX_EXPOSURE_PCT = 5.0
 MAX_VOLATILITY_PCT_24H = 50.0
 
 # ============================================================
+# Open Interest & Funding Cache Settings
+# ============================================================
+# Open Interest Limits
+MIN_OPEN_INTEREST_USD = 50000  # Minimum OI um zu traden (Liquidität)
+MAX_OI_FRACTION = 0.02  # Max 2% des OI als Position
+
+# Funding Rate Cache Settings
+FUNDING_CACHE_TTL = 60  # Sekunden bis Funding Rate als "stale" gilt
+FORCE_REST_FALLBACK_THRESHOLD = 10  # Wenn weniger als N Rates gecached → REST
+
+# WebSocket Reconnect Settings
+WS_RECONNECT_DELAY_INITIAL = 5
+WS_RECONNECT_DELAY_MAX = 60
+WS_PING_INTERVAL = 20
+WS_PING_TIMEOUT = 10
+
+# ============================================================
 # EXIT-LOGIK
 # ============================================================
-FUNDING_FLIP_HOURS_THRESHOLD = 8
-DYNAMIC_HOLD_MAX_DAYS = 7.0
+FUNDING_FLIP_HOURS_THRESHOLD = 2
+DYNAMIC_HOLD_MAX_DAYS = 2.0
 
 DYNAMIC_STOP_LOSS_MULTIPLIER = 2.0
 DYNAMIC_TAKE_PROFIT_MULTIPLIER = 3.0
@@ -148,21 +176,26 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # VOLUME FARM MODE
 # ============================================================
 VOLUME_FARM_MODE = True
-FARM_NOTIONAL_USD = 12
+FARM_NOTIONAL_USD = 10
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 15
 FARM_MAX_HOLD_MINUTES = 120
-FARM_HOLD_SECONDS = 120  # 2 min statt 10 min für schnellere tests
-FARM_MAX_CONCURRENT = 3  # Weniger parallel
+FARM_HOLD_SECONDS = 60  # 1 min statt 2 min (drastisch reduziert für schnellere exits)
+FARM_MAX_CONCURRENT = 2  # Reduced parallel farm trades (was 3)
 FARM_MIN_APY = 0.03
 FARM_MAX_VOLATILITY_24H = 4.0
 FARM_MAX_SPREAD_PCT = 0.15
+
+# Volume Farm Rate Limiting
+FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades
+FARM_BURST_LIMIT = 10  # Max trades per minute
+FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
 
 # ============================================================
 # SYSTEM
 # ============================================================
 CONCURRENT_REQUEST_LIMIT = 10  # Increased concurrency for aggressive scanning (2 -> 10)
-REFRESH_DELAY_SECONDS = 1  # Aggressive refresh: scan every second (5 -> 1)
+REFRESH_DELAY_SECONDS = 3  # Less aggressive refresh (was 1)
 DB_FILE = "funding.db"
 LOG_FILE = "funding_bot.log"
 LOG_LEVEL = logging.DEBUG

@@ -113,7 +113,7 @@ class ParallelExecutionManager:
             success, _ = await self.x10.close_live_position(
                 symbol,
                 original_side_corrected,
-                actual_size_abs  # ✅ USE ACTUAL POSITION SIZE
+                actual_size_abs  # Coins – korrekt!
             )
 
             if success:
@@ -162,7 +162,7 @@ class ParallelExecutionManager:
             success, _ = await self.lighter.close_live_position(
                 symbol,
                 original_side_corrected,
-                actual_size_abs  # ✅ USE ACTUAL POSITION SIZE
+                actual_size_abs  # Coins – korrekt!
             )
 
             if success:

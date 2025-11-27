@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import random
+import websockets
 from typing import Dict, Tuple, Optional, List
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 
@@ -12,18 +13,30 @@ print("DEBUG: lighter_adapter.py module loading...")
 
 import config
 
+# Optional Lighter SDK imports: support multiple package layouts and gracefully
+# degrade when the SDK isn't installed in the environment (avoid ImportError).
+OrderApi = FundingApi = AccountApi = None
+SignerClient = None
+HAVE_LIGHTER_SDK = False
 try:
-    from lighter.lighter_api.order_api import OrderApi
-    from lighter.lighter_api.funding_api import FundingApi
-    from lighter.lighter_api.account_api import AccountApi
+    try:
+        from lighter.lighter_api.order_api import OrderApi
+        from lighter.lighter_api.funding_api import FundingApi
+        from lighter.lighter_api.account_api import AccountApi
+        from lighter.signer_client import SignerClient
+        HAVE_LIGHTER_SDK = True
+    except Exception:
+        # Try alternate layout
+        from lighter.api.order_api import OrderApi
+        from lighter.api.funding_api import FundingApi
+        from lighter.api.account_api import AccountApi
+        from lighter.signer_client import SignerClient
+        HAVE_LIGHTER_SDK = True
 except Exception:
-    from lighter.api.order_api import OrderApi
-    from lighter.api.funding_api import FundingApi
-    from lighter.api.account_api import AccountApi
-
-from lighter.signer_client import SignerClient
+    # SDK not present; adapter will avoid SDK-specific flows where possible.
+    print("WARNING: Optional Lighter SDK not available; running with REST-only fallbacks.")
 from .base_adapter import BaseAdapter
-from src.rate_limiter import AdaptiveRateLimiter
+from src.rate_limiter import LIGHTER_RATE_LIMITER
 
 logger = logging.getLogger(__name__)
 
@@ -44,16 +57,13 @@ class LighterAdapter(BaseAdapter):
         self.price_cache = {}
         self.orderbook_cache = {}
         self.price_update_event = None
+        # WebSocket Streaming Support
+        self._ws_message_queue = asyncio.Queue()
         self._signer = None
         self._resolved_account_index = None
         self._resolved_api_key_index = None
         self.semaphore = asyncio.Semaphore(10)  # Increased concurrency: 3 -> 10
-        self.rate_limiter = AdaptiveRateLimiter(
-            initial_rate=15.0,  # 3.0 → 15.0
-            min_rate=3.0,       # 1.0 → 3.0
-            max_rate=30.0,      # 15.0 → 30.0
-            name="Lighter"
-        )
+        self.rate_limiter = LIGHTER_RATE_LIMITER   # ← PUNKT 3 AKTIVIERT
         self._last_market_cache_at = None
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
@@ -66,6 +76,11 @@ class LighterAdapter(BaseAdapter):
             Fee rate (e.g. 0.0 for maker rebate)
         """
         if not order_id or order_id == "DRY_RUN_ORDER_123":
+            return 0.0
+
+        # If the optional SDK isn't installed, skip SDK-based fee lookup.
+        if OrderApi is None or not HAVE_LIGHTER_SDK:
+            # Best-effort: return 0.0 (no SDK -> no detailed fee info)
             return 0.0
 
         try:
@@ -206,221 +221,102 @@ class LighterAdapter(BaseAdapter):
             return 0.0
 
     async def start_websocket(self):
-        ws_url = "wss://mainnet.zklighter.elliot.ai/stream"
-        retry_delay = 2
-        max_delay = 60
+        """Lighter hat KEINEN öffentlichen WebSocket!
+        Wir verwenden stattdessen REST-Polling für Live-Daten.
+        """
+        logger.info("🔄 Lighter: Starting REST-based price/funding polling (no WS available)")
         
+        await asyncio.gather(
+            self._rest_price_poller(interval=2.0),
+            self._rest_funding_poller(interval=30.0),
+            return_exceptions=True
+        )
+
+    async def ws_message_stream(self):
+        """Async iterator – wird vom WebSocketManager verwendet"""
         while True:
-            session = None
+            msg = await self._ws_message_queue.get()
+            yield msg
+
+    async def _rest_price_poller(self, interval: float = 2.0):
+        """REST-basiertes Preis-Polling als WebSocket-Ersatz"""
+        while True:
             try:
-                # CRITICAL: Load markets BEFORE connecting if not loaded
-                if not self.market_info:
-                    await self.load_market_cache(force=True)
-
-                logger.debug(f"Lighter: Connecting to {ws_url}")
-                session = aiohttp.ClientSession()
-                async with session.ws_connect(
-                    ws_url,
-                    heartbeat=15,
-                    timeout=aiohttp.ClientTimeout(total=None, sock_read=30)
-                ) as ws:
-                    logger.info("🟢 Lighter WebSocket connected")
-                    logger.debug(f"Lighter: Connection state: {ws.closed}")
-                    retry_delay = 5
-                    
-                    # CRITICAL: Verify market_info loaded before subscribing
-                    if not self.market_info:
-                        logger.error("❌ Lighter: No markets available - cannot subscribe")
-                        await asyncio.sleep(5)
-                        break
-                    
-                    # CRITICAL FIX: Filter out invalid market IDs
-                    market_ids = []
-                    seen = set()
-                    for m in self.market_info.values():
-                        mid = m.get('i')
-                        if mid is None:
-                            continue
-                        # Accept ints or non-empty strings; normalize to original type
-                        if isinstance(mid, (int, str)) and str(mid).strip():
-                            if mid not in seen:
-                                seen.add(mid)
-                                market_ids.append(mid)
-                    
-                    if not market_ids:
-                        logger.error("❌ Lighter: No valid market IDs found")
-                        await asyncio.sleep(5)
-                        break
-                    
-                    logger.info(f"📊 Lighter: Subscribing to {len(market_ids)} markets")
-                    # Subscribe in batches to avoid message size limits
-                    batch_size = 50
-                    for i in range(0, len(market_ids), batch_size):
-                        batch = market_ids[i:i+batch_size]
-                        # Lighter API uses singular "trade" and "orderbook" (no underscore)
-                        sub_trades = {
-                            "type": "subscribe",
-                            "channel": "trade",
-                            "market_ids": batch
-                        }
-                        sub_orderbook = {
-                            "type": "subscribe", 
-                            "channel": "orderbook",
-                            "market_ids": batch
-                        }
-                        logger.debug(f"Lighter: Sending batch {(i // batch_size) + 1} with {len(batch)} markets")
-                        await ws.send_json(sub_trades)
-                        await asyncio.sleep(0.2)
-                        await ws.send_json(sub_orderbook)
-                        await asyncio.sleep(0.5)
-
-                    # Subscribe to funding rates channel
-                    try:
-                        sub_funding = {
-                            "type": "subscribe",
-                            "channel": "funding",
-                            "market_ids": market_ids
-                        }
-                        await ws.send_json(sub_funding)
-                        logger.info("📊 Lighter: Subscribed to funding rate updates")
-                        await asyncio.sleep(0.2)
-                    except Exception as e:
-                        logger.warning(f"⚠️ Lighter: Funding subscription failed: {e}")
-                    
-                    logger.debug("Lighter: Waiting for subscription confirmation...")
-                    
-                    # Wait for subscription response (log details to help debugging)
-                    try:
-                        first_msg = await asyncio.wait_for(ws.receive(), timeout=10.0)
-                        if first_msg.type == aiohttp.WSMsgType.TEXT:
-                            data = json.loads(first_msg.data)
-                            logger.info(f"✅ Lighter: First message received: {json.dumps(data, indent=2)[:500]}")
-                        elif first_msg.type == aiohttp.WSMsgType.CLOSE:
-                            logger.error(f"❌ Lighter: Server sent CLOSE: {first_msg.data}")
-                            break
-                        elif first_msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.error(f"❌ Lighter: Connection error")
-                            break
-                    except asyncio.TimeoutError:
-                        logger.warning("⚠️ Lighter: No message in 10s - checking connection...")
-                        # Log connection state
-                        logger.info(f"WS closed={ws.closed}, markets_subscribed={len(market_ids)}")
-                    
-                    async for msg in ws:
-                        if msg.type == aiohttp.WSMsgType.TEXT:
-                            try:
-                                data = json.loads(msg.data)
-
-                                # CRITICAL: Log first 10 messages raw to debug format
-                                if not hasattr(self, '_lighter_msg_count'):
-                                    self._lighter_msg_count = 0
-                                if self._lighter_msg_count < 10:
-                                    logger.info(f"🔍 Lighter MSG #{self._lighter_msg_count}: {json.dumps(data, indent=2)[:300]}")
-                                    self._lighter_msg_count += 1
-
-                                # Debug first message (raw trimmed dump) to help format troubleshooting
-                                if not hasattr(self, '_ws_debug_logged'):
-                                    try:
-                                        logger.info(f"Lighter RAW MESSAGE: {json.dumps(data, indent=2)[:500]}")
-                                    except Exception:
-                                        logger.info("Lighter: First raw message received (unable to stringify)")
-                                    self._ws_debug_logged = True
-                            except Exception as e:
-                                logger.error(f"JSON parse error: {e}")
+                await self.rate_limiter.acquire()
+                signer = await self._get_signer()
+                order_api = OrderApi(signer.api_client)
+                
+                # Hole alle Marktdaten in einem Call
+                try:
+                    market_list = await order_api.order_book_details()
+                    if market_list and market_list.order_book_details:
+                        updated = 0
+                        for m in market_list.order_book_details:
+                            symbol_raw = getattr(m, 'symbol', None)
+                            if not symbol_raw:
                                 continue
-
-                            # Parse JSON-RPC 2.0 format (method + params)
-                            method = data.get("method")
-                            params = data.get("params", {})
-
-                            # Trade updates
-                            if method == "trade_subscription" and isinstance(params, dict):
-                                mid = params.get("marketId")
-                                trade_data = params.get("data", {})
-                                price_str = trade_data.get("price")
-
-                                if mid and price_str:
-                                    for sym, info in self.market_info.items():
-                                        if info['i'] == mid:
-                                            try:
-                                                price_float = float(price_str)
-                                                self.price_cache[sym] = price_float
-                                                logger.debug(f"Lighter: Price update {sym}={price_float}")
-                                                
-                                                if hasattr(self, 'price_update_event') and self.price_update_event:
-                                                    self.price_update_event.set()
-                                                break
-                                            except (ValueError, TypeError) as e:
-                                                logger.error(f"Lighter: Price parse error {sym}: {e}")
+                            symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
                             
-                            # Orderbook updates
-                            elif method == "orderbook_subscription" and isinstance(params, dict):
-                                mid = params.get("marketId")
-                                ob_data = params.get("data", {})
-                                
-                                if mid and ob_data:
-                                    for sym, info in self.market_info.items():
-                                        if info['i'] == mid:
-                                            bids = []
-                                            asks = []
-                                            
-                                            for bid in ob_data.get("bids", []):
-                                                try:
-                                                    bids.append([float(bid.get("price", 0)), float(bid.get("size", 0))])
-                                                except Exception:
-                                                    pass
-                                            
-                                            for ask in ob_data.get("asks", []):
-                                                try:
-                                                    asks.append([float(ask.get("price", 0)), float(ask.get("size", 0))])
-                                                except Exception:
-                                                    pass
-                                            
-                                            self.orderbook_cache[sym] = {
-                                                'bids': bids,
-                                                'asks': asks,
-                                                'timestamp': time.time()
-                                            }
-                                            break
-
-                            # Funding rate updates
-                            elif method == "funding_subscription" and isinstance(params, dict):
-                                mid = params.get("marketId")
-                                funding_data = params.get("data", {})
-                                rate = funding_data.get("rate")
-
-                                if mid and rate:
-                                    for sym, info in self.market_info.items():
-                                        if info['i'] == mid:
-                                            # Convert 8h rate to hourly
-                                            try:
-                                                self.funding_cache[sym] = float(rate) / 8.0
-                                                logger.debug(f"Lighter: Funding update {sym}={float(rate)/8.0:.6f}")
-                                            except Exception:
-                                                logger.debug(f"Lighter: Funding parse error for {sym}: {rate}")
-                                            break
-                        elif msg.type == aiohttp.WSMsgType.ERROR:
-                            logger.warning(f"⚠️ Lighter WS Error: {msg}")
-                            break
+                            # Mark Price
+                            mark_price = getattr(m, 'mark_price', None) or getattr(m, 'last_trade_price', None)
+                            if mark_price:
+                                self.price_cache[symbol] = float(mark_price)
+                                updated += 1
+                        
+                        if updated > 0:
+                            self.rate_limiter.on_success()
+                            if hasattr(self, 'price_update_event') and self.price_update_event:
+                                self.price_update_event.set()
+                            logger.debug(f"Lighter REST: Updated {updated} prices")
+                except Exception as e:
+                    if "429" in str(e):
+                        self.rate_limiter.on_429()
+                    else:
+                        logger.debug(f"Lighter REST price poll error: {e}")
+                
+                await asyncio.sleep(interval)
+                
             except asyncio.CancelledError:
-                logger.info("🛑 Lighter WS stopped (CancelledError)")
+                logger.info("🛑 Lighter REST price poller stopped")
                 break
             except Exception as e:
-                error_str = str(e).lower()
-                if "429" in error_str or "rate limit" in error_str:
-                    retry_delay = min(retry_delay * 2, max_delay)
-                    logger.warning(f"⚠️ Lighter WS Rate Limited! Backoff: {retry_delay}s")
-                else:
-                    retry_delay = min(retry_delay * 1.5, max_delay)
-                    logger.error(f"❌ Lighter WS Error: {e}. Reconnect in {retry_delay:.0f}s...")
-                await asyncio.sleep(retry_delay)
-            finally:
-                await asyncio.sleep(0)
-                if session and not session.closed:
-                    try:
-                        await session.close()
-                    except Exception:
-                        pass
+                logger.error(f"Lighter REST price poller error: {e}")
+                await asyncio.sleep(interval * 2)
+
+    async def _rest_funding_poller(self, interval: float = 30.0):
+        """REST-basiertes Funding Rate Polling"""
+        while True:
+            try:
+                await self.load_funding_rates_and_prices()
+                await asyncio.sleep(interval)
+                
+            except asyncio.CancelledError:
+                logger.info("🛑 Lighter REST funding poller stopped")
+                break
+            except Exception as e:
+                logger.error(f"Lighter REST funding poller error: {e}")
+                await asyncio.sleep(interval * 2)
+
+    async def refresh_funding_rates_rest(self):
+        """REST Fallback für Funding Rates (wenn WS nicht verfügbar)"""
+        try:
+            signer = await self._get_signer()
+            funding_api = FundingApi(signer.api_client)
+            
+            fd_response = await funding_api.funding_rates()
+            if fd_response and fd_response.funding_rates:
+                for fr in fd_response.funding_rates:
+                    market_id = fr.market_id
+                    rate = float(fr.rate) if fr.rate else 0.0
+                    # Finde Symbol für market_id
+                    for symbol, data in self.market_info.items():
+                        if data.get('i') == market_id:
+                            self.funding_cache[symbol] = rate
+                            break
+                logger.debug(f"Lighter: Refreshed {len(fd_response.funding_rates)} funding rates via REST")
+        except Exception as e:
+            if "429" not in str(e):
+                logger.error(f"Lighter REST Funding Refresh Error: {e}")
 
     def _get_base_url(self) -> str:
         return getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
@@ -666,6 +562,7 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"❌ Lighter init error: {e}")
 
     async def load_funding_rates_and_prices(self):
+        """Lädt Funding Rates und Preise von der Lighter REST API"""
         if not getattr(config, "LIVE_TRADING", False):
             return
         
@@ -673,14 +570,35 @@ class LighterAdapter(BaseAdapter):
             signer = await self._get_signer()
             funding_api = FundingApi(signer.api_client)
             
+            await self.rate_limiter.acquire()
             fd_response = await funding_api.funding_rates()
+            
             if fd_response and fd_response.funding_rates:
-                rates_by_id = {fr.market_id: fr.rate for fr in fd_response.funding_rates}
-                for symbol, data in self.market_info.items():
-                    if rate := rates_by_id.get(data['i']):
-                        self.funding_cache[symbol] = float(rate)
+                updated = 0
+                for fr in fd_response.funding_rates:
+                    market_id = getattr(fr, 'market_id', None)
+                    rate = getattr(fr, 'rate', None)
+                    
+                    if market_id is None or rate is None:
+                        continue
+                    
+                    rate_float = float(rate) if rate else 0.0
+                    
+                    # Finde Symbol für market_id
+                    for symbol, data in self.market_info.items():
+                        if data.get('i') == market_id:
+                            self.funding_cache[symbol] = rate_float
+                            updated += 1
+                            break
+                
+                self.rate_limiter.on_success()
+                logger.debug(f"Lighter: Loaded {updated} funding rates into cache")
+            
         except Exception as e:
-            logger.error(f" Lighter Funding Fetch Error: {e}")
+            if "429" in str(e):
+                self.rate_limiter.on_429()
+            else:
+                logger.error(f"Lighter Funding Fetch Error: {e}")
 
     def fetch_24h_vol(self, symbol: str) -> float:
         return 0.0
@@ -768,46 +686,86 @@ class LighterAdapter(BaseAdapter):
             return HARD_MIN_USD
     
     def fetch_funding_rate(self, symbol: str) -> Optional[float]:
-        rate_8h = self.funding_cache.get(symbol)
-        if rate_8h is None:
+        """Funding Rate aus Cache - mit Plausibilitätsprüfung"""
+        rate = self.funding_cache.get(symbol)
+        if rate is None:
             return None
-        return float(rate_8h) / 8.0
+        
+        # Konvertiere zu float
+        rate_float = float(rate)
+        
+        # Plausibilitätsprüfung: Rate sollte zwischen -10% und +10% pro Stunde sein
+        # (das entspricht -87600% bis +87600% APY - sehr großzügig)
+        if abs(rate_float) > 0.1:
+            # Rate ist wahrscheinlich in anderem Format (z.B. 8h statt 1h)
+            # Lighter gibt oft 8h-Rate → durch 8 teilen
+            rate_float = rate_float / 8.0
+        
+        return rate_float
     
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        return self.price_cache.get(symbol)
+        """Mark Price aus Cache - None wenn Symbol nicht existiert"""
+        # Check ob Symbol überhaupt auf Lighter existiert
+        if symbol not in self.market_info:
+            return None  # Silent return, kein Fehler
+
+        # Aus price_cache
+        if symbol in self.price_cache:
+            price = self.price_cache[symbol]
+            if price and price > 0:
+                return float(price)
+
+        return None
     
     async def get_real_available_balance(self) -> float:
+        # Throttle frequent calls to reduce API usage (cache for 2s)
         if time.time() - self._last_balance_update < 2.0:
             return self._balance_cache
-        
+
         try:
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
+            # Small pause to allow signer/client to be ready under high load
             await asyncio.sleep(0.5)
-            
+
             for _ in range(2):
                 try:
                     response = await account_api.account(
-                        by="index", 
+                        by="index",
                         value=str(self._resolved_account_index)
                     )
                     val = 0.0
-                    if response and response.accounts and response.accounts[0]:
+                    if response and getattr(response, 'accounts', None) and response.accounts[0]:
                         acc = response.accounts[0]
+                        # Prefer buying_power, fallback to total_asset_value
                         buying = getattr(acc, 'buying_power', None) or getattr(acc, 'total_asset_value', '0')
-                        val = float(buying or 0)
-                    
-                    self._balance_cache = val
+                        try:
+                            val = float(buying or 0)
+                        except Exception:
+                            val = 0.0
+
+                    # ✅ CRITICAL: Apply 95% safety buffer for Lighter's margin requirements
+                    safe_balance = val * 0.95
+
+                    self._balance_cache = safe_balance
                     self._last_balance_update = time.time()
+
+                    logger.debug(f"Lighter Balance: Raw=${val:.2f}, Safe=${safe_balance:.2f} (95%)")
                     break
                 except Exception as e:
+                    # Rate limit backoff
                     if "429" in str(e):
                         await asyncio.sleep(2)
                         continue
-                    raise e
+                    # Transient network errors - small backoff then retry outer loop
+                    if isinstance(e, (asyncio.TimeoutError, ConnectionError, OSError)):
+                        await asyncio.sleep(1)
+                        continue
+                    raise
         except Exception as e:
             if "429" not in str(e):
-                logger.error(f" Lighter Balance Error: {e}")
+                logger.error(f"❌ Lighter Balance Error: {e}")
+
         return self._balance_cache
 
     async def fetch_open_positions(self) -> List[dict]:
