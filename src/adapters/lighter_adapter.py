@@ -672,28 +672,35 @@ class LighterAdapter(BaseAdapter):
         """
         Berechne Minimum Notional - mit vernünftiger Obergrenze für Arbitrage
         """
-        HARD_MIN_USD = 10.0  # Minimum gesenkt von 15 auf 10
-        HARD_MAX_USD = 25.0  # NEU: Maximum um unrealistische API-Werten zu begrenzen
-        SAFETY_BUFFER = 1.05  # Reduziert von 1.10 auf 1.05
-        
+        """
+        Berechne Minimum Notional - OHNE künstliche Obergrenze.
+        Gibt den tatsächlichen, von der Exchange geforderten Minimum-Wert zurück.
+        """
+        HARD_MIN_USD = 5.0
+        # REMOVED: HARD_MAX_USD clamping - if exchange needs $50, we must report $50.
+        SAFETY_BUFFER = 1.10
+
         data = self.market_info.get(symbol)
         if not data:
             return HARD_MIN_USD
-        
+
         try:
             price = self.fetch_mark_price(symbol)
             if not price or price <= 0:
                 return HARD_MIN_USD
-            
+
             min_notional_api = float(data.get('min_notional', 0))
             min_qty = float(data.get('min_quantity', 0))
             min_qty_usd = min_qty * price if min_qty > 0 else 0
+
+            # API min is the stricter of notional or quantity limit
             api_min = max(min_notional_api, min_qty_usd)
+
+            # Apply buffer
             safe_min = api_min * SAFETY_BUFFER
-            
-            # CRITICAL: Begrenze auf vernünftiges Maximum
-            result = max(HARD_MIN_USD, min(safe_min, HARD_MAX_USD))
-            return result
+
+            # Return true requirement
+            return max(HARD_MIN_USD, safe_min)
         except Exception:
             return HARD_MIN_USD
     

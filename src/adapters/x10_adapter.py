@@ -331,11 +331,9 @@ class X10Adapter(BaseAdapter):
                 return HARD_MIN_USD
             
             min_size = Decimal(getattr(m.trading_config, "min_order_size", "0"))
-            api_min = float(min_size * Decimal(str(price)))
-            safe_min = api_min * SAFETY_BUFFER
-            
-            result = max(HARD_MIN_USD, min(safe_min, HARD_MAX_USD))
-            return result
+            api_min_usd = float(min_size * Decimal(str(price)))
+            safe_min = api_min_usd * SAFETY_BUFFER
+            return max(HARD_MIN_USD, min(safe_min, HARD_MAX_USD))
         except Exception:
             return HARD_MIN_USD
 
