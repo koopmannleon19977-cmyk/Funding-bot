@@ -386,6 +386,28 @@ class InMemoryStateManager:
         })
         
         logger.info(f"Trade {symbol} closed in state (queued for DB)")
+
+    async def mark_trade_closed(self, symbol: str):
+        """Mark a trade as closed in DB (for ghost trade cleanup)"""
+        # Remove from in-memory if present
+        if symbol in self.open_trades:
+            try:
+                del self.open_trades[symbol]
+            except Exception:
+                # best-effort removal; continue to mark DB
+                pass
+        
+        try:
+            conn = await aiosqlite.connect(self.db_file)
+            await conn.execute(
+                "UPDATE trades SET status = 'CLOSED' WHERE symbol = ? AND status = 'OPEN'",
+                (symbol,)
+            )
+            await conn.commit()
+            await conn.close()
+            logger.debug(f"Marked {symbol} as CLOSED in DB")
+        except Exception as e:
+            logger.error(f"Failed to mark {symbol} as closed: {e}")
     
     def get_stats(self) -> dict:
         hit_rate = (self.cache_hits / self.total_reads * 100) if self.total_reads > 0 else 0

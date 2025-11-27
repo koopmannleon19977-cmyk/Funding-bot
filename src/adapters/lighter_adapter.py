@@ -221,16 +221,22 @@ class LighterAdapter(BaseAdapter):
             return 0.0
 
     async def start_websocket(self):
-        """Lighter hat KEINEN öffentlichen WebSocket!
-        Wir verwenden stattdessen REST-Polling für Live-Daten.
-        """
-        logger.info("🔄 Lighter: Starting REST-based price/funding polling (no WS available)")
-        
+        """WebSocket entry point für WebSocketManager"""
+        logger.info(f"🌐 {self.name}: WebSocket Manager starting streams...")
+        # Bestehende Poller starten
         await asyncio.gather(
-            self._rest_price_poller(interval=2.0),
-            self._rest_funding_poller(interval=30.0),
+            self._poll_prices(),
+            self._poll_funding_rates(),
             return_exceptions=True
         )
+
+    async def _poll_prices(self):
+        """Wrapper kompatibel mit WebSocketManager: leitet an REST-Poller weiter"""
+        await self._rest_price_poller(interval=2.0)
+
+    async def _poll_funding_rates(self):
+        """Wrapper kompatibel mit WebSocketManager: leitet an REST-Funding-Poller weiter"""
+        await self._rest_funding_poller(interval=30.0)
 
     async def ws_message_stream(self):
         """Async iterator – wird vom WebSocketManager verwendet"""
@@ -270,7 +276,7 @@ class LighterAdapter(BaseAdapter):
                             logger.debug(f"Lighter REST: Updated {updated} prices")
                 except Exception as e:
                     if "429" in str(e):
-                        self.rate_limiter.on_429()
+                        self.rate_limiter.penalize_429()
                     else:
                         logger.debug(f"Lighter REST price poll error: {e}")
                 
@@ -371,7 +377,7 @@ class LighterAdapter(BaseAdapter):
             except Exception as e:
                 error_str = str(e).lower()
                 if "429" in error_str or "rate limit" in error_str or "too many requests" in error_str:
-                    self.rate_limiter.on_429()
+                    self.rate_limiter.penalize_429()
                     return False
             return False
 
@@ -596,7 +602,7 @@ class LighterAdapter(BaseAdapter):
             
         except Exception as e:
             if "429" in str(e):
-                self.rate_limiter.on_429()
+                self.rate_limiter.penalize_429()
             else:
                 logger.error(f"Lighter Funding Fetch Error: {e}")
 
@@ -659,12 +665,16 @@ class LighterAdapter(BaseAdapter):
             return 0.0
         except Exception as e:
             if "429" in str(e).lower():
-                self.rate_limiter.on_429()
+                self.rate_limiter.penalize_429()
             return 0.0
 
     def min_notional_usd(self, symbol: str) -> float:
-        HARD_MIN_USD = 15.0
-        SAFETY_BUFFER = 1.10
+        """
+        Berechne Minimum Notional - mit vernünftiger Obergrenze für Arbitrage
+        """
+        HARD_MIN_USD = 10.0  # Minimum gesenkt von 15 auf 10
+        HARD_MAX_USD = 25.0  # NEU: Maximum um unrealistische API-Werten zu begrenzen
+        SAFETY_BUFFER = 1.05  # Reduziert von 1.10 auf 1.05
         
         data = self.market_info.get(symbol)
         if not data:
@@ -680,7 +690,9 @@ class LighterAdapter(BaseAdapter):
             min_qty_usd = min_qty * price if min_qty > 0 else 0
             api_min = max(min_notional_api, min_qty_usd)
             safe_min = api_min * SAFETY_BUFFER
-            result = max(safe_min, HARD_MIN_USD)
+            
+            # CRITICAL: Begrenze auf vernünftiges Maximum
+            result = max(HARD_MIN_USD, min(safe_min, HARD_MAX_USD))
             return result
         except Exception:
             return HARD_MIN_USD
@@ -1101,6 +1113,36 @@ class LighterAdapter(BaseAdapter):
 
     async def aclose(self):
         """Cleanup all sessions and connections"""
+        # Close any internal aiohttp/session objects first
+        try:
+            if hasattr(self, '_session') and self._session:
+                try:
+                    maybe_close = getattr(self._session, 'close', None)
+                    if maybe_close:
+                        maybe = maybe_close()
+                        if asyncio.iscoroutine(maybe):
+                            await maybe
+                        logger.debug("Lighter: _session closed")
+                except Exception as e:
+                    logger.debug(f"Lighter: Error closing _session: {e}")
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self, '_rest_session') and self._rest_session:
+                try:
+                    maybe_close = getattr(self._rest_session, 'close', None)
+                    if maybe_close:
+                        maybe2 = maybe_close()
+                        if asyncio.iscoroutine(maybe2):
+                            await maybe2
+                        logger.debug("Lighter: _rest_session closed")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        # Existing signer / api_client cleanup
         if self._signer:
             try:
                 # Close API client session

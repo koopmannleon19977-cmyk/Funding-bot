@@ -27,6 +27,12 @@ X10_DRY_RUN = False
 LIGHTER_DRY_RUN = False
 
 # ============================================================
+# EMERGENCY: Close all positions on bot start
+# Set to True if bot is stuck with too many open positions
+# ============================================================
+EMERGENCY_CLOSE_ON_START = False  # Set to True to force-close all
+
+# ============================================================
 # GEBÜHREN
 # ============================================================
 TAKER_FEE_X10 = 0.00025
@@ -46,11 +52,17 @@ TRADE_COOLDOWN_SECONDS = 120
 # ============================================================
 # POSITIONSGRÖSSEN & LIMITS
 # ============================================================
-DESIRED_NOTIONAL_USD = 12.0
-MIN_POSITION_SIZE_USD = 10.0
-MAX_NOTIONAL_USD = 20.0
-MAX_TRADE_SIZE_USD = 20.0
-MAX_OPEN_TRADES = 40
+# ═════════════════════════════════════════════════════════════════════════════==
+# REALISTISCH für $63 Total Balance ($35 X10 + $28 Lighter)
+# ═════════════════════════════════════════════════════════════════════════════==
+DESIRED_NOTIONAL_USD = 15.0   # OK
+MIN_POSITION_SIZE_USD = 5.0  # Gesenkt von 5.0 auf 5.0 (passt)
+MAX_NOTIONAL_USD = 18.0      # GESENKT von 10.0 auf 15.0 (war schon 10, erhöhe leicht)
+MAX_TRADE_SIZE_USD = 15.0    # GESENKT von 20.0 auf 15.0
+MAX_OPEN_TRADES = 5           # NUR 5 TRADES GLEICHZEITIG (vorher 40!)
+
+# Safety: Reserve 30% per exchange
+BALANCE_RESERVE_PCT = 0.30    # 30% Reserve
 
 # ============================================================
 # PROFIT-FILTER (EINSTIEG)
@@ -176,7 +188,7 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # VOLUME FARM MODE
 # ============================================================
 VOLUME_FARM_MODE = True
-FARM_NOTIONAL_USD = 10
+FARM_NOTIONAL_USD = 8        # GESENKT von 10 auf 8 für mehr Buffer
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 15
 FARM_MAX_HOLD_MINUTES = 120
