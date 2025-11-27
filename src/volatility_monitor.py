@@ -33,6 +33,8 @@ class VolatilityMonitor:
         
         # Hard Config Fallback
         self.hard_cap_vol = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
+        # Panic threshold for immediate/forced closes (percent)
+        self.panic_threshold = getattr(config, 'VOLATILITY_PANIC_THRESHOLD', 5.0)
         
         self.last_regime_log = {}
         
@@ -173,12 +175,7 @@ class VolatilityMonitor:
         """Quick check if position should be closed"""
         safety = self.check_trade_safety(symbol)
         return safety.get('close_existing', False)
-        
-    def should_close_due_to(self, volatility: float) -> bool:
-        """Check if volatility exceeds critical threshold"""
-        # Fallback auf Config-Wert oder Standard 50%
-        limit = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
-        return volatility > limit
+    # `should_close_due_to` moved to the end of the class for clarity.
     def can_enter_trade(self, symbol: str) -> bool:
         """Quick check if new trades allowed"""
         safety = self.check_trade_safety(symbol)
@@ -205,6 +202,19 @@ class VolatilityMonitor:
             'regime_counts': regime_counts,
             'regimes': self.current_regimes.copy()
         }
+
+    def should_close_due_to(self, volatility: float) -> bool:
+        """Check if volatility exceeds critical threshold to panic close.
+
+        Uses `VOLATILITY_PANIC_THRESHOLD` from `config` (fallback to
+        `self.panic_threshold`). Logs a warning when panic-close is
+        triggered.
+        """
+        limit = getattr(config, 'VOLATILITY_PANIC_THRESHOLD', self.panic_threshold)
+        is_panic = volatility > limit
+        if is_panic:
+            logger.warning(f"⚠️ Volatility panic: {volatility:.2f}% > {limit}%")
+        return is_panic
 
 _monitor = None
 
