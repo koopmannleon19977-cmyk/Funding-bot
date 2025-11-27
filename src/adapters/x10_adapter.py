@@ -344,6 +344,7 @@ class X10Adapter(BaseAdapter):
 
         try:
             client = await self._get_auth_client()
+            await self.rate_limiter.acquire()
             resp = await client.account.get_positions()
 
             if not resp or not resp.data:
@@ -365,6 +366,8 @@ class X10Adapter(BaseAdapter):
             return positions
 
         except Exception as e:
+            if "429" in str(e):
+                self.rate_limiter.penalize_429()
             logger.error(f"X10 Positions Error: {e}")
             return []
 
@@ -474,6 +477,7 @@ class X10Adapter(BaseAdapter):
         expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
 
         try:
+            await self.rate_limiter.acquire()
             resp = await client.place_order(
                 market_name=symbol,
                 amount_of_synthetic=qty,
@@ -498,11 +502,14 @@ class X10Adapter(BaseAdapter):
                 return False, None
                 
             logger.info(f" X10 Order: {resp.data.id}")
+            self.rate_limiter.on_success()
             return True, str(resp.data.id)
         except Exception as e:
             err_str = str(e)
             if reduce_only and ("1137" in err_str or "1138" in err_str):
                 return True, None
+            if "429" in err_str:
+                self.rate_limiter.penalize_429()
             logger.error(f" X10 Order Exception: {e}")
             return False, None
 
@@ -595,6 +602,7 @@ class X10Adapter(BaseAdapter):
                     method = getattr(client.account, method_name)
                     try:
                         try:
+                            await self.rate_limiter.acquire()
                             orders_resp = await method(market_name=symbol)
                         except TypeError:
                             orders_resp = await method()
@@ -608,6 +616,7 @@ class X10Adapter(BaseAdapter):
             for order in orders_resp.data:
                 if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
                     try:
+                        await self.rate_limiter.acquire()
                         await client.cancel_order(getattr(order, 'id', order))
                         await asyncio.sleep(0.1)
                     except Exception:
@@ -618,6 +627,7 @@ class X10Adapter(BaseAdapter):
             return False
     
     async def get_real_available_balance(self) -> float:
+        await self.rate_limiter.acquire()
         try:
             client = await self._get_auth_client()
             

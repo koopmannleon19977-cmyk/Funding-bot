@@ -742,6 +742,7 @@ class LighterAdapter(BaseAdapter):
             return self._balance_cache
 
         try:
+            await self.rate_limiter.acquire()
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
             # Small pause to allow signer/client to be ready under high load
@@ -798,6 +799,7 @@ class LighterAdapter(BaseAdapter):
             
             logger.debug(f"Lighter: Fetching positions for account_index={self._resolved_account_index}")
             
+            await self.rate_limiter.acquire()
             await asyncio.sleep(0.2)  # Rate limit protection
             
             response = await account_api.account(
@@ -947,6 +949,7 @@ class LighterAdapter(BaseAdapter):
 
                     client_oid = int(time.time() * 1000) + random.randint(0, 99999)
 
+                    await self.rate_limiter.acquire()
                     tx, resp, err = await signer.create_order(
                         market_index=market_id,
                         client_order_index=client_oid, 
@@ -1068,6 +1071,7 @@ class LighterAdapter(BaseAdapter):
                 client_oid = int(time.time() * 1000) + random.randint(0, 99999)
                 market_id = self.market_info[symbol]['i']
                 
+                await self.rate_limiter.acquire()
                 tx, resp, err = await signer.create_order(
                     market_index=market_id,
                     client_order_index=client_oid,
@@ -1087,7 +1091,8 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(1.5 * (attempt + 1))
                         continue
                     return False, None
-                
+                self.rate_limiter.on_success()
+
                 tx_hash = getattr(resp, 'tx_hash', 'OK')
                 logger.info(f" Order sent: {tx_hash}")
                 
@@ -1200,6 +1205,7 @@ class LighterAdapter(BaseAdapter):
             
             # Try multiple SDK method names and call signatures to fetch orders
             orders_resp = None
+            await self.rate_limiter.acquire()
             candidate_methods = ['list_orders', 'get_open_orders', 'get_orders', 'orders', 'list_open_orders']
             for method_name in candidate_methods:
                 if hasattr(order_api, method_name):
@@ -1265,11 +1271,14 @@ class LighterAdapter(BaseAdapter):
                         cancel_method = getattr(order_api, cancel_name)
                         try:
                             try:
+                                await self.rate_limiter.acquire()
                                 await cancel_method(order_id=oid)
                             except TypeError:
                                 try:
+                                    await self.rate_limiter.acquire()
                                     await cancel_method(id=oid)
                                 except TypeError:
+                                    await self.rate_limiter.acquire()
                                     await cancel_method(oid)
                             cancelled = True
                             await asyncio.sleep(0.1)
@@ -1283,9 +1292,11 @@ class LighterAdapter(BaseAdapter):
                     try:
                         if hasattr(signer, 'cancel_order'):
                             try:
+                                await self.rate_limiter.acquire()
                                 await signer.cancel_order(oid)
                                 await asyncio.sleep(0.1)
                             except TypeError:
+                                await self.rate_limiter.acquire()
                                 await signer.cancel_order(order_id=oid)
                     except Exception as e:
                         logger.debug(f"Signer cancel order {oid} failed: {e}")
