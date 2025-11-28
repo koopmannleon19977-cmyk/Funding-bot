@@ -4,13 +4,15 @@ import os
 import time
 import asyncio
 import inspect
-import aiosqlite
 import logging
 import random
 import traceback
+import signal
 from datetime import datetime, timezone
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Callable, Awaitable, Any, Set
 from decimal import Decimal
+from dataclasses import dataclass, field
+from enum import Enum
 
 # ============================================================
 # IMPORTS & SETUP
@@ -25,13 +27,26 @@ from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
 from src.prediction_v2 import get_predictor
 from src.latency_arb import get_detector
-from src.state_manager import InMemoryStateManager
+from src.state_manager import (
+    InMemoryStateManager,
+    get_state_manager,
+    close_state_manager,
+    TradeState,
+    TradeStatus
+)
 from src.adaptive_threshold import get_threshold_manager
 from src.volatility_monitor import get_volatility_monitor
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from src.prediction import calculate_smart_size
+from src.prediction import calculate_smart_size, predict_next_funding_rates
+from src.database import (
+    get_database,
+    get_trade_repository,
+    get_funding_repository,
+    get_execution_repository,
+    close_database
+)
 
 # Logging Setup
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
@@ -254,14 +269,35 @@ def get_state_manager():
 # ============================================================
 state_manager = None
 
-async def get_open_trades() -> List[Dict]:
-    return state_manager.get_open_trades() if state_manager else []
+async def get_open_trades() -> list:
+    """Get open trades from in-memory state (instant)"""
+    sm = await get_state_manager()
+    trades = await sm.get_all_open_trades()
+    # Convert to dict format for backwards compatibility
+    return [t.to_dict() for t in trades]
 
-async def add_trade_to_state(trade_data: Dict):
-    if state_manager: await state_manager.add_trade(trade_data)
+async def add_trade_to_state(trade_data: dict) -> str:
+    """Add trade to in-memory state (writes to DB in background)"""
+    sm = await get_state_manager()
+    trade = TradeState(
+        symbol=trade_data['symbol'],
+        side_x10=trade_data.get('side_x10', 'BUY'),
+        side_lighter=trade_data.get('side_lighter', 'SELL'),
+        size_usd=trade_data.get('size_usd', 0),
+        entry_price_x10=trade_data.get('entry_price_x10', 0),
+        entry_price_lighter=trade_data.get('entry_price_lighter', 0),
+        is_farm_trade=trade_data.get('is_farm_trade', False),
+        account_label=trade_data.get('account_label', 'Main'),
+        x10_order_id=trade_data.get('x10_order_id'),
+        lighter_order_id=trade_data.get('lighter_order_id'),
+    )
+    return await sm.add_trade(trade)
 
-async def close_trade_in_state(symbol: str):
-    if state_manager: await state_manager.close_trade(symbol)
+async def close_trade_in_state(symbol: str, pnl: float = 0, funding: float = 0):
+    """Close trade in state (writes to DB in background)"""
+    sm = await get_state_manager()
+    await sm.close_trade(symbol, pnl, funding)
+    logger.info(f"✅ Trade {symbol} closed (PnL: ${pnl:.2f})")
 
 async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data: Dict):
     try:
@@ -388,13 +424,89 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
     # Filter out exceptions
     clean_results = []
+    x10_rates = {}
+    lighter_rates = {}
+    
     for r in results:
         if isinstance(r, Exception):
             logger.debug(f"Task exception: {r}")
             continue
         clean_results.append(r)
+        
+        # Build rate dictionaries for prediction system
+        s, lr, xr, px, pl = r
+        if xr is not None:
+            x10_rates[s] = xr
+        if lr is not None:
+            lighter_rates[s] = lr
 
-    # Update threshold manager
+    # Update Predictor with current data
+    all_symbols = list(common)
+    for symbol in all_symbols:
+        rate_x10 = x10_rates.get(symbol, 0)
+        rate_lighter = lighter_rates.get(symbol, 0)
+        
+        if rate_x10 != 0 or rate_lighter != 0:
+            await update_funding_data(
+                symbol=symbol,
+                rate_x10=rate_x10,
+                rate_lighter=rate_lighter,
+                mark_price=lighter.fetch_mark_price(symbol) or 0,
+                open_interest=0  # TODO: Add OI when available
+            )
+    
+    # Get predictions
+    predictions = await get_best_opportunities(
+        symbols=[s for s in all_symbols if s not in open_syms],
+        min_apy=getattr(config, 'MIN_APY_THRESHOLD', 10.0),
+        min_confidence=0.5,
+        limit=20
+    )
+    
+    # Convert predictions to opportunity format
+    opportunities = []
+    for pred in predictions:
+        if not pred.should_trade:
+            continue
+        
+        opp = {
+            'symbol': pred.symbol,
+            'apy': pred.predicted_apy,
+            'spread': pred.current_spread,
+            'confidence': pred.confidence,
+            'predicted_direction': pred.predicted_direction,
+            'size_multiplier': pred.recommended_size_multiplier,
+            'regime': pred.regime.value,
+            'signals': pred.signals,
+            # Existing fields for compatibility
+            'rate_x10': x10_rates.get(pred.symbol, 0),
+            'rate_lighter': lighter_rates.get(pred.symbol, 0),
+            'is_farm_trade': is_farm_mode or False,
+            'net_funding_hourly': lighter_rates.get(pred.symbol, 0) - x10_rates.get(pred.symbol, 0),
+            'leg1_exchange': 'Lighter' if pred.predicted_direction == "long_lighter" else 'X10',
+            'spread_pct': pred.current_spread,
+            'price_x10': x10.fetch_mark_price(pred.symbol) or 0,
+            'price_lighter': lighter.fetch_mark_price(pred.symbol) or 0
+        }
+        
+        # Determine sides based on prediction
+        if pred.predicted_direction == "long_x10":
+            opp['leg1_side'] = 'BUY'   # Long on X10
+            opp['leg2_side'] = 'SELL'  # Short on Lighter
+        else:
+            opp['leg1_side'] = 'SELL'  # Short on X10
+            opp['leg2_side'] = 'BUY'   # Long on Lighter
+        
+        opportunities.append(opp)
+    
+    # Sort by APY * confidence
+    opportunities.sort(key=lambda x: x['apy'] * x.get('confidence', 1.0), reverse=True)
+    
+    logger.info(f"✅ Found {len(opportunities)} opportunities with predictions (farm_mode={is_farm_mode})")
+    
+    return opportunities[:config.MAX_OPEN_TRADES]
+
+    # Update threshold manager (old code kept for fallback)
     current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
     if current_rates:
         try:
@@ -1723,49 +1835,9 @@ async def maintenance_loop(lighter, x10):
             await asyncio.sleep(30)
 
 async def setup_database():
-    """Ensure Tables Exist"""
-    async with aiosqlite.connect(config.DB_FILE) as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS trades (
-                symbol TEXT PRIMARY KEY,
-                entry_time TIMESTAMP,
-                notional_usd REAL,
-                status TEXT DEFAULT 'OPEN',
-                leg1_exchange TEXT,
-                initial_spread_pct REAL,
-                initial_funding_rate_hourly REAL,
-                entry_price_x10 REAL,
-                entry_price_lighter REAL,
-                funding_flip_start_time TIMESTAMP,
-                is_farm_trade BOOLEAN DEFAULT FALSE,
-                account_label TEXT
-            )
-        """)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS trade_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                symbol TEXT,
-                entry_time TIMESTAMP,
-                exit_time TIMESTAMP,
-                hold_duration_hours REAL,
-                close_reason TEXT,
-                final_pnl_usd REAL,
-                funding_pnl_usd REAL,
-                spread_pnl_usd REAL,
-                fees_usd REAL,
-                account_label TEXT
-            )
-        """)
-        # Fee table also ensured here (defensive - load_fee_cache also creates it)
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS fee_stats (
-                exchange TEXT, symbol TEXT, 
-                avg_fee_rate REAL, sample_size INTEGER, 
-                last_updated TIMESTAMP,
-                PRIMARY KEY (exchange, symbol)
-            )
-        """)
-        await conn.commit()
+    """Initialize async database"""
+    db = await get_database()
+    logger.info("✅ Async database initialized")
 #
 async def migrate_database():
     """Migrate DB schema for new columns"""
@@ -1793,17 +1865,503 @@ async def migrate_database():
             os.remove(config.DB_FILE)
         await setup_database()
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUNKT 2: NON-BLOCKING MAIN LOOP
+# ═══════════════════════════════════════════════════════════════════════════════
+# Umbau auf asyncio Task-Management mit:
+# - Structured Concurrency (TaskGroup-ähnlich)
+# - Graceful Shutdown mit Signal Handlers
+# - Task Supervision & Auto-Restart
+# - Health Monitoring
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TaskState(Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    RESTARTING = "RESTARTING"
+    STOPPED = "STOPPED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+@dataclass
+class ManagedTask:
+    """Tracks state of a managed background task"""
+    name: str
+    coro_factory: Callable[[], Awaitable[Any]]
+    task: Optional[asyncio.Task] = None
+    state: TaskState = TaskState.PENDING
+    restart_count: int = 0
+    max_restarts: int = 5
+    restart_delay: float = 5.0
+    last_error: Optional[str] = None
+    started_at: Optional[float] = None
+    critical: bool = True  # If True, shutdown bot on permanent failure
+
+
+class TaskSupervisor:
+    """
+    Manages async tasks with supervision, restart, and graceful shutdown. 
+    
+    Features:
+    - Auto-restart failed tasks with exponential backoff
+    - Graceful shutdown on SIGINT/SIGTERM
+    - Health monitoring
+    - Task isolation (one crash doesn't kill others)
+    """
+    
+    def __init__(self):
+        self.tasks: Dict[str, ManagedTask] = {}
+        self.shutdown_event = asyncio.Event()
+        self._shutdown_timeout = 30.0
+        self._health_check_interval = 10.0
+        self._signal_handlers_installed = False
+        self._supervisor_task: Optional[asyncio.Task] = None
+        
+    def register(
+        self,
+        name: str,
+        coro_factory: Callable[[], Awaitable[Any]],
+        critical: bool = True,
+        max_restarts: int = 5,
+        restart_delay: float = 5.0
+    ):
+        """Register a task to be supervised"""
+        self.tasks[name] = ManagedTask(
+            name=name,
+            coro_factory=coro_factory,
+            critical=critical,
+            max_restarts=max_restarts,
+            restart_delay=restart_delay
+        )
+        logger.info(f"📝 Registered task: {name} (critical={critical})")
+        
+    def _install_signal_handlers(self):
+        """Install signal handlers for graceful shutdown"""
+        if self._signal_handlers_installed:
+            return
+            
+        loop = asyncio.get_running_loop()
+        
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            try:
+                loop.add_signal_handler(
+                    sig,
+                    lambda s=sig: asyncio.create_task(self._signal_handler(s))
+                )
+                logger.debug(f"Installed handler for {sig.name}")
+            except NotImplementedError:
+                # Windows doesn't support add_signal_handler
+                signal.signal(sig, lambda s, f: asyncio.create_task(self._signal_handler(s)))
+                
+        self._signal_handlers_installed = True
+        logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
+        
+    async def _signal_handler(self, sig):
+        """Handle shutdown signal"""
+        sig_name = signal.Signals(sig).name if isinstance(sig, int) else str(sig)
+        logger.warning(f"🛑 Received {sig_name}, initiating graceful shutdown...")
+        self.shutdown_event.set()
+        
+    async def start_all(self):
+        """Start all registered tasks"""
+        self._install_signal_handlers()
+        
+        for name, managed in self.tasks.items():
+            await self._start_task(managed)
+            
+        # Start supervisor loop
+        self._supervisor_task = asyncio.create_task(
+            self._supervisor_loop(),
+            name="supervisor"
+        )
+        
+        logger.info(f"🚀 Started {len(self.tasks)} tasks")
+        
+    async def _start_task(self, managed: ManagedTask):
+        """Start a single managed task"""
+        try:
+            managed.task = asyncio.create_task(
+                self._task_wrapper(managed),
+                name=managed.name
+            )
+            managed.state = TaskState.RUNNING
+            managed.started_at = time.monotonic()
+            logger.info(f"▶️  Started task: {managed.name}")
+        except Exception as e:
+            managed.state = TaskState.FAILED
+            managed.last_error = str(e)
+            logger.error(f"❌ Failed to start task {managed.name}: {e}")
+            
+    async def _task_wrapper(self, managed: ManagedTask):
+        """Wrapper that catches exceptions and enables restart"""
+        try:
+            await managed.coro_factory()
+        except asyncio.CancelledError:
+            managed.state = TaskState.CANCELLED
+            logger.info(f"🛑 Task {managed.name} cancelled")
+            raise
+        except Exception as e:
+            managed.state = TaskState.FAILED
+            managed.last_error = str(e)
+            logger.error(f"❌ Task {managed.name} crashed: {e}", exc_info=True)
+            raise
+            
+    async def _supervisor_loop(self):
+        """Monitor tasks and restart failed ones"""
+        logger.info("🔍 Supervisor loop started")
+        
+        while not self.shutdown_event.is_set():
+            try:
+                await asyncio.sleep(self._health_check_interval)
+                
+                for name, managed in self.tasks.items():
+                    if managed.task is None:
+                        continue
+                        
+                    if managed.task.done():
+                        # Task finished or crashed
+                        if managed.state == TaskState.CANCELLED:
+                            continue
+                            
+                        # Check for exception
+                        try:
+                            exc = managed.task.exception()
+                            if exc:
+                                managed.last_error = str(exc)
+                        except asyncio.CancelledError:
+                            continue
+                            
+                        # Attempt restart
+                        if managed.restart_count < managed.max_restarts:
+                            managed.restart_count += 1
+                            managed.state = TaskState.RESTARTING
+                            
+                            delay = managed.restart_delay * (2 ** (managed.restart_count - 1))
+                            delay = min(delay, 60.0)  # Cap at 60s
+                            
+                            logger.warning(
+                                f"🔄 Restarting {name} in {delay:.1f}s "
+                                f"(attempt {managed.restart_count}/{managed.max_restarts})"
+                            )
+                            
+                            await asyncio.sleep(delay)
+                            
+                            if not self.shutdown_event.is_set():
+                                await self._start_task(managed)
+                        else:
+                            managed.state = TaskState.FAILED
+                            logger.error(
+                                f"❌ Task {name} exceeded max restarts ({managed.max_restarts})"
+                            )
+                            
+                            if managed.critical:
+                                logger.critical(f"💀 Critical task {name} failed, initiating shutdown")
+                                self.shutdown_event.set()
+                                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Supervisor error: {e}")
+                
+        logger.info("🔍 Supervisor loop stopped")
+        
+    async def wait_for_shutdown(self):
+        """Wait for shutdown signal"""
+        await self.shutdown_event.wait()
+        
+    async def shutdown(self):
+        """Gracefully shutdown all tasks"""
+        logger.info("🛑 Initiating graceful shutdown...")
+        self.shutdown_event.set()
+        
+        # Cancel supervisor first
+        if self._supervisor_task and not self._supervisor_task.done():
+            self._supervisor_task.cancel()
+            try:
+                await asyncio.wait_for(self._supervisor_task, timeout=5.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+                
+        # Cancel all managed tasks
+        tasks_to_cancel = []
+        for name, managed in self.tasks.items():
+            if managed.task and not managed.task.done():
+                managed.task.cancel()
+                tasks_to_cancel.append(managed.task)
+                logger.info(f"🛑 Cancelling {name}...")
+                
+        if tasks_to_cancel:
+            # Wait for all tasks with timeout
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks_to_cancel, return_exceptions=True),
+                    timeout=self._shutdown_timeout
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"⚠️ Shutdown timeout ({self._shutdown_timeout}s) exceeded")
+                
+        # Update states
+        for managed in self.tasks.values():
+            if managed.state == TaskState.RUNNING:
+                managed.state = TaskState.STOPPED
+                
+        logger.info("✅ All tasks stopped")
+        
+    def get_health_report(self) -> Dict[str, Any]:
+        """Get health status of all tasks"""
+        report = {
+            "shutdown_requested": self.shutdown_event.is_set(),
+            "tasks": {}
+        }
+        
+        for name, managed in self.tasks.items():
+            task_info = {
+                "state": managed.state.value,
+                "restart_count": managed.restart_count,
+                "critical": managed.critical,
+            }
+            
+            if managed.started_at:
+                task_info["uptime_seconds"] = time.monotonic() - managed.started_at
+                
+            if managed.last_error:
+                task_info["last_error"] = managed.last_error
+                
+            if managed.task:
+                task_info["done"] = managed.task.done()
+                
+            report["tasks"][name] = task_info
+            
+        return report
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN BOT RUNNER V5 (Task Supervised)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def run_bot_v5():
+    """
+    Main bot entry point with full task supervision.
+    
+    This replaces the old run_bot_v4() with proper:
+    - Task supervision & auto-restart
+    - Signal handling (SIGINT/SIGTERM)
+    - Graceful shutdown
+    - Health monitoring
+    """
+    global SHUTDOWN_FLAG, state_manager, telegram_bot
+    
+    logger.info("🔥 BOT V5 (Task Supervised) STARTING...")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 1. INIT INFRASTRUCTURE
+    # ═══════════════════════════════════════════════════════════════════════════
+    state_manager = await get_state_manager()
+    logger.info("✅ State Manager started")
+    
+    telegram_bot = get_telegram_bot()
+    if telegram_bot.enabled:
+        await telegram_bot.start()
+        logger.info("📱 Telegram Bot connected")
+        
+    await setup_database()
+    await migrate_database()
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 2. INIT ADAPTERS
+    # ═══════════════════════════════════════════════════════════════════════════
+    x10 = X10Adapter()
+    lighter = LighterAdapter()
+    
+    price_event = asyncio.Event()
+    x10.price_update_event = price_event
+    lighter.price_update_event = price_event
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 3. LOAD MARKET DATA
+    # ═══════════════════════════════════════════════════════════════════════════
+    logger.info("📊 Loading Market Data...")
+    try:
+        results = await asyncio.gather(
+            x10.load_markets(),
+            lighter.load_markets(),
+            return_exceptions=True
+        )
+        
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                exchange = "X10" if i == 0 else "Lighter"
+                logger.error(f"❌ {exchange} market load failed: {res}")
+                raise res
+                
+        logger.info("✅ Market data loaded")
+    except Exception as e:
+        logger.critical(f"💀 Failed to load markets: {e}")
+        raise
+        
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 4. INIT PARALLEL EXECUTION MANAGER
+    # ═══════════════════════════════════════════════════════════════════════════
+    parallel_exec = ParallelExecutionManager(x10, lighter)
+    await parallel_exec.start()
+    logger.info("✅ ParallelExecutionManager started")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 5. CREATE TASK SUPERVISOR
+    # ═══════════════════════════════════════════════════════════════════════════
+    supervisor = TaskSupervisor()
+    
+    # Register core tasks
+    supervisor.register(
+        "logic_loop",
+        lambda: logic_loop(lighter, x10, price_event, parallel_exec),
+        critical=True,
+        max_restarts=10
+    )
+    
+    supervisor.register(
+        "farm_loop",
+        lambda: farm_loop(lighter, x10, parallel_exec),
+        critical=False,
+        max_restarts=5
+    )
+    
+    supervisor.register(
+        "maintenance_loop",
+        lambda: maintenance_loop(lighter, x10),
+        critical=False,
+        max_restarts=5
+    )
+    
+    supervisor.register(
+        "trade_management_loop",
+        lambda: trade_management_loop(lighter, x10),
+        critical=True,
+        max_restarts=10
+    )
+    
+    supervisor.register(
+        "cleanup_finished_tasks",
+        lambda: cleanup_finished_tasks(),
+        critical=False,
+        max_restarts=3
+    )
+    
+    supervisor.register(
+        "health_reporter",
+        lambda: health_reporter(supervisor, parallel_exec),
+        critical=False,
+        max_restarts=3
+    )
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 6. START ALL TASKS
+    # ═══════════════════════════════════════════════════════════════════════════
+    await supervisor.start_all()
+    
+    if telegram_bot and telegram_bot.enabled:
+        await telegram_bot.send_message(
+            "🚀 **Funding Bot V5 Started**\n"
+            f"Tasks: {len(supervisor.tasks)}\n"
+            "Task Supervision: ✅"
+        )
+    
+    logger.info("═══════════════════════════════════════════════════════════")
+    logger.info("   BOT RUNNING 24/7 - SUPERVISED | Ctrl+C = Graceful Stop   ")
+    logger.info("═══════════════════════════════════════════════════════════")
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 7. WAIT FOR SHUTDOWN
+    # ═══════════════════════════════════════════════════════════════════════════
+    try:
+        await supervisor.wait_for_shutdown()
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        logger.info("🛑 Shutdown requested via keyboard")
+        
+    # ═══════════════════════════════════════════════════════════════════════════
+    # 8. GRACEFUL SHUTDOWN
+    # ═══════════════════════════════════════════════════════════════════════════
+    SHUTDOWN_FLAG = True
+    
+    if telegram_bot and telegram_bot.enabled:
+        await telegram_bot.send_message("🛑 **Bot shutting down...**")
+        
+    await supervisor.shutdown()
+    await parallel_exec.stop()
+    
+    # Close state manager
+    await close_state_manager()
+    logger.info("✅ State Manager stopped")
+    
+    if telegram_bot and telegram_bot.enabled:
+        await telegram_bot.stop()
+    
+    # Close database connections
+    await close_database()
+    logger.info("✅ Database closed")
+        
+    logger.info("✅ Bot shutdown complete")
+
+
+async def health_reporter(supervisor: TaskSupervisor, parallel_exec):
+    """Periodic health status reporter"""
+    interval = 3600  # 1 hour
+    telegram = get_telegram_bot()
+    
+    while not supervisor.shutdown_event.is_set():
+        try:
+            await asyncio.sleep(interval)
+            
+            health = supervisor.get_health_report()
+            exec_stats = parallel_exec.get_execution_stats()
+            
+            # Get prediction stats
+            predictor = get_predictor()
+            pred_stats = predictor.get_stats()
+            
+            # Log health
+            running = sum(1 for t in health["tasks"].values() if t["state"] == "RUNNING")
+            total = len(health["tasks"])
+            
+            logger.info(
+                f"📊 Health: {running}/{total} tasks running, "
+                f"{exec_stats.get('total_executions', 0)} trades, "
+                f"{exec_stats.get('pending_rollbacks', 0)} pending rollbacks"
+            )
+            
+            logger.info(
+                f"📊 Prediction: {pred_stats['predictions_made']} predictions, "
+                f"avg confidence: {pred_stats['avg_confidence']:.2f}"
+            )
+            
+            # Send to Telegram every 6 hours
+            if interval >= 3600 and telegram.enabled:
+                msg = (
+                    f"📊 **Health Report**\n"
+                    f"Tasks: {running}/{total} running\n"
+                    f"Trades: {exec_stats.get('successful', 0)} ✅ / {exec_stats.get('failed', 0)} ❌\n"
+                    f"Rollbacks: {exec_stats.get('rollbacks_successful', 0)} ✅ / {exec_stats.get('rollbacks_failed', 0)} ❌"
+                )
+                await telegram.send_message(msg)
+                
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Health reporter error: {e}")
+            await asyncio.sleep(60)
+
+
 # ============================================================
-# MAIN
+# MAIN (Original V4 - kept for compatibility)
 # ============================================================
 async def main():
     global SHUTDOWN_FLAG, state_manager
     logger.info(" 🔥 BOT V4 (Full Architected) STARTING...")
 
     # 1. Init Infrastructure
-    state_manager = InMemoryStateManager(config.DB_FILE)
-    await state_manager.start()  # ← KRITISCH: Background Writer starten
-    logger.info("✅ State Manager background writer started")
+    state_manager = await get_state_manager()
+    logger.info("✅ State Manager started")
     global telegram_bot
     telegram_bot = get_telegram_bot()
     if telegram_bot.enabled:

@@ -36,7 +36,7 @@ except Exception:
     # SDK not present; adapter will avoid SDK-specific flows where possible.
     print("WARNING: Optional Lighter SDK not available; running with REST-only fallbacks.")
 from .base_adapter import BaseAdapter
-from src.rate_limiter import LIGHTER_RATE_LIMITER
+from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -606,21 +606,105 @@ class LighterAdapter(BaseAdapter):
             else:
                 logger.error(f"Lighter Funding Fetch Error: {e}")
 
+    async def fetch_funding_rates(self):
+        """Holt Funding Rates - mit dynamischem Rate Limiting"""
+        return await with_rate_limit(
+            Exchange.LIGHTER,
+            "default",
+            lambda: self.load_funding_rates_and_prices()
+        )
+
     def fetch_24h_vol(self, symbol: str) -> float:
         return 0.0
     
     async def fetch_orderbook(self, symbol: str, limit: int = 20) -> dict:
+        """
+        Fetch orderbook from Lighter API
+        
+        API: GET /api/v1/orderBookOrders?market_id={id}&limit={limit}
+        
+        Returns:
+            {
+                'bids': [[price, qty], ...],  # sorted by price DESC
+                'asks': [[price, qty], ...],  # sorted by price ASC
+                'timestamp': int
+            }
+        """
         try:
+            # Check cache first (from WebSocket)
             if symbol in self.orderbook_cache:
-                ob = self.orderbook_cache[symbol]
-                if time.time() - ob.get('timestamp', 0) < 2.0:
+                cached = self.orderbook_cache[symbol]
+                cache_age = time.time() - cached.get('timestamp', 0) / 1000
+                if cache_age < 2.0:  # 2 second cache validity
                     return {
-                        'bids': ob.get('bids', [])[:limit],
-                        'asks': ob.get('asks', [])[:limit]
+                        'bids': cached.get('bids', [])[:limit],
+                        'asks': cached.get('asks', [])[:limit],
+                        'timestamp': cached.get('timestamp', 0)
                     }
-            return {'bids': [], 'asks': []}
-        except Exception:
-            return {'bids': [], 'asks': []}
+            
+            # Get market_id from symbol
+            market_data = self.market_info.get(symbol)
+            if not market_data:
+                return {'bids': [], 'asks': [], 'timestamp': 0}
+            
+            market_id = market_data.get('i')
+            if market_id is None:
+                return {'bids': [], 'asks': [], 'timestamp': 0}
+            
+            # Rate limit
+            await self.rate_limiter.acquire()
+            
+            # Fetch via SDK
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+            
+            response = await order_api.order_book_orders(
+                market_id=market_id,
+                limit=limit
+            )
+            
+            if response and hasattr(response, 'asks') and hasattr(response, 'bids'):
+                # Parse bids
+                bids = []
+                for b in (response.bids or []):
+                    price = float(getattr(b, 'price', 0))
+                    size = float(getattr(b, 'remaining_base_amount', 0))
+                    if price > 0 and size > 0:
+                        bids.append([price, size])
+                
+                # Parse asks
+                asks = []
+                for a in (response.asks or []):
+                    price = float(getattr(a, 'price', 0))
+                    size = float(getattr(a, 'remaining_base_amount', 0))
+                    if price > 0 and size > 0:
+                        asks.append([price, size])
+                
+                # Sort: bids DESC, asks ASC
+                bids.sort(key=lambda x: x[0], reverse=True)
+                asks.sort(key=lambda x: x[0])
+                
+                result = {
+                    'bids': bids[:limit],
+                    'asks': asks[:limit],
+                    'timestamp': int(time.time() * 1000),
+                    'symbol': symbol
+                }
+                
+                # Update cache
+                self.orderbook_cache[symbol] = result
+                self.rate_limiter.on_success()
+                
+                return result
+            
+        except Exception as e:
+            err_str = str(e).lower()
+            if "429" in err_str or "rate limit" in err_str:
+                self.rate_limiter.penalize_429()
+            logger.debug(f"Lighter orderbook {symbol}: {e}")
+        
+        # Return cached or empty
+        return self.orderbook_cache.get(symbol, {'bids': [], 'asks': [], 'timestamp': 0})
 
     async def fetch_open_interest(self, symbol: str) -> float:
         if not hasattr(self, '_oi_cache'):
@@ -911,6 +995,7 @@ class LighterAdapter(BaseAdapter):
 
         return scaled_base, scaled_price
 
+    @rate_limited(Exchange.LIGHTER, "sendTx")
     async def open_live_position(
         self, 
         symbol: str, 
@@ -985,6 +1070,7 @@ class LighterAdapter(BaseAdapter):
             logger.error(f" Lighter Execution Error: {e}")
             return False, None
 
+    @rate_limited(Exchange.LIGHTER, "sendTx")
     async def close_live_position(
         self,
         symbol: str,

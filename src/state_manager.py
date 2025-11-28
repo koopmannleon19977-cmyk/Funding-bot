@@ -1,423 +1,774 @@
-# src/state_manager.py - KOMPLETT ERSETZEN
+# ═══════════════════════════════════════════════════════════════════════════════
+# PUNKT 5: IN-MEMORY STATE MANAGER MIT WRITE-BEHIND PATTERN
+# ═══════════════════════════════════════════════════════════════════════════════
+# Features:
+# ✓ In-Memory State für ultra-schnelle Reads
+# ✓ Write-Behind Queue (non-blocking writes)
+# ✓ Dirty-Tracking (nur geänderte Daten schreiben)
+# ✓ Periodic Sync mit Database
+# ✓ Thread-safe mit asyncio Locks
+# ✓ Atomic Updates
+# ✓ Snapshot/Restore für Recovery
+# ═══════════════════════════════════════════════════════════════════════════════
+
 import asyncio
-import aiosqlite
 import logging
-from typing import Dict, Optional, List, Tuple
-from datetime import datetime
-import aiosqlite
+import time
+import json
+import copy
+from typing import Dict, List, Optional, Any, Set, Callable
+from dataclasses import dataclass, field, asdict
+from enum import Enum
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+class TradeStatus(Enum):
+    PENDING = "pending"
+    OPEN = "open"
+    CLOSING = "closing"
+    CLOSED = "closed"
+    FAILED = "failed"
+    ROLLBACK = "rollback"
+
+
+@dataclass
+class TradeState:
+    """In-memory representation of a trade"""
+    symbol: str
+    side_x10: str
+    side_lighter: str
+    size_usd: float
+    entry_price_x10: float = 0.0
+    entry_price_lighter: float = 0.0
+    status: TradeStatus = TradeStatus. OPEN
+    is_farm_trade: bool = False
+    created_at: int = field(default_factory=lambda: int(time.time() * 1000))
+    closed_at: Optional[int] = None
+    pnl: float = 0.0
+    funding_collected: float = 0.0
+    account_label: str = "Main"
+    x10_order_id: Optional[str] = None
+    lighter_order_id: Optional[str] = None
+    db_id: Optional[int] = None  # Database row ID
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for serialization"""
+        data = asdict(self)
+        data['status'] = self.status.value
+        return data
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'TradeState':
+        """Create from dictionary"""
+        if isinstance(data. get('status'), str):
+            data['status'] = TradeStatus(data['status'])
+        return cls(**{k: v for k, v in data. items() if k in cls.__dataclass_fields__})
+
+
+@dataclass
+class BalanceState:
+    """In-memory balance state"""
+    exchange: str
+    available: float = 0.0
+    total: float = 0.0
+    in_position: float = 0.0
+    updated_at: int = field(default_factory=lambda: int(time.time() * 1000))
+
+
+@dataclass
+class MarketState:
+    """In-memory market data"""
+    symbol: str
+    mark_price: float = 0.0
+    funding_rate_x10: float = 0.0
+    funding_rate_lighter: float = 0.0
+    spread: float = 0.0
+    apy: float = 0.0
+    updated_at: int = field(default_factory=lambda: int(time.time() * 1000))
+
+
+class WriteOperation(Enum):
+    INSERT = "insert"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+@dataclass
+class PendingWrite:
+    """Represents a pending write operation"""
+    operation: WriteOperation
+    table: str
+    key: str
+    data: Dict[str, Any]
+    timestamp: float = field(default_factory=time.monotonic)
+    callback: Optional[asyncio.Future] = None
+
+
 class InMemoryStateManager:
     """
-    In-Memory State mit Write-Behind Pattern + Fee Tracking
+    In-Memory State Manager with Write-Behind Pattern. 
     
-    Features:
-    - Alle Reads aus RAM (0ms latency)
-    - Async writes batched im Background
-    - Fee Rate Tracking mit EMA
-    - Exchange-spezifische Fee-Separation
+    ═══════════════════════════════════════════════════════════════════════════
+    ARCHITECTURE:
+    ═══════════════════════════════════════════════════════════════════════════
+    
+    ┌─────────────────────────────────────────────────────────────────────────┐
+    │                        InMemoryStateManager                              │
+    ├─────────────────────────────────────────────────────────────────────────┤
+    │  IN-MEMORY STATE (Fast Reads)     │  WRITE-BEHIND QUEUE (Async Writes)  │
+    │  ┌───────────────────────────┐    │  ┌─────────────────────────────┐    │
+    │  │ trades: {symbol: Trade}  │    │  │ Pending Writes Queue        │    │
+    │  │ balances: {exch: Balance}│ ──►│  │ ┌─────┐ ┌─────┐ ┌─────┐    │    │
+    │  │ markets: {sym: Market}   │    │  │ │ W1  │ │ W2  │ │ W3  │    │    │
+    │  │ dirty_keys: Set[str]     │    │  │ └─────┘ └─────┘ └─────┘    │    │
+    │  └───────────────────────────┘    │  └─────────────────────────────┘    │
+    │              │                    │              │                       │
+    │              ▼                    │              ▼                       │
+    │    get_trade() < 1μs             │     Background Writer Task           │
+    │    get_all_trades() < 10μs       │     (batched commits every 1s)       │
+    └─────────────────────────────────────────────────────────────────────────┘
+    
+    ═══════════════════════════════════════════════════════════════════════════
     """
     
-    def __init__(self, db_file: str):
-        self.db_file = db_file
-        self.open_trades: Dict[str, dict] = {}
-        self.write_queue: asyncio.Queue = asyncio.Queue()
-        self.writer_task: Optional[asyncio.Task] = None
-        self.total_reads = 0
-        self.total_writes = 0
-        self.cache_hits = 0
-        
-        # Fee Stats: (exchange, symbol) -> fee_rate
-        self.fee_cache: Dict[Tuple[str, str], float] = {}
-        self.FEE_EMA_ALPHA = 0.2  # 20% weight for new samples
-        
-        logger.info("InMemoryStateManager initialized")
+    WRITE_BATCH_SIZE = 50
+    WRITE_FLUSH_INTERVAL = 1.0  # seconds
+    SYNC_INTERVAL = 60.0  # Full sync every 60s
+    SNAPSHOT_INTERVAL = 300.0  # Snapshot every 5 min
     
+    def __init__(self, db_path: str = "data/trades.db"):
+        self.db_path = db_path
+        
+        # In-Memory State
+        self._trades: Dict[str, TradeState] = {}
+        self._balances: Dict[str, BalanceState] = {}
+        self._markets: Dict[str, MarketState] = {}
+        self._bot_state: Dict[str, Any] = {}
+        
+        # Dirty tracking
+        self._dirty_trades: Set[str] = set()
+        self._dirty_balances: Set[str] = set()
+        self._dirty_markets: Set[str] = set()
+        self._dirty_bot_state: Set[str] = set()
+        
+        # Locks
+        self._trade_lock = asyncio.Lock()
+        self._balance_lock = asyncio.Lock()
+        self._market_lock = asyncio.Lock()
+        self._state_lock = asyncio.Lock()
+        
+        # Write-behind queue
+        self._write_queue: asyncio.Queue[Optional[PendingWrite]] = asyncio. Queue(maxsize=10000)
+        self._writer_task: Optional[asyncio.Task] = None
+        self._sync_task: Optional[asyncio.Task] = None
+        self._snapshot_task: Optional[asyncio. Task] = None
+        
+        # Database reference
+        self._db = None
+        
+        # Stats
+        self._stats = {
+            "reads": 0,
+            "writes_queued": 0,
+            "writes_flushed": 0,
+            "syncs": 0,
+            "snapshots": 0,
+        }
+        
+        self._running = False
+
     async def start(self):
-        await self._init_db()
-        await self._load_from_db()
-        await self._load_fee_cache()
-        self.writer_task = asyncio.create_task(self._background_writer())
-        logger.info("Background writer started")
-    
-    async def stop(self):
-        if self.writer_task:
-            await self.write_queue.put(None)
-            await self.writer_task
-            logger.info("All writes flushed to DB")
-    
-    async def _init_db(self):
-        """Ensure all tables exist with correct schema"""
-        async with aiosqlite.connect(self.db_file) as conn:
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS trades (
-                    symbol TEXT PRIMARY KEY,
-                    entry_time TIMESTAMP,
-                    notional_usd REAL,
-                    status TEXT DEFAULT 'OPEN',
-                    leg1_exchange TEXT,
-                    initial_spread_pct REAL,
-                    initial_funding_rate_hourly REAL,
-                    entry_price_x10 REAL,
-                    entry_price_lighter REAL,
-                    funding_flip_start_time TIMESTAMP,
-                    is_farm_trade BOOLEAN DEFAULT FALSE,
-                    account_label TEXT
-                )
-            """)
+        """Start the state manager background tasks"""
+        if self._running:
+            return
             
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS fee_stats (
-                    exchange TEXT NOT NULL,
-                    symbol TEXT NOT NULL,
-                    avg_fee_rate REAL NOT NULL,
-                    sample_count INTEGER DEFAULT 1,
-                    last_updated TIMESTAMP,
-                    PRIMARY KEY (exchange, symbol)
-                )
-            """)
-            
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS trade_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    symbol TEXT,
-                    entry_time TIMESTAMP,
-                    exit_time TIMESTAMP,
-                    hold_duration_hours REAL,
-                    close_reason TEXT,
-                    final_pnl_usd REAL,
-                    funding_pnl_usd REAL,
-                    spread_pnl_usd REAL,
-                    fees_usd REAL,
-                    account_label TEXT
-                )
-            """)
-            
-            await conn.commit()
-    
-    async def _load_from_db(self):
-        try:
-            async with aiosqlite.connect(self.db_file) as conn:
-                conn.row_factory = aiosqlite.Row
-                
-                async with conn.execute("SELECT * FROM trades WHERE status = 'OPEN'") as cursor:
-                    rows = await cursor.fetchall()
-                    
-                    for row in rows:
-                        trade = dict(row)
-                        
-                        # Convert datetime strings to datetime objects
-                        for date_col in ['entry_time', 'funding_flip_start_time']:
-                            val = trade.get(date_col)
-                            if val and isinstance(val, str):
-                                try:
-                                    trade[date_col] = datetime.fromisoformat(val.replace('Z', '+00:00'))
-                                except:
-                                    try:
-                                        trade[date_col] = datetime.strptime(val, '%Y-%m-%d %H:%M:%S.%f')
-                                    except:
-                                        trade[date_col] = None
-                        
-                        self.open_trades[trade['symbol']] = trade
-            
-            logger.info(f"Loaded {len(self.open_trades)} open trades into RAM")
-            
-        except Exception as e:
-            logger.error(f"Failed to load state from DB: {e}")
-    
-    async def _load_fee_cache(self):
-        """Load historical fee rates from DB"""
-        try:
-            async with aiosqlite.connect(self.db_file) as conn:
-                async with conn.execute("SELECT exchange, symbol, avg_fee_rate FROM fee_stats") as cursor:
-                    rows = await cursor.fetchall()
-                    for exchange, symbol, rate in rows:
-                        self.fee_cache[(exchange, symbol)] = float(rate)
-            
-            logger.info(f"Loaded {len(self.fee_cache)} fee stats into cache")
-        except Exception as e:
-            logger.error(f"Fee cache load error: {e}")
-    
-    async def _background_writer(self):
-        batch = []
+        logger.info("🚀 Starting InMemoryStateManager...")
         
-        while True:
+        # Import here to avoid circular imports
+        from src. database import get_database
+        self._db = await get_database()
+        
+        # Load initial state from database
+        await self._load_from_db()
+        
+        # Start background tasks
+        self._running = True
+        
+        self._writer_task = asyncio.create_task(
+            self._writer_loop(),
+            name="state_writer"
+        )
+        
+        self._sync_task = asyncio.create_task(
+            self._sync_loop(),
+            name="state_sync"
+        )
+        
+        self._snapshot_task = asyncio.create_task(
+            self._snapshot_loop(),
+            name="state_snapshot"
+        )
+        
+        logger.info(f"✅ InMemoryStateManager started (loaded {len(self._trades)} trades)")
+
+    async def stop(self):
+        """Stop the state manager gracefully"""
+        logger.info("🛑 Stopping InMemoryStateManager...")
+        self._running = False
+        
+        # Signal writer to stop
+        await self._write_queue.put(None)
+        
+        # Wait for writer to flush
+        if self._writer_task:
             try:
+                await asyncio.wait_for(self._writer_task, timeout=10.0)
+            except asyncio.TimeoutError:
+                self._writer_task. cancel()
+        
+        # Cancel other tasks
+        for task in [self._sync_task, self._snapshot_task]:
+            if task:
+                task.cancel()
                 try:
-                    item = await asyncio.wait_for(self.write_queue.get(), timeout=1.0)
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        
+        # Final sync
+        await self._flush_dirty()
+        
+        logger.info("✅ InMemoryStateManager stopped")
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # TRADE OPERATIONS (In-Memory, Ultra-Fast)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def add_trade(self, trade: TradeState) -> str:
+        """Add a new trade to state"""
+        async with self._trade_lock:
+            self._trades[trade. symbol] = trade
+            self._dirty_trades.add(trade.symbol)
+        
+        # Queue write
+        await self._queue_write(
+            WriteOperation.INSERT,
+            "trades",
+            trade.symbol,
+            trade. to_dict()
+        )
+        
+        self._stats["writes_queued"] += 1
+        logger.debug(f"📝 Trade added to state: {trade. symbol}")
+        return trade.symbol
+
+    async def get_trade(self, symbol: str) -> Optional[TradeState]:
+        """Get a trade by symbol (instant, from memory)"""
+        self._stats["reads"] += 1
+        return self._trades.get(symbol)
+
+    async def get_all_open_trades(self) -> List[TradeState]:
+        """Get all open trades (instant, from memory)"""
+        self._stats["reads"] += 1
+        return [
+            t for t in self._trades.values()
+            if t.status in (TradeStatus. OPEN, TradeStatus.PENDING)
+        ]
+
+    async def get_trade_count(self) -> int:
+        """Get count of open trades"""
+        return len([t for t in self._trades.values() if t.status == TradeStatus. OPEN])
+
+    async def update_trade(
+        self,
+        symbol: str,
+        updates: Dict[str, Any]
+    ) -> bool:
+        """Update a trade's fields"""
+        async with self._trade_lock:
+            trade = self._trades. get(symbol)
+            if not trade:
+                return False
+            
+            for key, value in updates.items():
+                if hasattr(trade, key):
+                    if key == 'status' and isinstance(value, str):
+                        value = TradeStatus(value)
+                    setattr(trade, key, value)
+            
+            self._dirty_trades.add(symbol)
+        
+        await self._queue_write(
+            WriteOperation.UPDATE,
+            "trades",
+            symbol,
+            updates
+        )
+        
+        return True
+
+    async def close_trade(
+        self,
+        symbol: str,
+        pnl: float = 0.0,
+        funding: float = 0.0
+    ) -> bool:
+        """Close a trade"""
+        return await self.update_trade(symbol, {
+            'status': TradeStatus.CLOSED,
+            'closed_at': int(time.time() * 1000),
+            'pnl': pnl,
+            'funding_collected': funding,
+        })
+
+    async def remove_trade(self, symbol: str) -> bool:
+        """Remove a trade from state"""
+        async with self._trade_lock:
+            if symbol not in self._trades:
+                return False
+            
+            del self._trades[symbol]
+            self._dirty_trades.discard(symbol)
+        
+        await self._queue_write(
+            WriteOperation.DELETE,
+            "trades",
+            symbol,
+            {}
+        )
+        
+        return True
+
+    async def has_open_trade(self, symbol: str) -> bool:
+        """Check if symbol has an open trade"""
+        trade = self._trades. get(symbol)
+        return trade is not None and trade. status in (TradeStatus. OPEN, TradeStatus.PENDING)
+
+    async def get_open_symbols(self) -> Set[str]:
+        """Get set of symbols with open trades"""
+        return {
+            t.symbol for t in self._trades.values()
+            if t.status in (TradeStatus. OPEN, TradeStatus.PENDING)
+        }
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BALANCE OPERATIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def update_balance(
+        self,
+        exchange: str,
+        available: float,
+        total: float = 0.0,
+        in_position: float = 0.0
+    ):
+        """Update balance for an exchange"""
+        async with self._balance_lock:
+            self._balances[exchange] = BalanceState(
+                exchange=exchange,
+                available=available,
+                total=total or available,
+                in_position=in_position,
+            )
+            self._dirty_balances.add(exchange)
+
+    async def get_balance(self, exchange: str) -> Optional[BalanceState]:
+        """Get balance for an exchange"""
+        return self._balances.get(exchange)
+
+    async def get_available_balance(self, exchange: str) -> float:
+        """Get available balance for an exchange"""
+        balance = self._balances.get(exchange)
+        return balance. available if balance else 0.0
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # MARKET DATA OPERATIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def update_market(
+        self,
+        symbol: str,
+        mark_price: Optional[float] = None,
+        funding_rate_x10: Optional[float] = None,
+        funding_rate_lighter: Optional[float] = None,
+        spread: Optional[float] = None,
+        apy: Optional[float] = None
+    ):
+        """Update market data for a symbol"""
+        async with self._market_lock:
+            market = self._markets. get(symbol) or MarketState(symbol=symbol)
+            
+            if mark_price is not None:
+                market.mark_price = mark_price
+            if funding_rate_x10 is not None:
+                market. funding_rate_x10 = funding_rate_x10
+            if funding_rate_lighter is not None:
+                market. funding_rate_lighter = funding_rate_lighter
+            if spread is not None:
+                market.spread = spread
+            if apy is not None:
+                market.apy = apy
+            
+            market.updated_at = int(time.time() * 1000)
+            self._markets[symbol] = market
+            self._dirty_markets.add(symbol)
+
+    async def get_market(self, symbol: str) -> Optional[MarketState]:
+        """Get market data for a symbol"""
+        return self._markets. get(symbol)
+
+    async def get_mark_price(self, symbol: str) -> float:
+        """Get mark price for a symbol"""
+        market = self._markets.get(symbol)
+        return market.mark_price if market else 0.0
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BOT STATE OPERATIONS
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def set_state(self, key: str, value: Any):
+        """Set a bot state value"""
+        async with self._state_lock:
+            self._bot_state[key] = value
+            self._dirty_bot_state. add(key)
+
+    async def get_state(self, key: str, default: Any = None) -> Any:
+        """Get a bot state value"""
+        return self._bot_state.get(key, default)
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # WRITE-BEHIND QUEUE
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def _queue_write(
+        self,
+        operation: WriteOperation,
+        table: str,
+        key: str,
+        data: Dict[str, Any],
+        wait: bool = False
+    ) -> Optional[Any]:
+        """Queue a write operation"""
+        future = asyncio.get_event_loop(). create_future() if wait else None
+        
+        write = PendingWrite(
+            operation=operation,
+            table=table,
+            key=key,
+            data=data,
+            callback=future
+        )
+        
+        try:
+            self._write_queue. put_nowait(write)
+        except asyncio.QueueFull:
+            logger.warning("Write queue full, dropping oldest")
+            try:
+                self._write_queue. get_nowait()
+            except asyncio.QueueEmpty:
+                pass
+            self._write_queue. put_nowait(write)
+        
+        if wait and future:
+            return await future
+        return None
+
+    async def _writer_loop(self):
+        """Background task that batches and commits writes"""
+        logger.info("📝 State writer loop started")
+        
+        batch: List[PendingWrite] = []
+        last_flush = time. monotonic()
+        
+        while self._running:
+            try:
+                # Get next write with timeout
+                try:
+                    write = await asyncio. wait_for(
+                        self._write_queue.get(),
+                        timeout=self.WRITE_FLUSH_INTERVAL
+                    )
                     
-                    if item is None:
-                        if batch:
-                            await self._flush_batch(batch)
+                    if write is None:  # Shutdown signal
                         break
                     
-                    batch.append(item)
+                    batch.append(write)
                     
                 except asyncio.TimeoutError:
                     pass
                 
-                if len(batch) >= 10 or (batch and self.write_queue.empty()):
+                # Flush if batch is full or interval elapsed
+                now = time.monotonic()
+                should_flush = (
+                    len(batch) >= self. WRITE_BATCH_SIZE or
+                    (batch and now - last_flush >= self. WRITE_FLUSH_INTERVAL)
+                )
+                
+                if should_flush and batch:
                     await self._flush_batch(batch)
                     batch = []
+                    last_flush = now
                     
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                logger.error(f"Background writer error: {e}")
-                await asyncio.sleep(1)
-    
-    async def _flush_batch(self, batch: List[dict]):
-        if not batch:
+                logger.error(f"Writer loop error: {e}")
+                await asyncio.sleep(1.0)
+        
+        # Final flush
+        if batch:
+            await self._flush_batch(batch)
+        
+        logger.info("📝 State writer loop stopped")
+
+    async def _flush_batch(self, batch: List[PendingWrite]):
+        """Flush a batch of writes to database"""
+        if not batch or not self._db:
             return
         
-        try:
-            async with aiosqlite.connect(self.db_file) as conn:
-                for item in batch:
-                    op = item['op']
-                    data = item['data']
-                    
-                    if op == 'INSERT':
-                        # Ensure all named params exist so sqlite binding doesn't raise KeyError.
-                        # Normalize datetime fields to strings; keep None as NULL in DB.
-                        # Provide defaults for optional fields.
-                        for key, default in {
-                            'symbol': None,
-                            'entry_time': None,
-                            'notional_usd': None,
-                            'leg1_exchange': None,
-                            'initial_spread_pct': None,
-                            'initial_funding_rate_hourly': None,
-                            'entry_price_x10': None,
-                            'entry_price_lighter': None,
-                            'funding_flip_start_time': None,
-                            'is_farm_trade': False,
-                            'account_label': 'Main'
-                        }.items():
-                            if key not in data:
-                                data[key] = default
+        from src.database import get_trade_repository
+        repo = await get_trade_repository()
+        
+        for write in batch:
+            try:
+                if write.table == "trades":
+                    if write.operation == WriteOperation.INSERT:
+                        trade_data = write.data.copy()
+                        trade_data['status'] = trade_data.get('status', 'open')
+                        db_id = await repo.add_trade(trade_data)
                         
-                        # Normalize datetimes to string or None
-                        for date_field in ('entry_time', 'funding_flip_start_time'):
-                            val = data.get(date_field)
-                            if val is None:
-                                data[date_field] = None
-                            elif isinstance(val, datetime):
-                                data[date_field] = val.strftime('%Y-%m-%d %H:%M:%S.%f')
-                            # leave string values as-is (assumed already formatted)
+                        # Update in-memory with DB ID
+                        async with self._trade_lock:
+                            if write.key in self._trades:
+                                self._trades[write. key].db_id = db_id
                         
-                        await conn.execute("""
-                            INSERT OR REPLACE INTO trades (
-                                symbol, entry_time, notional_usd, status, leg1_exchange,
-                                initial_spread_pct, initial_funding_rate_hourly,
-                                entry_price_x10, entry_price_lighter, 
-                                funding_flip_start_time, is_farm_trade, account_label
-                            ) VALUES (
-                                :symbol, :entry_time, :notional_usd, 'OPEN', :leg1_exchange,
-                                :initial_spread_pct, :initial_funding_rate_hourly,
-                                :entry_price_x10, :entry_price_lighter, 
-                                :funding_flip_start_time, :is_farm_trade, :account_label
-                            )
-                        """, data)
-                        
-                    elif op == 'UPDATE':
-                        updates = data['updates']
-                        symbol = data['symbol']
-                        
-                        set_clause = ', '.join([f"{k} = ?" for k in updates.keys()])
-                        values = list(updates.values()) + [symbol]
-                        
-                        await conn.execute(
-                            f"UPDATE trades SET {set_clause} WHERE symbol = ?",
-                            values
-                        )
-                        
-                    elif op == 'DELETE':
-                        await conn.execute(
-                            "UPDATE trades SET status = 'CLOSED' WHERE symbol = ?",
-                            (data['symbol'],)
-                        )
-                    
-                    elif op == 'FEE_UPDATE':
-                        exchange = data['exchange']
-                        symbol = data['symbol']
-                        new_rate = data['fee_rate']
-                        
-                        # Check if exists
-                        async with conn.execute(
-                            "SELECT avg_fee_rate, sample_count FROM fee_stats WHERE exchange=? AND symbol=?",
-                            (exchange, symbol)
-                        ) as cursor:
-                            row = await cursor.fetchone()
-                        
-                        if row:
-                            old_rate, count = row
-                            # EMA Update
-                            updated_rate = (new_rate * self.FEE_EMA_ALPHA) + (old_rate * (1 - self.FEE_EMA_ALPHA))
+                        if write.callback and not write.callback.done():
+                            write.callback.set_result(db_id)
                             
-                            await conn.execute("""
-                                UPDATE fee_stats 
-                                SET avg_fee_rate=?, sample_count=?, last_updated=?
-                                WHERE exchange=? AND symbol=?
-                            """, (updated_rate, count + 1, datetime.utcnow(), exchange, symbol))
-                        else:
-                            # First sample
-                            await conn.execute("""
-                                INSERT INTO fee_stats (exchange, symbol, avg_fee_rate, sample_count, last_updated)
-                                VALUES (?, ?, ?, 1, ?)
-                            """, (exchange, symbol, new_rate, datetime.utcnow()))
+                    elif write.operation == WriteOperation.UPDATE:
+                        if 'status' in write.data:
+                            status = write.data['status']
+                            if isinstance(status, TradeStatus):
+                                status = status.value
+                            if status == 'closed':
+                                await repo.close_trade(
+                                    write. key,
+                                    write.data. get('pnl', 0),
+                                    write.data.get('funding_collected', 0)
+                                )
+                        
+                        if write.callback and not write.callback.done():
+                            write.callback.set_result(True)
+                            
+                    elif write. operation == WriteOperation. DELETE:
+                        # Trades are closed, not deleted
+                        pass
                 
-                await conn.commit()
-                
-            self.total_writes += len(batch)
-            logger.debug(f"Flushed {len(batch)} writes to DB")
+            except Exception as e:
+                logger.error(f"Flush error for {write.table}/{write.key}: {e}")
+                if write.callback and not write.callback.done():
+                    write.callback.set_exception(e)
+        
+        self._stats["writes_flushed"] += len(batch)
+        logger.debug(f"📝 Flushed {len(batch)} writes")
+
+    async def _flush_dirty(self):
+        """Flush all dirty state to database"""
+        # Trade writes are already queued, just process remaining
+        while not self._write_queue.empty():
+            try:
+                write = self._write_queue.get_nowait()
+                if write:
+                    await self._flush_batch([write])
+            except asyncio.QueueEmpty:
+                break
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SYNC & RECOVERY
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def _load_from_db(self):
+        """Load initial state from database"""
+        if not self._db:
+            return
+        
+        from src.database import get_trade_repository
+        repo = await get_trade_repository()
+        
+        try:
+            db_trades = await repo.get_open_trades()
+            
+            async with self._trade_lock:
+                for row in db_trades:
+                    trade = TradeState(
+                        symbol=row['symbol'],
+                        side_x10=row. get('side_x10', 'BUY'),
+                        side_lighter=row.get('side_lighter', 'SELL'),
+                        size_usd=row. get('size_usd', 0),
+                        entry_price_x10=row.get('entry_price_x10', 0),
+                        entry_price_lighter=row. get('entry_price_lighter', 0),
+                        status=TradeStatus(row. get('status', 'open')),
+                        is_farm_trade=bool(row.get('is_farm_trade', 0)),
+                        created_at=row.get('created_at', 0),
+                        pnl=row. get('pnl', 0),
+                        funding_collected=row.get('funding_collected', 0),
+                        account_label=row.get('account_label', 'Main'),
+                        x10_order_id=row. get('x10_order_id'),
+                        lighter_order_id=row.get('lighter_order_id'),
+                        db_id=row.get('id'),
+                    )
+                    self._trades[trade. symbol] = trade
+            
+            logger.info(f"📂 Loaded {len(self._trades)} trades from database")
             
         except Exception as e:
-            logger.error(f"Batch write failed: {e}")
-    
-    def get_open_trades(self) -> List[dict]:
-        self.total_reads += 1
-        self.cache_hits += 1
-        return list(self.open_trades.values())
-    
-    def get_trade(self, symbol: str) -> Optional[dict]:
-        self.total_reads += 1
-        if symbol in self.open_trades:
-            self.cache_hits += 1
-            return self.open_trades[symbol]
-        return None
-    
-    def get_fee_estimate(self, exchange: str, symbol: str, default: float = 0.00025) -> float:
-        """
-        Get estimated fee RATE for exchange+symbol
-        
-        Args:
-            exchange: "X10" or "Lighter"
-            symbol: Trading pair (e.g. "BTC-USD")
-            default: Fallback fee rate
-        
-        Returns:
-            Fee rate (e.g. 0.00025 = 0.025%)
-        """
-        return self.fee_cache.get((exchange, symbol), default)
-    
-    async def update_fee_stats(self, exchange: str, symbol: str, fee_rate: float):
-        """
-        Update fee statistics with new sample
-        
-        Args:
-            exchange: "X10" or "Lighter"
-            symbol: Trading pair (e.g. "BTC-USD")
-            fee_rate: Fee as decimal (e.g. 0.0005 = 0.05%)
-        """
-        if fee_rate <= 0 or fee_rate > 0.01:
-            logger.warning(f"Suspicious fee rate {fee_rate} for {exchange}/{symbol}, ignoring")
-            return
-        
-        # Update in-memory cache with EMA
-        current = self.fee_cache.get((exchange, symbol), fee_rate)
-        new_ema = (fee_rate * self.FEE_EMA_ALPHA) + (current * (1 - self.FEE_EMA_ALPHA))
-        self.fee_cache[(exchange, symbol)] = new_ema
-        
-        # Queue DB write
-        await self.write_queue.put({
-            'op': 'FEE_UPDATE',
-            'data': {
-                'exchange': exchange,
-                'symbol': symbol,
-                'fee_rate': fee_rate
-            }
-        })
-        
-        logger.debug(f"Fee update {exchange}/{symbol}: {fee_rate:.6f} (EMA: {new_ema:.6f})")
-    
-    async def add_trade(self, trade_data: dict):
-        symbol = trade_data['symbol']
+            logger.error(f"Failed to load state from DB: {e}")
 
-        # Normalize datetime fields to strings FIRST
-        for date_field in ['entry_time', 'funding_flip_start_time']:
-            val = trade_data.get(date_field)
-            if val is not None and isinstance(val, datetime):
-                trade_data[date_field] = val.strftime('%Y-%m-%d %H:%M:%S.%f')
-
-        # Set defaults
-        if 'is_farm_trade' not in trade_data:
-            trade_data['is_farm_trade'] = False
-
-        if 'account_label' not in trade_data:
-            trade_data['account_label'] = 'Main'
-
-        # Store in memory (already normalized)
-        self.open_trades[symbol] = trade_data
-
-        # Queue for DB
-        await self.write_queue.put({
-            'op': 'INSERT',
-            'data': trade_data
-        })
-
-        logger.debug(f"Trade {symbol} added to state (queued for DB)")
-    
-    async def update_trade(self, symbol: str, updates: dict):
-        if symbol not in self.open_trades:
-            logger.warning(f"Cannot update {symbol} - not in state")
-            return
-        
-        self.open_trades[symbol].update(updates)
-        
-        await self.write_queue.put({
-            'op': 'UPDATE',
-            'data': {
-                'symbol': symbol,
-                'updates': updates
-            }
-        })
-        
-        logger.debug(f"Trade {symbol} updated in state (queued for DB)")
-    
-    async def close_trade(self, symbol: str):
-        if symbol not in self.open_trades:
-            logger.warning(f"Cannot close {symbol} - not in state")
-            return
-        
-        del self.open_trades[symbol]
-        
-        await self.write_queue.put({
-            'op': 'DELETE',
-            'data': {'symbol': symbol}
-        })
-        
-        logger.info(f"Trade {symbol} closed in state (queued for DB)")
-
-    async def mark_trade_closed(self, symbol: str):
-        """Mark a trade as closed in DB (for ghost trade cleanup)"""
-        # Remove from in-memory if present
-        if symbol in self.open_trades:
+    async def _sync_loop(self):
+        """Periodic full sync with database"""
+        while self._running:
             try:
-                del self.open_trades[symbol]
-            except Exception:
-                # best-effort removal; continue to mark DB
-                pass
+                await asyncio.sleep(self.SYNC_INTERVAL)
+                await self._verify_state()
+                self._stats["syncs"] += 1
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Sync error: {e}")
+
+    async def _verify_state(self):
+        """Verify in-memory state matches database"""
+        if not self._db:
+            return
+        
+        from src.database import get_trade_repository
+        repo = await get_trade_repository()
         
         try:
-            conn = await aiosqlite.connect(self.db_file)
-            await conn.execute(
-                "UPDATE trades SET status = 'CLOSED' WHERE symbol = ? AND status = 'OPEN'",
-                (symbol,)
-            )
-            await conn.commit()
-            await conn.close()
-            logger.debug(f"Marked {symbol} as CLOSED in DB")
+            db_trades = await repo.get_open_trades()
+            db_symbols = {t['symbol'] for t in db_trades}
+            memory_symbols = await self. get_open_symbols()
+            
+            # Check for discrepancies
+            in_memory_only = memory_symbols - db_symbols
+            in_db_only = db_symbols - memory_symbols
+            
+            if in_memory_only:
+                logger.warning(f"⚠️ Trades in memory but not DB: {in_memory_only}")
+            
+            if in_db_only:
+                logger.warning(f"⚠️ Trades in DB but not memory: {in_db_only}")
+                # Load missing trades
+                for row in db_trades:
+                    if row['symbol'] in in_db_only:
+                        trade = TradeState. from_dict(row)
+                        async with self._trade_lock:
+                            self._trades[trade.symbol] = trade
+            
         except Exception as e:
-            logger.error(f"Failed to mark {symbol} as closed: {e}")
-    
-    def get_stats(self) -> dict:
-        hit_rate = (self.cache_hits / self.total_reads * 100) if self.total_reads > 0 else 0
+            logger.error(f"State verification failed: {e}")
+
+    async def _snapshot_loop(self):
+        """Periodic snapshot for recovery"""
+        while self._running:
+            try:
+                await asyncio.sleep(self.SNAPSHOT_INTERVAL)
+                await self._save_snapshot()
+                self._stats["snapshots"] += 1
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger. error(f"Snapshot error: {e}")
+
+    async def _save_snapshot(self):
+        """Save state snapshot to disk"""
+        snapshot_path = Path(self. db_path). parent / "state_snapshot.json"
         
+        try:
+            snapshot = {
+                "timestamp": int(time.time() * 1000),
+                "trades": {k: v.to_dict() for k, v in self._trades.items()},
+                "balances": {k: asdict(v) for k, v in self._balances.items()},
+                "bot_state": self._bot_state,
+            }
+            
+            # Write atomically
+            temp_path = snapshot_path.with_suffix('.tmp')
+            with open(temp_path, 'w') as f:
+                json.dump(snapshot, f, indent=2)
+            temp_path.replace(snapshot_path)
+            
+            logger.debug(f"📸 State snapshot saved ({len(self._trades)} trades)")
+            
+        except Exception as e:
+            logger.error(f"Snapshot save failed: {e}")
+
+    async def load_snapshot(self) -> bool:
+        """Load state from snapshot (for recovery)"""
+        snapshot_path = Path(self.db_path).parent / "state_snapshot.json"
+        
+        if not snapshot_path.exists():
+            return False
+        
+        try:
+            with open(snapshot_path, 'r') as f:
+                snapshot = json. load(f)
+            
+            async with self._trade_lock:
+                self._trades = {
+                    k: TradeState.from_dict(v)
+                    for k, v in snapshot. get("trades", {}).items()
+                }
+            
+            async with self._balance_lock:
+                self._balances = {
+                    k: BalanceState(**v)
+                    for k, v in snapshot.get("balances", {}).items()
+                }
+            
+            self._bot_state = snapshot.get("bot_state", {})
+            
+            logger.info(f"📸 Loaded snapshot ({len(self._trades)} trades)")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Snapshot load failed: {e}")
+            return False
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Get state manager statistics"""
         return {
-            'open_trades': len(self.open_trades),
-            'total_reads': self.total_reads,
-            'cache_hits': self.cache_hits,
-            'hit_rate_pct': hit_rate,
-            'total_writes': self.total_writes,
-            'pending_writes': self.write_queue.qsize(),
-            'cached_fee_stats': len(self.fee_cache)
+            **self._stats,
+            "trades_in_memory": len(self._trades),
+            "open_trades": len([t for t in self._trades. values() if t. status == TradeStatus.OPEN]),
+            "balances_tracked": len(self._balances),
+            "markets_tracked": len(self._markets),
+            "pending_writes": self._write_queue. qsize(),
+            "dirty_trades": len(self._dirty_trades),
         }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GLOBAL STATE MANAGER INSTANCE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_state_manager: Optional[InMemoryStateManager] = None
+
+
+async def get_state_manager() -> InMemoryStateManager:
+    """Get or create the global state manager"""
+    global _state_manager
+    if _state_manager is None:
+        _state_manager = InMemoryStateManager()
+        await _state_manager. start()
+    return _state_manager
+
+
+async def close_state_manager():
+    """Close the global state manager"""
+    global _state_manager
+    if _state_manager:
+        await _state_manager.stop()
+        _state_manager = None

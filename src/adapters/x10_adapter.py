@@ -10,7 +10,7 @@ from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional
 
-from src.rate_limiter import X10_RATE_LIMITER
+from src.rate_limiter import X10_RATE_LIMITER, get_rate_limiter, Exchange
 import config
 from x10.perpetual.trading_client import PerpetualTradingClient
 from x10.perpetual.configuration import MAINNET_CONFIG
@@ -258,23 +258,73 @@ class X10Adapter(BaseAdapter):
         return 0.0
 
     async def fetch_orderbook(self, symbol: str, limit: int = 20) -> dict:
+        """
+        Fetch orderbook from X10 REST API
+        
+        API: GET /api/v1/info/markets/{market}/orderbook
+        
+        Returns:
+            {
+                'bids': [[price, qty], ...],  # sorted by price DESC
+                'asks': [[price, qty], ...],  # sorted by price ASC
+                'timestamp': int
+            }
+        """
         try:
-            x10_symbol = symbol.replace("-", "_")
+            # Rate limit
+            await self.rate_limiter.acquire()
+            
+            # X10 uses BTC-USD format
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-            url = f"{base_url}/api/v1/info/orderbook"
-            params = {"market": x10_symbol, "depth": limit}
-
+            url = f"{base_url}/api/v1/info/markets/{symbol}/orderbook"
+            
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                headers = {"Accept": "application/json", "User-Agent": "FundingBot/1.0"}
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
-                        return {
-                            "bids": [[float(b["price"]), float(b["size"])] for b in data.get("bids", [])[:limit]],
-                            "asks": [[float(a["price"]), float(a["size"])] for a in data.get("asks", [])[:limit]]
-                        }
-        except Exception:
-            pass
-        return {"bids": [], "asks": []}
+                        
+                        if data.get("status") == "OK" and "data" in data:
+                            ob_data = data["data"]
+                            
+                            # Parse bids: [{"qty": "0.04852", "price": "61827.7"}, ...]
+                            bids = [
+                                [float(b["price"]), float(b["qty"])] 
+                                for b in ob_data.get("bid", [])[:limit]
+                            ]
+                            
+                            # Parse asks: [{"qty": "0.04852", "price": "61840.3"}, ...]
+                            asks = [
+                                [float(a["price"]), float(a["qty"])] 
+                                for a in ob_data.get("ask", [])[:limit]
+                            ]
+                            
+                            result = {
+                                "bids": bids,
+                                "asks": asks,
+                                "timestamp": int(time.time() * 1000),
+                                "symbol": symbol
+                            }
+                            
+                            # Cache for prediction
+                            self.orderbook_cache[symbol] = result
+                            self.rate_limiter.on_success()
+                            
+                            return result
+                        else:
+                            logger.debug(f"X10 orderbook {symbol}: Invalid response format")
+                    else:
+                        if resp.status == 429:
+                            self.rate_limiter.penalize_429()
+                        logger.debug(f"X10 orderbook {symbol}: HTTP {resp.status}")
+                        
+        except asyncio.TimeoutError:
+            logger.debug(f"X10 orderbook {symbol}: Timeout")
+        except Exception as e:
+            logger.debug(f"X10 orderbook {symbol}: {e}")
+        
+        # Return cached or empty
+        return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
     async def fetch_open_interest(self, symbol: str) -> float:
         if not hasattr(self, '_oi_cache'):
@@ -421,8 +471,13 @@ class X10Adapter(BaseAdapter):
         reduce_only: bool = False, 
         post_only: bool = True
     ) -> Tuple[bool, Optional[str]]:
+        """Mit manuellem Rate Limiting"""
         if not config.LIVE_TRADING:
             return True, None
+        
+        # Warte auf Token BEVOR Request gesendet wird
+        limiter = get_rate_limiter()
+        await limiter.acquire(Exchange.X10, "order")
         
         client = await self._get_trading_client()
         market = self.market_info.get(symbol)

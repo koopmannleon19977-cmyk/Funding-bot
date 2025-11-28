@@ -140,16 +140,43 @@ class FundingPredictorV2:
         return vel, acc
 
     def _calc_imbalance(self, ob: dict) -> float:
+        """
+        Calculate orderbook imbalance from bid/ask depth
+        
+        Imbalance > 0 = More buy pressure (bullish)
+        Imbalance < 0 = More sell pressure (bearish)
+        
+        Args:
+            ob: {'bids': [[price, qty], ...], 'asks': [[price, qty], ...]}
+        
+        Returns:
+            float: Imbalance ratio between -1.0 and 1.0
+        """
         try:
             if not ob or 'bids' not in ob or 'asks' not in ob:
                 return 0.0
-            bids = ob['bids'][:15]
-            asks = ob['asks'][:15]
+            
+            bids = ob.get('bids', [])[:15]  # Top 15 levels
+            asks = ob.get('asks', [])[:15]
+            
+            if not bids or not asks:
+                return 0.0
+            
+            # Calculate weighted volume (price * quantity)
             bid_vol = sum(float(p) * float(q) for p, q in bids)
             ask_vol = sum(float(p) * float(q) for p, q in asks)
+            
             total = bid_vol + ask_vol
-            return (bid_vol - ask_vol) / total if total else 0.0
-        except:
+            if total < 1e-8:
+                return 0.0
+            
+            # Normalized imbalance: (bid - ask) / (bid + ask)
+            imbalance = (bid_vol - ask_vol) / total
+            
+            return float(imbalance)
+            
+        except Exception as e:
+            logger.debug(f"Imbalance calc error: {e}")
             return 0.0
 
     def _btc_factor(self) -> float:
