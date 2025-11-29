@@ -7,7 +7,7 @@ import time
 import random
 import websockets
 from typing import Dict, Tuple, Optional, List
-from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
+from decimal import Decimal, ROUND_UP, ROUND_DOWN
 
 print("DEBUG: lighter_adapter.py module loading...")
 
@@ -64,84 +64,6 @@ class LighterAdapter(BaseAdapter):
         self._last_market_cache_at = None
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
-
-    async def refresh_market_limits(self, symbol: str) -> dict:
-        """
-        Fetch fresh market limits from Lighter API.
-        Call this before placing orders to ensure limits are current.
-        """
-        try:
-            # Versuche Market-Info direkt von der API zu laden
-            market_index = None
-            for idx, info in self.market_info.items():
-                if info.get('symbol') == symbol or idx == symbol:
-                    market_index = info.get('market_index', idx)
-                    break
-            
-            if market_index is None:
-                logger.warning(f"⚠️ Market index not found for {symbol}")
-                return self.market_info.get(symbol, {})
-            
-            # API Call
-            url = f"{self.base_url}/api/v1/market?market_index={market_index}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=10) as response:
-                    if response.status == 200:
-                        data = await response.json()
-                        if data:
-                            # Update cached market info
-                            old_info = self.market_info.get(symbol, {})
-                            self.market_info[symbol].update(data)
-                            
-                            # Log changes
-                            new_min_base = data.get('min_base_amount', old_info.get('min_base_amount'))
-                            old_min_base = old_info.get('min_base_amount')
-                            if new_min_base != old_min_base:
-                                logger.warning(
-                                    f"⚠️ {symbol} min_base_amount changed: {old_min_base} -> {new_min_base}"
-                                )
-                            
-                            logger.info(f"✅ Refreshed market limits for {symbol}")
-                            return self.market_info.get(symbol, {})
-                    else:
-                        logger.warning(f"Failed to refresh {symbol} limits: HTTP {response.status}")
-                        
-        except asyncio.TimeoutError:
-            logger.warning(f"Timeout refreshing market limits for {symbol}")
-        except Exception as e:
-            logger.error(f"Error refreshing market limits for {symbol}: {e}")
-        
-        return self.market_info.get(symbol, {})
-
-    async def validate_order_params(self, symbol: str, size_usd: float) -> Tuple[bool, str]:
-        """
-        Validate order parameters before sending to API.
-        Returns (is_valid, error_message). 
-        """
-        market_info = self.market_info.get(symbol, {})
-        
-        if not market_info:
-            return False, f"Market {symbol} not found"
-        
-        price = self.get_price(symbol)
-        if not price or price <= 0:
-            return False, f"Invalid price for {symbol}: {price}"
-        
-        # Calculate quantity
-        quantity = size_usd / price
-        
-        # Check minimums
-        min_base = float(market_info.get('min_base_amount', 0.0001))
-        min_notional = float(market_info.get('min_notional', 5.0))
-        
-        if quantity < min_base:
-            return False, f"Quantity {quantity:.6f} < min_base {min_base}"
-        
-        notional = quantity * price
-        if notional < min_notional:
-            return False, f"Notional ${notional:.2f} < min_notional ${min_notional}"
-        
-        return True, "OK"
 
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
@@ -972,10 +894,6 @@ class LighterAdapter(BaseAdapter):
 
         return None
 
-    def get_price(self, symbol: str) -> Optional[float]:
-        """Alias for fetch_mark_price - used by order execution code."""
-        return self.fetch_mark_price(symbol)
-
     async def get_real_available_balance(self) -> float:
         if time.time() - self._last_balance_update < 2.0:
             return self._balance_cache
@@ -1094,7 +1012,7 @@ class LighterAdapter(BaseAdapter):
         # ═══════════════════════════════════════════════════════════════
         # EXAKT wie im TypeScript SDK:
         # baseScale = Math.pow(10, details.size_decimals)
-        # quoteScale = Math.pow(10, details.price_decimals)
+        # quoteScale = Math. pow(10, details.price_decimals)
         # ═══════════════════════════════════════════════════════════════
         
         def to_int(val, default=8) -> int:
@@ -1114,15 +1032,16 @@ class LighterAdapter(BaseAdapter):
                 return Decimal(default)
 
         # Get decimals from API response
-        size_decimals = to_int(data.get('sd'), 8)
-        price_decimals = to_int(data.get('pd'), 6)
+        size_decimals = to_int(data.get('sd') or data.get('size_decimals'), 8)
+        price_decimals = to_int(data.get('pd') or data.get('price_decimals'), 6)
         
         # Calculate scales (EXACT from SDK)
         base_scale = Decimal(10) ** size_decimals
         quote_scale = Decimal(10) ** price_decimals
         
         # Get min values
-        min_base_amount = to_decimal(data.get('ss'), "0.00000001")
+        min_base_amount = to_decimal(data.get('ss') or data.get('min_base_amount'), "0.00000001")
+        min_quote_amount = to_decimal(data.get('mps') or data.get('min_quote_amount'), "0.00001")
         
         ZERO = Decimal("0")
 
@@ -1140,12 +1059,13 @@ class LighterAdapter(BaseAdapter):
         scaled_base = int((qty * base_scale).quantize(Decimal('1'), rounding=ROUND_UP))
         scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
 
-        # CRITICAL: Validate price_int is not 0
-        if scaled_price == 0:
-            raise ValueError(f"{symbol}: scaled_price is 0! price={price}, pd={price_decimals}")
-
         if scaled_base == 0:
             raise ValueError(f"{symbol}: scaled_base is 0!")
+
+        return scaled_base, scaled_price
+
+        if scaled_base == 0:
+            raise ValueError(f"{symbol} Fatal: Scaled base is 0!")
 
         return scaled_base, scaled_price
 
@@ -1155,29 +1075,31 @@ class LighterAdapter(BaseAdapter):
         symbol: str,
         side: str,
         notional_usd: float,
-        price: Optional[float] = None,
         reduce_only: bool = False,
         post_only: bool = False,
-        **kwargs
     ) -> Tuple[bool, Optional[str]]:
-        """Open a position on Lighter exchange."""
+        if not getattr(config, "LIVE_TRADING", False):
+            return True, None
+
+        if not HAVE_LIGHTER_SDK:
+            logger.error("Lighter SDK not installed")
+            return False, None
+
         # ═══════════════════════════════════════════════════════════════
-        # PRE-VALIDATION
+        # CRITICAL FIX: Sichere Typ-Konvertierung für price
         # ═══════════════════════════════════════════════════════════════
-        # Refresh market limits before order (optional - kann API-Calls sparen wenn auskommentiert)
-        # await self.refresh_market_limits(symbol)
-        # Validate order params
-        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd)
-        if not is_valid:
-            logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
-            raise ValueError(f"Order validation failed: {error_msg}")
-        # Get price if not provided
-        if price is None:
-            price = self.get_price(symbol)
-            if not price:
-                raise ValueError(f"No price available for {symbol}")
-        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd:.2f}, price=${price:.6f}")
-        # ...existing code...
+        raw_price = self.fetch_mark_price(symbol)
+        
+        # Konvertiere zu float, egal ob str, int, float, None
+        try:
+            price = float(raw_price) if raw_price is not None else 0.0
+        except (ValueError, TypeError):
+            price = 0.0
+        
+        if price <= 0:
+            logger.debug(f"{symbol}: Invalid price {raw_price}")
+            return False, None
+        # ═══════════════════════════════════════════════════════════════
 
         try:
             market_id = self.market_info[symbol]["i"]

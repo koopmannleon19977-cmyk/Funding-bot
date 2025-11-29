@@ -41,8 +41,7 @@ from src.volatility_monitor import get_volatility_monitor
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from src.prediction import predict_next_funding_rates
-from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
+from src.prediction import calculate_smart_size, predict_next_funding_rates
 from src.database import (
     get_database,
     get_trade_repository,
@@ -737,7 +736,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 return False
 
         # ═══════════════════════════════════════════════════════════════
-        # SIZING & VALIDATION MIT KELLY CRITERION
+        # SIZING & VALIDATION (CRITICAL FIX)
         # ═══════════════════════════════════════════════════════════════
         global IN_FLIGHT_MARGIN, IN_FLIGHT_LOCK
 
@@ -747,8 +746,6 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         min_req = max(min_req_x10, min_req_lit)
 
         # 2. Check Global Max Constraints
-        max_per_trade = float(getattr(config, 'MAX_NOTIONAL_USD', 18.0))  # FIX: Variable war undefiniert
-        
         if min_req > config.MAX_TRADE_SIZE_USD:
             logger.debug(f"Skip {symbol}: Min Req ${min_req:.2f} > Max Config ${config.MAX_TRADE_SIZE_USD}")
             return False
@@ -761,66 +758,23 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
 
-            # 4. KELLY CRITERION BERECHNUNG (für ALLE Trades)
-            available_capital = min(bal_x10_real, bal_lit_real)
-            apy = opp.get('apy', 0.0)
-            apy_decimal = apy / 100.0 if apy > 1 else apy  # Normalisiere APY
-            
-            kelly_sizer = get_kelly_sizer()
-            kelly_result = kelly_sizer.calculate_position_size(
-                symbol=symbol,
-                available_capital=available_capital,
-                current_apy=apy_decimal
-            )
-            
-            # KELLY LOGGING (das hat gefehlt!)
-            logger.info(
-                f"🎰 KELLY {symbol}: win_rate={kelly_result.win_rate:.1%}, "
-                f"kelly_fraction={kelly_result.kelly_fraction:.4f}, "
-                f"safe_fraction={kelly_result.safe_fraction:.4f}, "
-                f"confidence={kelly_result.confidence}, "
-                f"samples={kelly_result.sample_size}"
-            )
-
-            # 5. Calculate Final Size
+            # 4. Calculate Final Size
             if opp.get('is_farm_trade'):
                 target_farm = float(getattr(config, 'FARM_NOTIONAL_USD', 12.0))
-                
-                # Kelly-Adjustment auch für Farm-Trades
-                if kelly_result.safe_fraction > 0.02:
-                    # Kelly empfiehlt größere Position
-                    kelly_adjusted = min(
-                        kelly_result.recommended_size_usd,
-                        target_farm * 1.5  # Max 50% über Basis
-                    )
-                    final_usd = max(target_farm, kelly_adjusted, min_req)
-                else:
-                    # Kelly ist konservativ - bleibe bei Basis
-                    final_usd = max(target_farm, min_req)
-                
-                logger.info(
-                    f"📊 KELLY SIZE {symbol}: base=${target_farm:.1f}, "
-                    f"kelly_recommended=${kelly_result.recommended_size_usd:.1f}, "
-                    f"final=${final_usd:.1f}"
-                )
+                final_usd = max(target_farm, min_req)
             else:
-                # Non-Farm: Nutze Kelly direkt
-                final_usd = kelly_result.recommended_size_usd
+                max_per_trade = min(bal_x10_real, bal_lit_real) * 0.20
+                size_calc = calculate_smart_size(conf, bal_x10_real + bal_lit_real)
+                size_calc *= vol_monitor.get_size_adjustment(symbol)
+                final_usd = min(size_calc, max_per_trade, config.MAX_TRADE_SIZE_USD)
                 
                 if final_usd < min_req:
-                    # Upgrade to min_req if within limits AND we have enough balance
-                    can_afford = min_req <= available_capital * 0.9  # Max 90% des Kapitals
-                    within_limits = min_req <= config.MAX_TRADE_SIZE_USD and min_req <= max_per_trade
-                    
-                    if can_afford and within_limits:
+                    # Upgrade to min_req if within limits
+                    if min_req <= config.MAX_TRADE_SIZE_USD and min_req <= max_per_trade:
                         final_usd = float(min_req)
-                        logger.info(f"📊 KELLY SIZE {symbol}: upgraded to min_req ${min_req:.1f}")
                     else:
-                        reason = "too expensive" if not can_afford else "exceeds limits"
-                        logger.debug(f"Skip {symbol}: Size ${final_usd:.2f} < Min ${min_req:.2f} ({reason})")
+                        logger.debug(f"Skip {symbol}: Size ${final_usd:.2f} < Min ${min_req:.2f} (and cannot upgrade)")
                         return False
-                else:
-                    logger.info(f"📊 KELLY SIZE {symbol}: ${final_usd:.1f} (kelly-optimized)")
 
             # 5. Final Balance Check
             required_x10 = final_usd * 1.05
@@ -1159,17 +1113,6 @@ async def manage_open_trades(lighter, x10):
                         'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
                         'spread_pnl': spread_pnl, 'fees': est_fees
                     })
-                    # Kelly Sizer Trade Recording
-                    try:
-                        kelly_sizer = get_kelly_sizer()
-                        kelly_sizer.record_trade(
-                            symbol=sym,
-                            pnl_usd=total_pnl,
-                            hold_time_seconds=hold_hours * 3600,
-                            entry_apy=t.get('apy', None)
-                        )
-                    except Exception as e:
-                        logger.error(f"Kelly Sizer record_trade error for {sym}: {e}")
                     telegram = get_telegram_bot()
                     if telegram.enabled:
                         await telegram.send_trade_alert(sym, reason, notional, total_pnl)

@@ -53,17 +53,16 @@ TRADE_COOLDOWN_SECONDS = 120
 # POSITIONSGRÖSSEN & LIMITS
 # ============================================================
 # ═════════════════════════════════════════════════════════════════════════════==
-# OPTIMIERT für $60 Total Balance
+# REALISTISCH für $63 Total Balance ($35 X10 + $28 Lighter)
 # ═════════════════════════════════════════════════════════════════════════════==
-DESIRED_NOTIONAL_USD = 8          # Kleiner starten
-MIN_POSITION_SIZE_USD = 5.0       # API Minimum
-MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
-MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
-MAX_TRADE_SIZE_USD = 20.0         # Max pro Trade
-MAX_OPEN_TRADES = 3               # Weniger parallel (war 5)
+DESIRED_NOTIONAL_USD = 22.0   # OK
+MIN_POSITION_SIZE_USD = 5.0  # Gesenkt von 5.0 auf 5.0 (passt)
+MAX_NOTIONAL_USD = 18.0      # GESENKT von 10.0 auf 15.0 (war schon 10, erhöhe leicht)
+MAX_TRADE_SIZE_USD = 100.0    # GESENKT von 20.0 auf 15.0
+MAX_OPEN_TRADES = 5           # NUR 5 TRADES GLEICHZEITIG (vorher 40!)
 
-# Safety: Reserve 20% statt 30%
-BALANCE_RESERVE_PCT = 0.20        # Gesenkt von 0.30
+# Safety: Reserve 30% per exchange
+BALANCE_RESERVE_PCT = 0.30    # 30% Reserve
 
 # ============================================================
 # PROFIT-FILTER (EINSTIEG)
@@ -107,10 +106,9 @@ POSITION_SIZE_MULTIPLIERS = {
 MAX_POSITION_SIZE_PCT = 0.10  # 10% of total balance
 MIN_POSITION_SIZE_PCT = 0.02  # 2% of total balance
 
-## Kelly Criterion Settings
-KELLY_SAFETY_FACTOR = 0.25
-MAX_SINGLE_TRADE_RISK_PCT = 0.10
-MIN_KELLY_SAMPLE_SIZE = 10          # Mindest-Trades für volle Kelly-Berechnung
+# Kelly Criterion Settings
+KELLY_SAFETY_FACTOR = 0.25  # Quarter Kelly (conservative)
+MAX_SINGLE_TRADE_RISK_PCT = 0.05  # Never risk >5% on single trade
 
 # ============================================================
 # BTC CORRELATION THRESHOLDS
@@ -189,8 +187,8 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # ============================================================
 # VOLUME FARM MODE
 # ============================================================
-VOLUME_FARM_MODE = False
-FARM_NOTIONAL_USD = 11
+VOLUME_FARM_MODE = True
+FARM_NOTIONAL_USD = 10        # GESENKT von 10 auf 8 für mehr Buffer
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 15
 FARM_MAX_HOLD_MINUTES = 120
