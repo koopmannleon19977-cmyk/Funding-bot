@@ -180,7 +180,7 @@ async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter,
                 pass
 
             net = rl - rx
-            apy = abs(net) * 3 * 365  # Funding wird 3x pro Tag gezahlt (8h intervals)
+            apy = abs(net) * 24 * 365  # Calculate annualized percentage yield
 
             # Threshold check
             threshold_manager = get_threshold_manager()
@@ -524,12 +524,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     
     logger.info(f"✅ Found {len(opportunities)} opportunities with predictions (farm_mode={is_farm_mode})")
     
-    # NUR returnen wenn wir tatsächlich Opportunities haben
-    if opportunities:
-        return opportunities[:config.MAX_OPEN_TRADES]
-
-    # Wenn keine Predictions, weiter zum Fallback-Code unten
-    logger.info("⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...")
+    return opportunities[:config.MAX_OPEN_TRADES]
 
     # Update threshold manager (old code kept for fallback)
     current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
@@ -579,11 +574,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 logger.debug(f"Volatility monitor update failed for {s}: {e}")
 
         net = rl - rx
-        apy = abs(net) * 3 * 365  # Funding wird 3x pro Tag gezahlt (8h intervals)
-
-        # ↓↓↓ DIESE ZEILE EINFÜGEN ↓↓↓
-        if apy > 0.5:  # Nur loggen wenn APY > 50%
-            logger.info(f"🔍 DEBUG {s}: rl={rl:.8f}, rx={rx:.8f}, net={net:.8f}, apy={apy*100:.1f}%")
+        apy = abs(net) * 24 * 365
 
         req_apy = threshold_manager.get_threshold(s, is_maker=True)
         if apy < req_apy:
