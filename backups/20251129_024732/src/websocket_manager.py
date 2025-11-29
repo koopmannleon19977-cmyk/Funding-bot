@@ -11,7 +11,6 @@ import websockets
 from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 
 logger = logging.getLogger(__name__)
-import config
 
 
 class WSState(Enum):
@@ -34,7 +33,6 @@ class WSConfig:
     reconnect_delay_multiplier: float = 2.0
     max_reconnect_attempts: int = 0  # 0 = infinite
     message_queue_size: int = 1000
-    headers: Optional[Dict[str, str]] = None
 
 
 @dataclass
@@ -232,29 +230,23 @@ class ManagedWebSocket:
     
     async def _connect(self):
         """Establish WebSocket connection"""
-        self._state = WSState. CONNECTING
+        self._state = WSState.CONNECTING
         
         try:
-            # Build connection kwargs
-            connect_kwargs = {
-                "ping_interval": self.config.ping_interval,
-                "ping_timeout": self.config.ping_timeout,
-                "close_timeout": 5.0,
-            }
-            
-            # Add headers if configured (wichtig für X10!)
-            if self. config.headers:
-                connect_kwargs["additional_headers"] = self.config.headers
-            
             self._ws = await asyncio.wait_for(
-                websockets. connect(self.config.url, **connect_kwargs),
+                websockets.connect(
+                    self.config.url,
+                    ping_interval=self.config.ping_interval,
+                    ping_timeout=self.config.ping_timeout,
+                    close_timeout=5.0
+                ),
                 timeout=30.0
             )
             
             self._state = WSState.CONNECTED
-            self._metrics.last_connect_time = time. time()
+            self._metrics.last_connect_time = time.time()
             
-            logger.info(f"✅ [{self.config.name}] Connected to {self.config.url}")
+            logger.info(f"✅ [{self. config.name}] Connected to {self.config.url}")
             
         except asyncio.TimeoutError:
             logger.error(f"[{self.config. name}] Connection timeout")
@@ -351,7 +343,7 @@ class WebSocketManager:
     
     # Exchange WebSocket URLs
     LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
-    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"
+    X10_WS_URL = "wss://api.starknet.extended.exchange/stream"
 
 
     
@@ -402,17 +394,12 @@ class WebSocketManager:
             self._handle_message
         )
         
-        # Create X10 connection with headers
-        x10_headers = {
-            "X-Api-Key": getattr(config, "X10_API_KEY", ""),
-            "User-Agent": "X10PythonTradingClient/0. 4.5",
-        }
+        # Create X10 connection
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
             ping_interval=15.0,
-            ping_timeout=10.0,
-            headers=x10_headers,
+            ping_timeout=10.0
         )
         self._connections["x10"] = ManagedWebSocket(
             x10_config,
