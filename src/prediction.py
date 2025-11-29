@@ -682,9 +682,64 @@ async def get_best_opportunities(
     Get best trading opportunities. 
     """
     predictor = get_predictor()
-    return await predictor. get_top_opportunities(
+    return await predictor.get_top_opportunities(
         symbols=symbols,
         min_apy=min_apy,
         min_confidence=min_confidence,
         limit=limit,
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# LEGACY COMPATIBILITY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def calculate_smart_size(
+    base_notional: float,
+    apy_pct: float = 0.0,
+    spread_pct: float = 0.0,
+    confidence: float = 0.5,
+    open_interest: float = 0.0,
+    max_oi_fraction: float = 0.02
+) -> float:
+    """
+    Berechnet optimale Trade-Größe basierend auf:
+    - APY (höher = größer)
+    - Spread (niedriger = größer)
+    - Confidence (höher = größer)
+    - Open Interest (limitiert max size)
+    """
+    # Basis-Multiplikatoren
+    apy_mult = min(2.0, 1.0 + (apy_pct / 100))
+    spread_mult = max(0.5, 1.0 - (spread_pct * 50))
+    conf_mult = 0.5 + (confidence * 0.5)
+    
+    combined_mult = apy_mult * spread_mult * conf_mult
+    size = base_notional * combined_mult
+    
+    if open_interest > 0:
+        max_size_by_oi = open_interest * max_oi_fraction
+        if size > max_size_by_oi:
+            logger.debug(f"Size limited by OI: ${size:.2f} → ${max_size_by_oi:.2f}")
+            size = max_size_by_oi
+    
+    # Import config only when needed to avoid circular imports
+    try:
+        import config
+        max_notional = getattr(config, 'MAX_NOTIONAL_USD', 500)
+    except ImportError:
+        max_notional = 500
+    
+    size = max(15.0, min(size, max_notional))
+    return size
+
+
+def predict_next_funding_rates(
+    lighter_adapter,
+    x10_adapter, 
+    symbol: str,
+    current_lighter_rate: float,
+    current_x10_rate: float
+) -> Tuple[float, float]:
+    """Legacy function - use prediction_v2.py or get_prediction() instead"""
+    return 0.0, 0.0

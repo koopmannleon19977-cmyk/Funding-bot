@@ -3,10 +3,12 @@ import sys
 import os
 import time
 import asyncio
+import aiosqlite
 import inspect
 import logging
 import random
 import traceback
+import aiohttp  # ← HINZUFÜGEN
 import signal
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Callable, Awaitable, Any, Set
@@ -71,6 +73,18 @@ OPPORTUNITY_LOG_CACHE = {}
 # Define in-flight reservation globals (used when reserving trade notional)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
+# ============================================================
+# PREDICTION SYSTEM STUBS
+# ============================================================
+async def update_funding_data(symbol: str, rate_x10: float, rate_lighter: float, 
+                               mark_price: float, open_interest: float):
+    """Stub for prediction system - data already cached in adapters"""
+    pass
+
+async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: float, limit: int):
+    """Stub - returns empty list, main logic uses find_opportunities fallback"""
+    return []
+
 # ============================================================
 # FEE & STARTUP LOGIC
 # ============================================================
@@ -261,7 +275,8 @@ async def get_execution_lock(symbol: str) -> asyncio.Lock:
         return EXECUTION_LOCKS[symbol]
 
 # Add small helper to return the global state manager instance used elsewhere
-def get_state_manager():
+def get_local_state_manager():
+    """Return the global state manager instance (sync helper)"""
     return state_manager
 
 # ============================================================
@@ -271,7 +286,12 @@ state_manager = None
 
 async def get_open_trades() -> list:
     """Get open trades from in-memory state (instant)"""
-    sm = await get_state_manager()
+    global state_manager
+    if state_manager is None:
+        # Import the REAL async get_state_manager from state_manager module
+        from src.state_manager import get_state_manager as get_sm
+        state_manager = await get_sm()
+    sm = state_manager
     trades = await sm.get_all_open_trades()
     # Convert to dict format for backwards compatibility
     return [t.to_dict() for t in trades]
@@ -1017,10 +1037,8 @@ async def manage_open_trades(lighter, x10):
 
             # Fees
             # Extra Safety: Ensure fees are floats (prevent NoneType error)
-            raw_fx = state_manager.get_fee_estimate('X10', sym, default=config.TAKER_FEE_X10)
-            raw_fl = state_manager.get_fee_estimate('Lighter', sym, default=0.0)
-            fee_x10 = float(raw_fx) if raw_fx is not None else config.TAKER_FEE_X10
-            fee_lit = float(raw_fl) if raw_fl is not None else 0.0
+            fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
+            fee_lit = 0.0  # Lighter hat keine/niedrige Taker Fees
             est_fees = notional * (fee_x10 + fee_lit) * 2.0
 
             total_pnl = funding_pnl + spread_pnl - est_fees
@@ -1843,15 +1861,39 @@ async def migrate_database():
     """Migrate DB schema for new columns"""
     try:
         async with aiosqlite.connect(config.DB_FILE) as conn:
-            # Check if migration needed
+            # FIRST: Create trade_history table if it doesn't exist
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS trade_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol TEXT NOT NULL,
+                    entry_time TIMESTAMP,
+                    exit_time TIMESTAMP,
+                    hold_duration_hours REAL,
+                    close_reason TEXT,
+                    final_pnl_usd REAL,
+                    funding_pnl_usd REAL,
+                    spread_pnl_usd REAL,
+                    fees_usd REAL,
+                    account_label TEXT DEFAULT 'Main'
+                )
+            """)
+            await conn.commit()
+            
+            # Check if migration needed for existing table
             cursor = await conn.execute("PRAGMA table_info(trade_history)")
             columns = await cursor.fetchall()
             has_account_label = any(col[1] == 'account_label' for col in columns)
             
             if not has_account_label:
                 logger.info("🔄 Migrating database schema...")
-                await conn.execute("ALTER TABLE trade_history ADD COLUMN account_label TEXT DEFAULT 'Main'")
-                await conn.execute("ALTER TABLE trades ADD COLUMN account_label TEXT DEFAULT 'Main'")
+                try:
+                    await conn.execute("ALTER TABLE trade_history ADD COLUMN account_label TEXT DEFAULT 'Main'")
+                except Exception:
+                    pass  # Column might already exist
+                try:
+                    await conn.execute("ALTER TABLE trades ADD COLUMN account_label TEXT DEFAULT 'Main'")
+                except Exception:
+                    pass  # Column might already exist
                 await conn.commit()
                 logger.info("✅ Database migration complete")
             else:
@@ -1859,11 +1901,8 @@ async def migrate_database():
                 
     except Exception as e:
         logger.error(f"❌ Migration failed: {e}")
-        logger.warning("⚠️ Deleting old database and recreating...")
-        import os
-        if os.path.exists(config.DB_FILE):
-            os.remove(config.DB_FILE)
-        await setup_database()
+        # DON'T delete the database - just continue
+        logger.warning("⚠️ Continuing without migration...")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PUNKT 2: NON-BLOCKING MAIN LOOP
@@ -2360,7 +2399,8 @@ async def main():
     logger.info(" 🔥 BOT V4 (Full Architected) STARTING...")
 
     # 1. Init Infrastructure
-    state_manager = await get_state_manager()
+    from src.state_manager import get_state_manager as get_sm_async
+    state_manager = await get_sm_async()
     logger.info("✅ State Manager started")
     global telegram_bot
     telegram_bot = get_telegram_bot()
@@ -2380,61 +2420,112 @@ async def main():
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")
     try:
-        # PARALLEL statt sequential: gather with return_exceptions to inspect errors
-        load_results = await asyncio.gather(
-            x10.load_market_cache(force=True),
-            lighter.load_market_cache(force=True),
-            return_exceptions=True
+        # PARALLEL mit TIMEOUT statt sequential
+        load_results = await asyncio.wait_for(
+            asyncio.gather(
+                x10.load_market_cache(force=True),
+                lighter.load_market_cache(force=True),
+                return_exceptions=True
+            ),
+            timeout=60.0  # 60 Sekunden max für beide
         )
 
         # Check for errors from the parallel load
         for i, result in enumerate(load_results):
             if isinstance(result, Exception):
-                logger.error(f"Market load failed: {result}")
+                exchange = "X10" if i == 0 else "Lighter"
+                logger.error(f"❌ {exchange} market load failed: {result}")
 
         x10_count = len(x10.market_info)
         lit_count = len(lighter.market_info)
 
         logger.info(f"✅ Markets loaded: X10={x10_count}, Lighter={lit_count}")
 
+        # Nach "✅ Markets loaded" und VOR WebSocket-Start: Funding Rates vorladen
+        logger.info("📈 Pre-loading funding rates...")
+
+        # Lighter funding rates laden
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get("https://mainnet.zklighter.elliot.ai/api/v1/funding-rates") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        for fr in data.get("funding_rates", []):
+                            if fr.get("exchange") == "lighter":
+                                symbol = fr.get("symbol")
+                                rate = fr.get("rate")
+                                if symbol and rate is not None:
+                                    # Normalize symbol to include -USD
+                                    if not symbol.endswith("-USD"):
+                                        symbol = f"{symbol}-USD"
+                                    lighter.funding_cache[symbol] = float(rate)
+                        logger.info(f"✅ Lighter funding rates pre-loaded: {len(lighter.funding_cache)}")
+        except Exception as e:
+            logger.warning(f"⚠️ Lighter funding preload: {e}")
+
+        # X10 funding rates (bereits in market_cache enthalten)
+        await x10.load_market_cache(force=True)
+        logger.info(f"✅ X10 funding rates: {len(x10.funding_cache)}")
+
+    except asyncio.TimeoutError:
+        logger.error("❌ Market loading TIMEOUT (60s) - continuing with partial data")
+        x10_count = len(x10.market_info)
+        lit_count = len(lighter.market_info)
+        logger.info(f"⚠️ Partial markets: X10={x10_count}, Lighter={lit_count}")
+        
+        if x10_count == 0 and lit_count == 0:
+            raise ValueError("No markets loaded from any exchange after timeout")
+
         if x10_count == 0 and lit_count == 0:
             raise ValueError("No markets loaded from any exchange")
-
+    
         if lit_count == 0:
             logger.warning("⚠️ Lighter markets not loaded - bot will use X10 only")
-
+    
         if x10_count == 0:
             logger.warning("⚠️ X10 markets not loaded - bot will use Lighter only")
-        
-        # Load initial funding rates
-        logger.info("📈 Loading initial funding rates...")
-        await lighter.load_funding_rates_and_prices()
-        
-        # Verify data loaded
-        test_syms = ["BTC-USD", "ETH-USD", "SOL-USD"]
-        loaded_ok = False
-        for sym in test_syms:
-            if sym in x10.market_info and sym in lighter.market_info:
-                px = x10.fetch_mark_price(sym)
-                pl = lighter.fetch_mark_price(sym)
-                if px and pl and px > 0 and pl > 0:
-                    logger.info(f"✅ Data OK: {sym} X10=${px:.2f}, Lighter=${pl:.2f}")
-                    loaded_ok = True
-                    break
-        
-        if not loaded_ok:
-            raise ValueError("No valid market data after load")
-            
+            # Load initial funding rates
+            logger.info("📈 Loading initial funding rates...")
+            await lighter.load_funding_rates_and_prices()
+            # Verify data loaded
+            test_syms = ["BTC-USD", "ETH-USD", "SOL-USD"]
+            loaded_ok = False
+            for sym in test_syms:
+                if sym in x10.market_info and sym in lighter.market_info:
+                    px = x10.fetch_mark_price(sym)
+                    pl = lighter.fetch_mark_price(sym)
+                    if px and pl and px > 0 and pl > 0:
+                        logger.info(f"✅ Data OK: {sym} X10=${px:.2f}, Lighter=${pl:.2f}")
+                        loaded_ok = True
+                        break
+            if not loaded_ok:
+                raise ValueError("No valid market data after load")
+    
     except Exception as e:
         logger.critical(f"❌ FATAL: Market data load failed: {e}")
         return
     
     # 4. NOW Start WebSocket Streams (AFTER markets loaded)
     logger.info("🌐 Starting WebSocket streams...")
-    ws_manager = WebSocketManager([x10, lighter])
-    # Prepare cleanup task variable to avoid UnboundLocalError in finally
+    ws_manager = WebSocketManager()
+    ws_manager.set_adapters(x10, lighter)
     cleanup_task = None
-    await ws_manager.start()
+
+    # DEBUG: Log before start
+    logger.info("DEBUG: About to call ws_manager.start()...")
+
+    try:
+        await asyncio.wait_for(ws_manager.start(), timeout=30.0)
+        logger.info("✅ WebSocket streams connected")
+    except asyncio.TimeoutError:
+        logger.warning("⚠️ WebSocket connection timeout (30s) - continuing with REST fallback")
+    except Exception as e:
+        logger.error(f"❌ WebSocket Manager failed to start: {e}")
+        import traceback
+        traceback.print_exc()
+
+    # DEBUG: Log after start
+    logger.info("DEBUG: ws_manager.start() completed or failed, continuing...")
 
     # ═══════════════════════════════════════════════════════════════════════════════
     # CRITICAL: Task Cleanup verhindert Memory Leaks

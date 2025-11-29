@@ -166,6 +166,22 @@ class ParallelExecutionManager:
         Returns:
             (success, x10_order_id, lighter_order_id)
         """
+        # ════════════════════════════════════════════════════════════════
+        # DEBUG: Find the type error
+        # ════════════════════════════════════════════════════════════════
+        logger.info(f"DEBUG execute_trade_parallel {symbol}:")
+        logger.info(f"  side_x10={side_x10} (type={type(side_x10).__name__})")
+        logger.info(f"  side_lighter={side_lighter} (type={type(side_lighter).__name__})")
+        logger.info(f"  size_x10={size_x10} (type={type(size_x10).__name__})")
+        logger.info(f"  size_lighter={size_lighter} (type={type(size_lighter).__name__})")
+        
+        # Check Lighter market_info
+        lit_info = self.lighter.market_info.get(symbol, {})
+        logger.info(f"  Lighter market_info: {lit_info}")
+        for k, v in lit_info.items():
+            logger.info(f"    {k}: {v} (type={type(v).__name__})")
+        # ════════════════════════════════════════════════════════════════
+        
         timeout = timeout or self. EXECUTION_TIMEOUT
         
         # Ensure symbol-level lock exists
@@ -300,7 +316,7 @@ class ParallelExecutionManager:
         if lighter_success and x10_success:
             execution.state = ExecutionState.COMPLETE
             logger.info(
-                f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:. 0f}ms"
+                f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:.0f}ms"
             )
             return True, x10_order, lighter_order
 
@@ -429,7 +445,7 @@ class ParallelExecutionManager:
             close_size = abs(actual_size)
 
             logger.info(
-                f"→ X10 Rollback {symbol}: size={actual_size:. 6f}, side={original_side}"
+                f"→ X10 Rollback {symbol}: size={actual_size:.6f}, side={original_side}"
             )
 
             success, _ = await self.x10.close_live_position(
@@ -452,7 +468,7 @@ class ParallelExecutionManager:
         symbol = execution.symbol
         
         try:
-            positions = await self. lighter.fetch_open_positions()
+            positions = await self.lighter.fetch_open_positions()
             pos = next(
                 (p for p in (positions or [])
                  if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
@@ -467,17 +483,22 @@ class ParallelExecutionManager:
             original_side = "BUY" if actual_size > 0 else "SELL"
             close_size_coins = abs(actual_size)
 
-            # Lighter needs USD notional, not coins
-            mark_price = self. lighter.fetch_mark_price(symbol)
-            if not mark_price or mark_price <= 0:
-                logger.error(f"✗ Lighter rollback {symbol}: No price available")
+            # CRITICAL FIX: Sichere Typ-Konvertierung
+            raw_price = self.lighter.fetch_mark_price(symbol)
+            try:
+                mark_price = float(raw_price) if raw_price is not None else 0.0
+            except (ValueError, TypeError):
+                mark_price = 0.0
+            
+            if mark_price <= 0:
+                logger.error(f"✗ Lighter rollback {symbol}: No valid price")
                 return False
 
             notional_usd = close_size_coins * mark_price
 
             logger.info(
                 f"→ Lighter Rollback {symbol}: "
-                f"size={actual_size:. 6f} @ ${mark_price:. 2f} = ${notional_usd:.2f}"
+                f"size={actual_size:.6f} @ ${mark_price:.2f} = ${notional_usd:.2f}"
             )
 
             success, _ = await self.lighter.close_live_position(
@@ -492,7 +513,7 @@ class ParallelExecutionManager:
                 return False
 
         except Exception as e:
-            logger. error(f"✗ Lighter rollback {symbol}: Exception: {e}")
+            logger.error(f"✗ Lighter rollback {symbol}: Exception: {e}")
             return False
 
     def get_execution_stats(self) -> Dict[str, Any]:

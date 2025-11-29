@@ -81,7 +81,7 @@ class AsyncDatabase:
             "writes": 0,
             "write_batches": 0,
             "errors": 0,
-            "avg_read_ms": 0. 0,
+            "avg_read_ms": 0.0,
             "avg_write_ms": 0.0,
         }
 
@@ -407,7 +407,7 @@ class AsyncDatabase:
                 break
             except Exception as e:
                 logger.error(f"Write loop error: {e}")
-                await asyncio.sleep(1. 0)
+                await asyncio.sleep(1.0)
         
         # Final flush
         if batch:

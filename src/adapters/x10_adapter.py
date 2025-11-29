@@ -476,8 +476,7 @@ class X10Adapter(BaseAdapter):
             return True, None
         
         # Warte auf Token BEVOR Request gesendet wird
-        limiter = get_rate_limiter()
-        await limiter.acquire(Exchange.X10, "order")
+        await self.rate_limiter.acquire()
         
         client = await self._get_trading_client()
         market = self.market_info.get(symbol)
