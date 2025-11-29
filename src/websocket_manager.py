@@ -343,7 +343,8 @@ class WebSocketManager:
     
     # Exchange WebSocket URLs
     LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
-    X10_WS_URL = "wss://stream.extended. exchange/v1"
+    X10_WS_URL = "wss://api.starknet.extended.exchange/stream"
+
 
     
     def __init__(self):

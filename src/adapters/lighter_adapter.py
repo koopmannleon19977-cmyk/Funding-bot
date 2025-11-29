@@ -1069,7 +1069,7 @@ class LighterAdapter(BaseAdapter):
 
         return scaled_base, scaled_price
 
-    # @rate_limited(Exchange.LIGHTER, "sendTx")  # TEMPORÄR DEAKTIVIERT
+    @rate_limited(Exchange. LIGHTER)
     async def open_live_position(
         self,
         symbol: str,
@@ -1113,10 +1113,7 @@ class LighterAdapter(BaseAdapter):
             )
             limit_price = price_decimal * slippage_multiplier
             qty = notional_decimal / limit_price
-            
-            logger.info(f"DEBUG before _scale_amounts: qty={qty}, limit_price={limit_price}, side={side}")
-            logger.info(f"DEBUG qty type={type(qty)}, price type={type(limit_price)}")
-            
+
             base, price_int = self._scale_amounts(symbol, qty, limit_price, side)
             
             if base == 0:

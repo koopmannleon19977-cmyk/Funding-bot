@@ -166,21 +166,7 @@ class ParallelExecutionManager:
         Returns:
             (success, x10_order_id, lighter_order_id)
         """
-        # ════════════════════════════════════════════════════════════════
-        # DEBUG: Find the type error
-        # ════════════════════════════════════════════════════════════════
-        logger.info(f"DEBUG execute_trade_parallel {symbol}:")
-        logger.info(f"  side_x10={side_x10} (type={type(side_x10).__name__})")
-        logger.info(f"  side_lighter={side_lighter} (type={type(side_lighter).__name__})")
-        logger.info(f"  size_x10={size_x10} (type={type(size_x10).__name__})")
-        logger.info(f"  size_lighter={size_lighter} (type={type(size_lighter).__name__})")
-        
-        # Check Lighter market_info
-        lit_info = self.lighter.market_info.get(symbol, {})
-        logger.info(f"  Lighter market_info: {lit_info}")
-        for k, v in lit_info.items():
-            logger.info(f"    {k}: {v} (type={type(v).__name__})")
-        # ════════════════════════════════════════════════════════════════
+        # (Removed temporary debug block for type inspection)
         
         timeout = timeout or self. EXECUTION_TIMEOUT
         
