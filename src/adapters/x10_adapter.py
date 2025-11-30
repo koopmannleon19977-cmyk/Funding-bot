@@ -259,7 +259,7 @@ class X10Adapter(BaseAdapter):
         """Funding Rate: Prioritize WebSocket Cache (_funding_cache)"""
         # 1. Zuerst im Echtzeit-Cache (WebSocket) schauen
         if symbol in self._funding_cache:
-            return self._funding_cache[symbol]
+            return self._funding_cache[symbol]  # X10 liefert meist Hourly Rates
 
         # 2. Fallback auf REST Cache
         if symbol in self.funding_cache:
@@ -271,6 +271,9 @@ class X10Adapter(BaseAdapter):
             rate = getattr(m.market_stats, 'funding_rate', None)
             if rate is not None:
                 rate_float = float(rate)
+                # Falls X10 Rates als 8h Rates liefert (z.B. dYdX Style), 
+                # müssten wir durch 8 teilen um auf Hourly zu kommen.
+                # Aktuell gehen wir von Hourly aus.
                 self.funding_cache[symbol] = rate_float
                 return rate_float
         return None

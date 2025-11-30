@@ -952,12 +952,15 @@ class LighterAdapter(BaseAdapter):
 
         rate_float = float(rate)
 
-        # Lighter API liefert manchmal annualisierte Rates oder falsche Skalierung
-        # Sicherheits-Check: Wenn Rate > 10% (0.1) pro 8h ist, stimmt was nicht -> /8 teilen
-        if abs(rate_float) > 0.1:
-            rate_float = rate_float / 8.0
+        # EXTREME VALUE CHECK (Annualized APY)
+        # Wenn der Wert > 20.0 ist (z.B. 50.0%), ist es annualisiert.
+        if abs(rate_float) > 20.0:
+            return rate_float / 100.0 / (24 * 365)
 
-        return rate_float
+        # KORREKTUR: Lighter API liefert 8-Stunden-Rate (Decimal).
+        # Die Zahlungen erfolgen aber stündlich (1/8 der Rate).
+        # Um auf die korrekte "Hourly Rate" für den Bot zu kommen, müssen wir durch 8 teilen.
+        return rate_float / 8.0
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
         """Mark Price aus Cache (WS > REST)"""

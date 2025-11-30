@@ -1,0 +1,1256 @@
+16:09:04 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+16:09:04 [INFO] 🔥 BOT V5 (Architected) STARTING...
+16:09:04 [INFO] 🚀 Starting InMemoryStateManager...
+16:09:04 [INFO] 📂 Initializing database: data/trades.db
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE53B00>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE53B00> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69120>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69120>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE53EC0>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE53EC0> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE693F0>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE693F0>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE53F60>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE53F60> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE698A0>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE698A0>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE53920>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE53920> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69E40>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69E40>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE744A0>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE744A0> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A200>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A200>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [INFO] ✅ Read pool created: 5 connections
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE742C0>
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE742C0> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA foreign_keys=ON', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA foreign_keys=ON', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA journal_mode=WAL', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA journal_mode=WAL', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA synchronous=NORMAL', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, 'PRAGMA synchronous=NORMAL', []) completed
+16:09:04 [INFO] ✅ WAL mode enabled
+16:09:04 [INFO] 🔄 Running database migrations...
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:09:04 [INFO] ✅ Migrations complete (11 statements)
+16:09:04 [INFO] ✅ Database initialized
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69120>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ())
+16:09:04 [INFO] 🖊️ Database write loop started
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE69120>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ()) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7FFE47440>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7FFE47440>) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002A7FFE47440>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002A7FFE47440>) completed
+16:09:04 [INFO] 📂 Loaded 2 trades from database
+16:09:04 [INFO] ✅ InMemoryStateManager started (loaded 2 trades)
+16:09:04 [INFO] ✅ State Manager started
+16:09:04 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+16:09:04 [INFO] ✅ Async database initialized
+16:09:04 [DEBUG] executing <function connect.<locals>.connector at 0x000002A7FFE74860>
+16:09:04 [INFO] 📝 State writer loop started
+16:09:04 [DEBUG] operation <function connect.<locals>.connector at 0x000002A7FFE74860> completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6AC50>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6AC50>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6AC50>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6AC50>) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6AC50>, 'PRAGMA table_info(trade_history)', [])
+16:09:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6AC50>, 'PRAGMA table_info(trade_history)', []) completed
+16:09:04 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7FFE47240>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7FFE47240>) completed
+16:09:04 [DEBUG] ✅ Database schema up to date
+16:09:04 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6AC50>)
+16:09:04 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6AC50>) completed
+16:09:04 [INFO] Initialisiere X10 Adapter...
+16:09:04 [INFO]  X10 Account initialisiert.
+16:09:04 [INFO] Initialisiere Lighter Adapter...
+16:09:04 [INFO] 📊 Loading Market Data via REST...
+16:09:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:09:04 [INFO] ⚙️ Lighter: Loading markets...
+16:09:04 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+16:09:05 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+16:09:07 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:10:03 [INFO] ✅ Lighter: 118/118 markets loaded (100.0%)
+16:10:03 [INFO] ✅ Markets loaded: X10=91, Lighter=118
+16:10:03 [INFO] FundingPredictorV2 initialized with BTC Correlation
+16:10:03 [INFO] 启动 OI Tracker für 70 Symbole...
+16:10:03 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+16:10:03 [INFO] 🌐 Starting WebSocket Manager...
+16:10:03 [INFO] 📊 OI Tracker: Starting cycle 1 (70 symbols)
+16:10:03 [INFO] 🔌 [lighter] WebSocket manager started
+16:10:03 [INFO] 🔌 [x10] WebSocket manager started
+16:10:03 [INFO] ✅ WebSocketManager started
+16:10:03 [DEBUG] ✅ BERA-USD: X10=$185,310, Lighter=$990,096, Total=$1,175,407
+16:10:04 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/20
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/13
+16:10:04 [DEBUG] [lighter] Subscribed to trade/13
+16:10:04 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/31
+16:10:04 [DEBUG] [lighter] Subscribed to trade/31
+16:10:04 [DEBUG] [lighter] Subscribed to trade/17
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/18
+16:10:04 [DEBUG] [lighter] Subscribed to trade/18
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/32
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/11
+16:10:04 [DEBUG] [lighter] Subscribed to trade/11
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/51
+16:10:04 [DEBUG] [lighter] Subscribed to trade/51
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/86
+16:10:04 [DEBUG] [lighter] Subscribed to trade/86
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/33
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/89
+16:10:04 [DEBUG] [lighter] Subscribed to trade/89
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/29
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/43
+16:10:04 [DEBUG] [lighter] Subscribed to trade/43
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/1
+16:10:04 [DEBUG] [lighter] Subscribed to trade/1
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/38
+16:10:04 [DEBUG] [lighter] Subscribed to trade/38
+16:10:04 [DEBUG] [lighter] Subscribed to trade/91
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/65
+16:10:04 [DEBUG] [lighter] Subscribed to trade/65
+16:10:04 [DEBUG] [lighter] Subscribed to trade/32
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/27
+16:10:04 [DEBUG] [lighter] Subscribed to trade/27
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/24
+16:10:04 [DEBUG] [lighter] Subscribed to trade/24
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/83
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/40
+16:10:04 [DEBUG] [lighter] Subscribed to trade/40
+16:10:04 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE693F0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ())
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/7
+16:10:04 [DEBUG] [lighter] Subscribed to trade/7
+16:10:04 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE693F0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ()) completed
+16:10:04 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7CE50BBC0>)
+16:10:04 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002A7CE50BBC0>) completed
+16:10:04 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002A7CE50BBC0>)
+16:10:04 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002A7CE50BBC0>) completed
+16:10:04 [DEBUG] [lighter] Subscribed to trade/33
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/26
+16:10:04 [DEBUG] [lighter] Subscribed to trade/26
+16:10:04 [DEBUG] [lighter] Subscribed to order_book/2
+16:10:04 [DEBUG] [lighter] Subscribed to trade/2
+16:10:04 [DEBUG] [lighter] Subscribed to trade/25
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/21
+16:10:05 [DEBUG] [lighter] Subscribed to trade/21
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/10
+16:10:05 [DEBUG] [lighter] Subscribed to trade/10
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/63
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/53
+16:10:05 [DEBUG] [lighter] Subscribed to trade/53
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/5
+16:10:05 [DEBUG] [lighter] Subscribed to trade/5
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/25
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/16
+16:10:05 [DEBUG] [lighter] Subscribed to trade/16
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/76
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/50
+16:10:05 [DEBUG] [lighter] Subscribed to trade/50
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/9
+16:10:05 [DEBUG] [lighter] Subscribed to trade/9
+16:10:05 [DEBUG] [lighter] Subscribed to trade/82
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/92
+16:10:05 [DEBUG] [lighter] Subscribed to trade/92
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/55
+16:10:05 [DEBUG] [lighter] Subscribed to trade/55
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/28
+16:10:05 [DEBUG] [lighter] Subscribed to trade/28
+16:10:05 [DEBUG] [lighter] Subscribed to trade/63
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/60
+16:10:05 [DEBUG] [lighter] Subscribed to trade/60
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/23
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/90
+16:10:05 [DEBUG] [lighter] Subscribed to trade/90
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/104
+16:10:05 [DEBUG] [lighter] Subscribed to trade/104
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/45
+16:10:05 [DEBUG] [lighter] Subscribed to trade/45
+16:10:05 [DEBUG] [lighter] Subscribed to trade/76
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/8
+16:10:05 [DEBUG] [lighter] Subscribed to trade/8
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/49
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/35
+16:10:05 [DEBUG] [lighter] Subscribed to trade/35
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/71
+16:10:05 [DEBUG] [lighter] Subscribed to trade/71
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/34
+16:10:05 [DEBUG] [lighter] Subscribed to order_book/58
+16:10:05 [DEBUG] [lighter] Subscribed to trade/58
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/98
+16:10:06 [DEBUG] [lighter] Subscribed to trade/98
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/91
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/42
+16:10:06 [DEBUG] [lighter] Subscribed to trade/42
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/3
+16:10:06 [DEBUG] [lighter] Subscribed to trade/3
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/39
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/94
+16:10:06 [DEBUG] [lighter] Subscribed to trade/94
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/52
+16:10:06 [DEBUG] [lighter] Subscribed to trade/52
+16:10:06 [DEBUG] [lighter] Subscribed to trade/39
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/103
+16:10:06 [DEBUG] [lighter] Subscribed to trade/103
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/47
+16:10:06 [DEBUG] [lighter] Subscribed to trade/47
+16:10:06 [DEBUG] [lighter] Subscribed to trade/34
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/15
+16:10:06 [DEBUG] [lighter] Subscribed to trade/15
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/12
+16:10:06 [DEBUG] [lighter] Subscribed to trade/12
+16:10:06 [DEBUG] [lighter] Subscribed to trade/23
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/30
+16:10:06 [DEBUG] [lighter] Subscribed to trade/30
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/4
+16:10:06 [DEBUG] [lighter] Subscribed to trade/4
+16:10:06 [DEBUG] [lighter] Subscribed to trade/83
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/41
+16:10:06 [DEBUG] [lighter] Subscribed to trade/41
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/93
+16:10:06 [DEBUG] [lighter] Subscribed to trade/93
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/36
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/67
+16:10:06 [DEBUG] [lighter] Subscribed to trade/67
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/72
+16:10:06 [DEBUG] [lighter] Subscribed to trade/72
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/82
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/6
+16:10:06 [DEBUG] [lighter] Subscribed to trade/6
+16:10:06 [DEBUG] [lighter] Subscribed to order_book/37
+16:10:06 [DEBUG] [lighter] Subscribed to trade/37
+16:10:06 [DEBUG] [lighter] Subscribed to trade/20
+16:10:06 [DEBUG] [x10] Subscribed to orderbooks/BERA/USD
+16:10:06 [DEBUG] [x10] Subscribed to publicTrades/BERA/USD
+16:10:06 [DEBUG] [x10] Subscribed to funding/BERA/USD
+16:10:06 [DEBUG] [x10] Subscribed to orderbooks/SEI/USD
+16:10:06 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+16:10:06 [DEBUG] [x10] Subscribed to funding/SEI/USD
+16:10:06 [DEBUG] [lighter] Subscribed to trade/46
+16:10:06 [DEBUG] [x10] Subscribed to orderbooks/POPCAT/USD
+16:10:06 [DEBUG] [x10] Subscribed to publicTrades/POPCAT/USD
+16:10:06 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+16:10:06 [DEBUG] [x10] Subscribed to orderbooks/1000SHIB/USD
+16:10:06 [DEBUG] [x10] Subscribed to publicTrades/1000SHIB/USD
+16:10:06 [DEBUG] [x10] Subscribed to funding/1000SHIB/USD
+16:10:06 [DEBUG] [lighter] Subscribed to market_stats/all
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/IP/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/IP/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/IP/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/KAITO/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/KAITO/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/KAITO/USD
+16:10:07 [DEBUG] [lighter] Subscribed to trade/36
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/LINEA/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/LINEA/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/LINEA/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/ADA/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/ADA/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/ADA/USD
+16:10:07 [DEBUG] [lighter] Subscribed to order_book/17
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/LDO/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/LDO/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/LDO/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/EIGEN/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/EIGEN/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+16:10:07 [DEBUG] [lighter] Subscribed to trade/49
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/AVNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/MON/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/MON/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/MON/USD
+16:10:07 [DEBUG] [lighter] Subscribed to trade/29
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/ETH/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/ETH/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/ETH/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/ASTER/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/ASTER/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/ASTER/USD
+16:10:07 [DEBUG] [lighter] Subscribed to order_book/46
+16:10:07 [DEBUG] ✅ POPCAT-USD: X10=$181,662, Lighter=$7,560,524, Total=$7,742,186
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/BNB/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/BNB/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/MNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/MNT/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/CRV/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/CRV/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/ENA/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/ENA/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/TAO/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/TAO/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/TAO/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/APT/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/APT/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/1000BONK/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/1000BONK/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/DOT/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/DOT/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/RESOLV/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/RESOLV/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/RESOLV/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/APEX/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/APEX/USD
+16:10:07 [DEBUG] [x10] Subscribed to orderbooks/EDEN/USD
+16:10:07 [DEBUG] [x10] Subscribed to publicTrades/EDEN/USD
+16:10:07 [DEBUG] [x10] Subscribed to funding/EDEN/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/TRX/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/TRX/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/BTC/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/BTC/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/BTC/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/ONDO/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/ONDO/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/AERO/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/AERO/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/AERO/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/AAVE/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/AAVE/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/HYPE/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/HYPE/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/HYPE/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/S/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/S/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/S/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/XRP/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/XRP/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/XRP/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/JUP/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/JUP/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/JUP/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/SOL/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/SOL/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/SOL/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/FARTCOIN/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/NEAR/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/NEAR/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/NEAR/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/ZORA/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/ZORA/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/ZORA/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/WIF/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/WIF/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/WIF/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/SUI/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/SUI/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/SUI/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/ARB/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/ARB/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/ARB/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/AVAX/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/AVAX/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/AVAX/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/XAU/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/XAU/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/XAU/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/OP/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/OP/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/OP/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/MKR/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/MKR/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/MKR/USD
+16:10:08 [DEBUG] [x10] Subscribed to orderbooks/ZRO/USD
+16:10:08 [DEBUG] [x10] Subscribed to publicTrades/ZRO/USD
+16:10:08 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/ZEC/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/ZEC/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/ZEC/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/STRK/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/STRK/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/PUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/PUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/LINK/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/LINK/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/LTC/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/LTC/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/LTC/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/XPL/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/XPL/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/BCH/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/BCH/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/BCH/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/USDJPY/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/SPX/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/SPX/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/SPX/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/DOGE/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/DOGE/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/MEGA/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/MEGA/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/MEGA/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/GRASS/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/GRASS/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/GRASS/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/FIL/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/FIL/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/FIL/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/PENGU/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/TRUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/TON/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/TON/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/UNI/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/UNI/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/UNI/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/1000PEPE/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/VIRTUAL/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/VIRTUAL/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/XAG/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/XAG/USD
+16:10:09 [DEBUG] [x10] Subscribed to orderbooks/TIA/USD
+16:10:09 [DEBUG] [x10] Subscribed to publicTrades/TIA/USD
+16:10:09 [DEBUG] [x10] Subscribed to funding/TIA/USD
+16:10:10 [DEBUG] [x10] Subscribed to orderbooks/WLFI/USD
+16:10:10 [DEBUG] [x10] Subscribed to publicTrades/WLFI/USD
+16:10:10 [DEBUG] [x10] Subscribed to funding/WLFI/USD
+16:10:10 [DEBUG] [x10] Subscribed to orderbooks/WLD/USD
+16:10:10 [DEBUG] [x10] Subscribed to publicTrades/WLD/USD
+16:10:10 [DEBUG] [x10] Subscribed to funding/WLD/USD
+16:10:10 [DEBUG] [x10] Subscribed to orderbooks/PENDLE/USD
+16:10:10 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+16:10:10 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+16:10:10 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+16:10:10 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+16:10:10 [INFO] 🔍 DB meldet 2 offene Trades. Prüfe Exchange...
+16:10:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:11 [DEBUG] ✅ 1000SHIB-USD: X10=$172,903, Lighter=$175,865,779, Total=$176,038,682
+16:10:11 [INFO] Lighter: Found 0 open positions
+16:10:11 [INFO] 🌍 Echte Positionen auf Exchanges: []
+16:10:11 [WARNING] ⚠️  ZOMBIE GEFUNDEN: APT-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:10:11 [INFO] ✅ Trade APT-USD closed (PnL: $0.00)
+16:10:11 [WARNING] ⚠️  ZOMBIE GEFUNDEN: RESOLV-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:10:11 [INFO] ✅ Trade RESOLV-USD closed (PnL: $0.00)
+16:10:11 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+16:10:11 [INFO] ✅ ParallelExecutionManager started
+16:10:11 [INFO] 📝 Registered task: logic_loop (critical=True)
+16:10:11 [INFO] 📝 Registered task: trade_management_loop (critical=True)
+16:10:11 [INFO] 📝 Registered task: farm_loop (critical=False)
+16:10:11 [INFO] 📝 Registered task: maintenance_loop (critical=False)
+16:10:11 [INFO] 📝 Registered task: cleanup_finished_tasks (critical=False)
+16:10:11 [INFO] 📝 Registered task: health_reporter (critical=False)
+16:10:11 [INFO] ✅ Signal handlers installed (SIGINT, SIGTERM)
+16:10:11 [INFO] ▶️  Started task: logic_loop
+16:10:11 [INFO] ▶️  Started task: trade_management_loop
+16:10:11 [INFO] ▶️  Started task: farm_loop
+16:10:11 [INFO] ▶️  Started task: maintenance_loop
+16:10:11 [INFO] ▶️  Started task: cleanup_finished_tasks
+16:10:11 [INFO] ▶️  Started task: health_reporter
+16:10:11 [INFO] 🚀 Started 6 tasks
+16:10:11 [INFO] ═══════════════════════════════════════════════════════════
+16:10:11 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+16:10:11 [INFO] ═══════════════════════════════════════════════════════════
+16:10:11 [INFO] 🔄 Rollback processor running...
+16:10:11 [INFO] Logic Loop gestartet – REFRESH alle 3s
+16:10:11 [INFO] 🔍 💎 ARB Scanning 70 pairs. Open symbols to skip: set()
+16:10:11 [DEBUG] Price cache status: X10=70/70, Lighter=69/70
+16:10:11 [INFO] 🔍 Scanning 70 pairs. Lighter markets: 118, X10 markets: 91
+16:10:11 [INFO] 🛡️ Trade Management Loop gestartet
+16:10:11 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+16:10:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:10:11 [INFO] 🔍 Supervisor loop started
+16:10:11 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            UPDATE trades \n            SET status = 'closed', \n                closed_at = ?, \n                pnl = ?,\n                funding_collected = ?\n            WHERE symbol = ?  AND status = 'open'\n        ", (1764515411868, 0, 0, 'APT-USD'))
+16:10:11 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            UPDATE trades \n            SET status = 'closed', \n                closed_at = ?, \n                pnl = ?,\n                funding_collected = ?\n            WHERE symbol = ?  AND status = 'open'\n        ", (1764515411868, 0, 0, 'APT-USD')) completed
+16:10:11 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:11 [DEBUG] 📝 Flushed 1 writes
+16:10:11 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:11 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+16:10:11 [DEBUG] BERA-USD: Missing rates (L=None, X=-0.000121)
+16:10:11 [DEBUG] SEI-USD: Missing rates (L=None, X=1e-05)
+16:10:11 [DEBUG] POPCAT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] 1000SHIB-USD: Missing rates (L=None, X=-6e-06)
+16:10:11 [DEBUG] IP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] KAITO-USD: Missing rates (L=None, X=-2.5e-05)
+16:10:11 [DEBUG] ADA-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] EIGEN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] LDO-USD: Missing rates (L=None, X=4e-06)
+16:10:11 [DEBUG] LINEA-USD: Missing rates (L=None, X=-0.000108)
+16:10:11 [DEBUG] AVNT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] MON-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] ETH-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] ENA-USD: Missing rates (L=None, X=-2e-05)
+16:10:11 [DEBUG] TAO-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] APT-USD: Missing rates (L=None, X=-0.000134)
+16:10:11 [DEBUG] ASTER-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] BNB-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] MNT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] CRV-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] 1000BONK-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] DOT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] RESOLV-USD: Missing rates (L=None, X=-0.000193)
+16:10:11 [DEBUG] ONDO-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] AERO-USD: Missing rates (L=None, X=-7.8e-05)
+16:10:11 [DEBUG] AAVE-USD: Missing rates (L=None, X=2e-06)
+16:10:11 [DEBUG] APEX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] EDEN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] TRX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:11 [DEBUG] BTC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] HYPE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] S-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] XRP-USD: Missing rates (L=None, X=9e-06)
+16:10:12 [DEBUG] ZORA-USD: Missing rates (L=None, X=-0.000321)
+16:10:12 [DEBUG] WIF-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] SUI-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] JUP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] SOL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] FARTCOIN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] NEAR-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] ARB-USD: Missing rates (L=None, X=-8e-06)
+16:10:12 [DEBUG] AVAX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] XAU-USD: Missing rates (L=None, X=-1e-05)
+16:10:12 [DEBUG] STRK-USD: Missing rates (L=None, X=-6.5e-05)
+16:10:12 [DEBUG] PUMP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] LINK-USD: Missing rates (L=None, X=-2.4e-05)
+16:10:12 [DEBUG] OP-USD: Missing rates (L=None, X=-1.4e-05)
+16:10:12 [DEBUG] MKR-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+16:10:12 [DEBUG] ZRO-USD: Missing rates (L=None, X=-7.3e-05)
+16:10:12 [DEBUG] ZEC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] LTC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] XPL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] GRASS-USD: Missing rates (L=None, X=-1e-05)
+16:10:12 [DEBUG] FIL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] PENGU-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] BCH-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] USDJPY-USD: Missing rates (L=None, X=0.0)
+16:10:12 [DEBUG] DOGE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] MEGA-USD: Missing rates (L=None, X=-6.1e-05)
+16:10:12 [DEBUG] SPX-USD: Missing rates (L=None, X=-0.000127)
+16:10:12 [DEBUG] TRUMP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] TON-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] UNI-USD: Missing rates (L=None, X=-1e-05)
+16:10:12 [DEBUG] PENDLE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] 1000PEPE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] XAG-USD: Missing rates (L=None, X=0.0)
+16:10:12 [DEBUG] WLFI-USD: Missing rates (L=None, X=-3.7e-05)
+16:10:12 [DEBUG] WLD-USD: Missing rates (L=None, X=-5e-06)
+16:10:12 [DEBUG] TIA-USD: Missing rates (L=None, X=-0.000114)
+16:10:12 [DEBUG] VIRTUAL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=False)
+16:10:12 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+16:10:12 [DEBUG] Skip BERA-USD: Missing rates (L=None, X=-0.000121)
+16:10:12 [DEBUG] Skip SEI-USD: Missing rates (L=None, X=1e-05)
+16:10:12 [DEBUG] Skip POPCAT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip 1000SHIB-USD: Missing rates (L=None, X=-6e-06)
+16:10:12 [DEBUG] Skip IP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip KAITO-USD: Missing rates (L=None, X=-2.5e-05)
+16:10:12 [DEBUG] Skip LINEA-USD: Missing rates (L=None, X=-0.000108)
+16:10:12 [DEBUG] Skip ADA-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip LDO-USD: Missing rates (L=None, X=4e-06)
+16:10:12 [DEBUG] Skip EIGEN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip AVNT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip MON-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ETH-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ASTER-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip BNB-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip MNT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip CRV-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ENA-USD: Missing rates (L=None, X=-2e-05)
+16:10:12 [DEBUG] Skip TAO-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip APT-USD: Missing rates (L=None, X=-0.000134)
+16:10:12 [DEBUG] Skip 1000BONK-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip DOT-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip RESOLV-USD: Missing rates (L=None, X=-0.000193)
+16:10:12 [DEBUG] Skip APEX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip EDEN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip TRX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip BTC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ONDO-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] ⛔ Skip AERO-USD: In BLACKLIST
+16:10:12 [DEBUG] Skip AAVE-USD: Missing rates (L=None, X=2e-06)
+16:10:12 [DEBUG] Skip HYPE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip S-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip XRP-USD: Missing rates (L=None, X=9e-06)
+16:10:12 [DEBUG] Skip JUP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip SOL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip FARTCOIN-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip NEAR-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ZORA-USD: Missing rates (L=None, X=-0.000321)
+16:10:12 [DEBUG] Skip WIF-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip SUI-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ARB-USD: Missing rates (L=None, X=-8e-06)
+16:10:12 [DEBUG] Skip AVAX-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+16:10:12 [DEBUG] Skip OP-USD: Missing rates (L=None, X=-1.4e-05)
+16:10:12 [DEBUG] Skip MKR-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip ZRO-USD: Missing rates (L=None, X=-7.3e-05)
+16:10:12 [DEBUG] Skip ZEC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip STRK-USD: Missing rates (L=None, X=-6.5e-05)
+16:10:12 [DEBUG] Skip PUMP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip LINK-USD: Missing rates (L=None, X=-2.4e-05)
+16:10:12 [DEBUG] Skip LTC-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip XPL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip BCH-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip USDJPY-USD: Missing rates (L=None, X=0.0)
+16:10:12 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+16:10:12 [DEBUG] Skip DOGE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] ⛔ Skip MEGA-USD: In BLACKLIST
+16:10:12 [DEBUG] Skip GRASS-USD: Missing rates (L=None, X=-1e-05)
+16:10:12 [DEBUG] Skip FIL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip PENGU-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip TRUMP-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip TON-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip UNI-USD: Missing rates (L=None, X=-1e-05)
+16:10:12 [DEBUG] Skip 1000PEPE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] Skip VIRTUAL-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+16:10:12 [DEBUG] Skip TIA-USD: Missing rates (L=None, X=-0.000114)
+16:10:12 [DEBUG] Skip WLFI-USD: Missing rates (L=None, X=-3.7e-05)
+16:10:12 [DEBUG] Skip WLD-USD: Missing rates (L=None, X=-5e-06)
+16:10:12 [DEBUG] Skip PENDLE-USD: Missing rates (L=None, X=1.3e-05)
+16:10:12 [INFO] ✅ Found 0 opportunities from 0 valid pairs (farm_mode=False, scanned=70)
+16:10:12 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            UPDATE trades \n            SET status = 'closed', \n                closed_at = ?, \n                pnl = ?,\n                funding_collected = ?\n            WHERE symbol = ?  AND status = 'open'\n        ", (1764515412868, 0, 0, 'RESOLV-USD'))
+16:10:12 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, "\n            UPDATE trades \n            SET status = 'closed', \n                closed_at = ?, \n                pnl = ?,\n                funding_collected = ?\n            WHERE symbol = ?  AND status = 'open'\n        ", (1764515412868, 0, 0, 'RESOLV-USD')) completed
+16:10:12 [DEBUG] 📝 Flushed 1 writes
+16:10:12 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:12 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:12 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+16:10:13 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+16:10:13 [DEBUG] X10: Funding Refresh OK, cache=91
+16:10:13 [DEBUG] 📊 Lighter Funding Cache refresh (current=0)
+16:10:14 [DEBUG] Lighter: Loaded 389 funding rates
+16:10:14 [DEBUG] Lighter: Funding Refresh OK, cache=118
+16:10:15 [DEBUG] ✅ IP-USD: X10=$232,312, Lighter=$419,723, Total=$652,035
+16:10:15 [INFO] 🔍 💎 ARB Scanning 70 pairs. Open symbols to skip: set()
+16:10:15 [DEBUG] Price cache status: X10=70/70, Lighter=69/70
+16:10:15 [INFO] 🔍 Scanning 70 pairs. Lighter markets: 118, X10 markets: 91
+16:10:15 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+16:10:15 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=False)
+16:10:15 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+16:10:15 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+16:10:15 [INFO] 🔍 DEBUG BERA-USD: rl=-0.00003900, rx=-0.00012100, net=0.00008200, apy=71.8%
+16:10:15 [INFO] Rebate discount BERA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 💎 BERA-USD | APY: 71.8%
+16:10:15 [INFO] Rebate discount SEI-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip SEI-USD: Spread 0.48% too high
+16:10:15 [INFO] Rebate discount POPCAT-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount 1000SHIB-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 🔍 DEBUG IP-USD: rl=-0.00007600, rx=0.00001300, net=-0.00008900, apy=78.0%
+16:10:15 [INFO] Rebate discount IP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 💎 IP-USD | APY: 78.0%
+16:10:15 [INFO] Rebate discount KAITO-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount LINEA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ADA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount LDO-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount EIGEN-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount AVNT-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount MON-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ETH-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ASTER-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount BNB-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount MNT-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount CRV-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ENA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount TAO-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 🔍 DEBUG APT-USD: rl=-0.00021300, rx=-0.00013300, net=-0.00008000, apy=70.1%
+16:10:15 [INFO] Rebate discount APT-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip APT-USD: Spread 0.35% too high
+16:10:15 [INFO] Rebate discount 1000BONK-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount DOT-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip DOT-USD: Invalid prices (X=0.0, L=2.26255)
+16:10:15 [INFO] Rebate discount RESOLV-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount APEX-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount EDEN-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount TRX-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount BTC-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ONDO-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] ⛔ Skip AERO-USD: In BLACKLIST
+16:10:15 [INFO] Rebate discount AAVE-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount HYPE-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount S-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount XRP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 🔍 DEBUG JUP-USD: rl=-0.00005100, rx=0.00001300, net=-0.00006400, apy=56.1%
+16:10:15 [INFO] Rebate discount JUP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 💎 JUP-USD | APY: 56.1%
+16:10:15 [INFO] Rebate discount SOL-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount FARTCOIN-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount NEAR-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ZORA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount WIF-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount SUI-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ARB-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount AVAX-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+16:10:15 [INFO] Rebate discount OP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount MKR-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip MKR-USD: Missing prices (X=1663.9, L=None)
+16:10:15 [INFO] Rebate discount ZRO-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount ZEC-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 🔍 DEBUG STRK-USD: rl=0.00000400, rx=-0.00006500, net=0.00006900, apy=60.4%
+16:10:15 [INFO] Rebate discount STRK-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 💎 STRK-USD | APY: 60.4%
+16:10:15 [INFO] Rebate discount PUMP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount LINK-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount LTC-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount XPL-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] 🔍 DEBUG BCH-USD: rl=-0.00004600, rx=0.00001300, net=-0.00005900, apy=51.7%
+16:10:15 [INFO] Rebate discount BCH-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip BCH-USD: Invalid prices (X=0.0, L=556.2)
+16:10:15 [INFO] Rebate discount USDJPY-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+16:10:15 [INFO] Rebate discount DOGE-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] ⛔ Skip MEGA-USD: In BLACKLIST
+16:10:15 [INFO] Rebate discount GRASS-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount FIL-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount PENGU-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount TRUMP-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount TON-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount UNI-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount 1000PEPE-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount VIRTUAL-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip VIRTUAL-USD: Spread 0.53% too high
+16:10:15 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+16:10:15 [INFO] 🔍 DEBUG TIA-USD: rl=0.00001200, rx=-0.00011500, net=0.00012700, apy=111.3%
+16:10:15 [INFO] Rebate discount TIA-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [DEBUG] Skip TIA-USD: Spread 0.76% too high
+16:10:15 [INFO] Rebate discount WLFI-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount WLD-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] Rebate discount PENDLE-USD: -8.00% APY -> threshold 5.00%
+16:10:15 [INFO] ✅ Found 27 opportunities from 64 valid pairs (farm_mode=False, scanned=70)
+16:10:15 [INFO] 🎯 Found 3 opportunities, executing best...
+16:10:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:16 [DEBUG] Lighter Balance: Raw=$302.23, Safe=$287.12
+16:10:16 [INFO] X10: Detected balance = $306.01
+16:10:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:17 [INFO] Lighter: Found 0 open positions
+16:10:17 [INFO] 💰 Balance: X10=$306.0 (free=$303.0), Lit=$287.1 (free=$284.1) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+16:10:17 [INFO] 🚀 Launching trade for IP-USD (APY=78.0%)
+16:10:17 [DEBUG] Skip IP-USD: Min Req $25.00 > Max Config $20.0
+16:10:17 [INFO] 🚀 Launching trade for BERA-USD (APY=71.8%)
+16:10:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:18 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+16:10:18 [INFO] 🎰 KELLY BERA-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+16:10:18 [INFO] 📊 KELLY SIZE BERA-USD: $14.4 (kelly-optimized)
+16:10:18 [INFO] 🚀 Opening BERA-USD: Size=$14.4 (Min=$11.0)
+16:10:18 [INFO] 🔄 [PARALLEL] BERA-USD: Lighter POST-ONLY first
+16:10:18 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$14.36, price=$0.894000
+16:10:18 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764515418297,"BaseAmount":162,"Price":88863,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1766934618254,"ExpiredAt":1764516017254,"Nonce":1746,"Sig":"XdWwcJe00vYY5kLzBwAc0Z2fdTyjG/6VLehlPW1UTHmh/T0rcTfqCXg8bTzMz2fc1mDKgU8AFXuHIHf3bCJ+D5NnH9sIBBIDutXXD9dWO2k="}
+16:10:18 [INFO] 🔄 [PARALLEL] BERA-USD: X10 MARKET order
+16:10:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:10:18 [INFO] 🚀 Launching trade for STRK-USD (APY=60.4%)
+16:10:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:18 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b2462f2e3051cdf4c0ebbf3f71ac45b53ba85448a80e9ea82483cbdb9c8aa105bb8f9c90b3e9b250' predicted_execution_time_ms=1764515412351 additional_properties={}
+16:10:18 [INFO] Lighter Order: b2462f2e3051cdf4c0ebbf3f71ac45b53ba85448a80e9ea82483cbdb9c8aa105bb8f9c90b3e9b250
+16:10:18 [INFO] 🎰 KELLY STRK-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+16:10:18 [INFO] 📊 KELLY SIZE STRK-USD: $13.6 (kelly-optimized)
+16:10:18 [INFO] 🚀 Opening STRK-USD: Size=$13.6 (Min=$13.4)
+16:10:18 [INFO] 🔄 [PARALLEL] STRK-USD: Lighter POST-ONLY first
+16:10:18 [INFO] 🚀 LIGHTER OPEN STRK-USD: side=SELL, size_usd=$13.60, price=$0.127840
+16:10:18 [DEBUG] ✅ KAITO-USD: X10=$511,825, Lighter=$1,901,784, Total=$2,413,610
+16:10:18 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":104,"ClientOrderIndex":1764515428214,"BaseAmount":1071,"Price":12707,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1766934618755,"ExpiredAt":1764516017755,"Nonce":1747,"Sig":"gPFr2BkaH7YzccZSm68VYNYu9W4V6jefmcVzQ0TuIEKrGsbq6LcBclpLAY1UYrjvUlAJ6YAgg2NKD5VKfXFr9tXAp3us4r6FZxWuYA6xb1w="}
+16:10:18 [INFO] 🔄 [PARALLEL] STRK-USD: X10 MARKET order
+16:10:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:10:18 [INFO] ✅ Launched 3 trade tasks this cycle
+16:10:19 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='72dc90653309aeff88f0d34260e246d518877a92768e148b98fa14d176a55b7fc983969df41ce502' predicted_execution_time_ms=1764515412843 additional_properties={}
+16:10:19 [INFO] Lighter Order: 72dc90653309aeff88f0d34260e246d518877a92768e148b98fa14d176a55b7fc983969df41ce502
+16:10:20 [DEBUG] Placing an order: id=529217191166314949077135833297353960647140436560435886575766881771789772916
+16:10:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+16:10:20 [DEBUG] Placing an order: id=2562655003304159202291349841634385929488734446847655066358339026114603787661
+16:10:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+16:10:21 [INFO]  X10 Order: 1995148373955923968
+16:10:21 [INFO] ✅ [PARALLEL] BERA-USD: Both legs filled in 3297ms
+16:10:21 [DEBUG] 📝 Trade added to state: BERA-USD
+16:10:21 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('BERA-USD', 'BUY', 'SELL', 0, 0.89453801625, 0.894, 'open', 0, 1764515421546, 'Main/Main', None, None))
+16:10:21 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('BERA-USD', 'BUY', 'SELL', 0, 0.89453801625, 0.894, 'open', 0, 1764515421546, 'Main/Main', None, None)) completed
+16:10:21 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:21 [DEBUG] 📝 Flushed 1 writes
+16:10:21 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:21 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+16:10:21 [DEBUG] Fetching fresh positions (force=False, cache_age=1764515421.8s)
+16:10:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:21 [INFO]  X10 Order: 1995148375561043968
+16:10:21 [INFO] ✅ [PARALLEL] STRK-USD: Both legs filled in 3187ms
+16:10:21 [DEBUG] 📝 Trade added to state: STRK-USD
+16:10:21 [INFO] 🔍 💎 ARB Scanning 70 pairs. Open symbols to skip: {'BERA-USD', 'STRK-USD'}
+16:10:21 [DEBUG] Price cache status: X10=70/70, Lighter=69/70
+16:10:21 [INFO] 🔍 Scanning 70 pairs. Lighter markets: 118, X10 markets: 91
+16:10:22 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+16:10:22 [INFO] Lighter: Found 2 open positions
+16:10:22 [INFO] 📊 Positions: X10=1, Lighter=2
+16:10:22 [DEBUG] X10 positions: ['BERA-USD']
+16:10:22 [DEBUG] Lighter positions: ['BERA-USD', 'STRK-USD']
+16:10:22 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=False)
+16:10:22 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+16:10:22 [DEBUG] 🔄 Skip BERA-USD: Already open (in open_syms)
+16:10:22 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount SEI-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip SEI-USD: Spread 0.48% too high
+16:10:22 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount POPCAT-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount 1000SHIB-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] 🔍 DEBUG IP-USD: rl=-0.00007600, rx=0.00001300, net=-0.00008900, apy=78.0%
+16:10:22 [INFO] Rebate discount IP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount KAITO-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount LINEA-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ADA-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount LDO-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount EIGEN-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount AVNT-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount MON-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ETH-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ASTER-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount BNB-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount MNT-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount CRV-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ENA-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount TAO-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] 🔍 DEBUG APT-USD: rl=-0.00021300, rx=-0.00013300, net=-0.00008000, apy=70.1%
+16:10:22 [INFO] Rebate discount APT-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip APT-USD: Spread 0.35% too high
+16:10:22 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount 1000BONK-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO] Rebate discount DOT-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip DOT-USD: Invalid prices (X=0.0, L=2.26255)
+16:10:22 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount RESOLV-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount APEX-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount EDEN-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount TRX-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount BTC-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ONDO-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] ⛔ Skip AERO-USD: In BLACKLIST
+16:10:22 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount AAVE-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount HYPE-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount S-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount XRP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] 🔍 DEBUG JUP-USD: rl=-0.00005100, rx=0.00001300, net=-0.00006400, apy=56.1%
+16:10:22 [INFO] Rebate discount JUP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount SOL-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount FARTCOIN-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount NEAR-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ZORA-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount WIF-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount SUI-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ARB-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount AVAX-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+16:10:22 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount OP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: MKR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount MKR-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip MKR-USD: Missing prices (X=1663.9, L=None)
+16:10:22 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ZRO-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount ZEC-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] 🔄 Skip STRK-USD: Already open (in open_syms)
+16:10:22 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount PUMP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount LINK-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount LTC-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount XPL-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO] 🔍 DEBUG BCH-USD: rl=-0.00004600, rx=0.00001300, net=-0.00005900, apy=51.7%
+16:10:22 [INFO] Rebate discount BCH-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip BCH-USD: Invalid prices (X=0.0, L=556.2)
+16:10:22 [INFO] Rebate discount USDJPY-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+16:10:22 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount DOGE-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] ⛔ Skip MEGA-USD: In BLACKLIST
+16:10:22 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount GRASS-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO] Rebate discount FIL-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount PENGU-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount TRUMP-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount TON-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount UNI-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount 1000PEPE-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount VIRTUAL-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip VIRTUAL-USD: Spread 0.53% too high
+16:10:22 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+16:10:22 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] 🔍 DEBUG TIA-USD: rl=0.00001200, rx=-0.00011500, net=0.00012700, apy=111.3%
+16:10:22 [INFO] Rebate discount TIA-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [DEBUG] Skip TIA-USD: Spread 0.33% too high
+16:10:22 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount WLFI-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount WLD-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+16:10:22 [INFO] Rebate discount PENDLE-USD: -8.00% APY -> threshold 5.00%
+16:10:22 [INFO] ✅ Found 25 opportunities from 62 valid pairs (farm_mode=False, scanned=70)
+16:10:22 [INFO] 🎯 Found 3 opportunities, executing best...
+16:10:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:22 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('STRK-USD', 'BUY', 'SELL', 0, 0.128055442125, 0.12768, 'open', 0, 1764515422952, 'Main/Main', None, None))
+16:10:22 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('STRK-USD', 'BUY', 'SELL', 0, 0.128055442125, 0.12768, 'open', 0, 1764515422952, 'Main/Main', None, None)) completed
+16:10:22 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:22 [DEBUG] 📝 Flushed 1 writes
+16:10:22 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:22 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+16:10:23 [DEBUG] Using cached positions (age: 1.4s)
+16:10:23 [DEBUG] Lighter Balance: Raw=$302.22, Safe=$287.11
+16:10:23 [INFO] X10: Detected balance = $306.04
+16:10:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:24 [INFO] Lighter: Found 2 open positions
+16:10:24 [INFO] 💰 Balance: X10=$306.0 (free=$293.4), Lit=$287.1 (free=$274.5) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+16:10:24 [INFO] 🚀 Launching trade for IP-USD (APY=78.0%)
+16:10:24 [DEBUG] Skip IP-USD: Min Req $25.00 > Max Config $20.0
+16:10:24 [DEBUG] Using cached positions (age: 2.4s)
+16:10:24 [DEBUG] ✅ LINEA-USD: X10=$72,500, Lighter=$83,036,922, Total=$83,109,422
+16:10:24 [INFO] 🚀 Launching trade for JUP-USD (APY=56.1%)
+16:10:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:24 [WARNING] [x10] Connection closed: 1011 Ping timeout
+16:10:24 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+16:10:24 [INFO] 🎰 KELLY JUP-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+16:10:24 [INFO] 📊 KELLY SIZE JUP-USD: $14.4 (kelly-optimized)
+16:10:24 [INFO] 🚀 Opening JUP-USD: Size=$14.4 (Min=$11.0)
+16:10:24 [INFO] 🔄 [PARALLEL] JUP-USD: Lighter POST-ONLY first
+16:10:24 [INFO] 🚀 LIGHTER OPEN JUP-USD: side=SELL, size_usd=$14.36, price=$0.250140
+16:10:24 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":26,"ClientOrderIndex":1764515496635,"BaseAmount":578,"Price":24863,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1766934624806,"ExpiredAt":1764516023806,"Nonce":1748,"Sig":"B04QJlZkKo144vPlZDOjMlgjeiH9VaZRhthzToIk84e6Wj6i+T5xfxz96jqs5KNb7x2flikvRhtFML8a4w9zttczOq3UET66Vvz2OQgZTX8="}
+16:10:24 [INFO] 🔄 [PARALLEL] JUP-USD: X10 MARKET order
+16:10:24 [DEBUG] Placing an order: id=60460858837778136469130523574946438799684631914689532895551418952706052769
+16:10:24 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+16:10:25 [INFO] 🚀 Launching trade for LINEA-USD (APY=47.3%)
+16:10:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:10:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='43284a5db80ab60a772dce57daf9fd8791bff17748841c0510de2f1aedb29581de88ea8706570187' predicted_execution_time_ms=1764515418896 additional_properties={}
+16:10:25 [INFO] Lighter Order: 43284a5db80ab60a772dce57daf9fd8791bff17748841c0510de2f1aedb29581de88ea8706570187
+16:10:25 [INFO]  X10 Order: 1995148389230497792
+16:10:25 [INFO] ✅ [PARALLEL] JUP-USD: Both legs filled in 390ms
+16:10:25 [DEBUG] 📝 Trade added to state: JUP-USD
+16:10:25 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('JUP-USD', 'BUY', 'SELL', 0, 0.250160631374, 0.25014, 'open', 0, 1764515425187, 'Main/Main', None, None))
+16:10:25 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('JUP-USD', 'BUY', 'SELL', 0, 0.250160631374, 0.25014, 'open', 0, 1764515425187, 'Main/Main', None, None)) completed
+16:10:25 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:25 [DEBUG] 📝 Flushed 1 writes
+16:10:25 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:25 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+16:10:25 [DEBUG] Using cached positions (age: 3.4s)
+16:10:25 [INFO] 🎰 KELLY LINEA-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+16:10:25 [INFO] 📊 KELLY SIZE LINEA-USD: $13.6 (kelly-optimized)
+16:10:25 [INFO] 🚀 Opening LINEA-USD: Size=$13.6 (Min=$11.0)
+16:10:25 [INFO] 🔄 [PARALLEL] LINEA-USD: Lighter POST-ONLY first
+16:10:25 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=SELL, size_usd=$13.60, price=$0.009829
+16:10:25 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1764515521022,"BaseAmount":1393,"Price":9770,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1766934625303,"ExpiredAt":1764516024303,"Nonce":1749,"Sig":"oWbT0vOt6i3BP5L9ot86ReMqiLYrE7RHSRqTGfO114OfqN7WJgmsKH/qWqPBMOvpveQo9VnYpB0AKV2H4YgjKRrVXAgh8VMFU1ueIv53RiE="}
+16:10:25 [INFO] 🔄 [PARALLEL] LINEA-USD: X10 MARKET order
+16:10:25 [DEBUG] Placing an order: id=1768478070953842156981935680229425544402993906297177517443063041679460232363
+16:10:25 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+16:10:25 [INFO] ✅ Launched 3 trade tasks this cycle
+16:10:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='4c68c62a9d183bfddd00434ea7e1cb6aae77c2004d593e8747663f91f90d7e0790e1bf74eb5484c9' predicted_execution_time_ms=1764515419391 additional_properties={}
+16:10:25 [INFO] Lighter Order: 4c68c62a9d183bfddd00434ea7e1cb6aae77c2004d593e8747663f91f90d7e0790e1bf74eb5484c9
+16:10:25 [INFO]  X10 Order: 1995148391307288576
+16:10:25 [INFO] ✅ [PARALLEL] LINEA-USD: Both legs filled in 390ms
+16:10:25 [DEBUG] 📝 Trade added to state: LINEA-USD
+16:10:26 [DEBUG] Using cached positions (age: 4.4s)
+16:10:26 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+16:10:26 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+16:10:26 [DEBUG] [x10] Subscribed to funding/HYPE/USD
+16:10:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('LINEA-USD', 'BUY', 'SELL', 0, 0.009825417562, 0.009829, 'open', 0, 1764515426660, 'Main/Main', None, None))
+16:10:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002A7FFE6A4D0>, '\n            INSERT INTO trades (\n                symbol, side_x10, side_lighter, size_usd,\n                entry_price_x10, entry_price_lighter, status,\n                is_farm_trade, created_at, account_label,\n                x10_order_id, lighter_order_id\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        ', ('LINEA-USD', 'BUY', 'SELL', 0, 0.009825417562, 0.009829, 'open', 0, 1764515426660, 'Main/Main', None, None)) completed
+16:10:26 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:26 [DEBUG] 📝 Flushed 1 writes
+16:10:26 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:26 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+16:10:26 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+16:10:26 [DEBUG] [x10] Subscribed to funding/BTC/USD
+16:10:26 [DEBUG] [x10] Subscribed to publicTrades/UNI/USD
+16:10:27 [DEBUG] [x10] Subscribed to orderbooks/BERA/USD
+16:10:27 [DEBUG] [x10] Subscribed to publicTrades/MKR/USD
+16:10:27 [DEBUG] [x10] Subscribed to orderbooks/IP/USD
+16:10:27 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+16:10:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:27 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+16:10:27 [DEBUG] [x10] Subscribed to orderbooks/ASTER/USD
+16:10:27 [DEBUG] [x10] Subscribed to orderbooks/WIF/USD
+16:10:27 [DEBUG] [x10] Subscribed to funding/FIL/USD
+16:10:27 [DEBUG] [x10] Subscribed to funding/TIA/USD
+16:10:27 [INFO] Lighter: Found 4 open positions
+16:10:27 [INFO] 📊 Positions: X10=4, Lighter=4
+16:10:27 [DEBUG] X10 positions: ['BERA-USD', 'STRK-USD', 'JUP-USD', 'LINEA-USD']
+16:10:27 [DEBUG] Lighter positions: ['BERA-USD', 'JUP-USD', 'LINEA-USD', 'STRK-USD']
+16:10:27 [DEBUG] [x10] Subscribed to funding/1000SHIB/USD
+16:10:27 [DEBUG] [x10] Subscribed to orderbooks/FIL/USD
+16:10:27 [DEBUG] [x10] Subscribed to publicTrades/KAITO/USD
+16:10:28 [DEBUG] [x10] Subscribed to orderbooks/LINK/USD
+16:10:28 [DEBUG] [x10] Subscribed to orderbooks/CRV/USD
+16:10:28 [DEBUG] [x10] Subscribed to funding/XAU/USD
+16:10:28 [DEBUG] ✅ ADA-USD: X10=$192,959, Lighter=$3,069,841, Total=$3,262,800
+16:10:28 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+16:10:28 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+16:10:28 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+16:10:28 [DEBUG] [x10] Subscribed to funding/SEI/USD
+16:10:28 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+16:10:28 [DEBUG] Using cached positions (age: 1.4s)
+16:10:28 [DEBUG] [x10] Subscribed to funding/ETH/USD
+16:10:28 [DEBUG] [x10] Subscribed to funding/IP/USD
+16:10:28 [DEBUG] [x10] Subscribed to orderbooks/RESOLV/USD
+16:10:29 [DEBUG] [x10] Subscribed to funding/ZORA/USD
+16:10:29 [DEBUG] [x10] Subscribed to orderbooks/SUI/USD
+16:10:29 [DEBUG] [x10] Subscribed to funding/LINEA/USD
+16:10:29 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+16:10:29 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+16:10:29 [DEBUG] [x10] Subscribed to funding/AAVE/USD
+16:10:29 [DEBUG] [x10] Subscribed to orderbooks/OP/USD
+16:10:29 [DEBUG] [x10] Subscribed to funding/RESOLV/USD
+16:10:29 [DEBUG] Using cached positions (age: 2.4s)
+16:10:29 [DEBUG] [x10] Subscribed to funding/GRASS/USD
+16:10:29 [DEBUG] [x10] Subscribed to orderbooks/LINEA/USD
+16:10:29 [DEBUG] [x10] Subscribed to orderbooks/AAVE/USD
+16:10:30 [DEBUG] [x10] Subscribed to publicTrades/ZRO/USD
+16:10:30 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+16:10:30 [DEBUG] [x10] Subscribed to orderbooks/TIA/USD
+16:10:30 [DEBUG] [x10] Subscribed to orderbooks/ENA/USD
+16:10:30 [DEBUG] [x10] Subscribed to funding/ENA/USD
+16:10:30 [DEBUG] [x10] Subscribed to orderbooks/SEI/USD
+16:10:30 [DEBUG] [x10] Subscribed to funding/MON/USD
+16:10:30 [DEBUG] Using cached positions (age: 3.4s)
+16:10:30 [DEBUG] [x10] Subscribed to orderbooks/ARB/USD
+16:10:30 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+16:10:30 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+16:10:30 [DEBUG] [x10] Subscribed to funding/KAITO/USD
+16:10:31 [DEBUG] [x10] Subscribed to publicTrades/WLD/USD
+16:10:31 [DEBUG] [x10] Subscribed to publicTrades/DOGE/USD
+16:10:31 [DEBUG] [x10] Subscribed to orderbooks/WLD/USD
+16:10:31 [DEBUG] [x10] Subscribed to funding/STRK/USD
+16:10:31 [DEBUG] [x10] Subscribed to publicTrades/FIL/USD
+16:10:31 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+16:10:31 [DEBUG] [x10] Subscribed to publicTrades/XRP/USD
+16:10:31 [DEBUG] [x10] Subscribed to funding/TAO/USD
+16:10:31 [DEBUG] Using cached positions (age: 4.4s)
+16:10:31 [DEBUG] [x10] Subscribed to funding/AVAX/USD
+16:10:31 [DEBUG] [x10] Subscribed to funding/ADA/USD
+16:10:31 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+16:10:32 [DEBUG] ✅ EIGEN-USD: X10=$141,954, Lighter=$1,693,273, Total=$1,835,226
+16:10:32 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+16:10:32 [DEBUG] [x10] Subscribed to publicTrades/IP/USD
+16:10:32 [DEBUG] [x10] Subscribed to publicTrades/MEGA/USD
+16:10:32 [DEBUG] [x10] Subscribed to orderbooks/1000SHIB/USD
+16:10:32 [DEBUG] [x10] Subscribed to orderbooks/XAU/USD
+16:10:32 [DEBUG] [x10] Subscribed to funding/S/USD
+16:10:32 [DEBUG] [x10] Subscribed to publicTrades/EDEN/USD
+16:10:32 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+16:10:32 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+16:10:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:32 [DEBUG] [x10] Subscribed to funding/CRV/USD
+16:10:32 [DEBUG] [x10] Subscribed to funding/BERA/USD
+16:10:32 [DEBUG] [x10] Subscribed to funding/APEX/USD
+16:10:33 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+16:10:33 [DEBUG] [x10] Subscribed to funding/DOT/USD
+16:10:33 [DEBUG] [x10] Subscribed to publicTrades/TIA/USD
+16:10:33 [DEBUG] [x10] Subscribed to orderbooks/MEGA/USD
+16:10:33 [INFO] Lighter: Found 4 open positions
+16:10:33 [INFO] 📊 Positions: X10=4, Lighter=4
+16:10:33 [DEBUG] X10 positions: ['BERA-USD', 'STRK-USD', 'JUP-USD', 'LINEA-USD']
+16:10:33 [DEBUG] Lighter positions: ['BERA-USD', 'JUP-USD', 'LINEA-USD', 'STRK-USD']
+16:10:33 [DEBUG] [x10] Subscribed to funding/MKR/USD
+16:10:33 [DEBUG] [x10] Subscribed to publicTrades/BERA/USD
+16:10:33 [DEBUG] [x10] Subscribed to funding/TON/USD
+16:10:33 [DEBUG] [x10] Subscribed to orderbooks/EDEN/USD
+16:10:33 [DEBUG] [x10] Subscribed to orderbooks/ZEC/USD
+16:10:33 [DEBUG] [x10] Subscribed to publicTrades/AVAX/USD
+16:10:33 [DEBUG] [x10] Subscribed to orderbooks/AVAX/USD
+16:10:34 [DEBUG] [x10] Subscribed to funding/UNI/USD
+16:10:34 [DEBUG] [x10] Subscribed to orderbooks/POPCAT/USD
+16:10:34 [DEBUG] [x10] Subscribed to orderbooks/AVNT/USD
+16:10:34 [DEBUG] [x10] Subscribed to funding/EDEN/USD
+16:10:34 [DEBUG] Using cached positions (age: 1.7s)
+16:10:34 [DEBUG] [x10] Subscribed to funding/LINK/USD
+16:10:34 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+16:10:34 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+16:10:34 [DEBUG] [x10] Subscribed to orderbooks/TAO/USD
+16:10:34 [DEBUG] [x10] Subscribed to funding/ARB/USD
+16:10:34 [DEBUG] [x10] Subscribed to orderbooks/LTC/USD
+16:10:34 [DEBUG] [x10] Subscribed to orderbooks/ONDO/USD
+16:10:35 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+16:10:35 [DEBUG] [x10] Subscribed to orderbooks/ZRO/USD
+16:10:35 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+16:10:35 [DEBUG] [x10] Subscribed to orderbooks/XPL/USD
+16:10:35 [DEBUG] Using cached positions (age: 2.7s)
+16:10:35 [DEBUG] [x10] Subscribed to funding/WLD/USD
+16:10:35 [DEBUG] [x10] Subscribed to publicTrades/ETH/USD
+16:10:35 [DEBUG] [x10] Subscribed to publicTrades/ONDO/USD
+16:10:35 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+16:10:35 [DEBUG] ✅ AVNT-USD: X10=$214,585, Lighter=$1,860,918, Total=$2,075,503
+16:10:35 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+16:10:35 [DEBUG] [x10] Subscribed to orderbooks/APT/USD
+16:10:35 [DEBUG] [x10] Subscribed to orderbooks/MON/USD
+16:10:36 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+16:10:36 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+16:10:36 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+16:10:36 [DEBUG] [x10] Subscribed to orderbooks/DOT/USD
+16:10:36 [DEBUG] Using cached positions (age: 3.7s)
+16:10:36 [DEBUG] [x10] Subscribed to publicTrades/AERO/USD
+16:10:36 [DEBUG] [x10] Subscribed to orderbooks/ETH/USD
+16:10:36 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+16:10:36 [DEBUG] [x10] Subscribed to funding/JUP/USD
+16:10:36 [DEBUG] [x10] Subscribed to orderbooks/HYPE/USD
+16:10:36 [DEBUG] [x10] Subscribed to publicTrades/JUP/USD
+16:10:36 [DEBUG] [x10] Subscribed to orderbooks/XRP/USD
+16:10:37 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+16:10:37 [DEBUG] [x10] Subscribed to funding/MEGA/USD
+16:10:37 [DEBUG] [x10] Subscribed to funding/SPX/USD
+16:10:37 [DEBUG] [x10] Subscribed to publicTrades/ARB/USD
+16:10:37 [DEBUG] Using cached positions (age: 4.7s)
+16:10:37 [DEBUG] [x10] Subscribed to funding/LDO/USD
+16:10:37 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+16:10:37 [DEBUG] [x10] Subscribed to orderbooks/DOGE/USD
+16:10:37 [DEBUG] [x10] Subscribed to orderbooks/ADA/USD
+16:10:37 [DEBUG] [x10] Subscribed to orderbooks/XAG/USD
+16:10:37 [DEBUG] [x10] Subscribed to orderbooks/WLFI/USD
+16:10:37 [DEBUG] [x10] Subscribed to publicTrades/HYPE/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+16:10:38 [DEBUG] [x10] Subscribed to funding/SOL/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/MON/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+16:10:38 [DEBUG] Fetching fresh positions (force=False, cache_age=5.7s)
+16:10:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:10:38 [DEBUG] [x10] Subscribed to orderbooks/S/USD
+16:10:38 [DEBUG] [x10] Subscribed to funding/TRX/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+16:10:38 [DEBUG] [x10] Subscribed to orderbooks/TRUMP/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/ADA/USD
+16:10:38 [INFO] Lighter: Found 4 open positions
+16:10:38 [INFO] 📊 Positions: X10=4, Lighter=4
+16:10:38 [DEBUG] X10 positions: ['BERA-USD', 'STRK-USD', 'JUP-USD', 'LINEA-USD']
+16:10:38 [DEBUG] Lighter positions: ['BERA-USD', 'JUP-USD', 'LINEA-USD', 'STRK-USD']
+16:10:38 [DEBUG] [x10] Subscribed to orderbooks/PENDLE/USD
+16:10:38 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+16:10:39 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+16:10:39 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+16:10:39 [DEBUG] [x10] Subscribed to orderbooks/1000BONK/USD
+16:10:39 [DEBUG] [x10] Subscribed to orderbooks/SOL/USD
+16:10:39 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+16:10:39 [DEBUG] ✅ MON-USD: X10=$314,679, Lighter=$249,364,964, Total=$249,679,643
+16:10:39 [DEBUG] [x10] Subscribed to publicTrades/ASTER/USD
+16:10:39 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+16:10:39 [DEBUG] [x10] Subscribed to funding/WIF/USD
+16:10:39 [DEBUG] [x10] Subscribed to orderbooks/BNB/USD
+16:10:39 [DEBUG] Using cached positions (age: 1.4s)
+16:10:39 [DEBUG] [x10] Subscribed to funding/NEAR/USD
+16:10:39 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+16:10:40 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+16:10:40 [INFO] 🛑 Shutting down...
+16:10:40 [INFO] 🛑 Initiating graceful shutdown...
+16:10:40 [INFO] 🔍 Supervisor loop stopped
+16:10:40 [INFO] 🛑 Cancelling logic_loop...
+16:10:40 [INFO] 🛑 Cancelling trade_management_loop...
+16:10:40 [INFO] 🛑 Cancelling farm_loop...
+16:10:40 [INFO] 🛑 Cancelling maintenance_loop...
+16:10:40 [INFO] 🛑 Cancelling cleanup_finished_tasks...
+16:10:40 [INFO] 🛑 Cancelling health_reporter...
+16:10:40 [INFO] Logic loop cancelled
+16:10:40 [INFO] ✅ All tasks stopped
+16:10:40 [INFO] 🛑 Rollback processor: Shutdown signal received
+16:10:40 [INFO] ✅ ParallelExecutionManager: Stopped
+16:10:43 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+16:10:44 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+16:10:45 [INFO] 🔌 [lighter] WebSocket stopped
+16:10:45 [INFO] 🔌 [x10] WebSocket stopped
+16:10:45 [INFO] ✅ WebSocketManager stopped
+16:10:45 [INFO] ✅ OpenInterestTracker stopped
+16:10:45 [INFO] 🛑 Stopping InMemoryStateManager...
+16:10:45 [INFO] 📝 State writer loop stopped
+16:10:45 [INFO] ✅ InMemoryStateManager stopped
+16:10:45 [INFO] 🔒 Closing database...
+16:10:45 [INFO] 🖊️ Database write loop stopped
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6A4D0>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6A4D0>) completed
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE69120>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE69120>) completed
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE693F0>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE693F0>) completed
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE698A0>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE698A0>) completed
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE69E40>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE69E40>) completed
+16:10:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6A200>)
+16:10:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002A7FFE6A200>) completed
+16:10:45 [INFO] ✅ Database closed
+16:10:45 [INFO] ✅ X10 Adapter geschlossen.
+16:10:45 [INFO] ✅ Lighter Adapter closed
+16:10:45 [INFO] ✅ Bot V5 shutdown complete

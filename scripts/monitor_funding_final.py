@@ -186,7 +186,7 @@ async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter,
                 pass
 
             net = rl - rx
-            apy = abs(net) * 3 * 365  # Funding wird 3x pro Tag gezahlt (8h intervals)
+            apy = abs(net) * 24 * 365  # Rates sind jetzt Hourly -> 24x am Tag
 
             # Threshold check
             threshold_manager = get_threshold_manager()
@@ -585,7 +585,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 logger.debug(f"Volatility monitor update failed for {s}: {e}")
 
         net = rl - rx
-        apy = abs(net) * 3 * 365  # Funding wird 3x pro Tag gezahlt (8h intervals)
+        apy = abs(net) * 24 * 365  # Rates sind jetzt Hourly -> 24x am Tag
 
         # ↓↓↓ DIESE ZEILE EINFÜGEN ↓↓↓
         if apy > 0.5:  # Nur loggen wenn APY > 50%
