@@ -217,7 +217,7 @@ class ManagedWebSocket:
                     break
                 
                 logger.info(
-                    f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:. 1f}s "
+                    f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:.1f}s "
                     f"(attempt {self._reconnect_attempts})"
                 )
                 await asyncio. sleep(self._reconnect_delay)
