@@ -997,21 +997,13 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         positions = await lighter.fetch_open_positions()
         pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
         
-        # Safe type conversion for size and price
-        try:
-            raw_size = pos.get('size', 0) if pos else 0
-            size = float(raw_size) if raw_size is not None else 0.0
-        except (ValueError, TypeError):
-            size = 0.0
+        # Safe type conversion for size and price using helper
+        size = safe_float(pos.get('size', 0)) if pos else 0.0
         
         if pos and abs(size) > 0:
             side = "SELL" if size > 0 else "BUY"
             # Preis holen für Notional
-            raw_px = lighter.fetch_mark_price(symbol)
-            try:
-                px = float(raw_px) if raw_px is not None else 0.0
-            except (ValueError, TypeError):
-                px = 0.0
+            px = safe_float(lighter.fetch_mark_price(symbol))
             if px > 0:
                 usd_size = abs(size) * px
                 result = await lighter.close_live_position(symbol, side, usd_size)
@@ -1095,11 +1087,7 @@ async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
         positions = await adapter.fetch_open_positions()
         for p in (positions or []):
             if p.get('symbol') == symbol:
-                raw_size = p.get('size', 0)
-                try:
-                    return float(raw_size) if raw_size is not None else 0.0
-                except (ValueError, TypeError):
-                    return 0.0
+                return safe_float(p.get('size', 0))
         return None
     except Exception as e:
         logger.error(f"Failed to get position size for {symbol}: {e}")
@@ -1130,11 +1118,7 @@ async def safe_close_x10_position(x10, symbol, side, notional):
         logger.info(f"🔻 Closing X10 {symbol}: size={actual_size_abs:.6f} coins, side={original_side}")
         
         # Close with ACTUAL coin size - safe type conversion for price
-        raw_price = x10.fetch_mark_price(symbol)
-        try:
-            price = float(raw_price) if raw_price is not None else 0.0
-        except (ValueError, TypeError):
-            price = 0.0
+        price = safe_float(x10.fetch_mark_price(symbol))
         if not price or price <= 0:
             logger.error(f"No price for {symbol}")
             return
