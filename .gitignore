@@ -1,29 +1,21 @@
-# === LOGS ===
-# Alle dynamischen Logs mit Zeitstempel ignorieren
-logs/*_FULL.log
-logs/*_ERRORS.log
-
-# Aber die "latest" Logs für Git erlauben
-!logs/
-!logs/latest_run.log
-! logs/latest_errors.log
-
-# === PYTHON ===
-__pycache__/
-*.py[cod]
-*$py.class
+# Virtual Environment
 . venv/
-venv/
-*. egg-info/
+__pycache__/
+src/__pycache__/
+src/adapters/__pycache__/
+scripts/__pycache__/
 
-# === IDE ===
-.vscode/
-.idea/
+# Environment variables (enthält Secrets!)
+.env
 
-# === SYSTEM ===
-.DS_Store
-Thumbs.db
-
-# === DATEN ===
+# Databases
 *.db
-data/
+*.db-shm
+*.db-wal
+
+# Alte Logs (optional ignorieren)
+bot. log
+funding_bot. log
+
+# LEON Logs NICHT ignorieren - diese werden hochgeladen! 
+# funding_bot_LEON_*. log
