@@ -54,7 +54,6 @@ from src.database import (
 # --- Noise Reduction: limit verbose subsystem logs BEFORE setup_logging ---
 logging.getLogger("websockets").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
-logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 # --------------------------------------------------------------------------
 
 # Logging Setup
@@ -600,16 +599,16 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         try:
             # Übergebe Adapter, damit Detector Timestamps prüfen kann
             latency_opp = await detector.detect_lag_opportunity(s, rx, rl, x10, lighter)
-
+            
             if latency_opp:
                 # Preise hinzufügen für Execution
                 latency_opp['price_x10'] = px_float
                 latency_opp['price_lighter'] = pl_float
                 latency_opp['spread_pct'] = spread
-
-                logger.info(f"⚡ FAST LANE: Latency Arb gefunden für {s}! Breche Scan ab für sofortige Execution.")
-                # Sofortige Rückgabe nur dieser Opportunity, Millisekunden zählen
-                return [latency_opp]
+                
+                logger.info(f"⚡ LATENCY OPP {s}: Lag={latency_opp.get('lag_seconds',0):.1f}s")
+                opps.append(latency_opp)
+                # Optional: continue wenn Latency Opp gefunden, sonst prüfe auch Funding
         except Exception as e:
             logger.debug(f"Latency Check Error {s}: {e}")
 

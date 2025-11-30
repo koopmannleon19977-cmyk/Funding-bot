@@ -812,23 +812,3 @@ class X10Adapter(BaseAdapter):
         self.trading_client = None
         self._auth_client = None
         logger.info("✅ X10 Adapter geschlossen.")
-
-    async def get_collateral_balance(self, account_index: int = 0) -> float:
-        """
-        Ruft die verfügbare USDC Balance ab.
-        Kritischer Fix: Gibt die echte Balance zurück, ohne künstliche 50$.
-        """
-        try:
-            # Aktuell wird nur ein Account genutzt; account_index bleibt für spätere Erweiterungen erhalten
-            # switch_account(account_index) wäre hier, falls Multi-Account später benötigt wird
-
-            # Über die bestehende robuste Methode holen
-            amount = await self.get_real_available_balance()
-
-            # Immer echte Balance zurückgeben (kein Hack/Fallback auf 50$)
-            return float(amount or 0.0)
-
-        except Exception as e:
-            logger.error(f"Fehler beim Abrufen der X10 Balance: {e}")
-            # Im Fehlerfall 0 zurückgeben, um Trades zu verhindern
-            return 0.0
