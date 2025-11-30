@@ -1,12 +1,29 @@
-# Ignoriere die virtuelle Umgebung
-.venv/
+# === LOGS ===
+# Alle dynamischen Logs mit Zeitstempel ignorieren
+logs/*_FULL.log
+logs/*_ERRORS.log
+
+# Aber die "latest" Logs für Git erlauben
+!logs/
+!logs/latest_run.log
+! logs/latest_errors.log
+
+# === PYTHON ===
 __pycache__/
+*.py[cod]
+*$py.class
+. venv/
+venv/
+*. egg-info/
 
-# Ignoriere sensible Konfigurationsdateien
-.env
+# === IDE ===
+.vscode/
+.idea/
 
-# Ignoriere Datenbankdateien
+# === SYSTEM ===
+.DS_Store
+Thumbs.db
+
+# === DATEN ===
 *.db
-
-# Ignoriere Log-Dateien (für die nächste Optimierung)
-*.log
+data/
