@@ -1119,7 +1119,7 @@ async def safe_close_x10_position(x10, symbol, side, notional):
         
         # Close with ACTUAL coin size - safe type conversion for price
         price = safe_float(x10.fetch_mark_price(symbol))
-        if not price or price <= 0:
+        if price <= 0:
             logger.error(f"No price for {symbol}")
             return
         
