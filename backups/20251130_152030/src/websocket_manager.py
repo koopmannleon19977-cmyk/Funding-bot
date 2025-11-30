@@ -405,13 +405,13 @@ class WebSocketManager:
         # Create X10 connection with headers
         x10_headers = {
             "X-Api-Key": getattr(config, "X10_API_KEY", ""),
-            "User-Agent": "X10PythonTradingClient/0.4.5",
+            "User-Agent": "X10PythonTradingClient/0. 4.5",
         }
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
-            ping_interval=30.0,  # ERHÖHT von 15.0 auf 30.0
-            ping_timeout=20.0,   # ERHÖHT von 10.0 auf 20.0 (Toleranter gegen Lags)
+            ping_interval=15.0,
+            ping_timeout=10.0,
             headers=x10_headers,
         )
         self._connections["x10"] = ManagedWebSocket(

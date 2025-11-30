@@ -61,7 +61,6 @@ class LighterAdapter(BaseAdapter):
         self._orderbook_cache = {}
         self._orderbook_cache_time = {}
         self._trade_cache = {}
-        self._funding_cache = {}
         self.price_update_event = None
         self._ws_message_queue = asyncio.Queue()
         self._signer = None
@@ -939,42 +938,27 @@ class LighterAdapter(BaseAdapter):
             return HARD_MIN_USD
 
     def fetch_funding_rate(self, symbol: str) -> Optional[float]:
-        """Funding Rate aus Cache (WS > REST)"""
-        # 1. WebSocket Cache
-        if symbol in self._funding_cache:
-            rate = self._funding_cache[symbol]
-        else:
-            # 2. REST Cache
-            rate = self.funding_cache.get(symbol)
-
+        """Funding Rate aus Cache"""
+        rate = self.funding_cache.get(symbol)
         if rate is None:
             return None
 
         rate_float = float(rate)
 
-        # Lighter API liefert manchmal annualisierte Rates oder falsche Skalierung
-        # Sicherheits-Check: Wenn Rate > 10% (0.1) pro 8h ist, stimmt was nicht -> /8 teilen
         if abs(rate_float) > 0.1:
             rate_float = rate_float / 8.0
 
         return rate_float
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        """Mark Price aus Cache (WS > REST)"""
-        # 1. WebSocket Cache
-        if symbol in self._price_cache:
-            return self._price_cache[symbol]
+        """Mark Price aus Cache"""
+        if symbol not in self.market_info:
+            return None
 
-        # 2. REST Cache
         if symbol in self.price_cache:
             price = self.price_cache[symbol]
             if price and price > 0:
                 return float(price)
-        
-        # 3. Market Info Fallback
-        if symbol in self.market_info:
-             # Versuche, einen Preis aus den Metadaten zu retten, falls vorhanden
-             pass
 
         return None
 

@@ -44,7 +44,6 @@ class X10Adapter(BaseAdapter):
         self._orderbook_cache = {}
         self._orderbook_cache_time = {}
         self._trade_cache = {}
-        self._funding_cache = {}
         self.price_update_event = None  # Will be set by main loop
 
         # WebSocket Streaming Support
@@ -233,39 +232,20 @@ class X10Adapter(BaseAdapter):
                 pass
 
     def fetch_mark_price(self, symbol: str):
-        """Mark Price: Prioritize WebSocket Cache (_price_cache)"""
-        # 1. Zuerst im Echtzeit-Cache (WebSocket) schauen
-        if symbol in self._price_cache:
-            age = time.time() - self._price_cache_time.get(symbol, 0)
-            if age < 60:  # Nur nutzen wenn Daten jünger als 60s
-                return self._price_cache[symbol]
-
-        # 2. Fallback auf REST Cache
         if symbol in self.price_cache:
             return self.price_cache[symbol]
-            
-        # 3. Fallback auf Market Info Stats
         m = self.market_info.get(symbol)
         if m and hasattr(m, 'market_stats') and hasattr(m.market_stats, 'mark_price'):
             price = getattr(m.market_stats, 'mark_price', None)
             if price is not None:
                 price_float = float(price)
-                # Cache aktualisieren für nächstes Mal
                 self.price_cache[symbol] = price_float
                 return price_float
         return None
 
     def fetch_funding_rate(self, symbol: str):
-        """Funding Rate: Prioritize WebSocket Cache (_funding_cache)"""
-        # 1. Zuerst im Echtzeit-Cache (WebSocket) schauen
-        if symbol in self._funding_cache:
-            return self._funding_cache[symbol]
-
-        # 2. Fallback auf REST Cache
         if symbol in self.funding_cache:
             return self.funding_cache[symbol]
-            
-        # 3. Fallback auf Market Info
         m = self.market_info.get(symbol)
         if m and hasattr(m, 'market_stats') and hasattr(m.market_stats, 'funding_rate'):
             rate = getattr(m.market_stats, 'funding_rate', None)
