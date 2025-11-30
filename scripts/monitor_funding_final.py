@@ -1291,38 +1291,40 @@ async def manage_open_trades(lighter, x10):
             # ═══════════════════════════════════════════════════════════════
             # Preise holen (für Profit-Check & normale Exits)
             # ═══════════════════════════════════════════════════════════════
-            px = x10.fetch_mark_price(sym)
-            pl = lighter.fetch_mark_price(sym)
+            raw_px = x10.fetch_mark_price(sym)
+            raw_pl = lighter.fetch_mark_price(sym)
+            px = safe_float(raw_px) if raw_px is not None else None
+            pl = safe_float(raw_pl) if raw_pl is not None else None
 
             # REST Fallback wenn WebSocket keine Preise hat
-            if px is None or pl is None:
+            if px is None or pl is None or px <= 0 or pl <= 0:
                 logger.debug(f"{sym}: WS Preise fehlen, versuche REST Fallback...")
                 
                 # Versuche REST API als Fallback
                 try:
-                    if px is None:
+                    if px is None or px <= 0:
                         # X10 REST Fallback (falls Methode existiert)
                         if hasattr(x10, 'get_price_rest'):
-                            px = await x10.get_price_rest(sym)
+                            px = safe_float(await x10.get_price_rest(sym))
                         elif hasattr(x10, 'load_market_cache'):
                             await x10.load_market_cache(force=True)
-                            px = x10.fetch_mark_price(sym)
+                            px = safe_float(x10.fetch_mark_price(sym))
                     
-                    if pl is None:
+                    if pl is None or pl <= 0:
                         # Lighter REST Fallback
                         if hasattr(lighter, 'get_price_rest'):
-                            pl = await lighter.get_price_rest(sym)
+                            pl = safe_float(await lighter.get_price_rest(sym))
                         elif hasattr(lighter, 'load_funding_rates_and_prices'):
                             await lighter.load_funding_rates_and_prices()
-                            pl = lighter.fetch_mark_price(sym)
+                            pl = safe_float(lighter.fetch_mark_price(sym))
                     
-                    if px is not None and pl is not None:
+                    if px is not None and pl is not None and px > 0 and pl > 0:
                         logger.info(f"✅ {sym}: REST Fallback erfolgreich (X10=${px:.2f}, Lit=${pl:.2f})")
                 except Exception as e:
                     logger.warning(f"{sym}: REST Fallback fehlgeschlagen: {e}")
                 
                 # Wenn immer noch keine Preise -> Skip (aber Zeit-Check wurde oben schon gemacht!)
-                if px is None or pl is None:
+                if px is None or pl is None or px <= 0 or pl <= 0:
                     logger.debug(f"{sym}: Keine Preise verfügbar, überspringe Profit-Check")
                     continue
 
@@ -1784,13 +1786,13 @@ async def farm_loop(lighter, x10, parallel_exec):
                 if sym in open_syms or sym in ACTIVE_TASKS or sym in FAILED_COINS:
                     continue
                 
-                px = x10.fetch_mark_price(sym)
-                pl = lighter.fetch_mark_price(sym)
+                px = safe_float(x10.fetch_mark_price(sym))
+                pl = safe_float(lighter.fetch_mark_price(sym))
                 
-                if not px or not pl:
+                if px <= 0 or pl <= 0:
                     continue
                 
-                spread = abs(px - pl) / px if px else 1.0
+                spread = abs(px - pl) / px if px > 0 else 1.0
                 if spread > getattr(config, 'FARM_MAX_SPREAD_PCT', 0.01):
                     continue
                 
@@ -3151,9 +3153,9 @@ async def main():
             loaded_ok = False
             for sym in test_syms:
                 if sym in x10.market_info and sym in lighter.market_info:
-                    px = x10.fetch_mark_price(sym)
-                    pl = lighter.fetch_mark_price(sym)
-                    if px and pl and px > 0 and pl > 0:
+                    px = safe_float(x10.fetch_mark_price(sym))
+                    pl = safe_float(lighter.fetch_mark_price(sym))
+                    if px > 0 and pl > 0:
                         logger.info(f"✅ Data OK: {sym} X10=${px:.2f}, Lighter=${pl:.2f}")
                         loaded_ok = True
                         break
@@ -3329,15 +3331,21 @@ async def main():
             try:
                 lit_pos = await lighter.fetch_open_positions()
                 for p in lit_pos:
-                    if abs(float(p['size'])) > 0:
+                    if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned Lighter position found: {p['symbol']}. Closing...")
-                        await lighter.close_live_position(p['symbol'], "BUY", float(p['size']) * float(lighter.fetch_mark_price(p['symbol']) or 0))
+                        price = safe_float(lighter.fetch_mark_price(p['symbol']))
+                        size = safe_float(p.get('size', 0))
+                        if price > 0:
+                            await lighter.close_live_position(p['symbol'], "BUY", abs(size) * price)
                 
                 x10_pos = await x10.fetch_open_positions()
                 for p in x10_pos:
-                    if abs(float(p['size'])) > 0:
+                    if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
-                        await x10.close_live_position(p['symbol'], "BUY", float(p['size']) * float(x10.fetch_mark_price(p['symbol']) or 0))
+                        price = safe_float(x10.fetch_mark_price(p['symbol']))
+                        size = safe_float(p.get('size', 0))
+                        if price > 0:
+                            await x10.close_live_position(p['symbol'], "BUY", abs(size) * price)
 
             except Exception as ex_scan:
                 logger.error(f"Error scanning/closing orphans: {ex_scan}")

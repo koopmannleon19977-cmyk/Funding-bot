@@ -423,8 +423,8 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
         try:
-            price = self.fetch_mark_price(symbol)
-            if not price or price <= 0:
+            price = safe_float(self.fetch_mark_price(symbol))
+            if price <= 0:
                 return HARD_MIN_USD
             
             min_size = Decimal(getattr(m.trading_config, "min_order_size", "0"))
@@ -530,7 +530,7 @@ class X10Adapter(BaseAdapter):
         if not market:
             return False, None
 
-        price = Decimal(str(self.fetch_mark_price(symbol) or 0))
+        price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
         if price <= 0:
             return False, None
 
