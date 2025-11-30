@@ -28,7 +28,7 @@ class WSConfig:
     url: str
     name: str
     ping_interval: float = 20.0
-    ping_timeout: float = 10.0
+    ping_timeout: float = 20.0  # ERHÖHT für mehr Toleranz
     reconnect_delay_initial: float = 1.0
     reconnect_delay_max: float = 60.0
     reconnect_delay_multiplier: float = 2.0
@@ -402,16 +402,17 @@ class WebSocketManager:
             self._handle_message
         )
         
-        # Create X10 connection with headers
+        # Create X10 connection - UPDATED SETTINGS
         x10_headers = {
             "X-Api-Key": getattr(config, "X10_API_KEY", ""),
             "User-Agent": "X10PythonTradingClient/0.4.5",
         }
+        # X10 neigt zu Timeouts bei aggressiven Pings -> Konservativere Werte
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
-            ping_interval=30.0,  # ERHÖHT von 15.0 auf 30.0
-            ping_timeout=20.0,   # ERHÖHT von 10.0 auf 20.0 (Toleranter gegen Lags)
+            ping_interval=30.0,  # Erhöht (war 20)
+            ping_timeout=30.0,   # Erhöht (war 10) - Gibt X10 mehr Zeit für Pong
             headers=x10_headers,
         )
         self._connections["x10"] = ManagedWebSocket(
@@ -463,18 +464,21 @@ class WebSocketManager:
             for symbol in symbols:
                 market_id = self._get_lighter_market_id(symbol)
                 if market_id is not None:
+                    # Lighter verträgt mehr Subscriptions
                     await lighter_conn.subscribe(f"order_book/{market_id}")
                     await lighter_conn.subscribe(f"trade/{market_id}")
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.02)
         
-        # X10 subscriptions
+        # X10 - OPTIMIZED FOR STABILITY
         x10_conn = self._connections.get("x10")
         if x10_conn:
             for symbol in symbols:
                 market = symbol.replace("-", "/")
-                await x10_conn. subscribe(f"orderbooks/{market}")
+                # CRITICAL: Only subscribe to Trades and Funding for Latency Arb & Monitoring
+                # Dropping orderbooks saves massive bandwidth and prevents timeouts
                 await x10_conn.subscribe(f"publicTrades/{market}")
                 await x10_conn.subscribe(f"funding/{market}")
+                # await x10_conn.subscribe(f"orderbooks/{market}")  <-- DEAKTIVIERT FÜR STABILITÄT
                 await asyncio.sleep(0.05)
     
     def _get_lighter_market_id(self, symbol: str) -> Optional[int]:
@@ -599,10 +603,6 @@ class WebSocketManager:
         if msg_type == "MP":
             await self._handle_x10_mark_price(msg)
         
-        # Index price
-        elif msg_type == "IP":
-            await self._handle_x10_index_price(msg)
-        
         # Funding
         elif "funding" in str(msg. get("channel", "")).lower():
             await self._handle_x10_funding(msg)
@@ -610,6 +610,10 @@ class WebSocketManager:
         # Orderbook
         elif "orderbook" in str(msg.get("channel", "")). lower():
             await self._handle_x10_orderbook(msg)
+        
+        # Public Trades
+        elif "publicTrades" in str(msg.get("channel", "")):
+            await self._handle_x10_trade(msg)
         
         # Open Interest
         elif msg. get("channel") == "open_interest":
@@ -626,17 +630,6 @@ class WebSocketManager:
             if self.x10_adapter:
                 self. x10_adapter._price_cache[symbol] = float(price)
                 self. x10_adapter._price_cache_time[symbol] = time.time()
-    
-    async def _handle_x10_index_price(self, msg: dict):
-        """Process X10 index price"""
-        data = msg.get("data", {})
-        market = data.get("m", "")
-        price = data. get("p")
-        
-        if market and price:
-            symbol = market.replace("/", "-")
-            if self.x10_adapter:
-                self.x10_adapter._index_price_cache[symbol] = float(price)
     
     async def _handle_x10_funding(self, msg: dict):
         """Process X10 funding rate"""
@@ -678,6 +671,20 @@ class WebSocketManager:
             
             if self.predictor:
                 self.predictor.update_oi_velocity(market, float(oi))
+    
+        async def _handle_x10_trade(self, msg: dict):
+            """Process X10 public trades"""
+            data = msg.get("data", [])
+            # publicTrades liefert eine Liste von Trades
+            if not isinstance(data, list):
+                data = [data]
+        
+            for trade in data:
+                market = msg.get("channel", "").replace("publicTrades/", "").replace("/", "-")
+                price = trade.get("p")
+                if market and price and self.x10_adapter:
+                    self.x10_adapter._price_cache[market] = float(price)
+                    self.x10_adapter._price_cache_time[market] = time.time()
     
     def _lighter_market_id_to_symbol(self, market_id: int) -> Optional[str]:
         """Convert Lighter market ID to symbol"""

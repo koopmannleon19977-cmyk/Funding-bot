@@ -388,6 +388,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     opps: List[Dict] = []
     common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
     threshold_manager = get_threshold_manager()
+    detector = get_detector()  # ⚡ Latency Detector Instance
 
     mode_indicator = "🚜 FARM" if is_farm_mode else "💎 ARB"
     logger.info(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
@@ -572,9 +573,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         
         if has_rates and has_prices:
             valid_pairs += 1
-
-        if not has_rates:
-            logger.debug(f"Skip {s}: Missing rates (L={rl}, X={rx})")
+        else:
             continue
 
         # Update volatility monitor
@@ -584,6 +583,38 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             except Exception as e:
                 logger.debug(f"Volatility monitor update failed for {s}: {e}")
 
+        # Price parsing safe check
+        try:
+            px_float = float(px)
+            pl_float = float(pl)
+            if px_float <= 0 or pl_float <= 0:
+                continue
+            spread = abs(px_float - pl_float) / px_float
+        except:
+            continue
+
+        # ---------------------------------------------------------
+        # ⚡ LATENCY ARBITRAGE CHECK
+        # ---------------------------------------------------------
+        try:
+            # Übergebe Adapter, damit Detector Timestamps prüfen kann
+            latency_opp = await detector.detect_lag_opportunity(s, rx, rl, x10, lighter)
+            
+            if latency_opp:
+                # Preise hinzufügen für Execution
+                latency_opp['price_x10'] = px_float
+                latency_opp['price_lighter'] = pl_float
+                latency_opp['spread_pct'] = spread
+                
+                logger.info(f"⚡ LATENCY OPP {s}: Lag={latency_opp.get('lag_seconds',0):.1f}s")
+                opps.append(latency_opp)
+                # Optional: continue wenn Latency Opp gefunden, sonst prüfe auch Funding
+        except Exception as e:
+            logger.debug(f"Latency Check Error {s}: {e}")
+
+        # ---------------------------------------------------------
+        # STANDARD FUNDING STRATEGY
+        # ---------------------------------------------------------
         net = rl - rx
         apy = abs(net) * 24 * 365  # Rates sind jetzt Hourly -> 24x am Tag
 
@@ -599,28 +630,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             logger.debug(f"Skip {s}: Missing prices (X={px}, L={pl})")
             continue
         
-        # CRITICAL: Guard against division by zero AND invalid prices
-        try:
-            if px is None or pl is None or px <= 0 or pl <= 0:
-                logger.debug(f"Skip {s}: Invalid prices (X={px}, L={pl})")
-                continue
-            
-            # Safe spread calculation with explicit float conversion
-            px_float = float(px)
-            pl_float = float(pl)
-            
-            if px_float <= 0:
-                logger.debug(f"Skip {s}: X10 price is zero/negative ({px_float})")
-                continue
-                
-            spread = abs(px_float - pl_float) / px_float
-            
-            if spread > config.MAX_SPREAD_FILTER_PERCENT:
-                logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
-                continue
-                
-        except (TypeError, ValueError, ZeroDivisionError) as e:
-            logger.debug(f"Skip {s}: Price calculation error - {e}")
+        # Spread check
+        if spread > config.MAX_SPREAD_FILTER_PERCENT:
+            logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
             continue
 
         # Log high APY opportunities
@@ -638,7 +650,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'is_farm_trade': is_farm_mode,  # ✅ DYNAMIC: Set based on mode
             'spread_pct': spread,
             'price_x10': px_float,
-            'price_lighter': pl_float
+            'price_lighter': pl_float,
+            'is_latency_arb': False  # Mark als normal funding trade
         })
 
     # IMPORTANT: Set farm flag based on config (ensure farm loop state applies)
@@ -647,10 +660,29 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if farm_mode_active:
             opp['is_farm_trade'] = True
 
-    logger.info(f"✅ Found {len(opps)} opportunities from {valid_pairs} valid pairs (farm_mode={farm_mode_active}, scanned={len(clean_results)})")
-
+    # ---------------------------------------------------------
+    # SORTIERUNG & DEDUPLIZIERUNG
+    # ---------------------------------------------------------
+    # Sortieren: Latency Opps haben durch den künstlichen Boost meist Vorrang
     opps.sort(key=lambda x: x['apy'], reverse=True)
-    return opps[:config.MAX_OPEN_TRADES]
+    
+    # Deduplizieren (falls Symbol durch Latency UND Funding drin ist, nimm Latency)
+    unique_opps = {}
+    for o in opps:
+        sym = o['symbol']
+        if sym not in unique_opps:
+            unique_opps[sym] = o
+        else:
+            # Wenn existierendes keine Latency ist, aber neues schon -> überschreiben
+            if o.get('is_latency_arb') and not unique_opps[sym].get('is_latency_arb'):
+                unique_opps[sym] = o
+    
+    final_opps = list(unique_opps.values())
+    final_opps.sort(key=lambda x: x['apy'], reverse=True)
+
+    logger.info(f"✅ Found {len(final_opps)} opportunities from {valid_pairs} valid pairs (farm_mode={farm_mode_active}, scanned={len(clean_results)})")
+
+    return final_opps[:config.MAX_OPEN_TRADES]
 
 async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
     symbol = opp['symbol']
