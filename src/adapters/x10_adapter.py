@@ -31,6 +31,17 @@ class X10Adapter(BaseAdapter):
         super().__init__("X10")
         self.market_info = {}
         self.client_env = MAINNET_CONFIG
+        # FIX WEBSOCKET ENDPOINT:
+        # The upstream SDK currently sets MAINNET_CONFIG.stream_url to
+        # "wss://api.starknet.extended.exchange/stream.extended.exchange/v1" which returns HTTP 404.
+        # Repository reference: x10xchange/python_sdk -> configuration.py shows this value.
+        # Correct pattern mirrors REST base ( .../api/v1 ) using /stream/v1 for websockets.
+        # We override here to use the functional endpoint.
+        try:
+            if hasattr(self.client_env, 'stream_url'):
+                self.client_env.stream_url = "wss://api.starknet.extended.exchange/stream/v1"
+        except Exception:
+            logger.warning("X10: Failed to override stream_url; fallback may 404.")
         self.stark_account = None
         self._auth_client = None
         self.trading_client = None
