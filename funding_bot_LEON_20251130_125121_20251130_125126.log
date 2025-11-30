@@ -1,0 +1,370 @@
+12:51:26 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+12:51:26 [DEBUG] Using selector: SelectSelector
+12:51:26 [INFO] 🔥 BOT V5 (Task Supervised) STARTING...
+12:51:26 [INFO] 🚀 Starting InMemoryStateManager...
+12:51:26 [INFO] 📂 Initializing database: data/trades.db
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6700>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6700> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D15D0>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D15D0>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6AC0>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6AC0> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D18A0>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D18A0>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6CA0>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6CA0> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D1D50>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D1D50>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6520>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6520> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D22F0>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D22F0>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D7060>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D7060> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D26B0>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D26B0>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [INFO] ✅ Read pool created: 5 connections
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6E80>
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6E80> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA foreign_keys=ON', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA foreign_keys=ON', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA journal_mode=WAL', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA journal_mode=WAL', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA synchronous=NORMAL', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, 'PRAGMA synchronous=NORMAL', []) completed
+12:51:26 [INFO] ✅ WAL mode enabled
+12:51:26 [INFO] 🔄 Running database migrations...
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D2980>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002C7B11D2980>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002C7B11D2980>) completed
+12:51:26 [INFO] ✅ Migrations complete (11 statements)
+12:51:26 [INFO] ✅ Database initialized
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D15D0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ())
+12:51:26 [INFO] 🖊️ Database write loop started
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D15D0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ()) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002C7B11C99C0>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002C7B11C99C0>) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002C7B11C99C0>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Cursor object at 0x000002C7B11C99C0>) completed
+12:51:26 [INFO] 📂 Loaded 0 trades from database
+12:51:26 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+12:51:26 [INFO] ✅ State Manager started
+12:51:26 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+12:51:26 [INFO] ✅ Async database initialized
+12:51:26 [DEBUG] executing <function connect.<locals>.connector at 0x000002C7B11D6840>
+12:51:26 [INFO] 📝 State writer loop started
+12:51:26 [DEBUG] operation <function connect.<locals>.connector at 0x000002C7B11D6840> completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D3100>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D3100>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002C7B11D3100>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x000002C7B11D3100>) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D3100>, 'PRAGMA table_info(trade_history)', [])
+12:51:26 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x000002C7B11D3100>, 'PRAGMA table_info(trade_history)', []) completed
+12:51:26 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002C7B11CA3C0>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x000002C7B11CA3C0>) completed
+12:51:26 [DEBUG] ✅ Database schema up to date
+12:51:26 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x000002C7B11D3100>)
+12:51:26 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x000002C7B11D3100>) completed
+12:51:26 [INFO] Initialisiere X10 Adapter...
+12:51:26 [INFO]  X10 Account initialisiert.
+12:51:26 [INFO] Initialisiere Lighter Adapter...
+12:51:26 [INFO] 📊 Loading Market Data...
+12:51:26 [INFO] 📊 Step 1/5: Loading X10 markets...
+12:51:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:51:28 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+12:51:28 [INFO] ✅ X10: 91 markets loaded
+12:51:30 [INFO] 📊 Step 2/5: Loading Lighter markets...
+12:51:30 [INFO] ⚙️ Lighter: Loading markets...
+12:51:30 [DEBUG] Fetching markets from: https://mainnet.zklighter.elliot.ai/api/v1/orderBookDetails
+12:51:32 [DEBUG] AVAX-USD: Cached price $14.06
+12:51:32 [DEBUG] SYRUP-USD: Cached price $0.27
+12:51:32 [DEBUG] BCH-USD: Cached price $538.55
+12:51:32 [DEBUG] AUDUSD-USD: Cached price $0.66
+12:51:32 [DEBUG] CC-USD: Cached price $0.09
+12:51:32 [DEBUG] COIN-USD: Cached price $272.90
+12:51:32 [DEBUG] WLFI-USD: Cached price $0.16
+12:51:32 [DEBUG] CRV-USD: Cached price $0.42
+12:51:32 [DEBUG] LTC-USD: Cached price $83.78
+12:51:32 [DEBUG] STRK-USD: Cached price $0.13
+12:51:32 [DEBUG] LINEA-USD: Cached price $0.01
+12:51:32 [DEBUG] DOGE-USD: Cached price $0.15
+12:51:32 [DEBUG] META-USD: Cached price $649.44
+12:51:32 [DEBUG] ZEC-USD: Cached price $447.53
+12:51:32 [DEBUG] ETH-USD: Cached price $3000.58
+12:51:32 [DEBUG] 1000PEPE-USD: Cached price $0.00
+12:51:32 [DEBUG] MYX-USD: Cached price $2.60
+12:51:32 [DEBUG] WLD-USD: Cached price $0.63
+12:51:32 [DEBUG] ADA-USD: Cached price $0.42
+12:51:32 [DEBUG] UNI-USD: Cached price $6.12
+12:51:32 [DEBUG] ZK-USD: Cached price $0.04
+12:51:32 [DEBUG] PYTH-USD: Cached price $0.07
+12:51:32 [DEBUG] XAU-USD: Cached price $4229.24
+12:51:32 [DEBUG] ASTER-USD: Cached price $1.06
+12:51:32 [DEBUG] GBPUSD-USD: Cached price $1.32
+12:51:32 [DEBUG] FIL-USD: Cached price $1.61
+12:51:32 [DEBUG] AERO-USD: Cached price $0.67
+12:51:32 [DEBUG] TRUMP-USD: Cached price $6.04
+12:51:32 [DEBUG] 1000SHIB-USD: Cached price $0.01
+12:51:32 [DEBUG] AAVE-USD: Cached price $179.41
+12:51:32 [DEBUG] XAG-USD: Cached price $56.41
+12:51:32 [DEBUG] ICP-USD: Cached price $3.97
+12:51:32 [DEBUG] GMX-USD: Cached price $8.70
+12:51:32 [DEBUG] HYPE-USD: Cached price $33.00
+12:51:32 [DEBUG] TIA-USD: Cached price $0.66
+12:51:32 [DEBUG] AAPL-USD: Cached price $278.88
+12:51:32 [DEBUG] HBAR-USD: Cached price $0.14
+12:51:32 [DEBUG] SEI-USD: Cached price $0.14
+12:51:32 [DEBUG] ETHFI-USD: Cached price $0.80
+12:51:32 [DEBUG] SUI-USD: Cached price $1.53
+12:51:32 [DEBUG] NVDA-USD: Cached price $176.40
+12:51:32 [DEBUG] ZRO-USD: Cached price $1.33
+12:51:32 [DEBUG] STBL-USD: Cached price $0.06
+12:51:32 [DEBUG] LINK-USD: Cached price $13.00
+12:51:32 [DEBUG] YZY-USD: Cached price $0.37
+12:51:32 [DEBUG] MNT-USD: Cached price $1.09
+12:51:32 [DEBUG] POPCAT-USD: Cached price $0.11
+12:51:32 [DEBUG] DOLO-USD: Cached price $0.05
+12:51:32 [DEBUG] EDEN-USD: Cached price $0.07
+12:51:32 [DEBUG] TON-USD: Cached price $1.56
+12:51:32 [DEBUG] ENA-USD: Cached price $0.28
+12:51:32 [DEBUG] 2Z-USD: Cached price $0.11
+12:51:32 [DEBUG] PENDLE-USD: Cached price $2.61
+12:51:32 [DEBUG] HOOD-USD: Cached price $129.22
+12:51:32 [DEBUG] MEGA-USD: Cached price $0.32
+12:51:32 [DEBUG] MORPHO-USD: Cached price $1.48
+12:51:32 [DEBUG] ARB-USD: Cached price $0.22
+12:51:32 [DEBUG] XRP-USD: Cached price $2.18
+12:51:32 [DEBUG] XPL-USD: Cached price $0.21
+12:51:32 [DEBUG] S-USD: Cached price $0.11
+12:51:32 [DEBUG] USDJPY-USD: Cached price $156.13
+12:51:32 [DEBUG] 0G-USD: Cached price $1.16
+12:51:32 [DEBUG] PROVE-USD: Cached price $0.47
+12:51:32 [DEBUG] SOL-USD: Cached price $136.24
+12:51:32 [DEBUG] BNB-USD: Cached price $875.90
+12:51:32 [DEBUG] 1000FLOKI-USD: Cached price $0.05
+12:51:32 [DEBUG] APT-USD: Cached price $2.01
+12:51:32 [DEBUG] USDCAD-USD: Cached price $1.40
+12:51:32 [DEBUG] PLTR-USD: Cached price $168.63
+12:51:32 [DEBUG] EURUSD-USD: Cached price $1.16
+12:51:32 [DEBUG] NEAR-USD: Cached price $1.84
+12:51:32 [DEBUG] FARTCOIN-USD: Cached price $0.32
+12:51:32 [DEBUG] BTC-USD: Cached price $91028.20
+12:51:32 [DEBUG] WIF-USD: Cached price $0.38
+12:51:32 [DEBUG] PENGU-USD: Cached price $0.01
+12:51:32 [DEBUG] 1000TOSHI-USD: Cached price $0.40
+12:51:32 [DEBUG] OP-USD: Cached price $0.32
+12:51:32 [DEBUG] VIRTUAL-USD: Cached price $0.93
+12:51:32 [DEBUG] POL-USD: Cached price $0.13
+12:51:32 [DEBUG] CRO-USD: Cached price $0.11
+12:51:32 [DEBUG] PAXG-USD: Cached price $4241.74
+12:51:32 [DEBUG] DYDX-USD: Cached price $0.24
+12:51:32 [DEBUG] IP-USD: Cached price $2.41
+12:51:32 [DEBUG] GOOGL-USD: Cached price $319.60
+12:51:32 [DEBUG] MSFT-USD: Cached price $491.00
+12:51:32 [DEBUG] TAO-USD: Cached price $291.66
+12:51:32 [DEBUG] JUP-USD: Cached price $0.25
+12:51:32 [DEBUG] APEX-USD: Cached price $0.67
+12:51:32 [DEBUG] RESOLV-USD: Cached price $0.08
+12:51:32 [DEBUG] 1000BONK-USD: Cached price $0.01
+12:51:32 [DEBUG] TSLA-USD: Cached price $430.32
+12:51:32 [DEBUG] USELESS-USD: Cached price $0.11
+12:51:32 [DEBUG] AMZN-USD: Cached price $233.08
+12:51:32 [DEBUG] FF-USD: Cached price $0.12
+12:51:32 [DEBUG] USDCHF-USD: Cached price $0.80
+12:51:32 [DEBUG] XMR-USD: Cached price $416.30
+12:51:32 [DEBUG] NZDUSD-USD: Cached price $0.57
+12:51:32 [DEBUG] NMR-USD: Cached price $11.10
+12:51:32 [DEBUG] GRASS-USD: Cached price $0.32
+12:51:32 [DEBUG] PUMP-USD: Cached price $0.00
+12:51:32 [DEBUG] MON-USD: Cached price $0.03
+12:51:32 [DEBUG] VVV-USD: Cached price $1.02
+12:51:32 [DEBUG] ONDO-USD: Cached price $0.51
+12:51:32 [DEBUG] AVNT-USD: Cached price $0.38
+12:51:32 [DEBUG] LDO-USD: Cached price $0.65
+12:51:32 [DEBUG] BERA-USD: Cached price $0.90
+12:51:32 [DEBUG] USDKRW-USD: Cached price $1466.85
+12:51:32 [DEBUG] EIGEN-USD: Cached price $0.59
+12:51:32 [DEBUG] DOT-USD: Cached price $2.25
+12:51:32 [DEBUG] SPX-USD: Cached price $0.67
+12:51:32 [DEBUG] ZORA-USD: Cached price $0.05
+12:51:32 [DEBUG] SKY-USD: Cached price $0.06
+12:51:32 [DEBUG] MET-USD: Cached price $0.32
+12:51:32 [DEBUG] TRX-USD: Cached price $0.28
+12:51:32 [DEBUG] KAITO-USD: Cached price $0.70
+12:51:32 [INFO] ✅ Lighter: 118 markets loaded (REST API)
+12:51:34 [DEBUG] Lighter: Loaded 115 funding rates
+12:51:34 [INFO] ✅ Lighter: 118 markets loaded
+12:51:38 [INFO] 📊 Step 3/5: Loading Lighter funding rates...
+12:51:39 [INFO] ✅ Lighter funding rates: 115
+12:51:42 [INFO] 📊 Step 4/5: Initializing OI Tracker...
+12:51:42 [INFO] ✅ OI Tracker initialized (symbols=70)
+12:51:44 [INFO] 📊 Step 5/5: Refreshing X10 funding rates...
+12:51:44 [INFO] ✅ X10 funding rates: 91
+12:51:44 [INFO] ✅ All market data loaded: X10=91, Lighter=118
+12:51:44 [INFO] 📊 Pre-loading Lighter prices from REST...
+12:51:45 [INFO] ✅ Lighter REST: Loaded 0 prices
+12:51:45 [WARNING] ⚠️ No Lighter prices loaded - will retry...
+12:51:49 [INFO] ✅ Lighter REST: Loaded 0 prices
+12:51:49 [INFO] ✅ Pre-loaded 0 Lighter prices, cache size: 115
+12:51:54 [INFO] 🌐 Starting WebSocket streams...
+12:51:54 [INFO] 🔌 [lighter] WebSocket manager started
+12:51:54 [INFO] 🔌 [x10] WebSocket manager started
+12:51:54 [INFO] ✅ WebSocketManager started
+12:51:54 [INFO] ✅ WebSocket streams connected
+12:51:54 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+12:51:54 [INFO] ✅ OI Tracker started (interval=30s, batch=5, delay=2s)
+12:51:54 [INFO] ⏳ Waiting 30s before reconciliation to avoid rate limits...
+12:51:54 [INFO] 📊 OI Tracker: Starting cycle 1 (70 symbols)
+12:51:54 [DEBUG] X10 OI BNB-USD: $1,504,527
+12:51:54 [DEBUG] = connection is CONNECTING
+12:51:54 [DEBUG] = connection is CONNECTING
+12:51:54 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+12:51:55 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+12:51:55 [DEBUG] > GET /stream HTTP/1.1
+12:51:55 [DEBUG] > Host: mainnet.zklighter.elliot.ai
+12:51:55 [DEBUG] > Upgrade: websocket
+12:51:55 [DEBUG] > Connection: Upgrade
+12:51:55 [DEBUG] > Sec-WebSocket-Key: F/U7gtECbtcyFGaxTueLOg==
+12:51:55 [DEBUG] > Sec-WebSocket-Version: 13
+12:51:55 [DEBUG] > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+12:51:55 [DEBUG] > User-Agent: Python/3.11 websockets/15.0.1
+12:51:55 [DEBUG] > GET /stream.extended.exchange/v1 HTTP/1.1
+12:51:55 [DEBUG] > Host: api.starknet.extended.exchange
+12:51:55 [DEBUG] > Upgrade: websocket
+12:51:55 [DEBUG] > Connection: Upgrade
+12:51:55 [DEBUG] > Sec-WebSocket-Key: GtP2OY0HiZ4R9oySx0ULNQ==
+12:51:55 [DEBUG] > Sec-WebSocket-Version: 13
+12:51:55 [DEBUG] > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+12:51:55 [DEBUG] > X-Api-Key: a1c9207f79f0e57ddc454bf1e16dbe49
+12:51:55 [DEBUG] > User-Agent: X10PythonTradingClient/0.4.5
+12:51:56 [DEBUG] < HTTP/1.1 101 Switching Protocols
+12:51:56 [DEBUG] < Date: Sun, 30 Nov 2025 11:51:49 GMT
+12:51:56 [DEBUG] < Connection: upgrade
+12:51:56 [DEBUG] < Upgrade: websocket
+12:51:56 [DEBUG] < Sec-WebSocket-Accept: iNsU02L6PjYCBnJlLZxoSTVU+6A=
+12:51:56 [DEBUG] < Access-Control-Allow-Origin: *
+12:51:56 [DEBUG] < Access-Control-Allow-Methods: GET, HEAD, POST, PATCH, PUT, DELETE
+12:51:56 [DEBUG] < Access-Control-Allow-Headers: Content-Type, Origin, X-CSRF-Token, Authorization, AccessToken, Token, Range
+12:51:56 [DEBUG] < Access-Control-Expose-Headers: Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers
+12:51:56 [DEBUG] < Access-Control-Allow-Credentials: true
+12:51:56 [DEBUG] < Access-Control-Max-Age: 86400
+12:51:56 [DEBUG] < Vary: Origin
+12:51:56 [DEBUG] < Vary: Origin
+12:51:56 [DEBUG] = connection is OPEN
+12:51:56 [DEBUG] < TEXT '{"session_id":"196e6985-f97f-474c-809a-29f7aed234b5","type":"connected"}' [72 bytes]
+12:51:56 [DEBUG] < HTTP/1.1 404 Not Found
+12:51:56 [DEBUG] < Date: Sun, 30 Nov 2025 11:51:49 GMT
+12:51:56 [DEBUG] < Content-Length: 0
+12:51:56 [DEBUG] < Connection: keep-alive
+12:51:56 [DEBUG] > EOF
+12:51:56 [DEBUG] x closing TCP connection
+12:51:56 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/0"}' [50 bytes]
+12:51:56 [DEBUG] < EOF
+12:51:56 [DEBUG] = connection is CLOSED
+12:51:56 [ERROR] [x10] Connection failed: server rejected WebSocket connection: HTTP 404
+12:51:56 [ERROR] [x10] Connection error: server rejected WebSocket connection: HTTP 404
+12:51:56 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/1"}' [50 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/2"}' [50 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:0","market_stats":{"ma...bscribed/market_stats"}' [578 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/3"}' [50 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:0","market_stats":{"ma...:"update/market_stats"}' [574 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...bscribed/market_stats"}' [581 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:0","market_stats":{"ma...:"update/market_stats"}' [574 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/4"}' [50 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:2","market_stats":{"ma...bscribed/market_stats"}' [575 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] Lighter OI BNB-USD: 16853.4500 base * $875.85 = $14,761,125
+12:51:56 [DEBUG] ✅ BNB-USD: X10=$1,504,527, Lighter=$14,761,125, Total=$16,265,652
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/5"}' [50 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:3","market_stats":{"ma...bscribed/market_stats"}' [579 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/6"}' [50 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:1","market_stats":{"ma...:"update/market_stats"}' [577 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:4","market_stats":{"ma...bscribed/market_stats"}' [578 bytes]
+12:51:56 [DEBUG] < TEXT '{"channel":"market_stats:0","market_stats":{"ma...:"update/market_stats"}' [574 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/7"}' [50 bytes]
+12:51:56 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/8"}' [50 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/9"}' [50 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/10"}' [51 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/11"}' [51 bytes]
+12:51:57 [DEBUG] = connection is CONNECTING
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/12"}' [51 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/13"}' [51 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/14"}' [51 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/15"}' [51 bytes]
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/16"}' [51 bytes]
+12:51:57 [DEBUG] > GET /stream.extended.exchange/v1 HTTP/1.1
+12:51:57 [DEBUG] > Host: api.starknet.extended.exchange
+12:51:57 [DEBUG] > Upgrade: websocket
+12:51:57 [DEBUG] > Connection: Upgrade
+12:51:57 [DEBUG] > Sec-WebSocket-Key: GADE7KZPgpAda69MByf82A==
+12:51:57 [DEBUG] > Sec-WebSocket-Version: 13
+12:51:57 [DEBUG] > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+12:51:57 [DEBUG] > X-Api-Key: a1c9207f79f0e57ddc454bf1e16dbe49
+12:51:57 [DEBUG] > User-Agent: X10PythonTradingClient/0.4.5
+12:51:57 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/17"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/18"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/19"}' [51 bytes]
+12:51:58 [DEBUG] < HTTP/1.1 404 Not Found
+12:51:58 [DEBUG] < Date: Sun, 30 Nov 2025 11:51:51 GMT
+12:51:58 [DEBUG] < Content-Length: 0
+12:51:58 [DEBUG] < Connection: keep-alive
+12:51:58 [DEBUG] > EOF
+12:51:58 [DEBUG] x closing TCP connection
+12:51:58 [DEBUG] < EOF
+12:51:58 [DEBUG] = connection is CLOSED
+12:51:58 [ERROR] [x10] Connection failed: server rejected WebSocket connection: HTTP 404
+12:51:58 [ERROR] [x10] Connection error: server rejected WebSocket connection: HTTP 404
+12:51:58 [INFO] 🔄 [x10] Reconnecting in 2.0s (attempt 2)
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/20"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/21"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/22"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/23"}' [51 bytes]
+12:51:58 [DEBUG] X10 OI APT-USD: $170,384
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/24"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/25"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/26"}' [51 bytes]
+12:51:58 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/27"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/28"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/29"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/30"}' [51 bytes]
+12:51:59 [DEBUG] Lighter OI APT-USD: 1239137.6100 base * $2.01 = $2,488,808
+12:51:59 [DEBUG] ✅ APT-USD: X10=$170,384, Lighter=$2,488,808, Total=$2,659,192
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/31"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/32"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/33"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/34"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/35"}' [51 bytes]
+12:51:59 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/36"}' [51 bytes]
+12:52:00 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/37"}' [51 bytes]
+12:52:00 [DEBUG] > TEXT '{"type": "subscribe", "channel": "market_stats/38"}' [51 bytes]
+12:52:00 [INFO] 🖊️ Database write loop stopped
+12:52:00 [INFO] 📝 State writer loop stopped

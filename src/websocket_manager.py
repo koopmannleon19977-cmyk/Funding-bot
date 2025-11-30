@@ -217,10 +217,10 @@ class ManagedWebSocket:
                     break
                 
                 logger.info(
-                    f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:.1f}s "
+                    f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:. 1f}s "
                     f"(attempt {self._reconnect_attempts})"
                 )
-                await asyncio.sleep(self._reconnect_delay)
+                await asyncio. sleep(self._reconnect_delay)
                 
                 # Exponential backoff
                 self._reconnect_delay = min(
@@ -255,10 +255,6 @@ class ManagedWebSocket:
             self._metrics.last_connect_time = time. time()
             
             logger.info(f"✅ [{self.config.name}] Connected to {self.config.url}")
-            
-            # Subscribe to markets after successful Lighter connection
-            if self.config.name == "lighter":
-                await self._lighter_subscribe(self._ws)
             
         except asyncio.TimeoutError:
             logger.error(f"[{self.config. name}] Connection timeout")
@@ -340,28 +336,6 @@ class ManagedWebSocket:
         for channel in all_channels:
             await self._send_subscription(channel)
             await asyncio.sleep(0.1)  # Rate limit subscriptions
-    
-    async def _lighter_subscribe(self, ws):
-        """Subscribe to Lighter market data - per-market subscriptions"""
-        # Select market IDs to subscribe (adjust to traded markets)
-        market_ids = list(range(0, 50))
-        
-        for market_id in market_ids:
-            subscribe_msg = {
-                "type": "subscribe",
-                "channel": f"market_stats/{market_id}"
-            }
-            await ws.send(json.dumps(subscribe_msg))
-            
-            # Optional: subscribe to order book per market
-            # await ws.send(json.dumps({
-            #     "type": "subscribe",
-            #     "channel": f"order_book/{market_id}"
-            # }))
-            
-            await asyncio.sleep(0.1)
-        
-        logger.info(f"📡 [lighter] Subscribed to {len(market_ids)} markets")
 
 
 class WebSocketManager:
@@ -377,8 +351,7 @@ class WebSocketManager:
     
     # Exchange WebSocket URLs
     LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
-    # Use SDK base stream URL; specific streams selected via channels
-    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1"
+    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"
 
 
     
@@ -432,7 +405,7 @@ class WebSocketManager:
         # Create X10 connection with headers
         x10_headers = {
             "X-Api-Key": getattr(config, "X10_API_KEY", ""),
-            "User-Agent": "X10PythonTradingClient/0.4.5",
+            "User-Agent": "X10PythonTradingClient/0. 4.5",
         }
         x10_config = WSConfig(
             url=self.X10_WS_URL,
@@ -477,34 +450,6 @@ class WebSocketManager:
         if conn:
             for channel in channels:
                 await conn.subscribe(channel)
-    
-    async def subscribe_to_all_markets(self):
-        """Subscribe to market_stats for ALL available markets on Lighter"""
-        if not self.lighter_adapter or not hasattr(self.lighter_adapter, 'market_info'):
-            logger.warning("⚠️ Lighter adapter not set, cannot subscribe to markets")
-            return
-        
-        conn = self._connections.get("lighter")
-        if not conn:
-            logger.warning("⚠️ Lighter WebSocket not connected")
-            return
-        
-        market_info = self.lighter_adapter.market_info
-        subscribed = 0
-        
-        for symbol, data in market_info.items():
-            try:
-                market_index = data.get('i') or data.get('market_id')
-                if market_index is not None:
-                    channel = f"market_stats/{market_index}"
-                    await conn.subscribe(channel)
-                    subscribed += 1
-                    await asyncio.sleep(0.1)  # Rate limit protection
-            except Exception as e:
-                logger.debug(f"Failed to subscribe to {symbol}: {e}")
-                continue
-        
-        logger.info(f"📡 Subscribed to {subscribed}/{len(market_info)} Lighter market channels")
     
     async def subscribe_market_data(self, symbols: List[str]):
         """Subscribe to market data for given symbols"""
@@ -560,61 +505,21 @@ class WebSocketManager:
             logger.error(f"Message routing error ({source}): {e}")
     
     async def _handle_lighter_message(self, msg: dict):
-        """Handle Lighter WebSocket messages with improved type checking"""
-        msg_type = msg.get("type", "")
+        """Handle Lighter WebSocket messages"""
+        msg_type = msg. get("type", "")
         channel = msg.get("channel", "")
         
-        # Skip connection messages
-        if msg_type == "connected":
-            return
-        
-        # Market stats update - direct price cache update
+        # Market stats update
         if "market_stats" in msg_type or "market_stats" in channel:
-            logger.debug(f"[WS] RAW market_stats message: {msg}")
-            stats = msg.get("market_stats", {})
-            if stats and self.lighter_adapter:
-                market_id = stats.get("market_id") or stats.get("marketId")
-                symbol = self._lighter_market_id_to_symbol(market_id) if market_id else None
-                logger.debug(f"[WS] Parsed market_id={market_id}, symbol={symbol}")
-                if symbol:
-                    # Direct price update - SDK confirmed field name: last_trade_price
-                    price = stats.get("last_trade_price") or stats.get("mark_price") or stats.get("markPrice")
-                    logger.debug(f"[WS] Parsed price for {symbol}: {price}")
-                    if price:
-                        try:
-                            self.lighter_adapter.price_cache[symbol] = float(price)
-                            logger.info(f"[WS] Updated price_cache[{symbol}] = {price}")
-                        except (ValueError, TypeError):
-                            logger.error(f"[WS] Price parse error for {symbol}: {price}")
-                    # Funding rate update
-                    funding_rate = stats.get("current_funding_rate") or stats.get("currentFundingRate") or stats.get("funding_rate") or stats.get("fundingRate")
-                    logger.debug(f"[WS] Parsed funding_rate for {symbol}: {funding_rate}")
-                    if funding_rate:
-                        try:
-                            self.lighter_adapter.funding_cache[symbol] = float(funding_rate) / 100
-                            logger.info(f"[WS] Updated funding_cache[{symbol}] = {funding_rate}")
-                        except (ValueError, TypeError):
-                            logger.error(f"[WS] Funding rate parse error for {symbol}: {funding_rate}")
-                    # Open interest update
-                    open_interest = stats.get("open_interest") or stats.get("openInterest")
-                    logger.debug(f"[WS] Parsed open_interest for {symbol}: {open_interest}")
-                    if open_interest and self.oi_tracker:
-                        try:
-                            self.oi_tracker.update_from_websocket(symbol, "lighter", float(open_interest))
-                            logger.info(f"[WS] Updated open_interest[{symbol}] = {open_interest}")
-                        except (ValueError, TypeError):
-                            logger.error(f"[WS] Open interest parse error for {symbol}: {open_interest}")
-            return
+            await self._handle_lighter_market_stats(msg)
         
         # Order book update
-        if "order_book" in msg_type or "order_book" in channel:
+        elif "order_book" in msg_type or "order_book" in channel:
             await self._handle_lighter_orderbook(msg)
-            return
         
         # Trade update
-        if "trade" in msg_type:
+        elif "trade" in msg_type:
             await self._handle_lighter_trade(msg)
-            return
     
     async def _handle_lighter_market_stats(self, msg: dict):
         """Process Lighter market stats"""
@@ -634,17 +539,21 @@ class WebSocketManager:
         # Update adapter caches
         if self.lighter_adapter:
             # Mark price
-            mark_price = stats.get("mark_price")
+            mark_price = stats. get("mark_price")
             if mark_price:
-                self.lighter_adapter.price_cache[symbol] = float(mark_price)
+                self.lighter_adapter._price_cache[symbol] = float(mark_price)
+                self.lighter_adapter._price_cache_time[symbol] = time.time()
+            
             # Funding rate
             funding_rate = stats.get("current_funding_rate") or stats.get("funding_rate")
             if funding_rate:
-                self.lighter_adapter.funding_cache[symbol] = float(funding_rate) / 100
+                self.lighter_adapter._funding_cache[symbol] = float(funding_rate) / 100
+                self.lighter_adapter._funding_cache_time[symbol] = time.time()
+            
             # Open interest
             open_interest = stats.get("open_interest")
             if open_interest and self.oi_tracker:
-                self.oi_tracker.update_from_websocket(symbol, "lighter", float(open_interest))
+                self. oi_tracker. update_from_websocket(symbol, "lighter", float(open_interest))
     
     async def _handle_lighter_orderbook(self, msg: dict):
         """Process Lighter orderbook update"""
@@ -663,7 +572,7 @@ class WebSocketManager:
                 asks = data.get("asks", [])
                 
                 if bids:
-                    self.lighter_adapter.orderbook_cache[symbol] = {
+                    self.lighter_adapter._orderbook_cache[symbol] = {
                         'bids': bids,
                         'asks': asks,
                         'timestamp': time.time()
@@ -738,7 +647,8 @@ class WebSocketManager:
         if market and rate:
             symbol = market.replace("/", "-")
             if self.x10_adapter:
-                self.x10_adapter.funding_cache[symbol] = float(rate)
+                self. x10_adapter._funding_cache[symbol] = float(rate)
+                self.x10_adapter._funding_cache_time[symbol] = time. time()
     
     async def _handle_x10_orderbook(self, msg: dict):
         """Process X10 orderbook"""
@@ -751,7 +661,7 @@ class WebSocketManager:
             asks = data.get("a", data. get("ask", []))
             
             if self.x10_adapter and (bids or asks):
-                self.x10_adapter.orderbook_cache[symbol] = {
+                self.x10_adapter._orderbook_cache[symbol] = {
                     'bids': bids,
                     'asks': asks,
                     'timestamp': time.time()
