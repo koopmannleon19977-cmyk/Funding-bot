@@ -1362,9 +1362,19 @@ class LighterAdapter(BaseAdapter):
 
         try:
             positions = await self.fetch_open_positions()
+            
+            # Helper function for safe float conversion
+            def safe_float(val, default=0.0):
+                if val is None:
+                    return default
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return default
+            
             pos = next(
                 (p for p in (positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                 if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
                 None
             )
 
@@ -1374,8 +1384,9 @@ class LighterAdapter(BaseAdapter):
                 # statt in einer Endlosschleife zu versuchen, eine leere Position zu schließen.
                 return True, None
 
-            actual_size = pos.get('size', 0)
-            close_size_coins = abs(float(actual_size))
+            # Safe type conversion for actual_size
+            actual_size = safe_float(pos.get('size', 0))
+            close_size_coins = abs(actual_size)
 
             # ──────────────────────────────────────────────────────────────
             # KRITISCHER FIX: Sichere Preisberechnung
