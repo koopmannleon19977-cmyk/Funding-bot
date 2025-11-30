@@ -99,6 +99,18 @@ async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: 
     return []
 
 # ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+def safe_float(val, default=0.0):
+    """Safely convert a value to float, returning default on failure."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+# ============================================================
 # FEE & STARTUP LOGIC
 # ============================================================
 async def load_fee_cache():
@@ -985,11 +997,13 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         positions = await lighter.fetch_open_positions()
         pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
         
-        if pos and abs(pos.get('size', 0)) > 0:
-            size = pos.get('size', 0)
+        # Safe type conversion for size and price using helper
+        size = safe_float(pos.get('size', 0)) if pos else 0.0
+        
+        if pos and abs(size) > 0:
             side = "SELL" if size > 0 else "BUY"
             # Preis holen für Notional
-            px = lighter.fetch_mark_price(symbol) or 0.0
+            px = safe_float(lighter.fetch_mark_price(symbol))
             if px > 0:
                 usd_size = abs(size) * px
                 result = await lighter.close_live_position(symbol, side, usd_size)
@@ -1073,7 +1087,7 @@ async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
         positions = await adapter.fetch_open_positions()
         for p in (positions or []):
             if p.get('symbol') == symbol:
-                return p.get('size', 0)
+                return safe_float(p.get('size', 0))
         return None
     except Exception as e:
         logger.error(f"Failed to get position size for {symbol}: {e}")
@@ -1103,9 +1117,9 @@ async def safe_close_x10_position(x10, symbol, side, notional):
         
         logger.info(f"🔻 Closing X10 {symbol}: size={actual_size_abs:.6f} coins, side={original_side}")
         
-        # Close with ACTUAL coin size
-        price = x10.fetch_mark_price(symbol)
-        if not price:
+        # Close with ACTUAL coin size - safe type conversion for price
+        price = safe_float(x10.fetch_mark_price(symbol))
+        if price <= 0:
             logger.error(f"No price for {symbol}")
             return
         
@@ -1277,38 +1291,40 @@ async def manage_open_trades(lighter, x10):
             # ═══════════════════════════════════════════════════════════════
             # Preise holen (für Profit-Check & normale Exits)
             # ═══════════════════════════════════════════════════════════════
-            px = x10.fetch_mark_price(sym)
-            pl = lighter.fetch_mark_price(sym)
+            raw_px = x10.fetch_mark_price(sym)
+            raw_pl = lighter.fetch_mark_price(sym)
+            px = safe_float(raw_px) if raw_px is not None else None
+            pl = safe_float(raw_pl) if raw_pl is not None else None
 
             # REST Fallback wenn WebSocket keine Preise hat
-            if px is None or pl is None:
+            if px is None or pl is None or px <= 0 or pl <= 0:
                 logger.debug(f"{sym}: WS Preise fehlen, versuche REST Fallback...")
                 
                 # Versuche REST API als Fallback
                 try:
-                    if px is None:
+                    if px is None or px <= 0:
                         # X10 REST Fallback (falls Methode existiert)
                         if hasattr(x10, 'get_price_rest'):
-                            px = await x10.get_price_rest(sym)
+                            px = safe_float(await x10.get_price_rest(sym))
                         elif hasattr(x10, 'load_market_cache'):
                             await x10.load_market_cache(force=True)
-                            px = x10.fetch_mark_price(sym)
+                            px = safe_float(x10.fetch_mark_price(sym))
                     
-                    if pl is None:
+                    if pl is None or pl <= 0:
                         # Lighter REST Fallback
                         if hasattr(lighter, 'get_price_rest'):
-                            pl = await lighter.get_price_rest(sym)
+                            pl = safe_float(await lighter.get_price_rest(sym))
                         elif hasattr(lighter, 'load_funding_rates_and_prices'):
                             await lighter.load_funding_rates_and_prices()
-                            pl = lighter.fetch_mark_price(sym)
+                            pl = safe_float(lighter.fetch_mark_price(sym))
                     
-                    if px is not None and pl is not None:
+                    if px is not None and pl is not None and px > 0 and pl > 0:
                         logger.info(f"✅ {sym}: REST Fallback erfolgreich (X10=${px:.2f}, Lit=${pl:.2f})")
                 except Exception as e:
                     logger.warning(f"{sym}: REST Fallback fehlgeschlagen: {e}")
                 
                 # Wenn immer noch keine Preise -> Skip (aber Zeit-Check wurde oben schon gemacht!)
-                if px is None or pl is None:
+                if px is None or pl is None or px <= 0 or pl <= 0:
                     logger.debug(f"{sym}: Keine Preise verfügbar, überspringe Profit-Check")
                     continue
 
@@ -1459,11 +1475,11 @@ async def sync_check_and_fix(lighter, x10):
         # Extract symbols (filter out dust positions)
         x10_symbols = {
             p.get('symbol') for p in (x10_positions or [])
-            if abs(p.get('size', 0)) > 1e-8
+            if abs(safe_float(p.get('size', 0))) > 1e-8
         }
         lighter_symbols = {
             p.get('symbol') for p in (lighter_positions or [])
-            if abs(p.get('size', 0)) > 1e-8
+            if abs(safe_float(p.get('size', 0))) > 1e-8
         }
         
         # Find desync
@@ -1494,9 +1510,9 @@ async def sync_check_and_fix(lighter, x10):
                     logger.warning(f"🔻 Closing orphaned X10 position: {sym}")
                     pos = next((p for p in x10_positions if p.get('symbol') == sym), None)
                     if pos:
-                        size = pos.get('size', 0)
+                        size = safe_float(pos.get('size', 0))
                         original_side = "BUY" if size > 0 else "SELL"
-                        px = x10.fetch_mark_price(sym) or 0.0
+                        px = safe_float(x10.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
                             await x10.close_live_position(sym, original_side, notional)
@@ -1528,9 +1544,9 @@ async def sync_check_and_fix(lighter, x10):
                     logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
                     pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
                     if pos:
-                        size = pos.get('size', 0)
+                        size = safe_float(pos.get('size', 0))
                         original_side = "BUY" if size > 0 else "SELL"
-                        px = lighter.fetch_mark_price(sym) or 0.0
+                        px = safe_float(lighter.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
                             await lighter.close_live_position(sym, original_side, notional)
@@ -1557,8 +1573,8 @@ async def cleanup_zombie_positions(lighter, x10):
     try:
         x_pos, l_pos = await get_cached_positions(lighter, x10, force=True)
 
-        x_syms = {p['symbol'] for p in x_pos if abs(p.get('size', 0)) > 1e-8}
-        l_syms = {p['symbol'] for p in l_pos if abs(p.get('size', 0)) > 1e-8}
+        x_syms = {p['symbol'] for p in x_pos if abs(safe_float(p.get('size', 0))) > 1e-8}
+        l_syms = {p['symbol'] for p in l_pos if abs(safe_float(p.get('size', 0))) > 1e-8}
 
         db_trades = await get_open_trades()
         db_syms = {t['symbol'] for t in db_trades}
@@ -1574,7 +1590,7 @@ async def cleanup_zombie_positions(lighter, x10):
                 if sym in x_syms:
                     p = next((pos for pos in x_pos if pos['symbol'] == sym), None)
                     if p:
-                        position_size = p.get('size', 0)
+                        position_size = safe_float(p.get('size', 0))
 
                         # CRITICAL FIX: Determine close side based on CURRENT position
                         # Positive size = LONG position → close with SELL
@@ -1586,7 +1602,7 @@ async def cleanup_zombie_positions(lighter, x10):
                             close_side = "BUY"   # Close SHORT
                             original_side = "SELL"
 
-                        size_usd = abs(position_size) * (x10.fetch_mark_price(sym) or 0.0)
+                        size_usd = abs(position_size) * safe_float(x10.fetch_mark_price(sym))
 
                         if size_usd < 1.0:
                             logger.warning(f"⚠️ X10 zombie {sym} too small (${size_usd:.2f}), skipping")
@@ -1608,7 +1624,7 @@ async def cleanup_zombie_positions(lighter, x10):
                 if sym in l_syms:
                     p = next((pos for pos in l_pos if pos['symbol'] == sym), None)
                     if p:
-                        position_size = p.get('size', 0)
+                        position_size = safe_float(p.get('size', 0))
 
                         # CRITICAL FIX: Same logic for Lighter
                         if position_size > 0:
@@ -1618,7 +1634,7 @@ async def cleanup_zombie_positions(lighter, x10):
                             close_side = "BUY"
                             original_side = "SELL"
 
-                        size_usd = abs(position_size) * (lighter.fetch_mark_price(sym) or 0.0)
+                        size_usd = abs(position_size) * safe_float(lighter.fetch_mark_price(sym))
 
                         if size_usd < 1.0:
                             logger.warning(f"⚠️ Lighter zombie {sym} too small (${size_usd:.2f}), skipping")
@@ -1770,13 +1786,13 @@ async def farm_loop(lighter, x10, parallel_exec):
                 if sym in open_syms or sym in ACTIVE_TASKS or sym in FAILED_COINS:
                     continue
                 
-                px = x10.fetch_mark_price(sym)
-                pl = lighter.fetch_mark_price(sym)
+                px = safe_float(x10.fetch_mark_price(sym))
+                pl = safe_float(lighter.fetch_mark_price(sym))
                 
-                if not px or not pl:
+                if px <= 0 or pl <= 0:
                     continue
                 
-                spread = abs(px - pl) / px if px else 1.0
+                spread = abs(px - pl) / px if px > 0 else 1.0
                 if spread > getattr(config, 'FARM_MAX_SPREAD_PCT', 0.01):
                     continue
                 
@@ -3137,9 +3153,9 @@ async def main():
             loaded_ok = False
             for sym in test_syms:
                 if sym in x10.market_info and sym in lighter.market_info:
-                    px = x10.fetch_mark_price(sym)
-                    pl = lighter.fetch_mark_price(sym)
-                    if px and pl and px > 0 and pl > 0:
+                    px = safe_float(x10.fetch_mark_price(sym))
+                    pl = safe_float(lighter.fetch_mark_price(sym))
+                    if px > 0 and pl > 0:
                         logger.info(f"✅ Data OK: {sym} X10=${px:.2f}, Lighter=${pl:.2f}")
                         loaded_ok = True
                         break
@@ -3315,15 +3331,21 @@ async def main():
             try:
                 lit_pos = await lighter.fetch_open_positions()
                 for p in lit_pos:
-                    if abs(float(p['size'])) > 0:
+                    if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned Lighter position found: {p['symbol']}. Closing...")
-                        await lighter.close_live_position(p['symbol'], "BUY", float(p['size']) * float(lighter.fetch_mark_price(p['symbol']) or 0))
+                        price = safe_float(lighter.fetch_mark_price(p['symbol']))
+                        size = safe_float(p.get('size', 0))
+                        if price > 0:
+                            await lighter.close_live_position(p['symbol'], "BUY", abs(size) * price)
                 
                 x10_pos = await x10.fetch_open_positions()
                 for p in x10_pos:
-                    if abs(float(p['size'])) > 0:
+                    if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
-                        await x10.close_live_position(p['symbol'], "BUY", float(p['size']) * float(x10.fetch_mark_price(p['symbol']) or 0))
+                        price = safe_float(x10.fetch_mark_price(p['symbol']))
+                        size = safe_float(p.get('size', 0))
+                        if price > 0:
+                            await x10.close_live_position(p['symbol'], "BUY", abs(size) * price)
 
             except Exception as ex_scan:
                 logger.error(f"Error scanning/closing orphans: {ex_scan}")

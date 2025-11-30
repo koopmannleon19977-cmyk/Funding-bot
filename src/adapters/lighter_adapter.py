@@ -1262,6 +1262,22 @@ class LighterAdapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
+        
+        # CRITICAL: Helper for safe float conversion
+        def safe_float(val, default=0.0):
+            if val is None:
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+        
+        # CRITICAL: Ensure notional_usd is float
+        notional_usd = safe_float(notional_usd)
+        if notional_usd <= 0:
+            logger.error(f"Lighter open {symbol}: Invalid notional_usd: {notional_usd}")
+            return False, None
+        
         # ═══════════════════════════════════════════════════════════════
         # PRE-VALIDATION
         # ═══════════════════════════════════════════════════════════════
@@ -1275,8 +1291,12 @@ class LighterAdapter(BaseAdapter):
         # Get price if not provided
         if price is None:
             price = self.get_price(symbol)
-            if not price:
-                raise ValueError(f"No price available for {symbol}")
+        
+        # CRITICAL: Ensure price is float
+        price = safe_float(price)
+        if price <= 0:
+            raise ValueError(f"No valid price available for {symbol}")
+        
         logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd:.2f}, price=${price:.6f}")
         # ...existing code...
 
@@ -1356,15 +1376,32 @@ class LighterAdapter(BaseAdapter):
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
         
+        # CRITICAL: Ensure notional_usd is float immediately
+        try:
+            notional_usd = float(notional_usd) if notional_usd is not None else 0.0
+        except (ValueError, TypeError):
+            logger.error(f"Lighter close {symbol}: Invalid notional_usd type: {type(notional_usd)}")
+            return False, None
+        
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
             return True, "DRY_RUN_CLOSE_456"
 
+        # Define safe_float helper at the top for consistent use
+        def safe_float(val, default=0.0):
+            if val is None:
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
         try:
             positions = await self.fetch_open_positions()
+            
             pos = next(
                 (p for p in (positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                 if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
                 None
             )
 
@@ -1374,8 +1411,9 @@ class LighterAdapter(BaseAdapter):
                 # statt in einer Endlosschleife zu versuchen, eine leere Position zu schließen.
                 return True, None
 
-            actual_size = pos.get('size', 0)
-            close_size_coins = abs(float(actual_size))
+            # Safe type conversion for actual_size
+            actual_size = safe_float(pos.get('size', 0))
+            close_size_coins = abs(actual_size)
 
             # ──────────────────────────────────────────────────────────────
             # KRITISCHER FIX: Sichere Preisberechnung
