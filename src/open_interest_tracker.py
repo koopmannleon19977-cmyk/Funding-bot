@@ -95,6 +95,11 @@ class OpenInterestTracker:
         
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
+        
+        # Rate limiting parameters
+        self._fetch_interval = 30.0  # Sekunden zwischen Batches
+        self._batch_size = 5  # Nur 5 Symbole pro Batch
+        self._batch_delay = 3.0  # 3s zwischen einzelnen Calls
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters (for lazy initialization)"""
@@ -119,10 +124,10 @@ class OpenInterestTracker:
         
         self._running = True
         self._update_task = asyncio.create_task(
-            self._update_loop(update_interval),
+            self._update_loop(),
             name="oi_tracker"
         )
-        logger.info(f"✅ OpenInterestTracker started (interval={update_interval}s)")
+        logger.info(f"✅ OpenInterestTracker started (interval={self._fetch_interval}s)")
     
     async def stop(self):
         """Stop background tracking"""
@@ -135,17 +140,133 @@ class OpenInterestTracker:
                 pass
         logger.info("✅ OpenInterestTracker stopped")
     
-    async def _update_loop(self, interval: float):
-        """Background loop to update OI data"""
+    async def _update_loop(self):
+        """Rate-limited OI polling with detailed logging"""
+        cycle_count = 0
+        
         while self._running:
             try:
-                await self._update_all_symbols()
-                await asyncio.sleep(interval)
+                cycle_count += 1
+                symbols = list(self._tracked_symbols)
+
+                logger.info(f"📊 OI Tracker: Starting cycle {cycle_count} ({len(symbols)} symbols)")
+                
+                if not symbols:
+                    await asyncio.sleep(self._fetch_interval)
+                    continue
+                
+                updated_count = 0
+                failed_count = 0
+                total_oi = 0.0
+                rate_limited = False
+                
+                # Batch processing with delays
+                for i in range(0, len(symbols), self._batch_size):
+                    if not self._running:
+                        break
+                        
+                    batch = symbols[i:i + self._batch_size]
+                    
+                    for sym in batch:
+                        if not self._running:
+                            break
+                        try:
+                            # Fetch from X10
+                            oi_x10 = 0.0
+                            oi_lighter = 0.0
+                            
+                            if self.x10:
+                                try:
+                                    oi_x10 = await self.x10.fetch_open_interest(sym)
+                                except Exception as e:
+                                    if "429" in str(e):
+                                        rate_limited = True
+                                        logger.warning(f"⚠️ OI Tracker: 429 rate limit on X10 for {sym}, pausing 30s")
+                                        await asyncio.sleep(30.0)
+                                    failed_count += 1
+                                await asyncio.sleep(0.5)
+                            
+                            if self.lighter:
+                                try:
+                                    oi_lighter = await self.lighter.fetch_open_interest(sym)
+                                except Exception as e:
+                                    if "429" in str(e):
+                                        rate_limited = True
+                                        logger.warning(f"⚠️ OI Tracker: 429 rate limit on Lighter for {sym}, pausing 30s")
+                                        await asyncio.sleep(30.0)
+                                    failed_count += 1
+                            
+                            oi_total = oi_x10 + oi_lighter
+                            
+                            if oi_total > 0:
+                                # Store snapshot
+                                now = time.time()
+                                snapshot = OISnapshot(
+                                    timestamp=now,
+                                    oi_x10=oi_x10,
+                                    oi_lighter=oi_lighter
+                                )
+                                
+                                async with self._lock:
+                                    if sym not in self._history:
+                                        self._history[sym] = deque(maxlen=self.HISTORY_WINDOW)
+                                    self._history[sym].append(snapshot)
+                                    self._metrics[sym] = self._calculate_metrics(sym)
+                                
+                                updated_count += 1
+                                total_oi += oi_total
+                                logger.debug(f"✅ {sym}: X10=${oi_x10:,.0f}, Lighter=${oi_lighter:,.0f}, Total=${oi_total:,.0f}")
+                            else:
+                                failed_count += 1
+                                logger.debug(f"⚠️ {sym}: No OI data available")
+                                
+                        except Exception as e:
+                            failed_count += 1
+                            if "429" in str(e):
+                                rate_limited = True
+                                logger.warning(f"⚠️ OI Tracker: 429 rate limit on {sym}, pausing 30s")
+                                await asyncio.sleep(30.0)
+                            else:
+                                logger.debug(f"❌ {sym}: Error fetching OI: {e}")
+                            continue
+                        
+                        await asyncio.sleep(self._batch_delay)
+                    
+                    # Pause between batches
+                    await asyncio.sleep(2.0)
+                
+                # ═══════════════════════════════════════════════════════════
+                # DETAILED LOGGING: Show results after each cycle
+                # ═══════════════════════════════════════════════════════════
+                logger.info(f"📊 OI Tracker Cycle {cycle_count}: {updated_count} updated, {failed_count} failed, total OI: ${total_oi:,.0f}")
+                
+                # Show top 5 symbols by OI every 3 cycles
+                if cycle_count % 3 == 0 or cycle_count == 1:
+                    if updated_count > 0:
+                        top_oi = sorted(
+                            [(s, m.current_oi, m.trend.value) for s, m in self._metrics.items() if m.current_oi > 0],
+                            key=lambda x: x[1],
+                            reverse=True
+                        )[:5]
+                        logger.info(f"📈 Top 5 Symbols by Open Interest:")
+                        for rank, (sym, oi, trend) in enumerate(top_oi, 1):
+                            logger.info(f"   {rank}. {sym}: ${oi:,.0f} ({trend})")
+                    else:
+                        logger.warning(f"⚠️ OI Tracker: No symbols updated in cycle {cycle_count}")
+                
+                if rate_limited:
+                    logger.warning(f"⚠️ Rate limit detected in cycle {cycle_count}, extending interval")
+                
+                # Main interval
+                await asyncio.sleep(self._fetch_interval)
+
+                
+                
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"OI Tracker update error: {e}")
-                await asyncio.sleep(5.0)
+                logger.error(f"OI Tracker error: {e}")
+                await asyncio.sleep(60.0)
     
     async def _update_all_symbols(self):
         """Update OI for all tracked symbols"""
@@ -242,6 +363,29 @@ class OpenInterestTracker:
         
         # Recalculate metrics (sync, called from WS handler)
         self._metrics[symbol] = self._calculate_metrics(symbol)
+
+    async def _fetch_oi(self, symbol: str) -> Optional[float]:
+        """Fetch OI for a symbol from exchanges (debug logging enabled)."""
+        total_oi = 0.0
+        try:
+            # X10
+            oi_x10 = await self.x10.fetch_open_interest(symbol) if self.x10 else None
+            logger.debug(f"OI {symbol} X10: {oi_x10}")
+            if oi_x10:
+                total_oi += oi_x10
+        except Exception as e:
+            logger.debug(f"X10 OI error {symbol}: {e}")
+        
+        try:
+            # Lighter
+            oi_lighter = await self.lighter.fetch_open_interest(symbol) if self.lighter else None
+            logger.debug(f"OI {symbol} Lighter: {oi_lighter}")
+            if oi_lighter:
+                total_oi += oi_lighter
+        except Exception as e:
+            logger.debug(f"Lighter OI error {symbol}: {e}")
+        
+        return total_oi if total_oi > 0 else None
     
     def _calculate_metrics(self, symbol: str) -> OIMetrics:
         """Calculate OI metrics from history"""
@@ -359,6 +503,11 @@ class OpenInterestTracker:
         """Get current OI trend for symbol"""
         metrics = self._metrics.get(symbol)
         return metrics.trend if metrics else OITrend.UNKNOWN
+    
+    def get_oi(self, symbol: str) -> float:
+        """Get current total OI for a symbol (shortcut method)"""
+        metrics = self._metrics.get(symbol)
+        return metrics.current_oi if metrics else 0.0
     
     def get_imbalance(self, symbol: str) -> float:
         """Get cross-exchange OI imbalance"""

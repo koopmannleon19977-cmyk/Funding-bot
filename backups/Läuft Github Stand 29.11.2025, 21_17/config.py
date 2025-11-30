@@ -58,8 +58,8 @@ TRADE_COOLDOWN_SECONDS = 120
 DESIRED_NOTIONAL_USD = 8          # Kleiner starten
 MIN_POSITION_SIZE_USD = 5.0       # API Minimum
 MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
-MAX_NOTIONAL_USD = 25.0           # Nicht zu groß
-MAX_TRADE_SIZE_USD = 30.0         # Max pro Trade
+MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
+MAX_TRADE_SIZE_USD = 20.0         # Max pro Trade
 MAX_OPEN_TRADES = 3               # Weniger parallel (war 5)
 
 # Safety: Reserve 20% statt 30%
@@ -139,10 +139,8 @@ MAX_VOLATILITY_PCT_24H = 50.0
 # ============================================================
 # Open Interest & Funding Cache Settings
 # ============================================================
-# Open Interest Settings
-MIN_OPEN_INTEREST_USD = 50000  # Minimum OI für Trading
-OI_TRACKER_INTERVAL = 60       # Sekunden zwischen OI Updates
-OI_MIN_VELOCITY_WARN = -1000   # Warnung wenn OI schnell fällt
+# Open Interest Limits
+MIN_OPEN_INTEREST_USD = 50000  # Minimum OI um zu traden (Liquidität)
 MAX_OI_FRACTION = 0.02  # Max 2% des OI als Position
 
 # Funding Rate Cache Settings

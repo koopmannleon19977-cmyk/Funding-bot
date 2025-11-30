@@ -6,7 +6,7 @@ import logging
 import time
 import random
 import websockets
-from typing import Dict, Tuple, Optional, List, Any
+from typing import Dict, Tuple, Optional, List
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
 
 print("DEBUG: lighter_adapter.py module loading...")
@@ -34,26 +34,6 @@ except ImportError as e:
     print("   Install with: pip install git+https://github.com/elliottech/lighter-python.git")
 
 from .base_adapter import BaseAdapter
-from functools import wraps
-
-def rate_limit_retry(max_retries=3, base_delay=5.0):
-    """Decorator für automatisches Retry bei 429 Errors"""
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            for attempt in range(max_retries):
-                try:
-                    return await func(*args, **kwargs)
-                except Exception as e:
-                    if "429" in str(e) or "Too Many Requests" in str(e):
-                        delay = base_delay * (2 ** attempt)
-                        logger.warning(f"Rate limit hit, waiting {delay}s (attempt {attempt+1}/{max_retries})")
-                        await asyncio.sleep(delay)
-                    else:
-                        raise
-            raise Exception(f"Max retries ({max_retries}) exceeded for rate limit")
-        return wrapper
-    return decorator
 from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
 
 logger = logging.getLogger(__name__)
@@ -69,15 +49,10 @@ class LighterAdapter(BaseAdapter):
     def __init__(self):
         print(f"DEBUG: LighterAdapter.__init__ called at {time.time()}")
         super().__init__("Lighter")
-        
-        # KRITISCH: Cache-Attribute MÜSSEN existieren
-        self.funding_cache: Dict[str, float] = {}      # Öffentlich - für externe Zugriffe
-        self.price_cache: Dict[str, float] = {}        # Öffentlich - für Price-Abrufe
-        self.market_info: Dict[str, Any] = {}          # Market-Metadaten
-        
+        self.market_info = {}
         print(f"DEBUG: market_info initialized: {hasattr(self, 'market_info')}")
-        
-        # Weitere Caches
+        self.funding_cache = {}
+        self.price_cache = {}
         self.orderbook_cache = {}
         self.price_update_event = None
         self._ws_message_queue = asyncio.Queue()
@@ -90,7 +65,6 @@ class LighterAdapter(BaseAdapter):
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def refresh_market_limits(self, symbol: str) -> dict:
         """
         Fetch fresh market limits from Lighter API.
@@ -139,7 +113,6 @@ class LighterAdapter(BaseAdapter):
         
         return self.market_info.get(symbol, {})
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def validate_order_params(self, symbol: str, size_usd: float) -> Tuple[bool, str]:
         """
         Validate order parameters before sending to API.
@@ -151,28 +124,15 @@ class LighterAdapter(BaseAdapter):
             return False, f"Market {symbol} not found"
         
         price = self.get_price(symbol)
-        # Ensure price is float for comparisons
-        try:
-            price = float(price) if price is not None else 0.0
-        except (ValueError, TypeError):
-            price = 0.0
-        
         if not price or price <= 0:
             return False, f"Invalid price for {symbol}: {price}"
         
         # Calculate quantity
         quantity = size_usd / price
         
-        # Check minimums - ensure values are float
-        try:
-            min_base = float(market_info.get('min_base_amount', 0.0001))
-        except (ValueError, TypeError):
-            min_base = 0.0001
-        
-        try:
-            min_notional = float(market_info.get('min_notional', 5.0))
-        except (ValueError, TypeError):
-            min_notional = 5.0
+        # Check minimums
+        min_base = float(market_info.get('min_base_amount', 0.0001))
+        min_notional = float(market_info.get('min_notional', 5.0))
         
         if quantity < min_base:
             return False, f"Quantity {quantity:.6f} < min_base {min_base}"
@@ -183,12 +143,10 @@ class LighterAdapter(BaseAdapter):
         
         return True, "OK"
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
         await self.load_market_cache(force=True)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def get_order_fee(self, order_id: str) -> float:
         """Fetch real fee from Lighter order"""
         if not order_id or order_id == "DRY_RUN_ORDER_123":
@@ -328,7 +286,6 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Fee Fetch Error for {order_id}: {e}")
             return 0.0
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
         logger.info(f"🌐 {self.name}: WebSocket Manager starting streams...")
@@ -338,84 +295,76 @@ class LighterAdapter(BaseAdapter):
             return_exceptions=True,
         )
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _poll_prices(self):
         """Wrapper kompatibel mit WebSocketManager"""
         await self._rest_price_poller(interval=2.0)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _poll_funding_rates(self):
         """Wrapper kompatibel mit WebSocketManager"""
         await self._rest_funding_poller(interval=30.0)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def ws_message_stream(self):
         """Async iterator für WebSocketManager"""
         while True:
             msg = await self._ws_message_queue. get()
             yield msg
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
-    async def _rest_price_poller(self, interval: float = 5.0):
-        """REST-basiertes Preis-Polling - uses /orderBookDetails endpoint"""
+    async def _rest_price_poller(self, interval: float = 2.0):
+        """REST-basiertes Preis-Polling als WebSocket-Ersatz"""
         while True:
             try:
-                await self.rate_limiter.acquire()
-                
-                # Use orderBookDetails endpoint (not /ticker - doesn't exist in SDK)
-                async with aiohttp.ClientSession() as session:
-                    url = f"{self._get_base_url()}/api/v1/orderBooks"
-                    async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                        if resp.status == 429:
-                            self.rate_limiter.penalize_429()
-                            await asyncio.sleep(30)
-                            continue
-                        
-                        if resp.status != 200:
-                            await asyncio.sleep(interval)
-                            continue
-                        
-                        data = await resp.json()
-                        self.rate_limiter.on_success()
-                
-                # Parse response - looking for last_trade_price (number type)
-                markets = data.get("order_books") or data.get("orderBooks") or []
-                updated = 0
-                
-                for m in markets:
-                    symbol_raw = m.get("symbol", "")
-                    if not symbol_raw:
-                        continue
-                    
-                    symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
-                    
-                    # Extract price from last_trade_price field (SDK confirmed field name)
-                    price = m.get("last_trade_price")
-                    if price is not None:
-                        try:
-                            price_float = float(price)
-                            if price_float > 0:
-                                self.price_cache[symbol] = (price_float, time.time())
+                if not HAVE_LIGHTER_SDK:
+                    await asyncio.sleep(interval)
+                    continue
+
+                await self. rate_limiter.acquire()
+                signer = await self._get_signer()
+                order_api = OrderApi(signer.api_client)
+
+                try:
+                    market_list = await order_api.order_book_details()
+                    if market_list and market_list.order_book_details:
+                        updated = 0
+                        for m in market_list. order_book_details:
+                            symbol_raw = getattr(m, "symbol", None)
+                            if not symbol_raw:
+                                continue
+                            symbol = (
+                                f"{symbol_raw}-USD"
+                                if not symbol_raw.endswith("-USD")
+                                else symbol_raw
+                            )
+
+                            mark_price = getattr(m, "mark_price", None) or getattr(
+                                m, "last_trade_price", None
+                            )
+                            if mark_price:
+                                self.price_cache[symbol] = float(mark_price)
                                 updated += 1
-                        except (ValueError, TypeError):
-                            continue
-                
-                if updated > 0:
-                    logger.info(f"Lighter REST: Loaded {updated} prices")
-                    if self.price_update_event:
-                        self.price_update_event.set()
-                else:
-                    logger.debug(f"Lighter REST: Loaded 0 prices (no valid last_trade_price fields)")
-                
+
+                        if updated > 0:
+                            self. rate_limiter.on_success()
+                            if (
+                                hasattr(self, "price_update_event")
+                                and self.price_update_event
+                            ):
+                                self.price_update_event.set()
+                            logger.debug(f"Lighter REST: Updated {updated} prices")
+                except Exception as e:
+                    if "429" in str(e):
+                        self.rate_limiter.penalize_429()
+                    else:
+                        logger.debug(f"Lighter REST price poll error: {e}")
+
                 await asyncio.sleep(interval)
-                
+
             except asyncio.CancelledError:
+                logger.info("🛑 Lighter REST price poller stopped")
                 break
             except Exception as e:
-                logger.error(f"Lighter REST price poller error: {e}")
-                await asyncio.sleep(interval * 2)
+                logger. error(f"Lighter REST price poller error: {e}")
+                await asyncio. sleep(interval * 2)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _rest_funding_poller(self, interval: float = 30.0):
         """REST-basiertes Funding Rate Polling"""
         while True:
@@ -430,7 +379,6 @@ class LighterAdapter(BaseAdapter):
                 logger.error(f"Lighter REST funding poller error: {e}")
                 await asyncio.sleep(interval * 2)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def refresh_funding_rates_rest(self):
         """REST Fallback für Funding Rates"""
         try:
@@ -464,7 +412,6 @@ class LighterAdapter(BaseAdapter):
     async def _auto_resolve_indices(self) -> Tuple[int, int]:
         return int(config. LIGHTER_ACCOUNT_INDEX), int(config.LIGHTER_API_KEY_INDEX)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _get_signer(self):
         if self._signer is None:
             if not HAVE_LIGHTER_SDK:
@@ -484,7 +431,6 @@ class LighterAdapter(BaseAdapter):
             )
         return self._signer
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _fetch_single_market(self, order_api, market_id: int):
         """Fetch market data with safe type conversion for API responses."""
         async with self.semaphore:
@@ -500,18 +446,8 @@ class LighterAdapter(BaseAdapter):
                     normalized_symbol = f"{symbol}-USD" if not symbol.endswith("-USD") else symbol
 
                     # ═══════════════════════════════════════════════════════════
-                    # CRITICAL FIX: Use supported_* fields for ACTUAL scaling
-                    # NOT size_decimals/price_decimals (those are display only)
-                    # 
-                    # X10 Comparison:
-                    # - X10 SDK handles scaling internally
-                    # - Lighter requires manual scaling with EXACT decimals
-                    # 
-                    # API Fields:
-                    # - size_decimals: Display decimals (e.g., 8 for BTC, APT)
-                    # - supported_size_decimals: ACTUAL scaling decimals (4 for APT!)
-                    # - price_decimals: Display decimals (e.g., 6)
-                    # - supported_price_decimals: ACTUAL scaling decimals (2 for APT!)
+                    # API gibt strings/uint8 zurück - IMMER explizit konvertieren!
+                    # Quelle: API_CONTEXT.md orderBookDetails.html
                     # ═══════════════════════════════════════════════════════════
                     
                     def safe_int(val, default=8):
@@ -542,34 +478,24 @@ class LighterAdapter(BaseAdapter):
                         except (ValueError, TypeError):
                             return default
 
-                    # ✅ CRITICAL FIX: Use supported_* fields (actual scaling decimals)
-                    # These tell us how the API actually scales integers
-                    size_decimals_actual = safe_int(getattr(m, 'supported_size_decimals', None), 4)
-                    price_decimals_actual = safe_int(getattr(m, 'supported_price_decimals', None), 2)
+                    # API Response Felder (aus orderBookDetails.html):
+                    # - size_decimals: uint8
+                    # - price_decimals: uint8
+                    # - min_base_amount: string
+                    # - min_quote_amount: string
+                    # - last_trade_price: double
                     
-                    # Display decimals (for logging/UI only, not for scaling)
-                    size_decimals_display = safe_int(getattr(m, 'size_decimals', None), 8)
-                    price_decimals_display = safe_int(getattr(m, 'price_decimals', None), 6)
-                    
-                    # Min amounts (already in human-readable format, NOT scaled)
+                    size_decimals = safe_int(getattr(m, 'size_decimals', None), 8)
+                    price_decimals = safe_int(getattr(m, 'price_decimals', None), 6)
                     min_base = safe_decimal(getattr(m, 'min_base_amount', None), "0.00000001")
                     min_quote = safe_decimal(getattr(m, 'min_quote_amount', None), "0.00001")
                     
                     market_data = {
                         'i': getattr(m, 'market_id', market_id),
-                        'symbol': normalized_symbol,
-                        
-                        # ✅ ACTUAL decimals for scaling (used in _scale_amounts)
-                        'sd': size_decimals_actual,    # e.g., 4 for APT (not 8!)
-                        'pd': price_decimals_actual,   # e.g., 2 for APT (not 6!)
-                        
-                        # Display decimals (for reference only)
-                        'display_sd': size_decimals_display,
-                        'display_pd': price_decimals_display,
-                        
-                        # Min amounts (human-readable, not scaled)
-                        'ss': min_base,                # e.g., Decimal("0.001")
-                        'mps': min_quote,              # e.g., Decimal("10")
+                        'sd': size_decimals,
+                        'pd': price_decimals,
+                        'ss': min_base,           # step_size als Decimal
+                        'mps': min_quote,         # min_price_step als Decimal
                         'min_notional': float(min_quote) if min_quote else 10.0,
                         'min_quantity': float(min_base) if min_base else 0.0,
                     }
@@ -582,25 +508,7 @@ class LighterAdapter(BaseAdapter):
                     # last_trade_price ist double laut API
                     price = getattr(m, 'last_trade_price', None)
                     if price is not None:
-                        self.price_cache[normalized_symbol] = (safe_float(price), time.time())
-                    
-                    # ✅ ZUSÄTZLICH: Cache funding rate aus market details (Fallback)
-                    funding_rate = getattr(m, 'current_funding_rate', None)
-                    if funding_rate is not None:
-                        try:
-                            rate_float = float(funding_rate)
-                            self.funding_cache[normalized_symbol] = rate_float
-                            logger.debug(f"{normalized_symbol}: Cached funding rate {rate_float:.6f}")
-                        except (ValueError, TypeError):
-                            pass
-                    
-                    # Debug log to verify correct decimals
-                    logger.debug(
-                        f"✅ {normalized_symbol}: "
-                        f"size_decimals={size_decimals_actual} (display: {size_decimals_display}), "
-                        f"price_decimals={price_decimals_actual} (display: {price_decimals_display}), "
-                        f"min_base={min_base}"
-                    )
+                        self.price_cache[normalized_symbol] = safe_float(price)
                         
                     self.rate_limiter.on_success()
                     return True
@@ -612,67 +520,41 @@ class LighterAdapter(BaseAdapter):
                 return False
             return False
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
-    async def _load_funding_rates(self) -> bool:
-        """Load funding rates from Lighter REST API"""
+    async def _load_funding_rates(self):
+        """Load funding rates from Lighter API."""
         try:
-            await self.rate_limiter.acquire()
-            
+            # Endpoint: GET /api/v1/funding-rates
+            # Response: funding_rates[].rate ist double
             async with aiohttp.ClientSession() as session:
-                # ✅ KRITISCH: Bindestrich, nicht camelCase! (funding-rates)
                 url = f"{self._get_base_url()}/api/v1/funding-rates"
-                async with session.get(
-                    url, 
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
-                    if resp.status == 429:
-                        self.rate_limiter.penalize_429()
-                        logger.warning("⚠️ Lighter funding rates rate limited")
-                        return False
-                    
-                    if resp.status != 200:
-                        logger.debug(f"Lighter funding rates HTTP {resp.status}")
-                        return False
-                    
-                    data = await resp.json()
-                    self.rate_limiter.on_success()
-
-            funding_rates = (
-                data.get('funding_rates') or 
-                data.get('fundingRates') or
-                data.get('data') or 
-                []
-            )
-            
-            loaded = 0
-            
-            for fr in funding_rates:
-                exchange = fr.get('exchange', 'lighter')
-                if exchange and exchange.lower() != 'lighter':
-                    continue
-                    
-                symbol = fr.get('symbol', '')
-                rate = fr.get('rate')
-                
-                if symbol and rate is not None:
-                    if not symbol.endswith('-USD'):
-                        symbol = f"{symbol}-USD"
-                    self.funding_cache[symbol] = float(rate)
-                    loaded += 1
-            
-            logger.debug(f"Lighter: Loaded {loaded} funding rates")
-            return True
-            
+                async with session.get(url) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        funding_rates = data.get('funding_rates', [])
+                        
+                        for fr in funding_rates:
+                            # Nur Lighter rates nehmen
+                            if fr.get('exchange') == 'lighter':
+                                symbol = fr.get('symbol', '')
+                                rate = fr.get('rate')  # double laut API
+                                
+                                if symbol and rate is not None:
+                                    # Normalize symbol
+                                    if not symbol.endswith('-USD'):
+                                        symbol = f"{symbol}-USD"
+                                    self.funding_cache[symbol] = float(rate)
+                        
+                        logger.debug(f"Lighter: Loaded {len(self.funding_cache)} funding rates")
+                        return True
         except Exception as e:
-            if "429" in str(e).lower():
-                self.rate_limiter.penalize_429()
-            logger.debug(f"Lighter funding rates error: {e}")
-            return False
+            logger.error(f"Failed to load Lighter funding rates: {e}")
+        return False
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def load_market_cache(self, force: bool = False, max_retries: int = 1):
-        """Load market data from Lighter API - RATE LIMIT SAFE VERSION"""
-        print(f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}")
+        """Load market data from Lighter API"""
+        print(
+            f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}"
+        )
 
         if not getattr(config, "LIVE_TRADING", False):
             logger.warning("LIVE_TRADING=False, skipping market load")
@@ -692,228 +574,144 @@ class LighterAdapter(BaseAdapter):
         logger.info("⚙️ Lighter: Loading markets...")
 
         try:
-            # ═══════════════════════════════════════════════════════════════
-            # REST API direkt mit camelCase endpoint
-            # ═══════════════════════════════════════════════════════════════
-            base_url = self._get_base_url()
-            
-            async with aiohttp.ClientSession() as session:
-                await self.rate_limiter.acquire()
-                
-                # Versuche zuerst /api/v1/orderBooks (camelCase)
-                url = f"{base_url}/api/v1/orderBooks"
-                logger.debug(f"Fetching markets from: {url}")
-                
-                async with session.get(
-                    url,
-                    timeout=aiohttp.ClientTimeout(total=15)
-                ) as resp:
-                    if resp.status == 429:
-                        self.rate_limiter.penalize_429()
-                        logger.warning("⚠️ Lighter markets API rate limited, waiting...")
-                        await asyncio.sleep(30)
-                        return
-                    
-                    if resp.status == 404:
-                        # Fallback zu /api/v1/markets
-                        logger.debug(f"Endpoint {url} returned 404, trying /api/v1/markets")
-                        url = f"{base_url}/api/v1/markets"
-                        async with session.get(
-                            url,
-                            timeout=aiohttp.ClientTimeout(total=15)
-                        ) as resp2:
-                            if resp2.status != 200:
-                                logger.error(f"Lighter markets API error: {resp2.status}")
-                                return
-                            data = await resp2.json()
-                    elif resp.status != 200:
-                        logger.error(f"Lighter markets API error: {resp.status}")
-                        return
-                    else:
-                        data = await resp.json()
-                        
-                    self.rate_limiter.on_success()
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
 
-            # Parse response - unterstütze verschiedene Formate
-            markets_data = (
-                data.get("order_books") or 
-                data.get("orderBooks") or
-                data.get("markets") or
-                data.get("data") or 
-                []
-            )
-            
-            if not markets_data:
-                logger.warning("⚠️ Lighter: No markets in API response")
+            print("DEBUG: Calling order_books()...")
+
+            market_list = None
+            api_client = getattr(signer, "api_client", None)
+
+            try:
+                if hasattr(order_api, "order_books"):
+                    market_list = await order_api. order_books()
+            except Exception as e:
+                logger.debug(f"order_books() failed: {e}")
+                market_list = None
+
+            if not market_list:
+                try:
+                    resp = None
+                    if api_client is not None:
+                        if hasattr(api_client, "get"):
+                            resp = await api_client. get("/order-books")
+                        elif hasattr(api_client, "request"):
+                            resp = await api_client.request("GET", "/order-books")
+
+                    if isinstance(resp, dict):
+                        markets_data = (
+                            resp. get("data")
+                            or resp.get("order_books")
+                            or resp.get("result")
+                            or []
+                        )
+                    elif isinstance(resp, list):
+                        markets_data = resp
+                    else:
+                        markets_data = []
+
+                    class _ML:
+                        pass
+
+                    ml = _ML()
+                    objs = []
+                    for m in markets_data:
+                        if hasattr(m, "market_id") or isinstance(m, type):
+                            objs.append(m)
+                        elif isinstance(m, dict):
+
+                            class M:
+                                pass
+
+                            o = M()
+                            for k, v in m.items():
+                                setattr(o, k, v)
+                            objs.append(o)
+                    ml.order_books = objs
+                    market_list = ml
+                except Exception as e:
+                    logger.debug(f"Fallback market load failed: {e}")
+                    market_list = None
+
+            print(f"DEBUG: market_list type: {type(market_list)}")
+
+            if (
+                not market_list
+                or not hasattr(market_list, "order_books")
+                or not market_list.order_books
+            ):
+                logger.warning("⚠️ Lighter: No markets from API")
                 return
 
-            loaded_count = 0
-            
-            for m in markets_data:
-                try:
-                    # Handle both dict and object responses
-                    if isinstance(m, dict):
-                        symbol_raw = m.get("symbol", "")
-                        market_id = m.get("market_id", m.get("marketId", m.get("i", 0)))
-                        
-                        # ✅ CRITICAL FIX: Use supported_* fields (actual scaling decimals)
-                        size_decimals_actual = int(m.get("supported_size_decimals", m.get("supportedSizeDecimals", 4)))
-                        price_decimals_actual = int(m.get("supported_price_decimals", m.get("supportedPriceDecimals", 2)))
-                        
-                        # Display decimals (for reference only)
-                        size_decimals_display = int(m.get("size_decimals", m.get("sizeDecimals", 8)))
-                        price_decimals_display = int(m.get("price_decimals", m.get("priceDecimals", 6)))
-                        
-                        min_base = m.get("min_base_amount", m.get("minBaseAmount", "0.00000001"))
-                        min_quote = m.get("min_quote_amount", m.get("minQuoteAmount", "0.00001"))
-                        last_price = m.get("last_trade_price", m.get("lastTradePrice", 0))
-                    else:
-                        symbol_raw = getattr(m, "symbol", "")
-                        market_id = getattr(m, "market_id", getattr(m, "marketId", 0))
-                        
-                        # ✅ CRITICAL FIX: Use supported_* fields (actual scaling decimals)
-                        size_decimals_actual = int(getattr(m, "supported_size_decimals", getattr(m, "supportedSizeDecimals", 4)))
-                        price_decimals_actual = int(getattr(m, "supported_price_decimals", getattr(m, "supportedPriceDecimals", 2)))
-                        
-                        # Display decimals (for reference only)
-                        size_decimals_display = int(getattr(m, "size_decimals", getattr(m, "sizeDecimals", 8)))
-                        price_decimals_display = int(getattr(m, "price_decimals", getattr(m, "priceDecimals", 6)))
-                        
-                        min_base = getattr(m, "min_base_amount", getattr(m, "minBaseAmount", "0.00000001"))
-                        min_quote = getattr(m, "min_quote_amount", getattr(m, "minQuoteAmount", "0.00001"))
-                        last_price = getattr(m, "last_trade_price", getattr(m, "lastTradePrice", 0))
-                    
-                    if not symbol_raw:
+            all_ids = [
+                m.market_id
+                for m in market_list.order_books
+                if hasattr(m, "market_id")
+            ]
+            total_markets = len(all_ids)
+
+            BATCH_SIZE = 10
+            SLEEP_BETWEEN_BATCHES = 1.0
+            MAX_RETRIES_LOCAL = max_retries
+
+            successful_loads = 0
+            processed_ids = set()
+
+            for batch_num, i in enumerate(range(0, len(all_ids), BATCH_SIZE), start=1):
+                batch_ids = all_ids[i : i + BATCH_SIZE]
+
+                if batch_num > 1:
+                    await asyncio.sleep(SLEEP_BETWEEN_BATCHES)
+
+                for retry in range(MAX_RETRIES_LOCAL + 1):
+                    tasks = [
+                        self._fetch_single_market(order_api, mid) for mid in batch_ids
+                    ]
+                    results = await asyncio. gather(*tasks, return_exceptions=True)
+
+                    batch_loaded_ids = []
+                    for mid in batch_ids:
+                        if mid in processed_ids:
+                            continue
+                        if any(m["i"] == mid for m in self.market_info. values()):
+                            batch_loaded_ids.append(mid)
+                            processed_ids.add(mid)
+
+                    batch_success_count = len(batch_loaded_ids)
+                    successful_loads += batch_success_count
+
+                    if batch_success_count == len(batch_ids):
+                        break
+
+                    has_429 = any(
+                        isinstance(r, Exception) and "429" in str(r) for r in results
+                    )
+
+                    if has_429 and retry < MAX_RETRIES_LOCAL:
+                        wait_time = (retry + 1) * 2
+                        logger.warning(
+                            f"⚠️ Rate Limited.  Retry {retry+1}/{MAX_RETRIES_LOCAL} in {wait_time}s..."
+                        )
+                        await asyncio.sleep(wait_time)
                         continue
-                    
-                    # Normalize symbol
-                    symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
-                    
-                    # Build market info with CORRECT decimals
-                    market_data = {
-                        'i': market_id,
-                        'symbol': symbol,
-                        
-                        # ✅ ACTUAL decimals for scaling (used in _scale_amounts)
-                        'sd': size_decimals_actual,
-                        'pd': price_decimals_actual,
-                        
-                        # Display decimals (for reference only)
-                        'display_sd': size_decimals_display,
-                        'display_pd': price_decimals_display,
-                        
-                        # Min amounts (human-readable)
-                        'ss': Decimal(str(min_base)) if min_base else Decimal("0.00000001"),
-                        'mps': Decimal(str(min_quote)) if min_quote else Decimal("0.00001"),
-                        'min_notional': float(min_quote) if min_quote else 10.0,
-                        'min_quantity': float(min_base) if min_base else 0.0,
-                    }
-                    
-                    # Apply overrides
-                    if symbol in MARKET_OVERRIDES:
-                        market_data.update(MARKET_OVERRIDES[symbol])
-                    
-                    self.market_info[symbol] = market_data
-                    
-                    # Cache price from last_trade_price field (SDK confirmed)
-                    if last_price is not None:
-                        try:
-                            price_float = float(last_price)
-                            if price_float > 0:
-                                self.price_cache[symbol] = (price_float, time.time())
-                                logger.debug(f"{symbol}: Cached price ${price_float:.2f}")
-                        except (ValueError, TypeError):
-                            pass
-                    
-                    # ✅ ZUSÄTZLICH: Cache funding rate wenn verfügbar
-                    try:
-                        # API kann funding_rate oder current_funding_rate enthalten
-                        funding = None
-                        if isinstance(m, dict):
-                            funding = m.get('current_funding_rate') or m.get('funding_rate')
-                        else:
-                            funding = getattr(m, 'current_funding_rate', None) or getattr(m, 'funding_rate', None)
-                        
-                        if funding is not None:
-                            rate_float = float(funding)
-                            self.funding_cache[symbol] = rate_float
-                            logger.debug(f"{symbol}: Cached funding rate {rate_float:.6f}")
-                    except (ValueError, TypeError, AttributeError):
-                        pass
-                    
-                    loaded_count += 1
-                    
-                except Exception as e:
-                    logger.debug(f"Error parsing market {m}: {e}")
-                    continue
+
+                    break
 
             self._last_market_cache_at = time.time()
-            logger.info(f"✅ Lighter: {loaded_count} markets loaded (REST API)")
+            success_rate = (
+                (successful_loads / total_markets * 100) if total_markets > 0 else 0
+            )
 
-            # Load Funding Rates (separate, rate-limited)
-            await asyncio.sleep(1.0)
-            await self._load_funding_rates()
+            logger.info(
+                f"✅ Lighter: {successful_loads}/{total_markets} markets loaded ({success_rate:.1f}%)"
+            )
 
-        except aiohttp.ClientError as e:
-            logger.error(f"❌ Lighter Market Cache Network Error: {e}")
         except Exception as e:
             logger.error(f"❌ Lighter Market Cache Error: {e}")
             import traceback
-            traceback.print_exc()
-    
-    async def load_prices_from_rest(self) -> int:
-        """Load prices from REST API into price_cache"""
-        try:
-            # Orderbook endpoint for prices
-            url = f"{self._get_base_url()}/api/v1/orderBooks"
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status != 200:
-                        logger.warning(f"Lighter REST: HTTP {resp.status}")
-                        return 0
-                    
-                    data = await resp.json()
-            
-            count = 0
-            
-            # Response is a dict with market_id as key
-            if isinstance(data, dict):
-                for market_id_str, market_data in data.items():
-                    try:
-                        market_id = int(market_id_str)
-                        
-                        # Symbol from mapping
-                        symbol = self._market_id_to_symbol.get(market_id)
-                        if not symbol:
-                            continue
-                        
-                        bids = market_data.get("bids", [])
-                        asks = market_data.get("asks", [])
-                        
-                        if bids and asks:
-                            try:
-                                best_bid = float(bids[0]["price"]) if bids else 0
-                                best_ask = float(asks[0]["price"]) if asks else 0
-                                mid_price = (best_bid + best_ask) / 2
-                                
-                                if mid_price > 0:
-                                    self.price_cache[symbol] = (mid_price, time.time())
-                                    count += 1
-                            except (ValueError, TypeError, KeyError, IndexError):
-                                continue
-                        
-                    except (ValueError, KeyError, IndexError):
-                        continue
-            
-            logger.info(f"✅ Lighter REST: Loaded {count} prices")
-            return count
-            
-        except Exception as e:
-            logger.error(f"Lighter REST prices error: {e}")
-            return 0
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
+            traceback.print_exc()
+
     async def initialize(self):
         """Initialize the adapter"""
         try:
@@ -940,16 +738,47 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"❌ Lighter init error: {e}")
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def load_funding_rates_and_prices(self):
-        """Load Funding Rates from Lighter REST API (prices handled by _rest_price_poller)"""
+        """Lädt Funding Rates und Preise von der Lighter REST API"""
         if not getattr(config, "LIVE_TRADING", False):
             return
 
-        # Only load funding rates - prices are loaded by _rest_price_poller
-        await self._load_funding_rates()
+        if not HAVE_LIGHTER_SDK:
+            return
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
+        try:
+            signer = await self._get_signer()
+            funding_api = FundingApi(signer.api_client)
+
+            await self.rate_limiter.acquire()
+            fd_response = await funding_api.funding_rates()
+
+            if fd_response and fd_response. funding_rates:
+                updated = 0
+                for fr in fd_response.funding_rates:
+                    market_id = getattr(fr, "market_id", None)
+                    rate = getattr(fr, "rate", None)
+
+                    if market_id is None or rate is None:
+                        continue
+
+                    rate_float = float(rate) if rate else 0.0
+
+                    for symbol, data in self.market_info. items():
+                        if data.get("i") == market_id:
+                            self.funding_cache[symbol] = rate_float
+                            updated += 1
+                            break
+
+                self.rate_limiter.on_success()
+                logger.debug(f"Lighter: Loaded {updated} funding rates")
+
+        except Exception as e:
+            if "429" in str(e):
+                self.rate_limiter.penalize_429()
+            else:
+                logger. error(f"Lighter Funding Fetch Error: {e}")
+
     async def fetch_funding_rates(self):
         """Holt Funding Rates - mit dynamischem Rate Limiting"""
         return await with_rate_limit(
@@ -995,23 +824,17 @@ class LighterAdapter(BaseAdapter):
             if response and hasattr(response, "asks") and hasattr(response, "bids"):
                 bids = []
                 for b in response.bids or []:
-                    try:
-                        price = float(getattr(b, "price", 0))
-                        size = float(getattr(b, "remaining_base_amount", 0))
-                        if price > 0 and size > 0:
-                            bids.append([price, size])
-                    except (ValueError, TypeError):
-                        continue
+                    price = float(getattr(b, "price", 0))
+                    size = float(getattr(b, "remaining_base_amount", 0))
+                    if price > 0 and size > 0:
+                        bids.append([price, size])
 
                 asks = []
-                for a in response.asks or []:
-                    try:
-                        price = float(getattr(a, "price", 0))
-                        size = float(getattr(a, "remaining_base_amount", 0))
-                        if price > 0 and size > 0:
-                            asks.append([price, size])
-                    except (ValueError, TypeError):
-                        continue
+                for a in response. asks or []:
+                    price = float(getattr(a, "price", 0))
+                    size = float(getattr(a, "remaining_base_amount", 0))
+                    if price > 0 and size > 0:
+                        asks.append([price, size])
 
                 bids.sort(key=lambda x: x[0], reverse=True)
                 asks.sort(key=lambda x: x[0])
@@ -1038,7 +861,6 @@ class LighterAdapter(BaseAdapter):
             symbol, {"bids": [], "asks": [], "timestamp": 0}
         )
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def fetch_open_interest(self, symbol: str) -> float:
         if not hasattr(self, "_oi_cache"):
             self._oi_cache = {}
@@ -1046,7 +868,7 @@ class LighterAdapter(BaseAdapter):
 
         now = time.time()
         if symbol in self._oi_cache:
-            if now - self._oi_cache_time.get(symbol, 0) < 60.0:
+            if now - self._oi_cache_time. get(symbol, 0) < 60.0:
                 return self._oi_cache[symbol]
 
         try:
@@ -1066,82 +888,26 @@ class LighterAdapter(BaseAdapter):
             order_api = OrderApi(signer.api_client)
             response = await order_api.order_book_details(market_id=market_id)
 
-            if response and hasattr(response, 'order_book_details') and response.order_book_details:
-                # API returns array, access first element
+            if response and response.order_book_details:
                 details = response.order_book_details[0]
 
-                # Get mark price for conversion (open_interest is in base tokens, not USD)
-                mark_price = 0.0
-                for price_field in ['mark_price', 'last_trade_price', 'last_price']:
-                    if hasattr(details, price_field):
-                        price_raw = getattr(details, price_field, 0)
-                        try:
-                            mark_price = float(price_raw) if price_raw else 0.0
-                        except (ValueError, TypeError):
-                            mark_price = 0.0
-                        if mark_price > 0:
-                            break
-                
-                # Fallback to cached price if not in response
-                if mark_price <= 0:
-                    cached_price = self.fetch_mark_price(symbol)
-                    try:
-                        mark_price = float(cached_price) if cached_price is not None else 0.0
-                    except (ValueError, TypeError):
-                        mark_price = 0.0
+                if hasattr(details, "open_interest"):
+                    oi = float(details.open_interest)
+                    self._oi_cache[symbol] = oi
+                    self._oi_cache_time[symbol] = now
+                    self.rate_limiter.on_success()
+                    return oi
 
-                # Try open_interest first (in base tokens - must convert to USD)
-                if hasattr(details, "open_interest") and mark_price > 0:
-                    oi_base = getattr(details, "open_interest", 0)
-                    try:
-                        oi_base_float = float(oi_base) if oi_base else 0.0
-                    except (ValueError, TypeError):
-                        oi_base_float = 0.0
-                    
-                    if oi_base_float > 0:
-                        # Convert base tokens to USD
-                        oi_usd = oi_base_float * mark_price
-                        self._oi_cache[symbol] = oi_usd
-                        self._oi_cache_time[symbol] = now
-                        self.rate_limiter.on_success()
-                        logger.debug(f"Lighter OI {symbol}: {oi_base_float:.4f} base * ${mark_price:.2f} = ${oi_usd:,.0f}")
-                        return oi_usd
-
-                # Fallback to daily_quote_token_volume (already in USD)
-                if hasattr(details, "daily_quote_token_volume"):
-                    vol_raw = getattr(details, "daily_quote_token_volume", 0)
-                    try:
-                        vol = float(vol_raw) if vol_raw else 0.0
-                    except (ValueError, TypeError):
-                        vol = 0.0
-                    
-                    if vol > 0:
-                        self._oi_cache[symbol] = vol
-                        self._oi_cache_time[symbol] = now
-                        self.rate_limiter.on_success()
-                        logger.debug(f"Lighter OI {symbol}: ${vol:,.0f} (from volume)")
-                        return vol
-
-                # Last fallback to volume_24h (already in USD)
                 if hasattr(details, "volume_24h"):
-                    vol_raw = getattr(details, "volume_24h", 0)
-                    try:
-                        vol = float(vol_raw) if vol_raw else 0.0
-                    except (ValueError, TypeError):
-                        vol = 0.0
-                    
-                    if vol > 0:
-                        self._oi_cache[symbol] = vol
-                        self._oi_cache_time[symbol] = now
-                        self.rate_limiter.on_success()
-                        return vol
+                    vol = float(details. volume_24h)
+                    self._oi_cache[symbol] = vol
+                    self._oi_cache_time[symbol] = now
+                    self. rate_limiter. on_success()
+                    return vol
             return 0.0
         except Exception as e:
-            if "429" in str(e).lower():
+            if "429" in str(e). lower():
                 self.rate_limiter.penalize_429()
-                logger.debug(f"Lighter OI {symbol}: Rate limited")
-            else:
-                logger.debug(f"Lighter OI {symbol}: {e}")
             return 0.0
 
     def min_notional_usd(self, symbol: str) -> float:
@@ -1187,10 +953,7 @@ class LighterAdapter(BaseAdapter):
         if rate is None:
             return None
 
-        try:
-            rate_float = float(rate)
-        except (ValueError, TypeError):
-            return None
+        rate_float = float(rate)
 
         if abs(rate_float) > 0.1:
             rate_float = rate_float / 8.0
@@ -1198,98 +961,21 @@ class LighterAdapter(BaseAdapter):
         return rate_float
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        """Mark Price aus Cache (with timestamp)"""
+        """Mark Price aus Cache"""
         if symbol not in self.market_info:
             return None
 
         if symbol in self.price_cache:
-            cache_entry = self.price_cache[symbol]
-            if cache_entry is not None:
-                try:
-                    # Handle both old format (float) and new format (tuple)
-                    if isinstance(cache_entry, tuple):
-                        price_float, timestamp = cache_entry
-                    else:
-                        price_float = float(cache_entry)
-                    
-                    if price_float > 0:
-                        return price_float
-                except (ValueError, TypeError):
-                    pass
+            price = self.price_cache[symbol]
+            if price and price > 0:
+                return float(price)
 
         return None
 
-    async def get_price(self, symbol: str) -> Optional[float]:
-        """Get price with staleness check and REST fallback - NEVER returns None during normal operation."""
-        if symbol not in self.market_info:
-            logger.warning(f"⚠️ {symbol} not found in market_info")
-            return None
-        
-        # Check cache first
-        if symbol in self.price_cache:
-            cache_entry = self.price_cache[symbol]
-            try:
-                # Handle both old format (float) and new format (tuple)
-                if isinstance(cache_entry, tuple):
-                    price, timestamp = cache_entry
-                    # Check if cache is fresh (< 5 seconds old)
-                    if time.time() - timestamp < 5.0:
-                        if price > 0:
-                            return price
-                else:
-                    # Old format - treat as stale
-                    price = float(cache_entry)
-                    if price > 0:
-                        logger.debug(f"{symbol}: Using old cache format price")
-                        return price
-            except (ValueError, TypeError, IndexError) as e:
-                logger.warning(f"⚠️ {symbol}: Cache parse error: {e}")
-        
-        # Cache is stale or empty - fetch from REST API immediately
-        logger.info(f"🔄 {symbol}: Cache stale/empty, fetching from REST API")
-        
-        if not HAVE_LIGHTER_SDK:
-            logger.error(f"⚠️ Lighter SDK not available for {symbol} REST fallback")
-            return None
-        
-        try:
-            await self.rate_limiter.acquire()
-            
-            # Get market_id for this symbol
-            market_id = self.market_info[symbol].get("i")
-            if market_id is None:
-                logger.error(f"⚠️ {symbol}: No market_id found")
-                return None
-            
-            # Use SDK's order_book_orders method to fetch live orderbook
-            signer = await self._get_signer()
-            order_api = OrderApi(signer.api_client)
-            
-            response = await order_api.order_book_orders(market_id=market_id, limit=1)
-            
-            if response and response.bids and response.asks:
-                # Calculate mid price from best bid/ask
-                best_bid = float(response.bids[0].price)
-                best_ask = float(response.asks[0].price)
-                mid_price = (best_bid + best_ask) / 2.0
-                
-                if mid_price > 0:
-                    # Update cache with fresh price
-                    self.price_cache[symbol] = (mid_price, time.time())
-                    logger.info(f"✅ {symbol}: Fetched fresh price from REST: ${mid_price:.4f}")
-                    self.rate_limiter.on_success()
-                    return mid_price
-            
-            logger.error(f"⚠️ {symbol}: No bids/asks in REST response")
-            return None
-            
-        except Exception as e:
-            logger.error(f"❌ {symbol}: REST fallback failed: {e}")
-            if "429" in str(e):
-                self.rate_limiter.penalize_429()
-            return None
+    def get_price(self, symbol: str) -> Optional[float]:
+        """Alias for fetch_mark_price - used by order execution code."""
+        return self.fetch_mark_price(symbol)
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def get_real_available_balance(self) -> float:
         if time.time() - self._last_balance_update < 2.0:
             return self._balance_cache
@@ -1346,7 +1032,6 @@ class LighterAdapter(BaseAdapter):
 
         return self._balance_cache
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def fetch_open_positions(self) -> List[dict]:
         if not getattr(config, "LIVE_TRADING", False):
             return []
@@ -1382,12 +1067,8 @@ class LighterAdapter(BaseAdapter):
                 if not symbol_raw or position_qty is None or sign is None:
                     continue
 
-                try:
-                    multiplier = 1 if int(sign) == 0 else -1
-                    size = float(position_qty) * multiplier
-                except (ValueError, TypeError):
-                    logger.warning(f"Invalid position data for {symbol_raw}: qty={position_qty}, sign={sign}")
-                    continue
+                multiplier = 1 if int(sign) == 0 else -1
+                size = float(position_qty) * multiplier
 
                 if abs(size) > 1e-8:
                     symbol = (
@@ -1395,7 +1076,7 @@ class LighterAdapter(BaseAdapter):
                         if not symbol_raw.endswith("-USD")
                         else symbol_raw
                     )
-                    positions.append({"symbol": symbol, "size": size})
+                    positions. append({"symbol": symbol, "size": size})
 
             logger.info(f"Lighter: Found {len(positions)} open positions")
             return positions
@@ -1404,252 +1085,71 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Positions Error: {e}")
             return []
 
-    def usd_to_base_amount(
-        self, 
-        symbol: str, 
-        usd_amount: float, 
-        current_price: Optional[float] = None
-    ) -> int:
-        """
-        Convert USD order size to correctly scaled baseAmount for Lighter API.
-        
-        This function:
-        1. Fetches market precision requirements (size_decimals, price_decimals)
-        2. Calculates quantity in base tokens (e.g., ETH, APT)
-        3. Scales to integer units using the market's baseScale
-        4. Validates against minimum order size
-        
-        Example:
-            # Order $14.36 worth of APT at $10.20 per APT
-            base_amount = adapter.usd_to_base_amount("APT-USD", 14.36, 10.20)
-            # Returns: 14080 (scaled units representing 1.408 APT)
-            
-        Args:
-            symbol: Market symbol (e.g., "APT-USD", "ETH-USD")
-            usd_amount: USD value to spend (e.g., 14.36)
-            current_price: Current price per token in USD (optional, fetches if None)
-            
-        Returns:
-            baseAmount as integer (scaled for Lighter API)
-            
-        Raises:
-            ValueError: If market not found, price unavailable, or size below minimum
-        """
-        # 1. Get market configuration
-        market_data = self.market_info.get(symbol)
-        if not market_data:
-            raise ValueError(f"❌ Market {symbol} not found. Call load_market_cache() first.")
-        
-        # 2. Get current price (fetch if not provided)
-        if current_price is None:
-            current_price = self.get_price(symbol)
-        
-        # Ensure price is float for comparisons
-        try:
-            current_price = float(current_price) if current_price is not None else 0.0
-        except (ValueError, TypeError):
-            current_price = 0.0
-        
-        if not current_price or current_price <= 0:
-            raise ValueError(f"❌ No valid price for {symbol}")
-        
-        # 3. Calculate quantity in base tokens
-        # Formula: quantity = usd_amount / price
-        # Example: $14.36 / $10.20 = 1.408 APT
-        quantity = Decimal(str(usd_amount)) / Decimal(str(current_price))
-        
-        # 4. Get scaling parameters from API
-        def safe_int(val, default=8) -> int:
-            if val is None:
-                return default
-            try:
-                return int(float(str(val)))
-            except (ValueError, TypeError):
-                return default
-        
-        def safe_decimal(val, default="0") -> Decimal:
-            if val is None:
-                return Decimal(default)
-            try:
-                return Decimal(str(val))
-            except (ValueError, TypeError):
-                return Decimal(default)
-        
-        # ✅ CRITICAL: Use supported_size_decimals (actual scaling)
-        # NOT size_decimals (display only)
-        size_decimals = safe_int(market_data.get('sd'), 8)
-        min_base_amount = safe_decimal(market_data.get('ss'), "0.00000001")
-        
-        # 5. Calculate baseScale (SDK: Math.pow(10, size_decimals))
-        base_scale = Decimal(10) ** size_decimals
-        
-        # 6. Ensure minimum order size
-        if min_base_amount > Decimal("0") and quantity < min_base_amount:
-            # Increase to minimum with 5% buffer
-            quantity = min_base_amount * Decimal("1.05")
-            logger.warning(
-                f"⚠️ {symbol}: USD amount ${usd_amount:.2f} too small. "
-                f"Increased to min {min_base_amount:.8f} tokens (${quantity * Decimal(str(current_price)):.2f})"
-            )
-        
-        # 7. Scale to integer units (SDK: Math.round(amount * baseScale))
-        # Use ROUND_UP to ensure we meet minimum requirements
-        scaled_base = int((quantity * base_scale).quantize(Decimal('1'), rounding=ROUND_UP))
-        
-        # 8. Validation
-        if scaled_base == 0:
-            raise ValueError(
-                f"❌ {symbol}: Scaled baseAmount is 0!\n"
-                f"   USD amount: ${usd_amount:.2f}\n"
-                f"   Price: ${current_price:.6f}\n"
-                f"   Quantity: {quantity:.8f}\n"
-                f"   size_decimals: {size_decimals}\n"
-                f"   base_scale: {base_scale}\n"
-                f"   min_base_amount: {min_base_amount}"
-            )
-        
-        # 9. Calculate actual USD value (for logging)
-        actual_quantity = Decimal(scaled_base) / base_scale
-        actual_usd = float(actual_quantity * Decimal(str(current_price)))
-        
-        logger.info(
-            f"💱 {symbol} USD → baseAmount:\n"
-            f"   Input: ${usd_amount:.2f} @ ${current_price:.6f}\n"
-            f"   Calculated: {float(quantity):.8f} tokens\n"
-            f"   Scaled: {scaled_base} units (size_decimals={size_decimals})\n"
-            f"   Actual: {float(actual_quantity):.8f} tokens = ${actual_usd:.2f}"
-        )
-        
-        return scaled_base
-
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
-        """
-        Scale amounts to Lighter API units - EXACT SDK implementation.
-        
-        From lighter-ts SDK:
-        - baseScale = Math.pow(10, size_decimals)
-        - quoteScale = Math.pow(10, price_decimals)
-        - baseAmount = Math.round(amount * baseScale)
-        - priceAmount = Math.round(price * quoteScale)
-        
-        Args:
-            symbol: Market symbol (e.g., "APT-USD")
-            qty: Quantity in human-readable format (e.g., 0.01 ETH)
-            price: Price in human-readable format (e.g., 3000.50 USD)
-            side: "BUY" or "SELL"
-            
-        Returns:
-            (base_amount_scaled, price_scaled) as integers
-        """
+        """Scale amounts - BULLETPROOF VERSION."""
         data = self.market_info.get(symbol)
         if not data:
-            raise ValueError(f"❌ Market data missing for {symbol}")
-        
+            raise ValueError(f"Metadata missing for {symbol}")
+
         # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Get size_decimals and price_decimals from API response
+        # EXAKT wie im TypeScript SDK:
+        # baseScale = Math.pow(10, details.size_decimals)
+        # quoteScale = Math.pow(10, details.price_decimals)
         # ═══════════════════════════════════════════════════════════════
         
-        def safe_int(val, default=8) -> int:
-            """Convert to int safely"""
+        def to_int(val, default=8) -> int:
             if val is None:
                 return default
             try:
                 return int(float(str(val)))
-            except (ValueError, TypeError):
+            except:
                 return default
 
-        def safe_decimal(val, default="0") -> Decimal:
-            """Convert to Decimal safely"""
+        def to_decimal(val, default="0") -> Decimal:
             if val is None:
                 return Decimal(default)
             try:
                 return Decimal(str(val))
-            except (ValueError, TypeError):
+            except:
                 return Decimal(default)
 
-        # Get decimals from market data (API response fields)
-        size_decimals = safe_int(data.get('sd'), 8)      # size_decimals from API
-        price_decimals = safe_int(data.get('pd'), 6)     # price_decimals from API
+        # Get decimals from API response
+        size_decimals = to_int(data.get('sd'), 8)
+        price_decimals = to_int(data.get('pd'), 6)
         
-        # Calculate scales EXACTLY as SDK does
-        base_scale = Decimal(10) ** size_decimals        # e.g., 10^8 = 100,000,000 for APT
-        quote_scale = Decimal(10) ** price_decimals      # e.g., 10^6 = 1,000,000 for APT
+        # Calculate scales (EXACT from SDK)
+        base_scale = Decimal(10) ** size_decimals
+        quote_scale = Decimal(10) ** price_decimals
         
-        # Get minimum base amount (step size)
-        min_base_amount = safe_decimal(data.get('ss'), "0.00000001")
-        min_quote_amount = safe_decimal(data.get('mps'), "0.01")
+        # Get min values
+        min_base_amount = to_decimal(data.get('ss'), "0.00000001")
         
         ZERO = Decimal("0")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # VALIDATION: Ensure minimum notional (~$10 USD)
-        # ═══════════════════════════════════════════════════════════════
+
+        # Ensure minimum notional ($10 safety)
         notional = qty * price
-        MIN_NOTIONAL = Decimal("10.5")  # $10 with buffer
-        
-        if notional < MIN_NOTIONAL:
+        if notional < Decimal("10.5"):
             if price > ZERO:
-                qty = MIN_NOTIONAL / price
-                logger.debug(f"{symbol}: Adjusted qty to ${MIN_NOTIONAL:.2f} notional")
+                qty = Decimal("10.5") / price
 
-        # ═══════════════════════════════════════════════════════════════
-        # VALIDATION: Ensure minimum quantity
-        # ═══════════════════════════════════════════════════════════════
+        # Ensure minimum quantity
         if min_base_amount > ZERO and qty < min_base_amount:
-            qty = min_base_amount * Decimal("1.05")  # 5% buffer
-            logger.debug(f"{symbol}: Adjusted qty to min {min_base_amount}")
+            qty = min_base_amount * Decimal("1.05")
 
-        # ═══════════════════════════════════════════════════════════════
-        # SCALE TO INTEGERS (EXACT SDK LOGIC)
-        # TypeScript: Math.round(amount * baseScale)
-        # ═══════════════════════════════════════════════════════════════
-        
-        # Round UP for base amount (ensure we meet minimum)
+        # Scale to integers (EXACT from SDK: Math.round(amount * baseScale))
         scaled_base = int((qty * base_scale).quantize(Decimal('1'), rounding=ROUND_UP))
-        
-        # Round price based on side (DOWN for SELL, UP for BUY to be conservative)
-        if side == 'SELL':
-            scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_DOWN))
-        else:
-            scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_UP))
+        scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
 
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL VALIDATION: Ensure non-zero values
-        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Validate price_int is not 0
         if scaled_price == 0:
-            raise ValueError(
-                f"❌ {symbol}: Scaled price is 0!\n"
-                f"   Input price: {price}\n"
-                f"   price_decimals: {price_decimals}\n"
-                f"   quote_scale: {quote_scale}\n"
-                f"   Calculation: {price} * {quote_scale} = {price * quote_scale}"
-            )
+            raise ValueError(f"{symbol}: scaled_price is 0! price={price}, pd={price_decimals}")
 
         if scaled_base == 0:
-            raise ValueError(
-                f"❌ {symbol}: Scaled base amount is 0!\n"
-                f"   Input qty: {qty}\n"
-                f"   size_decimals: {size_decimals}\n"
-                f"   base_scale: {base_scale}\n"
-                f"   min_base_amount: {min_base_amount}"
-            )
-
-        # ═══════════════════════════════════════════════════════════════
-        # LOGGING for debugging
-        # ═══════════════════════════════════════════════════════════════
-        logger.debug(
-            f"📐 {symbol} Scaling:\n"
-            f"   Input: {qty:.8f} @ ${price:.6f}\n"
-            f"   Decimals: size={size_decimals}, price={price_decimals}\n"
-            f"   Scales: base={base_scale}, quote={quote_scale}\n"
-            f"   Output: base={scaled_base}, price={scaled_price}\n"
-            f"   Notional: ${notional:.2f}"
-        )
+            raise ValueError(f"{symbol}: scaled_base is 0!")
 
         return scaled_base, scaled_price
 
     @rate_limited(Exchange. LIGHTER)
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def open_live_position(
         self,
         symbol: str,
@@ -1674,16 +1174,8 @@ class LighterAdapter(BaseAdapter):
         # Get price if not provided
         if price is None:
             price = self.get_price(symbol)
-        
-        # Ensure price is float for comparisons and calculations
-        try:
-            price = float(price) if price is not None else 0.0
-        except (ValueError, TypeError):
-            price = 0.0
-        
-        if not price:
-            raise ValueError(f"No price available for {symbol}")
-        
+            if not price:
+                raise ValueError(f"No price available for {symbol}")
         logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd:.2f}, price=${price:.6f}")
         # ...existing code...
 
@@ -1756,7 +1248,6 @@ class LighterAdapter(BaseAdapter):
             return False, None
 
     @rate_limited(Exchange. LIGHTER, "sendTx")
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def close_live_position(
         self, symbol: str, original_side: str, notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
@@ -1779,12 +1270,6 @@ class LighterAdapter(BaseAdapter):
                     return True, None
 
                 actual_size = actual_pos.get("size", 0)
-                # Ensure size is float for comparisons
-                try:
-                    actual_size = float(actual_size) if actual_size is not None else 0.0
-                except (ValueError, TypeError):
-                    actual_size = 0.0
-                
                 actual_size_abs = abs(actual_size)
 
                 if actual_size > 0:
@@ -1793,12 +1278,6 @@ class LighterAdapter(BaseAdapter):
                     close_side = "BUY"
 
                 price = self.fetch_mark_price(symbol)
-                # Ensure price is float for comparisons
-                try:
-                    price = float(price) if price is not None else 0.0
-                except (ValueError, TypeError):
-                    price = 0.0
-                
                 if not price or price <= 0:
                     return False, None
 
@@ -1880,7 +1359,6 @@ class LighterAdapter(BaseAdapter):
 
         return False, None
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def aclose(self):
         """Cleanup all sessions and connections"""
         try:
@@ -1941,7 +1419,6 @@ class LighterAdapter(BaseAdapter):
 
         logger.info("✅ Lighter Adapter closed")
 
-    @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def cancel_all_orders(self, symbol: str) -> bool:
         """Cancel all open orders for a symbol"""
         if not HAVE_LIGHTER_SDK:

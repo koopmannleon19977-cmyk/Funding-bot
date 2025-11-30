@@ -212,75 +212,6 @@ class ParallelExecutionManager:
                     lambda s=symbol: self. active_executions. pop(s, None)
                 )
 
-    async def _verify_execution(
-        self,
-        symbol: str,
-        size_x10_expected: float,
-        size_lighter_expected: float
-    ) -> Tuple[bool, bool, bool]:
-        """
-        Verify both exchanges have actual positions after order placement.
-        
-        Returns:
-            (both_ok, x10_has_position, lighter_has_position)
-        """
-        logger.info(f"🔍 [VERIFY] {symbol}: Waiting 2s for matching engines...")
-        await asyncio.sleep(2.0)
-        
-        x10_has_position = False
-        lighter_has_position = False
-        
-        try:
-            # Fetch X10 positions
-            x10_positions = await self.x10.fetch_open_positions()
-            x10_pos = next(
-                (p for p in (x10_positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
-            
-            if x10_pos:
-                actual_size = abs(x10_pos.get('size', 0))
-                x10_has_position = actual_size > 1e-8
-                logger.info(f"🔍 [VERIFY] {symbol}: X10 position size={actual_size:.6f}")
-            else:
-                logger.warning(f"⚠️ [VERIFY] {symbol}: X10 returned no position")
-                
-        except Exception as e:
-            logger.error(f"❌ [VERIFY] {symbol}: X10 fetch error: {e}")
-        
-        try:
-            # Fetch Lighter positions
-            lighter_positions = await self.lighter.fetch_open_positions()
-            lighter_pos = next(
-                (p for p in (lighter_positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
-            
-            if lighter_pos:
-                actual_size = abs(lighter_pos.get('size', 0))
-                lighter_has_position = actual_size > 1e-8
-                logger.info(f"🔍 [VERIFY] {symbol}: Lighter position size={actual_size:.6f}")
-            else:
-                logger.warning(f"⚠️ [VERIFY] {symbol}: Lighter returned no position")
-                
-        except Exception as e:
-            logger.error(f"❌ [VERIFY] {symbol}: Lighter fetch error: {e}")
-        
-        both_ok = x10_has_position and lighter_has_position
-        
-        if both_ok:
-            logger.info(f"✅ [VERIFY] {symbol}: Both exchanges confirmed")
-        elif x10_has_position and not lighter_has_position:
-            logger.error(f"🚨 [VERIFY] {symbol}: GHOST TRADE - X10 has position, Lighter doesn't!")
-        elif lighter_has_position and not x10_has_position:
-            logger.error(f"🚨 [VERIFY] {symbol}: GHOST TRADE - Lighter has position, X10 doesn't!")
-        else:
-            logger.error(f"🚨 [VERIFY] {symbol}: TOTAL FAILURE - Neither exchange has position")
-        
-        return both_ok, x10_has_position, lighter_has_position
-
     async def _execute_parallel_internal(
         self, 
         execution: TradeExecution,
@@ -366,55 +297,14 @@ class ParallelExecutionManager:
         execution. x10_filled = x10_success
 
         # ═══════════════════════════════════════════════════════════════════
-        # PHASE 4: ATOMIC VERIFICATION (GHOST TRADE PREVENTION)
+        # PHASE 4: EVALUATE & ROLLBACK IF NEEDED
         # ═══════════════════════════════════════════════════════════════════
         if lighter_success and x10_success:
+            execution.state = ExecutionState.COMPLETE
             logger.info(
-                f"📝 [PARALLEL] {symbol}: Order APIs returned success, verifying positions..."
+                f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:.0f}ms"
             )
-            
-            # Verify actual positions exist before declaring success
-            both_ok, x10_ok, lighter_ok = await self._verify_execution(
-                symbol,
-                execution.size_x10,
-                execution.size_lighter
-            )
-            
-            if both_ok:
-                execution.state = ExecutionState.COMPLETE
-                logger.info(
-                    f"✅ [PARALLEL] {symbol}: Both positions verified in {execution.elapsed_ms:.0f}ms"
-                )
-                return True, x10_order, lighter_order
-            
-            # Partial verification failure - emergency close the successful side
-            if x10_ok and not lighter_ok:
-                logger.error(
-                    f"🚨 [EMERGENCY] {symbol}: X10 filled but Lighter verification failed! "
-                    "Closing X10 immediately..."
-                )
-                execution.x10_filled = True
-                execution.lighter_filled = False
-                await self._queue_rollback(execution)
-                return False, x10_order, None
-            
-            if lighter_ok and not x10_ok:
-                logger.error(
-                    f"🚨 [EMERGENCY] {symbol}: Lighter filled but X10 verification failed! "
-                    "Closing Lighter immediately..."
-                )
-                execution.lighter_filled = True
-                execution.x10_filled = False
-                await self._queue_rollback(execution)
-                return False, None, lighter_order
-            
-            # Neither verified - both order APIs lied, nothing to rollback
-            logger.error(
-                f"🚨 [VERIFY FAIL] {symbol}: Order APIs said success but no positions exist!"
-            )
-            execution.state = ExecutionState.FAILED
-            execution.error = "Verification failed: No positions found"
-            return False, None, None
+            return True, x10_order, lighter_order
 
         # One or both failed - need rollback
         if lighter_success and not x10_success:

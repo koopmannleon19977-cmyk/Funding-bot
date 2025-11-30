@@ -27,10 +27,8 @@ import config
 from src.telegram_bot import get_telegram_bot
 from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
-from src.open_interest_tracker import OpenInterestTracker  # OI tracking
 from src.prediction_v2 import get_predictor
 from src.latency_arb import get_detector
-from src.funding_tracker import create_funding_tracker  # Funding payment tracking
 from src.state_manager import (
     InMemoryStateManager,
     get_state_manager,
@@ -76,232 +74,6 @@ OPPORTUNITY_LOG_CACHE = {}
 # Define in-flight reservation globals (used when reserving trade notional)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
-
-# Funding Tracker (tracks realized profit from funding payments)
-FUNDING_TRACKER = None
-# ============================================================
-# EXIT LOGIC - POSITION CLOSING
-# ============================================================
-async def check_and_execute_exits(lighter: LighterAdapter, x10: X10Adapter, 
-                                   parallel_exec: ParallelExecutionManager) -> int:
-    """
-    Check all open trades and close positions where spread has converged.
-    
-    Exit Condition: abs(x10_rate - lighter_rate) < 0.001 (0.1% APY threshold)
-    
-    Returns: Number of positions closed
-    """
-    if SHUTDOWN_FLAG:
-        return 0
-    
-    closed_count = 0
-    open_trades = await get_open_trades()
-    
-    if not open_trades:
-        return 0
-    
-    logger.info(f"🔍 Checking {len(open_trades)} open positions for exit conditions...")
-    
-    for trade in open_trades:
-        symbol = trade.get('symbol')
-        if not symbol:
-            continue
-        
-        try:
-            # Get current funding rates
-            rate_x10 = x10.fetch_funding_rate(symbol)
-            rate_lighter = lighter.fetch_funding_rate(symbol)
-            
-            if rate_x10 is None or rate_lighter is None:
-                logger.warning(f"⚠️ {symbol}: Missing funding rate (X10={rate_x10}, Lighter={rate_lighter})")
-                continue
-            
-            spread = abs(rate_lighter - rate_x10)
-            spread_apy = spread * 3 * 365 * 100  # Convert to APY%
-            
-            # Exit condition: spread converged below threshold
-            EXIT_THRESHOLD = 0.001  # 0.1% APY (configurable)
-            
-            if spread < EXIT_THRESHOLD:
-                logger.info(f"🚪 {symbol}: Spread converged ({spread_apy:.2f}% APY) - Closing position...")
-                
-                success = await close_position(
-                    symbol=symbol,
-                    trade=trade,
-                    lighter=lighter,
-                    x10=x10,
-                    reason=f"Spread converged to {spread_apy:.2f}% APY"
-                )
-                
-                if success:
-                    closed_count += 1
-                    logger.info(f"✅ {symbol}: Position closed successfully")
-                else:
-                    logger.error(f"❌ {symbol}: Failed to close position")
-            else:
-                logger.debug(f"📊 {symbol}: Spread still wide ({spread_apy:.2f}% APY) - keeping position")
-        
-        except Exception as e:
-            logger.error(f"❌ {symbol}: Error checking exit condition: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    return closed_count
-
-
-async def close_position(symbol: str, trade: Dict, lighter: LighterAdapter, 
-                         x10: X10Adapter, reason: str = "Manual close") -> bool:
-    """
-    Close a position on both exchanges using reduce-only orders.
-    
-    Returns: True if both legs closed successfully
-    """
-    logger.info(f"🔄 {symbol}: Closing position - {reason}")
-    
-    # Get position details from trade
-    side_x10 = trade.get('side_x10', 'BUY')
-    side_lighter = trade.get('side_lighter', 'SELL')
-    size_usd = trade.get('size_usd', 0)
-    
-    if size_usd <= 0:
-        logger.error(f"❌ {symbol}: Invalid size_usd={size_usd}")
-        return False
-    
-    # Get current prices for closing orders
-    price_x10 = await x10.get_price(symbol)
-    price_lighter = await lighter.get_price(symbol)
-    
-    if not price_x10 or not price_lighter:
-        logger.error(f"❌ {symbol}: Failed to get prices (X10={price_x10}, Lighter={price_lighter})")
-        return False
-    
-    # Calculate sizes
-    size_x10 = size_usd / price_x10
-    size_lighter = size_usd / price_lighter
-    
-    logger.info(f"📐 {symbol}: Closing X10 {side_x10} {size_x10:.4f} @ ${price_x10:.2f}")
-    logger.info(f"📐 {symbol}: Closing Lighter {side_lighter} {size_lighter:.4f} @ ${price_lighter:.2f}")
-    
-    # Track results
-    x10_success = False
-    lighter_success = False
-    x10_order_id = None
-    lighter_order_id = None
-    
-    try:
-        # ═══════════════════════════════════════════════════════════════
-        # CLOSE X10 POSITION - Use reduce_only=True
-        # ═══════════════════════════════════════════════════════════════
-        close_side_x10 = "SELL" if side_x10 == "BUY" else "BUY"
-        
-        logger.info(f"🔻 {symbol}: Sending X10 close order ({close_side_x10}) with reduce_only=True...")
-        
-        x10_result = await x10.place_order(
-            symbol=symbol,
-            side=close_side_x10,
-            size_usd=size_usd,
-            reduce_only=True  # ⚠️ CRITICAL: Prevents flipping to opposite side
-        )
-        
-        if x10_result and x10_result.get('success'):
-            x10_order_id = x10_result.get('order_id')
-            x10_success = True
-            logger.info(f"✅ {symbol}: X10 close order placed - ID: {x10_order_id}")
-        else:
-            logger.error(f"❌ {symbol}: X10 close failed - {x10_result}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # CLOSE LIGHTER POSITION - Opposing order with reduce_only
-        # ═══════════════════════════════════════════════════════════════
-        # Lighter SDK: is_ask=True means SELL, is_ask=False means BUY
-        # Close logic: If opened with SELL (is_ask=True), close with BUY (is_ask=False)
-        
-        is_ask_lighter = (side_lighter == "SELL")
-        close_is_ask_lighter = not is_ask_lighter  # Opposite of open side
-        
-        logger.info(f"🔻 {symbol}: Sending Lighter close order (is_ask={close_is_ask_lighter}) with reduce_only=True...")
-        
-        lighter_result = await lighter.place_order(
-            symbol=symbol,
-            is_ask=close_is_ask_lighter,
-            size_base=size_lighter,
-            price=price_lighter,
-            reduce_only=True  # ⚠️ CRITICAL: Prevents flipping to opposite side
-        )
-        
-        if lighter_result and lighter_result.get('success'):
-            lighter_order_id = lighter_result.get('order_id')
-            lighter_success = True
-            logger.info(f"✅ {symbol}: Lighter close order placed - ID: {lighter_order_id}")
-        else:
-            logger.error(f"❌ {symbol}: Lighter close failed - {lighter_result}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # DATABASE UPDATE - Only if BOTH legs succeeded
-        # ═══════════════════════════════════════════════════════════════
-        if x10_success and lighter_success:
-            # Calculate PnL (simplified - you may want more sophisticated calculation)
-            entry_price_x10 = trade.get('entry_price_x10', price_x10)
-            entry_price_lighter = trade.get('entry_price_lighter', price_lighter)
-            
-            pnl_x10 = (price_x10 - entry_price_x10) * size_x10 if side_x10 == "BUY" else (entry_price_x10 - price_x10) * size_x10
-            pnl_lighter = (entry_price_lighter - price_lighter) * size_lighter if side_lighter == "SELL" else (price_lighter - entry_price_lighter) * size_lighter
-            total_pnl = pnl_x10 + pnl_lighter
-            
-            funding_collected = trade.get('funding_collected', 0)
-            
-            # Close trade in state manager (updates DB in background)
-            await close_trade_in_state(symbol, pnl=total_pnl, funding=funding_collected)
-            
-            logger.info(f"✅ {symbol}: Position closed successfully! PnL=${total_pnl:.2f}, Funding=${funding_collected:.2f}")
-            return True
-        else:
-            # PARTIAL FILL - Log error but don't update DB yet
-            logger.error(
-                f"⚠️ {symbol}: PARTIAL CLOSE - X10: {x10_success}, Lighter: {lighter_success}\n"
-                f"   X10 Order ID: {x10_order_id}\n"
-                f"   Lighter Order ID: {lighter_order_id}\n"
-                f"   ⚠️ MANUAL INTERVENTION MAY BE REQUIRED"
-            )
-            return False
-    
-    except Exception as e:
-        logger.error(f"❌ {symbol}: Exception during close: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-
-async def exit_monitoring_loop(lighter: LighterAdapter, x10: X10Adapter, 
-                                parallel_exec: ParallelExecutionManager):
-    """
-    Periodic loop to check for exit conditions on open positions.
-    Runs every 30 seconds to check if spread has converged.
-    """
-    logger.info("🔍 Exit monitoring loop started")
-    
-    while not SHUTDOWN_FLAG:
-        try:
-            await asyncio.sleep(30)  # Check every 30 seconds
-            
-            if SHUTDOWN_FLAG:
-                break
-            
-            closed_count = await check_and_execute_exits(lighter, x10, parallel_exec)
-            
-            if closed_count > 0:
-                logger.info(f"✅ Closed {closed_count} position(s) due to spread convergence")
-        
-        except asyncio.CancelledError:
-            logger.info("Exit monitoring loop cancelled")
-            break
-        except Exception as e:
-            logger.error(f"Error in exit monitoring loop: {e}")
-            import traceback
-            traceback.print_exc()
-            await asyncio.sleep(60)  # Wait longer on error
-
-
 # ============================================================
 # PREDICTION SYSTEM STUBS
 # ============================================================
@@ -433,54 +205,27 @@ async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter,
                 logger.debug(f"{symbol}: price parsing error: {e}")
                 return
 
-            # ════════════════════════════════════════════════════════════════
-            # Open Interest Check (VERBESSERT)
-            # ════════════════════════════════════════════════════════════════
+            # ============================================================
+            # Open Interest Check
+            # ============================================================
+            oi_x10 = 0.0
+            oi_lighter = 0.0
             try:
-                from src.open_interest_tracker import get_oi_tracker
-                oi_tracker = get_oi_tracker()
-            except Exception:
-                oi_tracker = None
-            
-            total_oi = 0.0
-            oi_trend = "UNKNOWN"
-            
-            # Erst vom Tracker versuchen (schneller, gecached)
-            if oi_tracker:
-                try:
-                    metrics = oi_tracker.get_metrics(symbol)
-                    if metrics and metrics.current_oi > 0:
-                        total_oi = metrics.current_oi
-                        oi_trend = metrics.trend.value
-                        logger.debug(f"📊 {symbol}: OI from tracker = ${total_oi:,.0f} ({oi_trend})")
-                except Exception:
-                    pass
-            
-            # Fallback: Direkt von Exchanges holen
-            if total_oi == 0:
-                try:
-                    oi_x10 = await x10.fetch_open_interest(symbol)
-                    oi_lighter = await lighter.fetch_open_interest(symbol)
-                    total_oi = (oi_x10 or 0) + (oi_lighter or 0)
-                except Exception:
-                    pass
-            
-            # OI-basierte Validierung
-            min_oi_usd = getattr(config, 'MIN_OPEN_INTEREST_USD', 50000)
-            if total_oi > 0 and total_oi < min_oi_usd:
-                logger.debug(f"{symbol}: OI ${total_oi:,.0f} < min ${min_oi_usd:,.0f}")
-                return
-
-            # Zusätzlich: Skip bei stark fallender OI-Entwicklung
-            try:
-                vel_warn = getattr(config, 'OI_MIN_VELOCITY_WARN', -1000)
-                if oi_trend == "FALLING" and oi_tracker:
-                    metrics = oi_tracker.get_metrics(symbol)
-                    if metrics and metrics.velocity_5m < vel_warn:
-                        logger.debug(f"{symbol}: OI rapidly falling (vel={metrics.velocity_5m:.0f}/min)")
-                        return
+                oi_x10 = await x10.fetch_open_interest(symbol)
             except Exception:
                 pass
+            try:
+                oi_lighter = await lighter.fetch_open_interest(symbol)
+            except Exception:
+                pass
+            
+            total_oi = oi_x10 + oi_lighter
+            
+            # OI-basierte Validierung: Skip wenn OI zu niedrig (illiquide)
+            min_oi_usd = getattr(config, 'MIN_OPEN_INTEREST_USD', 50000)
+            if total_oi > 0 and total_oi < min_oi_usd:
+                logger.debug(f"{symbol}: OI ${total_oi:.0f} < min ${min_oi_usd:.0f}")
+                return
 
             # Build opportunity payload
             opp = {
@@ -634,10 +379,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     # Auto-detect farm mode if not specified
     if is_farm_mode is None:
         is_farm_mode = config.VOLUME_FARM_MODE
-
-    # Get OI tracker instance
-    from src.open_interest_tracker import get_oi_tracker
-    oi_tracker = get_oi_tracker()
 
     opps: List[Dict] = []
     common = set(lighter.market_info.keys()) & set(x10.market_info.keys())
@@ -877,53 +618,10 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             logger.debug(f"Skip {s}: Price calculation error - {e}")
             continue
 
-        # ════════════════════════════════════════════════════════════════
-        # OPEN INTEREST CHECK (NEU!)
-        # ════════════════════════════════════════════════════════════════
-        oi_value = 0.0
-        oi_trend = "UNKNOWN"
-        
-        # Versuche OI vom Tracker zu holen
-        try:
-            from src.open_interest_tracker import get_oi_tracker
-            tracker = get_oi_tracker()
-        except Exception:
-            tracker = None
-        
-        if tracker:
-            try:
-                metrics = tracker.get_metrics(s)
-                if metrics:
-                    oi_value = metrics.current_oi
-                    oi_trend = metrics.trend.value
-                    
-                    # Skip wenn OI zu niedrig (illiquide)
-                    min_oi = getattr(config, 'MIN_OPEN_INTEREST_USD', 50000)
-                    if oi_value > 0 and oi_value < min_oi:
-                        logger.debug(f"Skip {s}: OI ${oi_value:,.0f} < min ${min_oi:,.0f}")
-                        continue
-                    
-                    # Skip wenn OI stark fallend (Liquidität verschwindet)
-                    vel_warn = getattr(config, 'OI_MIN_VELOCITY_WARN', -1000)
-                    if oi_trend == "FALLING" and metrics.velocity_5m < vel_warn:
-                        logger.debug(f"Skip {s}: OI rapidly falling (vel={metrics.velocity_5m:.0f}/min)")
-                        continue
-            except Exception as e:
-                logger.debug(f"OI check failed for {s}: {e}")
-
-        # Log high APY opportunities MIT OI
+        # Log high APY opportunities
         if apy > 0.5:
             if now_ts - OPPORTUNITY_LOG_CACHE.get(s, 0) > 60:
-                # OI Info hinzufügen
-                oi_str = ""
-                if tracker:
-                    try:
-                        metrics = tracker.get_metrics(s)
-                        if metrics and metrics.current_oi > 0:
-                            oi_str = f" | OI: ${metrics.current_oi:,.0f} ({metrics.trend.value})"
-                    except:
-                        pass
-                logger.info(f"💎 {s} | APY: {apy*100:.1f}%{oi_str}")
+                logger.info(f"💎 {s} | APY: {apy*100:.1f}%")
                 OPPORTUNITY_LOG_CACHE[s] = now_ts
 
         opps.append({
@@ -932,12 +630,10 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'net_funding_hourly': net,
             'leg1_exchange': 'Lighter' if rl > rx else 'X10',
             'leg1_side': 'SELL' if rl > rx else 'BUY',
-            'is_farm_trade': is_farm_mode,
+            'is_farm_trade': is_farm_mode,  # ✅ DYNAMIC: Set based on mode
             'spread_pct': spread,
             'price_x10': px_float,
-            'price_lighter': pl_float,
-            'open_interest': oi_value,  # NEU: OI im Opportunity dict
-            'oi_trend': oi_trend         # NEU: OI Trend
+            'price_lighter': pl_float
         })
 
     # IMPORTANT: Set farm flag based on config (ensure farm loop state applies)
@@ -1173,10 +869,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     'entry_price_x10': x10.fetch_mark_price(symbol) or 0.0,
                     'entry_price_lighter': lighter.fetch_mark_price(symbol) or 0.0,
                     'is_farm_trade': opp.get('is_farm_trade', False),
-                    'account_label': f"Main/Main",  # Placeholder until multi-account fix
-                    # NEW: Store APY (normalize if >1 it was percent) and initial net funding rate
-                    'entry_apy': (opp.get('apy', 0) / 100.0) if opp.get('apy', 0) > 1 else opp.get('apy', 0),
-                    'initial_funding_rate_hourly': opp.get('net_funding_hourly', 0)
+                    'account_label': f"Main/Main" # Placeholder until multi-account fix
                 }
                 await add_trade_to_state(trade_data)
                 return True
@@ -1469,21 +1162,11 @@ async def manage_open_trades(lighter, x10):
                     # Kelly Sizer Trade Recording
                     try:
                         kelly_sizer = get_kelly_sizer()
-                        # FIX: Robust APY retrieval with fallback
-                        stored_apy = t.get('apy') or t.get('entry_apy')
-                        if stored_apy is None:
-                            init_rate = t.get('initial_funding_rate_hourly') or 0.0
-                            try:
-                                init_rate_f = float(init_rate)
-                            except Exception:
-                                init_rate_f = 0.0
-                            # Funding paid 3x daily → annualize; minimal default if missing
-                            stored_apy = abs(init_rate_f) * 3 * 365 if init_rate_f else 0.1
                         kelly_sizer.record_trade(
                             symbol=sym,
                             pnl_usd=total_pnl,
                             hold_time_seconds=hold_hours * 3600,
-                            entry_apy=stored_apy
+                            entry_apy=t.get('apy', None)
                         )
                     except Exception as e:
                         logger.error(f"Kelly Sizer record_trade error for {sym}: {e}")
@@ -2158,33 +1841,43 @@ async def trade_management_loop(lighter, x10):
             await asyncio.sleep(5)
 
 async def maintenance_loop(lighter, x10):
-    """Background tasks: Funding rates refresh + neue Coins erkennen"""
-    last_market_refresh = 0
-    market_refresh_interval = 300  # Alle 5 Minuten neue Coins checken
+    """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges"""
+    funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
+    last_x10_refresh = 0
+    last_lighter_refresh = 0
     
     while True:
         try:
             now = time.time()
             
-            # === NEUE COINS ERKENNEN ===
-            if now - last_market_refresh > market_refresh_interval:
-                old_lighter_count = len(lighter.market_info)
-                old_x10_count = len(x10.market_info)
-                
-                await lighter.load_market_cache(force=True)
-                await x10.load_market_cache(force=True)
-                
-                new_lighter = len(lighter.market_info) - old_lighter_count
-                new_x10 = len(x10.market_info) - old_x10_count
-                
-                if new_lighter > 0 or new_x10 > 0:
-                    logger.info(f"🆕 New markets detected: Lighter +{new_lighter}, X10 +{new_x10}")
-                
-                last_market_refresh = now
+            # ============================================================
+            # X10 Funding Refresh (market_info neu laden enthält Funding)
+            # ============================================================
+            x10_funding_count = len(getattr(x10, 'funding_cache', {}))
             
-            # === FUNDING RATES REFRESH ===
-            await lighter.load_funding_rates_and_prices()
-            await x10.load_market_cache(force=True)
+            if x10_funding_count < 20 or (now - last_x10_refresh > 60):
+                logger.debug(f"📊 X10 Funding Cache refresh (current={x10_funding_count})")
+                try:
+                    # X10 market_info enthält funding_rate
+                    await x10.load_market_cache(force=True)
+                    last_x10_refresh = now
+                    logger.debug(f"X10: Funding Refresh OK, cache={len(x10.funding_cache)}")
+                except Exception as e:
+                    logger.warning(f"X10 Funding Refresh failed: {e}")
+
+            # ============================================================
+            # Lighter Funding Refresh
+            # ============================================================
+            lighter_funding_count = len(getattr(lighter, 'funding_cache', {}))
+            
+            if lighter_funding_count < 50 or (now - last_lighter_refresh > 60):
+                logger.debug(f"📊 Lighter Funding Cache refresh (current={lighter_funding_count})")
+                try:
+                    await lighter.load_funding_rates_and_prices()
+                    last_lighter_refresh = now
+                    logger.debug(f"Lighter: Funding Refresh OK, cache={len(lighter.funding_cache)}")
+                except Exception as e:
+                    logger.warning(f"Lighter Funding Refresh failed: {e}")
             
             # --- Update predictor with fresh funding/OB/OI data ---
             try:
@@ -2549,124 +2242,6 @@ class TaskSupervisor:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# OI DIAGNOSTIC FUNCTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-async def diagnose_oi_tracking(lighter, x10, oi_tracker):
-    """
-    DIAGNOSTIC: Verifiziert dass OI Tracking funktioniert. 
-    Ruft OI von beiden Exchanges ab und vergleicht mit Tracker Cache.
-    """
-    logger.info("=" * 60)
-    logger.info("🔬 OI DIAGNOSTIC TEST STARTING...")
-    logger.info("=" * 60)
-    
-    test_symbols = ["BTC-USD", "ETH-USD", "SOL-USD", "APT-USD", "BERA-USD"]
-    
-    results = []
-    
-    for symbol in test_symbols:
-        result = {
-            "symbol": symbol,
-            "x10_oi": None,
-            "lighter_oi": None,
-            "tracker_oi": None,
-            "status": "❓"
-        }
-        
-        # 1. Direct X10 OI Fetch
-        try:
-            oi_x10 = await x10.fetch_open_interest(symbol)
-            result["x10_oi"] = oi_x10
-        except Exception as e:
-            result["x10_oi"] = f"ERROR: {e}"
-        
-        await asyncio.sleep(0.5)  # Rate limit protection
-        
-        # 2. Direct Lighter OI Fetch
-        try:
-            oi_lighter = await lighter.fetch_open_interest(symbol)
-            result["lighter_oi"] = oi_lighter
-        except Exception as e:
-            result["lighter_oi"] = f"ERROR: {e}"
-        
-        await asyncio.sleep(0.5)
-        
-        # 3. OI Tracker Cache
-        if oi_tracker:
-            try:
-                if hasattr(oi_tracker, '_oi_cache'):
-                    result["tracker_oi"] = oi_tracker._oi_cache.get(symbol, "NOT IN CACHE")
-                elif hasattr(oi_tracker, 'get_oi'):
-                    result["tracker_oi"] = oi_tracker.get_oi(symbol)
-                else:
-                    result["tracker_oi"] = "NO METHOD"
-            except Exception as e:
-                result["tracker_oi"] = f"ERROR: {e}"
-        else:
-            result["tracker_oi"] = "TRACKER NOT INITIALIZED"
-        
-        # Determine status
-        x10_ok = isinstance(result["x10_oi"], (int, float)) and result["x10_oi"] > 0
-        lit_ok = isinstance(result["lighter_oi"], (int, float)) and result["lighter_oi"] > 0
-        
-        if x10_ok and lit_ok:
-            result["status"] = "✅ BOTH"
-        elif x10_ok:
-            result["status"] = "⚠️ X10 ONLY"
-        elif lit_ok:
-            result["status"] = "⚠️ LIGHTER ONLY"
-        else:
-            result["status"] = "❌ NONE"
-        
-        results.append(result)
-    
-    # Print Results
-    logger.info("")
-    logger.info("📊 OI DIAGNOSTIC RESULTS:")
-    logger.info("-" * 80)
-    logger.info(f"{'Symbol':<15} {'X10 OI':>15} {'Lighter OI':>15} {'Tracker':>15} {'Status':<10}")
-    logger.info("-" * 80)
-    
-    for r in results:
-        x10_str = f"${r['x10_oi']:,.0f}" if isinstance(r['x10_oi'], (int, float)) else str(r['x10_oi'])[:12]
-        lit_str = f"${r['lighter_oi']:,.0f}" if isinstance(r['lighter_oi'], (int, float)) else str(r['lighter_oi'])[:12]
-        trk_str = f"${r['tracker_oi']:,.0f}" if isinstance(r['tracker_oi'], (int, float)) else str(r['tracker_oi'])[:12]
-        
-        logger.info(f"{r['symbol']:<15} {x10_str:>15} {lit_str:>15} {trk_str:>15} {r['status']:<10}")
-    
-    logger.info("-" * 80)
-    
-    # Summary
-    working = sum(1 for r in results if "✅" in r["status"])
-    partial = sum(1 for r in results if "⚠️" in r["status"])
-    failed = sum(1 for r in results if "❌" in r["status"])
-    
-    logger.info(f"📈 SUMMARY: {working} working, {partial} partial, {failed} failed")
-    
-    # Check OI Tracker internals
-    if oi_tracker:
-        logger.info("")
-        logger.info("🔧 OI TRACKER INTERNALS:")
-        logger.info(f"   - _running: {getattr(oi_tracker, '_running', 'N/A')}")
-        logger.info(f"   - _symbols count: {len(getattr(oi_tracker, '_symbols', []))}")
-        logger.info(f"   - _oi_cache size: {len(getattr(oi_tracker, '_oi_cache', {}))}")
-        
-        # Show top 5 cached OI values
-        if hasattr(oi_tracker, '_oi_cache') and oi_tracker._oi_cache:
-            top5 = sorted(oi_tracker._oi_cache.items(), key=lambda x: x[1] if isinstance(x[1], (int, float)) else 0, reverse=True)[:5]
-            logger.info("   - Top 5 cached OI:")
-            for sym, oi in top5:
-                logger.info(f"      {sym}: ${oi:,.0f}" if isinstance(oi, (int, float)) else f"      {sym}: {oi}")
-    
-    logger.info("=" * 60)
-    logger.info("🔬 OI DIAGNOSTIC TEST COMPLETE")
-    logger.info("=" * 60)
-    
-    return results
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # MAIN BOT RUNNER V5 (Task Supervised)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2709,139 +2284,26 @@ async def run_bot_v5():
     lighter.price_update_event = price_event
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
+    # 3. LOAD MARKET DATA
     # ═══════════════════════════════════════════════════════════════════════════
     logger.info("📊 Loading Market Data...")
-    oi_tracker = None
     try:
-        # ═══════════════════════════════════════════════════════════════
-        # SEQUENTIAL LOADING mit Delays (verhindert 429 Rate Limits)
-        # ═══════════════════════════════════════════════════════════════
-
-        # Step 1: X10 Markets (schneller, weniger Rate-Limit-sensitiv)
-        logger.info("📊 Step 1/5: Loading X10 markets...")
-        await x10.load_market_cache(force=True)
-        x10_count = len(x10.market_info)
-        logger.info(f"✅ X10: {x10_count} markets loaded")
-
-        await asyncio.sleep(2.0)  # Kurze Pause
-
-        # Step 2: Lighter Markets (Rate-Limit-sensitiv!)
-        logger.info("📊 Step 2/5: Loading Lighter markets...")
-        await lighter.load_market_cache(force=True)
-        lit_count = len(lighter.market_info)
-        logger.info(f"✅ Lighter: {lit_count} markets loaded")
-
-        await asyncio.sleep(3.0)  # Längere Pause für Lighter
-
-        # Step 3: Lighter Funding Rates
-        logger.info("📊 Step 3/5: Loading Lighter funding rates...")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    "https://mainnet.zklighter.elliot.ai/api/v1/funding-rates",
-                    timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        for fr in data.get("funding_rates", []):
-                            if fr.get("exchange") == "lighter":
-                                symbol = fr.get("symbol")
-                                rate = fr.get("rate")
-                                if symbol and rate is not None:
-                                    if not symbol.endswith("-USD"):
-                                        symbol = f"{symbol}-USD"
-                                    lighter.funding_cache[symbol] = float(rate)
-                        logger.info(f"✅ Lighter funding rates: {len(lighter.funding_cache)}")
-                    else:
-                        logger.warning(f"⚠️ Lighter funding rates HTTP {resp.status}")
-        except Exception as e:
-            logger.warning(f"⚠️ Lighter funding preload failed: {e}")
-
-        await asyncio.sleep(3.0)  # Pause nach Funding Rates
-
-        # Step 4: OI Tracker (macht KEINE sofortigen API calls)
-        logger.info("📊 Step 4/5: Initializing OI Tracker...")
-        try:
-            common_symbols = list(set(x10.market_info.keys()) & set(lighter.market_info.keys()))
-            oi_tracker = OpenInterestTracker(x10_adapter=x10, lighter_adapter=lighter)
-            for sym in common_symbols:
-                oi_tracker.track_symbol(sym)
-            # NICHT sofort starten - später im Background
-            logger.info(f"✅ OI Tracker initialized (symbols={len(common_symbols)})")
-        except Exception as e:
-            logger.warning(f"⚠️ OI Tracker init failed: {e}")
-            oi_tracker = None
-
-        await asyncio.sleep(2.0)
-
-        # Step 5: X10 Funding Rates (bereits in market_cache)
-        logger.info("📊 Step 5/5: Refreshing X10 funding rates...")
-        # X10 hat die Rates bereits in market_info - nur loggen
-        logger.info(f"✅ X10 funding rates: {len(x10.funding_cache)}")
-
-        logger.info(f"✅ All market data loaded: X10={x10_count}, Lighter={lit_count}")
-
-    except asyncio.TimeoutError:
-        logger.error("❌ Market loading TIMEOUT")
+        results = await asyncio.gather(
+            x10.load_markets(),
+            lighter.load_markets(),
+            return_exceptions=True
+        )
+        
+        for i, res in enumerate(results):
+            if isinstance(res, Exception):
+                exchange = "X10" if i == 0 else "Lighter"
+                logger.error(f"❌ {exchange} market load failed: {res}")
+                raise res
+                
+        logger.info("✅ Market data loaded")
+    except Exception as e:
+        logger.critical(f"💀 Failed to load markets: {e}")
         raise
-    except Exception as e:
-        logger.critical(f"❌ Market loading failed: {e}")
-        raise
-
-    # ═══════════════════════════════════════════════════════════════
-    # LIGHTER PRICES PRE-LOAD
-    # ═══════════════════════════════════════════════════════════════
-    logger.info("📊 Pre-loading Lighter prices from REST...")
-    prices_loaded = await lighter.load_prices_from_rest()
-    if prices_loaded == 0:
-        logger.warning("⚠️ No Lighter prices loaded - will retry...")
-        await asyncio.sleep(2)
-        prices_loaded = await lighter.load_prices_from_rest()
-
-    logger.info(f"✅ Pre-loaded {prices_loaded} Lighter prices, cache size: {len(lighter.price_cache)}")
-
-    # ═══════════════════════════════════════════════════════════════
-    # WebSocket Start - NACH allen REST calls
-    # ═══════════════════════════════════════════════════════════════
-    await asyncio.sleep(5.0)  # Sicherheits-Pause vor WebSocket
-
-    logger.info("🌐 Starting WebSocket streams...")
-    ws_manager = WebSocketManager()
-    ws_manager.set_adapters(x10, lighter)
-
-    try:
-        await asyncio.wait_for(ws_manager.start(), timeout=30.0)
-        logger.info("✅ WebSocket streams connected")
-    except asyncio.TimeoutError:
-        logger.warning("⚠️ WebSocket connection timeout (30s)")
-    except Exception as e:
-        logger.error(f"❌ WebSocket Manager failed: {e}")
-
-    # OI Tracker starten - TEMPORÄR kürzere Intervalle für Debugging
-    if oi_tracker:
-        # TEMP: Debug-friendly settings
-        oi_tracker._fetch_interval = 30.0   # ← War 60, jetzt 30s
-        oi_tracker._batch_size = 5          # ← War 3, jetzt 5
-        oi_tracker._batch_delay = 2.0       # ← War 5, jetzt 2s
-
-        try:
-            await oi_tracker.start(update_interval=30.0)
-            logger.info("✅ OI Tracker started (interval=30s, batch=5, delay=2s)")
-        except Exception as e:
-            logger.warning(f"⚠️ OI Tracker start failed: {e}")
-
-    # ═══════════════════════════════════════════════════════════════
-    # Reconciliation - LETZTE REST-Operation
-    # Längere Pause um 429 zu vermeiden!
-    # ═══════════════════════════════════════════════════════════════
-    logger.info("⏳ Waiting 30s before reconciliation to avoid rate limits...")
-    await asyncio.sleep(30.0)  # ← ERHÖHT von 5 auf 30 Sekunden!
-
-    try:
-        await reconcile_db_with_exchanges(lighter, x10)
-    except Exception as e:
-        logger.exception(f"Reconciliation failed: {e}")
         
     # ═══════════════════════════════════════════════════════════════════════════
     # 4. INIT PARALLEL EXECUTION MANAGER
@@ -3001,7 +2463,6 @@ async def health_reporter(supervisor: TaskSupervisor, parallel_exec):
 async def main():
     global SHUTDOWN_FLAG, state_manager
     logger.info(" 🔥 BOT V4 (Full Architected) STARTING...")
-    oi_tracker = None  # Open Interest Tracker instance
 
     # 1. Init Infrastructure
     from src.state_manager import get_state_manager as get_sm_async
@@ -3071,20 +2532,6 @@ async def main():
         # X10 funding rates (bereits in market_cache enthalten)
         await x10.load_market_cache(force=True)
         logger.info(f"✅ X10 funding rates: {len(x10.funding_cache)}")
-
-        # ============================================================
-        # 3.5 INIT OPEN INTEREST TRACKER (after markets + funding loaded)
-        # ============================================================
-        try:
-            common_symbols = list(set(x10.market_info.keys()) & set(lighter.market_info.keys()))
-            oi_tracker = OpenInterestTracker(x10_adapter=x10, lighter_adapter=lighter)
-            for sym in common_symbols:
-                oi_tracker.track_symbol(sym)
-            await oi_tracker.start()
-            logger.info(f"✅ OpenInterestTracker started (symbols={len(common_symbols)})")
-        except Exception as e:
-            logger.warning(f"⚠️ OI Tracker start failed: {e}")
-            oi_tracker = None
 
     except asyncio.TimeoutError:
         logger.error("❌ Market loading TIMEOUT (60s) - continuing with partial data")
@@ -3204,55 +2651,6 @@ async def main():
     # 5. Init Managers
     parallel_exec = ParallelExecutionManager(x10, lighter)
     
-    # ═══════════════════════════════════════════════════════════════════════
-    # STARTUP RECONCILIATION - Sync DB with Exchange State
-    # ═══════════════════════════════════════════════════════════════════════
-    logger.info("🔄 Running startup reconciliation...")
-    try:
-        from utils.startup_sync import synchronize_state
-        
-        trade_repo = get_trade_repository()
-        db = get_database()
-        
-        reconcile_stats = await synchronize_state(
-            x10_adapter=x10,
-            lighter_adapter=lighter,
-            trade_repository=trade_repo,
-            db=db
-        )
-        
-        if reconcile_stats['recovered'] + reconcile_stats['closed'] + reconcile_stats['updated'] > 0:
-            logger.warning(
-                f"⚠️ Database was out of sync! Fixed:\n"
-                f"   📥 Recovered: {reconcile_stats['recovered']} trades\n"
-                f"   🗑️ Closed: {reconcile_stats['closed']} ghosts\n"
-                f"   🔄 Updated: {reconcile_stats['updated']} sizes"
-            )
-        else:
-            logger.info("✅ Database state is clean - no corrections needed")
-            
-    except Exception as e:
-        logger.error(f"❌ Startup reconciliation failed: {e}", exc_info=True)
-        logger.warning("⚠️ Continuing without reconciliation - manual check recommended")
-    
-    # ═══════════════════════════════════════════════════════════════════════
-    # FUNDING TRACKER INITIALIZATION
-    # ═══════════════════════════════════════════════════════════════════════
-    global FUNDING_TRACKER
-    logger.info("💰 Initializing Funding Tracker...")
-    try:
-        trade_repo = get_trade_repository()
-        FUNDING_TRACKER = await create_funding_tracker(
-            x10_adapter=x10,
-            lighter_adapter=lighter,
-            trade_repository=trade_repo,
-            update_interval_hours=1.0  # Update every hour
-        )
-        logger.info("✅ Funding Tracker started (updates every 1 hour)")
-    except Exception as e:
-        logger.error(f"❌ Funding Tracker initialization failed: {e}")
-        FUNDING_TRACKER = None
-    
     # ===============================================
     # PUNKT 1 – KORREKTE ENDLESS TASK SUPERVISION
     # ===============================================
@@ -3261,9 +2659,6 @@ async def main():
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec), name="farm_loop"),
         asyncio.create_task(maintenance_loop(lighter, x10), name="maintenance_loop"),
         asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks"),   # ← PUNKT 2
-
-        # ➤ NEU: Exit monitoring loop - checks for spread convergence and closes positions
-        asyncio.create_task(exit_monitoring_loop(lighter, x10, parallel_exec), name="exit_monitoring_loop"),
 
         # ➤ NEU: Dieser Task hat gefehlt! Er schließt die Trades.
         asyncio.create_task(trade_management_loop(lighter, x10), name="trade_management_loop")
@@ -3343,16 +2738,6 @@ async def main():
         # STEP 3: Stoppe Manager (WebSocket, State, Telegram)
         # ═══════════════════════════════════════════════════════════════
         logger.info("Stopping Managers...")
-        
-        # Stop Funding Tracker first
-        if FUNDING_TRACKER:
-            logger.info("💰 Stopping Funding Tracker...")
-            try:
-                await FUNDING_TRACKER.stop()
-                logger.info("✅ Funding Tracker stopped")
-            except Exception as e:
-                logger.error(f"❌ Error stopping Funding Tracker: {e}")
-        
         await ws_manager.stop()
 
         # Cancel the cleanup task started earlier (Zeile 2017)
@@ -3396,17 +2781,10 @@ async def main():
 
         logger.info("BOT SHUTDOWN COMPLETE.")
 
-    # Ensure OI tracker stopped if started
-    try:
-        if 'oi_tracker' in locals() and getattr(oi_tracker, '_running', False):
-            await oi_tracker.stop()
-    except Exception:
-        pass
-
 if __name__ == "__main__":
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     try:
-        asyncio.run(run_bot_v5())
+        asyncio.run(main())
     except KeyboardInterrupt:
         pass

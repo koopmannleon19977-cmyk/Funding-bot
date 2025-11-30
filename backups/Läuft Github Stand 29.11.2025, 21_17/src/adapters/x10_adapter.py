@@ -119,26 +119,16 @@ class X10Adapter(BaseAdapter):
             return config.TAKER_FEE_X10
 
     async def start_websocket(self):
-        """
-        WebSocket entry point for WebSocketManager.
-        
-        Based on official X10 SDK pattern from:
-        https://github.com/x10xchange/python_sdk/blob/main/x10/perpetual/orderbook.py#L122-L153
-        
-        The official SDK does NOT use ping/pong heartbeats - it relies on the
-        websockets library's built-in keep-alive mechanism and auto-reconnection.
-        """
-        logger.info(f"🌐 {self.name}: Starting WebSocket streams (no custom heartbeat needed)")
-        
-        # Start multiple streams in parallel following official SDK pattern
+        """WebSocket entry point für WebSocketManager"""
+        logger.info(f"🌐 {self.name}: WebSocket Manager starting streams...")
         await asyncio.gather(
-            self._stream_funding_rates(),
-            self._stream_market_data(),
+            self._poll_funding_rates(),
+            self._poll_mark_prices(),
             return_exceptions=True
         )
 
     async def ws_message_stream(self):
-        """WebSocketManager uses this to receive messages"""
+        """WebSocketManager nutzt das"""
         while True:
             yield await self._ws_message_queue.get()
 
@@ -166,127 +156,25 @@ class X10Adapter(BaseAdapter):
             )
         return self.trading_client
 
-    async def _stream_funding_rates(self):
-        """
-        Real WebSocket stream for funding rates.
-        
-        Pattern from official SDK:
-        https://github.com/x10xchange/python_sdk/blob/main/x10/perpetual/orderbook.py#L122-L153
-        
-        Key features:
-        1. Auto-reconnection on disconnect (while True loop)
-        2. No custom ping/pong - relies on websockets library defaults
-        3. Handles connection errors gracefully
-        """
-        from x10.perpetual.stream_client import PerpetualStreamClient
-        
-        while True:
-            try:
-                stream_client = PerpetualStreamClient(api_url=self.client_env.stream_url)
-                
-                # Subscribe to funding rates for all markets (no market filter)
-                async with stream_client.subscribe_to_funding_rates() as stream:
-                    logger.info(f"✅ {self.name}: Funding rate stream connected")
-                    
-                    async for event in stream:
-                        try:
-                            if event.data:
-                                # Extract funding rate from event
-                                market = getattr(event.data, 'market', None)
-                                rate = getattr(event.data, 'funding_rate', None)
-                                
-                                if market and rate is not None:
-                                    self.funding_cache[market] = float(rate)
-                                    
-                                    # Push to message queue for WebSocketManager
-                                    await self._ws_message_queue.put({
-                                        'type': 'funding_rate',
-                                        'exchange': self.name,
-                                        'symbol': market,
-                                        'rate': float(rate),
-                                        'timestamp': getattr(event, 'ts', None)
-                                    })
-                        except Exception as e:
-                            logger.debug(f"X10: Error processing funding event: {e}")
-                            
-            except Exception as e:
-                logger.warning(f"X10: Funding stream disconnected: {e}")
-                
-            # Auto-reconnect after 1 second (same as official SDK)
-            await asyncio.sleep(1)
-
-    async def _stream_market_data(self):
-        """
-        Real WebSocket stream for market data (prices).
-        
-        Uses orderbook stream to get real-time prices following official SDK pattern.
-        """
-        from x10.perpetual.stream_client import PerpetualStreamClient
-        
-        while True:
-            try:
-                stream_client = PerpetualStreamClient(api_url=self.client_env.stream_url)
-                
-                # Subscribe to all orderbooks (no market filter = all markets)
-                async with stream_client.subscribe_to_orderbooks() as stream:
-                    logger.info(f"✅ {self.name}: Orderbook stream connected")
-                    
-                    async for event in stream:
-                        try:
-                            if event.data:
-                                market = getattr(event.data, 'm', None) or getattr(event.data, 'market', None)
-                                
-                                if not market:
-                                    continue
-                                
-                                # Get best bid and ask
-                                bids = getattr(event.data, 'b', []) or getattr(event.data, 'bids', [])
-                                asks = getattr(event.data, 'a', []) or getattr(event.data, 'asks', [])
-                                
-                                if bids and asks:
-                                    try:
-                                        # Parse bid/ask - format: [{"p": "price", "q": "qty"}, ...]
-                                        best_bid = float(bids[0].get('p', 0) if isinstance(bids[0], dict) else bids[0])
-                                        best_ask = float(asks[0].get('p', 0) if isinstance(asks[0], dict) else asks[0])
-                                        
-                                        if best_bid > 0 and best_ask > 0:
-                                            mid_price = (best_bid + best_ask) / 2
-                                            self.price_cache[market] = mid_price
-                                            
-                                            # Update price event
-                                            if self.price_update_event:
-                                                self.price_update_event.set()
-                                                
-                                            # Push to message queue
-                                            await self._ws_message_queue.put({
-                                                'type': 'mark_price',
-                                                'exchange': self.name,
-                                                'symbol': market,
-                                                'price': mid_price,
-                                                'bid': best_bid,
-                                                'ask': best_ask,
-                                                'timestamp': getattr(event, 'ts', None)
-                                            })
-                                    except (ValueError, KeyError, IndexError) as e:
-                                        logger.debug(f"X10: Error parsing orderbook for {market}: {e}")
-                        except Exception as e:
-                            logger.debug(f"X10: Error processing orderbook event: {e}")
-                            
-            except Exception as e:
-                logger.warning(f"X10: Orderbook stream disconnected: {e}")
-                
-            # Auto-reconnect after 1 second
-            await asyncio.sleep(1)
-
     async def _poll_funding_rates(self):
-        """Legacy polling fallback - now replaced by WebSocket stream"""
-        # This method is deprecated but kept for backward compatibility
-        await self._stream_funding_rates()
+        """Polling fallback for funding rates"""
+        interval = max(5, getattr(config, 'FUNDING_CACHE_TTL', 60) // 4)
+        while True:
+            try:
+                await self.load_market_cache(force=False)
+            except Exception as e:
+                logger.debug(f"X10: poll_funding_rates error: {e}")
+            await asyncio.sleep(interval)
 
     async def _poll_mark_prices(self):
-        """Legacy polling fallback - now replaced by WebSocket stream"""
-        # This method is deprecated but kept for backward compatibility  
-        await self._stream_market_data()
+        """Polling fallback for mark prices"""
+        interval = max(3, int(getattr(config, 'REFRESH_DELAY_SECONDS', 3)))
+        while True:
+            try:
+                await self.refresh_missing_prices()
+            except Exception as e:
+                logger.debug(f"X10: poll_mark_prices error: {e}")
+            await asyncio.sleep(interval)
 
     async def load_market_cache(self, force: bool = False):
         if self.market_info and not force:
@@ -453,49 +341,19 @@ class X10Adapter(BaseAdapter):
             if market and hasattr(market, 'market_stats'):
                 stats = market.market_stats
                 
-                # Try openInterest (camelCase) first - it's a Decimal object
-                for attr_name in ['openInterest', 'open_interest']:
-                    if hasattr(stats, attr_name):
-                        oi_raw = getattr(stats, attr_name, None)
-                        if oi_raw is not None:
-                            # Convert Decimal to float using str() for precision
-                            try:
-                                oi = float(str(oi_raw))
-                                if oi > 0:
-                                    self._oi_cache[symbol] = oi
-                                    self._oi_cache_time[symbol] = now
-                                    logger.debug(f"X10 OI {symbol}: ${oi:,.0f}")
-                                    return oi
-                            except (ValueError, TypeError):
-                                pass
+                if hasattr(stats, 'open_interest'):
+                    oi = float(stats.open_interest)
+                    self._oi_cache[symbol] = oi
+                    self._oi_cache_time[symbol] = now
+                    return oi
                 
-                # Fallback: openInterestBase * markPrice
-                if hasattr(stats, 'openInterestBase') and hasattr(stats, 'markPrice'):
-                    try:
-                        base = float(str(getattr(stats, 'openInterestBase', 0)))
-                        mark = float(str(getattr(stats, 'markPrice', 0)))
-                        if base > 0 and mark > 0:
-                            oi = base * mark
-                            self._oi_cache[symbol] = oi
-                            self._oi_cache_time[symbol] = now
-                            logger.debug(f"X10 OI {symbol}: ${oi:,.0f} (calculated)")
-                            return oi
-                    except (ValueError, TypeError):
-                        pass
-                
-                # Last fallback to total_volume
                 if hasattr(stats, 'total_volume'):
-                    try:
-                        vol = float(str(stats.total_volume))
-                        if vol > 0:
-                            self._oi_cache[symbol] = vol
-                            self._oi_cache_time[symbol] = now
-                            return vol
-                    except (ValueError, TypeError):
-                        pass
+                    vol = float(stats.total_volume)
+                    self._oi_cache[symbol] = vol
+                    self._oi_cache_time[symbol] = now
+                    return vol
             return 0.0
-        except Exception as e:
-            logger.debug(f"X10 OI {symbol}: {e}")
+        except Exception:
             return 0.0
 
     def get_24h_change_pct(self, symbol: str = "BTC-USD") -> float:
@@ -653,50 +511,11 @@ class X10Adapter(BaseAdapter):
         qty = Decimal(str(notional_usd)) / limit_price
         step = Decimal(getattr(cfg, "min_order_size_change", "0"))
         min_size = Decimal(getattr(cfg, "min_order_size", "0"))
-
-        # ═══════════════════════════════════════════════════════════════════════════════
-        # CRITICAL FIX: Ensure qty meets minimum BEFORE rounding
-        # X10 API Error 1120: "Order quantity less than min trade size"
-        # 
-        # The issue: Rounding down can make qty < min_size even if the USD value is OK.
-        # Solution: Check minimum first, then round UP to ensure we meet requirements.
-        # 
-        # Example (ENA-USD):
-        #   - USD: $25.00, Price: $0.28152, min_size: 90 ENA
-        #   - qty = 25 / 0.28152 = 88.8 ENA  ❌ < 90
-        #   - After rounding down: 88.9 ENA  ❌ < 90
-        #   - Fix: Round UP to next step: 90 ENA ✅
-        # ═══════════════════════════════════════════════════════════════════════════════
         
-        # Step 1: Check if we need to increase to meet minimum
-        if min_size > 0 and qty < min_size:
-            logger.warning(
-                f"⚠️ {symbol}: Calculated qty {float(qty):.6f} < min_size {float(min_size):.6f}. "
-                f"Increasing to minimum (${float(min_size * limit_price):.2f} notional)."
-            )
-            qty = min_size
-        
-        # Step 2: Round to step size (ROUND_UP to ensure we don't go below minimum)
         if step > 0:
-            # Use ROUND_UP to ensure we meet minimum requirements
-            qty_steps = (qty / step).quantize(Decimal('1'), rounding=ROUND_UP)
-            qty = qty_steps * step
-            
-            # Final validation: ensure we still meet minimum after rounding
+            qty = (qty // step) * step
             if qty < min_size:
-                qty = min_size
-                logger.debug(f"{symbol}: Adjusted qty to min_size {float(min_size):.6f} after rounding")
-        
-        # Step 3: Log final order details
-        final_notional = float(qty * limit_price)
-        logger.info(
-            f"📐 {symbol} Order Sizing:\n"
-            f"   Input: ${notional_usd:.2f} @ ${float(limit_price):.6f}\n"
-            f"   Calculated: {float(qty):.6f} units\n"
-            f"   Min Required: {float(min_size):.6f} units\n"
-            f"   Step Size: {float(step):.6f}\n"
-            f"   Final: {float(qty):.6f} units = ${final_notional:.2f}"
-        )
+                qty = ((qty // step) + 1) * step
 
         order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
         tif = TimeInForce.GTT
