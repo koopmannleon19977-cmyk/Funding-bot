@@ -392,12 +392,26 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     detector = get_detector()  # ⚡ Latency Detector Instance
 
     mode_indicator = "🚜 FARM" if is_farm_mode else "💎 ARB"
-    logger.info(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
+    
     # Verify market data is loaded
     if not common:
         logger.warning("⚠️ No common markets found")
         logger.debug(f"X10 markets: {len(x10.market_info)}, Lighter: {len(lighter.market_info)}")
         return []
+
+    # ═══════════════════════════════════════════════════════════════
+    # WARMUP CHECK: Wait for WebSocket to fill caches
+    # ═══════════════════════════════════════════════════════════════
+    x10_rates_count = len(getattr(x10, 'funding_cache', {}))
+    lighter_rates_count = len(getattr(lighter, 'funding_cache', {}))
+    
+    if x10_rates_count < 10 or lighter_rates_count < 10:
+        logger.info(f"❄️ Warming up caches (waiting for WS data)... X10={x10_rates_count}, Lit={lighter_rates_count}")
+        # Return empty list to skip this cycle and prevent false 'missing rates' logs
+        return []
+    # ═══════════════════════════════════════════════════════════════
+    
+    logger.info(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
     
     # Verify price cache has data
     x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None])
@@ -2337,6 +2351,10 @@ async def run_bot_v5():
             timeout=60.0
         )
         logger.info(f"✅ Markets loaded: X10={len(x10.market_info)}, Lighter={len(lighter.market_info)}")
+        
+        # REMOVED: 404 causing initial fetch
+        # Pre-fetch funding rates logic moved to WS warmup in find_opportunities
+        
     except Exception as e:
         logger.error(f"⚠️ Market load warning (continuing): {e}")
 

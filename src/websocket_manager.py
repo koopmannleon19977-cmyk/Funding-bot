@@ -290,22 +290,46 @@ class ManagedWebSocket:
             raise
     
     async def _heartbeat_loop(self):
-        """Monitor connection health"""
+        """Monitor connection health and send periodic pings"""
         stale_threshold = self.config.ping_timeout * 3
         
-        while self._running and self. is_connected:
+        while self._running and self.is_connected:
             try:
                 await asyncio.sleep(self.config.ping_interval)
+                
+                # Send explicit ping to prevent timeout
+                # FIX: Removed .closed check to prevent AttributeError
+                if self._ws:
+                    try:
+                        pong_waiter = await self._ws.ping()
+                        # Wait for pong with timeout
+                        await asyncio.wait_for(pong_waiter, timeout=self.config.ping_timeout)
+                        logger.debug(f"💓 [{self.config.name}] Ping/Pong OK")
+                    except asyncio.TimeoutError:
+                        logger.warning(f"[{self.config.name}] Ping timeout, reconnecting")
+                        if self._ws:
+                            try:
+                                await self._ws.close()
+                            except Exception:
+                                pass
+                        break
+                    except Exception as e:
+                        logger.debug(f"[{self.config.name}] Ping error: {e}")
+                        # Treat ping errors as connection loss
+                        break
                 
                 # Check for stale connection
                 if self._metrics.last_message_time > 0:
                     silence = time.time() - self._metrics.last_message_time
                     if silence > stale_threshold:
-                        logger. warning(
-                            f"[{self.config. name}] No messages for {silence:.0f}s, reconnecting"
+                        logger.warning(
+                            f"[{self.config.name}] No messages for {silence:.0f}s, reconnecting"
                         )
                         if self._ws:
-                            await self._ws.close()
+                            try:
+                                await self._ws.close()
+                            except Exception:
+                                pass
                         break
                 
             except asyncio.CancelledError:

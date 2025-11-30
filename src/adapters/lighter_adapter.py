@@ -72,6 +72,8 @@ class LighterAdapter(BaseAdapter):
         self._last_market_cache_at = None
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
+        # Base URL cached for REST prefetch operations
+        self.base_url = self._get_base_url()
 
     async def refresh_market_limits(self, symbol: str) -> dict:
         """
@@ -769,6 +771,70 @@ class LighterAdapter(BaseAdapter):
                 self.rate_limiter.penalize_429()
             else:
                 logger. error(f"Lighter Funding Fetch Error: {e}")
+
+    async def fetch_initial_funding_rates(self):
+        """
+        Lädt Funding Rates einmalig per REST API, um den Cache sofort zu füllen.
+        Verhindert 'Missing rates' Warnungen beim Start.
+        """
+        try:
+            url = f"{self.base_url}/api/v1/info/markets"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=15) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        markets = []
+                        # Support multiple possible response shapes
+                        if isinstance(data, dict):
+                            if 'result' in data and isinstance(data['result'], list):
+                                markets = data['result']
+                            elif 'data' in data and isinstance(data['data'], list):
+                                markets = data['data']
+                            elif 'markets' in data and isinstance(data['markets'], list):
+                                markets = data['markets']
+                            else:
+                                # Try raw list if dict has numeric keys
+                                markets = [v for v in data.values() if isinstance(v, dict) and 'symbol' in v]
+                        elif isinstance(data, list):
+                            markets = data
+
+                        loaded = 0
+                        now_ts = time.time()
+                        for m in markets:
+                            try:
+                                symbol_raw = m.get('symbol') or m.get('market') or m.get('ticker')
+                                if not symbol_raw:
+                                    continue
+                                symbol = symbol_raw if symbol_raw.endswith('-USD') else f"{symbol_raw}-USD"
+                                # Try multiple possible rate keys
+                                rate_val = (
+                                    m.get('hourlyFundingRate') or
+                                    m.get('fundingRateHourly') or
+                                    m.get('fundingRate') or
+                                    m.get('hourly_funding_rate') or
+                                    m.get('funding_rate_hourly')
+                                )
+                                if rate_val is None:
+                                    continue
+                                try:
+                                    rate_float = float(rate_val)
+                                except (ValueError, TypeError):
+                                    continue
+                                # Store raw hourly rate (downstream logic converts units)
+                                if rate_float != 0:
+                                    self._funding_cache[symbol] = rate_float
+                                    self.funding_cache[symbol] = rate_float  # keep both for consistency
+                                    loaded += 1
+                            except Exception:
+                                continue
+                        if loaded > 0:
+                            logger.info(f"✅ Lighter: Pre-fetched {loaded} funding rates via REST.")
+                        else:
+                            logger.warning("Lighter initial funding fetch: no rates parsed.")
+                    else:
+                        logger.warning(f"Lighter initial funding fetch HTTP {resp.status}")
+        except Exception as e:
+            logger.warning(f"Konnte initiale Funding Rates nicht laden: {e}")
 
     async def fetch_funding_rates(self):
         """Holt Funding Rates - mit dynamischem Rate Limiting"""
