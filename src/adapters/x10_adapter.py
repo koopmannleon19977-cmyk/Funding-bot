@@ -26,6 +26,17 @@ from .base_adapter import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
+
+def safe_float(val, default=0.0):
+    """Safely convert a value to float, returning default on failure."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 class X10Adapter(BaseAdapter):
     def __init__(self):
         super().__init__("X10")
@@ -618,11 +629,11 @@ class X10Adapter(BaseAdapter):
                     None
                 )
 
-                if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
+                if not actual_pos or abs(safe_float(actual_pos.get('size', 0))) < 1e-8:
                     logger.info(f"✅ X10 {symbol} already closed")
                     return True, None
 
-                actual_size = actual_pos.get('size', 0)
+                actual_size = safe_float(actual_pos.get('size', 0))
                 actual_size_abs = abs(actual_size)
 
                 if actual_size > 0:
@@ -630,8 +641,8 @@ class X10Adapter(BaseAdapter):
                 else:
                     close_side = "BUY"
 
-                price = self.fetch_mark_price(symbol)
-                if not price or price <= 0:
+                price = safe_float(self.fetch_mark_price(symbol))
+                if price <= 0:
                     if attempt < max_retries - 1:
                         await asyncio.sleep(2)
                         continue
@@ -658,7 +669,7 @@ class X10Adapter(BaseAdapter):
                 await asyncio.sleep(2 + attempt)
                 updated_positions = await self.fetch_open_positions()
                 still_open = any(
-                    p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8
+                    p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
                     for p in (updated_positions or [])
                 )
 
