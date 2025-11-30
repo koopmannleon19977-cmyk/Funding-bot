@@ -2241,27 +2241,32 @@ class TaskSupervisor:
         return report
 
 
+# ============================================================
+# IMPORTS FÜR V5 COMPONENT WIRING
+# ============================================================
+from src.open_interest_tracker import init_oi_tracker, get_oi_tracker
+from src.websocket_manager import init_websocket_manager, get_websocket_manager
+from src.prediction_v2 import get_predictor
+
 # ═══════════════════════════════════════════════════════════════════════════════
-# MAIN BOT RUNNER V5 (Task Supervised)
+# MAIN BOT RUNNER V5 (Task Supervised & Component Wired)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def run_bot_v5():
     """
-    Main bot entry point with full task supervision.
+    Main bot entry point with full task supervision and component wiring.
     
-    This replaces the old run_bot_v4() with proper:
-    - Task supervision & auto-restart
-    - Signal handling (SIGINT/SIGTERM)
-    - Graceful shutdown
-    - Health monitoring
+    Activates:
+    - Task Supervisor (Auto-Restart)
+    - Open Interest Tracking
+    - WebSocket Streaming
+    - Prediction V2
     """
     global SHUTDOWN_FLAG, state_manager, telegram_bot
     
-    logger.info("🔥 BOT V5 (Task Supervised) STARTING...")
+    logger.info("🔥 BOT V5 (Architected) STARTING...")
     
-    # ═══════════════════════════════════════════════════════════════════════════
     # 1. INIT INFRASTRUCTURE
-    # ═══════════════════════════════════════════════════════════════════════════
     state_manager = await get_state_manager()
     logger.info("✅ State Manager started")
     
@@ -2273,9 +2278,7 @@ async def run_bot_v5():
     await setup_database()
     await migrate_database()
     
-    # ═══════════════════════════════════════════════════════════════════════════
     # 2. INIT ADAPTERS
-    # ═══════════════════════════════════════════════════════════════════════════
     x10 = X10Adapter()
     lighter = LighterAdapter()
     
@@ -2283,38 +2286,51 @@ async def run_bot_v5():
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 3. LOAD MARKET DATA
-    # ═══════════════════════════════════════════════════════════════════════════
-    logger.info("📊 Loading Market Data...")
+    # 3. LOAD MARKET DATA (CRITICAL: Before WS/OI)
+    logger.info("📊 Loading Market Data via REST...")
     try:
-        results = await asyncio.gather(
-            x10.load_markets(),
-            lighter.load_markets(),
-            return_exceptions=True
+        # Parallel load with timeout
+        await asyncio.wait_for(
+            asyncio.gather(
+                x10.load_market_cache(force=True),
+                lighter.load_market_cache(force=True),
+                return_exceptions=True
+            ),
+            timeout=60.0
         )
-        
-        for i, res in enumerate(results):
-            if isinstance(res, Exception):
-                exchange = "X10" if i == 0 else "Lighter"
-                logger.error(f"❌ {exchange} market load failed: {res}")
-                raise res
-                
-        logger.info("✅ Market data loaded")
+        logger.info(f"✅ Markets loaded: X10={len(x10.market_info)}, Lighter={len(lighter.market_info)}")
     except Exception as e:
-        logger.critical(f"💀 Failed to load markets: {e}")
-        raise
-        
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 4. INIT PARALLEL EXECUTION MANAGER
-    # ═══════════════════════════════════════════════════════════════════════════
+        logger.error(f"⚠️ Market load warning (continuing): {e}")
+
+    # 4. INIT COMPONENTS & WIRING (Das fehlte vorher!)
+    # ---------------------------------------------------
+    
+    # A) Prediction Engine holen
+    predictor = get_predictor()
+    
+    # B) Open Interest Tracker starten
+    # Sammelt OI Daten via REST und bereitet WS Updates vor
+    common_symbols = list(set(x10.market_info.keys()) & set(lighter.market_info.keys()))
+    logger.info(f"启动 OI Tracker für {len(common_symbols)} Symbole...")
+    oi_tracker = await init_oi_tracker(x10, lighter, symbols=common_symbols)
+    
+    # C) WebSocket Manager starten & verknüpfen
+    logger.info("🌐 Starting WebSocket Manager...")
+    ws_manager = await init_websocket_manager(x10, lighter, symbols=common_symbols)
+    
+    # D) WIRING: WebSocket -> OI Tracker & Predictor
+    # Damit fließen Echtzeit-Daten in die Prediction Logik
+    ws_manager.set_oi_tracker(oi_tracker)
+    ws_manager.set_predictor(predictor)
+    
+    logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
+
+    # 5. INIT PARALLEL EXECUTION MANAGER
     parallel_exec = ParallelExecutionManager(x10, lighter)
     await parallel_exec.start()
     logger.info("✅ ParallelExecutionManager started")
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 5. CREATE TASK SUPERVISOR
-    # ═══════════════════════════════════════════════════════════════════════════
+    # 6. CREATE TASK SUPERVISOR
     supervisor = TaskSupervisor()
     
     # Register core tasks
@@ -2322,91 +2338,96 @@ async def run_bot_v5():
         "logic_loop",
         lambda: logic_loop(lighter, x10, price_event, parallel_exec),
         critical=True,
-        max_restarts=10
-    )
-    
-    supervisor.register(
-        "farm_loop",
-        lambda: farm_loop(lighter, x10, parallel_exec),
-        critical=False,
-        max_restarts=5
-    )
-    
-    supervisor.register(
-        "maintenance_loop",
-        lambda: maintenance_loop(lighter, x10),
-        critical=False,
-        max_restarts=5
+        max_restarts=999 # Infinite restarts for main logic
     )
     
     supervisor.register(
         "trade_management_loop",
         lambda: trade_management_loop(lighter, x10),
         critical=True,
+        max_restarts=999
+    )
+    
+    supervisor.register(
+        "farm_loop",
+        lambda: farm_loop(lighter, x10, parallel_exec),
+        critical=False,
         max_restarts=10
     )
     
+    # Maintenance Loop (Funding Rates Refresh)
+    supervisor.register(
+        "maintenance_loop",
+        lambda: maintenance_loop(lighter, x10),
+        critical=False,
+        max_restarts=10
+    )
+    
+    # Cleanup Tasks
     supervisor.register(
         "cleanup_finished_tasks",
         lambda: cleanup_finished_tasks(),
         critical=False,
-        max_restarts=3
+        max_restarts=5
     )
     
+    # Health Reporter
     supervisor.register(
         "health_reporter",
         lambda: health_reporter(supervisor, parallel_exec),
         critical=False,
-        max_restarts=3
+        max_restarts=5
     )
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 6. START ALL TASKS
-    # ═══════════════════════════════════════════════════════════════════════════
+    # 7. START ALL TASKS
     await supervisor.start_all()
     
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.send_message(
             "🚀 **Funding Bot V5 Started**\n"
-            f"Tasks: {len(supervisor.tasks)}\n"
-            "Task Supervision: ✅"
+            f"OI Tracker: Active ({len(common_symbols)} syms)\n"
+            "Mode: Supervised"
         )
     
     logger.info("═══════════════════════════════════════════════════════════")
-    logger.info("   BOT RUNNING 24/7 - SUPERVISED | Ctrl+C = Graceful Stop   ")
+    logger.info("   BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   ")
     logger.info("═══════════════════════════════════════════════════════════")
     
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 7. WAIT FOR SHUTDOWN
-    # ═══════════════════════════════════════════════════════════════════════════
+    # 8. WAIT FOR SHUTDOWN
     try:
         await supervisor.wait_for_shutdown()
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown requested via keyboard")
         
-    # ═══════════════════════════════════════════════════════════════════════════
-    # 8. GRACEFUL SHUTDOWN
-    # ═══════════════════════════════════════════════════════════════════════════
+    # 9. GRACEFUL SHUTDOWN SEQUENCE
     SHUTDOWN_FLAG = True
+    logger.info("🛑 Shutting down...")
     
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.send_message("🛑 **Bot shutting down...**")
         
+    # Stop components in reverse order
     await supervisor.shutdown()
     await parallel_exec.stop()
     
-    # Close state manager
+    if ws_manager:
+        await ws_manager.stop()
+        
+    if oi_tracker:
+        await oi_tracker.stop()
+    
     await close_state_manager()
-    logger.info("✅ State Manager stopped")
     
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.stop()
     
-    # Close database connections
     await close_database()
-    logger.info("✅ Database closed")
+    
+    # Close adapters
+    await x10.aclose()
+    await lighter.aclose()
         
-    logger.info("✅ Bot shutdown complete")
+    logger.info("✅ Bot V5 shutdown complete")
 
 
 async def health_reporter(supervisor: TaskSupervisor, parallel_exec):
@@ -2785,6 +2806,7 @@ if __name__ == "__main__":
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     try:
-        asyncio.run(main())
+        # SWITCHOVER TO V5 RUNNER
+        asyncio.run(run_bot_v5())
     except KeyboardInterrupt:
         pass
