@@ -40,7 +40,9 @@ class X10Adapter(BaseAdapter):
         # Added internal underscore-prefixed caches for parity with other adapters (e.g. LighterAdapter)
         # so shared components expecting _price_cache / _orderbook_cache / _trade_cache work.
         self._price_cache = {}
+        self._price_cache_time = {}
         self._orderbook_cache = {}
+        self._orderbook_cache_time = {}
         self._trade_cache = {}
         self.price_update_event = None  # Will be set by main loop
 
