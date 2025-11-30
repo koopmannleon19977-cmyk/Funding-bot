@@ -79,23 +79,49 @@ REM === AUTOMATISCHER GIT UPLOAD ===
 echo ========================================
 echo   GIT AUTO-UPLOAD
 echo ========================================
-echo.
-echo Adding logs to Git staging area...
-git add -f logs 2>NUL
-git add -f funding_bot_LEON_*.log 2>NUL
+echo. 
 
-REM Nur committen, wenn es tatsaechlich Aenderungen gibt
+REM Prüfe ob Git verfügbar ist
+git --version >NUL 2>&1
+if errorlevel 1 (
+    echo ✗ Git ist nicht installiert! 
+    goto :skip_git
+)
+
+echo Adding logs to Git staging area... 
+
+REM WICHTIG: Beide Pfade hinzufügen! 
+git add -f logs 2>NUL
+git add -f funding_bot_*.log 2>NUL
+git add -f *.log 2>NUL
+
+REM Zeige was staged wurde
+echo.
+echo Staged files:
+git diff --cached --name-only
+
+REM Nur committen wenn Aenderungen da sind
 git diff --cached --quiet
 if errorlevel 1 (
+    echo. 
     echo Committing log changes...
-    git commit -m "Auto-upload: Bot log vom %date% %time% (RUN_ID=%RUN_ID%)"
+    git commit -m "Auto-upload: Bot log vom %date% %time%"
+    
     echo Pushing to origin main...
     git push origin main
-    echo.
-    echo ✓ Logs automatisch hochgeladen.
+    
+    if errorlevel 1 (
+        echo ✗ Push fehlgeschlagen! 
+    ) else (
+        echo. 
+        echo ✓ Logs erfolgreich hochgeladen!
+    )
 ) else (
-    echo Keine Log-Aenderungen zum Committen.
+    echo.
+    echo Keine neuen Log-Aenderungen zum Committen. 
 )
+
+:skip_git
 
 echo.
 pause

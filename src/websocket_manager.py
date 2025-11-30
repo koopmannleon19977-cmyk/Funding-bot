@@ -377,7 +377,8 @@ class WebSocketManager:
     
     # Exchange WebSocket URLs
     LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
-    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"
+    # Use SDK base stream URL; specific streams selected via channels
+    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1"
 
 
     
@@ -431,7 +432,7 @@ class WebSocketManager:
         # Create X10 connection with headers
         x10_headers = {
             "X-Api-Key": getattr(config, "X10_API_KEY", ""),
-            "User-Agent": "X10PythonTradingClient/0. 4.5",
+            "User-Agent": "X10PythonTradingClient/0.4.5",
         }
         x10_config = WSConfig(
             url=self.X10_WS_URL,
@@ -569,35 +570,40 @@ class WebSocketManager:
         
         # Market stats update - direct price cache update
         if "market_stats" in msg_type or "market_stats" in channel:
+            logger.debug(f"[WS] RAW market_stats message: {msg}")
             stats = msg.get("market_stats", {})
             if stats and self.lighter_adapter:
                 market_id = stats.get("market_id") or stats.get("marketId")
                 symbol = self._lighter_market_id_to_symbol(market_id) if market_id else None
-                
+                logger.debug(f"[WS] Parsed market_id={market_id}, symbol={symbol}")
                 if symbol:
                     # Direct price update - SDK confirmed field name: last_trade_price
                     price = stats.get("last_trade_price") or stats.get("mark_price") or stats.get("markPrice")
+                    logger.debug(f"[WS] Parsed price for {symbol}: {price}")
                     if price:
                         try:
                             self.lighter_adapter.price_cache[symbol] = float(price)
+                            logger.info(f"[WS] Updated price_cache[{symbol}] = {price}")
                         except (ValueError, TypeError):
-                            pass
-                    
+                            logger.error(f"[WS] Price parse error for {symbol}: {price}")
                     # Funding rate update
                     funding_rate = stats.get("current_funding_rate") or stats.get("currentFundingRate") or stats.get("funding_rate") or stats.get("fundingRate")
+                    logger.debug(f"[WS] Parsed funding_rate for {symbol}: {funding_rate}")
                     if funding_rate:
                         try:
                             self.lighter_adapter.funding_cache[symbol] = float(funding_rate) / 100
+                            logger.info(f"[WS] Updated funding_cache[{symbol}] = {funding_rate}")
                         except (ValueError, TypeError):
-                            pass
-                    
+                            logger.error(f"[WS] Funding rate parse error for {symbol}: {funding_rate}")
                     # Open interest update
                     open_interest = stats.get("open_interest") or stats.get("openInterest")
+                    logger.debug(f"[WS] Parsed open_interest for {symbol}: {open_interest}")
                     if open_interest and self.oi_tracker:
                         try:
                             self.oi_tracker.update_from_websocket(symbol, "lighter", float(open_interest))
+                            logger.info(f"[WS] Updated open_interest[{symbol}] = {open_interest}")
                         except (ValueError, TypeError):
-                            pass
+                            logger.error(f"[WS] Open interest parse error for {symbol}: {open_interest}")
             return
         
         # Order book update
@@ -628,19 +634,17 @@ class WebSocketManager:
         # Update adapter caches
         if self.lighter_adapter:
             # Mark price
-            mark_price = data.get("mark_price")
+            mark_price = stats.get("mark_price")
             if mark_price:
                 self.lighter_adapter.price_cache[symbol] = float(mark_price)
-            
             # Funding rate
-            funding_rate = data.get("current_funding_rate") or data.get("funding_rate")
+            funding_rate = stats.get("current_funding_rate") or stats.get("funding_rate")
             if funding_rate:
                 self.lighter_adapter.funding_cache[symbol] = float(funding_rate) / 100
-            
             # Open interest
             open_interest = stats.get("open_interest")
             if open_interest and self.oi_tracker:
-                self. oi_tracker. update_from_websocket(symbol, "lighter", float(open_interest))
+                self.oi_tracker.update_from_websocket(symbol, "lighter", float(open_interest))
     
     async def _handle_lighter_orderbook(self, msg: dict):
         """Process Lighter orderbook update"""

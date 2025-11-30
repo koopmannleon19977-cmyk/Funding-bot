@@ -213,7 +213,7 @@ FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
 CONCURRENT_REQUEST_LIMIT = 10  # Increased concurrency for aggressive scanning (2 -> 10)
 REFRESH_DELAY_SECONDS = 3  # Less aggressive refresh (was 1)
 DB_FILE = "funding.db"
-LOG_FILE = "funding_bot.log"
+LOG_FILE = "logs/funding_bot.log"
 LOG_LEVEL = logging.DEBUG
 
 # ============================================================

@@ -1,0 +1,98 @@
+12:13:45 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+12:13:45 [DEBUG] Using selector: SelectSelector
+12:13:45 [INFO] 🔥 BOT V5 (Task Supervised) STARTING...
+12:13:45 [INFO] 🚀 Starting InMemoryStateManager...
+12:13:45 [INFO] 📂 Initializing database: data/trades.db
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12840>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12840> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF155D0>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF155D0>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12C00>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12C00> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF158A0>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF158A0>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12DE0>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12DE0> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF15D50>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF15D50>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12660>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12660> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF162F0>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF162F0>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF131A0>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF131A0> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF166B0>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF166B0>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [INFO] ✅ Read pool created: 5 connections
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12FC0>
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12FC0> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA foreign_keys=ON', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA foreign_keys=ON', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA journal_mode=WAL', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA journal_mode=WAL', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA synchronous=NORMAL', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, 'PRAGMA synchronous=NORMAL', []) completed
+12:13:45 [INFO] ✅ WAL mode enabled
+12:13:45 [INFO] 🔄 Running database migrations...
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, "\n            CREATE TABLE IF NOT EXISTS trades (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                side_x10 TEXT NOT NULL,\n                side_lighter TEXT NOT NULL,\n                size_usd REAL NOT NULL,\n                entry_price_x10 REAL,\n                entry_price_lighter REAL,\n                status TEXT DEFAULT 'open',\n                is_farm_trade INTEGER DEFAULT 0,\n                created_at INTEGER NOT NULL,\n                closed_at INTEGER,\n                pnl REAL DEFAULT 0,\n                funding_collected REAL DEFAULT 0,\n                account_label TEXT,\n                x10_order_id TEXT,\n                lighter_order_id TEXT,\n                UNIQUE(symbol, status) ON CONFLICT REPLACE\n            )\n            ", []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status)\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_trades_created ON trades(created_at)\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS funding_history (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                rate REAL NOT NULL,\n                timestamp INTEGER NOT NULL,\n                collected_amount REAL DEFAULT 0\n            )\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_funding_symbol_ts \n            ON funding_history(symbol, timestamp)\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS execution_log (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                symbol TEXT NOT NULL,\n                action TEXT NOT NULL,\n                exchange TEXT NOT NULL,\n                success INTEGER NOT NULL,\n                order_id TEXT,\n                error TEXT,\n                latency_ms REAL,\n                timestamp INTEGER NOT NULL\n            )\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS bot_state (\n                key TEXT PRIMARY KEY,\n                value TEXT NOT NULL,\n                updated_at INTEGER NOT NULL\n            )\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS pnl_snapshots (\n                id INTEGER PRIMARY KEY AUTOINCREMENT,\n                timestamp INTEGER NOT NULL,\n                total_pnl REAL NOT NULL,\n                unrealized_pnl REAL NOT NULL,\n                realized_pnl REAL NOT NULL,\n                funding_pnl REAL NOT NULL,\n                trade_count INTEGER NOT NULL\n            )\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE INDEX IF NOT EXISTS idx_pnl_ts ON pnl_snapshots(timestamp)\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF16980>, '\n            CREATE TABLE IF NOT EXISTS _migrations (\n                id INTEGER PRIMARY KEY,\n                name TEXT NOT NULL,\n                applied_at INTEGER NOT NULL\n            )\n            ', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x00000299AAF16980>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x00000299AAF16980>) completed
+12:13:45 [INFO] ✅ Migrations complete (11 statements)
+12:13:45 [INFO] ✅ Database initialized
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF155D0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ())
+12:13:45 [INFO] 🖊️ Database write loop started
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF155D0>, "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC", ()) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x00000299AAEFD940>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x00000299AAEFD940>) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Cursor object at 0x00000299AAEFD940>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Cursor object at 0x00000299AAEFD940>) completed
+12:13:45 [INFO] 📂 Loaded 0 trades from database
+12:13:45 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+12:13:45 [INFO] ✅ State Manager started
+12:13:45 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+12:13:45 [INFO] ✅ Async database initialized
+12:13:45 [DEBUG] executing <function connect.<locals>.connector at 0x00000299AAF12980>
+12:13:45 [INFO] 📝 State writer loop started
+12:13:45 [DEBUG] operation <function connect.<locals>.connector at 0x00000299AAF12980> completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF17100>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF17100>, "\n                CREATE TABLE IF NOT EXISTS trade_history (\n                    id INTEGER PRIMARY KEY AUTOINCREMENT,\n                    symbol TEXT NOT NULL,\n                    entry_time TIMESTAMP,\n                    exit_time TIMESTAMP,\n                    hold_duration_hours REAL,\n                    close_reason TEXT,\n                    final_pnl_usd REAL,\n                    funding_pnl_usd REAL,\n                    spread_pnl_usd REAL,\n                    fees_usd REAL,\n                    account_label TEXT DEFAULT 'Main'\n                )\n            ", []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method commit of sqlite3.Connection object at 0x00000299AAF17100>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method commit of sqlite3.Connection object at 0x00000299AAF17100>) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF17100>, 'PRAGMA table_info(trade_history)', [])
+12:13:45 [DEBUG] operation functools.partial(<built-in method execute of sqlite3.Connection object at 0x00000299AAF17100>, 'PRAGMA table_info(trade_history)', []) completed
+12:13:45 [DEBUG] executing functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x00000299AAEFE340>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method fetchall of sqlite3.Cursor object at 0x00000299AAEFE340>) completed
+12:13:45 [DEBUG] ✅ Database schema up to date
+12:13:45 [DEBUG] executing functools.partial(<built-in method close of sqlite3.Connection object at 0x00000299AAF17100>)
+12:13:45 [DEBUG] operation functools.partial(<built-in method close of sqlite3.Connection object at 0x00000299AAF17100>) completed
+12:13:45 [INFO] Initialisiere X10 Adapter...
+12:13:45 [INFO]  X10 Account initialisiert.
+12:13:45 [INFO] Initialisiere Lighter Adapter...
+12:13:45 [INFO] 📊 Loading Market Data...
+12:13:45 [INFO] 📊 Step 1/5: Loading X10 markets...
+12:13:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:13:48 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+12:13:48 [INFO] ✅ X10: 91 markets loaded
+12:13:49 [INFO] 📝 State writer loop stopped
+12:13:49 [INFO] 🖊️ Database write loop stopped

@@ -537,8 +537,17 @@ class X10Adapter(BaseAdapter):
             List of dicts: [{"symbol": "BTC-USD", "size": 0.5, "entry_price": 60000.0}, ...]
             Empty list if no positions or error.
         """
+        # TTL cache to reduce polling frequency (avoid ~1s refresh)
+        now = time.time()
+        ttl = 7.0  # seconds
+        if hasattr(self, "_positions_cache_time") and hasattr(self, "_positions_cache"):
+            if now - getattr(self, "_positions_cache_time", 0) < ttl:
+                return getattr(self, "_positions_cache", [])
+
         if not self.stark_account:
             logger.warning("X10: No stark_account configured")
+            self._positions_cache = []
+            self._positions_cache_time = now
             return []
 
         try:
@@ -549,6 +558,8 @@ class X10Adapter(BaseAdapter):
             # Handle empty response (normal when no positions)
             if not resp or not resp.data:
                 logger.debug("X10: No positions (empty response)")
+                self._positions_cache = []
+                self._positions_cache_time = now
                 return []
 
             positions = []
@@ -589,6 +600,9 @@ class X10Adapter(BaseAdapter):
             else:
                 logger.debug("X10: No positions (filtered result)")
             
+            # Store in cache
+            self._positions_cache = positions
+            self._positions_cache_time = now
             return positions
 
         except Exception as e:
@@ -597,6 +611,8 @@ class X10Adapter(BaseAdapter):
                 logger.warning("X10 Positions: Rate limited")
             else:
                 logger.error(f"X10 Positions Error: {e}")
+            self._positions_cache = []
+            self._positions_cache_time = now
             return []
 
     async def refresh_missing_prices(self):

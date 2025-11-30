@@ -1211,75 +1211,31 @@ class LighterAdapter(BaseAdapter):
 
         return None
 
-    async def get_price(self, symbol: str) -> Optional[float]:
-        """Get price with staleness check and REST fallback - NEVER returns None during normal operation."""
+    def get_price(self, symbol: str) -> Optional[float]:
+        """Get price from cache only (sync), used by order validation paths.
+
+        Avoid returning 0.0. Returns None if missing/stale.
+        """
         if symbol not in self.market_info:
             logger.warning(f"⚠️ {symbol} not found in market_info")
             return None
-        
-        # Check cache first
+
         if symbol in self.price_cache:
             cache_entry = self.price_cache[symbol]
             try:
-                # Handle both old format (float) and new format (tuple)
                 if isinstance(cache_entry, tuple):
                     price, timestamp = cache_entry
-                    # Check if cache is fresh (< 5 seconds old)
-                    if time.time() - timestamp < 5.0:
-                        if price > 0:
-                            return price
+                    # consider fresh if < 10s
+                    if price and price > 0 and (time.time() - timestamp) < 10.0:
+                        return float(price)
                 else:
-                    # Old format - treat as stale
                     price = float(cache_entry)
                     if price > 0:
-                        logger.debug(f"{symbol}: Using old cache format price")
                         return price
-            except (ValueError, TypeError, IndexError) as e:
-                logger.warning(f"⚠️ {symbol}: Cache parse error: {e}")
-        
-        # Cache is stale or empty - fetch from REST API immediately
-        logger.info(f"🔄 {symbol}: Cache stale/empty, fetching from REST API")
-        
-        if not HAVE_LIGHTER_SDK:
-            logger.error(f"⚠️ Lighter SDK not available for {symbol} REST fallback")
-            return None
-        
-        try:
-            await self.rate_limiter.acquire()
-            
-            # Get market_id for this symbol
-            market_id = self.market_info[symbol].get("i")
-            if market_id is None:
-                logger.error(f"⚠️ {symbol}: No market_id found")
-                return None
-            
-            # Use SDK's order_book_orders method to fetch live orderbook
-            signer = await self._get_signer()
-            order_api = OrderApi(signer.api_client)
-            
-            response = await order_api.order_book_orders(market_id=market_id, limit=1)
-            
-            if response and response.bids and response.asks:
-                # Calculate mid price from best bid/ask
-                best_bid = float(response.bids[0].price)
-                best_ask = float(response.asks[0].price)
-                mid_price = (best_bid + best_ask) / 2.0
-                
-                if mid_price > 0:
-                    # Update cache with fresh price
-                    self.price_cache[symbol] = (mid_price, time.time())
-                    logger.info(f"✅ {symbol}: Fetched fresh price from REST: ${mid_price:.4f}")
-                    self.rate_limiter.on_success()
-                    return mid_price
-            
-            logger.error(f"⚠️ {symbol}: No bids/asks in REST response")
-            return None
-            
-        except Exception as e:
-            logger.error(f"❌ {symbol}: REST fallback failed: {e}")
-            if "429" in str(e):
-                self.rate_limiter.penalize_429()
-            return None
+            except (ValueError, TypeError):
+                pass
+
+        return None
 
     @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def get_real_available_balance(self) -> float:
