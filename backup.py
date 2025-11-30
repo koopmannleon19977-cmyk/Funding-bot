@@ -9,26 +9,62 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-# Dateien, die gesichert werden sollen
-FILES_TO_BACKUP = [
-    "scripts/monitor_funding.py",  # ✅ WICHTIG!
-    "src/adapters/lighter_adapter.py",
-    "src/adapters/x10_adapter.py",
-    "src/adapters/base_adapter.py",
-    "src/prediction_v2.py",
-    "src/latency_arb.py",
-    "src/rate_limiter.py",
-    "src/state_manager.py",
-    "src/parallel_execution.py",
-    "src/adaptive_threshold.py",
-    "src/volatility_monitor.py",
-    "src/prediction.py",
-    "src/websocket_manager.py",
+# Dateien, die gesichert werden sollen (vom Nutzer spezifiziert + vorhandene Skripte)
+# Duplikate werden automatisch entfernt.
+RAW_FILES_TO_BACKUP = [
+    # Explicit user list (absolute paths converted to relative below if needed)
+    r"c:\Users\koopm\funding-bot\src\__init__.py",
+    r"c:\Users\koopm\funding-bot\src\account_manager.py",
+    r"c:\Users\koopm\funding-bot\src\adaptive_threshold.py",
+    r"c:\Users\koopm\funding-bot\src\btc_correlation.py",
+    r"c:\Users\koopm\funding-bot\src\database.py",
+    r"c:\Users\koopm\funding-bot\src\event_loop.py",
+    r"c:\Users\koopm\funding-bot\src\funding_history_collector.py",
+    r"c:\Users\koopm\funding-bot\src\funding_tracker.py",
+    r"c:\Users\koopm\funding-bot\src\kelly_sizing.py",
+    r"c:\Users\koopm\funding-bot\src\latency_arb.py",
+    r"c:\Users\koopm\funding-bot\src\open_interest_tracker.py",
+    r"c:\Users\koopm\funding-bot\src\parallel_execution.py",
+    r"c:\Users\koopm\funding-bot\src\prediction.py",
+    r"c:\Users\koopm\funding-bot\src\prediction_v2.py",
+    r"c:\Users\koopm\funding-bot\src\rate_limiter.py",
+    r"c:\Users\koopm\funding-bot\src\state_manager.py",
+    r"c:\Users\koopm\funding-bot\src\telegram_bot.py",
+    r"c:\Users\koopm\funding-bot\src\volatility_monitor.py",
+    r"c:\Users\koopm\funding-bot\src\websocket_manager.py",
+    r"c:\Users\koopm\funding-bot\src\adapters\base_adapter.py",
+    r"c:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py",
+    r"c:\Users\koopm\funding-bot\src\adapters\x10_adapter.py",
+    # Existing additional useful files
+    "scripts/monitor_funding.py",
     "scripts/monitor_funding_final.py",
-    "src/account_manager.py",
-    "src/telegram_bot.py",
     "config.py",
 ]
+
+BASE_DIR = Path(__file__).resolve().parent
+
+def _normalize_paths(raw_list):
+    seen = set()
+    normalized = []
+    for p in raw_list:
+        pp = Path(p)
+        if pp.is_absolute():
+            try:
+                # Make relative to project root (BASE_DIR)
+                rel = pp.relative_to(BASE_DIR)
+            except ValueError:
+                # If path is outside, keep absolute (still backed up preserving structure)
+                rel = pp
+        else:
+            rel = pp
+        # Uniform POSIX-style inside zip for consistency
+        rel_str = str(rel).replace('\\', '/')
+        if rel_str not in seen:
+            seen.add(rel_str)
+            normalized.append(rel_str)
+    return normalized
+
+FILES_TO_BACKUP = _normalize_paths(RAW_FILES_TO_BACKUP)
 
 # Backup-Verzeichnis
 BACKUP_DIR = Path("backups")
@@ -47,7 +83,7 @@ def create_backup():
     
     backed_up = 0
     for file_path in FILES_TO_BACKUP:
-        source = Path(file_path)
+        source = BASE_DIR / file_path if not Path(file_path).is_absolute() else Path(file_path)
         
         if not source.exists():
             print(f"⚠️  Überspringe: {file_path} (nicht gefunden)")
@@ -110,7 +146,7 @@ def restore_backup(timestamp: str):
     restored = 0
     for file_path in FILES_TO_BACKUP:
         source = backup_folder / file_path
-        dest = Path(file_path)
+        dest = BASE_DIR / file_path if not Path(file_path).is_absolute() else Path(file_path)
         
         if not source.exists():
             continue

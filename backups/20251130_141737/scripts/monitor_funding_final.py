@@ -51,11 +51,6 @@ from src.database import (
     close_database
 )
 
-# --- Noise Reduction: limit verbose subsystem logs BEFORE setup_logging ---
-logging.getLogger("websockets").setLevel(logging.WARNING)
-logging.getLogger("asyncio").setLevel(logging.WARNING)
-# --------------------------------------------------------------------------
-
 # Logging Setup
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
