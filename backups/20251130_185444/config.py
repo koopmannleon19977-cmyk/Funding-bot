@@ -203,8 +203,8 @@ VOLUME_FARM_MODE = True
 FARM_POSITION_SIZE_USD = 50.0
 FARM_NOTIONAL_USD = 30  # Bestehend (kann mit FARM_POSITION_SIZE_USD harmonisiert werden)
 FARM_RANDOM_SIZE_PCT = 0.25
-FARM_MIN_HOLD_MINUTES = 0
-FARM_MAX_HOLD_MINUTES = 0
+FARM_MIN_HOLD_MINUTES = 2
+FARM_MAX_HOLD_MINUTES = 5
 
 # Haltedauer: 45 Minuten
 # Berechnung: Bei 0.0225% Fee kostet ein Trade (Rein+Raus) 0.045%.

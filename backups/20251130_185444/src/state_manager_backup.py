@@ -16,7 +16,6 @@ import logging
 import time
 import json
 import copy
-from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Set, Callable
 from dataclasses import dataclass, field, asdict
 from enum import Enum
@@ -46,7 +45,6 @@ class TradeState:
     status: TradeStatus = TradeStatus. OPEN
     is_farm_trade: bool = False
     created_at: int = field(default_factory=lambda: int(time.time() * 1000))
-    entry_time: Optional[datetime] = field(default_factory=lambda: datetime.now(timezone.utc))
     closed_at: Optional[int] = None
     pnl: float = 0.0
     funding_collected: float = 0.0
@@ -59,8 +57,6 @@ class TradeState:
         """Convert to dictionary for serialization"""
         data = asdict(self)
         data['status'] = self.status.value
-        # Serialize entry_time as ISO string
-        data['entry_time'] = self.entry_time.isoformat() if self.entry_time else None
         return data
     
     @classmethod
@@ -68,13 +64,6 @@ class TradeState:
         """Create from dictionary"""
         if isinstance(data. get('status'), str):
             data['status'] = TradeStatus(data['status'])
-        
-        # Deserialize entry_time from ISO string
-        entry_time = data.get('entry_time')
-        if entry_time and isinstance(entry_time, str):
-            entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
-            data['entry_time'] = entry_time
-        
         return cls(**{k: v for k, v in data. items() if k in cls.__dataclass_fields__})
 
 

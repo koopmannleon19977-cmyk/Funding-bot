@@ -129,49 +129,35 @@ class LighterAdapter(BaseAdapter):
         
         return self.market_info.get(symbol, {})
 
-    async def validate_order_params(self, symbol: str, notional_usd: float) -> Tuple[bool, str]:
+    async def validate_order_params(self, symbol: str, size_usd: float) -> Tuple[bool, str]:
         """
-        Validates order parameters securely.
-        Prevents 'float vs str' comparison errors via strict casting.
+        Validate order parameters before sending to API.
+        Returns (is_valid, error_message). 
         """
-        try:
-            if symbol not in self.market_info:
-                return True, "" # Fail open for closes
-
-            market_data = self.market_info[symbol]
-            
-            # 1. Secure Casting
-            try:
-                # Get raw values, default to 0 if None or empty
-                raw_min = market_data.get("min_notional", 0)
-                raw_max = market_data.get("max_notional", 0)
-                
-                # Convert to float immediately
-                min_notional = float(raw_min) if raw_min is not None else 0.0
-                max_notional = float(raw_max) if raw_max is not None else 0.0
-                
-                # Ensure checking value is float
-                check_val = float(notional_usd)
-                
-            except (ValueError, TypeError) as cast_err:
-                logger.warning(f"⚠️ Type cast error in validation for {symbol}: {cast_err}. Skipping checks.")
-                return True, ""
-
-            # 2. Validation Logic
-            if min_notional > 0 and check_val < min_notional:
-                # Allow slightly smaller orders for closing logic (reduce_only handles this usually)
-                if check_val > (min_notional * 0.9): 
-                    return True, ""
-                return False, f"Notional ${check_val:.2f} < Min ${min_notional:.2f}"
-
-            if max_notional > 0 and check_val > max_notional:
-                 return False, f"Notional ${check_val:.2f} > Max ${max_notional:.2f}"
-
-            return True, ""
-
-        except Exception as e:
-            logger.error(f"Validation error {symbol}: {e}")
-            return True, "" # Fail open to prevent stuck positions
+        market_info = self.market_info.get(symbol, {})
+        
+        if not market_info:
+            return False, f"Market {symbol} not found"
+        
+        price = self.get_price(symbol)
+        if not price or price <= 0:
+            return False, f"Invalid price for {symbol}: {price}"
+        
+        # Calculate quantity
+        quantity = size_usd / price
+        
+        # Check minimums
+        min_base = float(market_info.get('min_base_amount', 0.0001))
+        min_notional = float(market_info.get('min_notional', 5.0))
+        
+        if quantity < min_base:
+            return False, f"Quantity {quantity:.6f} < min_base {min_base}"
+        
+        notional = quantity * price
+        if notional < min_notional:
+            return False, f"Notional ${notional:.2f} < min_notional ${min_notional}"
+        
+        return True, "OK"
 
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
@@ -1025,7 +1011,7 @@ class LighterAdapter(BaseAdapter):
             return HARD_MIN_USD
 
     def fetch_funding_rate(self, symbol: str) -> Optional[float]:
-        """Funding Rate aus Cache (WS > REST) - mit robuster Typ-Konvertierung"""
+        """Funding Rate aus Cache (WS > REST)"""
         # 1. WebSocket Cache
         if symbol in self._funding_cache:
             rate = self._funding_cache[symbol]
@@ -1036,12 +1022,7 @@ class LighterAdapter(BaseAdapter):
         if rate is None:
             return None
 
-        # Defensive: Ensure rate is float
-        try:
-            rate_float = float(rate)
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid funding rate type for {symbol}: {type(rate)} = {rate}")
-            return None
+        rate_float = float(rate)
 
         # EXTREME VALUE CHECK (Annualized APY)
         # Wenn der Wert > 20.0 ist (z.B. 50.0%), ist es annualisiert.
@@ -1054,23 +1035,22 @@ class LighterAdapter(BaseAdapter):
         return rate_float / 8.0
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        """Sichere Version: Gibt immer float oder None zurück"""
-        try:
-            # 1. WebSocket Cache
-            if symbol in self._price_cache:
-                price = self._price_cache[symbol]
-                if price is not None:
-                     return float(price)
+        """Mark Price aus Cache (WS > REST)"""
+        # 1. WebSocket Cache
+        if symbol in self._price_cache:
+            return self._price_cache[symbol]
 
-            # 2. REST Cache
-            if symbol in self.price_cache:
-                price = self.price_cache[symbol]
-                if price is not None:
-                    return float(price)
-            
-        except (TypeError, ValueError) as e:
-            logger.debug(f"fetch_mark_price({symbol}): Konvertierungsfehler: {e}")
+        # 2. REST Cache
+        if symbol in self.price_cache:
+            price = self.price_cache[symbol]
+            if price and price > 0:
+                return float(price)
         
+        # 3. Market Info Fallback
+        if symbol in self.market_info:
+             # Versuche, einen Preis aus den Metadaten zu retten, falls vorhanden
+             pass
+
         return None
 
     def get_price(self, symbol: str) -> Optional[float]:
@@ -1350,86 +1330,115 @@ class LighterAdapter(BaseAdapter):
 
     @rate_limited(Exchange. LIGHTER, "sendTx")
     async def close_live_position(
-        self, 
-        symbol: str, 
-        original_side: str, 
-        notional_usd: float
+        self, symbol: str, original_side: str, notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        
-        if not getattr(config, "LIVE_TRADING", False):
-            logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
-            return True, "DRY_RUN_CLOSE_456"
+        """Close position using ACTUAL position size from exchange"""
+        if not HAVE_LIGHTER_SDK:
+            return False, None
 
-        try:
-            positions = await self.fetch_open_positions()
-            pos = next(
-                (p for p in (positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
+        max_retries = 3
 
-            if not pos:
-                logger.info(f"Lighter Rollback {symbol}: No position found (already closed?)")
-                # Wir geben True zurück, damit der Bot denkt, es sei erledigt, 
-                # statt in einer Endlosschleife zu versuchen, eine leere Position zu schließen.
-                return True, None
+        for attempt in range(max_retries):
+            try:
+                positions = await self.fetch_open_positions()
+                actual_pos = next(
+                    (p for p in (positions or []) if p. get("symbol") == symbol),
+                    None,
+                )
 
-            actual_size = pos.get('size', 0)
-            close_size_coins = abs(float(actual_size))
+                if not actual_pos or abs(actual_pos. get("size", 0)) < 1e-8:
+                    logger.info(f"✅ Lighter {symbol} already closed")
+                    return True, None
 
-            # ──────────────────────────────────────────────────────────────
-            # KRITISCHER FIX: Sichere Preisberechnung
-            # ──────────────────────────────────────────────────────────────
-            raw_price = self.fetch_mark_price(symbol)
-            mark_price = 0.0
+                actual_size = actual_pos.get("size", 0)
+                actual_size_abs = abs(actual_size)
 
-            if raw_price is not None:
-                try:
-                    mark_price = float(raw_price)
-                except (ValueError, TypeError):
-                    logger.warning(f"Lighter {symbol}: Ungültiger Mark-Preis: '{raw_price}'")
-                    mark_price = 0.0
+                if actual_size > 0:
+                    close_side = "SELL"
+                else:
+                    close_side = "BUY"
 
-            if mark_price <= 0:
-                logger.error(f"Lighter close {symbol}: Ungültiger oder fehlender Mark-Preis ({mark_price})")
-                # Fallback: Nutze letzten bekannten Preis direkt aus Cache Dictionary falls fetch failure
-                mark_price_raw = self.price_cache.get(symbol) or self._price_cache.get(symbol)
-                try:
-                    mark_price = float(mark_price_raw) if mark_price_raw else 0.0
-                except:
-                    mark_price = 0.0
-                    
-                if mark_price <= 0:
-                    logger.error(f"Lighter close {symbol}: Kein Fallback-Preis verfügbar!")
+                price = self.fetch_mark_price(symbol)
+                if not price or price <= 0:
                     return False, None
-                logger.info(f"Lighter close {symbol}: Fallback-Preis verwendet: ${mark_price:.6f}")
 
-            # Neuberechnung des Notional basierend auf tatsächlicher Position
-            notional_usd = close_size_coins * mark_price
-            # ──────────────────────────────────────────────────────────────
+                actual_notional = actual_size_abs * price
+                
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL: Slippage auf 3% begrenzen (API Error 21733 vermeiden)
+                # Laut API-Doku: "order price flagged as an accidental price"
+                # ═══════════════════════════════════════════════════════════════
+                slippage = Decimal('0.03')  # 3% - sicher innerhalb der API-Limits
+                price_decimal = Decimal(str(price))
 
-            logger.info(
-                f"Lighter Close {symbol}: {actual_size:+.6f} coins @ ${mark_price:.6f} = ${notional_usd:.2f}"
-            )
+                if close_side == "BUY":
+                    limit_price = price_decimal * (Decimal(1) + slippage)
+                else:
+                    limit_price = price_decimal * (Decimal(1) - slippage)
 
-            # Fix: 'actual_size' statt Groks 'actualina_size'
-            success, order_id = await self.open_live_position(
-                symbol=symbol,
-                side="BUY" if actual_size < 0 else "SELL",
-                notional_usd=notional_usd,
-                reduce_only=True
-            )
+                logger.info(
+                    f"🔻 Lighter CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}"
+                )
 
-            if success:
-                logger.info(f"Lighter close {symbol}: Erfolgreich (${notional_usd:.2f})")
-                return True, order_id
-            else:
-                logger.warning(f"Lighter close {symbol}: close_live_position returned False")
+                qty = Decimal(str(actual_notional)) / limit_price
+                base, price_int = self._scale_amounts(symbol, qty, limit_price, close_side)
+
+                if base == 0:
+                    return False, None
+
+                signer = await self._get_signer()
+                client_oid = int(time.time() * 1000) + random.randint(0, 99999)
+                market_id = self. market_info[symbol]["i"]
+
+                await self.rate_limiter.acquire()
+                tx, resp, err = await signer.create_order(
+                    market_index=market_id,
+                    client_order_index=client_oid,
+                    base_amount=base,
+                    price=price_int,
+                    is_ask=(close_side == "SELL"),
+                    order_type=SignerClient.ORDER_TYPE_LIMIT,
+                    time_in_force=SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME,
+                    reduce_only=True,
+                    trigger_price=SignerClient.NIL_TRIGGER_PRICE,
+                    order_expiry=SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY,
+                )
+
+                if err:
+                    logger.error(f"Order error: {err}")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1.5 * (attempt + 1))
+                        continue
+                    return False, None
+
+                self.rate_limiter.on_success()
+
+                tx_hash = getattr(resp, "tx_hash", "OK")
+                logger. info(f"Order sent: {tx_hash}")
+
+                await asyncio.sleep(2 + attempt)
+                updated_positions = await self.fetch_open_positions()
+                still_open = any(
+                    p["symbol"] == symbol and abs(p. get("size", 0)) > 1e-8
+                    for p in (updated_positions or [])
+                )
+
+                if not still_open:
+                    logger.info(f"✅ Lighter {symbol} CLOSED")
+                    return True, str(tx_hash)
+                else:
+                    if attempt < max_retries - 1:
+                        continue
+                    return False, str(tx_hash)
+
+            except Exception as e:
+                logger.error(f"Close exception: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                    continue
                 return False, None
 
-        except Exception as e:
-            logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
-            return False, None
+        return False, None
 
     async def aclose(self):
         """Cleanup all sessions and connections"""

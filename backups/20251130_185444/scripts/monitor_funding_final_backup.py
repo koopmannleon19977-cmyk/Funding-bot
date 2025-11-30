@@ -761,33 +761,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         return False
 
     async with lock:
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Check if position already exists on EITHER exchange
-        # This prevents race conditions and duplicate positions
-        # ═══════════════════════════════════════════════════════════════
-        try:
-            x10_positions = await x10.fetch_open_positions()
-            lighter_positions = await lighter.fetch_open_positions()
-            
-            x10_symbols = {p.get('symbol') for p in (x10_positions or [])}
-            lighter_symbols = {p.get('symbol') for p in (lighter_positions or [])}
-            
-            if symbol in x10_symbols:
-                logger.warning(f"⚠️ {symbol} already open on X10 - SKIP to prevent duplicate!")
-                return False
-            
-            if symbol in lighter_symbols:
-                logger.warning(f"⚠️ {symbol} already open on Lighter - SKIP to prevent duplicate!")
-                return False
-            
-            logger.debug(f"✅ {symbol} verified: No existing positions on exchanges")
-            
-        except Exception as e:
-            logger.error(f"Failed to check existing positions for {symbol}: {e}")
-            # Safe default: Skip trade if we can't verify positions
-            return False
-        
-        # Check if already open in state
+        # Check if already open
         existing = await get_open_trades()
         if any(t['symbol'] == symbol for t in existing):
             return False
@@ -973,99 +947,25 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     symbol = trade['symbol']
+    notional = trade['notional_usd']
     
-    # ATOMIC CLOSE: Lighter zuerst, dann X10 nur wenn Lighter erfolgreich war
-    logger.info(f" 🔻 CLOSING {symbol} (Atomic Smart Close)...")
+    # Simple logic: Just close both sides optimistically
+    logger.info(f" 🔻 CLOSING {symbol}...")
+    res = await asyncio.gather(
+        x10.close_live_position(symbol, "BUY", notional), # Side parameter ignored by intelligent close logic usually
+        lighter.close_live_position(symbol, "BUY", notional),
+        return_exceptions=True
+    )
     
-    # ═══════════════════════════════════════════════════════════════
-    # SCHRITT 1: Lighter Position schließen
-    # ═══════════════════════════════════════════════════════════════
-    lighter_success = False
-    try:
-        positions = await lighter.fetch_open_positions()
-        pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-        
-        if pos and abs(pos.get('size', 0)) > 0:
-            size = pos.get('size', 0)
-            side = "SELL" if size > 0 else "BUY"
-            # Preis holen für Notional
-            px = lighter.fetch_mark_price(symbol) or 0.0
-            if px > 0:
-                usd_size = abs(size) * px
-                result = await lighter.close_live_position(symbol, side, usd_size)
-                lighter_success = result[0] if isinstance(result, tuple) else bool(result)
-            else:
-                logger.error(f"❌ Lighter close {symbol}: Invalid price {px}")
-                lighter_success = False
-        else:
-            # Keine Position offen = Erfolg
-            logger.info(f"✅ Lighter {symbol}: No position to close")
-            lighter_success = True
-            
-    except Exception as e:
-        logger.error(f"❌ Lighter close failed for {symbol}: {e}")
-        lighter_success = False
+    # Check success (tuple returns (bool, order_id))
+    s1 = res[0][0] if isinstance(res[0], tuple) else False
+    s2 = res[1][0] if isinstance(res[1], tuple) else False
     
-    # ═══════════════════════════════════════════════════════════════
-    # ABBRUCH wenn Lighter fehlschlägt
-    # ═══════════════════════════════════════════════════════════════
-    if not lighter_success:
-        logger.error(f"❌ ABBRUCH: Lighter close für {symbol} fehlgeschlagen!")
-        logger.error(f"⚠️ X10 wird NICHT geschlossen - MANUELLE INTERVENTION ERFORDERLICH!")
-        
-        # Optional: Telegram Alert senden
-        try:
-            telegram = get_telegram_bot()
-            if telegram and telegram.enabled:
-                await telegram.send_error(
-                    f"🚨 CRITICAL: Lighter close failed for {symbol}!\n"
-                    f"X10 position NOT closed to prevent imbalance.\n"
-                    f"Manual intervention required!"
-                )
-        except Exception:
-            pass
-        
-        return False
-    
-    # ═══════════════════════════════════════════════════════════════
-    # SCHRITT 2: X10 Position schließen (nur wenn Lighter erfolgreich)
-    # ═══════════════════════════════════════════════════════════════
-    logger.info(f"✅ Lighter {symbol} closed successfully, proceeding with X10...")
-    
-    x10_success = False
-    try:
-        await safe_close_x10_position(x10, symbol, "AUTO", 0)
-        # safe_close_x10_position gibt keinen Boolean zurück, 
-        # wenn keine Exception -> Erfolg
-        x10_success = True
-        
-    except Exception as e:
-        logger.error(f"❌ X10 close failed for {symbol}: {e}")
-        logger.error(f"⚠️ PROBLEM: Lighter ist zu, X10 nicht! Rollback nicht möglich!")
-        
-        # Optional: Telegram Alert
-        try:
-            telegram = get_telegram_bot()
-            if telegram and telegram.enabled:
-                await telegram.send_error(
-                    f"🚨 CRITICAL: X10 close failed for {symbol}!\n"
-                    f"Lighter is already closed - position imbalance!\n"
-                    f"Manual X10 close required!"
-                )
-        except Exception:
-            pass
-        
-        x10_success = False
-    
-    # ═══════════════════════════════════════════════════════════════
-    # ERGEBNIS
-    # ═══════════════════════════════════════════════════════════════
-    if lighter_success and x10_success:
-        logger.info(f"✅ {symbol} FULLY CLOSED on both exchanges")
+    if s1 and s2:
         return True
-    else:
-        logger.error(f"❌ {symbol} close incomplete: Lighter={lighter_success}, X10={x10_success}")
-        return False
+    
+    logger.warning(f" Close partial fail {symbol}: X10={s1}, Lit={s2}")
+    return False # Retry logic handles this
 
 async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
     """Get actual position size in coins from exchange"""
@@ -1200,10 +1100,6 @@ async def manage_open_trades(lighter, x10):
         try:
             sym = t['symbol']
             
-            # DEBUG: Zeige den Typ und Wert von entry_time
-            raw_entry_time = t.get('entry_time')
-            logger.info(f"🔍 DEBUG {sym}: entry_time type={type(raw_entry_time)}, value={raw_entry_time}")
-            
             # ═══════════════════════════════════════════════════════════════
             # FIX: Daten-Sanitizing für ALLE numerischen Felder
             # ═══════════════════════════════════════════════════════════════
@@ -1218,34 +1114,17 @@ async def manage_open_trades(lighter, x10):
             
             # 3. Entry Time sanitizen und Age berechnen
             entry_time = t.get('entry_time')
+            if isinstance(entry_time, str):
+                try: entry_time = datetime.fromisoformat(entry_time)
+                except: entry_time = datetime.utcnow()
+            elif entry_time is None:
+                entry_time = datetime.utcnow()
             
-            # Fix: entry_time kann als String aus JSON/DB kommen
-            if entry_time:
-                if isinstance(entry_time, str):
-                    # Parse ISO format string zurück zu datetime
-                    entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
-                
-                # Stelle sicher, dass entry_time timezone-aware ist
-                if entry_time.tzinfo is None:
-                    entry_time = entry_time.replace(tzinfo=timezone.utc)
-                
-                age_seconds = (datetime.now(timezone.utc) - entry_time).total_seconds()
+            # Alter in Sekunden (timestamp-basiert für präzise Messung)
+            if isinstance(entry_time, datetime):
+                age_seconds = (datetime.utcnow() - entry_time).total_seconds()
             else:
-                # Fallback: Wenn keine entry_time, nutze created_at oder setze hohes Alter
-                created_at = t.get('created_at')
-                if created_at:
-                    if isinstance(created_at, str):
-                        created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                    if created_at.tzinfo is None:
-                        created_at = created_at.replace(tzinfo=timezone.utc)
-                    age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
-                else:
-                    # Kein Zeitstempel vorhanden - Force Close nach 60s annehmen
-                    logger.warning(f"⚠️ Kein entry_time für {t.get('symbol')} - setze age auf FARM_HOLD_SECONDS+1")
-                    age_seconds = config.FARM_HOLD_SECONDS + 1
-            
-            # DEBUG LOG (optional, um zu sehen was passiert)
-            logger.debug(f"Check {sym}: Age={age_seconds:.1f}s (Limit={config.FARM_HOLD_SECONDS}s)")
+                age_seconds = current_time - float(entry_time)
             
             # ═══════════════════════════════════════════════════════════════
             # NOT-AUS: Force Close nach Zeit (VOR Preis-Check!)
@@ -1351,11 +1230,8 @@ async def manage_open_trades(lighter, x10):
             
             # 1. FARM MODE: Profit Take bei günstigem Spread
             if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
-                # ÄNDERUNG: Statt 300s hartcodiert, nehmen wir einen kürzeren Wert
-                min_hold_time = getattr(config, 'FARM_MIN_HOLD_SECONDS', 15)  # Standard: 15 Sekunden
-                
-                # Erst nach min_hold_time prüfen
-                if age_seconds > min_hold_time:
+                # Erst nach 5 Min auf Profit prüfen (gibt Trade Zeit sich zu entwickeln)
+                if age_seconds > 300:
                     # Bei deinen Fees (0.045% roundtrip) ist alles unter 0.04% Spread Profit
                     # Spread < 0.04% = günstige Exit-Bedingung
                     if current_spread_pct < 0.0004:  # 0.04%
@@ -1442,115 +1318,6 @@ async def manage_open_trades(lighter, x10):
             logger.error(f"Trade Loop Error for {t.get('symbol', 'UNKNOWN')}: {e}")
             import traceback
             logger.debug(traceback.format_exc())
-
-async def sync_check_and_fix(lighter, x10):
-    """
-    Prüft ob X10 und Lighter Positionen synchron sind und fixt Differenzen.
-    CRITICAL: Verhindert ungehedgte Positionen die zu Directional Risk führen.
-    Sollte beim Start und alle 5-10 Minuten laufen.
-    """
-    logger.info("🔍 Starting Exchange Sync Check...")
-    
-    try:
-        # Fetch actual positions from both exchanges
-        x10_positions = await x10.fetch_open_positions()
-        lighter_positions = await lighter.fetch_open_positions()
-        
-        # Extract symbols (filter out dust positions)
-        x10_symbols = {
-            p.get('symbol') for p in (x10_positions or [])
-            if abs(p.get('size', 0)) > 1e-8
-        }
-        lighter_symbols = {
-            p.get('symbol') for p in (lighter_positions or [])
-            if abs(p.get('size', 0)) > 1e-8
-        }
-        
-        # Find desync
-        only_on_x10 = x10_symbols - lighter_symbols
-        only_on_lighter = lighter_symbols - x10_symbols
-        
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Orphaned X10 positions (no Lighter hedge)
-        # ═══════════════════════════════════════════════════════════════
-        if only_on_x10:
-            logger.error(f"🚨 DESYNC DETECTED: Positions only on X10: {only_on_x10}")
-            logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
-            
-            # Optional: Send Telegram alert
-            try:
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🚨 EXCHANGE DESYNC!\n"
-                        f"Orphaned X10 positions: {only_on_x10}\n"
-                        f"Closing to prevent directional risk..."
-                    )
-            except Exception:
-                pass
-            
-            for sym in only_on_x10:
-                try:
-                    logger.warning(f"🔻 Closing orphaned X10 position: {sym}")
-                    pos = next((p for p in x10_positions if p.get('symbol') == sym), None)
-                    if pos:
-                        size = pos.get('size', 0)
-                        original_side = "BUY" if size > 0 else "SELL"
-                        px = x10.fetch_mark_price(sym) or 0.0
-                        if px > 0:
-                            notional = abs(size) * px
-                            await x10.close_live_position(sym, original_side, notional)
-                            logger.info(f"✅ Closed orphaned X10 {sym}")
-                except Exception as e:
-                    logger.error(f"Failed to close X10 orphan {sym}: {e}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Orphaned Lighter positions (no X10 hedge)
-        # ═══════════════════════════════════════════════════════════════
-        if only_on_lighter:
-            logger.error(f"🚨 DESYNC DETECTED: Positions only on Lighter: {only_on_lighter}")
-            logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
-            
-            # Optional: Send Telegram alert
-            try:
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🚨 EXCHANGE DESYNC!\n"
-                        f"Orphaned Lighter positions: {only_on_lighter}\n"
-                        f"Closing to prevent directional risk..."
-                    )
-            except Exception:
-                pass
-            
-            for sym in only_on_lighter:
-                try:
-                    logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
-                    pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
-                    if pos:
-                        size = pos.get('size', 0)
-                        original_side = "BUY" if size > 0 else "SELL"
-                        px = lighter.fetch_mark_price(sym) or 0.0
-                        if px > 0:
-                            notional = abs(size) * px
-                            await lighter.close_live_position(sym, original_side, notional)
-                            logger.info(f"✅ Closed orphaned Lighter {sym}")
-                except Exception as e:
-                    logger.error(f"Failed to close Lighter orphan {sym}: {e}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # SUCCESS: Exchanges are in sync
-        # ═══════════════════════════════════════════════════════════════
-        if not only_on_x10 and not only_on_lighter:
-            common = x10_symbols & lighter_symbols
-            logger.info(f"✅ Exchanges are SYNCED: {len(common)} paired positions")
-            if common:
-                logger.debug(f"   Synced symbols: {common}")
-        
-    except Exception as e:
-        logger.error(f"Sync check failed: {e}")
-        import traceback
-        logger.debug(traceback.format_exc())
 
 async def cleanup_zombie_positions(lighter, x10):
     """Full Zombie Cleanup Implementation with Correct Side Detection"""
@@ -2307,13 +2074,11 @@ async def trade_management_loop(lighter, x10):
             await asyncio.sleep(5)
 
 async def maintenance_loop(lighter, x10):
-    """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges + Sync Check"""
+    """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges"""
     global LAST_DATA_UPDATE
     funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
-    sync_check_interval = 300  # Alle 5 Minuten Sync Check
     last_x10_refresh = 0
     last_lighter_refresh = 0
-    last_sync_check = 0
     
     while True:
         try:
@@ -2381,17 +2146,6 @@ async def maintenance_loop(lighter, x10):
                         continue
             except Exception:
                 pass
-            
-            # ============================================================
-            # Exchange Sync Check (every 5 minutes)
-            # ============================================================
-            if now - last_sync_check > sync_check_interval:
-                logger.info("🔍 Running periodic exchange sync check...")
-                try:
-                    await sync_check_and_fix(lighter, x10)
-                    last_sync_check = now
-                except Exception as e:
-                    logger.error(f"Sync check failed: {e}")
             
             await asyncio.sleep(30)
             
@@ -3185,17 +2939,6 @@ async def main():
     except Exception as e:
         logger.exception(f"Reconciliation failed: {e}")
     await asyncio.sleep(2)
-    
-    # ═══════════════════════════════════════════════════════════════
-    # CRITICAL: Initial Exchange Sync Check
-    # Catches any desyncs from previous runs before starting trading
-    # ═══════════════════════════════════════════════════════════════
-    logger.info("🔍 Running startup exchange sync check...")
-    try:
-        await sync_check_and_fix(lighter, x10)
-    except Exception as e:
-        logger.error(f"Startup sync check failed: {e}")
-    await asyncio.sleep(2)
 
     # ═══════════════════════════════════════════════════════════════
     # EMERGENCY: Close all positions on start if enabled
@@ -3277,73 +3020,100 @@ async def main():
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Shutdown angefordert – beende sauber...")
     finally:
-        logger.info("🛑 Initiating graceful shutdown...")
-        
-        # Stop tasks
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: SHUTDOWN_FLAG ZUERST setzen!
+        # ═══════════════════════════════════════════════════════════════
         SHUTDOWN_FLAG = True
-        for name, task in ACTIVE_TASKS.items():
-            logger.info(f"🛑 Cancelling {name}...")
-            task.cancel()
+        logger.info("SHUTDOWN_FLAG gesetzt - keine neuen Trades mehr")
         
-        # Warten bis Tasks beendet sind
-        await asyncio.sleep(1.0)
+        # Warte kurz damit alle Loops das Flag sehen
+        await asyncio.sleep(0.5)
 
         # ═══════════════════════════════════════════════════════════════
-        # FIX: Close All Positions on Shutdown
+        # STEP 1: Cancel ALLE Haupt-Tasks ZUERST
         # ═══════════════════════════════════════════════════════════════
-        logger.info("🚨 Closing all open positions before final shutdown...")
-        try:
-            # Wir holen alle offenen Trades direkt aus dem State Manager
-            open_trades = await state_manager.get_active_trades()
-            
-            if open_trades:
-                logger.info(f"🚨 Found {len(open_trades)} open trades to close...")
-                close_tasks = []
-                for trade in open_trades:
-                    # Nutze die existierende close_trade Funktion aus diesem Script
-                    logger.info(f"   -> Scheduling close for {trade['symbol']}")
-                    close_tasks.append(close_trade(trade, lighter, x10))
-                
-                if close_tasks:
-                    results = await asyncio.gather(*close_tasks, return_exceptions=True)
-                    logger.info(f"   -> Shutdown Close Results: {results}")
-            else:
-                logger.info("✅ No open trades found in State Manager.")
+        logger.info("Cancelling main tasks...")
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        
+        # Warte auf alle Haupt-Tasks
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, result in enumerate(results):
+                if isinstance(result, asyncio.CancelledError):
+                    logger.debug(f"Task {tasks[i].get_name()} cancelled OK")
+                elif isinstance(result, Exception):
+                    logger.error(f"Task {tasks[i].get_name()} error: {result}")
 
-            # ZUSÄTZLICHE SICHERHEIT: Exchange-Scan auf verwaiste Positionen
-            logger.info("🔍 Scanning exchanges for orphaned positions...")
+        # ═══════════════════════════════════════════════════════════════
+        # STEP 2: Cancel ALLE Symbol-Tasks
+        # ═══════════════════════════════════════════════════════════════
+        logger.info("Cancelling symbol tasks...")
+        async with TASKS_LOCK:
+            for sym, task in list(ACTIVE_TASKS.items()):
+                if not task.done():
+                    task.cancel()
+            if ACTIVE_TASKS:
+                await asyncio.gather(*ACTIVE_TASKS.values(), return_exceptions=True)
+            ACTIVE_TASKS.clear()
+            SYMBOL_LOCKS.clear()
+
+        # ═══════════════════════════════════════════════════════════════
+        # STEP 2.5: Clear IN_FLIGHT_MARGIN to prevent leaks
+        # ═══════════════════════════════════════════════════════════════
+        async with IN_FLIGHT_LOCK:
+            old_x10 = IN_FLIGHT_MARGIN.get('X10', 0)
+            old_lit = IN_FLIGHT_MARGIN.get('Lighter', 0)
+            if old_x10 > 0 or old_lit > 0:
+                logger.info(f"🔓 Clearing IN_FLIGHT_MARGIN: X10=${old_x10:.1f}, Lit=${old_lit:.1f}")
+            IN_FLIGHT_MARGIN.clear()
+        # ═══════════════════════════════════════════════════════════════
+        # STEP 3: Stoppe Manager (WebSocket, State, Telegram)
+        # ═══════════════════════════════════════════════════════════════
+        logger.info("Stopping Managers...")
+        await ws_manager.stop()
+
+        # Cancel the cleanup task started earlier (Zeile 2017)
+        if cleanup_task and not cleanup_task.done():
+            cleanup_task.cancel()
             try:
-                lit_pos = await lighter.fetch_open_positions()
-                for p in lit_pos:
-                    if abs(float(p['size'])) > 0:
-                        logger.warning(f"⚠️ Orphaned Lighter position found: {p['symbol']}. Closing...")
-                        await lighter.close_live_position(p['symbol'], "BUY", float(p['size']) * float(lighter.fetch_mark_price(p['symbol']) or 0))
-                
-                x10_pos = await x10.fetch_open_positions()
-                for p in x10_pos:
-                    if abs(float(p['size'])) > 0:
-                        logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
-                        await x10.close_live_position(p['symbol'], "BUY", float(p['size']) * float(x10.fetch_mark_price(p['symbol']) or 0))
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
 
-            except Exception as ex_scan:
-                logger.error(f"Error scanning/closing orphans: {ex_scan}")
+        # Cancel emergency cleanup
+        if 'emergency_task' in locals() and not emergency_task.done():
+            emergency_task.cancel()
+            try:
+                await emergency_task
+            except asyncio.CancelledError:
+                pass
 
-        except Exception as e:
-            logger.error(f"CRITICAL ERROR during shutdown close: {e}")
-        # ═══════════════════════════════════════════════════════════════
-
-        logger.info("🛑 Stopping InMemoryStateManager...")
         await state_manager.stop()
-        
-        logger.info("🔒 Closing database...")
-        await close_database()
-        
-        # Close Adapters
-        logger.info("🔌 Closing adapters...")
-        if x10: await x10.aclose()
-        if lighter: await lighter.aclose()
-        
-        logger.info("✅ Bot V5 shutdown complete")
+
+        if telegram_bot and telegram_bot.enabled:
+            await telegram_bot.send_message("Bot Shutdown")
+            await telegram_bot.stop()
+
+        # ═══════════════════════════════════════════════════════════════
+        # STEP 4: Schließe Adapter
+        # ═══════════════════════════════════════════════════════════════
+        logger.info("Closing adapters...")
+        try:
+            await x10.aclose()
+        except Exception as e:
+            logger.error(f"Error closing X10: {e}")
+
+        try:
+            await lighter.aclose()
+        except Exception as e:
+            logger.error(f"Error closing Lighter: {e}")
+
+        # Kurz warten damit aiohttp Sessions sauber schließen
+        await asyncio.sleep(0.5)
+
+        logger.info("BOT SHUTDOWN COMPLETE.")
 
 if __name__ == "__main__":
     if sys.platform == 'win32':
