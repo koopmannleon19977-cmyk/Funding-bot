@@ -59,7 +59,7 @@ class LighterAdapter(BaseAdapter):
         self._signer = None
         self._resolved_account_index = None
         self._resolved_api_key_index = None
-        self.semaphore = asyncio.Semaphore(10)
+        self.semaphore = asyncio.Semaphore(5) # Reduced concurrency
         self.rate_limiter = LIGHTER_RATE_LIMITER
         self._last_market_cache_at = None
         self._balance_cache = 0.0
@@ -551,10 +551,8 @@ class LighterAdapter(BaseAdapter):
         return False
 
     async def load_market_cache(self, force: bool = False, max_retries: int = 1):
-        """Load market data from Lighter API"""
-        print(
-            f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}"
-        )
+        """Load market data from Lighter API - OPTIMIZED FOR RATE LIMITS"""
+        print(f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}")
 
         if not getattr(config, "LIVE_TRADING", False):
             logger.warning("LIVE_TRADING=False, skipping market load")
@@ -564,11 +562,7 @@ class LighterAdapter(BaseAdapter):
             logger.error("❌ Lighter SDK not installed - cannot load markets")
             return
 
-        if (
-            not force
-            and self._last_market_cache_at
-            and (time.time() - self._last_market_cache_at < 300)
-        ):
+        if (not force and self._last_market_cache_at and (time.time() - self._last_market_cache_at < 300)):
             return
 
         logger.info("⚙️ Lighter: Loading markets...")
@@ -577,30 +571,29 @@ class LighterAdapter(BaseAdapter):
             signer = await self._get_signer()
             order_api = OrderApi(signer.api_client)
 
-            print("DEBUG: Calling order_books()...")
-
+            # 1. Fetch List of All Markets
             market_list = None
-            api_client = getattr(signer, "api_client", None)
-
             try:
                 if hasattr(order_api, "order_books"):
-                    market_list = await order_api. order_books()
+                    market_list = await order_api.order_books()
             except Exception as e:
                 logger.debug(f"order_books() failed: {e}")
                 market_list = None
 
             if not market_list:
+                # Fallback methods...
                 try:
+                    api_client = getattr(signer, "api_client", None)
                     resp = None
                     if api_client is not None:
                         if hasattr(api_client, "get"):
-                            resp = await api_client. get("/order-books")
+                            resp = await api_client.get("/order-books")
                         elif hasattr(api_client, "request"):
                             resp = await api_client.request("GET", "/order-books")
 
                     if isinstance(resp, dict):
                         markets_data = (
-                            resp. get("data")
+                            resp.get("data")
                             or resp.get("order_books")
                             or resp.get("result")
                             or []
@@ -633,27 +626,30 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Fallback market load failed: {e}")
                     market_list = None
 
-            print(f"DEBUG: market_list type: {type(market_list)}")
-
-            if (
-                not market_list
-                or not hasattr(market_list, "order_books")
-                or not market_list.order_books
-            ):
-                logger.warning("⚠️ Lighter: No markets from API")
+            if not market_list:
+                logger.warning("⚠️ Lighter: No markets from API (Fallback failed)")
                 return
 
-            all_ids = [
-                m.market_id
-                for m in market_list.order_books
-                if hasattr(m, "market_id")
-            ]
+            # 2. Extract IDs
+            all_ids = []
+            if hasattr(market_list, "order_books") and market_list.order_books:
+                for m in market_list.order_books:
+                    if hasattr(m, "market_id"):
+                        all_ids.append(m.market_id)
+                    elif isinstance(m, dict) and "market_id" in m:
+                        all_ids.append(m["market_id"])
+
             total_markets = len(all_ids)
+            if total_markets == 0:
+                logger.warning("⚠️ Lighter: 0 markets found")
+                return
 
-            BATCH_SIZE = 10
-            SLEEP_BETWEEN_BATCHES = 1.0
-            MAX_RETRIES_LOCAL = max_retries
-
+            # 3. Batch Fetch Details - EXTREMELY CONSERVATIVE SETTINGS
+            # Standard Account Limit: 60 req/min = 1 req/sec
+            # We batch 5 markets, sleep 2s -> ~2.5 req/sec burst, but average lower
+            BATCH_SIZE = 5
+            SLEEP_BETWEEN_BATCHES = 2.0  # Increased sleep
+            
             successful_loads = 0
             processed_ids = set()
 
@@ -661,55 +657,42 @@ class LighterAdapter(BaseAdapter):
                 batch_ids = all_ids[i : i + BATCH_SIZE]
 
                 if batch_num > 1:
+                    # Proactive Rate Limiting Sleep
                     await asyncio.sleep(SLEEP_BETWEEN_BATCHES)
 
-                for retry in range(MAX_RETRIES_LOCAL + 1):
-                    tasks = [
-                        self._fetch_single_market(order_api, mid) for mid in batch_ids
-                    ]
-                    results = await asyncio. gather(*tasks, return_exceptions=True)
+                tasks = [self._fetch_single_market(order_api, mid) for mid in batch_ids]
+                
+                # Execute batch
+                results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                    batch_loaded_ids = []
-                    for mid in batch_ids:
-                        if mid in processed_ids:
-                            continue
-                        if any(m["i"] == mid for m in self.market_info. values()):
-                            batch_loaded_ids.append(mid)
-                            processed_ids.add(mid)
+                # Count success
+                for mid in batch_ids:
+                    if mid in processed_ids: continue
+                    # Check if it was loaded into market_info
+                    is_loaded = False
+                    for m in self.market_info.values():
+                        if m.get("i") == mid:
+                            is_loaded = True
+                            break
+                    
+                    if is_loaded:
+                        successful_loads += 1
+                        processed_ids.add(mid)
 
-                    batch_success_count = len(batch_loaded_ids)
-                    successful_loads += batch_success_count
-
-                    if batch_success_count == len(batch_ids):
-                        break
-
-                    has_429 = any(
-                        isinstance(r, Exception) and "429" in str(r) for r in results
-                    )
-
-                    if has_429 and retry < MAX_RETRIES_LOCAL:
-                        wait_time = (retry + 1) * 2
-                        logger.warning(
-                            f"⚠️ Rate Limited.  Retry {retry+1}/{MAX_RETRIES_LOCAL} in {wait_time}s..."
-                        )
-                        await asyncio.sleep(wait_time)
-                        continue
-
-                    break
+                # Stop immediately on severe rate limits to prevent penalty escalation
+                has_429 = any(isinstance(r, Exception) and "429" in str(r) for r in results)
+                if has_429:
+                    logger.warning("⚠️ Lighter Market Load: 429 encountered, pausing 10s...")
+                    await asyncio.sleep(10.0)
 
             self._last_market_cache_at = time.time()
-            success_rate = (
-                (successful_loads / total_markets * 100) if total_markets > 0 else 0
-            )
+            success_rate = (successful_loads / total_markets * 100) if total_markets > 0 else 0
 
-            logger.info(
-                f"✅ Lighter: {successful_loads}/{total_markets} markets loaded ({success_rate:.1f}%)"
-            )
+            logger.info(f"✅ Lighter: {successful_loads}/{total_markets} markets loaded ({success_rate:.1f}%)")
 
         except Exception as e:
             logger.error(f"❌ Lighter Market Cache Error: {e}")
             import traceback
-
             traceback.print_exc()
 
     async def initialize(self):
