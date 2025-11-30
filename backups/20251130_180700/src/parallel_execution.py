@@ -221,7 +221,7 @@ class ParallelExecutionManager:
         symbol = execution.symbol
         
         # ═══════════════════════════════════════════════════════════════════
-        # PHASE 1: LIGHTER POST-ONLY (Maker)
+        # PHASE 1: LIGHTER POST-ONLY (Maker) - 100ms HEAD START
         # ═══════════════════════════════════════════════════════════════════
         logger.info(f"🔄 [PARALLEL] {symbol}: Lighter POST-ONLY first")
         execution.state = ExecutionState.LEG1_SENT
@@ -236,10 +236,8 @@ class ParallelExecutionManager:
             name=f"lighter_{symbol}"
         )
 
-        # OPTIMIZATION: Removed 100ms artificial sleep to maximize Latency Arb potential.
-        # Original: await asyncio.sleep(0.1)
-        # New: Minimal yield to ensure task scheduling without waiting
-        await asyncio.sleep(0)
+        # 100ms head start for Lighter order book placement
+        await asyncio.sleep(0.1)
 
         # ═══════════════════════════════════════════════════════════════════
         # PHASE 2: X10 MARKET (Taker) - FILLS IMMEDIATELY

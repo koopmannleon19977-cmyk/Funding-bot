@@ -33,11 +33,10 @@ LIGHTER_DRY_RUN = False
 EMERGENCY_CLOSE_ON_START = False  # Set to True to force-close all
 
 # ============================================================
-# GEBÜHREN KONFIGURATION (Deine Werte)
+# GEBÜHREN
 # ============================================================
-# WICHTIG: Wir müssen dem Bot die echten Kosten nennen.
-TAKER_FEE_X10 = 0.000225  # 0.0225% (Sehr günstig!)
-MAKER_FEE_X10 = 0.0000    # 0.00% (Kostenlos)
+TAKER_FEE_X10 = 0.00025
+MAKER_FEE_X10 = 0.00000
 FEES_LIGHTER = 0.00000
 
 # ============================================================
@@ -61,7 +60,7 @@ MIN_POSITION_SIZE_USD = 5.0       # API Minimum
 MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
 MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
 MAX_TRADE_SIZE_USD = 20.0         # Max pro Trade
-MAX_OPEN_TRADES = 3               # Nicht zu viele gleichzeitig, um Übersicht zu behalten
+MAX_OPEN_TRADES = 3               # Weniger parallel (war 5)
 
 # Safety: Reserve 20% statt 30%
 BALANCE_RESERVE_PCT = 0.20        # Gesenkt von 0.30
@@ -86,18 +85,12 @@ REBATE_PAIRS = {"BTC-USD", "ETH-USD", "SOL-USD", "ARB-USD", "AVAX-USD"}
 REBATE_PREFIXES = ("BTC", "ETH", "SOL")
 HIGH_RISK_SYMBOLS = {"HYPE-USD", "MEME-USD", "PEPE-USD", "DOGE-USD"}
 
-# ============================================================
-# 1. REBATES DEAKTIVIEREN (WICHTIG!)
-# ============================================================
-# Setze dies auf 0.0, da deine Prüfung 0% ergab.
-# Sonst rechnet der Bot mit Phantom-Gewinnen.
-
 # Rebate calculation
 TAKER_FEE = 0.00025
 MAKER_FEE = 0.00000
 REBATE_TRADES_PER_DAY = 3
-REBATE_MAX_ANNUAL_DISCOUNT = 0.0  # Auf 0.0 gesetzt - keine Rebates!
-REBATE_MIN_ANNUAL_DISCOUNT = 0.0  # Ebenfalls auf 0.0 gesetzt
+REBATE_MAX_ANNUAL_DISCOUNT = 0.08
+REBATE_MIN_ANNUAL_DISCOUNT = 0.005
 MIN_SAFE_THRESHOLD = 0.03
 
 # ============================================================
@@ -194,37 +187,18 @@ LIGHTER_API_KEY_INDEX = 3
 LIGHTER_AUTO_ACCOUNT_INDEX = False
 
 # ============================================================
-# VOLUME FARM MODE (OPTIMIERT FÜR 0.0225% FEE)
+# VOLUME FARM MODE
 # ============================================================
-VOLUME_FARM_MODE = True
-
-# Positionsgröße: $50
-# Konservativ starten. Wenn alles läuft, kannst du auf $100 erhöhen.
-FARM_POSITION_SIZE_USD = 50.0
-FARM_NOTIONAL_USD = 30  # Bestehend (kann mit FARM_POSITION_SIZE_USD harmonisiert werden)
+VOLUME_FARM_MODE = False
+FARM_NOTIONAL_USD = 11
 FARM_RANDOM_SIZE_PCT = 0.25
-FARM_MIN_HOLD_MINUTES = 2
-FARM_MAX_HOLD_MINUTES = 5
-
-# Haltedauer: 45 Minuten
-# Berechnung: Bei 0.0225% Fee kostet ein Trade (Rein+Raus) 0.045%.
-# Das holt eine durchschnittliche Funding-Rate in ~45 Min bis 2 Std wieder rein.
-# Wir setzen 45 Min, um das Volumen hochzuhalten (ca. 32 Trades pro Tag/Slot).
-FARM_HOLD_SECONDS = 60  # 45 Minuten
-
+FARM_MIN_HOLD_MINUTES = 15
+FARM_MAX_HOLD_MINUTES = 120
+FARM_HOLD_SECONDS = 60  # 1 min statt 2 min (drastisch reduziert für schnellere exits)
 FARM_MAX_CONCURRENT = 2  # Reduced parallel farm trades (was 3)
-
-# Mindest-APY: 12%
-# Wir traden nichts unter 12%, damit die Funding-Rate die Gebühren deckt.
-FARM_MIN_APY = 0.12
-
-# Sicherheits-Limits
-FARM_MAX_VOLATILITY_24H = 8.0  # Mittlere Volatilität erlauben
-
-# Spread Filter: 0.04%
-# Da deine Fees so niedrig sind, darf der Spread etwas höher sein als bei 0.05% Fees.
-# Aber Vorsicht: Spread + Fee muss < Profit sein.
-FARM_MAX_SPREAD_PCT = 0.04
+FARM_MIN_APY = 0.03
+FARM_MAX_VOLATILITY_24H = 4.0
+FARM_MAX_SPREAD_PCT = 0.15
 
 # Volume Farm Rate Limiting
 FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades

@@ -35,9 +35,6 @@ class WSConfig:
     max_reconnect_attempts: int = 0  # 0 = infinite
     message_queue_size: int = 1000
     headers: Optional[Dict[str, str]] = None
-    # NEW: Custom Ping Support
-    disable_lib_ping: bool = False
-    app_ping_payload: Optional[Dict] = None
 
 
 @dataclass
@@ -245,10 +242,6 @@ class ManagedWebSocket:
                 "close_timeout": 5.0,
             }
             
-            # CRITICAL FIX for X10: Disable library-level ping if requested
-            if self.config.disable_lib_ping:
-                connect_kwargs["ping_interval"] = None
-            
             # Add headers if configured (wichtig für X10!)
             if self. config.headers:
                 connect_kwargs["additional_headers"] = self.config.headers
@@ -298,43 +291,32 @@ class ManagedWebSocket:
     
     async def _heartbeat_loop(self):
         """Monitor connection health and send periodic pings"""
-        stale_threshold = (self.config.ping_timeout or 20.0) * 3
+        stale_threshold = self.config.ping_timeout * 3
         
         while self._running and self.is_connected:
             try:
-                # Use configured interval or default
-                interval = self.config.ping_interval if self.config.ping_interval else 20.0
-                await asyncio.sleep(interval)
+                await asyncio.sleep(self.config.ping_interval)
                 
+                # Send explicit ping to prevent timeout
+                # FIX: Removed .closed check to prevent AttributeError
                 if self._ws:
-                    # OPTIMIZED HEARTBEAT
-                    if self.config.app_ping_payload:
-                        # Application Layer Ping (for X10)
-                        # Just send data to keep TCP alive, don't wait for protocol pong
-                        try:
-                            await self.send(self.config.app_ping_payload)
-                            logger.debug(f"💓 [{self.config.name}] App-Ping sent")
-                        except Exception as e:
-                            logger.warning(f"[{self.config.name}] App-Ping failed: {e}")
-                            break
-                    else:
-                        # Standard Protocol Ping (for Lighter)
-                        try:
-                            pong_waiter = await self._ws.ping()
-                            await asyncio.wait_for(pong_waiter, timeout=self.config.ping_timeout)
-                            logger.debug(f"💓 [{self.config.name}] Ping/Pong OK")
-                        except asyncio.TimeoutError:
-                            logger.warning(f"[{self.config.name}] Ping timeout, reconnecting")
-                            if self._ws:
-                                try:
-                                    await self._ws.close()
-                                except Exception:
-                                    pass
-                            break
-                        except Exception as e:
-                            logger.debug(f"[{self.config.name}] Ping error: {e}")
-                            # Treat ping errors as connection loss
-                            break
+                    try:
+                        pong_waiter = await self._ws.ping()
+                        # Wait for pong with timeout
+                        await asyncio.wait_for(pong_waiter, timeout=self.config.ping_timeout)
+                        logger.debug(f"💓 [{self.config.name}] Ping/Pong OK")
+                    except asyncio.TimeoutError:
+                        logger.warning(f"[{self.config.name}] Ping timeout, reconnecting")
+                        if self._ws:
+                            try:
+                                await self._ws.close()
+                            except Exception:
+                                pass
+                        break
+                    except Exception as e:
+                        logger.debug(f"[{self.config.name}] Ping error: {e}")
+                        # Treat ping errors as connection loss
+                        break
                 
                 # Check for stale connection
                 if self._metrics.last_message_time > 0:
@@ -453,12 +435,9 @@ class WebSocketManager:
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
-            ping_interval=20.0,
-            ping_timeout=20.0,
+            ping_interval=30.0,  # Erhöht (war 20)
+            ping_timeout=30.0,   # Erhöht (war 10) - Gibt X10 mehr Zeit für Pong
             headers=x10_headers,
-            # NEW SETTINGS FOR STABILITY
-            disable_lib_ping=True,
-            app_ping_payload={"type": "ping"}  # X10/Socket.io style keepalive
         )
         self._connections["x10"] = ManagedWebSocket(
             x10_config,

@@ -62,12 +62,6 @@ class LighterAdapter(BaseAdapter):
         self._orderbook_cache_time = {}
         self._trade_cache = {}
         self._funding_cache = {}
-        self._funding_cache_time = {}
-        
-        # NEW: Public Aliases for Latency/Prediction modules
-        self.price_cache_time = self._price_cache_time
-        self.funding_cache_time = self._funding_cache_time
-        
         self.price_update_event = None
         self._ws_message_queue = asyncio.Queue()
         self._signer = None

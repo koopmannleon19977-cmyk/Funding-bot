@@ -74,12 +74,6 @@ TASKS_LOCK = asyncio.Lock()
 OPPORTUNITY_LOG_CACHE = {}
 
 # ============================================================
-# CONNECTION WATCHDOG (Gegen Ping Timeout)
-# ============================================================
-LAST_DATA_UPDATE = time.time()  # Global timestamp für letzte Datenaktivität
-WATCHDOG_TIMEOUT = 120  # Sekunden ohne Daten = Verbindungsproblem
-
-# ============================================================
 # GLOBALS (Ergänzung)
 # ============================================================
 # Behalte IN_FLIGHT_MARGIN von vorher!
@@ -1094,8 +1088,6 @@ async def manage_open_trades(lighter, x10):
     except:
         return
 
-    current_time = time.time()
-
     for t in trades:
         try:
             sym = t['symbol']
@@ -1108,88 +1100,17 @@ async def manage_open_trades(lighter, x10):
             notional = t.get('notional_usd')
             notional = float(notional) if notional is not None else 0.0
 
-            # 2. Initial Funding sanitizen
+            # 2. Initial Funding sanitizen (DAS HAT GEFEHLT!)
             init_funding = t.get('initial_funding_rate_hourly')
             init_funding = float(init_funding) if init_funding is not None else 0.0
             
-            # 3. Entry Time sanitizen und Age berechnen
-            entry_time = t.get('entry_time')
-            if isinstance(entry_time, str):
-                try: entry_time = datetime.fromisoformat(entry_time)
-                except: entry_time = datetime.utcnow()
-            elif entry_time is None:
-                entry_time = datetime.utcnow()
-            
-            # Alter in Sekunden (timestamp-basiert für präzise Messung)
-            if isinstance(entry_time, datetime):
-                age_seconds = (datetime.utcnow() - entry_time).total_seconds()
-            else:
-                age_seconds = current_time - float(entry_time)
-            
             # ═══════════════════════════════════════════════════════════════
-            # NOT-AUS: Force Close nach Zeit (VOR Preis-Check!)
-            # ═══════════════════════════════════════════════════════════════
-            # KRITISCH: Prüfe Zeit-Limit ZUERST, bevor wir Preise brauchen.
-            # Das garantiert, dass der Bot auch bei schlechter Verbindung schließt.
             
-            if config.VOLUME_FARM_MODE and t.get('is_farm_trade') and age_seconds > config.FARM_HOLD_SECONDS:
-                logger.warning(
-                    f"🚜 [FARM] NOT-AUS: Zwangsschließung für {sym} "
-                    f"(Zeit abgelaufen: {int(age_seconds)}s > {config.FARM_HOLD_SECONDS}s)"
-                )
-                
-                # Versuche zu schließen, AUCH WENN wir keine Preise haben
-                if await close_trade(t, lighter, x10):
-                    await close_trade_in_state(sym)
-                    await archive_trade_to_history(t, "FARM_TIME_LIMIT", {
-                        'total_net_pnl': 0.0,  # Unbekannt ohne Preise
-                        'funding_pnl': 0.0, 
-                        'spread_pnl': 0.0, 
-                        'fees': notional * 0.0005  # Geschätzte Fees
-                    })
-                    logger.info(f"✅ {sym} zwangsgeschlossen (Farm Time Limit)")
-                else:
-                    logger.error(f"❌ Zwangsschließung von {sym} fehlgeschlagen - Retry im nächsten Cycle")
-                
-                continue  # Nächster Trade
-            
-            # ═══════════════════════════════════════════════════════════════
-            # Preise holen (für Profit-Check & normale Exits)
-            # ═══════════════════════════════════════════════════════════════
             px = x10.fetch_mark_price(sym)
             pl = lighter.fetch_mark_price(sym)
 
-            # REST Fallback wenn WebSocket keine Preise hat
             if px is None or pl is None:
-                logger.debug(f"{sym}: WS Preise fehlen, versuche REST Fallback...")
-                
-                # Versuche REST API als Fallback
-                try:
-                    if px is None:
-                        # X10 REST Fallback (falls Methode existiert)
-                        if hasattr(x10, 'get_price_rest'):
-                            px = await x10.get_price_rest(sym)
-                        elif hasattr(x10, 'load_market_cache'):
-                            await x10.load_market_cache(force=True)
-                            px = x10.fetch_mark_price(sym)
-                    
-                    if pl is None:
-                        # Lighter REST Fallback
-                        if hasattr(lighter, 'get_price_rest'):
-                            pl = await lighter.get_price_rest(sym)
-                        elif hasattr(lighter, 'load_funding_rates_and_prices'):
-                            await lighter.load_funding_rates_and_prices()
-                            pl = lighter.fetch_mark_price(sym)
-                    
-                    if px is not None and pl is not None:
-                        logger.info(f"✅ {sym}: REST Fallback erfolgreich (X10=${px:.2f}, Lit=${pl:.2f})")
-                except Exception as e:
-                    logger.warning(f"{sym}: REST Fallback fehlgeschlagen: {e}")
-                
-                # Wenn immer noch keine Preise -> Skip (aber Zeit-Check wurde oben schon gemacht!)
-                if px is None or pl is None:
-                    logger.debug(f"{sym}: Keine Preise verfügbar, überspringe Profit-Check")
-                    continue
+                continue
 
             rx = x10.fetch_funding_rate(sym) or 0.0
             rl = lighter.fetch_funding_rate(sym) or 0.0
@@ -1198,8 +1119,15 @@ async def manage_open_trades(lighter, x10):
             base_net = rl - rx
             current_net = -base_net if t.get('leg1_exchange') == 'X10' else base_net
 
-            # PnL & Duration (nutze bereits berechnetes age_seconds)
-            hold_hours = age_seconds / 3600
+            # PnL & Duration
+            entry_time = t.get('entry_time')
+            if isinstance(entry_time, str):
+                try: entry_time = datetime.fromisoformat(entry_time)
+                except: entry_time = datetime.utcnow()
+            elif entry_time is None:
+                entry_time = datetime.utcnow()
+
+            hold_hours = (datetime.utcnow() - entry_time).total_seconds() / 3600
             funding_pnl = current_net * hold_hours * notional
 
             # Spread PnL
@@ -1211,42 +1139,26 @@ async def manage_open_trades(lighter, x10):
             
             if px > 0:
                 spread_pnl = (entry_spread - curr_spread) / px * notional
-                current_spread_pct = curr_spread / px
             else:
                 spread_pnl = 0.0
-                current_spread_pct = 0.0
 
             # Fees
+            # Extra Safety: Ensure fees are floats (prevent NoneType error)
             fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
             fee_lit = 0.0  # Lighter hat keine/niedrige Taker Fees
             est_fees = notional * (fee_x10 + fee_lit) * 2.0
 
             total_pnl = funding_pnl + spread_pnl - est_fees
 
-            # ═══════════════════════════════════════════════════════════════
-            # FARM MODE PROFIT-MITNAHME (Nur wenn Preise verfügbar!)
-            # ═══════════════════════════════════════════════════════════════
+            # Check Exits
             reason = None
             
-            # 1. FARM MODE: Profit Take bei günstigem Spread
-            if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
-                # Erst nach 5 Min auf Profit prüfen (gibt Trade Zeit sich zu entwickeln)
-                if age_seconds > 300:
-                    # Bei deinen Fees (0.045% roundtrip) ist alles unter 0.04% Spread Profit
-                    # Spread < 0.04% = günstige Exit-Bedingung
-                    if current_spread_pct < 0.0004:  # 0.04%
-                        reason = "FARM_QUICK_PROFIT"
-                        logger.info(
-                            f"🚜 [FARM] Profit Take {sym}: Age={int(age_seconds)}s, "
-                            f"Spread={current_spread_pct*100:.3f}% (sehr niedrig), PnL=${total_pnl:.2f}"
-                        )
-                    # Alternative: Wenn Total PnL positiv und Spread akzeptabel
-                    elif total_pnl > 0 and current_spread_pct < 0.0005:  # 0.05%
-                        reason = "FARM_QUICK_PROFIT"
-                        logger.info(
-                            f"🚜 [FARM] Profit Take {sym}: Age={int(age_seconds)}s, "
-                            f"PnL=${total_pnl:.2f}, Spread={current_spread_pct*100:.3f}%"
-                        )
+            # 1. Farm Check
+            if not reason and t.get('is_farm_trade'):
+                limit_seconds = getattr(config, 'FARM_HOLD_SECONDS', 60)
+                if hold_hours * 3600 > limit_seconds:
+                    reason = "FARM_COMPLETE"
+                    logger.info(f"🚜 EXIT FARM {sym}: Hold={hold_hours*60:.1f}min > {limit_seconds}s")
 
             # 2. Volatility Panic
             if not reason:
@@ -1591,87 +1503,6 @@ async def farm_loop(lighter, x10, parallel_exec):
             traceback.print_exc()
             await asyncio.sleep(30)  # Long cooldown on error
 
-async def connection_watchdog(ws_manager=None, x10=None, lighter=None):
-    """Watchdog zur Erkennung von Connection-Timeouts"""
-    global LAST_DATA_UPDATE, SHUTDOWN_FLAG
-    
-    logger.info("🐕 Connection Watchdog gestartet (Timeout: 120s)")
-    
-    while not SHUTDOWN_FLAG:
-        try:
-            await asyncio.sleep(30)  # Alle 30s prüfen
-            
-            if SHUTDOWN_FLAG:
-                break
-            
-            now = time.time()
-            time_since_update = now - LAST_DATA_UPDATE
-            
-            if time_since_update > WATCHDOG_TIMEOUT:
-                logger.warning(
-                    f"⚠️ WATCHDOG ALARM: Keine Daten seit {time_since_update:.0f}s! "
-                    f"(Limit: {WATCHDOG_TIMEOUT}s)"
-                )
-                
-                # Telegram Alert
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🐕 Connection Watchdog Alert!\n"
-                        f"Keine Daten seit {time_since_update:.0f}s\n"
-                        f"Versuche Reconnect..."
-                    )
-                
-                # Versuche Reconnect
-                if ws_manager:
-                    try:
-                        logger.info("🔄 Watchdog initiiert WebSocket Reconnect...")
-                        await ws_manager.reconnect_all()
-                        LAST_DATA_UPDATE = time.time()  # Reset nach Reconnect
-                        logger.info("✅ Watchdog Reconnect erfolgreich")
-                    except Exception as e:
-                        logger.error(f"❌ Watchdog Reconnect fehlgeschlagen: {e}")
-                
-                # Fallback: Force-Refresh via REST
-                if x10 and lighter:
-                    try:
-                        logger.info("🔄 Watchdog: Force-Refresh Market Data via REST...")
-                        await asyncio.gather(
-                            x10.load_market_cache(force=True),
-                            lighter.load_market_cache(force=True),
-                            return_exceptions=True
-                        )
-                        LAST_DATA_UPDATE = time.time()
-                        logger.info("✅ Watchdog REST Refresh erfolgreich")
-                    except Exception as e:
-                        logger.error(f"❌ Watchdog REST Refresh fehlgeschlagen: {e}")
-                
-                # Wenn nach 2 Minuten immer noch tot → System Exit
-                # (Supervisor/Docker kann Bot dann neu starten)
-                if time_since_update > WATCHDOG_TIMEOUT * 2:
-                    logger.critical(
-                        f"🚨 CRITICAL: Keine Daten seit {time_since_update:.0f}s! "
-                        "Bot wird beendet (Supervisor startet neu)..."
-                    )
-                    if telegram and telegram.enabled:
-                        await telegram.send_error(
-                            "🚨 Bot CRITICAL ERROR - Neustart erforderlich"
-                        )
-                    # Graceful Exit für Supervisor Restart
-                    SHUTDOWN_FLAG = True
-                    break
-            
-            else:
-                # Alles OK
-                logger.debug(f"🐕 Watchdog OK: Daten-Alter {time_since_update:.1f}s")
-        
-        except asyncio.CancelledError:
-            logger.info("Connection watchdog cancelled")
-            break
-        except Exception as e:
-            logger.error(f"Connection watchdog error: {e}")
-            await asyncio.sleep(30)
-
 async def cleanup_finished_tasks():
     """Background task: Remove completed tasks from ACTIVE_TASKS"""
     while not SHUTDOWN_FLAG:
@@ -1844,15 +1675,11 @@ async def reconcile_db_with_exchanges(lighter, x10):
 
 async def logic_loop(lighter, x10, price_event, parallel_exec):
     """Main trading loop with opportunity detection and execution"""
-    global LAST_DATA_UPDATE
     REFRESH_DELAY = getattr(config, 'REFRESH_DELAY_SECONDS', 5)
     logger.info(f"Logic Loop gestartet – REFRESH alle {REFRESH_DELAY}s")
 
     while not SHUTDOWN_FLAG:
         try:
-            # Update watchdog heartbeat
-            LAST_DATA_UPDATE = time.time()
-            
             open_trades = await get_open_trades()
             open_syms = {t['symbol'] for t in open_trades}
             
@@ -1866,6 +1693,9 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             
             if opportunities:
                 logger.info(f"🎯 Found {len(opportunities)} opportunities, executing best...")
+                
+                executed_count = 0
+                max_per_cycle = 3
                 
                 # ═══════════════════════════════════════════════════════════════
                 # Balance Check mit robuster Exception Handling
@@ -1884,165 +1714,154 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 logger.info(f"X10: Detected balance = ${bal_x10:.2f}")
 
-                # SAFETY FIX: Removed '$50 Hack'. If balance is 0/Low, we STOP trading.
-                if bal_x10 < 5.0:
+                # KRITISCH: Bot NICHT stoppen wenn Balance-Erkennung fehlschlägt!
+                # Stattdessen: Warning + weiter versuchen
+                if bal_x10 < 0.01:
                     logger.warning(
-                        f"⚠️ X10 Balance too low or unreadable (${bal_x10:.2f}). "
-                        "Pausing new trades until balance is restored."
+                        "⚠️ X10 Balance = $0 (API-Problem, NICHT echte Balance!) "
+                        "→ Bot läuft weiter, Balance-Check wird übersprungen"
                     )
-                    await asyncio.sleep(REFRESH_DELAY * 2)
-                    continue
+                    # Setze einen Fallback-Wert basierend auf historischen Daten oder Skip
+                    bal_x10 = 50.0  # Annahme: Es gibt Balance, API kann sie nur nicht lesen
+                    
+                elif bal_x10 < 5.0:
+                    logger.warning(
+                        f"⚠️ X10 Balance niedrig (${bal_x10:.2f}) aber Bot läuft weiter. "
+                        "Neue Trades werden pausiert bis Balance steigt."
+                    )
+                    # KEIN return! Bot läuft weiter, aber keine neuen Trades
 
-                # ═══════════════════════════════════════════════════════════════
-                # EXECUTION LOGIC (Race Condition Fix)
-                # ═══════════════════════════════════════════════════════════════
+                open_trades_count = len(open_trades)
                 
-                # 1. Aktuellen Status prüfen
-                open_trades_refreshed = await get_open_trades()
-                current_open_count = len(open_trades_refreshed)
-                max_trades = getattr(config, 'MAX_OPEN_TRADES', 40)
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL: Only reserve capital for ACTUAL trades
+                # Not for ghost DB entries
+                # ═══════════════════════════════════════════════════════════════
+                avg_trade_size = getattr(config, 'DESIRED_NOTIONAL_USD', 12)
                 
-                # Berechne exakt, wie viele Trades wir noch öffnen dürfen
-                slots_available = max_trades - current_open_count
-
-                if slots_available <= 0:
-                    logger.debug(f"⛔ Max trades reached ({current_open_count}/{max_trades}). Waiting...")
-                    await asyncio.sleep(REFRESH_DELAY)
+                # Verify trades actually exist on exchanges
+                try:
+                    x10_positions = await x10.fetch_open_positions()
+                    lighter_positions = await lighter.fetch_open_positions()
+                    actual_open_count = len(set(
+                        [p.get('symbol') for p in (x10_positions or [])] +
+                        [p.get('symbol') for p in (lighter_positions or [])]
+                    ))
+                except:
+                    actual_open_count = open_trades_count  # Fallback
+                
+                # Use ACTUAL open count, not DB count
+                locked_per_exchange = actual_open_count * avg_trade_size * 0.6
+                
+                async with IN_FLIGHT_LOCK:
+                    available_x10 = bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0) - locked_per_exchange
+                    available_lit = bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0) - locked_per_exchange
+                
+                # Safety buffer
+                available_x10 = max(0, available_x10 - 3.0)
+                available_lit = max(0, available_lit - 3.0)
+                
+                logger.info(
+                    f"💰 Balance: X10=${bal_x10:.1f} (free=${available_x10:.1f}), "
+                    f"Lit=${bal_lit:.1f} (free=${available_lit:.1f}) | "
+                    f"DB_Trades={open_trades_count}, Real_Positions={actual_open_count}, "
+                    f"Locked=${locked_per_exchange:.0f}/ex"
+                )
+                
+                if available_x10 < avg_trade_size or available_lit < avg_trade_size:
+                    if available_x10 < 0 or available_lit < 0:
+                        logger.warning(
+                            f"⚠️  NEGATIVE available balance detected! "
+                            f"This indicates ghost trades or stale DB entries."
+                        )
+                    logger.debug(
+                        f"⏸️  Paused: Insufficient available balance "
+                        f"(need ${avg_trade_size:.0f}, have X10=${available_x10:.1f}, Lit=${available_lit:.1f})"
+                    )
+                    await asyncio.sleep(REFRESH_DELAY * 3)
                     continue
-
-                # 2. Sortieren: Die besten Opportunities zuerst (höchste APY)
-                opportunities.sort(key=lambda x: x.get('apy', 0), reverse=True)
-
-                # 3. Kandidaten auswählen (Limitiert auf slots_available)
-                trades_to_launch = []
-                existing_symbols = {t.get('symbol') if isinstance(t, dict) else t for t in open_trades_refreshed}
-
+                
                 for opp in opportunities:
-                    # Wenn wir voll sind, brechen wir die Schleife sofort ab
-                    if len(trades_to_launch) >= slots_available:
+                    if executed_count >= max_per_cycle:
                         break
+                        
+                    symbol = opp['symbol']
                     
-                    symbol = opp.get('symbol') if isinstance(opp, dict) else getattr(opp, 'symbol', None)
-                    if not symbol:
-                        continue
-                    
-                    # Sicherheitscheck: Symbol schon offen?
-                    if symbol in existing_symbols:
-                        continue
-                    
-                    # Skip if already active task
                     if symbol in ACTIVE_TASKS:
                         continue
                     
-                    # Skip if recently failed
                     if symbol in FAILED_COINS and (time.time() - FAILED_COINS[symbol] < 180):
                         continue
                     
-                    # Opportunity zur Liste hinzufügen
-                    trades_to_launch.append(opp)
+                    if symbol in open_syms:
+                        continue
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Check balance BEFORE launching task — use opportunity's
+                    # recommended notional when available, otherwise fall back
+                    # to farm/desired config defaults.
+                    is_farm = opp.get('is_farm_trade', False)
+                    base_default = getattr(config, 'FARM_NOTIONAL_USD', 12) if is_farm else getattr(config, 'DESIRED_NOTIONAL_USD', 16)
 
-                # 4. Kontrollierter Start der Trades
-                if trades_to_launch:
-                    logger.info(f"🚀 Launching {len(trades_to_launch)} trades (Slots available: {slots_available})")
-                    
-                    # Balance check for batch
-                    avg_trade_size = getattr(config, 'DESIRED_NOTIONAL_USD', 12)
-                    
-                    # Verify trades actually exist on exchanges
-                    try:
-                        x10_positions = await x10.fetch_open_positions()
-                        lighter_positions = await lighter.fetch_open_positions()
-                        actual_open_count = len(set(
-                            [p.get('symbol') for p in (x10_positions or [])] +
-                            [p.get('symbol') for p in (lighter_positions or [])]
-                        ))
-                    except:
-                        actual_open_count = current_open_count  # Fallback
-                    
-                    # Use ACTUAL open count, not DB count
-                    locked_per_exchange = actual_open_count * avg_trade_size * 0.6
-                    
-                    async with IN_FLIGHT_LOCK:
-                        available_x10 = bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0) - locked_per_exchange
-                        available_lit = bal_lit - IN_FLIGHT_MARGIN.get('Lighter', 0) - locked_per_exchange
-                    
-                    # Safety buffer
-                    available_x10 = max(0, available_x10 - 3.0)
-                    available_lit = max(0, available_lit - 3.0)
-                    
-                    logger.info(
-                        f"💰 Balance: X10=${bal_x10:.1f} (free=${available_x10:.1f}), "
-                        f"Lit=${bal_lit:.1f} (free=${available_lit:.1f}) | "
-                        f"DB_Trades={current_open_count}, Real_Positions={actual_open_count}, "
-                        f"Locked=${locked_per_exchange:.0f}/ex"
-                    )
-                    
-                    # Launch trades with proper locking
-                    launched_count = 0
-                    for opp in trades_to_launch:
-                        symbol = opp.get('symbol') if isinstance(opp, dict) else getattr(opp, 'symbol', None)
-                        if not symbol:
-                            continue
-                        
-                        # Check balance for this trade
-                        is_farm = opp.get('is_farm_trade', False)
-                        base_default = getattr(config, 'FARM_NOTIONAL_USD', 12) if is_farm else getattr(config, 'DESIRED_NOTIONAL_USD', 16)
-                        
-                        trade_size = None
-                        for key in ('trade_size', 'notional_usd', 'trade_notional_usd', 'desired_notional_usd'):
-                            if key in opp and isinstance(opp.get(key), (int, float)):
-                                trade_size = float(opp[key])
-                                break
-                        
-                        if trade_size is None:
-                            trade_size = float(base_default)
-                        
-                        required_margin = trade_size * 1.2
-                        
-                        if available_x10 < required_margin or available_lit < required_margin:
-                            logger.debug(f"Skip {symbol}: Insufficient balance (X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${required_margin:.1f})")
-                            continue
-                        
-                        # Deduct from available balance
-                        available_x10 -= required_margin
-                        available_lit -= required_margin
-                        
-                        logger.info(f"🚀 Launching trade for {symbol} (APY={opp.get('apy', 0):.1f}%)")
-                        
-                        # Symbol-Level Lock
-                        async with TASKS_LOCK:
-                            if symbol in ACTIVE_TASKS:
-                                logger.debug(f"⏸️  {symbol} already has active task, skipping")
-                                continue
-                        
-                        lock = get_symbol_lock(symbol)
-                        
-                        async def _handle_with_lock():
-                            async with lock:
-                                try:
-                                    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
-                                finally:
-                                    async with TASKS_LOCK:
-                                        ACTIVE_TASKS.pop(symbol, None)
-                        
-                        # CRITICAL: Don't start new tasks during shutdown
-                        if SHUTDOWN_FLAG:
-                            logger.debug(f"Shutdown active, skipping task for {symbol}")
+                    # Prefer an explicit size provided by the opportunity payload
+                    trade_size = None
+                    for key in ('trade_size', 'notional_usd', 'trade_notional_usd', 'desired_notional_usd'):
+                        if key in opp and isinstance(opp[key], (int, float)):
+                            trade_size = float(opp[key])
                             break
-                        
-                        task = asyncio.create_task(_handle_with_lock())
-                        async with TASKS_LOCK:
-                            if SHUTDOWN_FLAG:
-                                task.cancel()
-                                break
-                            ACTIVE_TASKS[symbol] = task
-                        
-                        launched_count += 1
-                        await asyncio.sleep(0.5)
+
+                    if trade_size is None:
+                        trade_size = float(base_default)
+
+                    required_margin = trade_size * 1.2  # 20% buffer
                     
-                    if launched_count > 0:
-                        logger.info(f"✅ Launched {launched_count} trade tasks this cycle")
-            
+                    if available_x10 < required_margin or available_lit < required_margin:
+                        logger.debug(f"Skip {symbol}: Insufficient pre-check balance (X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${required_margin:.1f})")
+                        continue
+                    
+                    # Deduct from available balance for next iteration
+                    available_x10 -= required_margin
+                    available_lit -= required_margin
+                    
+                    logger.info(f"🚀 Launching trade for {symbol} (APY={opp['apy']:.1f}%)")
+
+                    # ═══════════════════════════════════════════════════════════════════════════════
+                    # CRITICAL: Symbol-Level Lock verhindert doppelte Trades
+                    # ═══════════════════════════════════════════════════════════════════════════════
+                    async with TASKS_LOCK:
+                        if symbol in ACTIVE_TASKS:
+                            logger.debug(f"⏸️  {symbol} already has active task, skipping")
+                            continue
+
+                    lock = get_symbol_lock(symbol)
+
+                    async def _handle_with_lock():
+                        async with lock:
+                            try:
+                                # Directly perform the execution routine for the opportunity
+                                await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+                            finally:
+                                async with TASKS_LOCK:
+                                    ACTIVE_TASKS.pop(symbol, None)
+
+                    # CRITICAL: Don't start new tasks during shutdown
+                    if SHUTDOWN_FLAG:
+                        logger.debug(f"Shutdown active, skipping task for {symbol}")
+                        continue
+
+                    task = asyncio.create_task(_handle_with_lock())
+                    async with TASKS_LOCK:
+                        if SHUTDOWN_FLAG:
+                            task.cancel()
+                            continue
+                        ACTIVE_TASKS[symbol] = task
+
+                    executed_count += 1
+                    
+                    await asyncio.sleep(0.5)
+                
+                if executed_count > 0:
+                    logger.info(f"✅ Launched {executed_count} trade tasks this cycle")
             
             # CRITICAL: Check SHUTDOWN_FLAG before sleeping
             if SHUTDOWN_FLAG:
@@ -2075,7 +1894,6 @@ async def trade_management_loop(lighter, x10):
 
 async def maintenance_loop(lighter, x10):
     """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges"""
-    global LAST_DATA_UPDATE
     funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
     last_x10_refresh = 0
     last_lighter_refresh = 0
@@ -2083,9 +1901,6 @@ async def maintenance_loop(lighter, x10):
     while True:
         try:
             now = time.time()
-            
-            # Update watchdog heartbeat
-            LAST_DATA_UPDATE = now
             
             # ============================================================
             # X10 Funding Refresh (market_info neu laden enthält Funding)
@@ -2683,14 +2498,6 @@ async def run_bot_v5():
         max_restarts=5
     )
     
-    # Connection Watchdog (gegen Ping Timeout)
-    supervisor.register(
-        "connection_watchdog",
-        lambda: connection_watchdog(ws_manager, x10, lighter),
-        critical=True,  # Critical, da ohne Daten kein Trading möglich
-        max_restarts=999
-    )
-    
     # 7. START ALL TASKS
     await supervisor.start_all()
     
@@ -2992,7 +2799,6 @@ async def main():
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec), name="farm_loop"),
         asyncio.create_task(maintenance_loop(lighter, x10), name="maintenance_loop"),
         asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks"),   # ← PUNKT 2
-        asyncio.create_task(connection_watchdog(ws_manager, x10, lighter), name="connection_watchdog"),  # ← Watchdog gegen Ping Timeout
 
         # ➤ NEU: Dieser Task hat gefehlt! Er schließt die Trades.
         asyncio.create_task(trade_management_loop(lighter, x10), name="trade_management_loop")
