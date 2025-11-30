@@ -357,14 +357,15 @@ class LighterAdapter(BaseAdapter):
 
     @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def _rest_price_poller(self, interval: float = 5.0):
-        """REST-basiertes Preis-Polling - uses /orderBookDetails endpoint"""
+        """REST-basiertes Preis-Polling - uses /orderBookDetails endpoint (HAS last_trade_price)"""
         while True:
             try:
                 await self.rate_limiter.acquire()
                 
-                # Use orderBookDetails endpoint (not /ticker - doesn't exist in SDK)
+                # ✅ CRITICAL FIX: Use orderBookDetails endpoint (has last_trade_price field)
+                # orderBooks endpoint does NOT have last_trade_price!
                 async with aiohttp.ClientSession() as session:
-                    url = f"{self._get_base_url()}/api/v1/orderBooks"
+                    url = f"{self._get_base_url()}/api/v1/orderBookDetails"
                     async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                         if resp.status == 429:
                             self.rate_limiter.penalize_429()
@@ -372,14 +373,15 @@ class LighterAdapter(BaseAdapter):
                             continue
                         
                         if resp.status != 200:
+                            logger.debug(f"Lighter price fetch HTTP {resp.status}")
                             await asyncio.sleep(interval)
                             continue
                         
                         data = await resp.json()
                         self.rate_limiter.on_success()
                 
-                # Parse response - looking for last_trade_price (number type)
-                markets = data.get("order_books") or data.get("orderBooks") or []
+                # ✅ Parse response - orderBookDetails returns {"order_book_details": [...]}
+                markets = data.get("order_book_details") or data.get("orderBookDetails") or []
                 updated = 0
                 
                 for m in markets:
@@ -389,7 +391,7 @@ class LighterAdapter(BaseAdapter):
                     
                     symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
                     
-                    # Extract price from last_trade_price field (SDK confirmed field name)
+                    # ✅ Extract price from last_trade_price field (confirmed in SDK OrderBookDetail model)
                     price = m.get("last_trade_price")
                     if price is not None:
                         try:
@@ -397,15 +399,17 @@ class LighterAdapter(BaseAdapter):
                             if price_float > 0:
                                 self.price_cache[symbol] = (price_float, time.time())
                                 updated += 1
-                        except (ValueError, TypeError):
+                                logger.debug(f"{symbol}: Cached price ${price_float:.4f}")
+                        except (ValueError, TypeError) as e:
+                            logger.debug(f"{symbol}: Failed to parse price {price}: {e}")
                             continue
                 
                 if updated > 0:
-                    logger.info(f"Lighter REST: Loaded {updated} prices")
+                    logger.info(f"✅ Lighter REST: Loaded {updated} prices")
                     if self.price_update_event:
                         self.price_update_event.set()
                 else:
-                    logger.debug(f"Lighter REST: Loaded 0 prices (no valid last_trade_price fields)")
+                    logger.warning(f"⚠️ Lighter REST: Loaded 0 prices from {len(markets)} markets")
                 
                 await asyncio.sleep(interval)
                 
@@ -700,8 +704,9 @@ class LighterAdapter(BaseAdapter):
             async with aiohttp.ClientSession() as session:
                 await self.rate_limiter.acquire()
                 
-                # Versuche zuerst /api/v1/orderBooks (camelCase)
-                url = f"{base_url}/api/v1/orderBooks"
+                # ✅ CRITICAL FIX: Use /orderBookDetails (has last_trade_price)
+                # NOT /orderBooks (missing last_trade_price field!)
+                url = f"{base_url}/api/v1/orderBookDetails"
                 logger.debug(f"Fetching markets from: {url}")
                 
                 async with session.get(
@@ -714,32 +719,19 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(30)
                         return
                     
-                    if resp.status == 404:
-                        # Fallback zu /api/v1/markets
-                        logger.debug(f"Endpoint {url} returned 404, trying /api/v1/markets")
-                        url = f"{base_url}/api/v1/markets"
-                        async with session.get(
-                            url,
-                            timeout=aiohttp.ClientTimeout(total=15)
-                        ) as resp2:
-                            if resp2.status != 200:
-                                logger.error(f"Lighter markets API error: {resp2.status}")
-                                return
-                            data = await resp2.json()
-                    elif resp.status != 200:
+                    if resp.status != 200:
                         logger.error(f"Lighter markets API error: {resp.status}")
+                        text = await resp.text()
+                        logger.debug(f"Response: {text[:200]}")
                         return
-                    else:
-                        data = await resp.json()
-                        
+                    
+                    data = await resp.json()
                     self.rate_limiter.on_success()
 
-            # Parse response - unterstütze verschiedene Formate
+            # ✅ Parse response - orderBookDetails returns {"order_book_details": [...]}
             markets_data = (
-                data.get("order_books") or 
-                data.get("orderBooks") or
-                data.get("markets") or
-                data.get("data") or 
+                data.get("order_book_details") or 
+                data.get("orderBookDetails") or
                 []
             )
             
@@ -1348,10 +1340,19 @@ class LighterAdapter(BaseAdapter):
 
     @rate_limit_retry(max_retries=3, base_delay=5.0)
     async def fetch_open_positions(self) -> List[dict]:
+        """
+        Fetch open positions from Lighter.
+        
+        Returns:
+            List of dicts: [{"symbol": "BTC-USD", "size": 0.5}, ...]
+            Empty list if no positions or error.
+        """
         if not getattr(config, "LIVE_TRADING", False):
+            logger.debug("Lighter: LIVE_TRADING=False, skipping positions")
             return []
 
         if not HAVE_LIGHTER_SDK:
+            logger.warning("Lighter: SDK not available")
             return []
 
         try:
@@ -1365,43 +1366,64 @@ class LighterAdapter(BaseAdapter):
                 by="index", value=str(self._resolved_account_index)
             )
 
+            # Handle empty response (normal when no positions)
             if not response or not response.accounts or not response.accounts[0]:
+                logger.debug("Lighter: No positions (empty account response)")
                 return []
 
             account = response.accounts[0]
 
-            if not hasattr(account, "positions") or not account. positions:
+            if not hasattr(account, "positions") or not account.positions:
+                logger.debug("Lighter: No positions (empty positions array)")
                 return []
 
             positions = []
             for p in account.positions:
-                symbol_raw = getattr(p, "symbol", None)
-                position_qty = getattr(p, "position", None)
-                sign = getattr(p, "sign", None)
-
-                if not symbol_raw or position_qty is None or sign is None:
-                    continue
-
                 try:
-                    multiplier = 1 if int(sign) == 0 else -1
-                    size = float(position_qty) * multiplier
-                except (ValueError, TypeError):
-                    logger.warning(f"Invalid position data for {symbol_raw}: qty={position_qty}, sign={sign}")
+                    symbol_raw = getattr(p, "symbol", None)
+                    position_qty = getattr(p, "position", None)
+                    sign = getattr(p, "sign", None)
+
+                    if not symbol_raw or position_qty is None or sign is None:
+                        continue
+
+                    # Calculate signed size
+                    try:
+                        multiplier = 1 if int(sign) == 0 else -1
+                        size = float(position_qty) * multiplier
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"Lighter: Invalid position data for {symbol_raw}: "
+                            f"qty={position_qty}, sign={sign}"
+                        )
+                        continue
+
+                    # Only include non-zero positions
+                    if abs(size) > 1e-8:
+                        symbol = (
+                            f"{symbol_raw}-USD"
+                            if not symbol_raw.endswith("-USD")
+                            else symbol_raw
+                        )
+                        positions.append({"symbol": symbol, "size": size})
+                        logger.debug(f"Lighter: Position {symbol} size={size:.6f}")
+                except Exception as e:
+                    logger.debug(f"Lighter: Error parsing position: {e}")
                     continue
 
-                if abs(size) > 1e-8:
-                    symbol = (
-                        f"{symbol_raw}-USD"
-                        if not symbol_raw.endswith("-USD")
-                        else symbol_raw
-                    )
-                    positions.append({"symbol": symbol, "size": size})
-
-            logger.info(f"Lighter: Found {len(positions)} open positions")
+            if positions:
+                logger.info(f"Lighter: Found {len(positions)} open positions")
+            else:
+                logger.debug("Lighter: No positions (filtered result)")
+            
             return positions
 
         except Exception as e:
-            logger. error(f"Lighter Positions Error: {e}")
+            if "429" in str(e).lower():
+                self.rate_limiter.penalize_429()
+                logger.warning("Lighter Positions: Rate limited")
+            else:
+                logger.error(f"Lighter Positions Error: {e}")
             return []
 
     def usd_to_base_amount(

@@ -227,57 +227,96 @@ class ParallelExecutionManager:
         logger.info(f"🔍 [VERIFY] {symbol}: Waiting 2s for matching engines...")
         await asyncio.sleep(2.0)
         
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # ROBUST VERIFICATION WITH RETRIES
+        # Exchanges sometimes return empty/stale data - retry to confirm ghost trades
+        # ═══════════════════════════════════════════════════════════════════════════════
+        max_retries = 2
         x10_has_position = False
         lighter_has_position = False
         
-        try:
-            # Fetch X10 positions
-            x10_positions = await self.x10.fetch_open_positions()
-            x10_pos = next(
-                (p for p in (x10_positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
-            
-            if x10_pos:
-                actual_size = abs(x10_pos.get('size', 0))
-                x10_has_position = actual_size > 1e-8
-                logger.info(f"🔍 [VERIFY] {symbol}: X10 position size={actual_size:.6f}")
-            else:
-                logger.warning(f"⚠️ [VERIFY] {symbol}: X10 returned no position")
+        for attempt in range(max_retries):
+            try:
+                # Fetch X10 positions
+                x10_positions = await self.x10.fetch_open_positions()
                 
-        except Exception as e:
-            logger.error(f"❌ [VERIFY] {symbol}: X10 fetch error: {e}")
-        
-        try:
-            # Fetch Lighter positions
-            lighter_positions = await self.lighter.fetch_open_positions()
-            lighter_pos = next(
-                (p for p in (lighter_positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
-            
-            if lighter_pos:
-                actual_size = abs(lighter_pos.get('size', 0))
-                lighter_has_position = actual_size > 1e-8
-                logger.info(f"🔍 [VERIFY] {symbol}: Lighter position size={actual_size:.6f}")
-            else:
-                logger.warning(f"⚠️ [VERIFY] {symbol}: Lighter returned no position")
+                # Validate response type
+                if not isinstance(x10_positions, list):
+                    logger.warning(f"⚠️ [VERIFY] {symbol}: X10 returned invalid type: {type(x10_positions)}")
+                    x10_positions = []
                 
-        except Exception as e:
-            logger.error(f"❌ [VERIFY] {symbol}: Lighter fetch error: {e}")
+                x10_pos = next(
+                    (p for p in (x10_positions or [])
+                     if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                    None
+                )
+                
+                if x10_pos:
+                    actual_size = abs(x10_pos.get('size', 0))
+                    x10_has_position = actual_size > 1e-8
+                    logger.info(f"🔍 [VERIFY] {symbol}: X10 position size={actual_size:.6f}")
+                    break  # Position found, no need to retry
+                else:
+                    if attempt < max_retries - 1:
+                        logger.debug(f"🔍 [VERIFY] {symbol}: X10 no position (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(1.0)
+                    else:
+                        logger.warning(f"⚠️ [VERIFY] {symbol}: X10 returned no position after {max_retries} attempts")
+                    
+            except Exception as e:
+                logger.error(f"❌ [VERIFY] {symbol}: X10 fetch error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1.0)
         
+        for attempt in range(max_retries):
+            try:
+                # Fetch Lighter positions
+                lighter_positions = await self.lighter.fetch_open_positions()
+                
+                # Validate response type
+                if not isinstance(lighter_positions, list):
+                    logger.warning(f"⚠️ [VERIFY] {symbol}: Lighter returned invalid type: {type(lighter_positions)}")
+                    lighter_positions = []
+                
+                lighter_pos = next(
+                    (p for p in (lighter_positions or [])
+                     if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                    None
+                )
+                
+                if lighter_pos:
+                    actual_size = abs(lighter_pos.get('size', 0))
+                    lighter_has_position = actual_size > 1e-8
+                    logger.info(f"🔍 [VERIFY] {symbol}: Lighter position size={actual_size:.6f}")
+                    break  # Position found, no need to retry
+                else:
+                    if attempt < max_retries - 1:
+                        logger.debug(f"🔍 [VERIFY] {symbol}: Lighter no position (attempt {attempt + 1}/{max_retries})")
+                        await asyncio.sleep(1.0)
+                    else:
+                        logger.warning(f"⚠️ [VERIFY] {symbol}: Lighter returned no position after {max_retries} attempts")
+                    
+            except Exception as e:
+                logger.error(f"❌ [VERIFY] {symbol}: Lighter fetch error (attempt {attempt + 1}): {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1.0)
+        
+        # ═══════════════════════════════════════════════════════════════════════════════
+        # CLASSIFICATION
+        # ═══════════════════════════════════════════════════════════════════════════════
         both_ok = x10_has_position and lighter_has_position
         
         if both_ok:
             logger.info(f"✅ [VERIFY] {symbol}: Both exchanges confirmed")
         elif x10_has_position and not lighter_has_position:
             logger.error(f"🚨 [VERIFY] {symbol}: GHOST TRADE - X10 has position, Lighter doesn't!")
+            logger.error(f"   This indicates Lighter order failed or was rejected")
         elif lighter_has_position and not x10_has_position:
             logger.error(f"🚨 [VERIFY] {symbol}: GHOST TRADE - Lighter has position, X10 doesn't!")
+            logger.error(f"   This indicates X10 order failed or was rejected")
         else:
             logger.error(f"🚨 [VERIFY] {symbol}: TOTAL FAILURE - Neither exchange has position")
+            logger.error(f"   Both orders failed - this should trigger rollback")
         
         return both_ok, x10_has_position, lighter_has_position
 

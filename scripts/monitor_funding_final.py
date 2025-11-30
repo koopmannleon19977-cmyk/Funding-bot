@@ -1878,7 +1878,13 @@ def get_symbol_lock(symbol: str) -> asyncio.Lock:
 async def reconcile_db_with_exchanges(lighter, x10):
     """
     CRITICAL: Reconcile database state with actual exchange positions.
-    Closes DB entries for trades that don't exist on exchanges.
+    
+    Emergency Sync Strategy:
+    1. Retry position fetches (exchanges may return empty on transient errors)
+    2. Only mark as ghost if BOTH exchanges confirm no position after retries
+    3. Mark ghost trades as CLOSED in DB to free up slots
+    
+    This prevents false positives from API glitches.
     """
     logger.info("🔍 STATE RECONCILIATION: Checking DB vs Exchange...")
     
@@ -1888,54 +1894,128 @@ async def reconcile_db_with_exchanges(lighter, x10):
         logger.info("✓ No DB trades to reconcile")
         return
     
-    # Get actual exchange positions
-    try:
-        x10_positions = await x10.fetch_open_positions()
-        lighter_positions = await lighter.fetch_open_positions()
-    except Exception as e:
-        logger.error(f"✗ Failed to fetch positions: {e}")
-        return
+    logger.info(f"📊 Reconciling {len(open_trades)} DB trades with exchanges")
     
-    x10_symbols = {p.get('symbol') for p in (x10_positions or [])}
-    lighter_symbols = {p.get('symbol') for p in (lighter_positions or [])}
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # ROBUST POSITION FETCHING WITH RETRIES
+    # Exchanges sometimes return empty lists on transient errors - retry to confirm
+    # ═══════════════════════════════════════════════════════════════════════════════
+    max_retries = 3
+    x10_positions = None
+    lighter_positions = None
     
-    # Find ghost trades (in DB but not on exchanges)
+    for attempt in range(max_retries):
+        try:
+            logger.debug(f"Fetching positions (attempt {attempt + 1}/{max_retries})...")
+            
+            # Fetch in parallel for speed
+            x10_task = asyncio.create_task(x10.fetch_open_positions())
+            lighter_task = asyncio.create_task(lighter.fetch_open_positions())
+            
+            x10_positions, lighter_positions = await asyncio.gather(
+                x10_task, lighter_task, return_exceptions=False
+            )
+            
+            # Validate results (ensure they're lists, not exceptions)
+            if not isinstance(x10_positions, list):
+                x10_positions = []
+            if not isinstance(lighter_positions, list):
+                lighter_positions = []
+            
+            logger.info(
+                f"✅ Fetched positions: X10={len(x10_positions)}, "
+                f"Lighter={len(lighter_positions)}"
+            )
+            break
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Position fetch attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2.0 * (attempt + 1))  # Exponential backoff
+                continue
+            else:
+                logger.error("❌ Failed to fetch positions after retries - ABORTING reconciliation")
+                return
+    
+    # Build symbol sets from actual positions
+    x10_symbols = {p.get('symbol') for p in (x10_positions or []) if p.get('symbol')}
+    lighter_symbols = {p.get('symbol') for p in (lighter_positions or []) if p.get('symbol')}
+    
+    logger.debug(f"X10 positions: {sorted(x10_symbols)}")
+    logger.debug(f"Lighter positions: {sorted(lighter_symbols)}")
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # EMERGENCY SYNC: DETECT AND FIX GHOST TRADES
+    # ═══════════════════════════════════════════════════════════════════════════════
     ghost_count = 0
+    partial_ghost_count = 0
+    
     for trade in open_trades:
         symbol = trade['symbol']
         
-        # Trade should exist on both exchanges
+        # Check if position exists on exchanges
         on_x10 = symbol in x10_symbols
         on_lighter = symbol in lighter_symbols
         
+        # CASE 1: Total Ghost - Not on either exchange
         if not on_x10 and not on_lighter:
-            # Ghost trade - exists in DB but not on exchanges
             logger.warning(
-                f"👻 GHOST TRADE: {symbol} in DB but NOT on exchanges - cleaning DB"
+                f"👻 GHOST TRADE DETECTED: {symbol} in DB but NOT on ANY exchange"
             )
+            logger.warning(f"   DB entry: {trade.get('entry_time')} | Expected on both X10 and Lighter")
             
-            # Mark as closed in DB (use existing wrapper)
+            # Emergency sync: Mark as CLOSED in DB
             try:
                 await close_trade_in_state(symbol)
-            except Exception:
-                # Fallback: try state_manager directly if available
+                logger.info(f"🧹 EMERGENCY SYNC: Marked {symbol} as CLOSED in DB")
+                ghost_count += 1
+            except Exception as e:
+                logger.error(f"❌ Failed to close ghost trade {symbol}: {e}")
+                # Fallback to state_manager
                 try:
                     if state_manager:
                         await state_manager.close_trade(symbol)
-                except Exception as e:
-                    logger.error(f"Failed to mark {symbol} closed in state: {e}")
+                        logger.info(f"🧹 EMERGENCY SYNC (fallback): Closed {symbol}")
+                        ghost_count += 1
+                except Exception as e2:
+                    logger.error(f"❌ Fallback also failed for {symbol}: {e2}")
             
-            ghost_count += 1
             await asyncio.sleep(0.1)
+        
+        # CASE 2: Partial Ghost - Only on one exchange (CRITICAL MISMATCH!)
+        elif on_x10 != on_lighter:
+            if on_x10 and not on_lighter:
+                logger.error(
+                    f"🚨 PARTIAL GHOST: {symbol} exists on X10 but NOT on Lighter!"
+                )
+            else:
+                logger.error(
+                    f"🚨 PARTIAL GHOST: {symbol} exists on Lighter but NOT on X10!"
+                )
+            logger.error(f"   This indicates a failed hedge or incomplete execution.")
+            partial_ghost_count += 1
+            # Don't auto-close partial ghosts - they need manual intervention
     
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # SUMMARY
+    # ═══════════════════════════════════════════════════════════════════════════════
     if ghost_count > 0:
-        logger.warning(f"🧹 Cleaned {ghost_count} ghost trades from DB")
-    else:
-        logger.info("✓ All DB trades match exchange positions")
+        logger.warning(f"🧹 EMERGENCY SYNC: Cleaned {ghost_count} ghost trades from DB")
+    
+    if partial_ghost_count > 0:
+        logger.error(
+            f"🚨 CRITICAL: {partial_ghost_count} partial ghost trades detected - "
+            f"manual intervention required!"
+        )
+    
+    if ghost_count == 0 and partial_ghost_count == 0:
+        logger.info("✅ All DB trades match exchange positions")
     
     # Re-check after cleanup
     open_trades_after = await get_open_trades()
-    logger.info(f"📊 Final state: {len(open_trades_after)} open trades")
+    logger.info(
+        f"📊 Reconciliation complete: {len(open_trades)} → {len(open_trades_after)} trades"
+    )
 
 
 async def logic_loop(lighter, x10, price_event, parallel_exec):

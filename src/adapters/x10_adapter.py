@@ -530,6 +530,13 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
     async def fetch_open_positions(self) -> list:
+        """
+        Fetch open positions from X10.
+        
+        Returns:
+            List of dicts: [{"symbol": "BTC-USD", "size": 0.5, "entry_price": 60000.0}, ...]
+            Empty list if no positions or error.
+        """
         if not self.stark_account:
             logger.warning("X10: No stark_account configured")
             return []
@@ -539,28 +546,57 @@ class X10Adapter(BaseAdapter):
             await self.rate_limiter.acquire()
             resp = await client.account.get_positions()
 
+            # Handle empty response (normal when no positions)
             if not resp or not resp.data:
+                logger.debug("X10: No positions (empty response)")
                 return []
 
             positions = []
             for p in resp.data:
-                status = getattr(p, 'status', 'UNKNOWN')
-                size = float(getattr(p, 'size', 0))
-                symbol = getattr(p, 'market', 'UNKNOWN')
+                try:
+                    status = getattr(p, 'status', 'UNKNOWN')
+                    size_raw = getattr(p, 'size', 0)
+                    symbol = getattr(p, 'market', 'UNKNOWN')
+                    
+                    # Convert size to float safely
+                    try:
+                        size = float(size_raw)
+                    except (ValueError, TypeError):
+                        logger.warning(f"X10: Invalid size for {symbol}: {size_raw}")
+                        continue
 
-                if status == "OPENED" and abs(size) > 1e-8:
-                    entry_price = float(p.open_price) if hasattr(p, 'open_price') and p.open_price else 0.0
-                    positions.append({
-                        "symbol": symbol,
-                        "size": size,
-                        "entry_price": entry_price
-                    })
+                    # Only include OPENED positions with non-zero size
+                    if status == "OPENED" and abs(size) > 1e-8:
+                        entry_price = 0.0
+                        if hasattr(p, 'open_price') and p.open_price:
+                            try:
+                                entry_price = float(p.open_price)
+                            except (ValueError, TypeError):
+                                pass
+                        
+                        positions.append({
+                            "symbol": symbol,
+                            "size": size,
+                            "entry_price": entry_price
+                        })
+                        logger.debug(f"X10: Position {symbol} size={size:.6f}")
+                except Exception as e:
+                    logger.debug(f"X10: Error parsing position: {e}")
+                    continue
+            
+            if positions:
+                logger.info(f"X10: Found {len(positions)} open positions")
+            else:
+                logger.debug("X10: No positions (filtered result)")
+            
             return positions
 
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
-            logger.error(f"X10 Positions Error: {e}")
+                logger.warning("X10 Positions: Rate limited")
+            else:
+                logger.error(f"X10 Positions Error: {e}")
             return []
 
     async def refresh_missing_prices(self):
@@ -748,114 +784,186 @@ class X10Adapter(BaseAdapter):
             logger.error(f" X10 Order Exception: {e}")
             return False, None
 
+    async def safe_rollback_position(
+        self,
+        symbol: str,
+        original_side: str,
+        original_order_id: Optional[str] = None
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Safe rollback that handles unfilled orders correctly.
+        
+        Strategy:
+        1. Check for open orders - cancel if unfilled/partially filled
+        2. Check for actual position - close with reduce-only if exists
+        3. Don't attempt reduce-only without a position
+        
+        This prevents "Reduce-only order size exceeds position" error.
+        """
+        try:
+            # STEP 1: Cancel any open orders first
+            logger.info(f"🔄 X10 Rollback {symbol}: Checking for open orders...")
+            open_orders = await self.get_open_orders_for_market(symbol)
+            
+            cancelled_count = 0
+            for order in open_orders:
+                order_status = getattr(order, 'status', None)
+                order_id = getattr(order, 'id', None)
+                
+                # Cancel unfilled or partially filled orders
+                if order_status in ['NEW', 'UNTRIGGERED', 'PARTIALLY_FILLED']:
+                    logger.info(
+                        f"❌ X10: Cancelling {order_status} order {order_id} for {symbol}"
+                    )
+                    await self.cancel_order_by_id(order_id)
+                    cancelled_count += 1
+                    await asyncio.sleep(0.2)  # Rate limit protection
+            
+            if cancelled_count > 0:
+                logger.info(f"✅ X10: Cancelled {cancelled_count} open orders for {symbol}")
+                # Wait for cancellations to process
+                await asyncio.sleep(1.0)
+            
+            # STEP 2: Check for actual position
+            logger.info(f"🔍 X10 Rollback {symbol}: Checking for position...")
+            positions = await self.fetch_open_positions()
+            actual_pos = next(
+                (p for p in (positions or []) if p.get('symbol') == symbol),
+                None
+            )
+            
+            if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
+                logger.info(f"✅ X10 {symbol}: No position to close (rollback complete)")
+                return True, None
+            
+            # STEP 3: Close actual position with reduce-only
+            actual_size = actual_pos.get('size', 0)
+            actual_size_abs = abs(actual_size)
+            
+            if actual_size > 0:
+                close_side = "SELL"
+            else:
+                close_side = "BUY"
+            
+            price = self.fetch_mark_price(symbol)
+            if not price or price <= 0:
+                logger.error(f"❌ X10 {symbol}: No price available for rollback")
+                return False, None
+            
+            actual_notional = actual_size_abs * price
+            
+            logger.info(
+                f"🔻 X10 CLOSE POSITION {symbol}: "
+                f"size={actual_size_abs:.6f}, side={close_side}, notional=${actual_notional:.2f}"
+            )
+            
+            # Use IOC to close immediately (no post_only)
+            success, order_id = await self.open_live_position(
+                symbol,
+                close_side,
+                actual_notional,
+                reduce_only=True,
+                post_only=False
+            )
+            
+            if not success:
+                logger.error(f"❌ X10 {symbol}: Failed to place reduce-only order")
+                return False, None
+            
+            # Wait for fill
+            await asyncio.sleep(2.0)
+            
+            # Verify position closed
+            updated_positions = await self.fetch_open_positions()
+            still_open = any(
+                p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8
+                for p in (updated_positions or [])
+            )
+            
+            if not still_open:
+                logger.info(f"✅ X10 {symbol}: Position closed successfully")
+                return True, order_id
+            else:
+                logger.warning(f"⚠️ X10 {symbol}: Position still open after rollback attempt")
+                return False, order_id
+                
+        except Exception as e:
+            logger.error(f"❌ X10 Rollback error for {symbol}: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, None
+    
     async def close_live_position(
         self,
         symbol: str,
         original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                positions = await self.fetch_open_positions()
-                actual_pos = next(
-                    (p for p in (positions or []) if p.get('symbol') == symbol),
-                    None
-                )
-
-                if not actual_pos or abs(actual_pos.get('size', 0)) < 1e-8:
-                    logger.info(f"✅ X10 {symbol} already closed")
-                    return True, None
-
-                actual_size = actual_pos.get('size', 0)
-                actual_size_abs = abs(actual_size)
-
-                if actual_size > 0:
-                    close_side = "SELL"
-                else:
-                    close_side = "BUY"
-
-                price = self.fetch_mark_price(symbol)
-                if not price or price <= 0:
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(2)
-                        continue
-                    return False, None
-
-                actual_notional = actual_size_abs * price
-
-                logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
-
-                success, order_id = await self.open_live_position(
-                    symbol,
-                    close_side,
-                    actual_notional,
-                    reduce_only=True,
-                    post_only=False
-                )
-
-                if not success:
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(2 + attempt)
-                        continue
-                    return False, None
-
-                await asyncio.sleep(2 + attempt)
-                updated_positions = await self.fetch_open_positions()
-                still_open = any(
-                    p['symbol'] == symbol and abs(p.get('size', 0)) > 1e-8
-                    for p in (updated_positions or [])
-                )
-
-                if not still_open:
-                    return True, order_id
-                else:
-                    if attempt < max_retries - 1:
-                        continue
-                    return False, order_id
-
-            except Exception as e:
-                logger.error(f"X10 Close exception for {symbol}: {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                    continue
-                return False, None
-
-        return False, None
+        """Standard position close - delegates to safe_rollback_position for safety."""
+        return await self.safe_rollback_position(symbol, original_side)
     
-    async def cancel_all_orders(self, symbol: str) -> bool:
+    async def get_open_orders_for_market(self, symbol: str) -> list:
+        """
+        Get all open orders for a specific market.
+        
+        Returns list of OpenOrderModel objects from X10 SDK.
+        """
+        try:
+            if not self.stark_account:
+                return []
+            
+            client = await self._get_auth_client()
+            await self.rate_limiter.acquire()
+            
+            # Use official SDK method: account.get_open_orders(market_names=[symbol])
+            resp = await client.account.get_open_orders(market_names=[symbol])
+            
+            if resp and resp.data:
+                logger.debug(f"X10: Found {len(resp.data)} open orders for {symbol}")
+                return resp.data
+            
+            return []
+        except Exception as e:
+            logger.debug(f"X10 get_open_orders error: {e}")
+            return []
+    
+    async def cancel_order_by_id(self, order_id: int) -> bool:
+        """
+        Cancel a specific order by ID.
+        
+        Uses official SDK: orders.cancel_order(order_id)
+        """
         try:
             if not self.stark_account:
                 return False
             
             client = await self._get_auth_client()
-            orders_resp = None
-            candidate_methods = ['get_open_orders', 'list_orders', 'get_orders']
+            await self.rate_limiter.acquire()
             
-            for method_name in candidate_methods:
-                if hasattr(client.account, method_name):
-                    method = getattr(client.account, method_name)
-                    try:
-                        try:
-                            await self.rate_limiter.acquire()
-                            orders_resp = await method(market_name=symbol)
-                        except TypeError:
-                            orders_resp = await method()
-                        break
-                    except Exception:
-                        continue
+            # Official SDK method
+            await client.orders.cancel_order(order_id=order_id)
+            logger.debug(f"X10: Cancelled order {order_id}")
+            return True
+        except Exception as e:
+            logger.debug(f"X10 cancel_order {order_id} error: {e}")
+            return False
+    
+    async def cancel_all_orders(self, symbol: str) -> bool:
+        """
+        Cancel all open orders for a market.
+        
+        Uses official SDK: orders.mass_cancel(markets=[symbol])
+        """
+        try:
+            if not self.stark_account:
+                return False
             
-            if not orders_resp or not getattr(orders_resp, 'data', None):
-                return True
+            client = await self._get_auth_client()
+            await self.rate_limiter.acquire()
             
-            for order in orders_resp.data:
-                if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
-                    try:
-                        await self.rate_limiter.acquire()
-                        await client.cancel_order(getattr(order, 'id', order))
-                        await asyncio.sleep(0.1)
-                    except Exception:
-                        pass
+            # Use official SDK mass_cancel method (most efficient)
+            await client.orders.mass_cancel(markets=[symbol])
+            logger.debug(f"X10: Mass cancelled orders for {symbol}")
             return True
         except Exception as e:
             logger.debug(f"X10 cancel_all_orders error: {e}")
