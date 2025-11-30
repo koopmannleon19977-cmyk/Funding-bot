@@ -54,6 +54,11 @@ class LighterAdapter(BaseAdapter):
         self.funding_cache = {}
         self.price_cache = {}
         self.orderbook_cache = {}
+        # Added missing internal caches (underscore variants) for compatibility with components
+        # expecting these attributes (e.g. WebSocket managers or unified cache interfaces).
+        self._price_cache = {}
+        self._orderbook_cache = {}
+        self._trade_cache = {}
         self.price_update_event = None
         self._ws_message_queue = asyncio.Queue()
         self._signer = None

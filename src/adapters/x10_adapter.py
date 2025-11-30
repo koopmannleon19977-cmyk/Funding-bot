@@ -37,6 +37,11 @@ class X10Adapter(BaseAdapter):
         self.price_cache = {}
         self.funding_cache = {}
         self.orderbook_cache = {}
+        # Added internal underscore-prefixed caches for parity with other adapters (e.g. LighterAdapter)
+        # so shared components expecting _price_cache / _orderbook_cache / _trade_cache work.
+        self._price_cache = {}
+        self._orderbook_cache = {}
+        self._trade_cache = {}
         self.price_update_event = None  # Will be set by main loop
 
         # WebSocket Streaming Support
