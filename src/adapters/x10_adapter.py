@@ -415,7 +415,6 @@ class X10Adapter(BaseAdapter):
 
     def min_notional_usd(self, symbol: str) -> float:
         HARD_MIN_USD = 10.0
-        HARD_MAX_USD = 25.0
         SAFETY_BUFFER = 1.05
         
         m = self.market_info.get(symbol)
@@ -430,7 +429,8 @@ class X10Adapter(BaseAdapter):
             min_size = Decimal(getattr(m.trading_config, "min_order_size", "0"))
             api_min_usd = float(min_size * Decimal(str(price)))
             safe_min = api_min_usd * SAFETY_BUFFER
-            return max(HARD_MIN_USD, min(safe_min, HARD_MAX_USD))
+            # Entferne das harte Oberlimit, nutze echte API-Grenzen + Sicherheitsaufschlag
+            return max(HARD_MIN_USD, safe_min)
         except Exception:
             return HARD_MIN_USD
 

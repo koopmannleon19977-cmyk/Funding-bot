@@ -1643,7 +1643,11 @@ class LighterAdapter(BaseAdapter):
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
         """Close a position on Lighter - BULLETPROOF VERSION with local type safety."""
-        
+        # ═══════════════════════════════════════════════════════════════
+        # PARANOID CASTING - Alle Inputs sofort konvertieren
+        # ═══════════════════════════════════════════════════════════════
+        notional_usd = float(notional_usd) if notional_usd is not None else 0.0
+        original_side = str(original_side).upper()
         # ═══════════════════════════════════════════════════════════════
         # LOKALE HELPER (garantiert verfügbar in dieser Methode)
         # ═══════════════════════════════════════════════════════════════
@@ -1683,13 +1687,21 @@ class LighterAdapter(BaseAdapter):
                     logger.info(f"🔍 RAW POSITION DATA for {symbol}:")
                     for key, val in p.items():
                         logger.info(f"    {key}: {val} (type: {type(val).__name__})")
-            
+
             # SAFE FILTER: Konvertiere size BEVOR wir vergleichen
             pos = None
             for p in (positions or []):
                 if p.get('symbol') != symbol:
                     continue
-                size_val = _safe_float(p.get('size', 0), 0.0)
+                # FORCE CAST everything from API response
+                size_raw = p.get('size', 0)
+                sign_raw = p.get('sign', 0)
+                mark_price_raw = p.get('mark_price', 0)
+                # Convert to proper types
+                size = float(size_raw) if size_raw is not None else 0.0
+                sign = int(float(str(sign_raw))) if sign_raw is not None else 0
+                mark_price = float(mark_price_raw) if mark_price_raw is not None else 0.0
+                size_val = _safe_float(size, 0.0)
                 if abs(size_val) > 1e-8:
                     pos = p
                     break
