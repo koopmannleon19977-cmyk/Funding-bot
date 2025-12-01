@@ -1020,8 +1020,28 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
             px = safe_float(lighter.fetch_mark_price(symbol))
             if px > 0:
                 usd_size = abs(size) * px
-                result = await lighter.close_live_position(symbol, side, usd_size)
-                lighter_success = result[0] if isinstance(result, tuple) else bool(result)
+                
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL: Robust try-except around close_live_position
+                # Catches TypeError from string/float comparison errors in API limits
+                # ═══════════════════════════════════════════════════════════════
+                try:
+                    result = await lighter.close_live_position(symbol, side, usd_size)
+                    lighter_success = result[0] if isinstance(result, tuple) else bool(result)
+                except TypeError as type_err:
+                    # TypeError indicates data type mismatch (e.g., string vs float comparison)
+                    logger.critical(
+                        f"🚨 CRITICAL TypeError in Lighter close_live_position for {symbol}: {type_err}\n"
+                        f"   This indicates API limit data type mismatch (string vs float).\n"
+                        f"   Marking as code error for emergency recovery."
+                    )
+                    lighter_success = False
+                    lighter_code_error = True
+                except Exception as close_err:
+                    # Other exceptions from close_live_position
+                    logger.error(f"❌ Lighter close_live_position failed for {symbol}: {close_err}")
+                    lighter_success = False
+                    # Don't set lighter_code_error - this is an API error, not a code bug
             else:
                 logger.error(f"❌ Lighter close {symbol}: Invalid price {px}")
                 lighter_success = False
@@ -1030,8 +1050,8 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
             lighter_success = True
 
     except TypeError as e:
-        # TypeError = Code-Fehler, NICHT API-Fehler!
-        logger.error(f"❌ Lighter close CODE ERROR for {symbol}: {e}")
+        # TypeError from other parts (e.g., position fetching, data processing)
+        logger.critical(f"🚨 CRITICAL TypeError in Lighter close flow for {symbol}: {e}")
         lighter_success = False
         lighter_code_error = True
 
