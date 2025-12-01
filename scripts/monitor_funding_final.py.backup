@@ -117,18 +117,6 @@ def safe_float(val, default=0.0):
     except (ValueError, TypeError):
         return default
 
-
-def safe_int(val, default=0):
-    """Convert any value to int safely - handles API strings."""
-    if val is None or val == "" or val == "None":
-        return default
-    if isinstance(val, int):
-        return val
-    try:
-        return int(float(str(val).strip()))
-    except (ValueError, TypeError):
-        return default
-
 # ============================================================
 # FEE & STARTUP LOGIC
 # ============================================================
@@ -219,7 +207,7 @@ async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter,
 
             # Update volatility monitor with latest price
             try:
-                get_volatility_monitor().update_price(symbol, safe_float(px))
+                get_volatility_monitor().update_price(symbol, float(px))
             except Exception:
                 pass
 
@@ -235,8 +223,8 @@ async def process_symbol(symbol: str, lighter: LighterAdapter, x10: X10Adapter,
 
             # Price validity & spread
             try:
-                px_f = safe_float(px)
-                pl_f = safe_float(pl)
+                px_f = float(px)
+                pl_f = float(pl)
                 if px_f <= 0 or pl_f <= 0:
                     logger.debug(f"{symbol}: invalid prices px={px_f}, pl={pl_f}")
                     return
@@ -637,8 +625,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
         # Price parsing safe check
         try:
-            px_float = safe_float(px)
-            pl_float = safe_float(pl)
+            px_float = float(px)
+            pl_float = float(pl)
             if px_float <= 0 or pl_float <= 0:
                 continue
             spread = abs(px_float - pl_float) / px_float
@@ -1588,26 +1576,8 @@ async def sync_check_and_fix(lighter, x10):
                         px = safe_float(x10.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
-                            # CRITICAL: Robust try-except for TypeError from API limit comparisons
-                            try:
-                                await x10.close_live_position(sym, original_side, notional)
-                                logger.info(f"✅ Closed orphaned X10 {sym}")
-                            except TypeError as type_err:
-                                logger.critical(
-                                    f"🚨 CRITICAL TypeError in X10 close for orphan {sym}: {type_err}\n"
-                                    f"   This indicates API limit data type mismatch (string vs float).\n"
-                                    f"   Position may still be open - manual intervention required!"
-                                )
-                                try:
-                                    telegram = get_telegram_bot()
-                                    if telegram and telegram.enabled:
-                                        await telegram.send_error(
-                                            f"🚨 TypeError closing X10 orphan {sym}!\n"
-                                            f"Error: {type_err}\n"
-                                            f"Manual close required!"
-                                        )
-                                except Exception:
-                                    pass
+                            await x10.close_live_position(sym, original_side, notional)
+                            logger.info(f"✅ Closed orphaned X10 {sym}")
                 except Exception as e:
                     logger.error(f"Failed to close X10 orphan {sym}: {e}")
         
@@ -1640,27 +1610,8 @@ async def sync_check_and_fix(lighter, x10):
                         px = safe_float(lighter.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
-                            # CRITICAL: Robust try-except for TypeError from API limit comparisons
-                            try:
-                                await lighter.close_live_position(sym, original_side, notional)
-                                logger.info(f"✅ Closed orphaned Lighter {sym}")
-                            except TypeError as type_err:
-                                logger.critical(
-                                    f"🚨 CRITICAL TypeError in Lighter close for orphan {sym}: {type_err}\n"
-                                    f"   This indicates API limit data type mismatch (string vs float).\n"
-                                    f"   Position may still be open - manual intervention required!"
-                                )
-                                # Send Telegram alert for manual intervention
-                                try:
-                                    telegram = get_telegram_bot()
-                                    if telegram and telegram.enabled:
-                                        await telegram.send_error(
-                                            f"🚨 TypeError closing Lighter orphan {sym}!\n"
-                                            f"Error: {type_err}\n"
-                                            f"Manual close required!"
-                                        )
-                                except Exception:
-                                    pass
+                            await lighter.close_live_position(sym, original_side, notional)
+                            logger.info(f"✅ Closed orphaned Lighter {sym}")
                 except Exception as e:
                     logger.error(f"Failed to close Lighter orphan {sym}: {e}")
         
@@ -1727,11 +1678,6 @@ async def cleanup_zombie_positions(lighter, x10):
                                 logger.error(f"❌ Failed to close X10 zombie {sym}")
                             else:
                                 logger.info(f"✅ Closed X10 zombie {sym}")
-                        except TypeError as type_err:
-                            logger.critical(
-                                f"🚨 TypeError in X10 zombie close for {sym}: {type_err}\n"
-                                f"   API limit data type mismatch - manual close required!"
-                            )
                         except Exception as e:
                             logger.error(f"X10 zombie close exception for {sym}: {e}")
 
@@ -1763,11 +1709,6 @@ async def cleanup_zombie_positions(lighter, x10):
                                 logger.error(f"❌ Failed to close Lighter zombie {sym}")
                             else:
                                 logger.info(f"✅ Closed Lighter zombie {sym}")
-                        except TypeError as type_err:
-                            logger.critical(
-                                f"🚨 TypeError in Lighter zombie close for {sym}: {type_err}\n"
-                                f"   API limit data type mismatch - manual close required!"
-                            )
                         except Exception as e:
                             logger.error(f"Lighter zombie close exception for {sym}: {e}")
 
@@ -3466,10 +3407,7 @@ async def main():
                         price = safe_float(lighter.fetch_mark_price(p['symbol']))
                         size = safe_float(p.get('size', 0))
                         if price > 0:
-                            try:
-                                await lighter.close_live_position(p['symbol'], "BUY", abs(size) * price)
-                            except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing Lighter {p['symbol']} on shutdown: {te}")
+                            await lighter.close_live_position(p['symbol'], "BUY", abs(size) * price)
                 
                 x10_pos = await x10.fetch_open_positions()
                 for p in x10_pos:
@@ -3478,10 +3416,7 @@ async def main():
                         price = safe_float(x10.fetch_mark_price(p['symbol']))
                         size = safe_float(p.get('size', 0))
                         if price > 0:
-                            try:
-                                await x10.close_live_position(p['symbol'], "BUY", abs(size) * price)
-                            except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing X10 {p['symbol']} on shutdown: {te}")
+                            await x10.close_live_position(p['symbol'], "BUY", abs(size) * price)
 
             except Exception as ex_scan:
                 logger.error(f"Error scanning/closing orphans: {ex_scan}")

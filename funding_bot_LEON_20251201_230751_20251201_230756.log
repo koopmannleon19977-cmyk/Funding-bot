@@ -1,0 +1,784 @@
+23:07:56 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+23:07:56 [INFO] 🔥 BOT V5 (Architected) STARTING...
+23:07:56 [INFO] 🚀 Starting InMemoryStateManager...
+23:07:56 [INFO] 📂 Initializing database: data/trades.db
+23:07:56 [INFO] ✅ Read pool created: 5 connections
+23:07:56 [INFO] ✅ WAL mode enabled
+23:07:56 [INFO] 🔄 Running database migrations...
+23:07:56 [INFO] ✅ Migrations complete (11 statements)
+23:07:56 [INFO] ✅ Database initialized
+23:07:56 [INFO] 🖊️ Database write loop started
+23:07:56 [INFO] 📂 Loaded 3 trades from database
+23:07:56 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+23:07:56 [INFO] ✅ State Manager started
+23:07:56 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+23:07:56 [INFO] ✅ Async database initialized
+23:07:56 [INFO] 📝 State writer loop started
+23:07:56 [DEBUG] ✅ Database schema up to date
+23:07:56 [INFO] Initialisiere X10 Adapter...
+23:07:56 [INFO]  X10 Account initialisiert.
+23:07:56 [INFO] Initialisiere Lighter Adapter...
+23:07:56 [INFO] 📊 Loading Market Data via REST...
+23:07:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:07:57 [WARNING] ⚠️ Skipping ETH-USD: market_id=None (parsed=-1) invalid or >254
+23:07:57 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+23:07:57 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+23:07:58 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+23:07:58 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+23:08:00 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+23:08:00 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+23:08:00 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+23:08:00 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+23:08:00 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+23:08:00 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+23:08:00 [INFO] 📈 Pre-loading Lighter prices...
+23:08:00 [DEBUG] Lighter: Loaded 379 funding rates
+23:08:01 [DEBUG] Lighter: Loaded 111 prices via REST
+23:08:01 [INFO] ✅ Lighter prices loaded: 115 symbols
+23:08:01 [INFO] FundingPredictorV2 initialized with BTC Correlation
+23:08:01 [INFO] 启动 OI Tracker für 67 Symbole...
+23:08:01 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+23:08:01 [INFO] 🌐 Starting WebSocket Manager...
+23:08:01 [INFO] 📊 OI Tracker: Starting cycle 1 (67 symbols)
+23:08:01 [INFO] 🔌 [lighter] WebSocket manager started
+23:08:01 [INFO] 🔌 [x10] WebSocket manager started
+23:08:01 [INFO] ✅ WebSocketManager started
+23:08:02 [DEBUG] ✅ CRV-USD: X10=$178,590, Lighter=$2,487,763, Total=$2,666,352
+23:08:02 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+23:08:02 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+23:08:02 [DEBUG] [lighter] Subscribed to trade/30
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/9
+23:08:02 [DEBUG] [lighter] Subscribed to trade/9
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/92
+23:08:02 [DEBUG] [lighter] Subscribed to trade/92
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/3
+23:08:02 [DEBUG] [lighter] Subscribed to trade/3
+23:08:02 [DEBUG] [lighter] Subscribed to trade/47
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/35
+23:08:02 [DEBUG] [lighter] Subscribed to trade/35
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/76
+23:08:02 [DEBUG] [lighter] Subscribed to trade/76
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/49
+23:08:02 [DEBUG] [lighter] Subscribed to trade/49
+23:08:02 [DEBUG] [lighter] Subscribed to trade/41
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/104
+23:08:02 [DEBUG] [lighter] Subscribed to trade/104
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/63
+23:08:02 [DEBUG] [lighter] Subscribed to trade/63
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/1
+23:08:02 [DEBUG] [lighter] Subscribed to trade/1
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/93
+23:08:02 [DEBUG] [lighter] Subscribed to trade/93
+23:08:02 [DEBUG] [lighter] Subscribed to trade/28
+23:08:02 [DEBUG] [lighter] Subscribed to order_book/51
+23:08:02 [DEBUG] [lighter] Subscribed to trade/51
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/34
+23:08:03 [DEBUG] [lighter] Subscribed to trade/34
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/29
+23:08:03 [DEBUG] [lighter] Subscribed to trade/29
+23:08:03 [DEBUG] [lighter] Subscribed to trade/91
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/53
+23:08:03 [DEBUG] [lighter] Subscribed to trade/53
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/6
+23:08:03 [DEBUG] [lighter] Subscribed to trade/6
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/103
+23:08:03 [DEBUG] [lighter] Subscribed to trade/103
+23:08:03 [DEBUG] [lighter] Subscribed to trade/21
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/5
+23:08:03 [DEBUG] [lighter] Subscribed to trade/5
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/11
+23:08:03 [DEBUG] [lighter] Subscribed to trade/11
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/27
+23:08:03 [DEBUG] [lighter] Subscribed to trade/27
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/40
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/38
+23:08:03 [DEBUG] [lighter] Subscribed to trade/38
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/90
+23:08:03 [DEBUG] [lighter] Subscribed to trade/90
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/4
+23:08:03 [DEBUG] [lighter] Subscribed to trade/4
+23:08:03 [DEBUG] [lighter] Subscribed to trade/40
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/13
+23:08:03 [DEBUG] [lighter] Subscribed to trade/13
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/43
+23:08:03 [DEBUG] [lighter] Subscribed to trade/43
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/72
+23:08:03 [DEBUG] [lighter] Subscribed to trade/72
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/36
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/89
+23:08:03 [DEBUG] [lighter] Subscribed to trade/89
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/58
+23:08:03 [DEBUG] [lighter] Subscribed to trade/58
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/CRV/USD
+23:08:03 [DEBUG] [lighter] Subscribed to trade/55
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/BNB/USD
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/XRP/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/XRP/USD
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/47
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/1000SHIB/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/1000SHIB/USD
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/21
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/SEI/USD
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/UNI/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/UNI/USD
+23:08:03 [DEBUG] [lighter] Subscribed to order_book/41
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/ADA/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/ADA/USD
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/ZRO/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+23:08:03 [DEBUG] [lighter] Subscribed to trade/33
+23:08:03 [DEBUG] [x10] Subscribed to publicTrades/POPCAT/USD
+23:08:03 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/HYPE/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/HYPE/USD
+23:08:04 [DEBUG] [lighter] Subscribed to trade/42
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/XPL/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/18
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/VIRTUAL/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/17
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/PUMP/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/ASTER/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/ASTER/USD
+23:08:04 [DEBUG] [lighter] Subscribed to trade/71
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/NEAR/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/NEAR/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/98
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/KAITO/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/KAITO/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/APEX/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/83
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/ARB/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/ARB/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/MKR/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/MKR/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/82
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/TIA/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/TIA/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/APT/USD
+23:08:04 [DEBUG] [lighter] Subscribed to trade/67
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/TON/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/BERA/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/BERA/USD
+23:08:04 [DEBUG] [lighter] Subscribed to trade/86
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+23:08:04 [DEBUG] [x10] Subscribed to publicTrades/SPX/USD
+23:08:04 [DEBUG] [x10] Subscribed to funding/SPX/USD
+23:08:04 [DEBUG] [lighter] Subscribed to order_book/16
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/S/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/S/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/1000BONK/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/55
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/LINK/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/31
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/SOL/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/SOL/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/OP/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/OP/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/42
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/LDO/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/LDO/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/32
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/GRASS/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/GRASS/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/JUP/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/JUP/USD
+23:08:05 [DEBUG] [lighter] Subscribed to trade/16
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/SUI/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/SUI/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/MON/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/MON/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/67
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/AVAX/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/AVAX/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/20
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/XAU/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/XAU/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/DOGE/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/33
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/LTC/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/LTC/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/LINEA/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/LINEA/USD
+23:08:05 [DEBUG] [lighter] Subscribed to trade/98
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/EIGEN/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/STRK/USD
+23:08:05 [DEBUG] [lighter] Subscribed to trade/82
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/MNT/USD
+23:08:05 [DEBUG] [x10] Subscribed to publicTrades/BTC/USD
+23:08:05 [DEBUG] [x10] Subscribed to funding/BTC/USD
+23:08:05 [DEBUG] [lighter] Subscribed to order_book/50
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/XAG/USD
+23:08:06 [DEBUG] ✅ BNB-USD: X10=$1,452,300, Lighter=$15,387, Total=$1,467,687
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/RESOLV/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/RESOLV/USD
+23:08:06 [DEBUG] [lighter] Subscribed to order_book/91
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/IP/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/IP/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/ENA/USD
+23:08:06 [DEBUG] [lighter] Subscribed to trade/12
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/ZORA/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/ZORA/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/WLD/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/WLD/USD
+23:08:06 [DEBUG] [lighter] Subscribed to trade/50
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/FIL/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/FIL/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/WIF/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/WIF/USD
+23:08:06 [DEBUG] [lighter] Subscribed to trade/7
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/DOT/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/AAVE/USD
+23:08:06 [DEBUG] [lighter] Subscribed to trade/18
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/ONDO/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/ZEC/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/ZEC/USD
+23:08:06 [DEBUG] [lighter] Subscribed to order_book/8
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+23:08:06 [DEBUG] [lighter] Subscribed to order_book/30
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/TAO/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/TAO/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/TRX/USD
+23:08:06 [DEBUG] [lighter] Subscribed to order_book/46
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/WLFI/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/WLFI/USD
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/EDEN/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/EDEN/USD
+23:08:06 [DEBUG] [lighter] Subscribed to trade/39
+23:08:06 [DEBUG] [x10] Subscribed to publicTrades/BCH/USD
+23:08:06 [DEBUG] [x10] Subscribed to funding/BCH/USD
+23:08:06 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+23:08:06 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+23:08:06 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+23:08:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:06 [DEBUG] [lighter] Subscribed to trade/45
+23:08:07 [DEBUG] [lighter] Subscribed to market_stats/all
+23:08:07 [DEBUG] [lighter] Subscribed to order_book/71
+23:08:07 [DEBUG] [lighter] Subscribed to trade/31
+23:08:07 [DEBUG] [lighter] Subscribed to order_book/45
+23:08:07 [DEBUG] [lighter] Subscribed to order_book/86
+23:08:07 [DEBUG] [lighter] Subscribed to order_book/10
+23:08:07 [DEBUG] [lighter] Subscribed to trade/17
+23:08:07 [DEBUG] [lighter] Subscribed to trade/2
+23:08:07 [DEBUG] [lighter] Subscribed to trade/26
+23:08:07 [DEBUG] [lighter] Subscribed to trade/24
+23:08:07 [DEBUG] [lighter] Subscribed to order_book/7
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/24
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/12
+23:08:08 [DEBUG] [lighter] Subscribed to trade/52
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/60
+23:08:08 [INFO] Lighter: Found 0 open positions
+23:08:08 [INFO] 🌍 Echte Positionen auf Exchanges: []
+23:08:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: RESOLV-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+23:08:08 [INFO] ✅ Trade RESOLV-USD closed (PnL: $0.00)
+23:08:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: POPCAT-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+23:08:08 [INFO] ✅ Trade POPCAT-USD closed (PnL: $0.00)
+23:08:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: LDO-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+23:08:08 [INFO] ✅ Trade LDO-USD closed (PnL: $0.00)
+23:08:08 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+23:08:08 [INFO] ✅ ParallelExecutionManager started
+23:08:08 [INFO] 📝 Registered task: logic_loop (critical=True)
+23:08:08 [INFO] 📝 Registered task: trade_management_loop (critical=True)
+23:08:08 [INFO] 📝 Registered task: farm_loop (critical=False)
+23:08:08 [INFO] 📝 Registered task: maintenance_loop (critical=False)
+23:08:08 [INFO] 📝 Registered task: cleanup_finished_tasks (critical=False)
+23:08:08 [INFO] 📝 Registered task: health_reporter (critical=False)
+23:08:08 [INFO] 📝 Registered task: connection_watchdog (critical=True)
+23:08:08 [INFO] ✅ Signal handlers installed (SIGINT, SIGTERM)
+23:08:08 [INFO] ▶️  Started task: logic_loop
+23:08:08 [INFO] ▶️  Started task: trade_management_loop
+23:08:08 [INFO] ▶️  Started task: farm_loop
+23:08:08 [INFO] ▶️  Started task: maintenance_loop
+23:08:08 [INFO] ▶️  Started task: cleanup_finished_tasks
+23:08:08 [INFO] ▶️  Started task: health_reporter
+23:08:08 [INFO] ▶️  Started task: connection_watchdog
+23:08:08 [INFO] 🚀 Started 7 tasks
+23:08:08 [INFO] ═══════════════════════════════════════════════════════════
+23:08:08 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+23:08:08 [INFO] ═══════════════════════════════════════════════════════════
+23:08:08 [INFO] 🔄 Rollback processor running...
+23:08:08 [INFO] Logic Loop gestartet – REFRESH alle 3s
+23:08:08 [INFO] ⚡ Latency Arb Detector initialized (threshold: 1.0s)
+23:08:08 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: set()
+23:08:08 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+23:08:08 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+23:08:08 [INFO] 🛡️ Trade Management Loop gestartet
+23:08:08 [INFO] 🚜 Farm Mode ACTIVE
+23:08:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:08 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+23:08:08 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+23:08:08 [INFO] 🔍 Supervisor loop started
+23:08:08 [DEBUG] 📝 Flushed 1 writes
+23:08:08 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+23:08:08 [DEBUG] [lighter] Subscribed to trade/20
+23:08:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/23
+23:08:08 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+23:08:08 [DEBUG] [lighter] Subscribed to trade/32
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/15
+23:08:08 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+23:08:08 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+23:08:08 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+23:08:08 [DEBUG] Skip KAITO-USD: Spread 0.33% too high
+23:08:08 [DEBUG] Skip TIA-USD: Spread 0.45% too high
+23:08:08 [DEBUG] Skip APT-USD: Spread 0.33% too high
+23:08:08 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+23:08:08 [DEBUG] Skip AVNT-USD: Spread 0.35% too high
+23:08:08 [DEBUG] Skip JUP-USD: Spread 0.42% too high
+23:08:08 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+23:08:08 [DEBUG] Skip LINEA-USD: Spread 0.52% too high
+23:08:08 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+23:08:08 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00033100, rx=-0.00042200, net=0.00009100, apy=79.7%
+23:08:08 [DEBUG] Skip RESOLV-USD: Spread 0.78% too high
+23:08:08 [DEBUG] Skip ZORA-USD: Spread 0.45% too high
+23:08:08 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00004200, rx=0.00011200, net=-0.00007000, apy=61.3%
+23:08:08 [INFO] 💎 ZEC-USD | APY: 61.3%
+23:08:08 [DEBUG] Skip EDEN-USD: Spread 0.65% too high
+23:08:08 [INFO] ✅ Found 25 opportunities from 63 valid pairs (farm_mode=True, scanned=67)
+23:08:08 [INFO] 🎯 Found 3 opportunities, executing best...
+23:08:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:08 [DEBUG] [lighter] Subscribed to trade/46
+23:08:08 [DEBUG] [lighter] Subscribed to order_book/37
+23:08:08 [DEBUG] [lighter] Subscribed to trade/60
+23:08:09 [DEBUG] [lighter] Subscribed to trade/25
+23:08:09 [DEBUG] [lighter] Subscribed to order_book/28
+23:08:09 [DEBUG] [lighter] Subscribed to trade/83
+23:08:09 [DEBUG] [lighter] Subscribed to trade/37
+23:08:09 [DEBUG] Lighter Balance: Raw=$298.78, Safe=$283.84
+23:08:09 [INFO] 🚜 Opening FARM: CRV-USD APY=31.5%
+23:08:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:09 [DEBUG] [lighter] Subscribed to order_book/25
+23:08:09 [DEBUG] [lighter] Subscribed to order_book/52
+23:08:09 [DEBUG] [lighter] Subscribed to trade/36
+23:08:09 [DEBUG] [lighter] Subscribed to trade/8
+23:08:09 [DEBUG] Lighter Balance: Raw=$298.78, Safe=$283.84
+23:08:09 [INFO] X10: Detected balance = $302.39
+23:08:09 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+23:08:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:09 [DEBUG] [lighter] Subscribed to trade/23
+23:08:09 [DEBUG] [lighter] Subscribed to trade/10
+23:08:10 [DEBUG] [lighter] Subscribed to order_book/26
+23:08:10 [DEBUG] [lighter] Subscribed to trade/15
+23:08:10 [INFO] Lighter: Found 0 open positions
+23:08:10 [DEBUG] ✅ CRV-USD verified: No existing positions on exchanges
+23:08:10 [DEBUG] MIN_NOTIONAL CRV-USD: min_base=20.00000000 coins, price=$0.3859, min_qty_usd=$7.72, min_notional_api=$10.00, final=$11.00
+23:08:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:10 [DEBUG] [lighter] Subscribed to order_book/2
+23:08:10 [DEBUG] [lighter] Subscribed to order_book/39
+23:08:10 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:08:10 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+23:08:10 [INFO] 🎰 KELLY CRV-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+23:08:10 [INFO] 📊 KELLY SIZE CRV-USD: base=$30.0, kelly_recommended=$14.2, final=$30.0
+23:08:10 [INFO] 🚀 Opening CRV-USD: Size=$30.0 (Min=$11.0)
+23:08:10 [INFO] 🔄 [PARALLEL] CRV-USD: Lighter POST-ONLY first
+23:08:10 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=SELL, size_usd=$30.00, price=$0.385890
+23:08:10 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+23:08:10 [DEBUG] QUANTIZE CRV-USD: USD=30.00, coins=77.742362, raw=777, lot_size=200, final=600
+23:08:10 [INFO] 🔄 [PARALLEL] CRV-USD: X10 MARKET order
+23:08:10 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1764626918043,"BaseAmount":600,"Price":38357,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767046090397,"ExpiredAt":1764627489397,"Nonce":1889,"Sig":"x9TyQZ0MrPTJO4k8vILP5ulIYe/1Bb4XmbWbd4cGolgn6UYlVXt7PjZJQSpDa3IscLY43pRnfsYFfJU1kKUP5PZpq94Tpv89IwBhCEBydy4="}
+23:08:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:08:10 [INFO] Lighter: Found 0 open positions
+23:08:10 [INFO] 💰 Balance: X10=$302.4 (free=$267.9), Lit=$283.8 (free=$249.3) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+23:08:10 [INFO] 🚀 Launching trade for ZEC-USD (APY=61.3%)
+23:08:10 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+23:08:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:10 [DEBUG] X10: Funding Refresh OK, cache=91
+23:08:10 [DEBUG] 📊 Lighter Funding Cache refresh (current=115)
+23:08:10 [DEBUG] ✅ XRP-USD: X10=$444,022, Lighter=$3,956,276, Total=$4,400,298
+23:08:10 [DEBUG] Lighter: Loaded 379 funding rates
+23:08:10 [INFO] 🚀 Launching trade for POPCAT-USD (APY=37.7%)
+23:08:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:11 [DEBUG] 📝 Flushed 2 writes
+23:08:11 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:08:11 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b6b44f11f64bf84228b8830a250b41f08d8fd5a455b828c884644015e60ab8eab50b2301f996aa50' predicted_execution_time_ms=1764626884082 additional_properties={}
+23:08:11 [INFO] Lighter Order: b6b44f11f64bf84228b8830a250b41f08d8fd5a455b828c884644015e60ab8eab50b2301f996aa50
+23:08:11 [INFO] Lighter: Found 0 open positions
+23:08:11 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+23:08:11 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$345.5310, min_qty_usd=$34.55, min_notional_api=$10.00, final=$38.01
+23:08:11 [DEBUG] Skip ZEC-USD: Min Req $38.01 > Max Config $20.0
+23:08:11 [INFO] 🚀 Launching trade for SEI-USD (APY=32.4%)
+23:08:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:11 [DEBUG] Lighter: Loaded 111 prices via REST
+23:08:11 [DEBUG] Lighter: Funding Refresh OK, cache=115
+23:08:11 [INFO] ✅ Launched 3 trade tasks this cycle
+23:08:12 [INFO] 🔍 Running periodic exchange sync check...
+23:08:12 [INFO] 🔍 Starting Exchange Sync Check...
+23:08:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:12 [INFO] Lighter: Found 1 open positions
+23:08:12 [DEBUG] ✅ SEI-USD verified: No existing positions on exchanges
+23:08:12 [DEBUG] MIN_NOTIONAL SEI-USD: min_base=50.00000000 coins, price=$0.1228, min_qty_usd=$6.14, min_notional_api=$10.00, final=$11.00
+23:08:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:12 [DEBUG] Placing an order: id=2530371943187232077579509156149354119040056306234044865800782070716154625896
+23:08:12 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:08:12 [INFO] Lighter: Found 1 open positions
+23:08:12 [DEBUG] ✅ POPCAT-USD verified: No existing positions on exchanges
+23:08:12 [DEBUG] MIN_NOTIONAL POPCAT-USD: min_base=40.00000000 coins, price=$0.0962, min_qty_usd=$3.85, min_notional_api=$10.00, final=$11.00
+23:08:12 [INFO] Lighter: Found 1 open positions
+23:08:12 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: {'CRV-USD'}
+23:08:12 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+23:08:12 [WARNING] 🔻 Closing orphaned Lighter position: CRV-USD
+23:08:12 [ERROR] Failed to close Lighter orphan CRV-USD: '<' not supported between instances of 'float' and 'str'
+23:08:13 [INFO]  X10 Order: 1995615916276850688
+23:08:13 [INFO] ✅ [PARALLEL] CRV-USD: Both legs filled in 3078ms
+23:08:13 [DEBUG] 📝 Trade added to state: CRV-USD
+23:08:13 [DEBUG] 📝 Flushed 1 writes
+23:08:13 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+23:08:13 [DEBUG] Lighter Balance: Raw=$298.77, Safe=$283.83
+23:08:13 [INFO] 🎰 KELLY SEI-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+23:08:13 [INFO] 📊 KELLY SIZE SEI-USD: base=$30.0, kelly_recommended=$12.6, final=$30.0
+23:08:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:14 [INFO] 🎰 KELLY POPCAT-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+23:08:14 [INFO] 📊 KELLY SIZE POPCAT-USD: base=$30.0, kelly_recommended=$12.6, final=$30.0
+23:08:14 [DEBUG] 🧹 Cleaned task: CRV-USD
+23:08:14 [INFO] 🚀 Opening SEI-USD: Size=$30.0 (Min=$12.9)
+23:08:14 [INFO] 🔄 [PARALLEL] SEI-USD: Lighter POST-ONLY first
+23:08:14 [INFO] 🚀 Opening POPCAT-USD: Size=$30.0 (Min=$11.0)
+23:08:14 [INFO] 🔄 [PARALLEL] POPCAT-USD: Lighter POST-ONLY first
+23:08:14 [INFO] 🚀 LIGHTER OPEN SEI-USD: side=SELL, size_usd=$30.00, price=$0.122800
+23:08:14 [DEBUG] 🔍 DEBUG: SEI-USD market_id = 32 (raw=32, type=<class 'int'>)
+23:08:14 [DEBUG] QUANTIZE SEI-USD: USD=30.00, coins=244.299674, raw=2443, lot_size=500, final=2000
+23:08:14 [INFO] 🔄 [PARALLEL] SEI-USD: X10 MARKET order
+23:08:14 [INFO] 🔄 [PARALLEL] POPCAT-USD: X10 MARKET order
+23:08:14 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":32,"ClientOrderIndex":1764626942288,"BaseAmount":2000,"Price":12206,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767046094164,"ExpiredAt":1764627493164,"Nonce":1890,"Sig":"jiTWTHF9EwNm/uZcbo8r/yfSfjkCdMJIAEtelJfGt+xX/riNJHiYSgUoDU29BSRepOftn3vXUib38w2lrvrEC3sBl89mS7IQ2HGWudcqP38="}
+23:08:14 [INFO] 🚀 LIGHTER OPEN POPCAT-USD: side=SELL, size_usd=$30.00, price=$0.096190
+23:08:14 [DEBUG] 🔍 DEBUG: POPCAT-USD market_id = 23 (raw=23, type=<class 'int'>)
+23:08:14 [DEBUG] QUANTIZE POPCAT-USD: USD=30.00, coins=311.882732, raw=3119, lot_size=400, final=2800
+23:08:14 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":23,"ClientOrderIndex":1764626922916,"BaseAmount":2800,"Price":9561,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767046094191,"ExpiredAt":1764627493191,"Nonce":1891,"Sig":"rEuivxvE6+QDzg2+O/jzh8hMuS5vx1mPYVRQ5XZ5PxoJHcNzL2hpF+GipcbnMndEKlbfMQW+uhzu6+w+sFsWDouDInyScFxp6A33fjLGsRM="}
+23:08:14 [DEBUG] Placing an order: id=1199543863711535741741104432670107524341821767987481167361239587416690519431
+23:08:14 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:08:14 [DEBUG] Placing an order: id=2265497082540103422258686323487092580292817010423031864006233176261625410844
+23:08:14 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:08:14 [DEBUG] ✅ 1000SHIB-USD: X10=$138,180, Lighter=$162,208,761, Total=$162,346,941
+23:08:14 [DEBUG] Fetching fresh positions (force=False, cache_age=1764626894.4s)
+23:08:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:14 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='31a28b3d26421dc8b48e064814949ba9dc99487799c458d9a3cb6ba6ec8a6252540ee0b7d9bc19dd' predicted_execution_time_ms=1764626887105 additional_properties={}
+23:08:14 [INFO] Lighter Order: 31a28b3d26421dc8b48e064814949ba9dc99487799c458d9a3cb6ba6ec8a6252540ee0b7d9bc19dd
+23:08:14 [INFO]  X10 Order: 1995615920400199680
+23:08:14 [INFO] ✅ [PARALLEL] SEI-USD: Both legs filled in 297ms
+23:08:14 [DEBUG] 📝 Trade added to state: SEI-USD
+23:08:14 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='6e5de7105caafc85e20c27232059c25bbd0c1ab4ff5d00b671e3b783df59a62f4b398786b0698e95' predicted_execution_time_ms=1764626887134 additional_properties={}
+23:08:14 [INFO] Lighter Order: 6e5de7105caafc85e20c27232059c25bbd0c1ab4ff5d00b671e3b783df59a62f4b398786b0698e95
+23:08:14 [INFO] Lighter: Found 3 open positions
+23:08:14 [INFO] 📊 Positions: X10=1, Lighter=3
+23:08:14 [DEBUG] X10 positions: ['CRV-USD']
+23:08:14 [DEBUG] Lighter positions: ['POPCAT-USD', 'SEI-USD', 'CRV-USD']
+23:08:14 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:14 [DEBUG] Check CRV-USD: Age=1.4s (Limit=60s)
+23:08:14 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'CRV-USD', 'SEI-USD'}
+23:08:14 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+23:08:14 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+23:08:15 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+23:08:15 [INFO]  X10 Order: 1995615923911348224
+23:08:15 [INFO] ✅ [PARALLEL] POPCAT-USD: Both legs filled in 1141ms
+23:08:15 [DEBUG] 📝 Trade added to state: POPCAT-USD
+23:08:15 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:08:15 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+23:08:15 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+23:08:15 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+23:08:15 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [DEBUG] 🔄 Skip SEI-USD: Already open (in open_syms)
+23:08:15 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+23:08:15 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+23:08:15 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+23:08:15 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00033400, rx=-0.00041700, net=0.00008300, apy=72.7%
+23:08:15 [DEBUG] Skip RESOLV-USD: Spread 0.37% too high
+23:08:15 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00004700, rx=0.00011000, net=-0.00006300, apy=55.2%
+23:08:15 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+23:08:15 [INFO] ✅ Found 30 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+23:08:15 [INFO] 🎯 Found 3 opportunities, executing best...
+23:08:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:08:15 [INFO] X10: Detected balance = $302.34
+23:08:15 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+23:08:15 [DEBUG] Using cached positions (age: 1.4s)
+23:08:15 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:15 [DEBUG] Check POPCAT-USD: Age=0.5s (Limit=60s)
+23:08:15 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:15 [DEBUG] Check CRV-USD: Age=2.4s (Limit=60s)
+23:08:15 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:15 [DEBUG] Check SEI-USD: Age=1.4s (Limit=60s)
+23:08:16 [DEBUG] 📝 Flushed 2 writes
+23:08:16 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:08:16 [DEBUG] Using cached positions (age: 2.4s)
+23:08:16 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:16 [DEBUG] Check POPCAT-USD: Age=1.5s (Limit=60s)
+23:08:16 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:16 [DEBUG] Check CRV-USD: Age=3.4s (Limit=60s)
+23:08:16 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:16 [DEBUG] Check SEI-USD: Age=2.4s (Limit=60s)
+23:08:17 [DEBUG] Using cached positions (age: 3.4s)
+23:08:17 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:17 [DEBUG] Check POPCAT-USD: Age=2.5s (Limit=60s)
+23:08:17 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:17 [DEBUG] Check CRV-USD: Age=4.3s (Limit=60s)
+23:08:17 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:17 [DEBUG] Check SEI-USD: Age=3.4s (Limit=60s)
+23:08:18 [DEBUG] ✅ SEI-USD: X10=$132,996, Lighter=$8,253,692, Total=$8,386,687
+23:08:18 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:08:18 [DEBUG] Using cached positions (age: 4.4s)
+23:08:18 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:18 [DEBUG] Check POPCAT-USD: Age=3.5s (Limit=60s)
+23:08:18 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:18 [DEBUG] Check CRV-USD: Age=5.4s (Limit=60s)
+23:08:18 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:18 [DEBUG] Check SEI-USD: Age=4.4s (Limit=60s)
+23:08:19 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+23:08:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:20 [INFO] Lighter: Found 3 open positions
+23:08:20 [INFO] 📊 Positions: X10=3, Lighter=3
+23:08:20 [DEBUG] X10 positions: ['SEI-USD', 'CRV-USD', 'POPCAT-USD']
+23:08:20 [DEBUG] Lighter positions: ['POPCAT-USD', 'SEI-USD', 'CRV-USD']
+23:08:20 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:20 [DEBUG] Check POPCAT-USD: Age=5.0s (Limit=60s)
+23:08:20 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:20 [DEBUG] Check CRV-USD: Age=6.8s (Limit=60s)
+23:08:20 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:20 [DEBUG] Check SEI-USD: Age=5.8s (Limit=60s)
+23:08:21 [DEBUG] Using cached positions (age: 1.4s)
+23:08:21 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:21 [DEBUG] Check POPCAT-USD: Age=6.0s (Limit=60s)
+23:08:21 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:21 [DEBUG] Check CRV-USD: Age=7.8s (Limit=60s)
+23:08:21 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:21 [DEBUG] Check SEI-USD: Age=6.8s (Limit=60s)
+23:08:21 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:08:22 [DEBUG] Using cached positions (age: 2.4s)
+23:08:22 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:22 [DEBUG] Check POPCAT-USD: Age=7.0s (Limit=60s)
+23:08:22 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:22 [DEBUG] Check CRV-USD: Age=8.8s (Limit=60s)
+23:08:22 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:22 [DEBUG] Check SEI-USD: Age=7.8s (Limit=60s)
+23:08:22 [DEBUG] 💓 [lighter] Ping/Pong OK
+23:08:23 [DEBUG] Using cached positions (age: 3.4s)
+23:08:23 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:23 [DEBUG] Check POPCAT-USD: Age=8.0s (Limit=60s)
+23:08:23 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:23 [DEBUG] Check CRV-USD: Age=9.8s (Limit=60s)
+23:08:23 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:23 [DEBUG] Check SEI-USD: Age=8.8s (Limit=60s)
+23:08:23 [DEBUG] ✅ UNI-USD: X10=$156,313, Lighter=$350,867, Total=$507,180
+23:08:24 [DEBUG] Using cached positions (age: 4.4s)
+23:08:24 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:24 [DEBUG] Check POPCAT-USD: Age=9.0s (Limit=60s)
+23:08:24 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:24 [DEBUG] Check CRV-USD: Age=10.8s (Limit=60s)
+23:08:24 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:24 [DEBUG] Check SEI-USD: Age=9.8s (Limit=60s)
+23:08:24 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:08:24 [WARNING] [x10] Connection closed: 1011 Ping timeout
+23:08:24 [ERROR] [x10] Send error: received 1011 (internal error) Ping timeout; then sent 1011 (internal error) Ping timeout
+23:08:24 [DEBUG] 💓 [x10] App-Ping sent
+23:08:24 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+23:08:25 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+23:08:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:08:25 [INFO] Lighter: Found 3 open positions
+23:08:25 [INFO] 📊 Positions: X10=3, Lighter=3
+23:08:25 [DEBUG] X10 positions: ['SEI-USD', 'CRV-USD', 'POPCAT-USD']
+23:08:25 [DEBUG] Lighter positions: ['POPCAT-USD', 'SEI-USD', 'CRV-USD']
+23:08:25 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:25 [DEBUG] Check POPCAT-USD: Age=10.4s (Limit=60s)
+23:08:25 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:25 [DEBUG] Check CRV-USD: Age=12.2s (Limit=60s)
+23:08:25 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:25 [DEBUG] Check SEI-USD: Age=11.3s (Limit=60s)
+23:08:26 [DEBUG] Using cached positions (age: 1.5s)
+23:08:26 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:26 [DEBUG] Check POPCAT-USD: Age=11.4s (Limit=60s)
+23:08:26 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:26 [DEBUG] Check CRV-USD: Age=13.2s (Limit=60s)
+23:08:26 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:26 [DEBUG] Check SEI-USD: Age=12.3s (Limit=60s)
+23:08:26 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+23:08:26 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+23:08:26 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+23:08:27 [DEBUG] [x10] Subscribed to funding/SOL/USD
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+23:08:27 [DEBUG] [x10] Subscribed to funding/JUP/USD
+23:08:27 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+23:08:27 [DEBUG] [x10] Subscribed to funding/MNT/USD
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+23:08:27 [DEBUG] ✅ ADA-USD: X10=$711,885, Lighter=$4,455,444, Total=$5,167,328
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+23:08:27 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+23:08:27 [DEBUG] Using cached positions (age: 2.5s)
+23:08:27 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:27 [DEBUG] Check POPCAT-USD: Age=12.4s (Limit=60s)
+23:08:27 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:27 [DEBUG] Check CRV-USD: Age=14.2s (Limit=60s)
+23:08:27 [INFO] 🔍 DEBUG SEI-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:14.452841+00:00
+23:08:27 [DEBUG] Check SEI-USD: Age=13.3s (Limit=60s)
+23:08:27 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/WLFI/USD
+23:08:27 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+23:08:28 [DEBUG] [x10] Subscribed to publicTrades/ASTER/USD
+23:08:28 [DEBUG] [x10] Subscribed to funding/XAG/USD
+23:08:28 [DEBUG] [x10] Subscribed to funding/TAO/USD
+23:08:28 [DEBUG] [x10] Subscribed to funding/XRP/USD
+23:08:28 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+23:08:28 [DEBUG] [x10] Subscribed to funding/S/USD
+23:08:28 [DEBUG] [x10] Subscribed to funding/OP/USD
+23:08:28 [DEBUG] Using cached positions (age: 3.5s)
+23:08:28 [INFO] 🔍 DEBUG POPCAT-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:15.291138+00:00
+23:08:28 [DEBUG] Check POPCAT-USD: Age=13.4s (Limit=60s)
+23:08:28 [INFO] 🔍 DEBUG CRV-USD: entry_time type=<class 'str'>, value=2025-12-01T22:08:13.468941+00:00
+23:08:28 [DEBUG] Check CRV-USD: Age=15.2s (Limit=60s)
+23:08:28 [INFO] 🚜 [FARM] Profit Take CRV-USD: Age=15s, Spread=0.032% (sehr niedrig), PnL=$0.00
+23:08:28 [INFO]  💸 EXIT CRV-USD: FARM_QUICK_PROFIT | PnL $0.00 (Fees: $0.00)
+23:08:28 [INFO]  🔻 CLOSING CRV-USD (Atomic Smart Close)...
+23:08:28 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+23:08:28 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+23:08:28 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/XAU/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/SPX/USD
+23:08:29 [INFO] Lighter: Found 3 open positions
+23:08:29 [CRITICAL] 🚨 CRITICAL TypeError in Lighter close_live_position for CRV-USD: '<' not supported between instances of 'float' and 'str'
+   This indicates API limit data type mismatch (string vs float).
+   Marking as code error for emergency recovery.
+23:08:29 [WARNING] ⚠️ CODE ERROR!  Force-closing X10 AND cleaning state for CRV-USD...
+23:08:29 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+23:08:29 [DEBUG] [x10] Subscribed to publicTrades/GRASS/USD
+23:08:29 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/BCH/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/PUMP/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/ASTER/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/TRX/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/MKR/USD
+23:08:29 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+23:08:30 [DEBUG] [x10] Subscribed to publicTrades/TAO/USD
+23:08:30 [DEBUG] [x10] Subscribed to funding/IP/USD
+23:08:30 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+23:08:30 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+23:08:30 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+23:08:30 [INFO] 🛑 Shutting down...
+23:08:30 [INFO] 🛑 Initiating graceful shutdown...
+23:08:30 [INFO] 🔍 Supervisor loop stopped
+23:08:30 [INFO] 🛑 Cancelling logic_loop...
+23:08:30 [INFO] 🛑 Cancelling trade_management_loop...
+23:08:30 [INFO] 🛑 Cancelling farm_loop...
+23:08:30 [INFO] 🛑 Cancelling maintenance_loop...
+23:08:30 [INFO] 🛑 Cancelling cleanup_finished_tasks...
+23:08:30 [INFO] 🛑 Cancelling health_reporter...
+23:08:30 [INFO] 🛑 Cancelling connection_watchdog...
+23:08:30 [INFO] Logic loop cancelled
+23:08:30 [INFO] Connection watchdog cancelled
+23:08:30 [INFO] ✅ All tasks stopped
+23:08:30 [INFO] 🛑 Rollback processor: Shutdown signal received
+23:08:30 [INFO] ✅ ParallelExecutionManager: Stopped
+23:08:30 [INFO] ✅ WebSocketManager stopped
+23:08:30 [INFO] ✅ OpenInterestTracker stopped
+23:08:30 [INFO] 🛑 Stopping InMemoryStateManager...
+23:08:30 [INFO] 📝 State writer loop stopped
+23:08:30 [INFO] ✅ InMemoryStateManager stopped
+23:08:30 [INFO] 🔒 Closing database...
+23:08:30 [INFO] 🖊️ Database write loop stopped
+23:08:30 [DEBUG] [x10] Subscribed to funding/TON/USD
+23:08:30 [INFO] ✅ Database closed
+23:08:30 [INFO] ✅ X10 Adapter geschlossen.
+23:08:30 [INFO] ✅ Lighter Adapter closed
+23:08:30 [INFO] ✅ Bot V5 shutdown complete
+23:08:30 [ERROR] unhandled exception during asyncio.run() shutdown
+task: <Task finished name='ws_lighter_connect' coro=<ManagedWebSocket._connection_loop() done, defined at C:\Users\koopm\funding-bot\src\websocket_manager.py:178> exception=AttributeError('STOPPED')>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\websocket_manager.py", line 245, in _connection_loop
+    self._state = WSState.STOPPED
+                  ^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\enum.py", line 767, in __getattr__
+    raise AttributeError(name) from None
+AttributeError: STOPPED
+23:08:30 [ERROR] unhandled exception during asyncio.run() shutdown
+task: <Task finished name='ws_x10_connect' coro=<ManagedWebSocket._connection_loop() done, defined at C:\Users\koopm\funding-bot\src\websocket_manager.py:178> exception=AttributeError('STOPPED')>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\websocket_manager.py", line 245, in _connection_loop
+    self._state = WSState.STOPPED
+                  ^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\enum.py", line 767, in __getattr__
+    raise AttributeError(name) from None
+AttributeError: STOPPED

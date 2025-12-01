@@ -14,12 +14,14 @@ logger = logging.getLogger(__name__)
 import config
 
 
-class WSState(Enum):
-    DISCONNECTED = "DISCONNECTED"
-    CONNECTING = "CONNECTING"
-    CONNECTED = "CONNECTED"
-    RECONNECTING = "RECONNECTING"
-    STOPPED = "STOPPED"
+def safe_float(val, default=0.0):
+    """Safely convert a value to float, returning default on failure."""
+    if val is None or val == "" or val == "None":
+        return default
+    try:
+        return float(str(val).strip())
+    except (ValueError, TypeError):
+        return default
 
 
 @dataclass
@@ -50,6 +52,15 @@ class WSMetrics:
     last_connect_time: float = 0.0
     last_error: Optional[str] = None
     uptime_seconds: float = 0.0
+
+
+class WSState(Enum):
+    """WebSocket connection state"""
+    DISCONNECTED = "disconnected"
+    CONNECTING = "connecting"
+    CONNECTED = "connected"
+    RECONNECTING = "reconnecting"
+    FAILED = "failed"
 
 
 class ManagedWebSocket:
@@ -632,7 +643,7 @@ class WebSocketManager:
         trades = msg.get("trades", [])
         for trade in trades:
             market_id = trade. get("market_id")
-            price = trade.get("price")
+            price = safe_float(trade.get("price"), 0.0)
             
             if market_id is not None and price:
                 symbol = self._lighter_market_id_to_symbol(market_id)

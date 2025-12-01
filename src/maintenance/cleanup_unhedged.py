@@ -18,7 +18,16 @@ except ImportError:
 
 
 logger = logging.getLogger("cleanup_unhedged")
-logging.basicConfig(
+
+def safe_float(val, default=0.0):
+    if val is None or val == "" or val == "None":
+        return default
+    try:
+        return float(str(val).strip())
+    except (ValueError, TypeError):
+        return default
+
+
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
@@ -90,7 +99,7 @@ def _close_x10_position(x10_client: "X10Client", symbol: str, position: Dict) ->
     Determines side opposite to current position size.
     Returns the resulting order/trade response.
     """
-    size = position.get("size") or position.get("quantity")
+    size = safe_float(position.get("size") or position.get("quantity"), 0.0)
     if size is None:
         raise RuntimeError(f"Position for {symbol} missing size")
 
@@ -115,7 +124,7 @@ def _close_x10_position(x10_client: "X10Client", symbol: str, position: Dict) ->
 
 
 def _extract_pnl(position: Dict) -> float:
-    pnl = position.get("pnl") or position.get("unrealized_pnl") or 0.0
+    pnl = safe_float(position.get("pnl") or position.get("unrealized_pnl"), 0.0)
     try:
         return float(pnl)
     except Exception:
@@ -148,7 +157,7 @@ def cleanup_unhedged_positions() -> None:
 
     for symbol, pos in unhedged:
         pnl = _extract_pnl(pos)
-        size = pos.get("size")
+        size = safe_float(pos.get("size"), 0.0)
         logger.info(f"Closing {symbol}: size={size}, pre-close PnL={pnl}")
         try:
             resp = _close_x10_position(x10, symbol, pos)

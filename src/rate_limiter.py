@@ -70,6 +70,12 @@ class TokenBucketRateLimiter:
         Acquire tokens, waiting if necessary.
         Returns wait time in seconds.
         """
+        # SAFETY: Ensure tokens is a float (catches caller bugs)
+        if not isinstance(tokens, (int, float)):
+            logger.warning(f"[{self.name}] acquire() called with non-numeric tokens: {tokens} (type={type(tokens)}). Using 1.0")
+            tokens = 1.0
+        tokens = float(tokens)
+        
         async with self._lock:
             self._requests_total += 1
             

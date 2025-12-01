@@ -113,9 +113,9 @@ class X10Adapter(BaseAdapter):
                         data = await resp.json()
                         order = data.get("data", {})
                         
-                        fee_abs = order.get("fee")
+                        fee_abs = safe_float(order.get("fee"), 0.0)
                         filled = order.get("filled_amount_of_synthetic")
-                        price = order.get("price")
+                        price = safe_float(order.get("price"), 0.0)
                         
                         if fee_abs is not None and filled and price:
                             try:

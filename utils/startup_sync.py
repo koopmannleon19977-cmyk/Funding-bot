@@ -18,6 +18,15 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
+def safe_float(val, default=0.0):
+    if val is None or val == "" or val == "None":
+        return default
+    try:
+        return float(str(val).strip())
+    except (ValueError, TypeError):
+        return default
+
+
 
 async def synchronize_state(x10_adapter, lighter_adapter, trade_repository, db) -> Dict[str, int]:
     """
@@ -174,7 +183,7 @@ async def _fetch_positions(adapter, exchange_name: str) -> List[Dict]:
         
         for pos in raw_positions:
             symbol = pos.get('symbol')
-            size = pos.get('size', 0)
+            size = safe_float(pos.get('size', 0), 0.0)
             
             # Skip zero-size positions
             if abs(size) < 1e-8:

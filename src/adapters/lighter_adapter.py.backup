@@ -1500,7 +1500,7 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Lighter Execution Error: {e}")
             return False, None
 
-    @rate_limited(Exchange.LIGHTER, 1.0)
+    @rate_limited(Exchange. LIGHTER, "sendTx")
     async def close_live_position(
         self, 
         symbol: str, 
@@ -1511,15 +1511,6 @@ class LighterAdapter(BaseAdapter):
         Close a position on Lighter exchange - BULLETPROOF VERSION
         Handles all type conversions safely to avoid '<' not supported errors. 
         """
-        import traceback
-        
-        # ═══════════════════════════════════════════════════════════════════════════
-        # DEBUG: Log ALL input types and values at entry point
-        # ═══════════════════════════════════════════════════════════════════════════
-        logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
-        logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
-        logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
-        
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
             return True, "DRY_RUN_CLOSE_456"
@@ -1617,30 +1608,10 @@ class LighterAdapter(BaseAdapter):
 
         except TypeError as e:
             # SPEZIFISCHER CATCH für den '<' not supported Fehler
-            logger.critical(f"🚨 CRITICAL TypeError in close_live_position for {symbol}: {e}")
-            logger.error(f"   FULL TRACEBACK:\n{traceback.format_exc()}")
-            logger.error(f"   Input values at error:")
-            logger.error(f"     - symbol: {symbol} (type={type(symbol)})")
-            logger.error(f"     - original_side: {original_side} (type={type(original_side)})")
-            logger.error(f"     - notional_usd: {notional_usd} (type={type(notional_usd)})")
-            
-            # Dump position data if available
-            try:
-                positions = await self.fetch_open_positions()
-                for p in positions:
-                    if p.get('symbol') == symbol:
-                        logger.error(f"   Position data dump: {p}")
-                        for key, val in p.items():
-                            logger.error(f"     - {key}: {val} (type={type(val)})")
-            except Exception as inner_e:
-                logger.error(f"   Could not dump position data: {inner_e}")
-            
-            # Dump market_info for this symbol
-            if symbol in self.market_info:
-                logger.error(f"   market_info[{symbol}] dump:")
-                for key, val in self.market_info[symbol].items():
-                    logger.error(f"     - {key}: {val} (type={type(val)})")
-            
+            logger.error(f"❌ TYPE ERROR in close_live_position for {symbol}: {e}")
+            logger.error(f"   This usually means a string vs float comparison failed!")
+            import traceback
+            logger.error(traceback.format_exc())
             return False, None
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)

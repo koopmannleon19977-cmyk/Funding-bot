@@ -25,6 +25,16 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def safe_float(val, default=0.0):
+    """Safely convert a value to float, returning default on failure."""
+    if val is None or val == "" or val == "None":
+        return default
+    try:
+        return float(str(val).strip())
+    except (ValueError, TypeError):
+        return default
+
+
 class TradeStatus(Enum):
     PENDING = "pending"
     OPEN = "open"
@@ -617,14 +627,14 @@ class InMemoryStateManager:
                         symbol=row['symbol'],
                         side_x10=row. get('side_x10', 'BUY'),
                         side_lighter=row.get('side_lighter', 'SELL'),
-                        size_usd=row. get('size_usd', 0),
-                        entry_price_x10=row.get('entry_price_x10', 0),
-                        entry_price_lighter=row. get('entry_price_lighter', 0),
+                        size_usd=safe_float(row.get('size_usd'), 0.0),
+                        entry_price_x10=safe_float(row.get('entry_price_x10'), 0.0),
+                        entry_price_lighter=safe_float(row.get('entry_price_lighter'), 0.0),
                         status=TradeStatus(row. get('status', 'open')),
                         is_farm_trade=bool(row.get('is_farm_trade', 0)),
                         created_at=row.get('created_at', 0),
-                        pnl=row. get('pnl', 0),
-                        funding_collected=row.get('funding_collected', 0),
+                        pnl=safe_float(row.get('pnl'), 0.0),
+                        funding_collected=safe_float(row.get('funding_collected'), 0.0),
                         account_label=row.get('account_label', 'Main'),
                         x10_order_id=row. get('x10_order_id'),
                         lighter_order_id=row.get('lighter_order_id'),
