@@ -6,7 +6,7 @@ import logging
 import time
 import random
 import websockets
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional, List, Any
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
 
 print("DEBUG: lighter_adapter.py module loading...")
@@ -170,6 +170,34 @@ class LighterAdapter(BaseAdapter):
         self._last_balance_update = 0.0
         # Base URL cached for REST prefetch operations
         self.base_url = self._get_base_url()
+
+    async def _get_session(self):
+        """Get or create aiohttp session"""
+        if not hasattr(self, '_session') or self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
+        """REST GET with rate limiting"""
+        base = getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
+        url = f"{base.rstrip('/')}{path}"
+
+        try:
+            await self.rate_limiter.acquire()
+            session = await self._get_session()
+            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 429:
+                    self.rate_limiter.penalize_429()
+                    return None
+                if resp.status >= 400:
+                    logger.debug(f"{self.name} REST GET {path} returned {resp.status}")
+                    return None
+                data = await resp.json()
+                self.rate_limiter.on_success()
+                return data
+        except Exception as e:
+            logger.debug(f"{self.name} REST GET {path} error: {e}")
+            return None
 
     async def refresh_market_limits(self, symbol: str) -> dict:
         """
@@ -526,7 +554,15 @@ class LighterAdapter(BaseAdapter):
         )
 
     async def _auto_resolve_indices(self) -> Tuple[int, int]:
-        return int(config. LIGHTER_ACCOUNT_INDEX), int(config.LIGHTER_API_KEY_INDEX)
+        return int(config.LIGHTER_ACCOUNT_INDEX), int(config.LIGHTER_API_KEY_INDEX)
+
+    async def _resolve_account_index(self):
+        """Resolve account and API key indices if not already done"""
+        if self._resolved_account_index is None:
+            (
+                self._resolved_account_index,
+                self._resolved_api_key_index,
+            ) = await self._auto_resolve_indices()
 
     async def _get_signer(self):
         if self._signer is None:
@@ -561,13 +597,26 @@ class LighterAdapter(BaseAdapter):
                 if symbol:
                     normalized_symbol = f"{symbol}-USD" if not symbol.endswith("-USD") else symbol
 
-                    # ═══════════════════════════════════════════════════════════
-                    # API gibt strings/uint8 zurück - IMMER explizit konvertieren!
-                    # Quelle: API_CONTEXT.md orderBookDetails.html
-                    # ═══════════════════════════════════════════════════════════
-                    
+                    # CRITICAL: Extract real market_id from API response
+                    real_market_id = getattr(m, 'market_id', None)
+                    if real_market_id is None:
+                        real_market_id = getattr(m, 'marketId', None)
+                    if real_market_id is None:
+                        real_market_id = getattr(m, 'id', None)
+                    if real_market_id is None:
+                        real_market_id = market_id
+
+                    try:
+                        real_market_id = int(real_market_id)
+                    except (ValueError, TypeError):
+                        logger.warning(f"⚠️ Skipping {normalized_symbol}: invalid market_id={real_market_id}")
+                        return False
+
+                    if real_market_id > 254:
+                        logger.warning(f"⚠️ Skipping {normalized_symbol}: market_id={real_market_id} > 254 (API limit)")
+                        return False
+
                     def safe_int(val, default=8):
-                        """Convert uint8 or any value to int safely."""
                         if val is None:
                             return default
                         try:
@@ -576,17 +625,14 @@ class LighterAdapter(BaseAdapter):
                             return default
 
                     def safe_decimal(val, default="0"):
-                        """Convert string to Decimal safely."""
                         if val is None or val == "":
                             return Decimal(default)
                         try:
-                            # API gibt strings wie "0.001" zurück
                             return Decimal(str(val))
                         except Exception:
                             return Decimal(default)
 
                     def safe_float(val, default=0.0):
-                        """Convert to float safely."""
                         if val is None:
                             return default
                         try:
@@ -594,24 +640,17 @@ class LighterAdapter(BaseAdapter):
                         except (ValueError, TypeError):
                             return default
 
-                    # API Response Felder (aus orderBookDetails.html):
-                    # - size_decimals: uint8
-                    # - price_decimals: uint8
-                    # - min_base_amount: string
-                    # - min_quote_amount: string
-                    # - last_trade_price: double
-                    
                     size_decimals = safe_int(getattr(m, 'size_decimals', None), 8)
                     price_decimals = safe_int(getattr(m, 'price_decimals', None), 6)
                     min_base = safe_decimal(getattr(m, 'min_base_amount', None), "0.00000001")
                     min_quote = safe_decimal(getattr(m, 'min_quote_amount', None), "0.00001")
-                    
+
                     market_data = {
-                        'i': getattr(m, 'market_id', market_id),
+                        'i': real_market_id,
                         'sd': size_decimals,
                         'pd': price_decimals,
-                        'ss': min_base,           # step_size als Decimal
-                        'mps': min_quote,         # min_price_step als Decimal
+                        'ss': min_base,
+                        'mps': min_quote,
                         'min_notional': float(min_quote) if min_quote else 10.0,
                         'min_quantity': float(min_base) if min_base else 0.0,
                     }
@@ -621,14 +660,17 @@ class LighterAdapter(BaseAdapter):
 
                     self.market_info[normalized_symbol] = market_data
 
-                    # last_trade_price ist double laut API
                     price = getattr(m, 'last_trade_price', None)
                     if price is not None:
-                        self.price_cache[normalized_symbol] = safe_float(price)
-                        
+                        price_float = safe_float(price)
+                        if price_float > 0:
+                            self.price_cache[normalized_symbol] = price_float
+                            self._price_cache[normalized_symbol] = price_float
+                            self._price_cache_time[normalized_symbol] = time.time()
+
                     self.rate_limiter.on_success()
                     return True
-                    
+
             except Exception as e:
                 error_str = str(e).lower()
                 if "429" in error_str or "rate limit" in error_str:
@@ -666,150 +708,99 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Failed to load Lighter funding rates: {e}")
         return False
 
-    async def load_market_cache(self, force: bool = False, max_retries: int = 1):
-        """Load market data from Lighter API - OPTIMIZED FOR RATE LIMITS"""
-        print(f"DEBUG: load_market_cache called, has market_info: {hasattr(self, 'market_info')}")
-
-        if not getattr(config, "LIVE_TRADING", False):
-            logger.warning("LIVE_TRADING=False, skipping market load")
+    async def load_market_cache(self, force: bool = False):
+        """Load all market metadata from Lighter API"""
+        if self.market_info and not force:
             return
 
-        if not HAVE_LIGHTER_SDK:
-            logger.error("❌ Lighter SDK not installed - cannot load markets")
-            return
+        # ═══════════════════════════════════════════════════════════════
+        # PARANOID CASTING HELPERS - API gibt STRINGS zurück! 
+        # ═══════════════════════════════════════════════════════════════
+        def safe_float(val, default=0.0):
+            if val is None:
+                return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
 
-        if (not force and self._last_market_cache_at and (time.time() - self._last_market_cache_at < 300)):
-            return
-
-        logger.info("⚙️ Lighter: Loading markets...")
+        def safe_int(val, default=0):
+            if val is None:
+                return default
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                return default
 
         try:
-            signer = await self._get_signer()
-            order_api = OrderApi(signer.api_client)
+            data = await self._rest_get("/api/v1/orderBooks")
+            if not data:
+                data = await self._rest_get("/info")
+                if not data:
+                    logger.error(f"{self.name}: Failed to load markets")
+                    return
 
-            # 1. Fetch List of All Markets
-            market_list = None
-            try:
-                if hasattr(order_api, "order_books"):
-                    market_list = await order_api.order_books()
-            except Exception as e:
-                logger.debug(f"order_books() failed: {e}")
-                market_list = None
+            markets = data.get("order_books", data.get("markets", data.get("data", [])))
+            if isinstance(markets, dict):
+                markets = list(markets.values())
 
-            if not market_list:
-                # Fallback methods...
+            for m in markets:
                 try:
-                    api_client = getattr(signer, "api_client", None)
-                    resp = None
-                    if api_client is not None:
-                        if hasattr(api_client, "get"):
-                            resp = await api_client.get("/order-books")
-                        elif hasattr(api_client, "request"):
-                            resp = await api_client.request("GET", "/order-books")
+                    symbol = m.get("ticker", m.get("symbol", ""))
+                    if not symbol:
+                        symbol = f"MARKET-{m.get('market_index', m.get('i', 'X'))}"
 
-                    if isinstance(resp, dict):
-                        markets_data = (
-                            resp.get("data")
-                            or resp.get("order_books")
-                            or resp.get("result")
-                            or []
-                        )
-                    elif isinstance(resp, list):
-                        markets_data = resp
-                    else:
-                        markets_data = []
+                    symbol = symbol.replace("_", "-").replace("/", "-").upper()
+                    if not symbol.endswith("-USD"):
+                        symbol = f"{symbol}-USD"
 
-                    class _ML:
-                        pass
+                    if symbol in getattr(config, "BLACKLIST_SYMBOLS", set()):
+                        continue
 
-                    ml = _ML()
-                    objs = []
-                    for m in markets_data:
-                        if hasattr(m, "market_id") or isinstance(m, type):
-                            objs.append(m)
-                        elif isinstance(m, dict):
+                    # Validate and normalize market_id (must be <= 254)
+                    # CRITICAL: Check "market_id" FIRST - that's what the API returns!
+                    raw_id = (
+                        m.get("market_id")       # ← Primary key from API
+                        or m.get("market_index") # ← Alternative naming
+                        or m.get("marketId")     # ← camelCase variant
+                        or m.get("i")            # ← Short form
+                        or m.get("index")        # ← Generic
+                        or m.get("id")           # ← Fallback
+                    )
 
-                            class M:
-                                pass
+                    # Debug log für erstes Market
+                    if not self.market_info:
+                        logger.debug(f"🔍 First market keys: {list(m.keys())}")
+                        logger.debug(f"🔍 Extracted market_id: {raw_id} from keys")
 
-                            o = M()
-                            for k, v in m.items():
-                                setattr(o, k, v)
-                            objs.append(o)
-                    ml.order_books = objs
-                    market_list = ml
-                except Exception as e:
-                    logger.debug(f"Fallback market load failed: {e}")
-                    market_list = None
-
-            if not market_list:
-                logger.warning("⚠️ Lighter: No markets from API (Fallback failed)")
-                return
-
-            # 2. Extract IDs
-            all_ids = []
-            if hasattr(market_list, "order_books") and market_list.order_books:
-                for m in market_list.order_books:
-                    if hasattr(m, "market_id"):
-                        all_ids.append(m.market_id)
-                    elif isinstance(m, dict) and "market_id" in m:
-                        all_ids.append(m["market_id"])
-
-            total_markets = len(all_ids)
-            if total_markets == 0:
-                logger.warning("⚠️ Lighter: 0 markets found")
-                return
-
-            # 3. Batch Fetch Details - EXTREMELY CONSERVATIVE SETTINGS
-            # Standard Account Limit: 60 req/min = 1 req/sec
-            # We batch 5 markets, sleep 2s -> ~2.5 req/sec burst, but average lower
-            BATCH_SIZE = 5
-            SLEEP_BETWEEN_BATCHES = 2.0  # Increased sleep
-            
-            successful_loads = 0
-            processed_ids = set()
-
-            for batch_num, i in enumerate(range(0, len(all_ids), BATCH_SIZE), start=1):
-                batch_ids = all_ids[i : i + BATCH_SIZE]
-
-                if batch_num > 1:
-                    # Proactive Rate Limiting Sleep
-                    await asyncio.sleep(SLEEP_BETWEEN_BATCHES)
-
-                tasks = [self._fetch_single_market(order_api, mid) for mid in batch_ids]
-                
-                # Execute batch
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                # Count success
-                for mid in batch_ids:
-                    if mid in processed_ids: continue
-                    # Check if it was loaded into market_info
-                    is_loaded = False
-                    for m in self.market_info.values():
-                        if m.get("i") == mid:
-                            is_loaded = True
-                            break
+                    try:
+                        real_id = int(float(str(raw_id))) if raw_id is not None else -1
+                    except (ValueError, TypeError):
+                        real_id = -1
                     
-                    if is_loaded:
-                        successful_loads += 1
-                        processed_ids.add(mid)
+                    if real_id < 0 or real_id > 254:
+                        logger.warning(f"⚠️ Skipping {symbol}: market_id={raw_id} (parsed={real_id}) invalid or >254")
+                        continue
 
-                # Stop immediately on severe rate limits to prevent penalty escalation
-                has_429 = any(isinstance(r, Exception) and "429" in str(r) for r in results)
-                if has_429:
-                    logger.warning("⚠️ Lighter Market Load: 429 encountered, pausing 10s...")
-                    await asyncio.sleep(10.0)
+                    # ✅ CRITICAL FIX: ALLE numerischen Werte SOFORT casten! 
+                    self.market_info[symbol] = {
+                        "i": real_id,
+                        "sd": safe_int(m.get("size_decimals", m.get("base_decimals", 8)), 8),
+                        "pd": safe_int(m.get("price_decimals", m.get("quote_decimals", 6)), 6),
+                        "min_notional": safe_float(m.get("min_order_size_usd", m.get("min_notional", 10)), 10.0),
+                        "max_notional": safe_float(m.get("max_order_size_usd", m.get("max_notional", 0)), 0.0),
+                        "min_base_amount": safe_float(m.get("min_base_amount", 0.0001), 0.0001),
+                        "tick_size": safe_float(m.get("tick_size", 0.01), 0.01),
+                        "lot_size": safe_float(m.get("lot_size", 0.0001), 0.0001),
+                    }
+                except Exception as e:
+                    logger.debug(f"{self.name} market parse error: {e}")
 
-            self._last_market_cache_at = time.time()
-            success_rate = (successful_loads / total_markets * 100) if total_markets > 0 else 0
-
-            logger.info(f"✅ Lighter: {successful_loads}/{total_markets} markets loaded ({success_rate:.1f}%)")
+            logger.info(f"✅ {self.name}: Loaded {len(self.market_info)} markets")
+            await self._resolve_account_index()
 
         except Exception as e:
-            logger.error(f"❌ Lighter Market Cache Error: {e}")
-            import traceback
-            traceback.print_exc()
+            logger.error(f"{self.name} load_market_cache error: {e}")
 
     async def initialize(self):
         """Initialize the adapter"""
@@ -838,7 +829,7 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"❌ Lighter init error: {e}")
 
     async def load_funding_rates_and_prices(self):
-        """Lädt Funding Rates und Preise von der Lighter REST API"""
+        """Lädt Funding Rates UND Preise von der Lighter REST API"""
         if not getattr(config, "LIVE_TRADING", False):
             return
 
@@ -847,12 +838,15 @@ class LighterAdapter(BaseAdapter):
 
         try:
             signer = await self._get_signer()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # 1. FUNDING RATES laden (existierender Code)
+            # ═══════════════════════════════════════════════════════════════
             funding_api = FundingApi(signer.api_client)
-
             await self.rate_limiter.acquire()
             fd_response = await funding_api.funding_rates()
 
-            if fd_response and fd_response. funding_rates:
+            if fd_response and fd_response.funding_rates:
                 updated = 0
                 for fr in fd_response.funding_rates:
                     market_id = getattr(fr, "market_id", None)
@@ -863,20 +857,62 @@ class LighterAdapter(BaseAdapter):
 
                     rate_float = float(rate) if rate else 0.0
 
-                    for symbol, data in self.market_info. items():
+                    for symbol, data in self.market_info.items():
                         if data.get("i") == market_id:
                             self.funding_cache[symbol] = rate_float
+                            self._funding_cache[symbol] = rate_float
                             updated += 1
                             break
 
                 self.rate_limiter.on_success()
                 logger.debug(f"Lighter: Loaded {updated} funding rates")
 
+            # ═══════════════════════════════════════════════════════════════
+            # 2. PREISE laden via order_book_details (NEU!)
+            # ═══════════════════════════════════════════════════════════════
+            await asyncio.sleep(0.5)  # Rate limit buffer
+            
+            order_api = OrderApi(signer.api_client)
+            await self.rate_limiter.acquire()
+            
+            try:
+                market_list = await order_api.order_book_details()
+                if market_list and market_list.order_book_details:
+                    price_count = 0
+                    now = time.time()
+                    
+                    for m in market_list.order_book_details:
+                        symbol_raw = getattr(m, "symbol", None)
+                        if not symbol_raw:
+                            continue
+                        
+                        symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
+                        
+                        # Preis extrahieren
+                        mark_price = getattr(m, "mark_price", None) or getattr(m, "last_trade_price", None)
+                        if mark_price:
+                            price_float = float(mark_price)
+                            if price_float > 0:
+                                # BEIDE Caches updaten! 
+                                self.price_cache[symbol] = price_float
+                                self._price_cache[symbol] = price_float
+                                self._price_cache_time[symbol] = now
+                                price_count += 1
+                    
+                    self.rate_limiter.on_success()
+                    logger.debug(f"Lighter: Loaded {price_count} prices via REST")
+                    
+            except Exception as e:
+                if "429" in str(e):
+                    self.rate_limiter.penalize_429()
+                else:
+                    logger.debug(f"Lighter price fetch warning: {e}")
+
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
             else:
-                logger. error(f"Lighter Funding Fetch Error: {e}")
+                logger.error(f"Lighter Funding/Price Fetch Error: {e}")
 
     async def fetch_initial_funding_rates(self):
         """
@@ -1371,6 +1407,14 @@ class LighterAdapter(BaseAdapter):
 
         try:
             market_id = self.market_info[symbol]["i"]
+            logger.error(f"🔍 DEBUG: {symbol} market_id = {market_id}, type = {type(market_id)}")
+            try:
+                mid_int = int(float(str(market_id)))
+            except Exception:
+                mid_int = -1
+            if mid_int > 254:
+                logger.error(f"❌ INVALID market_id for {symbol}: {mid_int} > 254!")
+                return False, None
             price_decimal = Decimal(str(price))
             notional_decimal = Decimal(str(notional_usd))
             slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
