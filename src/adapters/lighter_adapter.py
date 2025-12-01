@@ -50,15 +50,17 @@ MARKET_OVERRIDES = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def safe_float(val, default=0.0):
-    """Convert any value to float safely."""
+    """Convert any value to float safely - handles API strings, Decimals, etc."""
     if val is None:
         return default
     if isinstance(val, (int, float)):
         return float(val)
+    if isinstance(val, Decimal):
+        return float(val)
     if isinstance(val, str):
         try:
-            return float(val. replace(',', ''). strip())
-        except ValueError:
+            return float(val.strip().replace(',', ''))
+        except (ValueError, TypeError):
             return default
     try:
         return float(val)
@@ -73,7 +75,7 @@ def safe_int(val, default=0):
     if isinstance(val, int):
         return val
     try:
-        return int(float(str(val)))
+        return int(float(str(val).strip()))
     except (ValueError, TypeError):
         return default
 
@@ -110,6 +112,22 @@ class LighterAdapter(BaseAdapter):
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
         self. base_url = self._get_base_url()
+
+    def _safe_float(self, val, default: float = 0.0) -> float:
+        """PARANOID CASTING: Garantiert float-Rückgabe"""
+        if val is None:
+            return default
+        if isinstance(val, (int, float)):
+            return float(val)
+        if isinstance(val, str):
+            try:
+                return float(val.strip().replace(',', ''))
+            except (ValueError, TypeError):
+                return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
 
     async def _get_session(self):
         """Get or create aiohttp session"""
@@ -1147,6 +1165,7 @@ class LighterAdapter(BaseAdapter):
         return self._balance_cache
 
     async def fetch_open_positions(self) -> List[dict]:
+        """Fetch open positions with GUARANTEED type safety"""
         if not getattr(config, "LIVE_TRADING", False):
             return []
 
@@ -1174,25 +1193,85 @@ class LighterAdapter(BaseAdapter):
 
             positions = []
             for p in account.positions:
-                symbol_raw = getattr(p, "symbol", None)
-                position_qty = getattr(p, "position", None)
-                sign = getattr(p, "sign", None)
+                try:
+                    symbol_raw = getattr(p, "symbol", None)
+                    position_qty = getattr(p, "position", None)
+                    sign = getattr(p, "sign", None)
 
-                if not symbol_raw or position_qty is None or sign is None:
+                    if not symbol_raw or position_qty is None or sign is None:
+                        continue
+
+                    # ═══════════════════════════════════════════════════════════
+                    # PARANOID CASTING: ALLES zu Python native types konvertieren
+                    # ═══════════════════════════════════════════════════════════
+                    
+                    # Quantity - kann String, int, float, Decimal sein
+                    try:
+                        if isinstance(position_qty, (int, float)):
+                            qty_float = float(position_qty)
+                        elif isinstance(position_qty, Decimal):
+                            qty_float = float(position_qty)
+                        elif isinstance(position_qty, str):
+                            qty_float = float(position_qty.strip().replace(',', ''))
+                        else:
+                            qty_float = float(str(position_qty))
+                    except (ValueError, TypeError):
+                        qty_float = 0.0
+                    
+                    # Sign - kann String oder int sein
+                    try:
+                        if isinstance(sign, int):
+                            sign_int = sign
+                        elif isinstance(sign, str):
+                            sign_int = int(sign.strip())
+                        else:
+                            sign_int = int(str(sign))
+                    except (ValueError, TypeError):
+                        sign_int = 0
+
+                    multiplier = 1.0 if sign_int == 0 else -1.0
+                    size = qty_float * multiplier  # GARANTIERT float!
+
+                    if abs(size) > 1e-8:
+                        symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
+                        
+                        # Entry price - PARANOID casting
+                        entry_raw = getattr(p, "entry_price", None) or getattr(p, "avg_entry_price", None)
+                        try:
+                            entry_price = float(str(entry_raw)) if entry_raw else 0.0
+                        except (ValueError, TypeError):
+                            entry_price = 0.0
+                        
+                        # Unrealized PnL - PARANOID casting
+                        pnl_raw = getattr(p, "unrealized_pnl", None)
+                        try:
+                            unrealized_pnl = float(str(pnl_raw)) if pnl_raw else 0.0
+                        except (ValueError, TypeError):
+                            unrealized_pnl = 0.0
+                        
+                        # Mark price - PARANOID casting
+                        mark_raw = getattr(p, "mark_price", None)
+                        try:
+                            mark_price = float(str(mark_raw)) if mark_raw else 0.0
+                        except (ValueError, TypeError):
+                            mark_price = 0.0
+                        
+                        positions.append({
+                            "symbol": symbol,
+                            "size": size,                    # GARANTIERT float!
+                            "entry_price": entry_price,      # GARANTIERT float!
+                            "unrealized_pnl": unrealized_pnl,  # GARANTIERT float!
+                            "mark_price": mark_price,        # GARANTIERT float!
+                        })
+                except Exception as e:
+                    logger.debug(f"Lighter position parse error: {e}")
                     continue
-
-                multiplier = 1 if int(sign) == 0 else -1
-                size = float(position_qty) * multiplier
-
-                if abs(size) > 1e-8:
-                    symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
-                    positions.append({"symbol": symbol, "size": size})
 
             logger.info(f"Lighter: Found {len(positions)} open positions")
             return positions
 
         except Exception as e:
-            logger. error(f"Lighter Positions Error: {e}")
+            logger.error(f"Lighter Positions Error: {e}")
             return []
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
@@ -1201,15 +1280,32 @@ class LighterAdapter(BaseAdapter):
         if not data:
             raise ValueError(f"Metadata missing for {symbol}")
 
-        size_decimals = safe_int(data. get('sd'), 8)
+        # ═══════════════════════════════════════════════════════════════
+        # PARANOID CASTING für alle Werte aus market_info
+        # ═══════════════════════════════════════════════════════════════
+        size_decimals = safe_int(data.get('sd'), 8)
         price_decimals = safe_int(data.get('pd'), 6)
         
         base_scale = Decimal(10) ** size_decimals
         quote_scale = Decimal(10) ** price_decimals
         
-        min_base_amount = Decimal(str(data.get('ss', "0.00000001")))
+        # CRITICAL FIX: ss könnte String sein!
+        ss_raw = data.get('ss', "0.00000001")
+        try:
+            if isinstance(ss_raw, Decimal):
+                min_base_amount = ss_raw
+            else:
+                min_base_amount = Decimal(str(ss_raw).strip())
+        except Exception:
+            min_base_amount = Decimal("0.00000001")
         
         ZERO = Decimal("0")
+
+        # Ensure qty and price are Decimal
+        if not isinstance(qty, Decimal):
+            qty = Decimal(str(qty))
+        if not isinstance(price, Decimal):
+            price = Decimal(str(price))
 
         notional = qty * price
         if notional < Decimal("10.5"):
@@ -1219,11 +1315,11 @@ class LighterAdapter(BaseAdapter):
         if min_base_amount > ZERO and qty < min_base_amount:
             qty = min_base_amount * Decimal("1.05")
 
-        scaled_base = int((qty * base_scale). quantize(Decimal('1'), rounding=ROUND_UP))
-        scaled_price = int((price * quote_scale). quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
+        scaled_base = int((qty * base_scale).quantize(Decimal('1'), rounding=ROUND_UP))
+        scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
 
         if scaled_price == 0:
-            raise ValueError(f"{symbol}: scaled_price is 0!  price={price}, pd={price_decimals}")
+            raise ValueError(f"{symbol}: scaled_price is 0! price={price}, pd={price_decimals}")
 
         if scaled_base == 0:
             raise ValueError(f"{symbol}: scaled_base is 0!")
@@ -1375,7 +1471,7 @@ class LighterAdapter(BaseAdapter):
     ) -> Tuple[bool, Optional[str]]:
         """
         Close a position on Lighter exchange - BULLETPROOF VERSION
-        Handles all type conversions safely to avoid '<' not supported errors. 
+        Handles all type conversions safely to avoid '<' not supported errors.
         """
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
@@ -1388,8 +1484,8 @@ class LighterAdapter(BaseAdapter):
             positions = await self.fetch_open_positions()
             
             if not positions:
-                logger.warning(f"⚠️ {symbol}: No positions found on Lighter")
-                return True, None  # Keine Position = schon geschlossen
+                logger.info(f"✅ {symbol}: No positions found on Lighter")
+                return True, None
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 2: Finde die Position für dieses Symbol
@@ -1402,39 +1498,78 @@ class LighterAdapter(BaseAdapter):
                     break
 
             if not position:
-                logger.info(f"Lighter {symbol}: Position not found (already closed? )")
+                logger.info(f"✅ Lighter {symbol}: Position not found (already closed?)")
                 return True, None
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 3: PARANOID CASTING - Extrahiere und konvertiere ALLES
             # ═══════════════════════════════════════════════════════════════
-
-            # Size - kann String oder Float sein! 
-            size_raw = position.get('size', 0)
-            size = safe_float(size_raw, 0.0)
             
-            # Absolute Größe für Close
+            # Size aus Position holen - MUSS float sein
+            size_raw = position.get('size', 0)
+            
+            # Debug log für Diagnose
+            logger.debug(f"DEBUG {symbol}: size_raw type={type(size_raw)}, value={size_raw}")
+            
+            # PARANOID: Egal was reinkommt, wir machen float draus
+            try:
+                if isinstance(size_raw, (int, float)):
+                    size = float(size_raw)
+                elif isinstance(size_raw, Decimal):
+                    size = float(size_raw)
+                elif isinstance(size_raw, str):
+                    size = float(size_raw.strip().replace(',', ''))
+                else:
+                    size = float(str(size_raw))
+            except (ValueError, TypeError) as e:
+                logger.error(f"❌ {symbol}: Cannot convert size to float: {size_raw} ({type(size_raw)})")
+                return False, None
+
             close_size_coins = abs(size)
 
-            # SICHERE VERGLEICHE (beide Seiten sind jetzt garantiert float)
             if close_size_coins <= 1e-8:
-                logger.info(f"Lighter {symbol}: Position size too small ({size_raw}), treating as closed")
+                logger.info(f"✅ Lighter {symbol}: Position size too small ({size}), treating as closed")
                 return True, None
 
             # ═══════════════════════════════════════════════════════════════
-            # SCHRITT 4: Preis holen
+            # SCHRITT 4: Preis holen - MUSS float sein
             # ═══════════════════════════════════════════════════════════════
-            mark_price = self. fetch_mark_price(symbol)
-            if mark_price is None or mark_price <= 0:
-                # Fallback auf Position-Daten
-                mark_price_raw = position.get('mark_price') or position.get('entry_price')
-                mark_price = safe_float(mark_price_raw, 0.0)
-                
+            mark_price_raw = self.fetch_mark_price(symbol)
+            
+            # Debug log
+            logger.debug(f"DEBUG {symbol}: mark_price_raw type={type(mark_price_raw)}, value={mark_price_raw}")
+            
+            try:
+                if mark_price_raw is None:
+                    mark_price = 0.0
+                elif isinstance(mark_price_raw, (int, float)):
+                    mark_price = float(mark_price_raw)
+                elif isinstance(mark_price_raw, Decimal):
+                    mark_price = float(mark_price_raw)
+                elif isinstance(mark_price_raw, str):
+                    mark_price = float(mark_price_raw.strip().replace(',', ''))
+                else:
+                    mark_price = float(str(mark_price_raw))
+            except (ValueError, TypeError):
+                mark_price = 0.0
+
+            if mark_price <= 0:
+                # Fallback: Versuche Preis aus Position
+                for price_key in ['mark_price', 'entry_price', 'price']:
+                    fallback_price = position.get(price_key)
+                    if fallback_price:
+                        try:
+                            mark_price = float(str(fallback_price))
+                            if mark_price > 0:
+                                logger.debug(f"DEBUG {symbol}: Using fallback price from {price_key}: {mark_price}")
+                                break
+                        except (ValueError, TypeError):
+                            continue
+                    
             if mark_price <= 0:
                 logger.error(f"❌ Lighter close {symbol}: Kein Preis verfügbar!")
                 return False, None
 
-            # Notional berechnen
             close_notional_usd = close_size_coins * mark_price
 
             # ═══════════════════════════════════════════════════════════════
@@ -1442,6 +1577,7 @@ class LighterAdapter(BaseAdapter):
             # ═══════════════════════════════════════════════════════════════
             # size > 0 = LONG position -> close with SELL
             # size < 0 = SHORT position -> close with BUY
+            # WICHTIG: Vergleich ist jetzt SICHER weil size garantiert float ist
             close_side = "SELL" if size > 0 else "BUY"
 
             logger.info(
@@ -1467,13 +1603,6 @@ class LighterAdapter(BaseAdapter):
                 logger.warning(f"❌ Lighter close {symbol}: open_live_position returned False")
                 return False, None
 
-        except TypeError as e:
-            # SPEZIFISCHER CATCH für den '<' not supported Fehler
-            logger.error(f"❌ TYPE ERROR in close_live_position for {symbol}: {e}")
-            logger.error(f"   This usually means a string vs float comparison failed!")
-            import traceback
-            logger.error(traceback.format_exc())
-            return False, None
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None

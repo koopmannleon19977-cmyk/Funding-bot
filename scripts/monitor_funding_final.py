@@ -992,26 +992,30 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     """
-    Schließt Trade auf beiden Exchanges. 
-    Bei Code-Fehler (TypeError) wird X10 emergency-geschlossen.
+    Schließt Trade auf beiden Exchanges.
+    KRITISCH: Bei Code-Fehler (TypeError) wird:
+    1. X10 emergency-geschlossen
+    2. Trade aus State ENTFERNT (um Loop zu verhindern)
+    3. Lighter-Orphan zur manuellen Bereinigung geloggt
     """
     symbol = trade['symbol']
-    
+
     logger.info(f" 🔻 CLOSING {symbol} (Atomic Smart Close)...")
-    
+
     # ═══════════════════════════════════════════════════════════════
     # SCHRITT 1: Lighter Position schließen
     # ═══════════════════════════════════════════════════════════════
     lighter_success = False
     lighter_code_error = False
-    
+
     try:
         positions = await lighter.fetch_open_positions()
         pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-        
+
+        # PARANOID: Auch hier nochmal casten
         size = safe_float(pos.get('size', 0)) if pos else 0.0
-        
-        if pos and abs(size) > 0:
+
+        if pos and abs(size) > 1e-10:
             side = "SELL" if size > 0 else "BUY"
             px = safe_float(lighter.fetch_mark_price(symbol))
             if px > 0:
@@ -1024,105 +1028,98 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         else:
             logger.info(f"✅ Lighter {symbol}: No position to close")
             lighter_success = True
-            
+
     except TypeError as e:
-        # TypeError = Code-Fehler, NICHT API-Fehler! 
+        # TypeError = Code-Fehler, NICHT API-Fehler!
         logger.error(f"❌ Lighter close CODE ERROR for {symbol}: {e}")
         lighter_success = False
         lighter_code_error = True
-        
+
     except Exception as e:
         logger.error(f"❌ Lighter close failed for {symbol}: {e}")
         lighter_success = False
 
     # ═══════════════════════════════════════════════════════════════
-    # EMERGENCY: Bei Code-Fehler X10 trotzdem schließen! 
+    # EMERGENCY: Bei Code-Fehler X10 trotzdem schließen UND State bereinigen!
     # ═══════════════════════════════════════════════════════════════
     if lighter_code_error:
-        logger.warning(f"⚠️ CODE ERROR! Force-closing X10 for {symbol}...")
+        logger.warning(f"⚠️ CODE ERROR!  Force-closing X10 AND cleaning state for {symbol}...")
+
+        # 1.  X10 schließen
+        x10_emergency_ok = False
         try:
             await safe_close_x10_position(x10, symbol, "AUTO", 0)
+            x10_emergency_ok = True
             logger.info(f"✅ EMERGENCY X10 close for {symbol}")
-            
-            try:
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🚨 EMERGENCY CLOSE: {symbol}\n"
-                        f"Lighter Code-Fehler, X10 notgeschlossen.\n"
-                        f"Lighter manuell prüfen!"
-                    )
-            except Exception:
-                pass
-            
-            return False
-            
-        except Exception as e:
-            logger.error(f"🚨 CRITICAL: Emergency X10 close FAILED for {symbol}: {e}")
-            try:
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🔥 CRITICAL: {symbol}\n"
-                        f"Lighter UND X10 close failed!\n"
-                        f"SOFORT MANUELL EINGREIFEN!"
-                    )
-            except Exception:
-                pass
-            return False
+        except Exception as x10_err:
+            logger.error(f"❌ EMERGENCY X10 close FAILED for {symbol}: {x10_err}")
 
-    # ═══════════════════════════════════════════════════════════════
-    # Lighter fehlgeschlagen (API-Fehler) → X10 NICHT schließen
-    # ═══════════════════════════════════════════════════════════════
-    if not lighter_success:
-        logger.warning(f"⚠️ Lighter failed for {symbol}, X10 NOT closed")
+        # 2.  KRITISCH: Trade aus State entfernen, um Loop zu verhindern!
+        try:
+            await close_trade_in_state(symbol, pnl=0, funding=0)
+            logger.info(f"✅ Removed {symbol} from state (preventing loop)")
+        except Exception as state_err:
+            logger.error(f"❌ Failed to remove {symbol} from state: {state_err}")
+
+        # 3. Telegram-Warnung: Lighter-Orphan manuell prüfen!
         try:
             telegram = get_telegram_bot()
             if telegram and telegram.enabled:
                 await telegram.send_error(
-                    f"⚠️ Close failed: {symbol}\n"
-                    f"Lighter nicht geschlossen.\n"
-                    f"X10 bleibt offen (Hedge)."
+                    f"🚨 CODE ERROR RECOVERY: {symbol}\n"
+                    f"X10 closed: {'✅' if x10_emergency_ok else '❌'}\n"
+                    f"⚠️ Lighter-Position MÖGLICHERWEISE noch offen!\n"
+                    f"Manuell prüfen und ggf. schließen!"
                 )
         except Exception:
             pass
+
+        # Return True um Loop zu beenden (State wurde bereinigt)
+        return x10_emergency_ok
+
+    # ═══════════════════════════════════════════════════════════════
+    # NORMALER PFAD: Lighter hat geklappt, jetzt X10
+    # ═══════════════════════════════════════════════════════════════
+    if not lighter_success:
+        # Lighter API-Fehler (nicht Code-Fehler): Nicht X10 schließen!
+        logger.error(f"❌ Lighter close FAILED for {symbol}, keeping X10 open as hedge")
         return False
-    
-    # ═══════════════════════════════════════════════════════════════
-    # SCHRITT 2: X10 schließen (nur wenn Lighter OK)
-    # ═══════════════════════════════════════════════════════════════
+
     logger.info(f"✅ Lighter {symbol} OK, closing X10...")
-    
+
     x10_success = False
     try:
         await safe_close_x10_position(x10, symbol, "AUTO", 0)
         x10_success = True
-        
+
     except Exception as e:
         logger.error(f"❌ X10 close failed for {symbol}: {e}")
-        logger.error(f"⚠️ Lighter ist zu, X10 nicht! Manuell prüfen!")
-        
+        logger.error(f"⚠️ Lighter ist zu, X10 nicht!  Manuell prüfen!")
+
         try:
             telegram = get_telegram_bot()
             if telegram and telegram.enabled:
                 await telegram.send_error(
                     f"🚨 X10 close failed: {symbol}\n"
                     f"Lighter IST geschlossen!\n"
-                    f"Position-Imbalance! Manuell X10 schließen!"
+                    f"Position-Imbalance!  Manuell X10 schließen!"
                 )
         except Exception:
             pass
-        
-        x10_success = False
 
     # ═══════════════════════════════════════════════════════════════
-    # ERGEBNIS
+    # ERGEBNIS & STATE UPDATE
     # ═══════════════════════════════════════════════════════════════
     if lighter_success and x10_success:
         logger.info(f"✅ {symbol} fully closed")
+        try:
+            await close_trade_in_state(symbol, pnl=0, funding=0)
+        except Exception:
+            pass
         return True
     else:
         logger.warning(f"⚠️ {symbol} partial: Lighter={lighter_success}, X10={x10_success}")
+        # Bei Partial Success: State NICHT bereinigen, damit Retry möglich
         return False
 
 async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
