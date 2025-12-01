@@ -342,9 +342,9 @@ class LighterAdapter(BaseAdapter):
 
             try:
                 if fee_abs is not None and filled and price:
-                    fee_usd = float(str(fee_abs))
-                    filled_qty = float(str(filled))
-                    order_price = float(str(price))
+                    fee_usd = safe_float(fee_abs, 0.0)
+                    filled_qty = safe_float(filled, 0.0)
+                    order_price = safe_float(price, 0.0)
                     notional = filled_qty * order_price
                     if notional > 0:
                         fee_rate = fee_usd / notional
@@ -411,8 +411,10 @@ class LighterAdapter(BaseAdapter):
                                 m, "last_trade_price", None
                             )
                             if mark_price:
-                                self.price_cache[symbol] = float(mark_price)
-                                updated += 1
+                                price_float = safe_float(mark_price, 0.0)
+                                if price_float > 0:
+                                    self.price_cache[symbol] = price_float
+                                    updated += 1
 
                         if updated > 0:
                             self.rate_limiter.on_success()
@@ -461,7 +463,7 @@ class LighterAdapter(BaseAdapter):
             if fd_response and fd_response.funding_rates:
                 for fr in fd_response. funding_rates:
                     market_id = fr. market_id
-                    rate = float(fr.rate) if fr.rate else 0.0
+                    rate = safe_float(fr.rate, 0.0)
                     for symbol, data in self.market_info.items():
                         if data.get("i") == market_id:
                             self.funding_cache[symbol] = rate
@@ -594,7 +596,7 @@ class LighterAdapter(BaseAdapter):
                                 if symbol and rate is not None:
                                     if not symbol.endswith('-USD'):
                                         symbol = f"{symbol}-USD"
-                                    self.funding_cache[symbol] = float(rate)
+                                    self.funding_cache[symbol] = safe_float(rate, 0.0)
                         
                         logger.debug(f"Lighter: Loaded {len(self.funding_cache)} funding rates")
                         return True
@@ -845,7 +847,7 @@ class LighterAdapter(BaseAdapter):
                     if market_id is None or rate is None:
                         continue
 
-                    rate_float = float(rate) if rate else 0.0
+                    rate_float = safe_float(rate, 0.0)
 
                     for symbol, data in self.market_info. items():
                         if data.get("i") == market_id:
@@ -878,7 +880,7 @@ class LighterAdapter(BaseAdapter):
                         
                         mark_price = getattr(m, "mark_price", None) or getattr(m, "last_trade_price", None)
                         if mark_price:
-                            price_float = float(mark_price)
+                            price_float = safe_float(mark_price, 0.0)
                             if price_float > 0:
                                 self.price_cache[symbol] = price_float
                                 self._price_cache[symbol] = price_float
@@ -999,15 +1001,15 @@ class LighterAdapter(BaseAdapter):
             if response and hasattr(response, "asks") and hasattr(response, "bids"):
                 bids = []
                 for b in response.bids or []:
-                    price = float(getattr(b, "price", 0))
-                    size = float(getattr(b, "remaining_base_amount", 0))
+                    price = safe_float(getattr(b, "price", 0), 0.0)
+                    size = safe_float(getattr(b, "remaining_base_amount", 0), 0.0)
                     if price > 0 and size > 0:
                         bids.append([price, size])
 
                 asks = []
                 for a in response.asks or []:
-                    price = float(getattr(a, "price", 0))
-                    size = float(getattr(a, "remaining_base_amount", 0))
+                    price = safe_float(getattr(a, "price", 0), 0.0)
+                    size = safe_float(getattr(a, "remaining_base_amount", 0), 0.0)
                     if price > 0 and size > 0:
                         asks. append([price, size])
 
@@ -1065,14 +1067,14 @@ class LighterAdapter(BaseAdapter):
                 details = response.order_book_details[0]
 
                 if hasattr(details, "open_interest"):
-                    oi = float(details.open_interest)
+                    oi = safe_float(details.open_interest, 0.0)
                     self._oi_cache[symbol] = oi
                     self._oi_cache_time[symbol] = now
                     self.rate_limiter.on_success()
                     return oi
 
                 if hasattr(details, "volume_24h"):
-                    vol = float(details. volume_24h)
+                    vol = safe_float(details.volume_24h, 0.0)
                     self._oi_cache[symbol] = vol
                     self._oi_cache_time[symbol] = now
                     self. rate_limiter. on_success()
@@ -1084,7 +1086,7 @@ class LighterAdapter(BaseAdapter):
             return 0.0
 
     def min_notional_usd(self, symbol: str) -> float:
-        """Berechne Minimum Notional - FIXED VERSION"""
+        """Berechne Minimum Notional - BULLETPROOF VERSION with safe type conversion."""
         HARD_MIN_USD = 5.0
         SAFETY_BUFFER = 1.10
 
@@ -1093,29 +1095,42 @@ class LighterAdapter(BaseAdapter):
             return HARD_MIN_USD
 
         try:
+            # CRITICAL: fetch_mark_price already returns float or None
             raw_price = self.fetch_mark_price(symbol)
             price = safe_float(raw_price, 0.0)
             
+            # Safe comparison: price is now guaranteed to be float
             if price <= 0:
                 return HARD_MIN_USD
 
-            min_base = data.get("min_base_amount", 0)
-            min_base_float = safe_float(min_base, 0.0)
+            # CRITICAL: Convert ALL market_info values with safe_float
+            min_base_float = safe_float(data.get("min_base_amount"), 0.0)
+            ss_val = safe_float(data.get("ss"), 0.0)
+            min_quantity = safe_float(data.get("min_quantity"), 0.0)
+            mps_val = safe_float(data.get("mps"), 0.0)
             
-            min_qty_usd = min_base_float * price if min_base_float > 0 else 0
+            # Use the largest minimum base amount
+            effective_min_base = max(min_base_float, ss_val, min_quantity)
             
-            raw_min_notional = data.get("min_notional", 0)
-            min_notional_api = safe_float(raw_min_notional, 0.0)
+            # Calculate minimum quantity in USD
+            min_qty_usd = effective_min_base * price if effective_min_base > 0 else 0.0
             
-            api_min = max(min_notional_api, min_qty_usd)
+            # Get min_notional from API (also safe converted)
+            min_notional_api = safe_float(data.get("min_notional"), 0.0)
+            
+            # Also consider mps (min price step) as potential min notional
+            mps_as_notional = mps_val if mps_val > 1.0 else 0.0  # mps > 1 likely means USD
+            
+            # Take the maximum of all minimums
+            api_min = max(min_notional_api, min_qty_usd, mps_as_notional)
             safe_min = api_min * SAFETY_BUFFER
 
             result = max(HARD_MIN_USD, safe_min)
             
             logger.debug(
-                f"MIN_NOTIONAL {symbol}: min_base={min_base_float} coins, "
+                f"MIN_NOTIONAL {symbol}: min_base={effective_min_base:.8f} coins, "
                 f"price=${price:.4f}, min_qty_usd=${min_qty_usd:.2f}, "
-                f"final=${result:.2f}"
+                f"min_notional_api=${min_notional_api:.2f}, final=${result:.2f}"
             )
             
             return result
@@ -1146,26 +1161,32 @@ class LighterAdapter(BaseAdapter):
         return rate_float / 8.0
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        """Sichere Version: Gibt immer float oder None zurück"""
-        try:
-            if symbol in self._price_cache:
-                price = self._price_cache[symbol]
-                if price is not None:
-                    return float(price)
-
-            if symbol in self.price_cache:
-                price = self.price_cache[symbol]
-                if price is not None:
-                    return float(price)
-            
-        except (TypeError, ValueError) as e:
-            logger.debug(f"fetch_mark_price({symbol}): Konvertierungsfehler: {e}")
+        """Mark Price aus Cache - always returns float or None."""
+        # Check primary cache first
+        if symbol in self._price_cache:
+            price = self._price_cache[symbol]
+            try:
+                price_float = float(str(price)) if price is not None else 0.0
+                if price_float > 0:
+                    return price_float
+            except (ValueError, TypeError):
+                pass
+        
+        # Fallback to secondary cache
+        if symbol in self.price_cache:
+            price = self.price_cache[symbol]
+            try:
+                price_float = float(str(price)) if price is not None else 0.0
+                if price_float > 0:
+                    return price_float
+            except (ValueError, TypeError):
+                pass
         
         return None
 
     def get_price(self, symbol: str) -> Optional[float]:
         """Alias for fetch_mark_price - used by order execution code."""
-        return self. fetch_mark_price(symbol)
+        return self.fetch_mark_price(symbol)
 
     async def get_real_available_balance(self) -> float:
         if time.time() - self._last_balance_update < 2.0:
@@ -1189,10 +1210,8 @@ class LighterAdapter(BaseAdapter):
                     if response and getattr(response, "accounts", None) and response.accounts[0]:
                         acc = response.accounts[0]
                         buying = getattr(acc, "buying_power", None) or getattr(acc, "total_asset_value", "0")
-                        try:
-                            val = float(buying or 0)
-                        except Exception:
-                            val = 0.0
+                        # SAFE CONVERSION: API may return string
+                        val = safe_float(buying, 0.0)
 
                     safe_balance = val * 0.95
 
@@ -1250,8 +1269,10 @@ class LighterAdapter(BaseAdapter):
                 if not symbol_raw or position_qty is None or sign is None:
                     continue
 
-                multiplier = 1 if int(sign) == 0 else -1
-                size = float(position_qty) * multiplier
+                # SAFE CONVERSION: API may return strings
+                sign_int = safe_int(sign, 0)
+                multiplier = 1 if sign_int == 0 else -1
+                size = safe_float(position_qty, 0.0) * multiplier
 
                 if abs(size) > 1e-8:
                     symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
@@ -1265,40 +1286,43 @@ class LighterAdapter(BaseAdapter):
             return []
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
-        """Scale amounts - BULLETPROOF VERSION."""
+        """Scale amounts - BULLETPROOF VERSION with safe type conversion."""
         data = self.market_info.get(symbol)
         if not data:
             raise ValueError(f"Metadata missing for {symbol}")
 
-        size_decimals = safe_int(data.get('sd'), 8)
-        price_decimals = safe_int(data.get('pd'), 6)
+        # CRITICAL: Ensure decimals are integers, not strings
+        size_decimals = safe_int(data.get('sd'), safe_int(data.get('size_decimals'), 8))
+        price_decimals = safe_int(data.get('pd'), safe_int(data.get('price_decimals'), 6))
         
         base_scale = Decimal(10) ** size_decimals
         quote_scale = Decimal(10) ** price_decimals
         
-        # CRITICAL FIX: Sichere Decimal-Konvertierung
+        # Safe Decimal conversion helper
         def to_decimal_safe(val, default="0.00000001") -> Decimal:
             if val is None or val == "" or val == "None":
                 return Decimal(default)
             try:
                 if isinstance(val, Decimal):
                     return val
+                # Handle string, int, float
                 return Decimal(str(val).strip())
             except Exception:
                 return Decimal(default)
 
-        min_base_amount = to_decimal_safe(
-            data.get('ss') or data.get('min_base_amount'), 
-            "0.00000001"
-        )
+        # Get min_base_amount with fallbacks, all safely converted
+        min_base_raw = data.get('ss') or data.get('min_base_amount') or data.get('min_quantity')
+        min_base_amount = to_decimal_safe(min_base_raw, "0.00000001")
         
         ZERO = Decimal("0")
 
+        # Ensure minimum notional
         notional = qty * price
         if notional < Decimal("10.5"):
             if price > ZERO:
                 qty = Decimal("10.5") / price
 
+        # Ensure minimum quantity
         if min_base_amount > ZERO and qty < min_base_amount:
             qty = min_base_amount * Decimal("1.05")
 
@@ -1314,30 +1338,43 @@ class LighterAdapter(BaseAdapter):
         return scaled_base, scaled_price
 
     async def quantize_base_amount(self, symbol: str, size_usd: float) -> int:
-        """Quantizes USD size to valid base_amount for Lighter API."""
+        """Quantizes USD size to valid base_amount for Lighter API - SAFE VERSION."""
         market_info = self.market_info.get(symbol)
         if not market_info:
             raise ValueError(f"No market info for {symbol}")
 
-        size_decimals = int(float(str(market_info. get('sd', 4))))
-        mba = market_info.get('min_base_amount', None)
+        # CRITICAL: Use safe_int for decimals to handle string values from API
+        size_decimals = safe_int(
+            market_info.get('sd'), 
+            safe_int(market_info.get('size_decimals'), 4)
+        )
+        
+        # Get min_base_amount with multiple fallbacks, all safely converted
+        mba = market_info.get('min_base_amount')
         if mba is None:
-            ss = market_info. get('ss', None)
-            try:
-                mba = float(ss) if ss is not None else 0.01
-            except Exception:
-                mba = 0.01
-
+            mba = market_info.get('ss')
+        if mba is None:
+            mba = market_info.get('min_quantity')
+        
         min_base_amount = safe_float(mba, 0.01)
+        
+        # fetch_mark_price returns float or None
         price = self.fetch_mark_price(symbol)
+        price_float = safe_float(price, 0.0)
 
-        if not price or price <= 0:
-            raise ValueError(f"Invalid price for {symbol}")
+        # SAFE comparison: price_float is guaranteed to be float
+        if price_float <= 0:
+            raise ValueError(f"Invalid price for {symbol}: {price}")
 
         base_scale = 10 ** size_decimals
-        size_coins = size_usd / price
+        size_coins = safe_float(size_usd, 0.0) / price_float
         raw_base_units = size_coins * base_scale
         lot_size = int(min_base_amount * base_scale)
+        
+        # Ensure lot_size is at least 1
+        if lot_size < 1:
+            lot_size = 1
+            
         quantized_base = int(raw_base_units // lot_size) * lot_size
 
         if quantized_base < lot_size:
@@ -1362,32 +1399,44 @@ class LighterAdapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
-        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd)
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
+        # ═══════════════════════════════════════════════════════════════
+        notional_usd_safe = safe_float(notional_usd, 0.0)
+        if notional_usd_safe <= 0:
+            logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
+            return False, None
+        
+        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
         if not is_valid:
             logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
             raise ValueError(f"Order validation failed: {error_msg}")
 
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Safe-cast price (could be string from API)
+        # ═══════════════════════════════════════════════════════════════
         if price is None:
             price = self.get_price(symbol)
-            if not price:
-                raise ValueError(f"No price available for {symbol}")
+        price_safe = safe_float(price, 0.0)
+        if price_safe <= 0:
+            raise ValueError(f"No valid price available for {symbol}: {price}")
 
-        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd:.2f}, price=${price:.6f}")
+        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
 
         try:
-            market_id = self.market_info[symbol]["i"]
-            logger.error(f"🔍 DEBUG: {symbol} market_id = {market_id}, type = {type(market_id)}")
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Safe-cast market_id (market_info values can be strings!)
+            # ═══════════════════════════════════════════════════════════════
+            market_id_raw = self.market_info[symbol].get("i")
+            market_id = safe_int(market_id_raw, -1)
+            logger.debug(f"🔍 DEBUG: {symbol} market_id = {market_id} (raw={market_id_raw}, type={type(market_id_raw)})")
             
-            try:
-                mid_int = int(float(str(market_id)))
-            except Exception:
-                mid_int = -1
-            if mid_int > 254:
-                logger.error(f"❌ INVALID market_id for {symbol}: {mid_int} > 254!")
+            if market_id < 0 or market_id > 254:
+                logger.error(f"❌ INVALID market_id for {symbol}: {market_id}!")
                 return False, None
 
-            price_decimal = Decimal(str(price))
-            notional_decimal = Decimal(str(notional_usd))
+            price_decimal = Decimal(str(price_safe))
+            notional_decimal = Decimal(str(notional_usd_safe))
             slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
             slippage_multiplier = (
                 Decimal(1) + (slippage / Decimal(100))
@@ -1397,10 +1446,12 @@ class LighterAdapter(BaseAdapter):
             limit_price = price_decimal * slippage_multiplier
             qty = notional_decimal / limit_price
 
-            base = await self.quantize_base_amount(symbol, float(notional_usd))
+            base = await self.quantize_base_amount(symbol, float(notional_usd_safe))
             _, price_int = self._scale_amounts(symbol, qty, limit_price, side)
             
-            if base == 0:
+            # SAFE comparison: base is already int from quantize_base_amount
+            if base <= 0:
+                logger.error(f"❌ {symbol}: base amount is 0 after quantization")
                 return False, None
 
             signer = await self._get_signer()
@@ -1414,8 +1465,8 @@ class LighterAdapter(BaseAdapter):
                     client_oid = int(time.time() * 1000) + random.randint(0, 99999)
 
                     await self.rate_limiter.acquire()
-                    tx, resp, err = await signer. create_order(
-                        market_index=market_id,
+                    tx, resp, err = await signer.create_order(
+                        market_index=int(market_id),  # Ensure int type
                         client_order_index=client_oid,
                         base_amount=base,
                         price=price_int,
@@ -1505,27 +1556,32 @@ class LighterAdapter(BaseAdapter):
                 return True, None
 
             # ═══════════════════════════════════════════════════════════════
-            # SCHRITT 4: Preis holen
+            # SCHRITT 4: Preis holen - PARANOID SAFE CASTING
             # ═══════════════════════════════════════════════════════════════
-            mark_price = self. fetch_mark_price(symbol)
-            if mark_price is None or mark_price <= 0:
-                # Fallback auf Position-Daten
-                mark_price_raw = position.get('mark_price') or position.get('entry_price')
-                mark_price = safe_float(mark_price_raw, 0.0)
-                
+            mark_price_raw = self.fetch_mark_price(symbol)
+            mark_price = safe_float(mark_price_raw, 0.0)
+            
+            # Fallback auf Position-Daten wenn nötig
             if mark_price <= 0:
-                logger.error(f"❌ Lighter close {symbol}: Kein Preis verfügbar!")
+                fallback_price_raw = position.get('mark_price') or position.get('entry_price')
+                mark_price = safe_float(fallback_price_raw, 0.0)
+                
+            # Final check after all attempts
+            if mark_price <= 0:
+                logger.error(f"❌ Lighter close {symbol}: Kein Preis verfügbar! (raw={mark_price_raw})")
                 return False, None
 
-            # Notional berechnen
-            close_notional_usd = close_size_coins * mark_price
+            # Notional berechnen - beide Werte sind jetzt garantiert float
+            close_notional_usd = float(close_size_coins) * float(mark_price)
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 5: Bestimme Close-Seite (Gegenteil der Position)
             # ═══════════════════════════════════════════════════════════════
             # size > 0 = LONG position -> close with SELL
             # size < 0 = SHORT position -> close with BUY
-            close_side = "SELL" if size > 0 else "BUY"
+            # SAFE: size is already safe_float converted above
+            size_float = float(size)  # Extra safety - ensure float for comparison
+            close_side = "SELL" if size_float > 0 else "BUY"
 
             logger.info(
                 f"🔻 LIGHTER CLOSE {symbol}: "
