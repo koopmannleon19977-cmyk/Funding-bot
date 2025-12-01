@@ -1270,13 +1270,27 @@ class LighterAdapter(BaseAdapter):
         if not data:
             raise ValueError(f"Metadata missing for {symbol}")
 
-        size_decimals = safe_int(data. get('sd'), 8)
+        size_decimals = safe_int(data.get('sd'), 8)
         price_decimals = safe_int(data.get('pd'), 6)
         
         base_scale = Decimal(10) ** size_decimals
         quote_scale = Decimal(10) ** price_decimals
         
-        min_base_amount = Decimal(str(data.get('ss', "0.00000001")))
+        # CRITICAL FIX: Sichere Decimal-Konvertierung
+        def to_decimal_safe(val, default="0.00000001") -> Decimal:
+            if val is None or val == "" or val == "None":
+                return Decimal(default)
+            try:
+                if isinstance(val, Decimal):
+                    return val
+                return Decimal(str(val).strip())
+            except Exception:
+                return Decimal(default)
+
+        min_base_amount = to_decimal_safe(
+            data.get('ss') or data.get('min_base_amount'), 
+            "0.00000001"
+        )
         
         ZERO = Decimal("0")
 
@@ -1288,11 +1302,11 @@ class LighterAdapter(BaseAdapter):
         if min_base_amount > ZERO and qty < min_base_amount:
             qty = min_base_amount * Decimal("1.05")
 
-        scaled_base = int((qty * base_scale). quantize(Decimal('1'), rounding=ROUND_UP))
-        scaled_price = int((price * quote_scale). quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
+        scaled_base = int((qty * base_scale).quantize(Decimal('1'), rounding=ROUND_UP))
+        scaled_price = int((price * quote_scale).quantize(Decimal('1'), rounding=ROUND_DOWN if side == 'SELL' else ROUND_UP))
 
         if scaled_price == 0:
-            raise ValueError(f"{symbol}: scaled_price is 0!  price={price}, pd={price_decimals}")
+            raise ValueError(f"{symbol}: scaled_price is 0! price={price}, pd={price_decimals}")
 
         if scaled_base == 0:
             raise ValueError(f"{symbol}: scaled_base is 0!")
