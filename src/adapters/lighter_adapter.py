@@ -607,36 +607,6 @@ class LighterAdapter(BaseAdapter):
         if self. market_info and not force:
             return
 
-        # ═══════════════════════════════════════════════════════════════
-        # HELPER FUNCTIONS FOR SAFE TYPE CASTING
-        # ═══════════════════════════════════════════════════════════════
-        def to_float(val, default=0.0):
-            """Safely cast value to float, handling strings and None."""
-            if val is None:
-                return default
-            if isinstance(val, (int, float)):
-                return float(val)
-            if isinstance(val, str):
-                try:
-                    return float(val.replace(',', '').strip())
-                except (ValueError, AttributeError):
-                    return default
-            try:
-                return float(val)
-            except (ValueError, TypeError):
-                return default
-
-        def to_int(val, default=0):
-            """Safely cast value to int, handling strings and None."""
-            if val is None:
-                return default
-            if isinstance(val, int):
-                return val
-            try:
-                return int(float(str(val)))
-            except (ValueError, TypeError):
-                return default
-
         try:
             # SCHRITT 1: Lade Basis-Märkte
             data = await self._rest_get("/api/v1/orderBooks")
@@ -682,18 +652,19 @@ class LighterAdapter(BaseAdapter):
                     # ═══════════════════════════════════════════════════════════════
                     # CRITICAL FIX: Cast ALL market metadata to correct types
                     # This prevents TypeError when comparing values later
+                    # Uses existing safe_float and safe_int helper functions
                     # ═══════════════════════════════════════════════════════════════
                     self.market_info[symbol] = {
                         "i": real_id,
-                        "sd": to_int(8, 8),  # size_decimals as int
-                        "pd": to_int(6, 6),  # price_decimals as int
-                        "min_notional": to_float(m.get("min_order_size_usd", m.get("min_notional", 10)), 10.0),
-                        "max_notional": to_float(m.get("max_order_size_usd", m.get("max_notional", 0)), 0.0),
-                        "min_base_amount": to_float(m.get("min_base_amount", 0.01), 0.01),
-                        "min_quantity": to_float(m.get("min_base_amount", 0.01), 0.01),  # alias
-                        "min_quote": to_float(m.get("min_quote_amount", 0.01), 0.01),
-                        "tick_size": to_float(m.get("tick_size", 0.01), 0.01),
-                        "lot_size": to_float(m.get("lot_size", 0.0001), 0.0001),
+                        "sd": safe_int(m.get("size_decimals", 8), 8),  # size_decimals as int
+                        "pd": safe_int(m.get("price_decimals", 6), 6),  # price_decimals as int
+                        "min_notional": safe_float(m.get("min_order_size_usd", m.get("min_notional", 10)), 10.0),
+                        "max_notional": safe_float(m.get("max_order_size_usd", m.get("max_notional", 0)), 0.0),
+                        "min_base_amount": safe_float(m.get("min_base_amount", 0.01), 0.01),
+                        "min_quantity": safe_float(m.get("min_base_amount", 0.01), 0.01),  # alias
+                        "min_quote": safe_float(m.get("min_quote_amount", 0.01), 0.01),
+                        "tick_size": safe_float(m.get("tick_size", 0.01), 0.01),
+                        "lot_size": safe_float(m.get("lot_size", 0.0001), 0.0001),
                     }
                     
                     market_id_to_symbol[real_id] = symbol
