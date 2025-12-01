@@ -19,6 +19,16 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 
+def safe_float(val, default=0.0):
+    """Safely convert a value to float, returning default on failure."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
 class ExecutionState(Enum):
     """State machine states for trade execution tracking"""
     PENDING = "PENDING"
@@ -419,7 +429,7 @@ class ParallelExecutionManager:
             positions = await self.x10.fetch_open_positions()
             pos = next(
                 (p for p in (positions or []) 
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                 if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
                 None
             )
 
@@ -427,7 +437,7 @@ class ParallelExecutionManager:
                 logger.info(f"✓ X10 Rollback {symbol}: No position found (already closed? )")
                 return True
 
-            actual_size = pos.get('size', 0)
+            actual_size = safe_float(pos.get('size', 0))
             # Positive = LONG, Negative = SHORT
             original_side = "BUY" if actual_size > 0 else "SELL"
             close_size = abs(actual_size)
@@ -459,7 +469,7 @@ class ParallelExecutionManager:
             positions = await self.lighter.fetch_open_positions()
             pos = next(
                 (p for p in (positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
+                 if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
                 None
             )
 
@@ -467,16 +477,13 @@ class ParallelExecutionManager:
                 logger.info(f"✓ Lighter Rollback {symbol}: No position found (already closed?)")
                 return True
 
-            actual_size = pos.get('size', 0)
+            actual_size = safe_float(pos.get('size', 0))
             original_side = "BUY" if actual_size > 0 else "SELL"
             close_size_coins = abs(actual_size)
 
             # CRITICAL FIX: Sichere Typ-Konvertierung
             raw_price = self.lighter.fetch_mark_price(symbol)
-            try:
-                mark_price = float(raw_price) if raw_price is not None else 0.0
-            except (ValueError, TypeError):
-                mark_price = 0.0
+            mark_price = safe_float(raw_price)
             
             if mark_price <= 0:
                 logger.error(f"✗ Lighter rollback {symbol}: No valid price")

@@ -45,6 +45,96 @@ MARKET_OVERRIDES = {
 }
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DEBUG: Type-Safety Wrapper mit Logging
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def debug_safe_float(val, default=0.0, context="unknown"):
+    """
+    Convert any value to float safely WITH DEBUG LOGGING. 
+    Logs warnings when type conversion is needed.
+    """
+    if val is None:
+        return default
+    
+    original_type = type(val).__name__
+    
+    if isinstance(val, float):
+        return val
+    
+    if isinstance(val, int):
+        return float(val)
+    
+    if isinstance(val, str):
+        try:
+            result = float(val)
+            # Nur loggen wenn es wirklich ein String war (das ist unser Bug!)
+            if val != str(result):  # Vermeidet Spam bei "0.0" -> 0.0
+                logger.debug(f"🔍 TYPE CONVERT [{context}]: '{val}' (str) -> {result} (float)")
+            return result
+        except ValueError:
+            logger.warning(f"⚠️ TYPE ERROR [{context}]: Cannot convert '{val}' to float, using default {default}")
+            return default
+    
+    # Decimal oder andere Typen
+    try:
+        result = float(val)
+        logger.debug(f"🔍 TYPE CONVERT [{context}]: {val} ({original_type}) -> {result} (float)")
+        return result
+    except (ValueError, TypeError) as e:
+        logger.error(f"❌ TYPE ERROR [{context}]: {val} ({original_type}) -> {e}")
+        return default
+
+
+def debug_safe_int(val, default=0, context="unknown"):
+    """Convert any value to int safely WITH DEBUG LOGGING."""
+    if val is None:
+        return default
+    
+    original_type = type(val).__name__
+    
+    if isinstance(val, int):
+        return val
+    
+    try:
+        result = int(float(str(val)))
+        if not isinstance(val, int):
+            logger.debug(f"🔍 TYPE CONVERT [{context}]: {val} ({original_type}) -> {result} (int)")
+        return result
+    except (ValueError, TypeError) as e:
+        logger.error(f"❌ TYPE ERROR [{context}]: {val} ({original_type}) -> {e}")
+        return default
+
+
+def debug_compare(val1, op, val2, context="unknown"):
+    """
+    Safe comparison with debug logging.
+    Usage: debug_compare(size, '>', 0, "position_size_check")
+    """
+    try:
+        v1 = debug_safe_float(val1, 0.0, f"{context}_left")
+        v2 = debug_safe_float(val2, 0.0, f"{context}_right")
+        
+        if op == '>':
+            return v1 > v2
+        elif op == '<':
+            return v1 < v2
+        elif op == '>=':
+            return v1 >= v2
+        elif op == '<=':
+            return v1 <= v2
+        elif op == '==':
+            return v1 == v2
+        else:
+            raise ValueError(f"Unknown operator: {op}")
+    except Exception as e:
+        logger.error(
+            f"❌ COMPARE ERROR [{context}]: {val1} ({type(val1).__name__}) {op} {val2} ({type(val2).__name__}) -> {e}"
+        )
+        return False
+
+
 class LighterAdapter(BaseAdapter):
     def __init__(self):
         print(f"DEBUG: LighterAdapter.__init__ called at {time.time()}")
@@ -109,6 +199,12 @@ class LighterAdapter(BaseAdapter):
                             old_info = self.market_info.get(symbol, {})
                             self.market_info[symbol].update(data)
                             
+                            # FIX: Konvertiere kritische Werte sofort zu float
+                            if 'min_notional' in data:
+                                self.market_info[symbol]['min_notional'] = float(data['min_notional'])
+                            if 'min_base_amount' in data:
+                                self.market_info[symbol]['min_quantity'] = float(data['min_base_amount'])
+                            
                             # Log changes
                             new_min_base = data.get('min_base_amount', old_info.get('min_base_amount'))
                             old_min_base = old_info.get('min_base_amount')
@@ -130,48 +226,38 @@ class LighterAdapter(BaseAdapter):
         return self.market_info.get(symbol, {})
 
     async def validate_order_params(self, symbol: str, notional_usd: float) -> Tuple[bool, str]:
-        """
-        Validates order parameters securely.
-        Prevents 'float vs str' comparison errors via strict casting.
-        """
         try:
             if symbol not in self.market_info:
-                return True, "" # Fail open for closes
+                return True, ""
 
             market_data = self.market_info[symbol]
             
-            # 1. Secure Casting
-            try:
-                # Get raw values, default to 0 if None or empty
-                raw_min = market_data.get("min_notional", 0)
-                raw_max = market_data.get("max_notional", 0)
-                
-                # Convert to float immediately
-                min_notional = float(raw_min) if raw_min is not None else 0.0
-                max_notional = float(raw_max) if raw_max is not None else 0.0
-                
-                # Ensure checking value is float
-                check_val = float(notional_usd)
-                
-            except (ValueError, TypeError) as cast_err:
-                logger.warning(f"⚠️ Type cast error in validation for {symbol}: {cast_err}. Skipping checks.")
-                return True, ""
+            # PARANOID CASTING: Sicherstellen, dass wir floats haben
+            def to_float(val):
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return 0.0
 
-            # 2. Validation Logic
+            min_notional = to_float(market_data.get("min_notional", 0))
+            max_notional = to_float(market_data.get("max_notional", 0))
+            check_val = float(notional_usd)
+
+            # Logik
             if min_notional > 0 and check_val < min_notional:
-                # Allow slightly smaller orders for closing logic (reduce_only handles this usually)
-                if check_val > (min_notional * 0.9): 
+                # Toleranz für Closes (90%)
+                if check_val > (min_notional * 0.9):
                     return True, ""
                 return False, f"Notional ${check_val:.2f} < Min ${min_notional:.2f}"
 
             if max_notional > 0 and check_val > max_notional:
-                 return False, f"Notional ${check_val:.2f} > Max ${max_notional:.2f}"
+                return False, f"Notional ${check_val:.2f} > Max ${max_notional:.2f}"
 
             return True, ""
 
         except Exception as e:
             logger.error(f"Validation error {symbol}: {e}")
-            return True, "" # Fail open to prevent stuck positions
+            return True, "" # Fail open
 
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
@@ -988,7 +1074,7 @@ class LighterAdapter(BaseAdapter):
             return 0.0
 
     def min_notional_usd(self, symbol: str) -> float:
-        """Berechne Minimum Notional"""
+        """Berechne Minimum Notional - mit sicherer Typ-Konvertierung"""
         HARD_MIN_USD = 5.0
         SAFETY_BUFFER = 1.10
 
@@ -1006,13 +1092,16 @@ class LighterAdapter(BaseAdapter):
             if price <= 0:
                 return HARD_MIN_USD
 
+            # Sicherstellen, dass auch hier immer gecastet wird, bevor verglichen wird
+            raw_min_notional = data.get("min_notional", 0)
             try:
-                min_notional_api = float(data.get("min_notional", 0) or 0)
+                min_notional_api = float(raw_min_notional)  # Force cast
             except (ValueError, TypeError):
                 min_notional_api = 0.0
             
+            raw_min_qty = data.get("min_quantity", 0)
             try:
-                min_qty = float(data.get("min_quantity", 0) or 0)
+                min_qty = float(raw_min_qty)  # Force cast
             except (ValueError, TypeError):
                 min_qty = 0.0
             
@@ -1348,13 +1437,40 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Execution Error: {e}")
             return False, None
 
-    @rate_limited(Exchange. LIGHTER, "sendTx")
+    @rate_limited(Exchange.LIGHTER, "sendTx")
     async def close_live_position(
         self, 
         symbol: str, 
         original_side: str, 
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
+        """Close a position on Lighter - BULLETPROOF VERSION with local type safety."""
+        
+        # ═══════════════════════════════════════════════════════════════
+        # LOKALE HELPER (garantiert verfügbar in dieser Methode)
+        # ═══════════════════════════════════════════════════════════════
+        def _safe_float(val, default=0.0):
+            if val is None:
+                return default
+            if isinstance(val, (int, float)):
+                return float(val)
+            if isinstance(val, str):
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return default
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return default
+
+        def _safe_int(val, default=0):
+            if val is None:
+                return default
+            try:
+                return int(float(str(val)))
+            except (ValueError, TypeError):
+                return default
         
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
@@ -1362,71 +1478,117 @@ class LighterAdapter(BaseAdapter):
 
         try:
             positions = await self.fetch_open_positions()
-            pos = next(
-                (p for p in (positions or [])
-                 if p.get('symbol') == symbol and abs(p.get('size', 0)) > 1e-8),
-                None
-            )
+            
+            # DEBUG: Log raw position data
+            for p in (positions or []):
+                if p.get('symbol') == symbol:
+                    logger.info(f"🔍 RAW POSITION DATA for {symbol}:")
+                    for key, val in p.items():
+                        logger.info(f"    {key}: {val} (type: {type(val).__name__})")
+            
+            # SAFE FILTER: Konvertiere size BEVOR wir vergleichen
+            pos = None
+            for p in (positions or []):
+                if p.get('symbol') != symbol:
+                    continue
+                size_val = _safe_float(p.get('size', 0), 0.0)
+                if abs(size_val) > 1e-8:
+                    pos = p
+                    break
 
             if not pos:
                 logger.info(f"Lighter Rollback {symbol}: No position found (already closed?)")
-                # Wir geben True zurück, damit der Bot denkt, es sei erledigt, 
-                # statt in einer Endlosschleife zu versuchen, eine leere Position zu schließen.
                 return True, None
 
-            actual_size = pos.get('size', 0)
-            close_size_coins = abs(float(actual_size))
+            # ═══════════════════════════════════════════════════════════════
+            # ALLE WERTE SICHER KONVERTIEREN
+            # ═══════════════════════════════════════════════════════════════
+            
+            # Position Size - API gibt oft strings zurück! 
+            position_size_raw = pos.get('position') or pos.get('size') or 0
+            position_size = _safe_float(position_size_raw, 0.0)
+            
+            # Sign (0 = long, 1 = short) - API gibt manchmal string "0" oder "1"
+            sign_raw = pos.get('sign', 0)
+            sign = _safe_int(sign_raw, 0)
+            
+            # Actual size mit Vorzeichen
+            if sign == 0:
+                actual_size = position_size
+            else:
+                actual_size = -position_size
+            
+            close_size_coins = abs(actual_size)
+            
+            # SICHERE VERGLEICHE (beide Seiten sind jetzt garantiert float/int)
+            if close_size_coins <= 1e-8 or position_size <= 0:
+                logger.info(f"Lighter {symbol}: Position size too small ({position_size}), treating as closed")
+                return True, None
 
             # ──────────────────────────────────────────────────────────────
-            # KRITISCHER FIX: Sichere Preisberechnung
+            # Preise sicher konvertieren
             # ──────────────────────────────────────────────────────────────
-            raw_price = self.fetch_mark_price(symbol)
-            mark_price = 0.0
+            
+            # Mark Price aus Position oder Cache
+            mark_price_raw = pos.get('mark_price')
+            mark_price = _safe_float(mark_price_raw, 0.0)
+            
+            # Entry Price als Fallback
+            entry_price_raw = pos.get('avg_entry_price') or pos.get('entry_price')
+            entry_price = _safe_float(entry_price_raw, 0.0)
 
-            if raw_price is not None:
-                try:
-                    mark_price = float(raw_price)
-                except (ValueError, TypeError):
-                    logger.warning(f"Lighter {symbol}: Ungültiger Mark-Preis: '{raw_price}'")
-                    mark_price = 0.0
-
+            # Preis-Validierung
             if mark_price <= 0:
-                logger.error(f"Lighter close {symbol}: Ungültiger oder fehlender Mark-Preis ({mark_price})")
-                # Fallback: Nutze letzten bekannten Preis direkt aus Cache Dictionary falls fetch failure
-                mark_price_raw = self.price_cache.get(symbol) or self._price_cache.get(symbol)
-                try:
-                    mark_price = float(mark_price_raw) if mark_price_raw else 0.0
-                except:
-                    mark_price = 0.0
+                logger.warning(f"Lighter {symbol}: Mark price ungültig ({mark_price_raw}), verwende Entry Price")
+                mark_price = entry_price
+                
+            if mark_price <= 0:
+                # Fallback auf Cache
+                cache_price = self.price_cache.get(symbol) or self._price_cache.get(symbol)
+                mark_price = _safe_float(cache_price, 0.0)
                     
-                if mark_price <= 0:
-                    logger.error(f"Lighter close {symbol}: Kein Fallback-Preis verfügbar!")
-                    return False, None
-                logger.info(f"Lighter close {symbol}: Fallback-Preis verwendet: ${mark_price:.6f}")
+            if mark_price <= 0:
+                # Letzter Fallback: fetch_mark_price
+                fetched_price = self.fetch_mark_price(symbol)
+                mark_price = _safe_float(fetched_price, 0.0)
+                
+            if mark_price <= 0:
+                logger.error(f"Lighter close {symbol}: Kein Preis verfügbar!")
+                return False, None
+                
+            logger.info(f"Lighter close {symbol}: Using price ${mark_price:.6f}")
 
-            # Neuberechnung des Notional basierend auf tatsächlicher Position
-            notional_usd = close_size_coins * mark_price
-            # ──────────────────────────────────────────────────────────────
+            # Notional berechnen
+            close_notional_usd = close_size_coins * mark_price
 
             logger.info(
-                f"Lighter Close {symbol}: {actual_size:+.6f} coins @ ${mark_price:.6f} = ${notional_usd:.2f}"
+                f"Lighter Close {symbol}: size={actual_size:+.6f} coins @ ${mark_price:.6f} = ${close_notional_usd:.2f} (sign={sign})"
             )
 
-            # Fix: 'actual_size' statt Groks 'actualina_size'
+            # Close Order - gegenseitige Seite
+            close_side = "BUY" if actual_size < 0 else "SELL"
+            
             success, order_id = await self.open_live_position(
                 symbol=symbol,
-                side="BUY" if actual_size < 0 else "SELL",
-                notional_usd=notional_usd,
+                side=close_side,
+                notional_usd=close_notional_usd,
                 reduce_only=True
             )
 
             if success:
-                logger.info(f"Lighter close {symbol}: Erfolgreich (${notional_usd:.2f})")
+                logger.info(f"✅ Lighter close {symbol}: Erfolgreich (${close_notional_usd:.2f})")
                 return True, order_id
             else:
-                logger.warning(f"Lighter close {symbol}: close_live_position returned False")
+                logger.warning(f"❌ Lighter close {symbol}: open_live_position returned False")
                 return False, None
 
+        except TypeError as e:
+            # SPEZIFISCHER CATCH für den '<' not supported Fehler
+            logger.error(f"❌ TYPE ERROR in close_live_position for {symbol}: {e}")
+            logger.error(f"   This usually means a string vs float comparison failed!")
+            import traceback
+            logger.error(traceback.format_exc())
+            return False, None
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None

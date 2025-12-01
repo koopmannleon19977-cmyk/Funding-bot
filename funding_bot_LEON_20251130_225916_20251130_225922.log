@@ -1,0 +1,65 @@
+22:59:22 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+22:59:22 [INFO] 🔥 BOT V5 (Architected) STARTING...
+22:59:22 [INFO] 🚀 Starting InMemoryStateManager...
+22:59:22 [INFO] 📂 Initializing database: data/trades.db
+22:59:22 [INFO] ✅ Read pool created: 5 connections
+22:59:22 [INFO] ✅ WAL mode enabled
+22:59:22 [INFO] 🔄 Running database migrations...
+22:59:22 [INFO] ✅ Migrations complete (11 statements)
+22:59:22 [INFO] ✅ Database initialized
+22:59:22 [INFO] 🖊️ Database write loop started
+22:59:22 [INFO] 📂 Loaded 3 trades from database
+22:59:22 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+22:59:22 [INFO] ✅ State Manager started
+22:59:22 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+22:59:22 [INFO] ✅ Async database initialized
+22:59:22 [INFO] 📝 State writer loop started
+22:59:22 [DEBUG] ✅ Database schema up to date
+22:59:22 [INFO] Initialisiere X10 Adapter...
+22:59:22 [INFO]  X10 Account initialisiert.
+22:59:22 [INFO] Initialisiere Lighter Adapter...
+22:59:22 [INFO] 📊 Loading Market Data via REST...
+22:59:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+22:59:22 [INFO] ⚙️ Lighter: Loading markets...
+22:59:22 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+22:59:23 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+22:59:25 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+22:59:42 [INFO] 🖊️ Database write loop stopped
+22:59:42 [INFO] 📝 State writer loop stopped
+22:59:42 [ERROR] _GatheringFuture exception was never retrieved
+future: <_GatheringFuture finished exception=CancelledError()>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 809, in load_market_cache
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 582, in _fetch_single_market
+    details = await order_api.order_book_details(market_id=market_id)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\pydantic\_internal\_validate_call.py", line 34, in wrapper_function
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\api\order_api.py", line 1372, in order_book_details
+    response_data = await self.api_client.call_api(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\api_client.py", line 274, in call_api
+    response_data = await self.rest_client.request(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\rest.py", line 208, in request
+    r = await pool_manager.request(**args)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 757, in _connect_and_send_request
+    await resp.start(conn)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client_reqrep.py", line 539, in start
+    message, payload = await protocol.read()  # type: ignore[union-attr]
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\streams.py", line 680, in read
+    await self._waiter
+asyncio.exceptions.CancelledError
+22:59:42 [ERROR] Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x00000213FE6D2150>
+22:59:42 [ERROR] Unclosed connector
+connections: ['deque([(<aiohttp.client_proto.ResponseHandler object at 0x00000213FE6A9FD0>, 319311.062)])']
+connector: <aiohttp.connector.TCPConnector object at 0x00000213FE6D1F50>
