@@ -1615,54 +1615,57 @@ async def sync_check_and_fix(lighter, x10):
         # CRITICAL: Orphaned Lighter positions (no X10 hedge)
         # ═══════════════════════════════════════════════════════════════
         if only_on_lighter:
-            logger.error(f"🚨 DESYNC DETECTED: Positions only on Lighter: {only_on_lighter}")
-            logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
-            
-            # Optional: Send Telegram alert
-            try:
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🚨 EXCHANGE DESYNC!\n"
-                        f"Orphaned Lighter positions: {only_on_lighter}\n"
-                        f"Closing to prevent directional risk..."
-                    )
-            except Exception:
-                pass
+            # Filtere Symbole heraus, die gerade gehandelt werden
+            real_orphans = []
             
             for sym in only_on_lighter:
+                # HOL DIR DEN LOCK: Wenn er gelockt ist, läuft gerade ein Trade!
+                lock = await get_execution_lock(sym)
+                if lock.locked():
+                    logger.info(f"🔒 Skipping sync check for {sym} (Execution in progress)")
+                    continue
+                
+                # Checke auch ACTIVE_TASKS zur Sicherheit
+                if sym in ACTIVE_TASKS:
+                    logger.info(f"🔒 Skipping sync check for {sym} (Task Active)")
+                    continue
+                    
+                real_orphans.append(sym)
+
+            if real_orphans:
+                logger.error(f"🚨 DESYNC DETECTED: Positions only on Lighter: {real_orphans}")
+                logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
+                
+                # Optional: Send Telegram alert
                 try:
-                    logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
-                    pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
-                    if pos:
-                        size = safe_float(pos.get('size', 0))
-                        original_side = "BUY" if size > 0 else "SELL"
-                        px = safe_float(lighter.fetch_mark_price(sym))
-                        if px > 0:
-                            notional = abs(size) * px
-                            # CRITICAL: Robust try-except for TypeError from API limit comparisons
-                            try:
-                                await lighter.close_live_position(sym, original_side, notional)
-                                logger.info(f"✅ Closed orphaned Lighter {sym}")
-                            except TypeError as type_err:
-                                logger.critical(
-                                    f"🚨 CRITICAL TypeError in Lighter close for orphan {sym}: {type_err}\n"
-                                    f"   This indicates API limit data type mismatch (string vs float).\n"
-                                    f"   Position may still be open - manual intervention required!"
-                                )
-                                # Send Telegram alert for manual intervention
+                    telegram = get_telegram_bot()
+                    if telegram and telegram.enabled:
+                        await telegram.send_error(
+                            f"🚨 EXCHANGE DESYNC!\n"
+                            f"Orphaned Lighter positions: {real_orphans}\n"
+                            f"Closing to prevent directional risk..."
+                        )
+                except Exception:
+                    pass
+                
+                for sym in real_orphans:
+                    try:
+                        logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
+                        pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
+                        if pos:
+                            size = safe_float(pos.get('size', 0))
+                            original_side = "BUY" if size > 0 else "SELL"
+                            px = safe_float(lighter.fetch_mark_price(sym))
+                            if px > 0:
+                                notional = abs(size) * px
+                                # CRITICAL: Robust try-except for TypeError
                                 try:
-                                    telegram = get_telegram_bot()
-                                    if telegram and telegram.enabled:
-                                        await telegram.send_error(
-                                            f"🚨 TypeError closing Lighter orphan {sym}!\n"
-                                            f"Error: {type_err}\n"
-                                            f"Manual close required!"
-                                        )
-                                except Exception:
-                                    pass
-                except Exception as e:
-                    logger.error(f"Failed to close Lighter orphan {sym}: {e}")
+                                    await lighter.close_live_position(sym, original_side, notional)
+                                    logger.info(f"✅ Closed orphaned Lighter {sym}")
+                                except TypeError as type_err:
+                                    logger.critical(f"🚨 TypeError closing Lighter orphan {sym}: {type_err}")
+                    except Exception as e:
+                        logger.error(f"Failed to close Lighter orphan {sym}: {e}")
         
         # ═══════════════════════════════════════════════════════════════
         # SUCCESS: Exchanges are in sync
@@ -1875,7 +1878,24 @@ async def farm_loop(lighter, x10, parallel_exec):
             trades = await get_open_trades()
             farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
 
-            # Check concurrency limit
+            # FIX: Deduplizierung von DB-Trades und aktiven Tasks
+            open_symbols_db = {t['symbol'] for t in trades}
+            
+            async with TASKS_LOCK:
+                executing_symbols = set(ACTIVE_TASKS.keys())
+            
+            # Bilde die Vereinigungsmenge (Union) -> Jedes Symbol zählt nur 1x
+            all_active_symbols = open_symbols_db | executing_symbols
+            current_total_count = len(all_active_symbols)
+            
+            # Globales Limit prüfen
+            total_limit = getattr(config, 'MAX_OPEN_TRADES', 3)
+            
+            if current_total_count >= total_limit:
+                await asyncio.sleep(5)
+                continue
+
+            # Check concurrency limit (Farm spezifisch)
             if farm_count >= getattr(config, 'FARM_MAX_CONCURRENT', 3):
                 await asyncio.sleep(10)
                 continue
@@ -2268,14 +2288,26 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 
                 # 1. Aktuellen Status prüfen
                 open_trades_refreshed = await get_open_trades()
-                current_open_count = len(open_trades_refreshed)
                 max_trades = getattr(config, 'MAX_OPEN_TRADES', 40)
                 
-                # Berechne exakt, wie viele Trades wir noch öffnen dürfen
-                slots_available = max_trades - current_open_count
+                # FIX: Deduplizierung auch hier!
+                open_symbols_db = {t.get('symbol') if isinstance(t, dict) else t for t in open_trades_refreshed}
+                
+                # WICHTIG: Variable wiederherstellen für das Logging weiter unten!
+                current_open_count = len(open_symbols_db)
+                
+                async with TASKS_LOCK:
+                    executing_symbols = set(ACTIVE_TASKS.keys())
+                
+                # Union bilden
+                all_active_symbols = open_symbols_db | executing_symbols
+                current_total_count = len(all_active_symbols)
+                
+                # Berechne exakt freie Slots
+                slots_available = max_trades - current_total_count
 
                 if slots_available <= 0:
-                    logger.debug(f"⛔ Max trades reached ({current_open_count}/{max_trades}). Waiting...")
+                    logger.debug(f"⛔ Max trades reached ({current_total_count}/{max_trades}). Waiting...")
                     await asyncio.sleep(REFRESH_DELAY)
                     continue
 
@@ -2935,7 +2967,22 @@ async def run_bot_v5():
     except Exception as e:
         logger.error(f"⚠️ Market load warning (continuing): {e}")
 
-    # 4. INIT COMPONENTS & WIRING (Das fehlte vorher!)
+    # 4. PRE-WARMUP EXECUTION CLIENTS (CRITICAL FOR SPEED)
+    logger.info("🔥 Warming up execution clients (Network Handshake)...")
+    try:
+        # 1. Lighter Signer Warmup (lädt WASM)
+        await lighter._get_signer()
+        
+        # 2. X10 Network Warmup (Echter HTTP Request!)
+        # Dieser Call zwingt aiohttp, die SSL-Verbindung jetzt schon aufzubauen
+        x10_client = await x10._get_trading_client()
+        await x10_client.markets_info.get_markets()
+        
+        logger.info("✅ Execution clients warmed up & NETWORK READY")
+    except Exception as e:
+        logger.warning(f"⚠️ Warmup warning: {e}")
+
+    # 5. INIT COMPONENTS & WIRING (Das fehlte vorher!)
     # ---------------------------------------------------
     
     # A) Prediction Engine holen
@@ -3032,12 +3079,12 @@ async def run_bot_v5():
         logger.info("✅ DB ist sauber (keine offenen Trades).")
     # --- ENDE ZOMBIE KILLER ---
 
-    # 5. INIT PARALLEL EXECUTION MANAGER
+    # 6. INIT PARALLEL EXECUTION MANAGER
     parallel_exec = ParallelExecutionManager(x10, lighter)
     await parallel_exec.start()
     logger.info("✅ ParallelExecutionManager started")
     
-    # 6. CREATE TASK SUPERVISOR
+    # 7. CREATE TASK SUPERVISOR
     supervisor = TaskSupervisor()
     
     # Register core tasks
@@ -3094,7 +3141,7 @@ async def run_bot_v5():
         max_restarts=999
     )
     
-    # 7. START ALL TASKS
+    # 8. START ALL TASKS
     await supervisor.start_all()
     
     if telegram_bot and telegram_bot.enabled:
@@ -3108,13 +3155,13 @@ async def run_bot_v5():
     logger.info("   BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   ")
     logger.info("═══════════════════════════════════════════════════════════")
     
-    # 8. WAIT FOR SHUTDOWN
+    # 9. WAIT FOR SHUTDOWN
     try:
         await supervisor.wait_for_shutdown()
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("🛑 Shutdown requested via keyboard")
         
-    # 9. GRACEFUL SHUTDOWN SEQUENCE
+    # 10. GRACEFUL SHUTDOWN SEQUENCE
     SHUTDOWN_FLAG = True
     logger.info("🛑 Shutting down...")
     

@@ -1459,8 +1459,11 @@ class LighterAdapter(BaseAdapter):
 
             for attempt in range(max_retries + 1):
                 try:
+                    # OPTIMIERUNG: Aggressiverer Exponential Backoff
+                    # Verhindert unnötiges Warten vor dem ersten Versuch (attempt 0)
                     if attempt > 0:
-                        await asyncio.sleep(0.5 * attempt)
+                        backoff = 0.1 * (2 ** attempt)  # 0.2s, 0.4s... statt linear 0.5s
+                        await asyncio.sleep(backoff)
 
                     client_oid = int(time.time() * 1000) + random.randint(0, 99999)
 

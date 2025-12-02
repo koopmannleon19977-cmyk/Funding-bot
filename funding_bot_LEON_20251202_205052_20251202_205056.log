@@ -1,0 +1,1870 @@
+20:50:56 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+20:50:56 [INFO] 🔥 BOT V5 (Architected) STARTING...
+20:50:56 [INFO] 🚀 Starting InMemoryStateManager...
+20:50:56 [INFO] 📂 Initializing database: data/trades.db
+20:50:56 [INFO] ✅ Read pool created: 5 connections
+20:50:56 [INFO] ✅ WAL mode enabled
+20:50:56 [INFO] 🔄 Running database migrations...
+20:50:56 [INFO] ✅ Migrations complete (11 statements)
+20:50:56 [INFO] ✅ Database initialized
+20:50:56 [INFO] 🖊️ Database write loop started
+20:50:56 [INFO] 📂 Loaded 3 trades from database
+20:50:56 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+20:50:56 [INFO] ✅ State Manager started
+20:50:56 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+20:50:56 [INFO] ✅ Async database initialized
+20:50:56 [INFO] 📝 State writer loop started
+20:50:56 [DEBUG] ✅ Database schema up to date
+20:50:56 [INFO] Initialisiere X10 Adapter...
+20:50:56 [INFO]  X10 Account initialisiert.
+20:50:56 [INFO] Initialisiere Lighter Adapter...
+20:50:56 [INFO] 📊 Loading Market Data via REST...
+20:50:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+20:50:57 [WARNING] ⚠️ Skipping ETH-USD: market_id=None (parsed=-1) invalid or >254
+20:50:57 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+20:50:58 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+20:50:59 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+20:50:59 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+20:51:00 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+20:51:00 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+20:51:00 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+20:51:00 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+20:51:00 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+20:51:00 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+20:51:00 [INFO] 📈 Pre-loading Lighter prices...
+20:51:01 [DEBUG] Lighter: Loaded 379 funding rates
+20:51:01 [DEBUG] Lighter: Loaded 115 prices via REST
+20:51:01 [INFO] ✅ Lighter prices loaded: 115 symbols
+20:51:01 [INFO] FundingPredictorV2 initialized with BTC Correlation
+20:51:01 [INFO] 启动 OI Tracker für 67 Symbole...
+20:51:01 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+20:51:01 [INFO] 🌐 Starting WebSocket Manager...
+20:51:01 [INFO] 📊 OI Tracker: Starting cycle 1 (67 symbols)
+20:51:01 [INFO] 🔌 [lighter] WebSocket manager started
+20:51:01 [INFO] 🔌 [x10_account] WebSocket manager started
+20:51:01 [INFO] 🔌 [x10_trades] WebSocket manager started
+20:51:01 [INFO] 🔌 [x10_funding] WebSocket manager started
+20:51:01 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+20:51:01 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+20:51:01 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+20:51:01 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+20:51:01 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+20:51:02 [DEBUG] ✅ AVAX-USD: X10=$559,789, Lighter=$288,651, Total=$848,439
+20:51:02 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+20:51:02 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+20:51:02 [INFO] [lighter] Resubscribing to 71 channels (paced)...
+20:51:02 [INFO] [lighter] Receive loop started (async iterator)
+20:51:02 [DEBUG] 💓 [lighter] Heartbeat monitor started (library handles ping/pong)
+20:51:02 [DEBUG] [lighter] Subscribed to order_book/18
+20:51:02 [DEBUG] [lighter] Subscribed to trade/18
+20:51:02 [DEBUG] [lighter] Subscribed to order_book/32
+20:51:02 [DEBUG] [lighter] Subscribed to trade/32
+20:51:02 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+20:51:02 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+20:51:02 [INFO] [x10_funding] Receive loop started (async iterator)
+20:51:02 [DEBUG] 💓 [x10_funding] Heartbeat monitor started (library handles ping/pong)
+20:51:02 [DEBUG] [lighter] Subscribed to order_book/46
+20:51:02 [DEBUG] [lighter] Subscribed to trade/46
+20:51:02 [DEBUG] [lighter] Subscribed to order_book/37
+20:51:02 [DEBUG] [lighter] Subscribed to trade/37
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/39
+20:51:03 [DEBUG] [lighter] Subscribed to trade/39
+20:51:03 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+20:51:03 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+20:51:03 [INFO] [x10_account] Receive loop started (async iterator)
+20:51:03 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":true,"orders":[]},"ts":1764705054394,"seq":1}
+20:51:03 [DEBUG] 💓 [x10_account] Heartbeat monitor started (library handles ping/pong)
+20:51:03 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":true,"positions":[]},"ts":1764705054394,"seq":2}
+20:51:03 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+20:51:03 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+20:51:03 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":true,"balance":{"collateralName":"USD","balance":"301.004991"
+20:51:03 [INFO] [x10_trades] Receive loop started (async iterator)
+20:51:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943710205939714,"m":"IP-USD","S":"SELL","tT":"TRADE","T":1764705038011,"p":"2.3351
+20:51:03 [DEBUG] 💓 [x10_trades] Heartbeat monitor started (library handles ping/pong)
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/67
+20:51:03 [DEBUG] [lighter] Subscribed to trade/67
+20:51:03 [DEBUG] [lighter] Resubscribed 10/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/17
+20:51:03 [DEBUG] [lighter] Subscribed to trade/17
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/1
+20:51:03 [DEBUG] [lighter] Subscribed to trade/1
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/33
+20:51:03 [DEBUG] [lighter] Subscribed to trade/33
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/50
+20:51:03 [DEBUG] [lighter] Subscribed to trade/50
+20:51:03 [DEBUG] [lighter] Resubscribed 20/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/83
+20:51:03 [DEBUG] [lighter] Subscribed to trade/83
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/49
+20:51:03 [DEBUG] [lighter] Subscribed to trade/49
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/47
+20:51:03 [DEBUG] [lighter] Subscribed to trade/47
+20:51:03 [DEBUG] [lighter] Resubscribed 30/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/26
+20:51:03 [DEBUG] [lighter] Subscribed to trade/26
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/27
+20:51:03 [DEBUG] [lighter] Subscribed to trade/27
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/36
+20:51:03 [DEBUG] [lighter] Subscribed to trade/36
+20:51:03 [DEBUG] [lighter] Resubscribed 40/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/20
+20:51:03 [DEBUG] [lighter] Subscribed to trade/20
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/45
+20:51:03 [DEBUG] [lighter] Subscribed to trade/45
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/91
+20:51:03 [DEBUG] [lighter] Subscribed to trade/91
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/15
+20:51:03 [DEBUG] [lighter] Subscribed to trade/15
+20:51:03 [DEBUG] [lighter] Resubscribed 50/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/23
+20:51:03 [DEBUG] [lighter] Subscribed to trade/23
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/90
+20:51:03 [DEBUG] [lighter] Subscribed to trade/90
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/52
+20:51:03 [DEBUG] [lighter] Subscribed to trade/52
+20:51:03 [DEBUG] [lighter] Resubscribed 60/71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/7
+20:51:03 [DEBUG] [lighter] Subscribed to trade/7
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/13
+20:51:03 [DEBUG] [lighter] Subscribed to trade/13
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/42
+20:51:03 [DEBUG] [lighter] Subscribed to trade/42
+20:51:03 [DEBUG] [lighter] Resubscribed 70/71 channels
+20:51:03 [INFO] [lighter] Resubscribed to 71 channels
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/63
+20:51:03 [DEBUG] [lighter] Subscribed to trade/63
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/76
+20:51:03 [DEBUG] [lighter] Subscribed to trade/76
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/40
+20:51:03 [DEBUG] [lighter] Subscribed to trade/40
+20:51:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943781773348864,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705055074,"p":"33.16
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/3
+20:51:03 [DEBUG] [lighter] Subscribed to trade/3
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/11
+20:51:03 [DEBUG] [lighter] Subscribed to trade/11
+20:51:03 [DEBUG] [lighter] Subscribed to order_book/34
+20:51:03 [DEBUG] [lighter] Subscribed to trade/34
+20:51:03 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+20:51:03 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+20:51:03 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+20:51:03 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+20:51:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943782176002049,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705055170,"p":"140.3
+20:51:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943782767398912,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705055311,"p":"140.3
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943783195217920,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705055413,"p":"3019.
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943783765643264,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705055549,"p":"92032"
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943784218628096,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705055657,"p":"92032"
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943784688390145,"m":"CRV-USD","S":"SELL","tT":"TRADE","T":1764705055769,"p":"0.391
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943785246232576,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705055902,"p":"33.16
+20:51:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943786311585792,"m":"TAO-USD","S":"SELL","tT":"TRADE","T":1764705056156,"p":"286.0
+20:51:05 [INFO] Lighter: Found 0 open positions
+20:51:05 [INFO] 🌍 Echte Positionen auf Exchanges: []
+20:51:05 [WARNING] ⚠️  ZOMBIE GEFUNDEN: RESOLV-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+20:51:05 [INFO] ✅ Trade RESOLV-USD closed (PnL: $0.00)
+20:51:05 [WARNING] ⚠️  ZOMBIE GEFUNDEN: BERA-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+20:51:05 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+20:51:05 [WARNING] ⚠️  ZOMBIE GEFUNDEN: APEX-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+20:51:05 [INFO] ✅ Trade APEX-USD closed (PnL: $0.00)
+20:51:05 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+20:51:05 [INFO] ✅ ParallelExecutionManager started
+20:51:05 [INFO] 📝 Registered task: logic_loop (critical=True)
+20:51:05 [INFO] 📝 Registered task: trade_management_loop (critical=True)
+20:51:05 [INFO] 📝 Registered task: farm_loop (critical=False)
+20:51:05 [INFO] 📝 Registered task: maintenance_loop (critical=False)
+20:51:05 [INFO] 📝 Registered task: cleanup_finished_tasks (critical=False)
+20:51:05 [INFO] 📝 Registered task: health_reporter (critical=False)
+20:51:05 [INFO] 📝 Registered task: connection_watchdog (critical=True)
+20:51:05 [INFO] ✅ Signal handlers installed (SIGINT, SIGTERM)
+20:51:05 [INFO] ▶️  Started task: logic_loop
+20:51:05 [INFO] ▶️  Started task: trade_management_loop
+20:51:05 [INFO] ▶️  Started task: farm_loop
+20:51:05 [INFO] ▶️  Started task: maintenance_loop
+20:51:05 [INFO] ▶️  Started task: cleanup_finished_tasks
+20:51:05 [INFO] ▶️  Started task: health_reporter
+20:51:05 [INFO] ▶️  Started task: connection_watchdog
+20:51:05 [INFO] 🚀 Started 7 tasks
+20:51:05 [INFO] ═══════════════════════════════════════════════════════════
+20:51:05 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+20:51:05 [INFO] ═══════════════════════════════════════════════════════════
+20:51:05 [INFO] 🔄 Rollback processor running...
+20:51:05 [INFO] Logic Loop gestartet – REFRESH alle 3s
+20:51:05 [INFO] ⚡ Latency Arb Detector initialized (threshold: 1.0s)
+20:51:05 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: set()
+20:51:05 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:51:05 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:51:05 [INFO] 🛡️ Trade Management Loop gestartet
+20:51:05 [INFO] 🚜 Farm Mode ACTIVE
+20:51:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:05 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+20:51:05 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+20:51:05 [INFO] 🔍 Supervisor loop started
+20:51:05 [DEBUG] 📝 Flushed 1 writes
+20:51:05 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+20:51:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+20:51:05 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:51:05 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:51:05 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:51:05 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+20:51:05 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00008300, rx=-0.00001500, net=-0.00006800, apy=59.6%
+20:51:05 [INFO] 💎 ENA-USD | APY: 59.6%
+20:51:05 [DEBUG] Skip AVNT-USD: Spread 0.35% too high
+20:51:05 [DEBUG] Skip OP-USD: Spread 0.34% too high
+20:51:05 [DEBUG] Skip WLD-USD: Spread 0.39% too high
+20:51:05 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080400, rx=-0.00094700, net=0.00014300, apy=125.3%
+20:51:05 [DEBUG] Skip RESOLV-USD: Spread 0.56% too high
+20:51:05 [DEBUG] Skip ONDO-USD: Spread 0.65% too high
+20:51:05 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:51:05 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:51:05 [INFO] 🔍 DEBUG APEX-USD: rl=0.00001200, rx=-0.00007500, net=0.00008700, apy=76.2%
+20:51:05 [INFO] 💎 APEX-USD | APY: 76.2%
+20:51:05 [DEBUG] Skip LDO-USD: Spread 0.55% too high
+20:51:05 [INFO] 🔍 DEBUG BERA-USD: rl=-0.00014900, rx=-0.00008300, net=-0.00006600, apy=57.8%
+20:51:05 [INFO] 💎 BERA-USD | APY: 57.8%
+20:51:05 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:51:05 [INFO] ✅ Found 32 opportunities from 63 valid pairs (farm_mode=True, scanned=67)
+20:51:05 [INFO] 🎯 Found 3 opportunities, executing best...
+20:51:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:05 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+20:51:06 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+20:51:06 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:51:06 [DEBUG] Lighter Balance: Raw=$294.71, Safe=$279.98
+20:51:06 [INFO] 🚜 Opening FARM: ENA-USD APY=59.6%
+20:51:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:06 [DEBUG] Lighter Balance: Raw=$294.71, Safe=$279.98
+20:51:06 [INFO] X10: Detected balance = $301.00
+20:51:06 [INFO] 🚀 Launching 2 trades (Slots available: 3)
+20:51:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:06 [INFO] Lighter: Found 0 open positions
+20:51:06 [DEBUG] ✅ ENA-USD verified: No existing positions on exchanges
+20:51:06 [DEBUG] MIN_NOTIONAL ENA-USD: min_base=20.00000000 coins, price=$0.2631, min_qty_usd=$5.26, min_notional_api=$10.00, final=$11.00
+20:51:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:07 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+20:51:07 [INFO] 🎰 KELLY ENA-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+20:51:07 [INFO] 📊 KELLY SIZE ENA-USD: base=$30.0, kelly_recommended=$14.0, final=$30.0
+20:51:07 [INFO] 🚀 Opening ENA-USD: Size=$30.0 (Min=$27.6)
+20:51:07 [INFO] 🔄 [PARALLEL] ENA-USD: Lighter POST-ONLY first
+20:51:07 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=SELL, size_usd=$30.00, price=$0.263130
+20:51:07 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+20:51:07 [DEBUG] QUANTIZE ENA-USD: USD=30.00, coins=114.012085, raw=1140, lot_size=200, final=1000
+20:51:07 [INFO] 🔄 [PARALLEL] ENA-USD: X10 MARKET order
+20:51:07 [DEBUG] ✅ ENA-USD: X10=$256,657, Lighter=$19,849,001, Total=$20,105,658
+20:51:07 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764705105085,"BaseAmount":1000,"Price":26155,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124267175,"ExpiredAt":1764705666175,"Nonce":2193,"Sig":"8qMFM0QJ3MVGqVrfWTnTyL8Oo/LHmD4Ly9kCS0+AyWPV8JD/S6QGXplIMEfAb6PFv4mfIDOlJjJfNXKw9NS5wUV3zn/zfxKNSPPgL7AMJyw="}
+20:51:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+20:51:07 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+20:51:07 [INFO] Lighter: Found 0 open positions
+20:51:07 [INFO] 💰 Balance: X10=$301.0 (free=$266.5), Lit=$280.0 (free=$245.5) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+20:51:07 [INFO] 🚀 Launching trade for APEX-USD (APY=76.2%)
+20:51:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:07 [DEBUG] X10: Funding Refresh OK, cache=91
+20:51:07 [DEBUG] 📊 Lighter Funding Cache refresh (current=115)
+20:51:07 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='700d817606f769c3cb1f4f9ed1bd1e46be890550c134db8bc9edbf9712524c8dc4069dbdfa396bb5' predicted_execution_time_ms=1764705059123 additional_properties={}
+20:51:07 [INFO] Lighter Order: 700d817606f769c3cb1f4f9ed1bd1e46be890550c134db8bc9edbf9712524c8dc4069dbdfa396bb5
+20:51:07 [DEBUG] Lighter: Loaded 379 funding rates
+20:51:07 [INFO] 🚀 Launching trade for BERA-USD (APY=57.8%)
+20:51:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:08 [DEBUG] 📝 Flushed 2 writes
+20:51:08 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:51:08 [INFO] Lighter: Found 1 open positions
+20:51:08 [DEBUG] ✅ APEX-USD verified: No existing positions on exchanges
+20:51:08 [DEBUG] MIN_NOTIONAL APEX-USD: min_base=5.00000000 coins, price=$0.5930, min_qty_usd=$2.96, min_notional_api=$10.00, final=$11.00
+20:51:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:08 [INFO] ✅ Launched 2 trade tasks this cycle
+20:51:08 [DEBUG] Lighter: Loaded 115 prices via REST
+20:51:08 [DEBUG] Lighter: Funding Refresh OK, cache=115
+20:51:08 [INFO] 🎰 KELLY APEX-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+20:51:08 [INFO] 📊 KELLY SIZE APEX-USD: base=$30.0, kelly_recommended=$12.4, final=$30.0
+20:51:08 [INFO] 🚀 Opening APEX-USD: Size=$30.0 (Min=$11.0)
+20:51:08 [INFO] 🔄 [PARALLEL] APEX-USD: Lighter POST-ONLY first
+20:51:08 [INFO] 🚀 LIGHTER OPEN APEX-USD: side=SELL, size_usd=$30.00, price=$0.594740
+20:51:08 [DEBUG] 🔍 DEBUG: APEX-USD market_id = 86 (raw=86, type=<class 'int'>)
+20:51:08 [DEBUG] QUANTIZE APEX-USD: USD=30.00, coins=50.442210, raw=504, lot_size=50, final=500
+20:51:08 [INFO] 🔄 [PARALLEL] APEX-USD: X10 MARKET order
+20:51:08 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":86,"ClientOrderIndex":1764705091506,"BaseAmount":500,"Price":59117,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124268519,"ExpiredAt":1764705667519,"Nonce":2194,"Sig":"9x8C6wqwOMKbX1Tpc3Gwr0G2ecjNpBWec1w6rNc8AfZZHXN5VJVEJ/O1FbqDJb7uumQ1KVczTu4SWN8ODnu9kOBet7nOqcm+R/eKhNklIzw="}
+20:51:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802476433409,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705060010,"p":"
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802480627716,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705060011,"p":"92031
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802489016321,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705060013,"p":"140.3
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802489016326,"m":"ASTER-USD","S":"SELL","tT":"TRADE","T":1764705060013,"p":"1.0
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802509987842,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705060018,"p":"3019.
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802509987847,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705060018,"p":"3019.
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802518376450,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705060020,"p":"3019.
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802530959361,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705060023,"p":"140.3
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802539347971,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705060025,"p":"33.16
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802543542273,"m":"CRV-USD","S":"BUY","tT":"TRADE","T":1764705060026,"p":"0.3918
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802543542278,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705060026,"p":"92032"
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802547736577,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705060027,"p":"92032"
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802547736583,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705060027,"p":"33.1
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802551930881,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705060028,"p":"33.1
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802551930886,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705060028,"p":"92031
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802564513793,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705060031,"p":"3019.
+20:51:08 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='864311508fb7eaebf24c25285062222dbd5e3051134926443e00f917632d1a980e883d56afd9eadf' predicted_execution_time_ms=1764705060470 additional_properties={}
+20:51:08 [INFO] Lighter Order: 864311508fb7eaebf24c25285062222dbd5e3051134926443e00f917632d1a980e883d56afd9eadf
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802564513798,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705060031,"p":"140.3
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802568708097,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705060032,"p":"883.4
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802572902401,"m":"AVAX-USD","S":"SELL","tT":"TRADE","T":1764705060033,"p":"13.6
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802577096706,"m":"MON-USD","S":"SELL","tT":"TRADE","T":1764705060034,"p":"0.031
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802581291009,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705060035,"p":"
+20:51:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943802581291014,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705060035,"p":"33.1
+20:51:09 [DEBUG] Placing an order: id=1259010710167792577400478175846813056607768160238790358559730277632063736691
+20:51:09 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:51:09 [INFO] 🔍 Running periodic exchange sync check...
+20:51:09 [INFO] 🔍 Starting Exchange Sync Check...
+20:51:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:09 [INFO] Lighter: Found 2 open positions
+20:51:09 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+20:51:09 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.9110, min_qty_usd=$2.73, min_notional_api=$10.00, final=$11.00
+20:51:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:10 [INFO] Lighter: Found 2 open positions
+20:51:10 [INFO] 🔒 Skipping sync check for ENA-USD (Execution in progress)
+20:51:10 [INFO] 🔒 Skipping sync check for APEX-USD (Execution in progress)
+20:51:10 [INFO]  X10 Order: 1995943809071247360
+20:51:10 [INFO] ✅ [PARALLEL] ENA-USD: Both legs filled in 3031ms
+20:51:10 [DEBUG] 📝 Trade added to state: ENA-USD
+20:51:10 [DEBUG] 📝 Flushed 1 writes
+20:51:10 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:51:10 [DEBUG] Fetching fresh positions (force=False, cache_age=1764705070.2s)
+20:51:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:10 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943809904545792,"m":"ENA-USD","S":"BUY","tT":"TRADE","T":1764705061781,"p":"0.2631
+20:51:10 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995943809904545792,"accountId":127074,"m
+20:51:10 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943809996816384,"accountId":127
+20:51:10 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"301.004991
+20:51:10 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995943809071247360,"accountId":127074,"e
+20:51:10 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.998478
+20:51:10 [DEBUG] Placing an order: id=2116084790589113326940731171369811109276944789429252826482742990843346761927
+20:51:10 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:51:10 [INFO] Lighter: Found 2 open positions
+20:51:10 [INFO] 📊 Positions: X10=1, Lighter=2
+20:51:10 [DEBUG] X10 positions: ['ENA-USD']
+20:51:10 [DEBUG] Lighter positions: ['ENA-USD', 'APEX-USD']
+20:51:10 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:10 [DEBUG] Check ENA-USD: Age=0.5s (Limit=60s)
+20:51:10 [INFO]  X10 Order: 1995943811764051968
+20:51:10 [INFO] ✅ [PARALLEL] APEX-USD: Both legs filled in 2328ms
+20:51:10 [DEBUG] 📝 Trade added to state: APEX-USD
+20:51:10 [DEBUG] ✅ AVNT-USD: X10=$68,855, Lighter=$1,744,160, Total=$1,813,015
+20:51:11 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943812601483265,"m":"APEX-USD","S":"BUY","tT":"TRADE","T":1764705062424,"p":"0.595
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995943811764051968,"accountId":127074,"e
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995943812601483265,"accountId":127074,"m
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.998478
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943812622450688,"accountId":127
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.991783
+20:51:11 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943813390012416,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705062612,"p":"92032"
+20:51:11 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'ENA-USD', 'APEX-USD'}
+20:51:11 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:51:11 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:51:11 [DEBUG] Lighter Balance: Raw=$294.71, Safe=$279.97
+20:51:11 [INFO] 🎰 KELLY BERA-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+20:51:11 [INFO] 📊 KELLY SIZE BERA-USD: base=$30.0, kelly_recommended=$10.8, final=$30.0
+20:51:11 [DEBUG] 🧹 Cleaned task: ENA-USD
+20:51:11 [INFO] 🚀 Opening BERA-USD: Size=$30.0 (Min=$11.0)
+20:51:11 [INFO] 🔄 [PARALLEL] BERA-USD: Lighter POST-ONLY first
+20:51:11 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$30.00, price=$0.910970
+20:51:11 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+20:51:11 [DEBUG] QUANTIZE BERA-USD: USD=30.00, coins=32.931930, raw=329, lot_size=30, final=300
+20:51:11 [INFO] 🔄 [PARALLEL] BERA-USD: X10 MARKET order
+20:51:11 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764705121553,"BaseAmount":300,"Price":90550,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124271355,"ExpiredAt":1764705670355,"Nonce":2195,"Sig":"Tmwj1Kdxlmg7YLEPWblKYhjtO8ScHhqHV3ax+GfCS9BUvpj4r4n2enOotvjKypAIhJK4hASQlAGCjbRGUs+Wlii/ET0bzM3b5BZtSD+qDiQ="}
+20:51:11 [DEBUG] Placing an order: id=3054275197281460102295736955480296144483770827532630590009464144684619573559
+20:51:11 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:51:11 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943814266621952,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705062821,"p":"92032"
+20:51:11 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:51:11 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='7ea6618ab5ca4792c9b4b9572356bcfa93aeeb05c3d0565d8c95eab743d6deaf5d472a6a45fc742e' predicted_execution_time_ms=1764705063304 additional_properties={}
+20:51:11 [INFO] Lighter Order: 7ea6618ab5ca4792c9b4b9572356bcfa93aeeb05c3d0565d8c95eab743d6deaf5d472a6a45fc742e
+20:51:11 [INFO]  X10 Order: 1995943815126532096
+20:51:11 [INFO] ✅ [PARALLEL] BERA-USD: Both legs filled in 297ms
+20:51:11 [DEBUG] 📝 Trade added to state: BERA-USD
+20:51:11 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:51:11 [DEBUG] Using cached positions (age: 1.5s)
+20:51:11 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:11 [DEBUG] Check BERA-USD: Age=0.0s (Limit=60s)
+20:51:11 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:11 [DEBUG] Check APEX-USD: Age=0.8s (Limit=60s)
+20:51:11 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:11 [DEBUG] Check ENA-USD: Age=1.5s (Limit=60s)
+20:51:11 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:51:11 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:51:11 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.06%)
+20:51:11 [DEBUG] 🔄 Skip ENA-USD: Already open (in open_syms)
+20:51:11 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.07%)
+20:51:11 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080400, rx=-0.00095200, net=0.00014800, apy=129.6%
+20:51:11 [DEBUG] Skip RESOLV-USD: Spread 0.54% too high
+20:51:11 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:51:11 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:51:11 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [DEBUG] 🔄 Skip APEX-USD: Already open (in open_syms)
+20:51:11 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.05%)
+20:51:11 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.05%)
+20:51:11 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO] 🔍 DEBUG BERA-USD: rl=-0.00014900, rx=-0.00008200, net=-0.00006700, apy=58.7%
+20:51:11 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.13%)
+20:51:11 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:51:11 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+20:51:11 [INFO] ✅ Found 35 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+20:51:11 [INFO] 🎯 Found 3 opportunities, executing best...
+20:51:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995943815126532096,"accountId":127074,"e
+20:51:11 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943815965315072,"m":"BERA-USD","S":"BUY","tT":"TRADE","T":1764705063226,"p":"0.911
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995943815965315072,"accountId":127074,"m
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.991783
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943815977893888,"accountId":127
+20:51:11 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.985219
+20:51:11 [INFO] X10: Detected balance = $300.93
+20:51:11 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+20:51:12 [DEBUG] 📝 Flushed 2 writes
+20:51:12 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:51:12 [DEBUG] Using cached positions (age: 2.5s)
+20:51:12 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:12 [DEBUG] Check BERA-USD: Age=1.0s (Limit=60s)
+20:51:12 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:12 [DEBUG] Check APEX-USD: Age=1.8s (Limit=60s)
+20:51:12 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:12 [DEBUG] Check ENA-USD: Age=2.5s (Limit=60s)
+20:51:12 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago)
+20:51:12 [DEBUG] 💓 [x10_funding] Alive (uptime=10s, waiting for first message)
+20:51:12 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943820633575424,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705064339,"p":"92032"
+20:51:13 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=1s ago)
+20:51:13 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s ago)
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943821661179905,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705064584,"p":"3019.
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943821870895104,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705064634,"p":"3019.
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943822692978692,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705064830,"p":"140.3
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943822877528065,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705064874,"p":"33.16
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943822986579968,"m":"ZEC-USD","S":"SELL","tT":"TRADE","T":1764705064900,"p":"337.5
+20:51:13 [DEBUG] Using cached positions (age: 3.5s)
+20:51:13 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:13 [DEBUG] Check BERA-USD: Age=2.0s (Limit=60s)
+20:51:13 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:13 [DEBUG] Check APEX-USD: Age=2.8s (Limit=60s)
+20:51:13 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:13 [DEBUG] Check ENA-USD: Age=3.5s (Limit=60s)
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943823720583170,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705065075,"p":"33.16
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943823867383808,"m":"IP-USD","S":"BUY","tT":"TRADE","T":1764705065110,"p":"2.3360"
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943823892549633,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705065116,"p":"92032"
+20:51:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943824890793986,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705065354,"p":"140.3
+20:51:14 [DEBUG] Using cached positions (age: 4.5s)
+20:51:14 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:14 [DEBUG] Check BERA-USD: Age=3.0s (Limit=60s)
+20:51:14 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:14 [DEBUG] Check APEX-USD: Age=3.8s (Limit=60s)
+20:51:14 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:14 [DEBUG] Check ENA-USD: Age=4.5s (Limit=60s)
+20:51:14 [DEBUG] ✅ EDEN-USD: X10=$112,534, Lighter=$5,957,453, Total=$6,069,986
+20:51:14 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:15 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943831765258241,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705066993,"p":"33.1
+20:51:15 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:51:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:15 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943833283596288,"m":"ZEC-USD","S":"SELL","tT":"TRADE","T":1764705067355,"p":"337.0
+20:51:16 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943833765941248,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705067470,"p":"92031
+20:51:16 [INFO] Lighter: Found 3 open positions
+20:51:16 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:16 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:16 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:16 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:16 [DEBUG] Check BERA-USD: Age=4.5s (Limit=60s)
+20:51:16 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:16 [DEBUG] Check APEX-USD: Age=5.3s (Limit=60s)
+20:51:16 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:16 [DEBUG] Check ENA-USD: Age=5.9s (Limit=60s)
+20:51:17 [DEBUG] Using cached positions (age: 1.4s)
+20:51:17 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:17 [DEBUG] Check BERA-USD: Age=5.5s (Limit=60s)
+20:51:17 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:17 [DEBUG] Check APEX-USD: Age=6.3s (Limit=60s)
+20:51:17 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:17 [DEBUG] Check ENA-USD: Age=6.9s (Limit=60s)
+20:51:17 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:18 [DEBUG] Using cached positions (age: 2.4s)
+20:51:18 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:18 [DEBUG] Check BERA-USD: Age=6.5s (Limit=60s)
+20:51:18 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:18 [DEBUG] Check APEX-USD: Age=7.3s (Limit=60s)
+20:51:18 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:18 [DEBUG] Check ENA-USD: Age=7.9s (Limit=60s)
+20:51:18 [DEBUG] ✅ LINK-USD: X10=$369,968, Lighter=$191,277, Total=$561,246
+20:51:18 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943844775989248,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705070095,"p":"140.2
+20:51:18 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943845803593730,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705070340,"p":"3019.
+20:51:19 [DEBUG] Using cached positions (age: 3.4s)
+20:51:19 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:19 [DEBUG] Check BERA-USD: Age=7.5s (Limit=60s)
+20:51:19 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:19 [DEBUG] Check APEX-USD: Age=8.3s (Limit=60s)
+20:51:19 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:19 [DEBUG] Check ENA-USD: Age=8.9s (Limit=60s)
+20:51:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943846831198208,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705070585,"p":"92032"
+20:51:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943846923472896,"m":"ZEC-USD","S":"SELL","tT":"TRADE","T":1764705070607,"p":"336.0
+20:51:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943847867191296,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705070832,"p":"33.15
+20:51:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943848278233088,"m":"XRP-USD","S":"BUY","tT":"TRADE","T":1764705070930,"p":"2.1756
+20:51:20 [DEBUG] Using cached positions (age: 4.4s)
+20:51:20 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:20 [DEBUG] Check BERA-USD: Age=8.5s (Limit=60s)
+20:51:20 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:20 [DEBUG] Check APEX-USD: Age=9.3s (Limit=60s)
+20:51:20 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:20 [DEBUG] Check ENA-USD: Age=9.9s (Limit=60s)
+20:51:20 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943850698346497,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705071507,"p":"883.2
+20:51:20 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943851503652864,"m":"ZEC-USD","S":"SELL","tT":"TRADE","T":1764705071699,"p":"336.0
+20:51:20 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943852367679488,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705071905,"p":"33.1
+20:51:20 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:21 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943854515163144,"m":"EUR-USD","S":"BUY","tT":"TRADE","T":1764705072417,"p":"1.1615
+20:51:21 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+20:51:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:21 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943855609876480,"m":"EUR-USD","S":"SELL","tT":"TRADE","T":1764705072678,"p":"1.161
+20:51:21 [INFO] Lighter: Found 3 open positions
+20:51:21 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:21 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:21 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:21 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:21 [DEBUG] Check BERA-USD: Age=9.9s (Limit=60s)
+20:51:21 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:21 [DEBUG] Check APEX-USD: Age=10.7s (Limit=60s)
+20:51:21 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:21 [DEBUG] Check ENA-USD: Age=11.4s (Limit=60s)
+20:51:21 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943858231316480,"m":"CRV-USD","S":"SELL","tT":"TRADE","T":1764705073303,"p":"0.391
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943859263115264,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705073549,"p":"3019.
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943860307496960,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705073798,"p":"92032"
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943860496240640,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705073843,"p":"92032"
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943860613681152,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705073871,"p":"92032"
+20:51:22 [DEBUG] Using cached positions (age: 1.5s)
+20:51:22 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:22 [DEBUG] Check BERA-USD: Age=10.9s (Limit=60s)
+20:51:22 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:22 [DEBUG] Check APEX-USD: Age=11.7s (Limit=60s)
+20:51:22 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:22 [DEBUG] Check ENA-USD: Age=12.4s (Limit=60s)
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943861351878656,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705074047,"p":"140.2
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943861653868544,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705074119,"p":"140.2
+20:51:22 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago)
+20:51:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943862400454656,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705074297,"p":"33.15
+20:51:22 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, waiting for first message)
+20:51:23 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=11s ago)
+20:51:23 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago)
+20:51:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943863444836352,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705074546,"p":"140.2
+20:51:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943863922987008,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705074660,"p":"92032"
+20:51:23 [DEBUG] Using cached positions (age: 2.5s)
+20:51:23 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:23 [DEBUG] Check BERA-USD: Age=11.9s (Limit=60s)
+20:51:23 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:23 [DEBUG] Check APEX-USD: Age=12.7s (Limit=60s)
+20:51:23 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:23 [DEBUG] Check ENA-USD: Age=13.4s (Limit=60s)
+20:51:23 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:24 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943867353927680,"m":"UNI-USD","S":"BUY","tT":"TRADE","T":1764705075478,"p":"5.9646
+20:51:24 [DEBUG] ✅ FARTCOIN-USD: X10=$320,412, Lighter=$9,671,878, Total=$9,992,290
+20:51:24 [DEBUG] Using cached positions (age: 3.5s)
+20:51:24 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:24 [DEBUG] Check BERA-USD: Age=12.9s (Limit=60s)
+20:51:24 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:24 [DEBUG] Check APEX-USD: Age=13.7s (Limit=60s)
+20:51:24 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:24 [DEBUG] Check ENA-USD: Age=14.4s (Limit=60s)
+20:51:24 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943869375582208,"m":"ADA-USD","S":"BUY","tT":"TRADE","T":1764705075960,"p":"0.4359
+20:51:25 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943872017993729,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705076590,"p":"92031
+20:51:25 [DEBUG] Using cached positions (age: 4.5s)
+20:51:25 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:25 [DEBUG] Check BERA-USD: Age=13.9s (Limit=60s)
+20:51:25 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:25 [DEBUG] Check APEX-USD: Age=14.7s (Limit=60s)
+20:51:25 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:25 [DEBUG] Check ENA-USD: Age=15.4s (Limit=60s)
+20:51:25 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943874169671682,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705077103,"p":"92031
+20:51:25 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943875029504006,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705077308,"p":"92029
+20:51:25 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943875075641344,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705077319,"p":"92027
+20:51:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943875960639491,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705077530,"p":"92020
+20:51:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943876715614212,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705077710,"p":"0.074
+20:51:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943877294428162,"m":"AERO-USD","S":"SELL","tT":"TRADE","T":1764705077848,"p":"0.66
+20:51:26 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:51:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943877957128192,"m":"TIA-USD","S":"SELL","tT":"TRADE","T":1764705078006,"p":"0.620
+20:51:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943878561107968,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705078150,"p":"3017.
+20:51:26 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:27 [INFO] Lighter: Found 3 open positions
+20:51:27 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:27 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:27 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:27 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:27 [DEBUG] Check BERA-USD: Age=15.4s (Limit=60s)
+20:51:27 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:27 [DEBUG] Check APEX-USD: Age=16.2s (Limit=60s)
+20:51:27 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:27 [DEBUG] Check ENA-USD: Age=16.8s (Limit=60s)
+20:51:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943880414990336,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705078592,"p":"3017.7
+20:51:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943880549208064,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705078624,"p":"92006"
+20:51:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943881413234689,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705078830,"p":"140.25
+20:51:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943883082567680,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705079228,"p":"92000"
+20:51:27 [DEBUG] ✅ WLFI-USD: X10=$830,600, Lighter=$25,283,511, Total=$26,114,111
+20:51:28 [DEBUG] Using cached positions (age: 1.4s)
+20:51:28 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:28 [DEBUG] Check BERA-USD: Age=16.4s (Limit=60s)
+20:51:28 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:28 [DEBUG] Check APEX-USD: Age=17.2s (Limit=60s)
+20:51:28 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:28 [DEBUG] Check ENA-USD: Age=17.8s (Limit=60s)
+20:51:28 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943887373340676,"m":"MON-USD","S":"BUY","tT":"TRADE","T":1764705080251,"p":"0.0314
+20:51:29 [DEBUG] Using cached positions (age: 2.4s)
+20:51:29 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:29 [DEBUG] Check BERA-USD: Age=17.4s (Limit=60s)
+20:51:29 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:29 [DEBUG] Check APEX-USD: Age=18.2s (Limit=60s)
+20:51:29 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:29 [DEBUG] Check ENA-USD: Age=18.8s (Limit=60s)
+20:51:29 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943888417722368,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705080500,"p":"92000"
+20:51:29 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:30 [DEBUG] Using cached positions (age: 3.4s)
+20:51:30 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:30 [DEBUG] Check BERA-USD: Age=18.4s (Limit=60s)
+20:51:30 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:30 [DEBUG] Check APEX-USD: Age=19.2s (Limit=60s)
+20:51:30 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:30 [DEBUG] Check ENA-USD: Age=19.8s (Limit=60s)
+20:51:30 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943895774531589,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705082254,"p":"3017.7
+20:51:30 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943895782920194,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705082256,"p":"3017.7
+20:51:30 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943896219127808,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705082360,"p":"3017.
+20:51:31 [DEBUG] Using cached positions (age: 4.4s)
+20:51:31 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:31 [DEBUG] Check BERA-USD: Age=19.4s (Limit=60s)
+20:51:31 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:31 [DEBUG] Check APEX-USD: Age=20.2s (Limit=60s)
+20:51:31 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:31 [DEBUG] Check ENA-USD: Age=20.8s (Limit=60s)
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943896743415808,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705082485,"p":"3017.7
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943896751804416,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705082487,"p":"3017.7
+20:51:31 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$2,626, Total=$2,626
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943898190450693,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705082830,"p":"91994
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943900040138753,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705083271,"p":"3017.0
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943900212105216,"m":"ARB-USD","S":"BUY","tT":"TRADE","T":1764705083312,"p":"0.2136
+20:51:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943900337934336,"m":"XRP-USD","S":"SELL","tT":"TRADE","T":1764705083342,"p":"2.175
+20:51:32 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+20:51:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943901243904001,"m":"XRP-USD","S":"SELL","tT":"TRADE","T":1764705083558,"p":"2.175
+20:51:32 [INFO] Lighter: Found 3 open positions
+20:51:32 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:32 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:32 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:32 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:32 [DEBUG] Check BERA-USD: Age=20.8s (Limit=60s)
+20:51:32 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:32 [DEBUG] Check APEX-USD: Age=21.6s (Limit=60s)
+20:51:32 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:32 [DEBUG] Check ENA-USD: Age=22.3s (Limit=60s)
+20:51:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943902548332544,"m":"TIA-USD","S":"BUY","tT":"TRADE","T":1764705083869,"p":"0.6191
+20:51:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943902888071170,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705083950,"p":"3016.
+20:51:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943903630462976,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705084127,"p":"0.074
+20:51:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943904200888323,"m":"XRP-USD","S":"SELL","tT":"TRADE","T":1764705084263,"p":"2.175
+20:51:32 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago)
+20:51:32 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:32 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, waiting for first message)
+20:51:33 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=21s ago)
+20:51:33 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago)
+20:51:33 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943904972640259,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705084447,"p":"91993"
+20:51:33 [DEBUG] Using cached positions (age: 1.4s)
+20:51:33 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:33 [DEBUG] Check BERA-USD: Age=21.8s (Limit=60s)
+20:51:33 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:33 [DEBUG] Check APEX-USD: Age=22.6s (Limit=60s)
+20:51:33 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:33 [DEBUG] Check ENA-USD: Age=23.2s (Limit=60s)
+20:51:34 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943909112418304,"m":"PUMP-USD","S":"SELL","tT":"TRADE","T":1764705085434,"p":"0.00
+20:51:34 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943909926113280,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705085628,"p":"91992
+20:51:34 [DEBUG] Using cached positions (age: 2.4s)
+20:51:34 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:34 [DEBUG] Check BERA-USD: Age=22.8s (Limit=60s)
+20:51:34 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:34 [DEBUG] Check APEX-USD: Age=23.6s (Limit=60s)
+20:51:34 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:34 [DEBUG] Check ENA-USD: Age=24.2s (Limit=60s)
+20:51:34 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943911691915266,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705086049,"p":"882.7
+20:51:34 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943912149094400,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705086158,"p":"33.1
+20:51:34 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943912623050752,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705086271,"p":"140.19
+20:51:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943913256390656,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705086422,"p":"91992
+20:51:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943913273167872,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705086426,"p":"91992
+20:51:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943913281556480,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705086428,"p":"91992
+20:51:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943913327693825,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705086439,"p":"91992
+20:51:35 [DEBUG] ✅ STRK-USD: X10=$194,062, Lighter=$5,336,391, Total=$5,530,454
+20:51:35 [DEBUG] 🐕 Watchdog OK: Daten-Alter 2.3s
+20:51:35 [DEBUG] Using cached positions (age: 3.4s)
+20:51:35 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:35 [DEBUG] Check BERA-USD: Age=23.8s (Limit=60s)
+20:51:35 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:35 [DEBUG] Check APEX-USD: Age=24.6s (Limit=60s)
+20:51:35 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:35 [DEBUG] Check ENA-USD: Age=25.2s (Limit=60s)
+20:51:35 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:36 [DEBUG] Using cached positions (age: 4.4s)
+20:51:36 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:36 [DEBUG] Check BERA-USD: Age=24.8s (Limit=60s)
+20:51:36 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:36 [DEBUG] Check APEX-USD: Age=25.6s (Limit=60s)
+20:51:36 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:36 [DEBUG] Check ENA-USD: Age=26.2s (Limit=60s)
+20:51:37 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943922139926528,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705088540,"p":"91993"
+20:51:37 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943922194452481,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705088553,"p":"91992
+20:51:37 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+20:51:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:37 [INFO] Lighter: Found 3 open positions
+20:51:37 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:37 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:37 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:37 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:37 [DEBUG] Check BERA-USD: Age=26.3s (Limit=60s)
+20:51:37 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:37 [DEBUG] Check APEX-USD: Age=27.1s (Limit=60s)
+20:51:37 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:37 [DEBUG] Check ENA-USD: Age=27.7s (Limit=60s)
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928284581889,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705090005,"p":"
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928288776193,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705090006,"p":"91992
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928288776200,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705090006,"p":"140.1
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928288776206,"m":"ASTER-USD","S":"SELL","tT":"TRADE","T":1764705090006,"p":"1.0
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928288776213,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705090006,"p":"3016.
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928292970498,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705090007,"p":"3016.
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928292970505,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705090007,"p":"3016.
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928292970514,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705090007,"p":"140.1
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928297164805,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705090008,"p":"33.15
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928297164814,"m":"CRV-USD","S":"BUY","tT":"TRADE","T":1764705090008,"p":"0.3909
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928301359106,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705090009,"p":"91993"
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928301359114,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705090009,"p":"91993"
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928301359120,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705090009,"p":"33.1
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928301359129,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705090009,"p":"33.1
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928305553411,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705090010,"p":"91992
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928305553416,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705090010,"p":"3016.
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928305553426,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705090010,"p":"140.1
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928309747716,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705090011,"p":"882.7
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928309747725,"m":"AVAX-USD","S":"SELL","tT":"TRADE","T":1764705090011,"p":"13.6
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928313942017,"m":"MON-USD","S":"SELL","tT":"TRADE","T":1764705090012,"p":"0.031
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928313942023,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705090012,"p":"
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943928313942028,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705090012,"p":"33.1
+20:51:38 [DEBUG] Using cached positions (age: 1.4s)
+20:51:38 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:38 [DEBUG] Check BERA-USD: Age=27.2s (Limit=60s)
+20:51:38 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:38 [DEBUG] Check APEX-USD: Age=28.0s (Limit=60s)
+20:51:38 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:38 [DEBUG] Check ENA-USD: Age=28.7s (Limit=60s)
+20:51:38 [DEBUG] ✅ SUI-USD: X10=$913,983, Lighter=$2,194,271, Total=$3,108,254
+20:51:38 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943929798725632,"m":"MON-USD","S":"BUY","tT":"TRADE","T":1764705090366,"p":"0.0314
+20:51:39 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943932847984640,"m":"LTC-USD","S":"SELL","tT":"TRADE","T":1764705091093,"p":"82.73
+20:51:39 [DEBUG] Using cached positions (age: 2.5s)
+20:51:39 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:39 [DEBUG] Check BERA-USD: Age=28.3s (Limit=60s)
+20:51:39 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:39 [DEBUG] Check APEX-USD: Age=29.1s (Limit=60s)
+20:51:39 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:39 [DEBUG] Check ENA-USD: Age=29.7s (Limit=60s)
+20:51:40 [DEBUG] Using cached positions (age: 3.4s)
+20:51:40 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:40 [DEBUG] Check BERA-USD: Age=29.2s (Limit=60s)
+20:51:40 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:40 [DEBUG] Check APEX-USD: Age=30.0s (Limit=60s)
+20:51:40 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:40 [DEBUG] Check ENA-USD: Age=30.7s (Limit=60s)
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943939571453957,"m":"STRK-USD","S":"BUY","tT":"TRADE","T":1764705092696,"p":"0.127
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943940146073600,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705092833,"p":"3017.0
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943941114957824,"m":"PUMP-USD","S":"SELL","tT":"TRADE","T":1764705093064,"p":"0.00
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943941215621120,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705093088,"p":"33.1
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943941697966080,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705093203,"p":"140.19
+20:51:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943941702160385,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705093204,"p":"140.19
+20:51:41 [DEBUG] Using cached positions (age: 4.4s)
+20:51:41 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:41 [DEBUG] Check BERA-USD: Age=30.2s (Limit=60s)
+20:51:41 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:41 [DEBUG] Check APEX-USD: Age=31.0s (Limit=60s)
+20:51:41 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:41 [DEBUG] Check ENA-USD: Age=31.7s (Limit=60s)
+20:51:41 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:42 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+20:51:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:42 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago)
+20:51:42 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, waiting for first message)
+20:51:43 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=31s ago)
+20:51:43 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=1s ago)
+20:51:43 [INFO] Lighter: Found 3 open positions
+20:51:43 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:43 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:43 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:43 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:43 [DEBUG] Check BERA-USD: Age=31.7s (Limit=60s)
+20:51:43 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:43 [DEBUG] Check APEX-USD: Age=32.5s (Limit=60s)
+20:51:43 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:43 [DEBUG] Check ENA-USD: Age=33.2s (Limit=60s)
+20:51:43 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943948459184129,"m":"SUI-USD","S":"SELL","tT":"TRADE","T":1764705094815,"p":"1.609
+20:51:43 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943949855887366,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705095148,"p":"91992
+20:51:43 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943950011076610,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705095185,"p":"91993"
+20:51:43 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943950115934210,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705095210,"p":"140.19
+20:51:43 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943950568919040,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705095318,"p":"3017.5
+20:51:44 [DEBUG] Using cached positions (age: 1.5s)
+20:51:44 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:44 [DEBUG] Check BERA-USD: Age=32.7s (Limit=60s)
+20:51:44 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:44 [DEBUG] Check APEX-USD: Age=33.5s (Limit=60s)
+20:51:44 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:44 [DEBUG] Check ENA-USD: Age=34.1s (Limit=60s)
+20:51:44 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943952355692546,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705095744,"p":"3017.
+20:51:44 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943952389246976,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705095752,"p":"3017.
+20:51:44 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943952389246980,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705095752,"p":"3017.
+20:51:44 [DEBUG] ✅ APT-USD: X10=$131,437, Lighter=$1,288,822, Total=$1,420,259
+20:51:44 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:45 [DEBUG] Using cached positions (age: 2.5s)
+20:51:45 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:45 [DEBUG] Check BERA-USD: Age=33.7s (Limit=60s)
+20:51:45 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:45 [DEBUG] Check APEX-USD: Age=34.5s (Limit=60s)
+20:51:45 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:45 [DEBUG] Check ENA-USD: Age=35.1s (Limit=60s)
+20:51:45 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943958785560576,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705097277,"p":"91998"
+20:51:46 [INFO] 🚜 Farm Mode ACTIVE
+20:51:46 [DEBUG] Using cached positions (age: 3.5s)
+20:51:46 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:46 [DEBUG] Check BERA-USD: Age=34.7s (Limit=60s)
+20:51:46 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:46 [DEBUG] Check APEX-USD: Age=35.5s (Limit=60s)
+20:51:46 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:46 [DEBUG] Check ENA-USD: Age=36.1s (Limit=60s)
+20:51:46 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943963151831040,"m":"EUR-USD","S":"BUY","tT":"TRADE","T":1764705098318,"p":"1.1615
+20:51:47 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943964263321601,"m":"EUR-USD","S":"SELL","tT":"TRADE","T":1764705098583,"p":"1.161
+20:51:47 [DEBUG] Using cached positions (age: 4.5s)
+20:51:47 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:47 [DEBUG] Check BERA-USD: Age=35.7s (Limit=60s)
+20:51:47 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:47 [DEBUG] Check APEX-USD: Age=36.5s (Limit=60s)
+20:51:47 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:47 [DEBUG] Check ENA-USD: Age=37.1s (Limit=60s)
+20:51:47 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:48 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:51:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:48 [DEBUG] ✅ OP-USD: X10=$380,405, Lighter=$3,901,254, Total=$4,281,659
+20:51:48 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943969858523138,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705099917,"p":"91997
+20:51:48 [INFO] Lighter: Found 3 open positions
+20:51:48 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:48 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:48 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:48 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:48 [DEBUG] Check BERA-USD: Age=37.2s (Limit=60s)
+20:51:48 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:48 [DEBUG] Check APEX-USD: Age=38.0s (Limit=60s)
+20:51:48 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:48 [DEBUG] Check ENA-USD: Age=38.6s (Limit=60s)
+20:51:48 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943971540439045,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705100318,"p":"91997
+20:51:49 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943972144418817,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705100462,"p":"33.18
+20:51:49 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943972165390337,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705100467,"p":"33.19
+20:51:49 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943974216404992,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705100956,"p":"33.20
+20:51:49 [DEBUG] Using cached positions (age: 1.5s)
+20:51:49 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:49 [DEBUG] Check BERA-USD: Age=38.1s (Limit=60s)
+20:51:49 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:49 [DEBUG] Check APEX-USD: Age=39.0s (Limit=60s)
+20:51:49 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:49 [DEBUG] Check ENA-USD: Age=39.6s (Limit=60s)
+20:51:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943977999667216,"m":"ADA-USD","S":"BUY","tT":"TRADE","T":1764705101858,"p":"0.4356
+20:51:50 [DEBUG] Using cached positions (age: 2.5s)
+20:51:50 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:50 [DEBUG] Check BERA-USD: Age=39.2s (Limit=60s)
+20:51:50 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:50 [DEBUG] Check APEX-USD: Age=40.0s (Limit=60s)
+20:51:50 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:50 [DEBUG] Check ENA-USD: Age=40.6s (Limit=60s)
+20:51:50 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:51 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943982625984512,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705102961,"p":"91998"
+20:51:51 [DEBUG] Using cached positions (age: 3.5s)
+20:51:51 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:51 [DEBUG] Check BERA-USD: Age=40.1s (Limit=60s)
+20:51:51 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:51 [DEBUG] Check APEX-USD: Age=41.0s (Limit=60s)
+20:51:51 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:51 [DEBUG] Check ENA-USD: Age=41.6s (Limit=60s)
+20:51:51 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943983678754820,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705103212,"p":"140.2
+20:51:52 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943984723136512,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705103461,"p":"33.20
+20:51:52 [DEBUG] ✅ WLD-USD: X10=$97,505, Lighter=$1,727,599, Total=$1,825,104
+20:51:52 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943985763323904,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705103709,"p":"3017.
+20:51:52 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943987365548032,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705104091,"p":"91997
+20:51:52 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995943987445239810,"m":"SUI-USD","S":"BUY","tT":"TRADE","T":1764705104110,"p":"1.6095
+20:51:52 [DEBUG] Using cached positions (age: 4.5s)
+20:51:52 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:52 [DEBUG] Check BERA-USD: Age=41.2s (Limit=60s)
+20:51:52 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:52 [DEBUG] Check APEX-USD: Age=42.0s (Limit=60s)
+20:51:52 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:52 [DEBUG] Check ENA-USD: Age=42.6s (Limit=60s)
+20:51:52 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s ago)
+20:51:52 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, waiting for first message)
+20:51:53 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=41s ago)
+20:51:53 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago)
+20:51:53 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:51:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:53 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:54 [INFO] Lighter: Found 3 open positions
+20:51:54 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:54 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:54 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:54 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:54 [DEBUG] Check BERA-USD: Age=42.6s (Limit=60s)
+20:51:54 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:54 [DEBUG] Check APEX-USD: Age=43.4s (Limit=60s)
+20:51:54 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:54 [DEBUG] Check ENA-USD: Age=44.0s (Limit=60s)
+20:51:55 [DEBUG] Using cached positions (age: 1.5s)
+20:51:55 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:55 [DEBUG] Check BERA-USD: Age=43.6s (Limit=60s)
+20:51:55 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:55 [DEBUG] Check APEX-USD: Age=44.4s (Limit=60s)
+20:51:55 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:55 [DEBUG] Check ENA-USD: Age=45.0s (Limit=60s)
+20:51:55 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$310,154, Total=$310,154
+20:51:56 [INFO] 🚜 Farm Mode ACTIVE
+20:51:56 [DEBUG] Using cached positions (age: 2.5s)
+20:51:56 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:56 [DEBUG] Check BERA-USD: Age=44.6s (Limit=60s)
+20:51:56 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:56 [DEBUG] Check APEX-USD: Age=45.4s (Limit=60s)
+20:51:56 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:56 [DEBUG] Check ENA-USD: Age=46.1s (Limit=60s)
+20:51:56 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944002972553216,"m":"SUI-USD","S":"SELL","tT":"TRADE","T":1764705107812,"p":"1.609
+20:51:56 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:51:57 [DEBUG] Using cached positions (age: 3.5s)
+20:51:57 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:57 [DEBUG] Check BERA-USD: Age=45.6s (Limit=60s)
+20:51:57 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:57 [DEBUG] Check APEX-USD: Age=46.4s (Limit=60s)
+20:51:57 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:57 [DEBUG] Check ENA-USD: Age=47.0s (Limit=60s)
+20:51:57 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944006688706560,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705108698,"p":"3017.9
+20:51:57 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944008542588928,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705109140,"p":"3018.3
+20:51:58 [DEBUG] Using cached positions (age: 4.5s)
+20:51:58 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:58 [DEBUG] Check BERA-USD: Age=46.6s (Limit=60s)
+20:51:58 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:58 [DEBUG] Check APEX-USD: Age=47.4s (Limit=60s)
+20:51:58 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:58 [DEBUG] Check ENA-USD: Age=48.0s (Limit=60s)
+20:51:58 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944010744598528,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705109665,"p":"91998"
+20:51:58 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944011516350464,"m":"LINEA-USD","S":"BUY","tT":"TRADE","T":1764705109849,"p":"0.00
+20:51:58 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944011994501120,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705109963,"p":"92003"
+20:51:59 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944013923880960,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705110423,"p":"140.2
+20:51:59 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:51:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:51:59 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944014750158849,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705110620,"p":"92015
+20:51:59 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944014955679745,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705110669,"p":"92016"
+20:51:59 [DEBUG] ✅ BNB-USD: X10=$1,428,406, Lighter=$18,423, Total=$1,446,829
+20:51:59 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944015651934208,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705110835,"p":"3018.9
+20:51:59 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944015987478528,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705110915,"p":"3018.9
+20:51:59 [INFO] Lighter: Found 3 open positions
+20:51:59 [INFO] 📊 Positions: X10=3, Lighter=3
+20:51:59 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:51:59 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:51:59 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:51:59 [DEBUG] Check BERA-USD: Age=48.1s (Limit=60s)
+20:51:59 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:51:59 [DEBUG] Check APEX-USD: Age=48.9s (Limit=60s)
+20:51:59 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:51:59 [DEBUG] Check ENA-USD: Age=49.5s (Limit=60s)
+20:51:59 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:00 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944018843799552,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705111596,"p":"92016"
+20:52:00 [DEBUG] Using cached positions (age: 1.5s)
+20:52:00 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:00 [DEBUG] Check BERA-USD: Age=49.1s (Limit=60s)
+20:52:00 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:00 [DEBUG] Check APEX-USD: Age=49.9s (Limit=60s)
+20:52:00 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:00 [DEBUG] Check ENA-USD: Age=50.5s (Limit=60s)
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"BTC-USD","f":"-0.000021","T":1764705112315},"ts":1764705112315,"seq":1}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ETH-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":2}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SOL-USD","f":"-0.000002","T":1764705112315},"ts":1764705112315,"seq":3}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"DOGE-USD","f":"0.000002","T":1764705112315},"ts":1764705112315,"seq":4}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"BNB-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":5}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"XRP-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":6}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"1000PEPE-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":7}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"WIF-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":8}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"NEAR-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":9}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"AVAX-USD","f":"-0.000021","T":1764705112315},"ts":1764705112315,"seq":10}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"LTC-USD","f":"-0.000018","T":1764705112315},"ts":1764705112315,"seq":11}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TRX-USD","f":"-0.000027","T":1764705112315},"ts":1764705112315,"seq":12}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ADA-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":13}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"LINK-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":14}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"BCH-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":15}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MATIC-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":16}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ARB-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":17}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"WLD-USD","f":"0.000013","T":1764705112315},"ts":1764705112315,"seq":18}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"OP-USD","f":"-0.000057","T":1764705112315},"ts":1764705112315,"seq":19}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"DOT-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":20}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ONDO-USD","f":"-0.000005","T":1764705112315},"ts":1764705112316,"seq":21}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SUI-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":22}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ETC-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":23}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ATOM-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":24}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"FIL-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":25}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"FTM-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":26}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"PLACE_1-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":27}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"UNI-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":28}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"APT-USD","f":"-0.000057","T":1764705112315},"ts":1764705112316,"seq":29}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"JUP-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":30}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TIA-USD","f":"-0.000044","T":1764705112315},"ts":1764705112316,"seq":31}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"PLACE_2-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":32}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"PENDLE-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":33}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MKR-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":34}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SEI-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":35}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"POPCAT-USD","f":"-0.000007","T":1764705112315},"ts":1764705112316,"seq":36}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"GOAT-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":37}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"1000BONK-USD","f":"0.000013","T":1764705112315},"ts":1764705112316,"seq":38}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"1000SHIB-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":39}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MOODENG-USD","f":"-0.000088","T":1764705112315},"ts":1764705112318,"seq":40}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"HYPE-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":41}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"PENGU-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":42}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ENA-USD","f":"-0.000014","T":1764705112315},"ts":1764705112318,"seq":43}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"FARTCOIN-USD","f":"-0.000023","T":1764705112315},"ts":1764705112318,"seq":44}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"VIRTUAL-USD","f":"0.000002","T":1764705112315},"ts":1764705112318,"seq":45}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"AAVE-USD","f":"0.000008","T":1764705112315},"ts":1764705112318,"seq":46}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TRUMP-USD","f":"-0.000020","T":1764705112315},"ts":1764705112318,"seq":47}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MELANIA-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":48}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"S-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":49}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"BERA-USD","f":"-0.000083","T":1764705112315},"ts":1764705112318,"seq":50}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"IP-USD","f":"-0.000045","T":1764705112315},"ts":1764705112318,"seq":51}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"KAITO-USD","f":"-0.000076","T":1764705112315},"ts":1764705112318,"seq":52}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"EUR-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":53}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"STRK-USD","f":"0.000007","T":1764705112315},"ts":1764705112318,"seq":54}
+20:52:00 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944021909835776,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705112327,"p":"92016"
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"WAL-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":55}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"INIT-USD","f":"-0.000200","T":1764705112315},"ts":1764705112318,"seq":56}
+20:52:00 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SPX500m-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":57}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TECH100m-USD","f":"-0.000001","T":1764705112315},"ts":1764705112318,"seq":58}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"XBR-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":59}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"XAU-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":60}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TAO-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":61}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"USDJPY-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":62}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"LDO-USD","f":"-0.000013","T":1764705112315},"ts":1764705112318,"seq":63}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"GRASS-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":64}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"TON-USD","f":"0.000006","T":1764705112315},"ts":1764705112318,"seq":65}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"RESOLV-USD","f":"-0.000958","T":1764705112315},"ts":1764705112318,"seq":66}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"XAG-USD","f":"0.000000","T":1764705112315},"ts":1764705112318,"seq":67}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"PUMP-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":68}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MOG-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":69}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SPX6900-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":70}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"1000000MOG-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":71}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SPX-USD","f":"-0.000076","T":1764705112315},"ts":1764705112318,"seq":72}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"CRV-USD","f":"-0.000082","T":1764705112315},"ts":1764705112318,"seq":73}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ZORA-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":74}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"XPL-USD","f":"-0.000013","T":1764705112315},"ts":1764705112318,"seq":75}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"WLFI-USD","f":"-0.000100","T":1764705112315},"ts":1764705112318,"seq":76}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MNT-USD","f":"-0.000019","T":1764705112315},"ts":1764705112318,"seq":77}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"LINEA-USD","f":"-0.000031","T":1764705112315},"ts":1764705112318,"seq":78}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ASTER-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":79}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"EIGEN-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":80}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"AVNT-USD","f":"-0.000086","T":1764705112315},"ts":1764705112318,"seq":81}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"AERO-USD","f":"-0.000095","T":1764705112315},"ts":1764705112318,"seq":82}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ZRO-USD","f":"-0.000038","T":1764705112315},"ts":1764705112318,"seq":83}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"APEX-USD","f":"-0.000073","T":1764705112315},"ts":1764705112318,"seq":84}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"EDEN-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":85}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"ZEC-USD","f":"0.000026","T":1764705112315},"ts":1764705112318,"seq":86}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"CAKE-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":87}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"4-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":88}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MON-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":89}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"SNX-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":90}
+20:52:01 [DEBUG] [x10_funding] RAW MSG: {"data":{"m":"MEGA-USD","f":"0.000013","T":1764705112315},"ts":1764705112318,"seq":91}
+20:52:01 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944022945828864,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705112574,"p":"3018.9
+20:52:01 [DEBUG] Using cached positions (age: 2.5s)
+20:52:01 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:01 [DEBUG] Check BERA-USD: Age=50.1s (Limit=60s)
+20:52:01 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:01 [DEBUG] Check APEX-USD: Age=50.9s (Limit=60s)
+20:52:01 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:01 [DEBUG] Check ENA-USD: Age=51.5s (Limit=60s)
+20:52:02 [DEBUG] Using cached positions (age: 3.5s)
+20:52:02 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:02 [DEBUG] Check BERA-USD: Age=51.1s (Limit=60s)
+20:52:02 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:02 [DEBUG] Check APEX-USD: Age=51.9s (Limit=60s)
+20:52:02 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:02 [DEBUG] Check ENA-USD: Age=52.5s (Limit=60s)
+20:52:02 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s ago)
+20:52:02 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:02 [DEBUG] [lighter] Responded to JSON ping with pong
+20:52:02 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=2s ago)
+20:52:03 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=51s ago)
+20:52:03 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=2s ago)
+20:52:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944032496259072,"m":"SUI-USD","S":"BUY","tT":"TRADE","T":1764705114851,"p":"1.6108
+20:52:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944033221873664,"m":"ENA-USD","S":"SELL","tT":"TRADE","T":1764705115024,"p":"0.262
+20:52:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944033276399618,"m":"ENA-USD","S":"BUY","tT":"TRADE","T":1764705115037,"p":"0.2629
+20:52:03 [DEBUG] Using cached positions (age: 4.5s)
+20:52:03 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:03 [DEBUG] Check BERA-USD: Age=52.1s (Limit=60s)
+20:52:03 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:03 [DEBUG] Check APEX-USD: Age=52.9s (Limit=60s)
+20:52:03 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:03 [DEBUG] Check ENA-USD: Age=53.5s (Limit=60s)
+20:52:03 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944033859407873,"m":"ARB-USD","S":"SELL","tT":"TRADE","T":1764705115176,"p":"0.213
+20:52:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944036308881409,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705115760,"p":"883.0
+20:52:04 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:52:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:04 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943815977893888,"accountId":127
+20:52:04 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.985219
+20:52:04 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944037948854275,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705116151,"p":"33.2
+20:52:05 [INFO] Lighter: Found 3 open positions
+20:52:05 [INFO] 📊 Positions: X10=3, Lighter=3
+20:52:05 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD', 'ENA-USD']
+20:52:05 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:52:05 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:05 [DEBUG] Check BERA-USD: Age=53.5s (Limit=60s)
+20:52:05 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:05 [DEBUG] Check APEX-USD: Age=54.3s (Limit=60s)
+20:52:05 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:05 [DEBUG] Check ENA-USD: Age=54.9s (Limit=60s)
+20:52:05 [DEBUG] ✅ TRX-USD: X10=$331,060, Lighter=$7,692,976, Total=$8,024,036
+20:52:05 [DEBUG] 🐕 Watchdog OK: Daten-Alter 2.3s
+20:52:05 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944042449342464,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705117224,"p":"92016"
+20:52:05 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:06 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944043468558336,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705117467,"p":"3018.9
+20:52:06 [DEBUG] Using cached positions (age: 1.4s)
+20:52:06 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:06 [DEBUG] Check BERA-USD: Age=54.5s (Limit=60s)
+20:52:06 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:06 [DEBUG] Check APEX-USD: Age=55.3s (Limit=60s)
+20:52:06 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.199055+00:00
+20:52:06 [DEBUG] Check ENA-USD: Age=55.9s (Limit=60s)
+20:52:06 [INFO] 🚜 [FARM] Profit Take ENA-USD: Age=55s, Spread=0.019% (sehr niedrig), PnL=$0.00
+20:52:06 [INFO]  💸 EXIT ENA-USD: FARM_QUICK_PROFIT | PnL $0.00 (Fees: $0.00)
+20:52:06 [INFO]  🔻 CLOSING ENA-USD (Atomic Smart Close)...
+20:52:06 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944044072538113,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705117611,"p":"92016"
+20:52:06 [INFO] 🚜 Farm Mode ACTIVE
+20:52:06 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944045104336896,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705117857,"p":"3018.9
+20:52:06 [INFO] Lighter: Found 3 open positions
+20:52:06 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ENA-USD (type=<class 'str'>)
+20:52:06 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+20:52:06 [INFO] 🔍 DEBUG: notional_usd=26.302999999999997 (type=<class 'float'>)
+20:52:07 [INFO] Lighter: Found 3 open positions
+20:52:07 [INFO] 🔻 LIGHTER CLOSE ENA-USD: size=-100.000000 coins, side=BUY, price=$0.2630, notional=$26.30
+20:52:07 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=BUY, size_usd=$26.30, price=$0.263030
+20:52:07 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+20:52:07 [DEBUG] QUANTIZE ENA-USD: USD=26.30, coins=100.000000, raw=1000, lot_size=200, final=1000
+20:52:07 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764705208482,"BaseAmount":1000,"Price":26461,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767124327035,"ExpiredAt":1764705726035,"Nonce":2196,"Sig":"GIlJt3S2bWG/Zr64zQLRckuSdDPGhuSUvn/xIr1tJvqpTiE6sZBHcH4QLoLDX+lMA08Yuqixnf7zXwpELlnmVwcH3hYT5dtzvIxZV1pgRBM="}
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944047910326272,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705118526,"p":"3018.
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944047931297795,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705118531,"p":"92015
+20:52:07 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='1d83be3277988d1c5f324654ab48a29a7f2de419cd60990440c76ccc3fea03aa0a98a659b4e3e26b' predicted_execution_time_ms=1764705118982 additional_properties={}
+20:52:07 [INFO] Lighter Order: 1d83be3277988d1c5f324654ab48a29a7f2de419cd60990440c76ccc3fea03aa0a98a659b4e3e26b
+20:52:07 [INFO] ✅ Lighter close ENA-USD: Erfolgreich ($26.30)
+20:52:07 [INFO] ✅ Lighter ENA-USD OK, closing X10...
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944048812101634,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705118741,"p":"92015
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944049713876993,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705118956,"p":"92015
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944049936175104,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705119009,"p":"140.2
+20:52:07 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943812622450688,"accountId":127
+20:52:07 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.985219
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944050603069442,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705119168,"p":"92015
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944051257380864,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705119324,"p":"92016"
+20:52:07 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944051404181504,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705119359,"p":"3018.1
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944052305956864,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705119574,"p":"33.20
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944052398231553,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705119596,"p":"92015
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944053358727168,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705119825,"p":"140.1
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944053501333505,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705119859,"p":"92014"
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054101118977,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705120002,"p":"
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054105313286,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705120003,"p":"92013
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054105313292,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705120003,"p":"140.1
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054109507585,"m":"ASTER-USD","S":"SELL","tT":"TRADE","T":1764705120004,"p":"1.0
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054109507591,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705120004,"p":"3018.
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054113701889,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705120005,"p":"3018.
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054113701894,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705120005,"p":"3018.
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054113701899,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705120005,"p":"140.1
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054113701904,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705120005,"p":"33.20
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054117896193,"m":"CRV-USD","S":"BUY","tT":"TRADE","T":1764705120006,"p":"0.3908
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054122090497,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705120007,"p":"92014"
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054122090502,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705120007,"p":"92014"
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054122090507,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705120007,"p":"33.2
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054126284801,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705120008,"p":"33.2
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054130479105,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705120009,"p":"92009
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054130479112,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705120009,"p":"3018.
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054130479117,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705120009,"p":"140.1
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054134673410,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705120010,"p":"882.9
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054134673415,"m":"AVAX-USD","S":"SELL","tT":"TRADE","T":1764705120010,"p":"13.6
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054138867713,"m":"MON-USD","S":"SELL","tT":"TRADE","T":1764705120011,"p":"0.031
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054138867719,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705120011,"p":"
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054143062017,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705120012,"p":"33.2
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054143062022,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705120012,"p":"3018.
+20:52:08 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944054428274688,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705120080,"p":"3018.1
+20:52:08 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:08 [DEBUG] ✅ TON-USD: X10=$157,841, Lighter=$651,509, Total=$809,350
+20:52:09 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944055896281092,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705120430,"p":"92008
+20:52:10 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+20:52:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+20:52:10 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944060715536384,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705121579,"p":"92008
+20:52:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:10 [INFO] 🔻 Closing X10 ENA-USD: size=110.000000 coins, side=BUY
+20:52:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:10 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944062523281408,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705122010,"p":"33.20
+20:52:10 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944062770745345,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705122069,"p":"33.20
+20:52:10 [INFO] 🔻 X10 CLOSE ENA-USD: size=110.000000, side=SELL
+20:52:10 [DEBUG] Placing an order: id=1727244859951197040438238409274268806938492507626922864918882244572969945501
+20:52:10 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:11 [INFO]  X10 Order: 1995944067632488448
+20:52:11 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:12 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944068470804480,"m":"ENA-USD","S":"SELL","tT":"TRADE","T":1764705123428,"p":"0.262
+20:52:12 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.985219
+20:52:12 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944068470804480,"accountId":127074,"m
+20:52:12 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944067632488448,"accountId":127074,"e
+20:52:12 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943809996816384,"accountId":127
+20:52:12 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.935815
+20:52:12 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+20:52:12 [DEBUG] X10: Funding Refresh OK, cache=91
+20:52:12 [DEBUG] 📊 Lighter Funding Cache refresh (current=115)
+20:52:12 [DEBUG] Lighter: Loaded 379 funding rates
+20:52:12 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944070010114048,"m":"PENGU-USD","S":"SELL","tT":"TRADE","T":1764705123795,"p":"0.0
+20:52:12 [DEBUG] ✅ RESOLV-USD: X10=$247,909, Lighter=$8,660,852, Total=$8,908,761
+20:52:12 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944071582978048,"m":"EUR-USD","S":"BUY","tT":"TRADE","T":1764705124170,"p":"1.1615
+20:52:12 [DEBUG] 💓 [lighter] Alive (uptime=70s, last_msg=0s ago)
+20:52:12 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=12s ago)
+20:52:13 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=1s ago)
+20:52:13 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=0s ago)
+20:52:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944072702857217,"m":"EUR-USD","S":"SELL","tT":"TRADE","T":1764705124437,"p":"1.161
+20:52:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944074116337664,"m":"ADA-USD","S":"BUY","tT":"TRADE","T":1764705124774,"p":"0.4354
+20:52:13 [DEBUG] Lighter: Loaded 115 prices via REST
+20:52:13 [DEBUG] Lighter: Funding Refresh OK, cache=115
+20:52:13 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944075366240256,"m":"LINEA-USD","S":"SELL","tT":"TRADE","T":1764705125072,"p":"0.0
+20:52:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:14 [INFO] ✅ X10 ENA-USD closed (110.000000 coins)
+20:52:14 [INFO] ✅ ENA-USD fully closed
+20:52:14 [INFO] ✅ Trade ENA-USD closed (PnL: $0.00)
+20:52:14 [INFO] ✅ Trade ENA-USD closed (PnL: $0.00)
+20:52:14 [DEBUG] 📝 Flushed 1 writes
+20:52:14 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+20:52:14 [INFO]  💰 PnL ENA-USD: $0.00 (FARM_QUICK_PROFIT)
+20:52:14 [ERROR] Kelly Sizer record_trade error for ENA-USD: Format specifier missing precision
+20:52:14 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944078302253056,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705125772,"p":"140.18
+20:52:14 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'BERA-USD', 'APEX-USD'}
+20:52:14 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:52:14 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:52:15 [DEBUG] 📝 Flushed 1 writes
+20:52:15 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:15 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:52:15 [DEBUG] Fetching fresh positions (force=False, cache_age=10.4s)
+20:52:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:15 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:52:15 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:52:15 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.16%)
+20:52:15 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00008300, rx=-0.00001400, net=-0.00006900, apy=60.4%
+20:52:15 [INFO] 💎 ENA-USD | APY: 60.4%
+20:52:15 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080500, rx=-0.00095800, net=0.00015300, apy=134.0%
+20:52:15 [DEBUG] Skip RESOLV-USD: Spread 0.70% too high
+20:52:15 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:52:15 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:52:15 [DEBUG] 🔄 Skip APEX-USD: Already open (in open_syms)
+20:52:15 [DEBUG] 🔄 Skip BERA-USD: Already open (in open_syms)
+20:52:15 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:52:15 [INFO] ✅ Found 34 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+20:52:15 [INFO] 🎯 Found 3 opportunities, executing best...
+20:52:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:15 [INFO] Lighter: Found 2 open positions
+20:52:15 [INFO] 📊 Positions: X10=2, Lighter=2
+20:52:15 [DEBUG] X10 positions: ['BERA-USD', 'APEX-USD']
+20:52:15 [DEBUG] Lighter positions: ['BERA-USD', 'APEX-USD']
+20:52:15 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:11.638147+00:00
+20:52:15 [DEBUG] Check BERA-USD: Age=63.9s (Limit=60s)
+20:52:15 [WARNING] 🚜 [FARM] NOT-AUS: Zwangsschließung für BERA-USD (Zeit abgelaufen: 63s > 60s)
+20:52:15 [INFO]  🔻 CLOSING BERA-USD (Atomic Smart Close)...
+20:52:16 [INFO] Lighter: Found 2 open positions
+20:52:16 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=BERA-USD (type=<class 'str'>)
+20:52:16 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+20:52:16 [INFO] 🔍 DEBUG: notional_usd=27.2937 (type=<class 'float'>)
+20:52:16 [INFO] 🚜 Farm Mode ACTIVE
+20:52:16 [DEBUG] Lighter Balance: Raw=$294.75, Safe=$280.02
+20:52:16 [INFO] X10: Detected balance = $300.89
+20:52:16 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+20:52:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:16 [DEBUG] ✅ 1000PEPE-USD: X10=$73,838, Lighter=$194,036,167, Total=$194,110,005
+20:52:16 [INFO] Lighter: Found 2 open positions
+20:52:16 [INFO] 🔻 LIGHTER CLOSE BERA-USD: size=-30.000000 coins, side=BUY, price=$0.9101, notional=$27.30
+20:52:16 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=BUY, size_usd=$27.30, price=$0.910050
+20:52:16 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+20:52:16 [DEBUG] QUANTIZE BERA-USD: USD=27.30, coins=30.000000, raw=300, lot_size=30, final=300
+20:52:16 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764705198884,"BaseAmount":300,"Price":91552,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767124336535,"ExpiredAt":1764705735535,"Nonce":2197,"Sig":"EWjrdleRU0N7xtmoUQPeErEEJZCZ7Xbr+tpNECcOfdmWzJyy3G79d9z5G93CAYNzvSYSDz0cEUJOjBbnWd8jKG2Cl1YuKzwA4Lx4LfjsGCM="}
+20:52:16 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='fe21f53c94315c468420bbb39a35fc7eaea7d6d8994997aa5e013fb382a3bcde12a90032f559c80b' predicted_execution_time_ms=1764705128490 additional_properties={}
+20:52:16 [INFO] Lighter Order: fe21f53c94315c468420bbb39a35fc7eaea7d6d8994997aa5e013fb382a3bcde12a90032f559c80b
+20:52:16 [INFO] ✅ Lighter close BERA-USD: Erfolgreich ($27.30)
+20:52:16 [INFO] ✅ Lighter BERA-USD OK, closing X10...
+20:52:17 [INFO] Lighter: Found 2 open positions
+20:52:17 [INFO] 💰 Balance: X10=$300.9 (free=$288.3), Lit=$280.0 (free=$267.4) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+20:52:17 [INFO] 🚀 Launching trade for ENA-USD (APY=60.4%)
+20:52:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944089748508672,"m":"ADA-USD","S":"BUY","tT":"TRADE","T":1764705128501,"p":"0.4354
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944089769480192,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705128506,"p":"92003"
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944090671255552,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705128721,"p":"3018.1
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944090830639104,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705128759,"p":"3018.1
+20:52:17 [INFO] ✅ Launched 1 trade tasks this cycle
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944091891798016,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705129012,"p":"140.1
+20:52:17 [INFO] Lighter: Found 1 open positions
+20:52:17 [DEBUG] ✅ ENA-USD verified: No existing positions on exchanges
+20:52:17 [DEBUG] MIN_NOTIONAL ENA-USD: min_base=20.00000000 coins, price=$0.2630, min_qty_usd=$5.26, min_notional_api=$10.00, final=$11.00
+20:52:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944092688715777,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705129202,"p":"92003"
+20:52:17 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944092952956928,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705129265,"p":"33.20
+20:52:17 [INFO] 🎰 KELLY ENA-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+20:52:17 [INFO] 📊 KELLY SIZE ENA-USD: base=$30.0, kelly_recommended=$5.6, final=$30.0
+20:52:17 [INFO] 🚀 Opening ENA-USD: Size=$30.0 (Min=$27.6)
+20:52:17 [INFO] 🔄 [PARALLEL] ENA-USD: Lighter POST-ONLY first
+20:52:17 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=SELL, size_usd=$30.00, price=$0.262960
+20:52:17 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+20:52:17 [DEBUG] QUANTIZE ENA-USD: USD=30.00, coins=114.085793, raw=1141, lot_size=200, final=1000
+20:52:17 [INFO] 🔄 [PARALLEL] ENA-USD: X10 MARKET order
+20:52:17 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764705168630,"BaseAmount":1000,"Price":26138,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124337957,"ExpiredAt":1764705736957,"Nonce":2198,"Sig":"CwA3bpn0GL4dkNEBTDcjUdIdEeglEiMTl4jdM5O1KryEsCC3VlahVwncLq20TbK/Ei/aeHGWyTsAn5EEyj7F+eN83LbpfvbsI1zRZPYyKW4="}
+20:52:17 [DEBUG] Placing an order: id=3430351040796631022596086182380844037185278137604304955986674901556887569007
+20:52:17 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:18 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='89ac84beb0d09c842a3de43484a4443f00ee4ef04f8f03e85313c66e5010730672d11a5d48eea31e' predicted_execution_time_ms=1764705129907 additional_properties={}
+20:52:18 [INFO] Lighter Order: 89ac84beb0d09c842a3de43484a4443f00ee4ef04f8f03e85313c66e5010730672d11a5d48eea31e
+20:52:18 [INFO]  X10 Order: 1995944094493868032
+20:52:18 [INFO] ✅ [PARALLEL] ENA-USD: Both legs filled in 297ms
+20:52:18 [DEBUG] 📝 Trade added to state: ENA-USD
+20:52:18 [DEBUG] 📝 Flushed 1 writes
+20:52:18 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:18 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944095331127296,"m":"ENA-USD","S":"BUY","tT":"TRADE","T":1764705129832,"p":"0.2627
+20:52:18 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944094493868032,"accountId":127074,"e
+20:52:18 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944095331127296,"accountId":127074,"m
+20:52:18 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.935815
+20:52:18 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.929313
+20:52:18 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995944095352094720,"accountId":127
+20:52:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944099164721152,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705130746,"p":"92002
+20:52:19 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944099848392704,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705130909,"p":"0.074
+20:52:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:20 [INFO] 🔻 Closing X10 BERA-USD: size=32.000000 coins, side=BUY
+20:52:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:20 [DEBUG] ✅ UNI-USD: X10=$226,837, Lighter=$375,444, Total=$602,280
+20:52:20 [INFO] 🔻 X10 CLOSE BERA-USD: size=32.000000, side=SELL
+20:52:20 [DEBUG] Placing an order: id=369084590990645671048556192509075457898858940879163062244598435987496360656
+20:52:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:20 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:20 [INFO]  X10 Order: 1995944104250019840
+20:52:20 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944104319520770,"m":"ADA-USD","S":"BUY","tT":"TRADE","T":1764705131975,"p":"0.4354
+20:52:20 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944105087078400,"accountId":127074,"m
+20:52:20 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.929313
+20:52:20 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944105087078400,"m":"BERA-USD","S":"SELL","tT":"TRADE","T":1764705132158,"p":"0.91
+20:52:20 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944104250019840,"accountId":127074,"e
+20:52:20 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943815977893888,"accountId":127
+20:52:20 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.890756
+20:52:21 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944109931499520,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705133313,"p":"883.0
+20:52:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944110418038784,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705133429,"p":"140.17
+20:52:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:22 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944113660235776,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705134202,"p":"140.1
+20:52:22 [INFO] ✅ X10 BERA-USD closed (32.000000 coins)
+20:52:22 [INFO] ✅ BERA-USD fully closed
+20:52:22 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+20:52:22 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+20:52:22 [DEBUG] 📝 Flushed 1 writes
+20:52:22 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:22 [INFO]  💰 PnL BERA-USD: $0.00 (FARM_TIME_LIMIT)
+20:52:22 [INFO] ✅ BERA-USD zwangsgeschlossen (Farm Time Limit)
+20:52:22 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:51:10.835785+00:00
+20:52:22 [DEBUG] Check APEX-USD: Age=72.0s (Limit=60s)
+20:52:22 [WARNING] 🚜 [FARM] NOT-AUS: Zwangsschließung für APEX-USD (Zeit abgelaufen: 72s > 60s)
+20:52:22 [INFO]  🔻 CLOSING APEX-USD (Atomic Smart Close)...
+20:52:22 [DEBUG] 💓 [lighter] Alive (uptime=80s, last_msg=0s ago)
+20:52:22 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=22s ago)
+20:52:23 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=2s ago)
+20:52:23 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=0s ago)
+20:52:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944114700423168,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705134450,"p":"3018.1
+20:52:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944114901749761,"m":"SUI-USD","S":"BUY","tT":"TRADE","T":1764705134498,"p":"1.6101
+20:52:23 [INFO] Lighter: Found 2 open positions
+20:52:23 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=APEX-USD (type=<class 'str'>)
+20:52:23 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+20:52:23 [INFO] 🔍 DEBUG: notional_usd=29.731 (type=<class 'float'>)
+20:52:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944115728027648,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705134695,"p":"92003"
+20:52:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944116185206784,"m":"BNB-USD","S":"BUY","tT":"TRADE","T":1764705134804,"p":"883.05
+20:52:23 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'ENA-USD', 'APEX-USD'}
+20:52:23 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:52:23 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:52:23 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944116747243521,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705134938,"p":"33.20
+20:52:23 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:52:23 [INFO] Lighter: Found 2 open positions
+20:52:23 [INFO] 🔻 LIGHTER CLOSE APEX-USD: size=-50.000000 coins, side=BUY, price=$0.5946, notional=$29.73
+20:52:23 [INFO] 🚀 LIGHTER OPEN APEX-USD: side=BUY, size_usd=$29.73, price=$0.594620
+20:52:23 [DEBUG] 🔍 DEBUG: APEX-USD market_id = 86 (raw=86, type=<class 'int'>)
+20:52:23 [DEBUG] QUANTIZE APEX-USD: USD=29.73, coins=50.000000, raw=500, lot_size=50, final=500
+20:52:23 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":86,"ClientOrderIndex":1764705202405,"BaseAmount":500,"Price":59819,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767124343787,"ExpiredAt":1764705742787,"Nonce":2199,"Sig":"GyU3JAa9Qukib3g39jpUJVzqVXwcWJHlLUZiZ1TNIh4h5jveY+woAwRfiiWEK7PeqnN2mLq/q3ZEBPXXHC0vE5M24mtjFXMLCK3jOa/3shM="}
+20:52:23 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:52:23 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:52:23 [DEBUG] 🔄 Skip ENA-USD: Already open (in open_syms)
+20:52:23 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080500, rx=-0.00095800, net=0.00015300, apy=134.0%
+20:52:23 [DEBUG] Skip RESOLV-USD: Spread 0.67% too high
+20:52:23 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:52:23 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:52:23 [DEBUG] 🔄 Skip APEX-USD: Already open (in open_syms)
+20:52:23 [INFO] 🔍 DEBUG BERA-USD: rl=-0.00014900, rx=-0.00008300, net=-0.00006600, apy=57.8%
+20:52:23 [INFO] 💎 BERA-USD | APY: 57.8%
+20:52:23 [DEBUG] Skip MON-USD: Spread 0.54% too high
+20:52:23 [DEBUG] Skip ZEC-USD: Spread 0.37% too high
+20:52:23 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:52:23 [INFO] ✅ Found 32 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+20:52:23 [INFO] 🎯 Found 3 opportunities, executing best...
+20:52:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:23 [DEBUG] 📝 Flushed 1 writes
+20:52:23 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:24 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='4b4cab253a3a8b990437e5b6f030106bd19aa89d4beb5f85e732708599c7f669bfc4024e3a381dbd' predicted_execution_time_ms=1764705135738 additional_properties={}
+20:52:24 [INFO] Lighter Order: 4b4cab253a3a8b990437e5b6f030106bd19aa89d4beb5f85e732708599c7f669bfc4024e3a381dbd
+20:52:24 [INFO] ✅ Lighter close APEX-USD: Erfolgreich ($29.73)
+20:52:24 [INFO] ✅ Lighter APEX-USD OK, closing X10...
+20:52:24 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944119758753792,"m":"ENA-USD","S":"SELL","tT":"TRADE","T":1764705135656,"p":"0.262
+20:52:24 [DEBUG] Lighter Balance: Raw=$294.70, Safe=$279.96
+20:52:24 [INFO] X10: Detected balance = $300.96
+20:52:24 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+20:52:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:25 [INFO] Lighter: Found 1 open positions
+20:52:25 [INFO] 💰 Balance: X10=$301.0 (free=$288.4), Lit=$280.0 (free=$267.4) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+20:52:25 [INFO] 🚀 Launching trade for BERA-USD (APY=57.8%)
+20:52:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:25 [DEBUG] ✅ XPL-USD: X10=$187,881, Lighter=$16,019,366, Total=$16,207,247
+20:52:26 [INFO] ✅ Launched 1 trade tasks this cycle
+20:52:26 [INFO] Lighter: Found 1 open positions
+20:52:26 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+20:52:26 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.9101, min_qty_usd=$2.73, min_notional_api=$10.00, final=$11.00
+20:52:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:26 [INFO] 🚜 Farm Mode ACTIVE
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944128453545986,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705137729,"p":"3018.3
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944128843616256,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705137822,"p":"3018.3
+20:52:26 [INFO] 🎰 KELLY BERA-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+20:52:26 [INFO] 📊 KELLY SIZE BERA-USD: base=$30.0, kelly_recommended=$5.6, final=$30.0
+20:52:26 [INFO] 🚀 Opening BERA-USD: Size=$30.0 (Min=$11.0)
+20:52:26 [INFO] 🔄 [PARALLEL] BERA-USD: Lighter POST-ONLY first
+20:52:26 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$30.00, price=$0.910090
+20:52:26 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+20:52:26 [DEBUG] QUANTIZE BERA-USD: USD=30.00, coins=32.963773, raw=330, lot_size=30, final=300
+20:52:26 [INFO] 🔄 [PARALLEL] BERA-USD: X10 MARKET order
+20:52:26 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764705223045,"BaseAmount":300,"Price":90462,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124346507,"ExpiredAt":1764705745507,"Nonce":2200,"Sig":"udrbRvYtlI/5If7CYGCTlph59NBFos4qOJHTLSh2Zx0m15AGbD3yGHLePOIEVES4+eWdmX+iN2EjfmSq81G6C32Z8kG2xfhwXWpZwbDXgkQ="}
+20:52:26 [DEBUG] Placing an order: id=2754078499250828411959873114656749905740700566974608854340793904543167120680
+20:52:26 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944129468567552,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705137971,"p":"92003"
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944129875415041,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705138068,"p":"92003"
+20:52:26 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='6a49499b2b450de1d25675a1b3ecee203edac18fd4e2b08a6acb381ffb449fe73f8218d2df07aced' predicted_execution_time_ms=1764705138458 additional_properties={}
+20:52:26 [INFO] Lighter Order: 6a49499b2b450de1d25675a1b3ecee203edac18fd4e2b08a6acb381ffb449fe73f8218d2df07aced
+20:52:26 [INFO]  X10 Order: 1995944130471882752
+20:52:26 [INFO] ✅ [PARALLEL] BERA-USD: Both legs filled in 328ms
+20:52:26 [DEBUG] 📝 Trade added to state: BERA-USD
+20:52:26 [DEBUG] 📝 Flushed 1 writes
+20:52:26 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944130479394816,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705138212,"p":"140.1
+20:52:26 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944130802356224,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705138289,"p":"3018.3
+20:52:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944131305672704,"m":"BERA-USD","S":"BUY","tT":"TRADE","T":1764705138409,"p":"0.911
+20:52:27 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.890756
+20:52:27 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944131305672704,"accountId":127074,"m
+20:52:27 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944130471882752,"accountId":127074,"e
+20:52:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:27 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995944131318251520,"accountId":127
+20:52:27 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.884193
+20:52:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944131498610688,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705138455,"p":"33.20
+20:52:27 [INFO] 🔻 Closing X10 APEX-USD: size=50.000000 coins, side=BUY
+20:52:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:27 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944132861759488,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705138780,"p":"92003"
+20:52:27 [INFO] 🔻 X10 CLOSE APEX-USD: size=50.000000, side=SELL
+20:52:27 [DEBUG] Placing an order: id=2535881337437631192541644686682801067665580456476433290657370328543945665454
+20:52:27 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:27 [INFO]  X10 Order: 1995944134661287936
+20:52:28 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.884193
+20:52:28 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944134661287936,"accountId":127074,"e
+20:52:28 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944135499976704,"m":"APEX-USD","S":"SELL","tT":"TRADE","T":1764705139409,"p":"0.59
+20:52:28 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944135499976704,"accountId":127074,"m
+20:52:28 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995943812622450688,"accountId":127
+20:52:28 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.833008
+20:52:28 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944135806160899,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705139482,"p":"0.074
+20:52:29 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:29 [DEBUG] ✅ ONDO-USD: X10=$118,461, Lighter=$1,995,804, Total=$2,114,266
+20:52:29 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944142835814400,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705141158,"p":"92002
+20:52:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:30 [INFO] ✅ X10 APEX-USD closed (50.000000 coins)
+20:52:30 [INFO] ✅ APEX-USD fully closed
+20:52:30 [INFO] ✅ Trade APEX-USD closed (PnL: $0.00)
+20:52:30 [INFO] ✅ Trade APEX-USD closed (PnL: $0.00)
+20:52:30 [DEBUG] 📝 Flushed 1 writes
+20:52:30 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:30 [INFO]  💰 PnL APEX-USD: $0.00 (FARM_TIME_LIMIT)
+20:52:30 [INFO] ✅ APEX-USD zwangsgeschlossen (Farm Time Limit)
+20:52:30 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944147608932352,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705142296,"p":"3018.3
+20:52:31 [DEBUG] 📝 Flushed 1 writes
+20:52:31 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:31 [DEBUG] Fetching fresh positions (force=False, cache_age=16.0s)
+20:52:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944148590399488,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705142530,"p":"92003"
+20:52:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944150213595136,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705142917,"p":"140.1
+20:52:31 [INFO] Lighter: Found 2 open positions
+20:52:31 [INFO] 📊 Positions: X10=2, Lighter=2
+20:52:31 [DEBUG] X10 positions: ['ENA-USD', 'BERA-USD']
+20:52:31 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD']
+20:52:31 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:31 [DEBUG] Check BERA-USD: Age=4.7s (Limit=60s)
+20:52:31 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:18.245581+00:00
+20:52:31 [DEBUG] Check ENA-USD: Age=13.3s (Limit=60s)
+20:52:31 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944151199256576,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705143152,"p":"92003"
+20:52:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944152184918016,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705143387,"p":"33.20
+20:52:32 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'ENA-USD', 'BERA-USD'}
+20:52:32 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:52:32 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:52:32 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:52:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944153170579458,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705143622,"p":"3018.3
+20:52:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944153250271233,"m":"ENA-USD","S":"SELL","tT":"TRADE","T":1764705143641,"p":"0.262
+20:52:32 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:52:32 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:52:32 [DEBUG] 🔄 Skip ENA-USD: Already open (in open_syms)
+20:52:32 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080500, rx=-0.00095800, net=0.00015300, apy=134.0%
+20:52:32 [DEBUG] Skip RESOLV-USD: Spread 0.73% too high
+20:52:32 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:52:32 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:52:32 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.21%)
+20:52:32 [INFO] 🔍 DEBUG APEX-USD: rl=0.00001200, rx=-0.00007300, net=0.00008500, apy=74.5%
+20:52:32 [INFO] 💎 APEX-USD | APY: 74.5%
+20:52:32 [DEBUG] 🔄 Skip BERA-USD: Already open (in open_syms)
+20:52:32 [DEBUG] Skip MON-USD: Spread 0.54% too high
+20:52:32 [DEBUG] Skip ZEC-USD: Spread 0.39% too high
+20:52:32 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:52:32 [INFO] ✅ Found 32 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+20:52:32 [INFO] 🎯 Found 3 opportunities, executing best...
+20:52:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:32 [DEBUG] Using cached positions (age: 1.4s)
+20:52:32 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:32 [DEBUG] Check BERA-USD: Age=5.7s (Limit=60s)
+20:52:32 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:18.245581+00:00
+20:52:32 [DEBUG] Check ENA-USD: Age=14.3s (Limit=60s)
+20:52:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944155531972608,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705144185,"p":"33.2
+20:52:32 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944155766853632,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705144241,"p":"0.074
+20:52:32 [DEBUG] 💓 [lighter] Alive (uptime=90s, last_msg=0s ago)
+20:52:32 [DEBUG] 💓 [x10_funding] Alive (uptime=90s, last_msg=32s ago)
+20:52:33 [DEBUG] 💓 [x10_account] Alive (uptime=90s, last_msg=5s ago)
+20:52:33 [DEBUG] 💓 [x10_trades] Alive (uptime=90s, last_msg=0s ago)
+20:52:33 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944156668628992,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705144456,"p":"883.2
+20:52:33 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944157713010688,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705144705,"p":"3018.
+20:52:33 [DEBUG] Lighter Balance: Raw=$294.69, Safe=$279.96
+20:52:33 [INFO] X10: Detected balance = $300.82
+20:52:33 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+20:52:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:33 [DEBUG] ✅ ZORA-USD: X10=$192,881, Lighter=$24,278,233, Total=$24,471,114
+20:52:33 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944158308601856,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705144847,"p":"33.2
+20:52:33 [DEBUG] Using cached positions (age: 2.4s)
+20:52:33 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:33 [DEBUG] Check BERA-USD: Age=6.7s (Limit=60s)
+20:52:33 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:18.245581+00:00
+20:52:33 [DEBUG] Check ENA-USD: Age=15.3s (Limit=60s)
+20:52:33 [INFO] 🚜 [FARM] Profit Take ENA-USD: Age=15s, Spread=0.023% (sehr niedrig), PnL=$0.00
+20:52:33 [INFO]  💸 EXIT ENA-USD: FARM_QUICK_PROFIT | PnL $0.00 (Fees: $0.00)
+20:52:33 [INFO]  🔻 CLOSING ENA-USD (Atomic Smart Close)...
+20:52:33 [INFO] Lighter: Found 2 open positions
+20:52:33 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ENA-USD (type=<class 'str'>)
+20:52:33 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+20:52:33 [INFO] 🔍 DEBUG: notional_usd=26.287 (type=<class 'float'>)
+20:52:34 [INFO] Lighter: Found 2 open positions
+20:52:34 [INFO] 💰 Balance: X10=$300.8 (free=$288.2), Lit=$280.0 (free=$267.4) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+20:52:34 [INFO] 🚀 Launching trade for APEX-USD (APY=74.5%)
+20:52:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:34 [INFO] Lighter: Found 2 open positions
+20:52:34 [INFO] 🔻 LIGHTER CLOSE ENA-USD: size=-100.000000 coins, side=BUY, price=$0.2629, notional=$26.29
+20:52:34 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=BUY, size_usd=$26.29, price=$0.262870
+20:52:34 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+20:52:34 [DEBUG] QUANTIZE ENA-USD: USD=26.29, coins=100.000000, raw=1000, lot_size=200, final=1000
+20:52:34 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764705217874,"BaseAmount":1000,"Price":26445,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767124354457,"ExpiredAt":1764705753457,"Nonce":2201,"Sig":"D6oZ6KGJalA8nVcaHC2ucsty8eRycY5CJqnbK6ysJe1cs8Rq/HA2a0Ncc3tU/cs3e0jh6zu+nK5CU+5OST2FyBkHcSJ1KJysLxShRY6+aUg="}
+20:52:34 [INFO] ✅ Launched 1 trade tasks this cycle
+20:52:34 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='ac6ab25c79bc182cb45f252a6204d5f5475edfe07d1a2a7b3620fbc5f889d3c080bf02a0636aa8f9' predicted_execution_time_ms=1764705146407 additional_properties={}
+20:52:34 [INFO] Lighter Order: ac6ab25c79bc182cb45f252a6204d5f5475edfe07d1a2a7b3620fbc5f889d3c080bf02a0636aa8f9
+20:52:34 [INFO] ✅ Lighter close ENA-USD: Erfolgreich ($26.29)
+20:52:34 [INFO] ✅ Lighter ENA-USD OK, closing X10...
+20:52:34 [INFO] Lighter: Found 2 open positions
+20:52:34 [DEBUG] ✅ APEX-USD verified: No existing positions on exchanges
+20:52:34 [DEBUG] MIN_NOTIONAL APEX-USD: min_base=5.00000000 coins, price=$0.5948, min_qty_usd=$2.97, min_notional_api=$10.00, final=$11.00
+20:52:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:35 [INFO] 🎰 KELLY APEX-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+20:52:35 [INFO] 📊 KELLY SIZE APEX-USD: base=$30.0, kelly_recommended=$5.6, final=$30.0
+20:52:35 [INFO] 🚀 Opening APEX-USD: Size=$30.0 (Min=$11.0)
+20:52:35 [INFO] 🔄 [PARALLEL] APEX-USD: Lighter POST-ONLY first
+20:52:35 [INFO] 🚀 LIGHTER OPEN APEX-USD: side=SELL, size_usd=$30.00, price=$0.594820
+20:52:35 [DEBUG] 🔍 DEBUG: APEX-USD market_id = 86 (raw=86, type=<class 'int'>)
+20:52:35 [DEBUG] QUANTIZE APEX-USD: USD=30.00, coins=50.435426, raw=504, lot_size=50, final=500
+20:52:35 [INFO] 🔄 [PARALLEL] APEX-USD: X10 MARKET order
+20:52:35 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":86,"ClientOrderIndex":1764705205003,"BaseAmount":500,"Price":59125,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124355036,"ExpiredAt":1764705754036,"Nonce":2202,"Sig":"yHV6Dtv8of2M3LBvQ4zOIlVrlSneDJIG4Tu7XsFwyNXcfPW5I5P8e5bapQOwc6+G9tykkF6y1lUmn+HF8D4AFAWOddg0+AET7XhMjWwREF8="}
+20:52:35 [DEBUG] Placing an order: id=3488606658120378459384641308549216995773224009712461536408207127519094769581
+20:52:35 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:35 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.2s
+20:52:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944165640245250,"m":"LINEA-USD","S":"BUY","tT":"TRADE","T":1764705146595,"p":"0.00
+20:52:35 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='89349d708e2588814a6b7dae4e2e8047abb1ef5ecba0feeb45f9f83fbba33c22a82642df1af6f2c4' predicted_execution_time_ms=1764705146990 additional_properties={}
+20:52:35 [INFO] Lighter Order: 89349d708e2588814a6b7dae4e2e8047abb1ef5ecba0feeb45f9f83fbba33c22a82642df1af6f2c4
+20:52:35 [INFO]  X10 Order: 1995944166126993408
+20:52:35 [INFO] ✅ [PARALLEL] APEX-USD: Both legs filled in 297ms
+20:52:35 [DEBUG] 📝 Trade added to state: APEX-USD
+20:52:35 [DEBUG] 📝 Flushed 1 writes
+20:52:35 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944166244225024,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705146739,"p":"3017.
+20:52:35 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.833008
+20:52:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944166965645313,"m":"APEX-USD","S":"BUY","tT":"TRADE","T":1764705146911,"p":"0.594
+20:52:35 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944166126993408,"accountId":127074,"e
+20:52:35 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944166965645313,"accountId":127074,"m
+20:52:35 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995944166986612736,"accountId":127
+20:52:35 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.826321
+20:52:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944167364104192,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705147006,"p":"33.2
+20:52:35 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944167368298500,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705147007,"p":"33.1
+20:52:36 [INFO] 🚜 Farm Mode ACTIVE
+20:52:36 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944171768123392,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705148056,"p":"3017.9
+20:52:37 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944173844303873,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705148551,"p":"92003"
+20:52:37 [DEBUG] ✅ WIF-USD: X10=$330,555, Lighter=$2,624,679, Total=$2,955,234
+20:52:37 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:37 [INFO] 🔻 Closing X10 ENA-USD: size=110.000000 coins, side=BUY
+20:52:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:38 [INFO] 🔻 X10 CLOSE ENA-USD: size=110.000000, side=SELL
+20:52:38 [DEBUG] Placing an order: id=3122360780452755046683876874927565336338891855987651834302052783900067194471
+20:52:38 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:38 [INFO]  X10 Order: 1995944179452923904
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179858935808,"m":"EUR-USD","S":"BUY","tT":"TRADE","T":1764705149985,"p":"1.1615
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179955404801,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705150008,"p":"
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179955404814,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705150008,"p":"92002
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179955404819,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705150008,"p":"140.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179959599105,"m":"ASTER-USD","S":"SELL","tT":"TRADE","T":1764705150009,"p":"1.0
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179959599110,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705150009,"p":"3017.
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179959599115,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705150009,"p":"3017.
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179963793409,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705150010,"p":"3017.
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179963793415,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705150010,"p":"140.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179963793423,"m":"HYPE-USD","S":"BUY","tT":"TRADE","T":1764705150010,"p":"33.19
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179967987713,"m":"CRV-USD","S":"BUY","tT":"TRADE","T":1764705150011,"p":"0.3909
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179967987718,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705150011,"p":"92003"
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179972182017,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705150012,"p":"92003"
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179972182022,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705150012,"p":"33.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179976376321,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705150013,"p":"33.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179976376326,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705150013,"p":"92002
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179976376332,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705150013,"p":"3017.
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179980570625,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705150014,"p":"140.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179980570630,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705150014,"p":"883.2
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179980570634,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705150014,"p":"33.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179980570646,"m":"AVAX-USD","S":"SELL","tT":"TRADE","T":1764705150014,"p":"13.6
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179984764929,"m":"MON-USD","S":"SELL","tT":"TRADE","T":1764705150015,"p":"0.031
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179984764934,"m":"FARTCOIN-USD","S":"SELL","tT":"TRADE","T":1764705150015,"p":"
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179984764939,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705150015,"p":"33.1
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944179988959233,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705150016,"p":"3017.
+20:52:38 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.826321
+20:52:38 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944179452923904,"accountId":127074,"e
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944180286754817,"m":"ENA-USD","S":"SELL","tT":"TRADE","T":1764705150087,"p":"0.262
+20:52:38 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944180286754817,"accountId":127074,"m
+20:52:38 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995944095352094720,"accountId":127
+20:52:38 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.825317
+20:52:38 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944180978814980,"m":"EUR-USD","S":"SELL","tT":"TRADE","T":1764705150252,"p":"1.161
+20:52:39 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944181888978944,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705150469,"p":"140.1
+20:52:39 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944183147270144,"m":"EDEN-USD","S":"BUY","tT":"TRADE","T":1764705150769,"p":"0.074
+20:52:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:40 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:40 [INFO] ✅ X10 ENA-USD closed (110.000000 coins)
+20:52:40 [INFO] ✅ ENA-USD fully closed
+20:52:40 [INFO] ✅ Trade ENA-USD closed (PnL: $0.00)
+20:52:40 [INFO] ✅ Trade ENA-USD closed (PnL: $0.00)
+20:52:40 [DEBUG] 📝 Flushed 1 writes
+20:52:40 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:40 [INFO]  💰 PnL ENA-USD: $0.00 (FARM_QUICK_PROFIT)
+20:52:40 [ERROR] Kelly Sizer record_trade error for ENA-USD: Format specifier missing precision
+20:52:40 [DEBUG] ✅ ZRO-USD: X10=$72,123, Lighter=$507,460, Total=$579,584
+20:52:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944191217111040,"m":"SOL-USD","S":"BUY","tT":"TRADE","T":1764705152693,"p":"140.18
+20:52:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944192831918081,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705153078,"p":"92002
+20:52:41 [DEBUG] Fetching fresh positions (force=False, cache_age=10.6s)
+20:52:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:41 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944193939214336,"m":"BTC-USD","S":"SELL","tT":"TRADE","T":1764705153342,"p":"92002
+20:52:42 [INFO] Lighter: Found 2 open positions
+20:52:42 [INFO] 📊 Positions: X10=2, Lighter=2
+20:52:42 [DEBUG] X10 positions: ['APEX-USD', 'BERA-USD']
+20:52:42 [DEBUG] Lighter positions: ['BERA-USD', 'APEX-USD']
+20:52:42 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:42 [DEBUG] Check BERA-USD: Age=15.4s (Limit=60s)
+20:52:42 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:42 [DEBUG] Check APEX-USD: Age=6.9s (Limit=60s)
+20:52:42 [DEBUG] 📝 Flushed 1 writes
+20:52:42 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+20:52:42 [DEBUG] 💓 [lighter] Alive (uptime=100s, last_msg=0s ago)
+20:52:42 [DEBUG] 💓 [x10_funding] Alive (uptime=100s, last_msg=42s ago)
+20:52:43 [DEBUG] 💓 [x10_account] Alive (uptime=100s, last_msg=4s ago)
+20:52:43 [DEBUG] 💓 [x10_trades] Alive (uptime=100s, last_msg=1s ago)
+20:52:43 [DEBUG] Using cached positions (age: 1.5s)
+20:52:43 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:43 [DEBUG] Check BERA-USD: Age=16.4s (Limit=60s)
+20:52:43 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:43 [DEBUG] Check APEX-USD: Age=7.9s (Limit=60s)
+20:52:43 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'BERA-USD', 'APEX-USD'}
+20:52:43 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+20:52:43 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+20:52:43 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+20:52:43 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+20:52:43 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+20:52:43 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00008300, rx=-0.00001400, net=-0.00006900, apy=60.4%
+20:52:43 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00080500, rx=-0.00095800, net=0.00015300, apy=134.0%
+20:52:43 [DEBUG] Skip RESOLV-USD: Spread 0.67% too high
+20:52:43 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+20:52:43 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+20:52:43 [DEBUG] 🔄 Skip APEX-USD: Already open (in open_syms)
+20:52:43 [DEBUG] 🔄 Skip BERA-USD: Already open (in open_syms)
+20:52:43 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+20:52:43 [INFO] ✅ Found 34 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+20:52:43 [INFO] 🎯 Found 3 opportunities, executing best...
+20:52:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:44 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944203128934402,"m":"SUI-USD","S":"BUY","tT":"TRADE","T":1764705155533,"p":"1.6090
+20:52:44 [DEBUG] Using cached positions (age: 2.5s)
+20:52:44 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:44 [DEBUG] Check BERA-USD: Age=17.4s (Limit=60s)
+20:52:44 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:44 [DEBUG] Check APEX-USD: Age=8.9s (Limit=60s)
+20:52:44 [DEBUG] Lighter Balance: Raw=$294.69, Safe=$279.96
+20:52:44 [INFO] X10: Detected balance = $300.81
+20:52:44 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+20:52:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:45 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944207096745984,"m":"SEI-USD","S":"SELL","tT":"TRADE","T":1764705156479,"p":"0.139
+20:52:45 [DEBUG] Using cached positions (age: 3.5s)
+20:52:45 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:45 [DEBUG] Check BERA-USD: Age=18.4s (Limit=60s)
+20:52:45 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:45 [DEBUG] Check APEX-USD: Age=9.9s (Limit=60s)
+20:52:45 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944208589918210,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705156835,"p":"92003"
+20:52:45 [INFO] Lighter: Found 2 open positions
+20:52:45 [INFO] 💰 Balance: X10=$300.8 (free=$288.2), Lit=$280.0 (free=$267.4) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+20:52:45 [INFO] 🚀 Launching trade for ENA-USD (APY=60.4%)
+20:52:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:45 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944209437167616,"m":"WLFI-USD","S":"SELL","tT":"TRADE","T":1764705157037,"p":"0.16
+20:52:46 [INFO] ✅ Launched 1 trade tasks this cycle
+20:52:46 [DEBUG] Using cached positions (age: 4.5s)
+20:52:46 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:46 [DEBUG] Check BERA-USD: Age=19.4s (Limit=60s)
+20:52:46 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:46 [DEBUG] Check APEX-USD: Age=10.9s (Limit=60s)
+20:52:46 [INFO] 🚜 Farm Mode ACTIVE
+20:52:46 [INFO] Lighter: Found 2 open positions
+20:52:46 [DEBUG] ✅ ENA-USD verified: No existing positions on exchanges
+20:52:46 [DEBUG] MIN_NOTIONAL ENA-USD: min_base=20.00000000 coins, price=$0.2627, min_qty_usd=$5.25, min_notional_api=$10.00, final=$11.00
+20:52:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+20:52:46 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944212478038016,"m":"JUP-USD","S":"BUY","tT":"TRADE","T":1764705157762,"p":"0.2484
+20:52:46 [DEBUG] ✅ USDJPY-USD: X10=$0, Lighter=$63,015, Total=$63,015
+20:52:46 [INFO] 🎰 KELLY ENA-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=2
+20:52:46 [INFO] 📊 KELLY SIZE ENA-USD: base=$30.0, kelly_recommended=$5.6, final=$30.0
+20:52:46 [INFO] 🚀 Opening ENA-USD: Size=$30.0 (Min=$27.6)
+20:52:46 [INFO] 🔄 [PARALLEL] ENA-USD: Lighter POST-ONLY first
+20:52:46 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=SELL, size_usd=$30.00, price=$0.262750
+20:52:46 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+20:52:46 [DEBUG] QUANTIZE ENA-USD: USD=30.00, coins=114.176974, raw=1142, lot_size=200, final=1000
+20:52:46 [INFO] 🔄 [PARALLEL] ENA-USD: X10 MARKET order
+20:52:46 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764705194281,"BaseAmount":1000,"Price":26117,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767124366551,"ExpiredAt":1764705765551,"Nonce":2203,"Sig":"sD/IEADtH3B9BSUziZc3oezm6ExLEzaV4MiX/p5L6DkFM0t65q60Kfu+oulFBWJj7Gyxdt+25VDnZrdcELg6iB+8k+chyosONVfBOhoZSHA="}
+20:52:46 [DEBUG] Placing an order: id=3099791754277457071131865026179036940454253901267874228353187221281265726046
+20:52:46 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+20:52:46 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='412f88e2eee8bb4adff2f88f90bcf2a1d7163945c5f0ac1ea3cc477b47ffc36ab8b0729782af45b4' predicted_execution_time_ms=1764705158505 additional_properties={}
+20:52:46 [INFO] Lighter Order: 412f88e2eee8bb4adff2f88f90bcf2a1d7163945c5f0ac1ea3cc477b47ffc36ab8b0729782af45b4
+20:52:46 [INFO]  X10 Order: 1995944214421573632
+20:52:46 [INFO] ✅ [PARALLEL] ENA-USD: Both legs filled in 297ms
+20:52:46 [DEBUG] 📝 Trade added to state: ENA-USD
+20:52:46 [DEBUG] 📝 Flushed 1 writes
+20:52:46 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+20:52:47 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.825317
+20:52:47 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944215258861568,"m":"ENA-USD","S":"BUY","tT":"TRADE","T":1764705158425,"p":"0.2627
+20:52:47 [DEBUG] [x10_account] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995944215258861568,"accountId":127074,"m
+20:52:47 [DEBUG] [x10_account] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995944214421573632,"accountId":127074,"e
+20:52:47 [DEBUG] [x10_account] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995944215279828992,"accountId":127
+20:52:47 [DEBUG] [x10_account] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"300.818814
+20:52:47 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+20:52:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+20:52:47 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944216668147713,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705158761,"p":"92003"
+20:52:47 [INFO] Lighter: Found 3 open positions
+20:52:47 [INFO] 📊 Positions: X10=3, Lighter=3
+20:52:47 [DEBUG] X10 positions: ['ENA-USD', 'APEX-USD', 'BERA-USD']
+20:52:47 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'APEX-USD']
+20:52:47 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:47 [DEBUG] Check BERA-USD: Age=20.8s (Limit=60s)
+20:52:47 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:47 [DEBUG] Check APEX-USD: Age=12.3s (Limit=60s)
+20:52:47 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:46.839080+00:00
+20:52:47 [DEBUG] Check ENA-USD: Age=0.8s (Limit=60s)
+20:52:47 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944219000180736,"m":"BTC-USD","S":"BUY","tT":"TRADE","T":1764705159317,"p":"92003"
+20:52:48 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944220015202305,"m":"ETH-USD","S":"BUY","tT":"TRADE","T":1764705159559,"p":"3017.9
+20:52:48 [DEBUG] Using cached positions (age: 1.5s)
+20:52:48 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:48 [DEBUG] Check BERA-USD: Age=21.8s (Limit=60s)
+20:52:48 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:48 [DEBUG] Check APEX-USD: Age=13.3s (Limit=60s)
+20:52:48 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:46.839080+00:00
+20:52:48 [DEBUG] Check ENA-USD: Age=1.8s (Limit=60s)
+20:52:49 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+20:52:49 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944225643958272,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705160901,"p":"140.1
+20:52:49 [DEBUG] Using cached positions (age: 2.5s)
+20:52:49 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:49 [DEBUG] Check BERA-USD: Age=22.8s (Limit=60s)
+20:52:49 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:49 [DEBUG] Check APEX-USD: Age=14.3s (Limit=60s)
+20:52:49 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:46.839080+00:00
+20:52:49 [DEBUG] Check ENA-USD: Age=2.8s (Limit=60s)
+20:52:50 [DEBUG] ✅ XAU-USD: X10=$3,300,746, Lighter=$1,799, Total=$3,302,545
+20:52:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944229351723010,"m":"BNB-USD","S":"SELL","tT":"TRADE","T":1764705161785,"p":"883.2
+20:52:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944229657907200,"m":"SOL-USD","S":"SELL","tT":"TRADE","T":1764705161858,"p":"140.1
+20:52:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944230287052800,"m":"ETH-USD","S":"SELL","tT":"TRADE","T":1764705162008,"p":"3017.
+20:52:50 [DEBUG] Using cached positions (age: 3.5s)
+20:52:50 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:26.825798+00:00
+20:52:50 [DEBUG] Check BERA-USD: Age=23.8s (Limit=60s)
+20:52:50 [INFO] 🔍 DEBUG APEX-USD: entry_time type=<class 'str'>, value=2025-12-02T19:52:35.324253+00:00
+20:52:50 [DEBUG] Check APEX-USD: Age=15.3s (Limit=60s)
+20:52:50 [INFO] 🚜 [FARM] Profit Take APEX-USD: Age=15s, Spread=0.037% (sehr niedrig), PnL=$0.00
+20:52:50 [INFO]  💸 EXIT APEX-USD: FARM_QUICK_PROFIT | PnL $0.00 (Fees: $0.00)
+20:52:50 [INFO]  🔻 CLOSING APEX-USD (Atomic Smart Close)...
+20:52:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944231042027522,"m":"HYPE-USD","S":"SELL","tT":"TRADE","T":1764705162188,"p":"33.1
+20:52:50 [DEBUG] [x10_trades] RAW MSG: {"data":[{"i":1995944231385960450,"m":"PUMP-USD","S":"SELL","tT":"TRADE","T":1764705162270,"p":"0.00
+20:52:50 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+20:52:50 [INFO] 🛑 Shutting down...
+20:52:50 [INFO] 🛑 Initiating graceful shutdown...
+20:52:50 [INFO] 🔍 Supervisor loop stopped
+20:52:50 [INFO] 🛑 Cancelling logic_loop...
+20:52:50 [INFO] 🛑 Cancelling trade_management_loop...
+20:52:50 [INFO] 🛑 Cancelling farm_loop...
+20:52:50 [INFO] 🛑 Cancelling maintenance_loop...
+20:52:50 [INFO] 🛑 Cancelling cleanup_finished_tasks...
+20:52:50 [INFO] 🛑 Cancelling health_reporter...
+20:52:50 [INFO] 🛑 Cancelling connection_watchdog...
+20:52:50 [INFO] Logic loop cancelled
+20:52:50 [INFO] Connection watchdog cancelled
+20:52:50 [INFO] ✅ All tasks stopped
+20:52:50 [INFO] 🛑 Rollback processor: Shutdown signal received
+20:52:50 [INFO] ✅ ParallelExecutionManager: Stopped
+20:52:51 [INFO] 🔌 [x10_trades] WebSocket stopped
+20:52:53 [DEBUG] ✅ XAG-USD: X10=$0, Lighter=$61,597, Total=$61,597
+20:52:55 [INFO] 🔌 [lighter] WebSocket stopped
+20:52:55 [INFO] 🔌 [x10_account] WebSocket stopped
+20:52:55 [INFO] 🔌 [x10_funding] WebSocket stopped
+20:52:55 [INFO] ✅ WebSocketManager stopped
+20:52:55 [INFO] ✅ OpenInterestTracker stopped
+20:52:55 [INFO] 🛑 Stopping InMemoryStateManager...
+20:52:55 [INFO] 📝 State writer loop stopped
+20:52:55 [INFO] ✅ InMemoryStateManager stopped
+20:52:55 [INFO] 🔒 Closing database...
+20:52:55 [INFO] 🖊️ Database write loop stopped
+20:52:55 [INFO] ✅ Database closed
+20:52:55 [INFO] ✅ X10 Adapter geschlossen.
+20:52:55 [INFO] ✅ Lighter Adapter closed
+20:52:55 [INFO] ✅ Bot V5 shutdown complete

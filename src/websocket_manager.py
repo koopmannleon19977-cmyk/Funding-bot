@@ -361,7 +361,7 @@ class ManagedWebSocket:
                 # DEBUG logging
                 if self.config.name.startswith("x10"):
                     preview = str(message)[:100] if message else "empty"
-                    logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
+                    # logger.debug(f"[{self.config.name}] RAW MSG: {preview}")  # Commented out to reduce log noise
                 
                 # JSON ping handling (falls vorhanden)
                 if isinstance(message, str) and '"ping"' in message:
