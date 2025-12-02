@@ -561,7 +561,8 @@ class WebSocketManager:
             url=self.X10_WS_URL,
             name="x10",
             # Use provided ping settings or default to None (no client-initiated pings)
-            # If ping_interval and ping_timeout are provided, use them to prevent ping timeouts
+            # Both ping_interval and ping_timeout should be provided together to prevent ping timeouts
+            # If not provided, the websockets library will automatically respond to server pings
             ping_interval=ping_interval,  # Client-initiated pings if specified
             ping_timeout=ping_timeout,   # Ping timeout if specified
             headers=x10_headers,
