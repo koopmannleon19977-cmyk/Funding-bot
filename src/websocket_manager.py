@@ -722,26 +722,26 @@ class WebSocketManager:
         oi = msg.get("open_interest")
         
         if market and oi:
-            if self. oi_tracker:
+            if self.oi_tracker:
                 self.oi_tracker.update_from_websocket(market, "x10", float(oi))
             
             if self.predictor:
                 self.predictor.update_oi_velocity(market, float(oi))
+
+    async def _handle_x10_trade(self, msg: dict):
+        """Process X10 public trades"""
+        data = msg.get("data", [])
+        # publicTrades liefert eine Liste von Trades
+        if not isinstance(data, list):
+            data = [data]
     
-        async def _handle_x10_trade(self, msg: dict):
-            """Process X10 public trades"""
-            data = msg.get("data", [])
-            # publicTrades liefert eine Liste von Trades
-            if not isinstance(data, list):
-                data = [data]
-        
-            for trade in data:
-                market = msg.get("channel", "").replace("publicTrades/", "").replace("/", "-")
-                price = trade.get("p")
-                if market and price and self.x10_adapter:
-                    self.x10_adapter._price_cache[market] = float(price)
-                    self.x10_adapter._price_cache_time[market] = time.time()
-    
+        for trade in data:
+            market = msg.get("channel", "").replace("publicTrades/", "").replace("/", "-")
+            price = trade.get("p")
+            if market and price and self.x10_adapter:
+                self.x10_adapter._price_cache[market] = float(price)
+                self.x10_adapter._price_cache_time[market] = time.time()
+
     def _lighter_market_id_to_symbol(self, market_id: int) -> Optional[str]:
         """Convert Lighter market ID to symbol"""
         if not self.lighter_adapter or not hasattr(self.lighter_adapter, 'market_info'):
