@@ -23,16 +23,6 @@ logger = logging.getLogger(__name__)
 import config
 
 
-# ═══════════════════════════════════════════════════════════════
-# X10 KEEPALIVE KONSTANTEN
-# ═══════════════════════════════════════════════════════════════
-# X10 Keepalive Konfiguration (basierend auf X10 Doku)
-# "Server sends pings every 15 seconds and expects pong within 10 seconds"
-X10_KEEPALIVE_INTERVAL = 5.0   # Sekunden zwischen unseren Keepalive-Pings
-X10_PONG_TIMEOUT = 5.0         # Timeout für Pong-Response
-X10_MAX_KEEPALIVE_FAILURES = 3 # Max Fehler bevor Reconnect
-
-
 def safe_float(val, default=0.0):
     """Safely convert a value to float, returning default on failure."""
     if val is None or val == "" or val == "None":
@@ -47,13 +37,12 @@ def safe_float(val, default=0.0):
 class WSConfig:
     """WebSocket connection configuration
     
-    NEU: keepalive_interval für X10-spezifisches Keepalive
+    ping_interval/ping_timeout: Library Keepalive (sendet Pings, antwortet auf Server-Pings)
     """
     url: str
     name: str
-    ping_interval: Optional[float] = 20.0  # None = no client pings, library auto-responds to server pings
-    ping_timeout: Optional[float] = 20.0   # None = no timeout for client pings
-    keepalive_interval: Optional[float] = None  # NEU: Explicit keepalive für X10
+    ping_interval: Optional[float] = 20.0  # Library sendet Pings in diesem Intervall
+    ping_timeout: Optional[float] = 20.0   # Library wartet so lange auf Pong
     reconnect_delay_initial: float = 1.0
     reconnect_delay_max: float = 60.0
     reconnect_delay_multiplier: float = 2.0
@@ -107,8 +96,7 @@ class ManagedWebSocket:
         self._connect_task: Optional[asyncio.Task] = None
         self._receive_task: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
-        self._process_task: Optional[asyncio.Task] = None  # NEW: Message processing task
-        self._keepalive_task: Optional[asyncio.Task] = None  # NEU: Keepalive task für X10
+        self._process_task: Optional[asyncio.Task] = None  # Message processing task
         self._message_queue: asyncio.Queue = asyncio.Queue(maxsize=config.message_queue_size)  # Use config value (10000) to handle snapshot bursts
         
         self._lock = asyncio.Lock()
@@ -147,8 +135,8 @@ class ManagedWebSocket:
         self._running = False
         self._state = WSState.STOPPED
         
-        # Cancel tasks (inkl. keepalive)
-        for task in [self._receive_task, self._heartbeat_task, self._connect_task, self._process_task, self._keepalive_task]:
+        # Cancel tasks
+        for task in [self._receive_task, self._heartbeat_task, self._connect_task, self._process_task]:
             if task and not task.done():
                 task.cancel()
                 try:
@@ -224,21 +212,27 @@ class ManagedWebSocket:
                         name=f"ws_{self.config.name}_process"
                     )
                     
-                    # NEU: Keepalive Task für X10
-                    self._keepalive_task = None
-                    if self.config.keepalive_interval:
-                        self._keepalive_task = asyncio.create_task(
-                            self._keepalive_loop(),
-                            name=f"ws_{self.config.name}_keepalive"
-                        )
+                    # KRITISCH: Warte auf erste Nachrichten/Pings bevor wir subscriben!
+                    # X10 sendet erste Ping sehr schnell (nach ~15s) - wir müssen erst darauf antworten können
+                    # Server pingt alle 15s, erwartet Pong innerhalb 10s
+                    if self.config.name == "x10":
+                        await asyncio.sleep(3.0)  # 3 Sekunden warten für erste Ping/Pong-Sequenz
                     
-                    # Resubscribe to channels
-                    await self._resubscribe_all()
+                    # Resubscribe to channels IN SEPARATEM TASK für X10
+                    # Das verhindert Event Loop Blockierung während Ping/Pong
+                    if self.config.name == "x10":
+                        # Start resubscription in background task
+                        asyncio.create_task(
+                            self._resubscribe_all(),
+                            name=f"ws_{self.config.name}_resubscribe"
+                        )
+                    else:
+                        # Für andere: direkt subscriben
+                        await self._resubscribe_all()
                     
                     # Wait for tasks to complete (connection lost)
+                    # NOTE: Keepalive is now handled by websockets library (ping_interval/ping_timeout)
                     tasks_to_wait = [self._receive_task, self._heartbeat_task, self._process_task]
-                    if self._keepalive_task:
-                        tasks_to_wait.append(self._keepalive_task)
                     
                     done, pending = await asyncio.wait(
                         tasks_to_wait,
@@ -298,19 +292,23 @@ class ManagedWebSocket:
             # Ping-Konfiguration:
             # 
             # websockets Library Verhalten:
-            # - ping_interval: Sendet Client-Pings in diesem Intervall
-            # - ping_timeout: Wartet so lange auf Pong vom Server (None = nicht warten)
-            # - Die Library antwortet AUTOMATISCH auf Server-Pings mit Pongs
+            # - ping_interval: Sendet Client-Pings in diesem Intervall (None = keine Client-Pings)
+            # - ping_timeout: Wartet so lange auf Pong vom Server für Client-Pings (None = nicht warten)
+            # - Die Library antwortet AUTOMATISCH auf Server-Pings mit Pongs (unabhängig von ping_timeout!)
             #
             # X10 Anforderung:
-            # - Server sendet Pings alle 15s, erwartet Pong in 10s
-            # - Wir setzen ping_interval=10 um auch aktiv zu pingen
-            # - ping_timeout=None damit wir nicht auf Server-Pong warten
+            # - Server sendet Pings alle ~20s, erwartet Pong innerhalb 10s
+            # - Wir setzen ping_interval=19s um aktiv zu pingen (knapp unter Server-Intervall)
+            # - ping_timeout=None damit wir NICHT auf Server-Pongs für Client-Pings warten
+            # - Die automatische Pong-Antwort auf Server-Pings funktioniert trotzdem!
             
             # KRITISCH: ping_interval und ping_timeout EXPLIZIT setzen!
-            # Wenn None -> Library sendet keine Client-Pings, antwortet aber auf Server-Pings
-            connect_kwargs["ping_interval"] = self.config.ping_interval  # None = keine Client-Pings
-            connect_kwargs["ping_timeout"] = self.config.ping_timeout    # None = kein Timeout
+            # - ping_interval=None: Keine Client-Pings, aber automatische Pongs auf Server-Pings
+            # - ping_timeout=None: Warte nicht auf Server-Pongs (verhindert Timeouts)
+            if self.config.ping_interval is not None:
+                connect_kwargs["ping_interval"] = self.config.ping_interval
+            if self.config.ping_timeout is not None:
+                connect_kwargs["ping_timeout"] = self.config.ping_timeout
             
             # Add headers if configured
             if self.config.headers:
@@ -327,7 +325,9 @@ class ManagedWebSocket:
             self._metrics.last_connect_time = time.time()
             
             logger.info(f"✅ [{self.config.name}] Connected to {self.config.url}")
-            logger.debug(f"✅ [{self.config.name}] WebSocket library will auto-respond to server pings")
+            if self.config.ping_interval:
+                timeout_str = f"{self.config.ping_timeout}s" if self.config.ping_timeout else "None (auto-pong)"
+                logger.info(f"✅ [{self.config.name}] Keepalive enabled: ping_interval={self.config.ping_interval}s, ping_timeout={timeout_str}")
             
         except asyncio.TimeoutError:
             logger.error(f"[{self.config. name}] Connection timeout")
@@ -343,63 +343,47 @@ class ManagedWebSocket:
         """
         Receive messages and queue them for processing.
         
-        CRITICAL for X10 "1011 Ping timeout":
-        - X10 sends APPLICATION-LEVEL JSON pings: {"ping": 12345}
-        - These arrive as regular text messages via recv()
-        - We must process them quickly and respond with {"pong": 12345}
-        
-        From X10 docs: "Server sends pings every 15s and expects pong within 10s"
+        KRITISCH: Async Iterator erlaubt der Library die Frame-Verarbeitung!
+        Mit asyncio.wait_for(recv()) konnte die interne Ping/Pong Verarbeitung
+        gestört werden.
         """
-        messages_since_yield = 0
-        
         try:
-            while self._running and self._ws:
-                try:
-                    # Short timeout to ensure we yield regularly even without messages
-                    message = await asyncio.wait_for(self._ws.recv(), timeout=1.0)
-                    
-                    self._metrics.messages_received += 1
-                    self._metrics.last_message_time = time.time()
-                    messages_since_yield += 1
-                    
-                    # DEBUG: Log first 100 chars of each message for X10
-                    if self.config.name == "x10":
-                        preview = str(message)[:100] if message else "empty"
-                        logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
-                    
-                    # CRITICAL: Check for X10 ping IMMEDIATELY before queueing!
-                    # This ensures fastest possible response to server pings.
-                    if isinstance(message, str) and '"ping"' in message:
-                        try:
-                            data = json.loads(message)
-                            if "ping" in data:
-                                ping_value = data["ping"]
-                                await self._ws.send(json.dumps({"pong": ping_value}))
-                                logger.info(f"[{self.config.name}] ⚡ FAST PONG sent for ping: {ping_value}")
-                                await asyncio.sleep(0)  # Yield after pong
-                                continue  # Don't queue ping messages
-                        except json.JSONDecodeError:
-                            pass  # Not JSON, queue for processing
-                    
-                    # Queue message for async processing
+            logger.info(f"[{self.config.name}] Receive loop started (async iterator)")
+            
+            # KRITISCH: Async Iterator erlaubt der Library die Frame-Verarbeitung!
+            async for message in self._ws:
+                if not self._running:
+                    break
+                
+                self._metrics.messages_received += 1
+                self._metrics.last_message_time = time.time()
+                
+                # DEBUG logging
+                if self.config.name == "x10":
+                    preview = str(message)[:100] if message else "empty"
+                    logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
+                
+                # JSON ping handling (falls vorhanden)
+                if isinstance(message, str) and '"ping"' in message:
                     try:
-                        self._message_queue.put_nowait(message)
-                    except asyncio.QueueFull:
-                        logger.warning(f"[{self.config.name}] Message queue full, dropping message")
-                    
-                    # Yield to event loop frequently
-                    await asyncio.sleep(0)
-                    
-                    # Extra yield every 10 messages during high-volume periods
-                    if messages_since_yield >= 10:
-                        await asyncio.sleep(0.01)
-                        messages_since_yield = 0
-                    
-                except asyncio.TimeoutError:
-                    # No message received - this is normal
-                    messages_since_yield = 0
-                    await asyncio.sleep(0)
-                    continue
+                        data = json.loads(message)
+                        if "ping" in data:
+                            ping_value = data["ping"]
+                            await self._ws.send(json.dumps({"pong": ping_value}))
+                            logger.debug(f"[{self.config.name}] JSON pong sent: {ping_value}")
+                            continue
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Queue message
+                try:
+                    self._message_queue.put_nowait(message)
+                except asyncio.QueueFull:
+                    logger.warning(f"[{self.config.name}] Message queue full")
+                
+                # KRITISCH: Yield nach JEDER Message für Ping/Pong-Verarbeitung!
+                # X10 Server erwartet Pong innerhalb 10s - wir müssen reaktionsfähig bleiben
+                await asyncio.sleep(0)  # Yield immediately to event loop
         
         except ConnectionClosed as e:
             logger.warning(f"[{self.config.name}] Connection closed: {e.code} {e.reason}")
@@ -436,13 +420,18 @@ class ManagedWebSocket:
                 await self._process_single_message(message)
                 
                 # Batch process additional queued messages without blocking
-                # This helps drain the queue quickly during snapshot bursts
+                # REDUCED batch size for X10 to prevent Event Loop blocking
+                max_batch = 10 if self.config.name == "x10" else batch_size
                 processed = 1
-                while processed < batch_size:
+                while processed < max_batch:
                     try:
                         message = self._message_queue.get_nowait()
                         await self._process_single_message(message)
                         processed += 1
+                        
+                        # Yield frequently for X10 to allow ping/pong processing
+                        if self.config.name == "x10" and processed % 5 == 0:
+                            await asyncio.sleep(0)  # Yield every 5 messages
                     except asyncio.QueueEmpty:
                         break
                 
@@ -451,7 +440,7 @@ class ManagedWebSocket:
                 if qsize > 1000:
                     logger.warning(f"[{self.config.name}] Message queue depth: {qsize}")
                 
-                # Yield to event loop after batch
+                # Yield to event loop after batch - KRITISCH für Ping/Pong!
                 await asyncio.sleep(0)
                 
             except asyncio.CancelledError:
@@ -549,85 +538,6 @@ class ManagedWebSocket:
             except Exception as e:
                 logger.error(f"[{self.config.name}] Heartbeat error: {e}")
     
-    async def _keepalive_loop(self):
-        """
-        X10-specific keepalive loop using protocol-level ping/pong.
-        
-        PROBLEM:
-        - X10 server sends protocol-level pings every 15s
-        - X10 server expects pong response within 10s  
-        - The websockets library SHOULD auto-respond but doesn't reliably
-        
-        SOLUTION:
-        - We proactively send pings every 5 seconds
-        - X10 docs confirm: "the server will respond with a pong if one is received"
-        - This keeps the connection alive regardless of server ping handling
-        
-        This method should be started as a task after connection is established.
-        """
-        if not self.config.keepalive_interval:
-            logger.debug(f"[{self.config.name}] Keepalive disabled (interval=None)")
-            return
-        
-        interval = self.config.keepalive_interval
-        consecutive_failures = 0
-        
-        logger.info(f"[{self.config.name}] 🏓 Keepalive started (interval={interval}s)")
-        
-        while self._running and self._ws:
-            try:
-                # Wait for interval
-                await asyncio.sleep(interval)
-                
-                # Check if still connected
-                if not self.is_connected or not self._ws:
-                    logger.debug(f"[{self.config.name}] Keepalive: Not connected, stopping")
-                    break
-                
-                # Send protocol-level ping and wait for pong
-                try:
-                    start = time.time()
-                    
-                    # ws.ping() returns a Future that completes when pong is received
-                    pong_waiter = await self._ws.ping()
-                    await asyncio.wait_for(pong_waiter, timeout=X10_PONG_TIMEOUT)
-                    
-                    latency = (time.time() - start) * 1000
-                    logger.debug(f"[{self.config.name}] 🏓 Keepalive OK (latency={latency:.0f}ms)")
-                    
-                    # Reset failure counter on success
-                    consecutive_failures = 0
-                    
-                except asyncio.TimeoutError:
-                    consecutive_failures += 1
-                    logger.warning(
-                        f"[{self.config.name}] 🏓 Keepalive pong timeout! "
-                        f"(failures={consecutive_failures}/{X10_MAX_KEEPALIVE_FAILURES})"
-                    )
-                    
-                    if consecutive_failures >= X10_MAX_KEEPALIVE_FAILURES:
-                        logger.error(
-                            f"[{self.config.name}] 🏓 Too many keepalive failures, "
-                            f"forcing reconnect..."
-                        )
-                        # Close connection gracefully to trigger reconnect
-                        if self._ws:
-                            try:
-                                await self._ws.close(1000, "Keepalive timeout")
-                            except Exception:
-                                pass
-                        break
-                        
-            except asyncio.CancelledError:
-                logger.debug(f"[{self.config.name}] Keepalive cancelled")
-                break
-            except Exception as e:
-                # Log but continue - don't let keepalive errors crash the connection
-                logger.error(f"[{self.config.name}] Keepalive error: {type(e).__name__}: {e}")
-                await asyncio.sleep(1.0)
-        
-        logger.debug(f"[{self.config.name}] 🏓 Keepalive loop stopped")
-    
     async def _send_subscription(self, channel: str, auth: Optional[str] = None):
         """Send subscription message"""
         try:
@@ -657,20 +567,55 @@ class ManagedWebSocket:
         
         logger.info(f"[{self.config.name}] Resubscribing to {len(all_channels)} channels (paced)...")
         
-        # SEHR LANGSAM subscriben - 1 Channel alle 500ms
-        # Das gibt dem Event Loop genug Zeit für Ping/Pong!
+        # SEHR LANGSAM subscriben - Event Loop muss frei bleiben für Ping/Pong!
+        # X10 sendet Pings regelmäßig (alle 20s) - wir müssen sofort antworten können!
+        # Mit ping_interval=20.0 antwortet die Library automatisch, aber nur wenn Event Loop frei ist!
+        
+        if self.config.name == "x10":
+            # X10: EXTREM LANGSAM - 300ms nach jeder Subscription!
+            # Server sendet Pings alle 15s, erwartet Pong innerhalb 10s
+            # Wenn Resubscription läuft, muss Event Loop frei bleiben für Ping/Pong!
+            # 134 Channels × 300ms = ~40 Sekunden - das gibt genug Zeit für Ping/Pong!
+            pause_after_each = 0.3  # 300ms nach jeder Subscription (EXTREM langsam!)
+            pause_after_batch = 1.0  # Extra 1 Sekunde alle 3 Subscriptions für Ping/Pong!
+            batch_size = 3  # Sehr kleine Batches für häufigeres Yielden
+        else:
+            # Andere: Normal langsam
+            pause_after_each = 0.0  # Keine Pause nach jeder
+            pause_after_batch = 0.1  # 100ms alle 10
+            batch_size = 10
+        
+        start_time = time.time()
         for i, channel in enumerate(all_channels):
             try:
                 msg = {"type": "subscribe", "channel": channel}
                 await self._ws.send(json.dumps(msg))
                 self._subscriptions.add(channel)
                 
-                # Yield nach JEDER Subscription
-                await asyncio.sleep(0)  # Yield to event loop
+                # Yield nach JEDER Subscription - KRITISCH für Ping/Pong!
+                # Längere Pause gibt der Library Zeit, Ping-Frames zu verarbeiten!
+                await asyncio.sleep(pause_after_each)  # Pause für Ping/Pong-Verarbeitung
                 
-                # Extra Pause alle 2 Subscriptions um Event Loop frei zu halten
-                if (i + 1) % 2 == 0:
-                    await asyncio.sleep(0.5)  # 500ms Pause
+                # Extra Pause um Event Loop definitiv frei zu halten
+                # X10 Server pingt alle 15s, erwartet Pong innerhalb 10s - wir müssen reaktionsfähig bleiben!
+                if (i + 1) % batch_size == 0:
+                    elapsed = time.time() - start_time
+                    
+                    # KRITISCH: Pause während erwarteter Ping/Pong-Fenster!
+                    # Server pingt alle 15s - pausiere um diese Zeitpunkte herum
+                    if self.config.name == "x10":
+                        # Pausiere länger um die 15s-Marken herum (±2s Fenster)
+                        time_since_start = elapsed % 15.0
+                        if 13.0 <= time_since_start <= 17.0 or time_since_start <= 2.0:
+                            # In Ping/Pong-Fenster - EXTRA lange Pause!
+                            await asyncio.sleep(pause_after_batch * 2)  # Doppelte Pause!
+                            logger.debug(f"[{self.config.name}] Paused in ping/pong window at {elapsed:.1f}s")
+                        else:
+                            await asyncio.sleep(pause_after_batch)  # Normale Pause
+                    else:
+                        await asyncio.sleep(pause_after_batch)  # Normale Pause
+                    
+                    logger.debug(f"[{self.config.name}] Resubscribed {i + 1}/{len(all_channels)} channels")
                     
             except Exception as e:
                 logger.error(f"[{self.config.name}] Resubscription error for {channel}: {e}")
@@ -753,31 +698,31 @@ class WebSocketManager:
             "User-Agent": "X10PythonTradingClient/0.4.5",
         }
         
-        # X10 WebSocket Ping-Strategie (NEUE LÖSUNG mit Keepalive):
+        # X10 WebSocket Ping-Strategie (basierend auf Discord-Info):
         # 
-        # X10 Server sendet Pings alle 15s und erwartet Pong in 10s.
+        # WICHTIG (aus Discord): "The server sends pings every 15 seconds and expects 
+        # a pong response within 10 seconds."
         # 
-        # PROBLEM: Library ping/pong war nicht zuverlässig genug
-        # -> "1011 Ping timeout" Disconnects
-        #
-        # LÖSUNG: Eigener Keepalive-Loop
-        # - ping_interval=None: Library's automatisches Pingen deaktiviert
-        # - ping_timeout=None: Kein Timeout für Library-Pings
-        # - keepalive_interval=5.0: Unser eigenes Keepalive alle 5 Sekunden
+        # Das bedeutet:
+        # - Server pingt alle 15 Sekunden
+        # - Erwartet Pong innerhalb 10 Sekunden
+        # - Timeout nach ~25 Sekunden wenn kein Pong kommt
         # 
-        # Warum 5 Sekunden?
-        # - X10 Server sendet Pings alle 15 Sekunden
-        # - Mit unserem Keepalive alle 5s sind wir immer "frisch"
-        # - Selbst wenn ein Ping verloren geht, haben wir noch 2 Versuche
+        # KRITISCHER FEHLER: ping_interval=None DEAKTIVIERT die automatische Pong-Antwort!
+        # Die websockets Library antwortet NUR automatisch auf Server-Pings, wenn ping_interval gesetzt ist!
+        # 
+        # LÖSUNG:
+        # - ping_interval=15.0: Sendet Client-Pings alle 15s (wie Server) UND aktiviert automatische Pong-Antwort
+        # - ping_timeout=None: Warte NICHT auf Server-Pongs für unsere Client-Pings (verhindert Timeouts)
+        # - Die Library antwortet automatisch auf Server-Pings (nur wenn ping_interval gesetzt!)
+        # 
+        # WICHTIG: Resubscription muss SEHR langsam sein, damit Event Loop frei bleibt für Pong-Antworten!
         
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
-            # Library ping/pong DEAKTIVIEREN - wir machen es selbst!
-            ping_interval=None,
-            ping_timeout=None,
-            # UNSER Keepalive aktivieren
-            keepalive_interval=X10_KEEPALIVE_INTERVAL,  # 5.0 Sekunden
+            ping_interval=15.0,   # Client-Pings alle 15s (wie Server) + aktiviert automatische Pong-Antwort!
+            ping_timeout=None,    # KEIN Timeout - warte nicht auf Server-Pongs
             headers=x10_headers,
         )
         self._connections["x10"] = ManagedWebSocket(
@@ -847,16 +792,22 @@ class WebSocketManager:
                 all_channels.append(f"publicTrades/{market}")
                 all_channels.append(f"funding/{market}")
             
-            logger.info(f"[x10] Subscribing to {len(all_channels)} channels (fast batch)...")
+            logger.info(f"[x10] Subscribing to {len(all_channels)} channels (paced to allow ping/pong)...")
             
-            # SCHNELLER subscriben - Library antwortet automatisch auf Server-Pings
-            # Batch von 10 Channels, dann kurze Pause
+            # LANGSAM subscriben - Event Loop muss frei bleiben für Ping/Pong!
+            # X10 Server sendet erste Ping sehr schnell nach Verbindung
+            # Wir müssen sicherstellen, dass Pongs sofort verarbeitet werden können
             for i, channel in enumerate(all_channels):
                 await x10_conn.subscribe(channel)
                 
-                # 100ms pause alle 10 subscriptions (statt 500ms alle 2)
-                if (i + 1) % 10 == 0:
-                    await asyncio.sleep(0.1)
+                # Nach jeder Subscription: Yield an Event Loop für Ping/Pong
+                await asyncio.sleep(0)  # Yield immediately
+                
+                # Zusätzliche Pause alle 3 Subscriptions (300ms)
+                # Das gibt dem Event Loop genug Zeit für Ping/Pong-Verarbeitung
+                # X10 Server erwartet Pong innerhalb 10s - wir müssen reaktionsfähig bleiben!
+                if (i + 1) % 3 == 0:
+                    await asyncio.sleep(0.3)  # 300ms Pause
             
             logger.info(f"[x10] Subscribed to {len(symbols)} markets")
     
