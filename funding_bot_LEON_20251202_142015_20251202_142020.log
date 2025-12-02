@@ -1,0 +1,337 @@
+14:20:20 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+14:20:20 [INFO] 🔥 BOT V5 (Architected) STARTING...
+14:20:20 [INFO] 🚀 Starting InMemoryStateManager...
+14:20:20 [INFO] 📂 Initializing database: data/trades.db
+14:20:20 [INFO] ✅ Read pool created: 5 connections
+14:20:20 [INFO] ✅ WAL mode enabled
+14:20:20 [INFO] 🔄 Running database migrations...
+14:20:20 [INFO] ✅ Migrations complete (11 statements)
+14:20:20 [INFO] ✅ Database initialized
+14:20:20 [INFO] 🖊️ Database write loop started
+14:20:20 [INFO] 📂 Loaded 2 trades from database
+14:20:20 [INFO] ✅ InMemoryStateManager started (loaded 2 trades)
+14:20:20 [INFO] ✅ State Manager started
+14:20:20 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+14:20:20 [INFO] ✅ Async database initialized
+14:20:20 [INFO] 📝 State writer loop started
+14:20:20 [DEBUG] ✅ Database schema up to date
+14:20:20 [INFO] Initialisiere X10 Adapter...
+14:20:20 [INFO]  X10 Account initialisiert.
+14:20:20 [INFO] Initialisiere Lighter Adapter...
+14:20:20 [INFO] 📊 Loading Market Data via REST...
+14:20:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+14:20:21 [WARNING] ⚠️ Skipping ETH-USD: market_id=None (parsed=-1) invalid or >254
+14:20:21 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+14:20:21 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+14:20:22 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+14:20:23 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+14:20:25 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+14:20:25 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+14:20:25 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+14:20:25 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+14:20:25 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+14:20:25 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+14:20:25 [INFO] 📈 Pre-loading Lighter prices...
+14:20:25 [DEBUG] Lighter: Loaded 379 funding rates
+14:20:26 [DEBUG] Lighter: Loaded 115 prices via REST
+14:20:26 [INFO] ✅ Lighter prices loaded: 115 symbols
+14:20:26 [INFO] FundingPredictorV2 initialized with BTC Correlation
+14:20:26 [INFO] 启动 OI Tracker für 67 Symbole...
+14:20:26 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+14:20:26 [INFO] 🌐 Starting WebSocket Manager...
+14:20:26 [INFO] 📊 OI Tracker: Starting cycle 1 (67 symbols)
+14:20:26 [INFO] 🔌 [lighter] WebSocket manager started
+14:20:26 [INFO] 🔌 [x10] WebSocket manager started
+14:20:26 [DEBUG] [lighter] Connecting with kwargs: ['close_timeout', 'ping_interval', 'ping_timeout']
+14:20:26 [DEBUG] [x10] Connecting with kwargs: ['close_timeout', 'additional_headers']
+14:20:26 [INFO] ✅ WebSocketManager started
+14:20:27 [DEBUG] ✅ AAVE-USD: X10=$216,548, Lighter=$45,300, Total=$261,848
+14:20:27 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/18
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/13
+14:20:27 [DEBUG] [lighter] Subscribed to trade/13
+14:20:27 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/90
+14:20:27 [DEBUG] [lighter] Subscribed to trade/90
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/20
+14:20:27 [DEBUG] [lighter] Subscribed to trade/86
+14:20:27 [DEBUG] [lighter] Subscribed to trade/20
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/28
+14:20:27 [DEBUG] [lighter] Subscribed to trade/28
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/50
+14:20:27 [DEBUG] [lighter] Subscribed to trade/50
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/55
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/15
+14:20:27 [DEBUG] [lighter] Subscribed to trade/55
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/9
+14:20:27 [DEBUG] [lighter] Subscribed to trade/9
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/53
+14:20:27 [DEBUG] [lighter] Subscribed to trade/53
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/6
+14:20:27 [DEBUG] [lighter] Subscribed to trade/6
+14:20:27 [DEBUG] [lighter] Subscribed to order_book/17
+14:20:28 [DEBUG] [lighter] Subscribed to trade/17
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/52
+14:20:28 [DEBUG] [lighter] Subscribed to trade/52
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/7
+14:20:28 [DEBUG] [lighter] Subscribed to trade/7
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/26
+14:20:28 [DEBUG] [lighter] Subscribed to trade/26
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/31
+14:20:28 [DEBUG] [lighter] Subscribed to trade/31
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/92
+14:20:28 [DEBUG] [lighter] Subscribed to trade/92
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/51
+14:20:28 [DEBUG] [lighter] Subscribed to trade/51
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/11
+14:20:28 [DEBUG] [lighter] Subscribed to trade/11
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/91
+14:20:28 [DEBUG] [lighter] Subscribed to trade/91
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/76
+14:20:28 [DEBUG] [lighter] Subscribed to trade/76
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/45
+14:20:28 [DEBUG] [lighter] Subscribed to trade/45
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/93
+14:20:28 [DEBUG] [lighter] Subscribed to trade/93
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/34
+14:20:28 [DEBUG] [lighter] Subscribed to trade/34
+14:20:28 [DEBUG] [lighter] Subscription batch 1 complete, yielding for pings
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/5
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/29
+14:20:28 [DEBUG] [lighter] Subscribed to trade/5
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/40
+14:20:28 [DEBUG] [lighter] Subscribed to trade/40
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/30
+14:20:28 [DEBUG] [lighter] Subscribed to trade/30
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/42
+14:20:28 [DEBUG] [lighter] Subscribed to trade/104
+14:20:28 [DEBUG] [lighter] Subscribed to trade/42
+14:20:28 [DEBUG] [lighter] Subscribed to order_book/58
+14:20:28 [DEBUG] [lighter] Subscribed to trade/58
+14:20:28 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+14:20:28 [DEBUG] [lighter] Subscribed to trade/72
+14:20:28 [DEBUG] [x10] Subscribed to funding/AAVE/USD
+14:20:28 [DEBUG] [x10] Subscribed to publicTrades/EIGEN/USD
+14:20:29 [DEBUG] [lighter] Subscription batch 2 complete, yielding for pings
+14:20:29 [DEBUG] [lighter] Subscribed to trade/103
+14:20:29 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+14:20:29 [DEBUG] [lighter] Subscribed to trade/43
+14:20:29 [DEBUG] [lighter] Subscribed to order_book/67
+14:20:29 [DEBUG] [lighter] Subscription batch 3 complete, yielding for pings
+14:20:29 [DEBUG] [lighter] Subscribed to order_book/47
+14:20:29 [DEBUG] [lighter] Subscribed to order_book/16
+14:20:29 [DEBUG] [lighter] Subscribed to trade/98
+14:20:30 [DEBUG] [x10] Subscription batch 1 complete (4/134)
+14:20:30 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+14:20:30 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+14:20:30 [DEBUG] [lighter] Subscription batch 4 complete, yielding for pings
+14:20:30 [DEBUG] [lighter] Subscribed to order_book/82
+14:20:30 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+14:20:30 [DEBUG] [lighter] Subscribed to trade/47
+14:20:30 [DEBUG] [lighter] Subscribed to order_book/86
+14:20:30 [DEBUG] [x10] Subscribed to funding/MNT/USD
+14:20:31 [DEBUG] ✅ EIGEN-USD: X10=$129,026, Lighter=$2,054,739, Total=$2,183,765
+14:20:31 [DEBUG] [lighter] Subscription batch 5 complete, yielding for pings
+14:20:31 [DEBUG] [lighter] Subscribed to market_stats/all
+14:20:31 [DEBUG] [lighter] Subscribed to order_book/8
+14:20:31 [DEBUG] [lighter] Subscribed to order_book/33
+14:20:31 [DEBUG] [x10] Subscription batch 2 complete (8/134)
+14:20:31 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+14:20:31 [DEBUG] [lighter] Subscription batch 6 complete, yielding for pings
+14:20:31 [DEBUG] [lighter] Subscribed to order_book/72
+14:20:31 [DEBUG] [x10] Subscribed to funding/APEX/USD
+14:20:31 [DEBUG] [lighter] Subscribed to order_book/39
+14:20:32 [DEBUG] [lighter] Subscribed to trade/71
+14:20:32 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+14:20:32 [DEBUG] [x10] Subscribed to funding/STRK/USD
+14:20:32 [DEBUG] [lighter] Subscription batch 7 complete, yielding for pings
+14:20:32 [DEBUG] [lighter] Subscribed to trade/21
+14:20:32 [DEBUG] [lighter] Subscribed to trade/60
+14:20:32 [DEBUG] [lighter] Subscribed to order_book/83
+14:20:33 [DEBUG] [x10] Subscription batch 3 complete (12/134)
+14:20:33 [DEBUG] [x10] Subscribed to publicTrades/ONDO/USD
+14:20:33 [DEBUG] [lighter] Subscription batch 8 complete, yielding for pings
+14:20:33 [DEBUG] [lighter] Subscribed to order_book/89
+14:20:33 [DEBUG] [lighter] Subscribed to order_book/36
+14:20:33 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+14:20:33 [DEBUG] [lighter] Subscribed to trade/83
+14:20:33 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+14:20:33 [DEBUG] [x10] Subscribed to funding/SEI/USD
+14:20:33 [DEBUG] [lighter] Subscription batch 9 complete, yielding for pings
+14:20:33 [DEBUG] [lighter] Subscribed to trade/29
+14:20:34 [DEBUG] [lighter] Subscribed to order_book/23
+14:20:34 [DEBUG] [lighter] Subscribed to order_book/37
+14:20:34 [DEBUG] [lighter] Subscription batch 10 complete, yielding for pings
+14:20:34 [DEBUG] [lighter] Subscribed to order_book/3
+14:20:34 [DEBUG] [lighter] Subscribed to order_book/103
+14:20:34 [DEBUG] [x10] Subscription batch 4 complete (16/134)
+14:20:34 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+14:20:34 [DEBUG] [lighter] Subscribed to order_book/2
+14:20:34 [DEBUG] ✅ UNI-USD: X10=$180,371, Lighter=$363,933, Total=$544,304
+14:20:34 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+14:20:35 [DEBUG] [x10] Subscribed to publicTrades/SOL/USD
+14:20:35 [DEBUG] [lighter] Subscription batch 11 complete, yielding for pings
+14:20:35 [DEBUG] [lighter] Subscribed to trade/63
+14:20:35 [DEBUG] [x10] Subscribed to funding/SOL/USD
+14:20:35 [DEBUG] [lighter] Subscribed to trade/33
+14:20:35 [DEBUG] [lighter] Subscribed to trade/49
+14:20:35 [DEBUG] [lighter] Subscription batch 12 complete, yielding for pings
+14:20:35 [DEBUG] [lighter] Subscribed to trade/25
+14:20:36 [DEBUG] [lighter] Subscribed to order_book/71
+14:20:36 [DEBUG] [lighter] Subscribed to trade/2
+14:20:36 [DEBUG] [x10] Subscription batch 5 complete (20/134)
+14:20:36 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+14:20:36 [DEBUG] [x10] Subscribed to funding/VIRTUAL/USD
+14:20:36 [DEBUG] [lighter] Subscription batch 13 complete, yielding for pings
+14:20:36 [DEBUG] [lighter] Subscribed to order_book/43
+14:20:36 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+14:20:36 [DEBUG] [lighter] Subscribed to trade/16
+14:20:36 [DEBUG] [lighter] Subscribed to trade/24
+14:20:36 [DEBUG] [x10] Subscribed to funding/ENA/USD
+14:20:37 [DEBUG] [lighter] Subscription batch 14 complete, yielding for pings
+14:20:37 [DEBUG] [lighter] Subscribed to trade/35
+14:20:37 [DEBUG] [lighter] Subscribed to trade/67
+14:20:37 [DEBUG] [lighter] Subscribed to trade/37
+14:20:37 [DEBUG] [x10] Subscription batch 6 complete (24/134)
+14:20:37 [DEBUG] [x10] Subscribed to publicTrades/EDEN/USD
+14:20:38 [DEBUG] [lighter] Subscription batch 15 complete, yielding for pings
+14:20:38 [DEBUG] [lighter] Subscribed to trade/41
+14:20:38 [DEBUG] [x10] Subscribed to funding/EDEN/USD
+14:20:38 [DEBUG] [lighter] Subscribed to order_book/27
+14:20:38 [DEBUG] [lighter] Subscribed to trade/32
+14:20:38 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+14:20:38 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+14:20:38 [DEBUG] [lighter] Subscription batch 16 complete, yielding for pings
+14:20:38 [DEBUG] [lighter] Subscribed to order_book/104
+14:20:38 [DEBUG] ✅ APEX-USD: X10=$19,254, Lighter=$820,601, Total=$839,855
+14:20:38 [DEBUG] [lighter] Subscribed to order_book/32
+14:20:38 [DEBUG] [lighter] Subscribed to trade/1
+14:20:39 [DEBUG] [lighter] Subscription batch 17 complete, yielding for pings
+14:20:39 [DEBUG] [lighter] Subscribed to trade/89
+14:20:39 [DEBUG] [x10] Subscription batch 7 complete (28/134)
+14:20:39 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+14:20:39 [DEBUG] [lighter] Subscribed to trade/3
+14:20:39 [DEBUG] [lighter] Subscribed to trade/10
+14:20:39 [DEBUG] [x10] Subscribed to funding/LINK/USD
+14:20:39 [DEBUG] [x10] Subscribed to publicTrades/BTC/USD
+14:20:40 [DEBUG] [x10] Subscribed to funding/BTC/USD
+14:20:40 [DEBUG] [lighter] Subscription batch 18 complete, yielding for pings
+14:20:40 [DEBUG] [lighter] Subscribed to trade/27
+14:20:40 [DEBUG] [lighter] Subscribed to trade/15
+14:20:40 [DEBUG] [lighter] Subscribed to trade/12
+14:20:40 [DEBUG] [lighter] Subscription batch 19 complete, yielding for pings
+14:20:40 [DEBUG] [lighter] Subscribed to order_book/38
+14:20:40 [DEBUG] [lighter] Subscribed to order_book/25
+14:20:40 [DEBUG] [lighter] Subscribed to trade/23
+14:20:41 [DEBUG] [x10] Subscription batch 8 complete (32/134)
+14:20:41 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+14:20:41 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+14:20:41 [DEBUG] [x10] Subscribed to publicTrades/LTC/USD
+14:20:41 [DEBUG] [lighter] Subscription batch 20 complete, yielding for pings
+14:20:41 [DEBUG] [lighter] Subscribed to order_book/41
+14:20:41 [DEBUG] [lighter] Subscribed to trade/46
+14:20:41 [DEBUG] [x10] Subscribed to funding/LTC/USD
+14:20:41 [DEBUG] [lighter] Subscribed to trade/39
+14:20:42 [DEBUG] [lighter] Subscription batch 21 complete, yielding for pings
+14:20:42 [DEBUG] [lighter] Subscribed to trade/4
+14:20:42 [DEBUG] [lighter] Subscribed to order_book/1
+14:20:42 [DEBUG] [lighter] Subscribed to order_book/4
+14:20:42 [DEBUG] ✅ TRUMP-USD: X10=$152,862, Lighter=$372,603, Total=$525,465
+14:20:42 [DEBUG] [x10] Subscription batch 9 complete (36/134)
+14:20:42 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+14:20:42 [DEBUG] [x10] Subscribed to funding/XPL/USD
+14:20:42 [DEBUG] [lighter] Subscription batch 22 complete, yielding for pings
+14:20:42 [DEBUG] [lighter] Subscribed to order_book/12
+14:20:42 [DEBUG] [lighter] Subscribed to order_book/24
+14:20:42 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+14:20:43 [DEBUG] [lighter] Subscribed to trade/18
+14:20:43 [DEBUG] [x10] Subscribed to funding/CRV/USD
+14:20:43 [DEBUG] [lighter] Subscription batch 23 complete, yielding for pings
+14:20:43 [DEBUG] [lighter] Subscribed to order_book/63
+14:20:43 [DEBUG] [lighter] Subscribed to order_book/60
+14:20:43 [DEBUG] [lighter] Subscribed to order_book/98
+14:20:44 [DEBUG] [x10] Subscription batch 10 complete (40/134)
+14:20:44 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+14:20:44 [DEBUG] [lighter] Subscription batch 24 complete, yielding for pings
+14:20:44 [DEBUG] [lighter] Subscribed to order_book/10
+14:20:44 [DEBUG] [lighter] Subscribed to trade/36
+14:20:44 [DEBUG] [x10] Subscribed to funding/TON/USD
+14:20:44 [DEBUG] [lighter] Subscribed to trade/8
+14:20:44 [DEBUG] [x10] Subscribed to publicTrades/DOGE/USD
+14:20:44 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+14:20:44 [DEBUG] [lighter] Subscription batch 25 complete, yielding for pings
+14:20:44 [DEBUG] [lighter] Subscribed to order_book/49
+14:20:44 [DEBUG] [lighter] Subscribed to order_book/35
+14:20:45 [DEBUG] [lighter] Subscribed to order_book/21
+14:20:45 [DEBUG] [lighter] Subscription batch 26 complete, yielding for pings
+14:20:45 [DEBUG] [lighter] Subscribed to trade/38
+14:20:45 [DEBUG] [lighter] Subscribed to trade/82
+14:20:45 [DEBUG] [x10] Subscription batch 11 complete (44/134)
+14:20:45 [DEBUG] [x10] Subscribed to publicTrades/POPCAT/USD
+14:20:45 [DEBUG] [lighter] Subscribed to order_book/46
+14:20:45 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+14:20:46 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+14:20:46 [DEBUG] [lighter] Subscription batch 27 complete, yielding for pings
+14:20:46 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+14:20:47 [DEBUG] [x10] Subscription batch 12 complete (48/134)
+14:20:47 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+14:20:47 [DEBUG] [x10] Subscribed to funding/TRX/USD
+14:20:47 [DEBUG] 💓 [lighter] Ping/Pong OK
+14:20:48 [DEBUG] ✅ MNT-USD: X10=$137,309, Lighter=$3,145,676, Total=$3,282,985
+14:20:52 [DEBUG] ✅ STRK-USD: X10=$162,183, Lighter=$5,867,772, Total=$6,029,955
+14:20:52 [WARNING] [x10] Connection closed: 1011 Ping timeout
+14:20:52 [ERROR] [x10] Subscription error: received 1011 (internal error) Ping timeout; then sent 1011 (internal error) Ping timeout
+14:20:52 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+14:20:53 [DEBUG] [x10] Connecting with kwargs: ['close_timeout', 'additional_headers']
+14:20:53 [DEBUG] [x10] Subscription batch 13 complete (52/134)
+14:20:54 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+14:20:54 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+14:20:54 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+14:20:54 [DEBUG] [x10] Subscribed to funding/STRK/USD
+14:20:55 [DEBUG] [x10] Subscription batch 14 complete (56/134)
+14:20:55 [DEBUG] [x10] Subscribed to publicTrades/KAITO/USD
+14:20:55 [DEBUG] [x10] Subscription batch 1 complete, yielding for pings
+14:20:55 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+14:20:55 [DEBUG] [x10] Subscribed to funding/KAITO/USD
+14:20:55 [DEBUG] [x10] Subscribed to funding/TRX/USD
+14:20:55 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+14:20:55 [DEBUG] [x10] Subscribed to publicTrades/LDO/USD
+14:20:55 [DEBUG] ✅ ONDO-USD: X10=$105,819, Lighter=$2,113,279, Total=$2,219,098
+14:20:55 [DEBUG] [x10] Subscribed to funding/LDO/USD
+14:20:56 [DEBUG] [x10] Subscription batch 2 complete, yielding for pings
+14:20:56 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+14:20:56 [DEBUG] [x10] Subscribed to funding/XPL/USD
+14:20:56 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+14:20:56 [DEBUG] [x10] Subscription batch 3 complete, yielding for pings
+14:20:56 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+14:20:56 [DEBUG] [x10] Subscription batch 15 complete (60/134)
+14:20:56 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+14:20:56 [DEBUG] [x10] Subscribed to funding/LTC/USD
+14:20:57 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+14:20:57 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+14:20:57 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+14:20:57 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+14:20:57 [DEBUG] [x10] Subscription batch 4 complete, yielding for pings
+14:20:57 [DEBUG] [x10] Subscribed to funding/ENA/USD
+14:20:57 [DEBUG] [x10] Subscribed to funding/APEX/USD
+14:20:57 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+14:20:58 [INFO] 🖊️ Database write loop stopped
+14:20:58 [INFO] 📝 State writer loop stopped
+14:20:58 [ERROR] unhandled exception during asyncio.run() shutdown
+task: <Task finished name='ws_x10_connect' coro=<ManagedWebSocket._connection_loop() done, defined at C:\Users\koopm\funding-bot\src\websocket_manager.py:183> exception=AttributeError('STOPPED')>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\websocket_manager.py", line 250, in _connection_loop
+    self._state = WSState.STOPPED
+                  ^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\enum.py", line 767, in __getattr__
+    raise AttributeError(name) from None
+AttributeError: STOPPED
+14:20:58 [ERROR] unhandled exception during asyncio.run() shutdown
+task: <Task finished name='ws_lighter_connect' coro=<ManagedWebSocket._connection_loop() done, defined at C:\Users\koopm\funding-bot\src\websocket_manager.py:183> exception=AttributeError('STOPPED')>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\websocket_manager.py", line 250, in _connection_loop
+    self._state = WSState.STOPPED
+                  ^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\enum.py", line 767, in __getattr__
+    raise AttributeError(name) from None
+AttributeError: STOPPED

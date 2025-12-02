@@ -60,7 +60,7 @@ DESIRED_NOTIONAL_USD = 8          # Kleiner starten
 MIN_POSITION_SIZE_USD = 5.0       # API Minimum
 MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
 MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
-MAX_TRADE_SIZE_USD = 20.0         # Max pro Trade
+MAX_TRADE_SIZE_USD = 50.0         # Max pro Trade
 MAX_OPEN_TRADES = 3               # Nicht zu viele gleichzeitig, um Übersicht zu behalten
 
 # Safety: Reserve 20% statt 30%
