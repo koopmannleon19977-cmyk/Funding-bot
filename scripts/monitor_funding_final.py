@@ -2949,7 +2949,13 @@ async def run_bot_v5():
     
     # C) WebSocket Manager starten & verknüpfen
     logger.info("🌐 Starting WebSocket Manager...")
-    ws_manager = await init_websocket_manager(x10, lighter, symbols=common_symbols)
+    ws_manager = await init_websocket_manager(
+        x10, 
+        lighter, 
+        symbols=common_symbols,
+        ping_interval=20.0, 
+        ping_timeout=10.0
+    )
     
     # D) WIRING: WebSocket -> OI Tracker & Predictor
     # Damit fließen Echtzeit-Daten in die Prediction Logik
