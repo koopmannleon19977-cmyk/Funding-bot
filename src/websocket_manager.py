@@ -215,12 +215,12 @@ class ManagedWebSocket:
                     # KRITISCH: Warte auf erste Nachrichten/Pings bevor wir subscriben!
                     # X10 sendet erste Ping sehr schnell (nach ~15s) - wir müssen erst darauf antworten können
                     # Server pingt alle 15s, erwartet Pong innerhalb 10s
-                    if self.config.name == "x10":
+                    if self.config.name.startswith("x10"):
                         await asyncio.sleep(3.0)  # 3 Sekunden warten für erste Ping/Pong-Sequenz
                     
                     # Resubscribe to channels IN SEPARATEM TASK für X10
                     # Das verhindert Event Loop Blockierung während Ping/Pong
-                    if self.config.name == "x10":
+                    if self.config.name.startswith("x10"):
                         # Start resubscription in background task
                         asyncio.create_task(
                             self._resubscribe_all(),
@@ -359,7 +359,7 @@ class ManagedWebSocket:
                 self._metrics.last_message_time = time.time()
                 
                 # DEBUG logging
-                if self.config.name == "x10":
+                if self.config.name.startswith("x10"):
                     preview = str(message)[:100] if message else "empty"
                     logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
                 
@@ -421,7 +421,7 @@ class ManagedWebSocket:
                 
                 # Batch process additional queued messages without blocking
                 # REDUCED batch size for X10 to prevent Event Loop blocking
-                max_batch = 10 if self.config.name == "x10" else batch_size
+                max_batch = 10 if self.config.name.startswith("x10") else batch_size
                 processed = 1
                 while processed < max_batch:
                     try:
@@ -430,7 +430,7 @@ class ManagedWebSocket:
                         processed += 1
                         
                         # Yield frequently for X10 to allow ping/pong processing
-                        if self.config.name == "x10" and processed % 5 == 0:
+                        if self.config.name.startswith("x10") and processed % 5 == 0:
                             await asyncio.sleep(0)  # Yield every 5 messages
                     except asyncio.QueueEmpty:
                         break
@@ -558,7 +558,15 @@ class ManagedWebSocket:
         
         CRITICAL: X10 server sends first ping very quickly after connection.
         We MUST keep the event loop free to respond, or we get disconnected.
+        
+        NOTE: X10 Firehose streams (x10_trades, x10_funding) don't require subscriptions.
+        They automatically send data for all markets.
         """
+        # Skip resubscription for Firehose streams (they don't need subscriptions)
+        if self.config.name in ["x10_trades", "x10_funding"]:
+            logger.debug(f"[{self.config.name}] Firehose stream - no subscription needed")
+            return
+        
         all_channels = list(self._subscriptions | self._pending_subscriptions)
         self._subscriptions.clear()
         
@@ -571,7 +579,7 @@ class ManagedWebSocket:
         # X10 sendet Pings regelmäßig (alle 20s) - wir müssen sofort antworten können!
         # Mit ping_interval=20.0 antwortet die Library automatisch, aber nur wenn Event Loop frei ist!
         
-        if self.config.name == "x10":
+        if self.config.name.startswith("x10"):
             # X10: EXTREM LANGSAM - 300ms nach jeder Subscription!
             # Server sendet Pings alle 15s, erwartet Pong innerhalb 10s
             # Wenn Resubscription läuft, muss Event Loop frei bleiben für Ping/Pong!
@@ -603,7 +611,7 @@ class ManagedWebSocket:
                     
                     # KRITISCH: Pause während erwarteter Ping/Pong-Fenster!
                     # Server pingt alle 15s - pausiere um diese Zeitpunkte herum
-                    if self.config.name == "x10":
+                    if self.config.name.startswith("x10"):
                         # Pausiere länger um die 15s-Marken herum (±2s Fenster)
                         time_since_start = elapsed % 15.0
                         if 13.0 <= time_since_start <= 17.0 or time_since_start <= 2.0:
@@ -636,7 +644,9 @@ class WebSocketManager:
     
     # Exchange WebSocket URLs
     LIGHTER_WS_URL = "wss://mainnet.zklighter.elliot.ai/stream"
-    X10_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"
+    X10_ACCOUNT_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"  # Private: Balance, Orders, Positions
+    X10_TRADES_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades"  # Public: Trades (Firehose - all markets)
+    X10_FUNDING_WS_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding"  # Public: Funding Rates (Firehose - all markets)
 
 
     
@@ -680,7 +690,7 @@ class WebSocketManager:
         
         self._running = True
         
-        # Create Lighter connection
+        # 1. Create Lighter connection (bleibt wie sie ist)
         lighter_config = WSConfig(
             url=self.LIGHTER_WS_URL,
             name="lighter",
@@ -692,7 +702,7 @@ class WebSocketManager:
             self._handle_message
         )
         
-        # Create X10 connection
+        # X10 Header Setup
         x10_headers = {
             "X-Api-Key": getattr(config, "X10_API_KEY", ""),
             "User-Agent": "X10PythonTradingClient/0.4.5",
@@ -715,18 +725,47 @@ class WebSocketManager:
         # - ping_interval=15.0: Sendet Client-Pings alle 15s (wie Server) UND aktiviert automatische Pong-Antwort
         # - ping_timeout=None: Warte NICHT auf Server-Pongs für unsere Client-Pings (verhindert Timeouts)
         # - Die Library antwortet automatisch auf Server-Pings (nur wenn ping_interval gesetzt!)
-        # 
-        # WICHTIG: Resubscription muss SEHR langsam sein, damit Event Loop frei bleibt für Pong-Antworten!
         
-        x10_config = WSConfig(
-            url=self.X10_WS_URL,
-            name="x10",
-            ping_interval=15.0,   # Client-Pings alle 15s (wie Server) + aktiviert automatische Pong-Antwort!
-            ping_timeout=None,    # KEIN Timeout - warte nicht auf Server-Pongs
+        # 2. X10 PRIVATE Connection (Account Stream) - NUR Authentifiziert
+        # WICHTIG: Hier ping_interval=15.0 setzen, da X10 Server Pings sendet.
+        # Wir antworten nur auf Server-Pings (macht die Library automatisch bei eingehenden Pings).
+        x10_account_config = WSConfig(
+            url=self.X10_ACCOUNT_WS_URL,  # PRIVATE URL
+            name="x10_account",
+            ping_interval=15.0,  # Client sendet aktiv Pings um Verbindung offen zu halten
+            ping_timeout=None,  # Ignoriere fehlende Pongs vom Server (verhindert 1011 Fehler clientseitig)
             headers=x10_headers,
         )
-        self._connections["x10"] = ManagedWebSocket(
-            x10_config,
+        self._connections["x10_account"] = ManagedWebSocket(
+            x10_account_config,
+            self._handle_message
+        )
+        
+        # 3. X10 TRADES Connection (Public Firehose) - NEU!
+        # Liefert automatisch Trades für ALLE Märkte (kein Subscribe nötig)
+        x10_trades_config = WSConfig(
+            url=self.X10_TRADES_WS_URL,  # PUBLIC TRADES URL
+            name="x10_trades",
+            ping_interval=15.0,
+            ping_timeout=None,
+            headers=x10_headers,  # Header oft auch für Public nötig wegen Rate Limits
+        )
+        self._connections["x10_trades"] = ManagedWebSocket(
+            x10_trades_config,
+            self._handle_message
+        )
+        
+        # 4. X10 FUNDING Connection (Public Firehose) - NEU!
+        # Liefert automatisch Funding Rates für ALLE Märkte (kein Subscribe nötig)
+        x10_funding_config = WSConfig(
+            url=self.X10_FUNDING_WS_URL,  # PUBLIC FUNDING URL
+            name="x10_funding",
+            ping_interval=15.0,
+            ping_timeout=None,
+            headers=x10_headers,  # Header oft auch für Public nötig wegen Rate Limits
+        )
+        self._connections["x10_funding"] = ManagedWebSocket(
+            x10_funding_config,
             self._handle_message
         )
         
@@ -735,7 +774,7 @@ class WebSocketManager:
             conn.start() for conn in self._connections.values()
         ])
         
-        logger.info("✅ WebSocketManager started")
+        logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)")
     
     async def stop(self):
         """Stop all WebSocket connections"""
@@ -755,12 +794,29 @@ class WebSocketManager:
             for channel in channels:
                 await conn.subscribe(channel)
     
-    async def subscribe_x10(self, channels: List[str]):
-        """Subscribe to X10 channels"""
-        conn = self._connections. get("x10")
+    async def subscribe_x10(self, channels: List[str], use_trades_stream: bool = False, use_funding_stream: bool = False):
+        """Subscribe to X10 channels
+        
+        NOTE: X10 Firehose streams (trades/funding) don't require manual subscription.
+        They automatically send data for all markets. This method is kept for compatibility
+        but only works with x10_account for account-related subscriptions.
+        
+        Args:
+            channels: List of channel names
+            use_trades_stream: If True, use x10_trades connection (NOTE: Firehose, no subscribe needed)
+            use_funding_stream: If True, use x10_funding connection (NOTE: Firehose, no subscribe needed)
+        """
+        if use_trades_stream or use_funding_stream:
+            logger.warning("⚠️ X10 Trades/Funding streams are Firehose - no manual subscription needed!")
+            return
+        
+        # Only account stream supports manual subscriptions
+        conn = self._connections.get("x10_account")
         if conn:
             for channel in channels:
                 await conn.subscribe(channel)
+        else:
+            logger.error("❌ X10 Account Connection not found!")
     
     async def subscribe_market_data(self, symbols: List[str]):
         """Subscribe to market data for given symbols"""
@@ -779,37 +835,20 @@ class WebSocketManager:
                     await lighter_conn.subscribe(f"trade/{market_id}")
                     await asyncio.sleep(0.02)
         
-        # X10 - VERY SLOW subscription to keep event loop free for ping/pong
-        x10_conn = self._connections.get("x10")
-        if x10_conn:
-            # CRITICAL: X10 server sends first ping VERY quickly after connection!
-            # We must subscribe SLOWLY to keep the event loop free for pong responses.
-            # From Discord: "Server sends pings every 15s, expects pong within 10s"
-            
-            all_channels = []
-            for symbol in symbols:
-                market = symbol.replace("-", "/")
-                all_channels.append(f"publicTrades/{market}")
-                all_channels.append(f"funding/{market}")
-            
-            logger.info(f"[x10] Subscribing to {len(all_channels)} channels (paced to allow ping/pong)...")
-            
-            # LANGSAM subscriben - Event Loop muss frei bleiben für Ping/Pong!
-            # X10 Server sendet erste Ping sehr schnell nach Verbindung
-            # Wir müssen sicherstellen, dass Pongs sofort verarbeitet werden können
-            for i, channel in enumerate(all_channels):
-                await x10_conn.subscribe(channel)
-                
-                # Nach jeder Subscription: Yield an Event Loop für Ping/Pong
-                await asyncio.sleep(0)  # Yield immediately
-                
-                # Zusätzliche Pause alle 3 Subscriptions (300ms)
-                # Das gibt dem Event Loop genug Zeit für Ping/Pong-Verarbeitung
-                # X10 Server erwartet Pong innerhalb 10s - wir müssen reaktionsfähig bleiben!
-                if (i + 1) % 3 == 0:
-                    await asyncio.sleep(0.3)  # 300ms Pause
-            
-            logger.info(f"[x10] Subscribed to {len(symbols)} markets")
+        # 2. X10 Subscriptions
+        # WICHTIG: Wir müssen NICHTS mehr senden!
+        # Die Verbindung zu .../v1/publicTrades und .../v1/funding liefert automatisch 
+        # Daten für ALLE Märkte (Firehose). Das manuelle Subscriben entfällt.
+        x10_trades_conn = self._connections.get("x10_trades")
+        x10_funding_conn = self._connections.get("x10_funding")
+        
+        if x10_trades_conn and x10_funding_conn:
+            logger.info(f"[x10] Connected to Firehose streams (Trades & Funding) for all markets.")
+        else:
+            if not x10_trades_conn:
+                logger.error("❌ X10 Trades Connection not found!")
+            if not x10_funding_conn:
+                logger.error("❌ X10 Funding Connection not found!")
     
     def _get_lighter_market_id(self, symbol: str) -> Optional[int]:
         """Get Lighter market ID for symbol"""
@@ -824,11 +863,29 @@ class WebSocketManager:
         try:
             if source == "lighter":
                 await self._handle_lighter_message(msg)
-            elif source == "x10":
+            
+            # X10 Routing
+            elif source == "x10_account":
+                # Account Updates (Balance, Orders, Positions)
                 await self._handle_x10_message(msg)
             
+            elif source == "x10_trades":
+                # Public Trades Firehose - sendet direkt Trade-Daten für alle Märkte
+                # Simuliere die Struktur, die der Adapter erwartet
+                if "channel" not in msg:
+                    # X10 Firehose sendet direkt Trade-Daten, kein "channel" Feld
+                    # Wir setzen es für Kompatibilität mit dem Handler
+                    pass
+                await self._handle_x10_trade(msg)
+            
+            elif source == "x10_funding":
+                # Funding Rates Firehose - sendet direkt Funding-Daten für alle Märkte
+                await self._handle_x10_funding(msg)
+            
             # Call registered handlers
-            handlers = self._message_handlers.get(source, [])
+            # Normalize source name for handlers (alle x10_* Quellen mapen zu "x10")
+            handler_source = "x10" if source.startswith("x10") else source
+            handlers = self._message_handlers.get(handler_source, [])
             for handler in handlers:
                 try:
                     await handler(msg)
@@ -962,16 +1019,27 @@ class WebSocketManager:
                 self. x10_adapter._price_cache_time[symbol] = time.time()
     
     async def _handle_x10_funding(self, msg: dict):
-        """Process X10 funding rate"""
-        data = msg.get("data", {})
-        market = data.get("m", "")
-        rate = data.get("f")
+        """Process X10 funding rate
         
-        if market and rate:
+        Handles both:
+        - Firehose format (direct from /v1/funding): msg contains market and rate directly
+        - Subscription format (from account stream): msg contains {"data": {"m": market, "f": rate}}
+        """
+        # Try Firehose format first (direct fields)
+        market = msg.get("m") or msg.get("market", "")
+        rate = msg.get("f") or msg.get("funding_rate") or msg.get("rate")
+        
+        # Fallback to subscription format (wrapped in "data")
+        if not market or rate is None:
+            data = msg.get("data", {})
+            market = market or data.get("m", "") or data.get("market", "")
+            rate = rate if rate is not None else data.get("f") or data.get("funding_rate")
+        
+        if market and rate is not None:
             symbol = market.replace("/", "-")
             if self.x10_adapter:
-                self. x10_adapter._funding_cache[symbol] = float(rate)
-                self.x10_adapter._funding_cache_time[symbol] = time. time()
+                self.x10_adapter._funding_cache[symbol] = float(rate)
+                self.x10_adapter._funding_cache_time[symbol] = time.time()
     
     async def _handle_x10_orderbook(self, msg: dict):
         """Process X10 orderbook"""
@@ -1003,18 +1071,47 @@ class WebSocketManager:
                 self.predictor.update_oi_velocity(market, float(oi))
 
     async def _handle_x10_trade(self, msg: dict):
-        """Process X10 public trades"""
-        data = msg.get("data", [])
-        # publicTrades liefert eine Liste von Trades
-        if not isinstance(data, list):
-            data = [data]
-    
-        for trade in data:
-            market = msg.get("channel", "").replace("publicTrades/", "").replace("/", "-")
-            price = trade.get("p")
-            if market and price and self.x10_adapter:
-                self.x10_adapter._price_cache[market] = float(price)
-                self.x10_adapter._price_cache_time[market] = time.time()
+        """Process X10 public trades
+        
+        Handles both:
+        - Firehose format (direct from /v1/publicTrades): msg contains trade data directly
+        - Subscription format (from account stream): msg contains {"data": [...]}
+        """
+        # Try Firehose format first (direct trade object or list)
+        trades = []
+        if isinstance(msg, list):
+            trades = msg
+        elif "data" in msg:
+            # Subscription format (wrapped in "data")
+            data = msg.get("data", [])
+            if isinstance(data, list):
+                trades = data
+            else:
+                trades = [data]
+        else:
+            # Single trade object (Firehose)
+            trades = [msg]
+        
+        for trade in trades:
+            # Extract market from trade object
+            market = trade.get("m") or trade.get("market", "")
+            if not market:
+                # Fallback: try to extract from channel if present
+                channel = msg.get("channel", "")
+                if "publicTrades/" in channel:
+                    market = channel.replace("publicTrades/", "").replace("/", "-")
+                else:
+                    continue
+            
+            # Convert market format (BTC/USD -> BTC-USD)
+            symbol = market.replace("/", "-")
+            
+            # Extract price
+            price = trade.get("p") or trade.get("price")
+            
+            if symbol and price and self.x10_adapter:
+                self.x10_adapter._price_cache[symbol] = float(price)
+                self.x10_adapter._price_cache_time[symbol] = time.time()
 
     def _lighter_market_id_to_symbol(self, market_id: int) -> Optional[str]:
         """Convert Lighter market ID to symbol"""
@@ -1036,14 +1133,14 @@ class WebSocketManager:
         """Get status of all connections"""
         return {
             name: {
-                'state': conn.state. value,
+                'state': conn.state.value,
                 'connected': conn.is_connected,
                 'metrics': {
                     'messages_received': conn.metrics.messages_received,
                     'messages_sent': conn.metrics.messages_sent,
                     'reconnect_count': conn.metrics.reconnect_count,
                     'uptime_seconds': conn.metrics.uptime_seconds,
-                    'last_error': conn.metrics. last_error
+                    'last_error': conn.metrics.last_error
                 }
             }
             for name, conn in self._connections.items()
