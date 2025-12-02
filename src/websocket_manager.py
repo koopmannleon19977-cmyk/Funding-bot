@@ -528,8 +528,13 @@ class WebSocketManager:
         """Set OI tracker for real-time updates"""
         self. oi_tracker = oi_tracker
     
-    async def start(self):
-        """Start all WebSocket connections"""
+    async def start(self, ping_interval: Optional[float] = None, ping_timeout: Optional[float] = None):
+        """Start all WebSocket connections
+        
+        Args:
+            ping_interval: WebSocket ping interval in seconds (for X10 connection, default: None)
+            ping_timeout: WebSocket ping timeout in seconds (for X10 connection, default: None)
+        """
         if self._running:
             return
         
@@ -555,13 +560,10 @@ class WebSocketManager:
         x10_config = WSConfig(
             url=self.X10_WS_URL,
             name="x10",
-            # FIX für "1011 Ping timeout":
-            # Das offizielle X10 SDK (x10xchange/python_sdk) verwendet KEINE ping-Parameter!
-            # Die websockets-Library antwortet AUTOMATISCH auf Server-Pings mit Pongs.
-            # ping_interval=None deaktiviert Client-initiierte Pings komplett.
-            # So kann die Library sich auf das Antworten von Server-Pings konzentrieren.
-            ping_interval=None,  # KEINE Client-Pings (wie offizielles SDK)
-            ping_timeout=None,   # Kein Timeout
+            # Use provided ping settings or default to None (no client-initiated pings)
+            # If ping_interval and ping_timeout are provided, use them to prevent ping timeouts
+            ping_interval=ping_interval,  # Client-initiated pings if specified
+            ping_timeout=ping_timeout,   # Ping timeout if specified
             headers=x10_headers,
         )
         self._connections["x10"] = ManagedWebSocket(
@@ -889,12 +891,21 @@ def get_websocket_manager() -> WebSocketManager:
     return _ws_manager
 
 
-async def init_websocket_manager(x10_adapter, lighter_adapter, symbols: List[str] = None):
-    """Initialize and start WebSocket manager"""
+async def init_websocket_manager(x10_adapter, lighter_adapter, symbols: List[str] = None, 
+                                  ping_interval: Optional[float] = None, ping_timeout: Optional[float] = None):
+    """Initialize and start WebSocket manager
+    
+    Args:
+        x10_adapter: X10 exchange adapter
+        lighter_adapter: Lighter exchange adapter
+        symbols: List of symbols to subscribe to
+        ping_interval: WebSocket ping interval in seconds (for X10 connection)
+        ping_timeout: WebSocket ping timeout in seconds (for X10 connection)
+    """
     manager = get_websocket_manager()
     manager.set_adapters(x10_adapter, lighter_adapter)
     
-    await manager.start()
+    await manager.start(ping_interval=ping_interval, ping_timeout=ping_timeout)
     
     if symbols:
         await manager.subscribe_market_data(symbols)
