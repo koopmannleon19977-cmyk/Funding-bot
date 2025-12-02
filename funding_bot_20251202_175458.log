@@ -1,0 +1,274 @@
+17:54:58 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+17:54:58 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:54:58 [INFO] 🚀 Starting InMemoryStateManager...
+17:54:58 [INFO] 📂 Initializing database: data/trades.db
+17:54:58 [INFO] ✅ Read pool created: 5 connections
+17:54:58 [INFO] ✅ WAL mode enabled
+17:54:58 [INFO] 🔄 Running database migrations...
+17:54:58 [INFO] ✅ Migrations complete (11 statements)
+17:54:58 [INFO] ✅ Database initialized
+17:54:58 [INFO] 🖊️ Database write loop started
+17:54:58 [INFO] 📂 Loaded 3 trades from database
+17:54:58 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+17:54:58 [INFO] ✅ State Manager started
+17:54:58 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:54:58 [INFO] ✅ Async database initialized
+17:54:58 [INFO] 📝 State writer loop started
+17:54:58 [DEBUG] ✅ Database schema up to date
+17:54:58 [INFO] Initialisiere X10 Adapter...
+17:54:58 [INFO]  X10 Account initialisiert.
+17:54:58 [INFO] Initialisiere Lighter Adapter...
+17:54:58 [INFO] 📊 Loading Market Data via REST...
+17:54:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:54:59 [WARNING] ⚠️ Skipping ETH-USD: market_id=None (parsed=-1) invalid or >254
+17:54:59 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+17:54:59 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+17:55:00 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+17:55:00 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:55:02 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+17:55:02 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:55:02 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:55:02 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:55:02 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:55:02 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+17:55:02 [INFO] 📈 Pre-loading Lighter prices...
+17:55:02 [DEBUG] Lighter: Loaded 379 funding rates
+17:55:03 [DEBUG] Lighter: Loaded 115 prices via REST
+17:55:03 [INFO] ✅ Lighter prices loaded: 115 symbols
+17:55:03 [INFO] FundingPredictorV2 initialized with BTC Correlation
+17:55:03 [INFO] 启动 OI Tracker für 67 Symbole...
+17:55:03 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+17:55:03 [INFO] 🌐 Starting WebSocket Manager...
+17:55:03 [INFO] 📊 OI Tracker: Starting cycle 1 (67 symbols)
+17:55:03 [INFO] 🔌 [lighter] WebSocket manager started
+17:55:03 [INFO] 🔌 [x10] WebSocket manager started
+17:55:03 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+17:55:03 [INFO] 🔌 [x10] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:55:03 [INFO] ✅ WebSocketManager started
+17:55:04 [DEBUG] ✅ WLFI-USD: X10=$839,046, Lighter=$25,430,734, Total=$26,269,780
+17:55:04 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:55:04 [DEBUG] ✅ [lighter] WebSocket library will auto-respond to server pings
+17:55:04 [INFO] [lighter] Resubscribing to 69 channels (paced)...
+17:55:04 [DEBUG] 💓 [lighter] Heartbeat monitor started (server handles ping/pong)
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/32
+17:55:04 [DEBUG] [lighter] Subscribed to trade/32
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/11
+17:55:04 [DEBUG] [lighter] Subscribed to trade/11
+17:55:04 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:55:04 [DEBUG] ✅ [x10] WebSocket library will auto-respond to server pings
+17:55:04 [DEBUG] 💓 [x10] Heartbeat monitor started (server handles ping/pong)
+17:55:04 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":true,"balance":{"collateralName":"USD","balance":"303.258153"
+17:55:04 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":true,"orders":[]},"ts":1764694496030,"seq":2}
+17:55:04 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":true,"positions":[]},"ts":1764694496030,"seq":3}
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/67
+17:55:04 [DEBUG] [lighter] Subscribed to trade/67
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/38
+17:55:04 [DEBUG] [lighter] Subscribed to trade/38
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/89
+17:55:04 [DEBUG] [lighter] Subscribed to trade/89
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/83
+17:55:04 [DEBUG] [lighter] Subscribed to trade/83
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/53
+17:55:04 [DEBUG] [lighter] Subscribed to trade/53
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/18
+17:55:04 [DEBUG] [lighter] Subscribed to trade/18
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/71
+17:55:04 [DEBUG] [lighter] Subscribed to trade/71
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/45
+17:55:04 [DEBUG] [lighter] Subscribed to trade/45
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/12
+17:55:04 [DEBUG] [lighter] Subscribed to trade/12
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/46
+17:55:04 [DEBUG] [lighter] Subscribed to trade/46
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/103
+17:55:04 [DEBUG] [lighter] Subscribed to trade/103
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/5
+17:55:04 [DEBUG] [lighter] Subscribed to trade/5
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/82
+17:55:04 [DEBUG] [lighter] Subscribed to trade/82
+17:55:04 [DEBUG] [lighter] Subscribed to order_book/23
+17:55:04 [DEBUG] [lighter] Subscribed to trade/23
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/60
+17:55:05 [DEBUG] [lighter] Subscribed to trade/60
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/13
+17:55:05 [DEBUG] [lighter] Subscribed to trade/13
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/43
+17:55:05 [DEBUG] [lighter] Subscribed to trade/43
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/1
+17:55:05 [DEBUG] [lighter] Subscribed to trade/1
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/7
+17:55:05 [DEBUG] [lighter] Subscribed to trade/7
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/37
+17:55:05 [DEBUG] [lighter] Subscribed to trade/37
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/26
+17:55:05 [DEBUG] [lighter] Subscribed to trade/26
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/93
+17:55:05 [DEBUG] [lighter] Subscribed to trade/93
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/8
+17:55:05 [DEBUG] [lighter] Subscribed to trade/8
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/3
+17:55:05 [DEBUG] [lighter] Subscribed to trade/3
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/39
+17:55:05 [DEBUG] [lighter] Subscribed to trade/39
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/52
+17:55:05 [DEBUG] [lighter] Subscribed to trade/52
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/27
+17:55:05 [DEBUG] [lighter] Subscribed to trade/27
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/33
+17:55:05 [DEBUG] [lighter] Subscribed to trade/33
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/25
+17:55:05 [DEBUG] [lighter] Subscribed to trade/25
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/35
+17:55:05 [DEBUG] [lighter] Subscribed to trade/35
+17:55:05 [DEBUG] [lighter] Subscribed to order_book/24
+17:55:05 [DEBUG] [lighter] Subscribed to trade/24
+17:55:05 [INFO] [x10] Subscribing to 134 channels (very slow)...
+17:55:05 [DEBUG] [x10] Subscribed to publicTrades/WLFI/USD
+17:55:05 [DEBUG] [x10] Subscribed to funding/WLFI/USD
+17:55:06 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+17:55:06 [DEBUG] [x10] Subscribed to funding/STRK/USD
+17:55:06 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+17:55:06 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+17:55:06 [DEBUG] 💓 [x10] Alive (uptime=2s, last_msg=2s ago)
+17:55:07 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+17:55:07 [DEBUG] [x10] Subscribed to funding/MNT/USD
+17:55:07 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+17:55:07 [DEBUG] [x10] Subscribed to funding/CRV/USD
+17:55:07 [DEBUG] ✅ PENGU-USD: X10=$222,398, Lighter=$79,901,034, Total=$80,123,432
+17:55:08 [DEBUG] [x10] Subscribed to publicTrades/SUI/USD
+17:55:08 [DEBUG] [x10] Subscribed to funding/SUI/USD
+17:55:08 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+17:55:08 [DEBUG] [x10] Subscribed to funding/APEX/USD
+17:55:08 [DEBUG] 💓 [x10] Alive (uptime=4s, last_msg=4s ago)
+17:55:09 [DEBUG] [x10] Subscribed to publicTrades/BCH/USD
+17:55:09 [DEBUG] [x10] Subscribed to funding/BCH/USD
+17:55:09 [DEBUG] [x10] Subscribed to publicTrades/EIGEN/USD
+17:55:09 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+17:55:10 [DEBUG] [x10] Subscribed to publicTrades/1000SHIB/USD
+17:55:10 [DEBUG] [x10] Subscribed to funding/1000SHIB/USD
+17:55:10 [DEBUG] [x10] Subscribed to publicTrades/MKR/USD
+17:55:10 [DEBUG] [x10] Subscribed to funding/MKR/USD
+17:55:10 [DEBUG] 💓 [x10] Alive (uptime=6s, last_msg=6s ago)
+17:55:11 [DEBUG] [x10] Subscribed to publicTrades/ZEC/USD
+17:55:11 [DEBUG] [x10] Subscribed to funding/ZEC/USD
+17:55:11 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+17:55:11 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+17:55:11 [DEBUG] ✅ STRK-USD: X10=$201,412, Lighter=$5,271,075, Total=$5,472,488
+17:55:12 [DEBUG] [x10] Subscribed to publicTrades/BERA/USD
+17:55:12 [DEBUG] [x10] Subscribed to funding/BERA/USD
+17:55:12 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+17:55:12 [DEBUG] [x10] Subscribed to funding/APT/USD
+17:55:12 [DEBUG] 💓 [x10] Alive (uptime=8s, last_msg=8s ago)
+17:55:13 [DEBUG] [x10] Subscribed to publicTrades/XAU/USD
+17:55:13 [DEBUG] [x10] Subscribed to funding/XAU/USD
+17:55:13 [DEBUG] [x10] Subscribed to publicTrades/NEAR/USD
+17:55:13 [DEBUG] [x10] Subscribed to funding/NEAR/USD
+17:55:14 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+17:55:14 [DEBUG] [x10] Subscribed to funding/ENA/USD
+17:55:14 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+17:55:14 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+17:55:14 [DEBUG] 💓 [x10] Alive (uptime=10s, last_msg=10s ago)
+17:55:14 [DEBUG] 💓 [x10] Sent JSON ping: 1764694514568
+17:55:15 [DEBUG] [x10] Subscribed to publicTrades/AVAX/USD
+17:55:15 [DEBUG] [x10] Subscribed to funding/AVAX/USD
+17:55:15 [DEBUG] ✅ MNT-USD: X10=$69,062, Lighter=$3,127,010, Total=$3,196,072
+17:55:15 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+17:55:15 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+17:55:16 [DEBUG] [x10] Subscribed to publicTrades/WLD/USD
+17:55:16 [DEBUG] [x10] Subscribed to funding/WLD/USD
+17:55:16 [DEBUG] [x10] Subscribed to publicTrades/S/USD
+17:55:16 [DEBUG] [x10] Subscribed to funding/S/USD
+17:55:16 [DEBUG] 💓 [x10] Alive (uptime=12s, last_msg=12s ago)
+17:55:17 [DEBUG] [x10] Subscribed to publicTrades/UNI/USD
+17:55:17 [DEBUG] [x10] Subscribed to funding/UNI/USD
+17:55:17 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+17:55:17 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+17:55:18 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+17:55:18 [DEBUG] [x10] Subscribed to funding/VIRTUAL/USD
+17:55:18 [DEBUG] [x10] Subscribed to publicTrades/SPX/USD
+17:55:18 [DEBUG] [x10] Subscribed to funding/SPX/USD
+17:55:18 [DEBUG] 💓 [x10] Alive (uptime=14s, last_msg=14s ago)
+17:55:19 [DEBUG] [x10] Subscribed to publicTrades/SOL/USD
+17:55:19 [DEBUG] [x10] Subscribed to funding/SOL/USD
+17:55:19 [DEBUG] ✅ CRV-USD: X10=$204,482, Lighter=$2,271,226, Total=$2,475,708
+17:55:19 [DEBUG] [x10] Subscribed to publicTrades/MON/USD
+17:55:19 [DEBUG] [x10] Subscribed to funding/MON/USD
+17:55:20 [DEBUG] [x10] Subscribed to publicTrades/ARB/USD
+17:55:20 [DEBUG] [x10] Subscribed to funding/ARB/USD
+17:55:20 [DEBUG] [x10] Subscribed to publicTrades/OP/USD
+17:55:20 [DEBUG] [x10] Subscribed to funding/OP/USD
+17:55:20 [DEBUG] 💓 [x10] Alive (uptime=16s, last_msg=16s ago)
+17:55:21 [DEBUG] [x10] Subscribed to publicTrades/RESOLV/USD
+17:55:21 [DEBUG] [x10] Subscribed to funding/RESOLV/USD
+17:55:21 [DEBUG] [x10] Subscribed to publicTrades/LINEA/USD
+17:55:21 [DEBUG] [x10] Subscribed to funding/LINEA/USD
+17:55:21 [INFO] [lighter] Resubscribed to 69 channels
+17:55:22 [DEBUG] [x10] Subscribed to publicTrades/IP/USD
+17:55:22 [DEBUG] [x10] Subscribed to funding/IP/USD
+17:55:22 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+17:55:22 [DEBUG] [x10] Subscribed to funding/SEI/USD
+17:55:22 [DEBUG] 💓 [x10] Alive (uptime=18s, last_msg=18s ago)
+17:55:23 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+17:55:23 [DEBUG] [x10] Subscribed to funding/DOT/USD
+17:55:24 [DEBUG] 💓 [x10] Alive (uptime=20s, last_msg=20s ago)
+17:55:24 [DEBUG] 💓 [lighter] Ping/Pong OK
+17:55:24 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago)
+17:55:24 [DEBUG] ✅ SUI-USD: X10=$909,052, Lighter=$1,890,434, Total=$2,799,486
+17:55:28 [WARNING] [x10] Failed to send JSON ping: received 1011 (internal error) Ping timeout; then sent 1011 (internal error) Ping timeout
+17:55:28 [ERROR] [x10] Subscription error: received 1011 (internal error) Ping timeout; then sent 1011 (internal error) Ping timeout
+17:55:28 [WARNING] [x10] Connection closed: 1011 Ping timeout
+17:55:28 [ERROR] [x10] Subscription error: received 1011 (internal error) Ping timeout; then sent 1011 (internal error) Ping timeout
+17:55:28 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+17:55:28 [DEBUG] ✅ APEX-USD: X10=$25,772, Lighter=$855,186, Total=$880,958
+17:55:29 [INFO] 🔌 [x10] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:55:30 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:55:30 [DEBUG] ✅ [x10] WebSocket library will auto-respond to server pings
+17:55:30 [INFO] [x10] Resubscribing to 82 channels (paced)...
+17:55:30 [DEBUG] 💓 [x10] Heartbeat monitor started (server handles ping/pong)
+17:55:30 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":true,"orders":[]},"ts":1764694521756,"seq":1}
+17:55:30 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":true,"positions":[]},"ts":1764694521756,"seq":2}
+17:55:30 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":true,"balance":{"collateralName":"USD","balance":"303.258153"
+17:55:30 [DEBUG] [x10] Subscribed to publicTrades/1000BONK/USD
+17:55:30 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+17:55:31 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+17:55:31 [DEBUG] [x10] Subscribed to funding/XPL/USD
+17:55:31 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+17:55:31 [DEBUG] [x10] Subscribed to funding/PUMP/USD
+17:55:32 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+17:55:32 [DEBUG] [x10] Subscribed to funding/TON/USD
+17:55:32 [DEBUG] 💓 [x10] Alive (uptime=2s, last_msg=2s ago)
+17:55:32 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$2,693, Total=$2,693
+17:55:32 [DEBUG] [x10] Subscribed to publicTrades/LDO/USD
+17:55:32 [DEBUG] [x10] Subscribed to funding/LDO/USD
+17:55:33 [DEBUG] [x10] Subscribed to publicTrades/FIL/USD
+17:55:33 [DEBUG] [x10] Subscribed to funding/FIL/USD
+17:55:33 [DEBUG] [x10] Subscribed to publicTrades/WIF/USD
+17:55:33 [DEBUG] [x10] Subscribed to funding/WIF/USD
+17:55:34 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+17:55:34 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+17:55:34 [DEBUG] 💓 [x10] Alive (uptime=4s, last_msg=4s ago)
+17:55:34 [DEBUG] [x10] Subscribed to publicTrades/POPCAT/USD
+17:55:34 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+17:55:35 [DEBUG] [x10] Subscribed to publicTrades/ZRO/USD
+17:55:35 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+17:55:35 [DEBUG] [x10] Subscribed to publicTrades/TAO/USD
+17:55:35 [DEBUG] [x10] Subscribed to funding/TAO/USD
+17:55:36 [DEBUG] ✅ EIGEN-USD: X10=$143,640, Lighter=$1,875,148, Total=$2,018,788
+17:55:36 [DEBUG] 💓 [x10] Alive (uptime=6s, last_msg=6s ago)
+17:55:36 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+17:55:36 [DEBUG] [x10] Subscribed to funding/TRX/USD
+17:55:36 [DEBUG] [x10] Subscribed to publicTrades/BTC/USD
+17:55:36 [DEBUG] [x10] Subscribed to funding/BTC/USD
+17:55:37 [DEBUG] [x10] Subscribed to publicTrades/XRP/USD
+17:55:37 [DEBUG] [x10] Subscribed to funding/XRP/USD
+17:55:37 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+17:55:37 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+17:55:38 [DEBUG] 💓 [x10] Alive (uptime=8s, last_msg=8s ago)
+17:55:38 [DEBUG] [x10] Subscribed to publicTrades/JUP/USD
+17:55:38 [DEBUG] [x10] Subscribed to funding/JUP/USD
+17:55:38 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+17:55:38 [DEBUG] [x10] Subscribed to funding/XAG/USD
+17:55:39 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+17:55:39 [DEBUG] [x10] Subscribed to funding/LINK/USD
+17:55:39 [INFO] 📝 State writer loop stopped
+17:55:39 [INFO] 🖊️ Database write loop stopped

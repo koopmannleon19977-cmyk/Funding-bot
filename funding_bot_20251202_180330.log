@@ -1,0 +1,61 @@
+18:03:30 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+18:03:30 [INFO] 🔥 BOT V5 (Architected) STARTING...
+18:03:30 [INFO] 🚀 Starting InMemoryStateManager...
+18:03:30 [INFO] 📂 Initializing database: data/trades.db
+18:03:30 [INFO] ✅ Read pool created: 5 connections
+18:03:30 [INFO] ✅ WAL mode enabled
+18:03:30 [INFO] 🔄 Running database migrations...
+18:03:30 [INFO] ✅ Migrations complete (11 statements)
+18:03:30 [INFO] ✅ Database initialized
+18:03:30 [INFO] 🖊️ Database write loop started
+18:03:30 [INFO] 📂 Loaded 3 trades from database
+18:03:30 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+18:03:30 [INFO] ✅ State Manager started
+18:03:30 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+18:03:30 [INFO] ✅ Async database initialized
+18:03:30 [INFO] 📝 State writer loop started
+18:03:30 [DEBUG] ✅ Database schema up to date
+18:03:30 [INFO] Initialisiere X10 Adapter...
+18:03:30 [INFO]  X10 Account initialisiert.
+18:03:30 [INFO] Initialisiere Lighter Adapter...
+18:03:30 [INFO] 📊 Loading Market Data via REST...
+18:03:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:03:31 [INFO] 🖊️ Database write loop stopped
+18:03:31 [INFO] 📝 State writer loop stopped
+18:03:31 [ERROR] _GatheringFuture exception was never retrieved
+future: <_GatheringFuture finished exception=CancelledError()>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 644, in load_market_cache
+    data = await self._rest_get("/api/v1/orderBooks")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 128, in _rest_get
+    async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 1510, in __aenter__
+    self._resp: _RetType = await self._coro
+                           ^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 734, in _connect_and_send_request
+    conn = await self._connector.connect(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\connector.py", line 642, in connect
+    proto = await self._create_connection(req, traces, timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1209, in _create_connection
+    _, proto = await self._create_direct_connection(req, traces, timeout)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1550, in _create_direct_connection
+    transp, proto = await self._wrap_create_connection(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\connector.py", line 1283, in _wrap_create_connection
+    return await self._loop.create_connection(*args, **kwargs, sock=sock)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1098, in create_connection
+    transport, protocol = await self._create_connection_transport(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1131, in _create_connection_transport
+    await waiter
+asyncio.exceptions.CancelledError
+18:03:31 [ERROR] Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000026CFFDB0A90>

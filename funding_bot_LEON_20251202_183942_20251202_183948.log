@@ -1,0 +1,903 @@
+18:39:48 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+18:39:48 [INFO] 🔥 BOT V5 (Architected) STARTING...
+18:39:48 [INFO] 🚀 Starting InMemoryStateManager...
+18:39:48 [INFO] 📂 Initializing database: data/trades.db
+18:39:48 [INFO] ✅ Read pool created: 5 connections
+18:39:48 [INFO] ✅ WAL mode enabled
+18:39:48 [INFO] 🔄 Running database migrations...
+18:39:48 [INFO] ✅ Migrations complete (11 statements)
+18:39:48 [INFO] ✅ Database initialized
+18:39:48 [INFO] 🖊️ Database write loop started
+18:39:48 [INFO] 📂 Loaded 2 trades from database
+18:39:48 [INFO] ✅ InMemoryStateManager started (loaded 2 trades)
+18:39:48 [INFO] ✅ State Manager started
+18:39:48 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+18:39:48 [INFO] ✅ Async database initialized
+18:39:48 [INFO] 📝 State writer loop started
+18:39:48 [DEBUG] ✅ Database schema up to date
+18:39:48 [INFO] Initialisiere X10 Adapter...
+18:39:48 [INFO]  X10 Account initialisiert.
+18:39:48 [INFO] Initialisiere Lighter Adapter...
+18:39:48 [INFO] 📊 Loading Market Data via REST...
+18:39:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:39:49 [WARNING] ⚠️ Skipping ETH-USD: market_id=None (parsed=-1) invalid or >254
+18:39:49 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+18:39:49 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+18:39:50 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+18:39:50 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+18:39:52 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+18:39:52 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+18:39:52 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+18:39:52 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+18:39:52 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+18:39:52 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+18:39:52 [INFO] 📈 Pre-loading Lighter prices...
+18:39:52 [DEBUG] Lighter: Loaded 379 funding rates
+18:39:53 [DEBUG] Lighter: Loaded 115 prices via REST
+18:39:53 [INFO] ✅ Lighter prices loaded: 115 symbols
+18:39:53 [INFO] FundingPredictorV2 initialized with BTC Correlation
+18:39:53 [INFO] 启动 OI Tracker für 67 Symbole...
+18:39:53 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+18:39:53 [INFO] 🌐 Starting WebSocket Manager...
+18:39:53 [INFO] 📊 OI Tracker: Starting cycle 1 (67 symbols)
+18:39:53 [INFO] 🔌 [lighter] WebSocket manager started
+18:39:53 [INFO] 🔌 [x10] WebSocket manager started
+18:39:53 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+18:39:53 [INFO] 🔌 [x10] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:39:53 [INFO] ✅ WebSocketManager started
+18:39:54 [DEBUG] ✅ LTC-USD: X10=$247,473, Lighter=$21,749, Total=$269,222
+18:39:54 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+18:39:54 [DEBUG] ✅ [lighter] WebSocket library will auto-respond to server pings
+18:39:54 [INFO] [lighter] Resubscribing to 67 channels (paced)...
+18:39:54 [DEBUG] 💓 [lighter] Heartbeat monitor started (library handles ping/pong)
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/53
+18:39:54 [DEBUG] [lighter] Subscribed to trade/53
+18:39:54 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+18:39:54 [DEBUG] ✅ [x10] WebSocket library will auto-respond to server pings
+18:39:54 [DEBUG] 💓 [x10] Heartbeat monitor started (library handles ping/pong)
+18:39:54 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":true,"orders":[]},"ts":1764697186071,"seq":1}
+18:39:54 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":true,"positions":[]},"ts":1764697186071,"seq":2}
+18:39:54 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":true,"balance":{"collateralName":"USD","balance":"303.164698"
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/43
+18:39:54 [DEBUG] [lighter] Subscribed to trade/43
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/60
+18:39:54 [DEBUG] [lighter] Subscribed to trade/60
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/45
+18:39:54 [DEBUG] [lighter] Subscribed to trade/45
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/8
+18:39:54 [DEBUG] [lighter] Subscribed to trade/8
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/3
+18:39:54 [DEBUG] [lighter] Subscribed to trade/3
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/23
+18:39:54 [DEBUG] [lighter] Subscribed to trade/23
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/30
+18:39:54 [DEBUG] [lighter] Subscribed to trade/30
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/93
+18:39:54 [DEBUG] [lighter] Subscribed to trade/93
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/71
+18:39:54 [DEBUG] [lighter] Subscribed to trade/71
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/40
+18:39:54 [DEBUG] [lighter] Subscribed to trade/40
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/12
+18:39:54 [DEBUG] [lighter] Subscribed to trade/12
+18:39:54 [DEBUG] [lighter] Subscribed to order_book/5
+18:39:55 [DEBUG] [lighter] Subscribed to trade/5
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/9
+18:39:55 [DEBUG] [lighter] Subscribed to trade/9
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/13
+18:39:55 [DEBUG] [lighter] Subscribed to trade/13
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/4
+18:39:55 [DEBUG] [lighter] Subscribed to trade/4
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/91
+18:39:55 [DEBUG] [lighter] Subscribed to trade/91
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/92
+18:39:55 [DEBUG] [lighter] Subscribed to trade/92
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/26
+18:39:55 [DEBUG] [lighter] Subscribed to trade/26
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/11
+18:39:55 [DEBUG] [lighter] Subscribed to trade/11
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/46
+18:39:55 [DEBUG] [lighter] Subscribed to trade/46
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/16
+18:39:55 [DEBUG] [lighter] Subscribed to trade/16
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/7
+18:39:55 [DEBUG] [lighter] Subscribed to trade/7
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/17
+18:39:55 [DEBUG] [lighter] Subscribed to trade/17
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/1
+18:39:55 [DEBUG] [lighter] Subscribed to trade/1
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/31
+18:39:55 [DEBUG] [lighter] Subscribed to trade/31
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/37
+18:39:55 [DEBUG] [lighter] Subscribed to trade/37
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/36
+18:39:55 [DEBUG] [lighter] Subscribed to trade/36
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/83
+18:39:55 [DEBUG] [lighter] Subscribed to trade/83
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/42
+18:39:55 [DEBUG] [lighter] Subscribed to trade/42
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/20
+18:39:55 [DEBUG] [lighter] Subscribed to trade/20
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/24
+18:39:55 [DEBUG] [lighter] Subscribed to trade/24
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/52
+18:39:55 [DEBUG] [lighter] Subscribed to trade/52
+18:39:55 [DEBUG] [lighter] Subscribed to order_book/15
+18:39:55 [DEBUG] [lighter] Subscribed to trade/15
+18:39:55 [INFO] [x10] Subscribing to 134 channels (fast batch)...
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/LTC/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/LTC/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/WLFI/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/WLFI/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/STRK/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/STRK/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/OP/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/OP/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/MNT/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/MNT/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/1000BONK/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/1000BONK/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/BNB/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/BNB/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/AAVE/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/AAVE/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/ZEC/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/ZEC/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/APEX/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/APEX/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/MKR/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/MKR/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/WLD/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/WLD/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/KAITO/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/KAITO/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/LINEA/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/LINEA/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/NEAR/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/NEAR/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/TIA/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/TIA/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/VIRTUAL/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/VIRTUAL/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/FIL/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/FIL/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/ADA/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/ADA/USD
+18:39:55 [DEBUG] [x10] Subscribed to publicTrades/USDJPY/USD
+18:39:55 [DEBUG] [x10] Subscribed to funding/USDJPY/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/IP/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/IP/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/PENGU/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/PENGU/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ARB/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ARB/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/FARTCOIN/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/FARTCOIN/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/AVNT/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/AVNT/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ENA/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ENA/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/BCH/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/BCH/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/EIGEN/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/EIGEN/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/SOL/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/SOL/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/EDEN/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/EDEN/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ONDO/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ONDO/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/SEI/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/SEI/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/RESOLV/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/RESOLV/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ZORA/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ZORA/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/TRX/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/TRX/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ZRO/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ZRO/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/PUMP/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/PUMP/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/LINK/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/LINK/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/DOGE/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/DOGE/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/POPCAT/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/POPCAT/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/UNI/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/UNI/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/XAG/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/XAG/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/XPL/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/XPL/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/S/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/S/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/TON/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/TON/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/WIF/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/WIF/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/AVAX/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/AVAX/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/TAO/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/TAO/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/1000PEPE/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/1000PEPE/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/MON/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/MON/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/XAU/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/XAU/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/JUP/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/JUP/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/DOT/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/DOT/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/LDO/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/LDO/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/SUI/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/SUI/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/XRP/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/XRP/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/1000SHIB/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/1000SHIB/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/BTC/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/BTC/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/APT/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/APT/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/PENDLE/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/PENDLE/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/CRV/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/CRV/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/ASTER/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/ASTER/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/SPX/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/SPX/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/BERA/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/BERA/USD
+18:39:56 [DEBUG] [x10] Subscribed to publicTrades/HYPE/USD
+18:39:56 [DEBUG] [x10] Subscribed to funding/HYPE/USD
+18:39:57 [DEBUG] [x10] Subscribed to publicTrades/GRASS/USD
+18:39:57 [DEBUG] [x10] Subscribed to funding/GRASS/USD
+18:39:57 [DEBUG] [x10] Subscribed to publicTrades/TRUMP/USD
+18:39:57 [DEBUG] [x10] Subscribed to funding/TRUMP/USD
+18:39:57 [INFO] [x10] Subscribed to 67 markets
+18:39:57 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+18:39:57 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+18:39:57 [INFO] 🔍 DB meldet 2 offene Trades. Prüfe Exchange...
+18:39:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:58 [DEBUG] ✅ WLFI-USD: X10=$834,561, Lighter=$25,413,412, Total=$26,247,972
+18:39:58 [INFO] Lighter: Found 0 open positions
+18:39:58 [INFO] 🌍 Echte Positionen auf Exchanges: []
+18:39:58 [WARNING] ⚠️  ZOMBIE GEFUNDEN: BERA-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+18:39:58 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+18:39:58 [WARNING] ⚠️  ZOMBIE GEFUNDEN: JUP-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+18:39:58 [INFO] ✅ Trade JUP-USD closed (PnL: $0.00)
+18:39:58 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+18:39:58 [INFO] ✅ ParallelExecutionManager started
+18:39:58 [INFO] 📝 Registered task: logic_loop (critical=True)
+18:39:58 [INFO] 📝 Registered task: trade_management_loop (critical=True)
+18:39:58 [INFO] 📝 Registered task: farm_loop (critical=False)
+18:39:58 [INFO] 📝 Registered task: maintenance_loop (critical=False)
+18:39:58 [INFO] 📝 Registered task: cleanup_finished_tasks (critical=False)
+18:39:58 [INFO] 📝 Registered task: health_reporter (critical=False)
+18:39:58 [INFO] 📝 Registered task: connection_watchdog (critical=True)
+18:39:58 [INFO] ✅ Signal handlers installed (SIGINT, SIGTERM)
+18:39:58 [INFO] ▶️  Started task: logic_loop
+18:39:58 [INFO] ▶️  Started task: trade_management_loop
+18:39:58 [INFO] ▶️  Started task: farm_loop
+18:39:58 [INFO] ▶️  Started task: maintenance_loop
+18:39:58 [INFO] ▶️  Started task: cleanup_finished_tasks
+18:39:58 [INFO] ▶️  Started task: health_reporter
+18:39:58 [INFO] ▶️  Started task: connection_watchdog
+18:39:58 [INFO] 🚀 Started 7 tasks
+18:39:58 [INFO] ═══════════════════════════════════════════════════════════
+18:39:58 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+18:39:58 [INFO] ═══════════════════════════════════════════════════════════
+18:39:58 [INFO] 🔄 Rollback processor running...
+18:39:58 [INFO] Logic Loop gestartet – REFRESH alle 3s
+18:39:58 [INFO] ⚡ Latency Arb Detector initialized (threshold: 1.0s)
+18:39:58 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: set()
+18:39:58 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+18:39:58 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+18:39:58 [INFO] 🛡️ Trade Management Loop gestartet
+18:39:58 [INFO] 🚜 Farm Mode ACTIVE
+18:39:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:58 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+18:39:58 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+18:39:58 [INFO] 🔍 Supervisor loop started
+18:39:58 [DEBUG] 📝 Flushed 1 writes
+18:39:58 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:39:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:39:58 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+18:39:58 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+18:39:58 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+18:39:58 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+18:39:58 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00047300, rx=-0.00064000, net=0.00016700, apy=146.3%
+18:39:58 [DEBUG] Skip RESOLV-USD: Spread 0.34% too high
+18:39:58 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00013300, rx=-0.00004800, net=-0.00008500, apy=74.5%
+18:39:58 [INFO] 💎 ZORA-USD | APY: 74.5%
+18:39:58 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+18:39:58 [DEBUG] Skip MON-USD: Spread 0.33% too high
+18:39:58 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+18:39:58 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+18:39:58 [INFO] ✅ Found 23 opportunities from 63 valid pairs (farm_mode=True, scanned=67)
+18:39:58 [INFO] 🎯 Found 3 opportunities, executing best...
+18:39:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:59 [DEBUG] 📝 Flushed 1 writes
+18:39:59 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:39:59 [DEBUG] Lighter Balance: Raw=$295.27, Safe=$280.50
+18:39:59 [INFO] 🚜 Opening FARM: OP-USD APY=24.5%
+18:39:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:59 [DEBUG] Lighter Balance: Raw=$295.27, Safe=$280.50
+18:39:59 [INFO] X10: Detected balance = $303.16
+18:39:59 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+18:39:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:00 [INFO] Lighter: Found 0 open positions
+18:40:00 [DEBUG] ✅ OP-USD verified: No existing positions on exchanges
+18:40:00 [DEBUG] MIN_NOTIONAL OP-USD: min_base=10.00000000 coins, price=$0.3201, min_qty_usd=$3.20, min_notional_api=$10.00, final=$11.00
+18:40:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:40:00 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+18:40:00 [INFO] 🎰 KELLY OP-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+18:40:00 [INFO] 📊 KELLY SIZE OP-USD: base=$30.0, kelly_recommended=$14.0, final=$30.0
+18:40:00 [INFO] 🚀 Opening OP-USD: Size=$30.0 (Min=$11.0)
+18:40:00 [INFO] 🔄 [PARALLEL] OP-USD: Lighter POST-ONLY first
+18:40:00 [INFO] 🚀 LIGHTER OPEN OP-USD: side=SELL, size_usd=$30.00, price=$0.320140
+18:40:00 [DEBUG] 🔍 DEBUG: OP-USD market_id = 55 (raw=55, type=<class 'int'>)
+18:40:00 [DEBUG] QUANTIZE OP-USD: USD=30.00, coins=93.709002, raw=937, lot_size=100, final=900
+18:40:00 [INFO] 🔄 [PARALLEL] OP-USD: X10 MARKET order
+18:40:00 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":55,"ClientOrderIndex":1764697280538,"BaseAmount":900,"Price":31821,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767116400505,"ExpiredAt":1764697799505,"Nonce":2109,"Sig":"h2P0pb6CGXxyHRnMuNq/qvBMdvoKH2qXZAXIp6eW/XPQa6vqV0WaFrND2t2fukTCu+NqppklTDoib81TaJmsLbdhNl33f6acuNa/N36mt14="}
+18:40:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:40:00 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+18:40:00 [DEBUG] X10: Funding Refresh OK, cache=91
+18:40:00 [DEBUG] 📊 Lighter Funding Cache refresh (current=115)
+18:40:00 [INFO] Lighter: Found 0 open positions
+18:40:00 [INFO] 💰 Balance: X10=$303.2 (free=$268.7), Lit=$280.5 (free=$246.0) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+18:40:00 [INFO] 🚀 Launching trade for ZORA-USD (APY=74.5%)
+18:40:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:01 [INFO] 🚀 Launching trade for JUP-USD (APY=49.9%)
+18:40:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:01 [INFO] Lighter: Found 0 open positions
+18:40:01 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+18:40:01 [DEBUG] MIN_NOTIONAL ZORA-USD: min_base=100.00000000 coins, price=$0.0519, min_qty_usd=$5.19, min_notional_api=$10.00, final=$11.00
+18:40:01 [DEBUG] Skip ZORA-USD: Min Req $54.41 > Max Config $50.0
+18:40:01 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='dc443a39401181d1d409ecb27af7c3b9f80bace02578507adfb773937b614b00c8e5573863ee9e0d' predicted_execution_time_ms=1764697193294 additional_properties={}
+18:40:01 [INFO] Lighter Order: dc443a39401181d1d409ecb27af7c3b9f80bace02578507adfb773937b614b00c8e5573863ee9e0d
+18:40:01 [INFO] 🚀 Launching trade for BERA-USD (APY=43.8%)
+18:40:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:01 [DEBUG] ✅ STRK-USD: X10=$201,607, Lighter=$5,288,880, Total=$5,490,486
+18:40:01 [DEBUG] Lighter: Loaded 379 funding rates
+18:40:02 [INFO] Lighter: Found 0 open positions
+18:40:02 [DEBUG] ✅ JUP-USD verified: No existing positions on exchanges
+18:40:02 [DEBUG] MIN_NOTIONAL JUP-USD: min_base=15.00000000 coins, price=$0.2472, min_qty_usd=$3.71, min_notional_api=$10.00, final=$11.00
+18:40:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:40:02 [INFO] ✅ Launched 3 trade tasks this cycle
+18:40:02 [INFO] Lighter: Found 1 open positions
+18:40:02 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+18:40:02 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.9141, min_qty_usd=$2.74, min_notional_api=$10.00, final=$11.00
+18:40:02 [DEBUG] Placing an order: id=60325353349260328297309849869376047392433466856554685489085473042757150194
+18:40:02 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+18:40:03 [DEBUG] Lighter Balance: Raw=$295.26, Safe=$280.50
+18:40:03 [INFO] 🎰 KELLY JUP-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+18:40:03 [INFO] 📊 KELLY SIZE JUP-USD: base=$30.0, kelly_recommended=$12.4, final=$30.0
+18:40:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:40:03 [DEBUG] Lighter: Loaded 115 prices via REST
+18:40:03 [DEBUG] Lighter: Funding Refresh OK, cache=115
+18:40:03 [INFO] 🎰 KELLY BERA-USD: win_rate=80.0%, kelly_fraction=0.6000, safe_fraction=0.0500, confidence=LOW, samples=0
+18:40:03 [INFO] 📊 KELLY SIZE BERA-USD: base=$30.0, kelly_recommended=$12.4, final=$30.0
+18:40:03 [INFO] 🚀 Opening JUP-USD: Size=$30.0 (Min=$11.0)
+18:40:03 [INFO] 🔄 [PARALLEL] JUP-USD: Lighter POST-ONLY first
+18:40:03 [INFO] 🚀 Opening BERA-USD: Size=$30.0 (Min=$11.0)
+18:40:03 [INFO] 🔄 [PARALLEL] BERA-USD: Lighter POST-ONLY first
+18:40:03 [INFO] 🚀 LIGHTER OPEN JUP-USD: side=SELL, size_usd=$30.00, price=$0.247040
+18:40:03 [DEBUG] 🔍 DEBUG: JUP-USD market_id = 26 (raw=26, type=<class 'int'>)
+18:40:03 [DEBUG] QUANTIZE JUP-USD: USD=30.00, coins=121.437824, raw=1214, lot_size=150, final=1200
+18:40:03 [INFO] 🔄 [PARALLEL] JUP-USD: X10 MARKET order
+18:40:03 [INFO] 🔄 [PARALLEL] BERA-USD: X10 MARKET order
+18:40:03 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":26,"ClientOrderIndex":1764697272970,"BaseAmount":1200,"Price":24555,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767116403411,"ExpiredAt":1764697802411,"Nonce":2110,"Sig":"ed6DDsbk3qDS0qR0dgGlfUgj9aPifrdPC1Z16JveJRvbTd1XM4/AD7A/EfCp7FUzPt5pONP6ehgKJSUjAOuCecXloDKnoyISJSGuX4UaHg0="}
+18:40:03 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$30.00, price=$0.914090
+18:40:03 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+18:40:03 [DEBUG] QUANTIZE BERA-USD: USD=30.00, coins=32.819525, raw=328, lot_size=30, final=300
+18:40:03 [DEBUG] Placing an order: id=1263357766201991105864295622395874698275966230558524638960979461471943673505
+18:40:03 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+18:40:03 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764697276663,"BaseAmount":300,"Price":90860,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767116403457,"ExpiredAt":1764697802457,"Nonce":2111,"Sig":"psiI1QKVhU6tTwMHUqqXeCcQ/JRVnnHghNTeAt7PlNFfrtnsZ73HCQYKItQZRjh27+F642KKhmRr8AwuwrBltJQK1RJ+bk5R7GAmsyGXv3M="}
+18:40:03 [DEBUG] Placing an order: id=2592670004186481792356149985206188167817403217180298006961901936857391505309
+18:40:03 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+18:40:03 [INFO]  X10 Order: 1995910814440869888
+18:40:03 [INFO] ✅ [PARALLEL] OP-USD: Both legs filled in 3094ms
+18:40:03 [DEBUG] 📝 Trade added to state: OP-USD
+18:40:03 [DEBUG] 🧹 Cleaned task: OP-USD
+18:40:03 [DEBUG] 📝 Flushed 1 writes
+18:40:03 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:40:03 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='0b8f7d8aa70a48a1373a9a461dc56ad13db485f32e86dd77d3d363342fcdbf573fbf6d13dca6261c' predicted_execution_time_ms=1764697195429 additional_properties={}
+18:40:03 [INFO] Lighter Order: 0b8f7d8aa70a48a1373a9a461dc56ad13db485f32e86dd77d3d363342fcdbf573fbf6d13dca6261c
+18:40:03 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='5b594fcbee54d59516525f1c966f6e4399f5b509f5977619c13f6f36ead1e4772d69edbace0708fd' predicted_execution_time_ms=1764697195477 additional_properties={}
+18:40:03 [INFO] Lighter Order: 5b594fcbee54d59516525f1c966f6e4399f5b509f5977619c13f6f36ead1e4772d69edbace0708fd
+18:40:03 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995910814440869888,"accountId":127074,"e
+18:40:03 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.164698
+18:40:03 [DEBUG] [x10] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995910815277912064,"accountId":127074,"m
+18:40:03 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995910815307268096,"accountId":127
+18:40:03 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.158002
+18:40:04 [INFO] 🔍 Running periodic exchange sync check...
+18:40:04 [INFO] 🔍 Starting Exchange Sync Check...
+18:40:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:04 [INFO]  X10 Order: 1995910818135756800
+18:40:04 [INFO] ✅ [PARALLEL] JUP-USD: Both legs filled in 1078ms
+18:40:04 [DEBUG] 📝 Trade added to state: JUP-USD
+18:40:04 [DEBUG] Fetching fresh positions (force=False, cache_age=1764697204.5s)
+18:40:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:04 [INFO]  X10 Order: 1995910818302287872
+18:40:04 [INFO] ✅ [PARALLEL] BERA-USD: Both legs filled in 1110ms
+18:40:04 [DEBUG] 📝 Trade added to state: BERA-USD
+18:40:04 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago)
+18:40:04 [DEBUG] 💓 [x10] Alive (uptime=10s, last_msg=1s ago)
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995910818135756800,"accountId":127074,"e
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.158002
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995910818973093888,"accountId":127074,"m
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995910819002449920,"accountId":127
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.151320
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"TRADE","data":{"isSnapshot":false,"trades":[{"id":1995910819136671744,"accountId":127074,"m
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":false,"orders":[{"id":1995910818302287872,"accountId":127074,"e
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.151320
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":false,"positions":[{"id":1995910819166027776,"accountId":127
+18:40:04 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":false,"balance":{"collateralName":"USD","balance":"303.144735
+18:40:04 [INFO] Lighter: Found 3 open positions
+18:40:04 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: {'BERA-USD', 'JUP-USD'}
+18:40:04 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+18:40:04 [WARNING] 🔻 Closing orphaned Lighter position: BERA-USD
+18:40:04 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=BERA-USD (type=<class 'str'>)
+18:40:04 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+18:40:04 [INFO] 🔍 DEBUG: notional_usd=27.4224 (type=<class 'float'>)
+18:40:04 [INFO] Lighter: Found 3 open positions
+18:40:04 [INFO] 📊 Positions: X10=3, Lighter=3
+18:40:04 [DEBUG] X10 positions: ['JUP-USD', 'BERA-USD', 'OP-USD']
+18:40:04 [DEBUG] Lighter positions: ['BERA-USD', 'JUP-USD', 'OP-USD']
+18:40:04 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:04 [DEBUG] Check JUP-USD: Age=0.5s (Limit=60s)
+18:40:04 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:04 [DEBUG] Check OP-USD: Age=1.4s (Limit=60s)
+18:40:05 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:05 [INFO] Lighter: Found 3 open positions
+18:40:05 [INFO] 🔻 LIGHTER CLOSE BERA-USD: size=-30.000000 coins, side=BUY, price=$0.9141, notional=$27.42
+18:40:05 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=BUY, size_usd=$27.42, price=$0.914080
+18:40:05 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+18:40:05 [DEBUG] QUANTIZE BERA-USD: USD=27.42, coins=30.000000, raw=300, lot_size=30, final=300
+18:40:05 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764697249118,"BaseAmount":300,"Price":91957,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767116405379,"ExpiredAt":1764697804379,"Nonce":2112,"Sig":"JzvsQQ9UdBaNdi027fC2Vk8Qe5oNTDtwl0TUc7vLf0bIX9ZS9CMuYVA8AJp2UtpkRy2GMbuGcqMHxP8SoSeDuuO14Zqtfq3BIROrVJB2Z0s="}
+18:40:05 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:40:05 [DEBUG] ✅ OP-USD: X10=$373,722, Lighter=$4,004,158, Total=$4,377,881
+18:40:05 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='6516b6e01c71c9a9101c1d983ab1c5edf3324439ebf23cd81425224a7dbdb0b6216a677247e9e191' predicted_execution_time_ms=1764697197400 additional_properties={}
+18:40:05 [INFO] Lighter Order: 6516b6e01c71c9a9101c1d983ab1c5edf3324439ebf23cd81425224a7dbdb0b6216a677247e9e191
+18:40:05 [INFO] ✅ Lighter close BERA-USD: Erfolgreich ($27.42)
+18:40:05 [INFO] ✅ Closed orphaned Lighter BERA-USD
+18:40:05 [WARNING] 🔻 Closing orphaned Lighter position: JUP-USD
+18:40:05 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=JUP-USD (type=<class 'str'>)
+18:40:05 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+18:40:05 [INFO] 🔍 DEBUG: notional_usd=29.6616 (type=<class 'float'>)
+18:40:05 [DEBUG] Using cached positions (age: 1.4s)
+18:40:05 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:05 [DEBUG] Check BERA-USD: Age=1.4s (Limit=60s)
+18:40:05 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:05 [DEBUG] Check JUP-USD: Age=1.5s (Limit=60s)
+18:40:05 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:05 [DEBUG] Check OP-USD: Age=2.3s (Limit=60s)
+18:40:06 [INFO] Lighter: Found 2 open positions
+18:40:06 [INFO] 🔻 LIGHTER CLOSE JUP-USD: size=-120.000000 coins, side=BUY, price=$0.2472, notional=$29.66
+18:40:06 [INFO] 🚀 LIGHTER OPEN JUP-USD: side=BUY, size_usd=$29.66, price=$0.247180
+18:40:06 [DEBUG] 🔍 DEBUG: JUP-USD market_id = 26 (raw=26, type=<class 'int'>)
+18:40:06 [DEBUG] QUANTIZE JUP-USD: USD=29.66, coins=120.000000, raw=1200, lot_size=150, final=1200
+18:40:06 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":26,"ClientOrderIndex":1764697301845,"BaseAmount":1200,"Price":24867,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767116406129,"ExpiredAt":1764697805129,"Nonce":2113,"Sig":"t7vhvBnOiVtr3w9CjYREcGklRIkPLqU9yvghQ9znzE1SjgpOBHkHdO2FneWrwj6JCULlMQ/FqUfCrNKfYLmj3doO7S/Y31c7uNEZbbUmhQ8="}
+18:40:06 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='e634c3d5e2f5d521d39e58076fa31e3926547167f15b194e5c8b1e9265cfefb76ec5f87b366543d8' predicted_execution_time_ms=1764697198149 additional_properties={}
+18:40:06 [INFO] Lighter Order: e634c3d5e2f5d521d39e58076fa31e3926547167f15b194e5c8b1e9265cfefb76ec5f87b366543d8
+18:40:06 [INFO] ✅ Lighter close JUP-USD: Erfolgreich ($29.66)
+18:40:06 [INFO] ✅ Closed orphaned Lighter JUP-USD
+18:40:06 [DEBUG] 📝 Flushed 2 writes
+18:40:06 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:40:06 [DEBUG] Using cached positions (age: 2.4s)
+18:40:06 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:06 [DEBUG] Check BERA-USD: Age=2.4s (Limit=60s)
+18:40:06 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:06 [DEBUG] Check JUP-USD: Age=2.5s (Limit=60s)
+18:40:06 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:06 [DEBUG] Check OP-USD: Age=3.4s (Limit=60s)
+18:40:07 [DEBUG] Using cached positions (age: 3.4s)
+18:40:07 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:07 [DEBUG] Check BERA-USD: Age=3.4s (Limit=60s)
+18:40:07 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:07 [DEBUG] Check JUP-USD: Age=3.5s (Limit=60s)
+18:40:07 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:07 [DEBUG] Check OP-USD: Age=4.3s (Limit=60s)
+18:40:08 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:08 [DEBUG] Using cached positions (age: 4.4s)
+18:40:08 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:08 [DEBUG] Check BERA-USD: Age=4.4s (Limit=60s)
+18:40:08 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:08 [DEBUG] Check JUP-USD: Age=4.5s (Limit=60s)
+18:40:08 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:08 [DEBUG] Check OP-USD: Age=5.3s (Limit=60s)
+18:40:09 [DEBUG] ✅ 1000BONK-USD: X10=$91,497, Lighter=$108,167,379, Total=$108,258,876
+18:40:09 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+18:40:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:10 [INFO] Lighter: Found 1 open positions
+18:40:10 [INFO] 📊 Positions: X10=3, Lighter=1
+18:40:10 [DEBUG] X10 positions: ['JUP-USD', 'BERA-USD', 'OP-USD']
+18:40:10 [DEBUG] Lighter positions: ['OP-USD']
+18:40:10 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:10 [DEBUG] Check BERA-USD: Age=5.9s (Limit=60s)
+18:40:10 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:10 [DEBUG] Check JUP-USD: Age=5.9s (Limit=60s)
+18:40:10 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:10 [DEBUG] Check OP-USD: Age=6.8s (Limit=60s)
+18:40:11 [INFO] [lighter] Resubscribed to 67 channels
+18:40:11 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:11 [DEBUG] Using cached positions (age: 1.4s)
+18:40:11 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:11 [DEBUG] Check BERA-USD: Age=6.9s (Limit=60s)
+18:40:11 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:11 [DEBUG] Check JUP-USD: Age=6.9s (Limit=60s)
+18:40:11 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:11 [DEBUG] Check OP-USD: Age=7.8s (Limit=60s)
+18:40:12 [DEBUG] Using cached positions (age: 2.4s)
+18:40:12 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:12 [DEBUG] Check BERA-USD: Age=7.9s (Limit=60s)
+18:40:12 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:12 [DEBUG] Check JUP-USD: Age=7.9s (Limit=60s)
+18:40:12 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:12 [DEBUG] Check OP-USD: Age=8.8s (Limit=60s)
+18:40:13 [DEBUG] Using cached positions (age: 3.4s)
+18:40:13 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:13 [DEBUG] Check BERA-USD: Age=8.9s (Limit=60s)
+18:40:13 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:13 [DEBUG] Check JUP-USD: Age=8.9s (Limit=60s)
+18:40:13 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:13 [DEBUG] Check OP-USD: Age=9.8s (Limit=60s)
+18:40:14 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:14 [DEBUG] Using cached positions (age: 4.4s)
+18:40:14 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:14 [DEBUG] Check BERA-USD: Age=9.9s (Limit=60s)
+18:40:14 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:14 [DEBUG] Check JUP-USD: Age=9.9s (Limit=60s)
+18:40:14 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:14 [DEBUG] Check OP-USD: Age=10.8s (Limit=60s)
+18:40:14 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago)
+18:40:14 [DEBUG] 💓 [x10] Alive (uptime=20s, last_msg=10s ago)
+18:40:15 [DEBUG] ✅ BNB-USD: X10=$1,492,516, Lighter=$17,855, Total=$1,510,371
+18:40:15 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+18:40:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:15 [INFO] Lighter: Found 1 open positions
+18:40:15 [INFO] 📊 Positions: X10=3, Lighter=1
+18:40:15 [DEBUG] X10 positions: ['JUP-USD', 'BERA-USD', 'OP-USD']
+18:40:15 [DEBUG] Lighter positions: ['OP-USD']
+18:40:15 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:15 [DEBUG] Check BERA-USD: Age=11.3s (Limit=60s)
+18:40:15 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:15 [DEBUG] Check JUP-USD: Age=11.4s (Limit=60s)
+18:40:15 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:15 [DEBUG] Check OP-USD: Age=12.2s (Limit=60s)
+18:40:16 [DEBUG] Using cached positions (age: 1.4s)
+18:40:16 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:16 [DEBUG] Check BERA-USD: Age=12.3s (Limit=60s)
+18:40:16 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:16 [DEBUG] Check JUP-USD: Age=12.4s (Limit=60s)
+18:40:16 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:16 [DEBUG] Check OP-USD: Age=13.2s (Limit=60s)
+18:40:17 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:17 [DEBUG] Using cached positions (age: 2.4s)
+18:40:17 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:17 [DEBUG] Check BERA-USD: Age=13.3s (Limit=60s)
+18:40:17 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:17 [DEBUG] Check JUP-USD: Age=13.4s (Limit=60s)
+18:40:17 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:17 [DEBUG] Check OP-USD: Age=14.2s (Limit=60s)
+18:40:18 [DEBUG] ✅ AAVE-USD: X10=$251,952, Lighter=$44,268, Total=$296,220
+18:40:18 [DEBUG] Using cached positions (age: 3.4s)
+18:40:18 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:18 [DEBUG] Check BERA-USD: Age=14.3s (Limit=60s)
+18:40:18 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:18 [DEBUG] Check JUP-USD: Age=14.4s (Limit=60s)
+18:40:18 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:18 [DEBUG] Check OP-USD: Age=15.2s (Limit=60s)
+18:40:19 [DEBUG] Using cached positions (age: 4.4s)
+18:40:19 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:19 [DEBUG] Check BERA-USD: Age=15.3s (Limit=60s)
+18:40:19 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:19 [DEBUG] Check JUP-USD: Age=15.4s (Limit=60s)
+18:40:19 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:19 [DEBUG] Check OP-USD: Age=16.2s (Limit=60s)
+18:40:20 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:20 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+18:40:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:21 [INFO] Lighter: Found 1 open positions
+18:40:21 [INFO] 📊 Positions: X10=3, Lighter=1
+18:40:21 [DEBUG] X10 positions: ['JUP-USD', 'BERA-USD', 'OP-USD']
+18:40:21 [DEBUG] Lighter positions: ['OP-USD']
+18:40:21 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:21 [DEBUG] Check BERA-USD: Age=16.8s (Limit=60s)
+18:40:21 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:21 [DEBUG] Check JUP-USD: Age=16.8s (Limit=60s)
+18:40:21 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:21 [DEBUG] Check OP-USD: Age=17.7s (Limit=60s)
+18:40:22 [DEBUG] Using cached positions (age: 1.5s)
+18:40:22 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:22 [DEBUG] Check BERA-USD: Age=17.8s (Limit=60s)
+18:40:22 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:22 [DEBUG] Check JUP-USD: Age=17.8s (Limit=60s)
+18:40:22 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:22 [DEBUG] Check OP-USD: Age=18.7s (Limit=60s)
+18:40:22 [DEBUG] ✅ ZEC-USD: X10=$1,187,559, Lighter=$23,910, Total=$1,211,469
+18:40:23 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:23 [DEBUG] Using cached positions (age: 2.5s)
+18:40:23 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:23 [DEBUG] Check BERA-USD: Age=18.8s (Limit=60s)
+18:40:23 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:23 [DEBUG] Check JUP-USD: Age=18.8s (Limit=60s)
+18:40:23 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:23 [DEBUG] Check OP-USD: Age=19.7s (Limit=60s)
+18:40:24 [DEBUG] Using cached positions (age: 3.5s)
+18:40:24 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:24 [DEBUG] Check BERA-USD: Age=19.8s (Limit=60s)
+18:40:24 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:24 [DEBUG] Check JUP-USD: Age=19.8s (Limit=60s)
+18:40:24 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:24 [DEBUG] Check OP-USD: Age=20.7s (Limit=60s)
+18:40:24 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago)
+18:40:24 [DEBUG] 💓 [x10] Alive (uptime=30s, last_msg=20s ago)
+18:40:25 [DEBUG] Using cached positions (age: 4.5s)
+18:40:25 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:25 [DEBUG] Check BERA-USD: Age=20.8s (Limit=60s)
+18:40:25 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:25 [DEBUG] Check JUP-USD: Age=20.8s (Limit=60s)
+18:40:25 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:25 [DEBUG] Check OP-USD: Age=21.7s (Limit=60s)
+18:40:26 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:26 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+18:40:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:26 [DEBUG] ✅ APEX-USD: X10=$29,688, Lighter=$873,966, Total=$903,654
+18:40:26 [INFO] Lighter: Found 1 open positions
+18:40:26 [INFO] 📊 Positions: X10=3, Lighter=1
+18:40:26 [DEBUG] X10 positions: ['JUP-USD', 'BERA-USD', 'OP-USD']
+18:40:26 [DEBUG] Lighter positions: ['OP-USD']
+18:40:26 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:26 [DEBUG] Check BERA-USD: Age=22.2s (Limit=60s)
+18:40:26 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:26 [DEBUG] Check JUP-USD: Age=22.3s (Limit=60s)
+18:40:26 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:26 [DEBUG] Check OP-USD: Age=23.1s (Limit=60s)
+18:40:27 [DEBUG] Using cached positions (age: 1.5s)
+18:40:27 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:27 [DEBUG] Check BERA-USD: Age=23.2s (Limit=60s)
+18:40:27 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:27 [DEBUG] Check JUP-USD: Age=23.3s (Limit=60s)
+18:40:27 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:27 [DEBUG] Check OP-USD: Age=24.1s (Limit=60s)
+18:40:28 [DEBUG] 🐕 Watchdog OK: Daten-Alter 2.3s
+18:40:28 [DEBUG] Using cached positions (age: 2.5s)
+18:40:28 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.507430+00:00
+18:40:28 [DEBUG] Check BERA-USD: Age=24.2s (Limit=60s)
+18:40:28 [INFO] 🚜 [FARM] Profit Take BERA-USD: Age=24s, Spread=0.003% (sehr niedrig), PnL=$0.00
+18:40:28 [INFO]  💸 EXIT BERA-USD: FARM_QUICK_PROFIT | PnL $0.00 (Fees: $0.00)
+18:40:28 [INFO]  🔻 CLOSING BERA-USD (Atomic Smart Close)...
+18:40:29 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:29 [INFO] Lighter: Found 1 open positions
+18:40:29 [INFO] ✅ Lighter BERA-USD: No position to close
+18:40:29 [INFO] ✅ Lighter BERA-USD OK, closing X10...
+18:40:30 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+18:40:32 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:32 [INFO] 🔻 Closing X10 BERA-USD: size=32.000000 coins, side=BUY
+18:40:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:32 [INFO] 🔻 X10 CLOSE BERA-USD: size=32.000000, side=SELL
+18:40:32 [DEBUG] Placing an order: id=818474410236397180486048951691267037417753872026491098056252248190016566725
+18:40:32 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+18:40:33 [INFO]  X10 Order: 1995910941019680768
+18:40:33 [WARNING] [x10] Connection closed: 1011 Ping timeout
+18:40:33 [INFO] 🔄 [x10] Reconnecting in 1.0s (attempt 1)
+18:40:34 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago)
+18:40:34 [INFO] 🔌 [x10] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:40:35 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:40:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:35 [DEBUG] ✅ WLD-USD: X10=$111,086, Lighter=$1,740,118, Total=$1,851,204
+18:40:36 [INFO] ✅ X10 BERA-USD closed (32.000000 coins)
+18:40:36 [INFO] ✅ BERA-USD fully closed
+18:40:36 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+18:40:36 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+18:40:36 [DEBUG] 📝 Flushed 1 writes
+18:40:36 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+18:40:36 [INFO] ✅ [x10] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+18:40:36 [DEBUG] ✅ [x10] WebSocket library will auto-respond to server pings
+18:40:36 [INFO] [x10] Resubscribing to 134 channels (paced)...
+18:40:36 [DEBUG] 💓 [x10] Heartbeat monitor started (library handles ping/pong)
+18:40:36 [DEBUG] [x10] RAW MSG: {"type":"ORDER","data":{"isSnapshot":true,"orders":[]},"ts":1764697227469,"seq":1}
+18:40:36 [DEBUG] [x10] RAW MSG: {"type":"BALANCE","data":{"isSnapshot":true,"balance":{"collateralName":"USD","balance":"303.128553"
+18:40:36 [DEBUG] [x10] RAW MSG: {"type":"POSITION","data":{"isSnapshot":true,"positions":[{"id":1995910819002449920,"accountId":1270
+18:40:36 [INFO]  💰 PnL BERA-USD: $0.00 (FARM_QUICK_PROFIT)
+18:40:36 [ERROR] Kelly Sizer record_trade error for BERA-USD: Format specifier missing precision
+18:40:36 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:36 [DEBUG] Check JUP-USD: Age=31.6s (Limit=60s)
+18:40:36 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:36 [DEBUG] Check OP-USD: Age=32.4s (Limit=60s)
+18:40:37 [DEBUG] 📝 Flushed 1 writes
+18:40:37 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:40:37 [DEBUG] Fetching fresh positions (force=False, cache_age=10.7s)
+18:40:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:37 [INFO] Lighter: Found 1 open positions
+18:40:37 [INFO] 📊 Positions: X10=2, Lighter=1
+18:40:37 [DEBUG] X10 positions: ['JUP-USD', 'OP-USD']
+18:40:37 [DEBUG] Lighter positions: ['OP-USD']
+18:40:37 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:37 [DEBUG] Check JUP-USD: Age=33.0s (Limit=60s)
+18:40:37 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:37 [DEBUG] Check OP-USD: Age=33.9s (Limit=60s)
+18:40:38 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'JUP-USD', 'OP-USD'}
+18:40:38 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+18:40:38 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+18:40:38 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+18:40:38 [DEBUG] Using cached positions (age: 1.5s)
+18:40:38 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:38 [DEBUG] Check JUP-USD: Age=34.0s (Limit=60s)
+18:40:38 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:38 [DEBUG] Check OP-USD: Age=34.9s (Limit=60s)
+18:40:38 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+18:40:38 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+18:40:38 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] 🔄 Skip OP-USD: Already open (in open_syms)
+18:40:38 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00047300, rx=-0.00064000, net=0.00016700, apy=146.3%
+18:40:38 [DEBUG] Skip RESOLV-USD: Spread 0.61% too high
+18:40:38 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00013300, rx=-0.00004800, net=-0.00008500, apy=74.5%
+18:40:38 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] Skip ZRO-USD: Spread 0.33% too high
+18:40:38 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+18:40:38 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] Skip XPL-USD: Spread 0.35% too high
+18:40:38 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+18:40:38 [DEBUG] 🔄 Skip JUP-USD: Already open (in open_syms)
+18:40:38 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+18:40:38 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:40:38 [INFO] ✅ Found 20 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+18:40:38 [INFO] 🎯 Found 3 opportunities, executing best...
+18:40:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:40:39 [DEBUG] Using cached positions (age: 2.5s)
+18:40:39 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:39 [DEBUG] Check JUP-USD: Age=35.0s (Limit=60s)
+18:40:39 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:39 [DEBUG] Check OP-USD: Age=35.9s (Limit=60s)
+18:40:39 [INFO] 🚜 Farm Mode ACTIVE
+18:40:39 [DEBUG] Lighter Balance: Raw=$295.29, Safe=$280.53
+18:40:39 [INFO] X10: Detected balance = $303.12
+18:40:39 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+18:40:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:39 [DEBUG] ✅ KAITO-USD: X10=$437,320, Lighter=$1,744,875, Total=$2,182,194
+18:40:40 [INFO] Lighter: Found 1 open positions
+18:40:40 [INFO] 💰 Balance: X10=$303.1 (free=$290.5), Lit=$280.5 (free=$267.9) | DB_Trades=2, Real_Positions=2, Locked=$10/ex
+18:40:40 [INFO] 🚀 Launching trade for ZORA-USD (APY=74.5%)
+18:40:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:40 [DEBUG] Using cached positions (age: 3.5s)
+18:40:40 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:40 [DEBUG] Check JUP-USD: Age=36.0s (Limit=60s)
+18:40:40 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:40 [DEBUG] Check OP-USD: Age=36.9s (Limit=60s)
+18:40:40 [INFO] ✅ Launched 1 trade tasks this cycle
+18:40:40 [INFO] Lighter: Found 1 open positions
+18:40:40 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+18:40:40 [DEBUG] MIN_NOTIONAL ZORA-USD: min_base=100.00000000 coins, price=$0.0519, min_qty_usd=$5.19, min_notional_api=$10.00, final=$11.00
+18:40:40 [DEBUG] Skip ZORA-USD: Min Req $54.41 > Max Config $50.0
+18:40:41 [DEBUG] Using cached positions (age: 4.5s)
+18:40:41 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:41 [DEBUG] Check JUP-USD: Age=37.0s (Limit=60s)
+18:40:41 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:41 [DEBUG] Check OP-USD: Age=37.9s (Limit=60s)
+18:40:42 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+18:40:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:40:42 [INFO] Lighter: Found 1 open positions
+18:40:42 [INFO] 📊 Positions: X10=2, Lighter=1
+18:40:42 [DEBUG] X10 positions: ['JUP-USD', 'OP-USD']
+18:40:42 [DEBUG] Lighter positions: ['OP-USD']
+18:40:42 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:42 [DEBUG] Check JUP-USD: Age=38.5s (Limit=60s)
+18:40:42 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:42 [DEBUG] Check OP-USD: Age=39.3s (Limit=60s)
+18:40:43 [DEBUG] ✅ LINEA-USD: X10=$115,667, Lighter=$86,930,871, Total=$87,046,538
+18:40:43 [INFO] 🔍 🚜 FARM Scanning 67 pairs. Open symbols to skip: {'JUP-USD', 'OP-USD'}
+18:40:43 [DEBUG] Price cache status: X10=67/67, Lighter=66/67
+18:40:43 [INFO] 🔍 Scanning 67 pairs. Lighter markets: 115, X10 markets: 91
+18:40:43 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+18:40:43 [DEBUG] Using cached positions (age: 1.4s)
+18:40:43 [INFO] 🔍 DEBUG JUP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:04.482430+00:00
+18:40:43 [DEBUG] Check JUP-USD: Age=39.4s (Limit=60s)
+18:40:43 [INFO] 🔍 DEBUG OP-USD: entry_time type=<class 'str'>, value=2025-12-02T17:40:03.595112+00:00
+18:40:43 [DEBUG] Check OP-USD: Age=40.3s (Limit=60s)
+18:40:44 [INFO] ✅ Found 0 opportunities with predictions (farm_mode=True)
+18:40:44 [INFO] ⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...
+18:40:44 [DEBUG] 🔄 Skip OP-USD: Already open (in open_syms)
+18:40:44 [DEBUG] Skip ENA-USD: Spread 0.32% too high
+18:40:44 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00047300, rx=-0.00064000, net=0.00016700, apy=146.3%
+18:40:44 [DEBUG] Skip RESOLV-USD: Spread 0.65% too high
+18:40:44 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00013300, rx=-0.00004800, net=-0.00008500, apy=74.5%
+18:40:44 [DEBUG] Skip ZORA-USD: Spread 0.34% too high
+18:40:44 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+18:40:44 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+18:40:44 [DEBUG] 🔄 Skip JUP-USD: Already open (in open_syms)
+18:40:44 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+18:40:44 [INFO] ✅ Found 20 opportunities from 61 valid pairs (farm_mode=True, scanned=67)
+18:40:44 [INFO] 🎯 Found 3 opportunities, executing best...
+18:40:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:40:44 [WARNING] 🛑 Received SIGINT, initiating graceful shutdown...
+18:40:44 [INFO] 🛑 Shutting down...
+18:40:44 [INFO] 🛑 Initiating graceful shutdown...
+18:40:44 [INFO] 🔍 Supervisor loop stopped
+18:40:44 [INFO] 🛑 Cancelling logic_loop...
+18:40:44 [INFO] 🛑 Cancelling trade_management_loop...
+18:40:44 [INFO] 🛑 Cancelling farm_loop...
+18:40:44 [INFO] 🛑 Cancelling maintenance_loop...
+18:40:44 [INFO] 🛑 Cancelling cleanup_finished_tasks...
+18:40:44 [INFO] 🛑 Cancelling health_reporter...
+18:40:44 [INFO] 🛑 Cancelling connection_watchdog...
+18:40:44 [INFO] Logic loop cancelled
+18:40:44 [INFO] Connection watchdog cancelled
+18:40:44 [INFO] ✅ All tasks stopped
+18:40:44 [INFO] 🛑 Rollback processor: Shutdown signal received
+18:40:44 [INFO] ✅ ParallelExecutionManager: Stopped
+18:40:47 [DEBUG] ✅ NEAR-USD: X10=$292,454, Lighter=$726,193, Total=$1,018,647
+18:40:49 [INFO] 🔌 [x10] WebSocket stopped
+18:40:49 [INFO] 🔌 [lighter] WebSocket stopped
+18:40:49 [INFO] ✅ WebSocketManager stopped
+18:40:49 [INFO] ✅ OpenInterestTracker stopped
+18:40:49 [INFO] 🛑 Stopping InMemoryStateManager...
+18:40:49 [INFO] 📝 State writer loop stopped
+18:40:49 [INFO] ✅ InMemoryStateManager stopped
+18:40:49 [INFO] 🔒 Closing database...
+18:40:49 [INFO] 🖊️ Database write loop stopped
+18:40:49 [INFO] ✅ Database closed
+18:40:49 [INFO] ✅ X10 Adapter geschlossen.
+18:40:49 [INFO] ✅ Lighter Adapter closed
+18:40:49 [INFO] ✅ Bot V5 shutdown complete
