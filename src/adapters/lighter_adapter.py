@@ -536,10 +536,6 @@ class LighterAdapter(BaseAdapter):
                         logger.warning(f"⚠️ Skipping {normalized_symbol}: invalid market_id={real_market_id}")
                         return False
 
-                    if real_market_id > 254:
-                        logger.warning(f"⚠️ Skipping {normalized_symbol}: market_id={real_market_id} > 254 (API limit)")
-                        return False
-
                     size_decimals = safe_int(getattr(m, 'size_decimals', None), 8)
                     price_decimals = safe_int(getattr(m, 'price_decimals', None), 6)
                     min_base = Decimal(str(getattr(m, 'min_base_amount', None) or "0.00000001"))
@@ -667,18 +663,22 @@ class LighterAdapter(BaseAdapter):
                     if symbol in getattr(config, "BLACKLIST_SYMBOLS", set()):
                         continue
 
-                    raw_id = (
-                        m. get("market_id") or m.get("market_index") or 
-                        m.get("marketId") or m. get("i") or m.get("index") or m.get("id")
-                    )
+                    # FIX: Handle market_id=0 correctly (don't use 'or' chain)
+                    raw_id = m.get("market_id")
+                    if raw_id is None:
+                        raw_id = m.get("market_index")
+                    if raw_id is None:
+                        raw_id = m.get("marketId")
+                    if raw_id is None:
+                        raw_id = m.get("i")
 
                     try:
                         real_id = int(float(str(raw_id))) if raw_id is not None else -1
                     except (ValueError, TypeError):
                         real_id = -1
                     
-                    if real_id < 0 or real_id > 254:
-                        logger.warning(f"⚠️ Skipping {symbol}: market_id={raw_id} (parsed={real_id}) invalid or >254")
+                    if real_id < 0:
+                        logger.warning(f"⚠️ Skipping {symbol}: market_id={raw_id} (parsed={real_id}) invalid < 0")
                         continue
 
                     # ═══════════════════════════════════════════════════════════════
@@ -1431,7 +1431,7 @@ class LighterAdapter(BaseAdapter):
             market_id = safe_int(market_id_raw, -1)
             logger.debug(f"🔍 DEBUG: {symbol} market_id = {market_id} (raw={market_id_raw}, type={type(market_id_raw)})")
             
-            if market_id < 0 or market_id > 254:
+            if market_id < 0:
                 logger.error(f"❌ INVALID market_id for {symbol}: {market_id}!")
                 return False, None
 

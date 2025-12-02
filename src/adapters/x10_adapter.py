@@ -516,7 +516,9 @@ class X10Adapter(BaseAdapter):
         side: str, 
         notional_usd: float, 
         reduce_only: bool = False, 
-        post_only: bool = True
+        post_only: bool = True,
+        amount: Optional[float] = None,
+        **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
         if not config.LIVE_TRADING:
@@ -555,7 +557,10 @@ class X10Adapter(BaseAdapter):
             else:
                 limit_price = (raw_price // tick_size) * tick_size
 
-        qty = Decimal(str(notional_usd)) / limit_price
+        if amount is not None and amount > 0:
+            qty = Decimal(str(amount))
+        else:
+            qty = Decimal(str(notional_usd)) / limit_price
         step = Decimal(getattr(cfg, "min_order_size_change", "0"))
         min_size = Decimal(getattr(cfg, "min_order_size", "0"))
         
@@ -598,7 +603,7 @@ class X10Adapter(BaseAdapter):
                 if post_only and "post only" in err_msg.lower():
                     logger.info(" Retry ohne PostOnly...")
                     return await self.open_live_position(
-                        symbol, side, notional_usd, reduce_only, post_only=False
+                        symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
                     )
                 return False, None
                 
@@ -657,7 +662,8 @@ class X10Adapter(BaseAdapter):
                     close_side,
                     actual_notional,
                     reduce_only=True,
-                    post_only=False
+                    post_only=False,
+                    amount=actual_size_abs
                 )
 
                 if not success:

@@ -117,7 +117,7 @@ class KellyPositionSizer:
         self._stats_cache. pop("__global__", None)
         
         status = "✅ WIN" if result.is_winner else "❌ LOSS"
-        logger.debug(f"📊 Trade recorded: {symbol} {status} ${pnl_usd:. 2f}")
+        logger.debug(f"📊 Trade recorded: {symbol} {status} ${pnl_usd:.2f}")
     
     def _calculate_stats(self, trades: list[TradeResult]) -> tuple[float, float, float]:
         """Berechnet Win Rate, Avg Win, Avg Loss aus Trade-Liste."""

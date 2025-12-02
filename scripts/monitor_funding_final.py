@@ -72,6 +72,7 @@ LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 TASKS_LOCK = asyncio.Lock()
 OPPORTUNITY_LOG_CACHE = {}
+LAST_ARBITRAGE_LAUNCH = 0.0  # Time of last arbitrage trade launch
 
 # ============================================================
 # CONNECTION WATCHDOG (Gegen Ping Timeout)
@@ -1861,6 +1862,12 @@ async def farm_loop(lighter, x10, parallel_exec):
             if SHUTDOWN_FLAG:
                 break
             
+            # BLOCKER: Wenn Arbitrage gerade aktiv war (letzte 10s), pausiere Farming
+            # Das verhindert, dass Farm Slots klaut, während Arb noch executed
+            if time.time() - LAST_ARBITRAGE_LAUNCH < 10.0:
+                await asyncio.sleep(1)
+                continue
+            
             # Clean rate limiter history
             now = time.time()
             last_trades = [t for t in last_trades if now - t < 60]
@@ -2233,7 +2240,7 @@ async def reconcile_db_with_exchanges(lighter, x10):
 
 async def logic_loop(lighter, x10, price_event, parallel_exec):
     """Main trading loop with opportunity detection and execution"""
-    global LAST_DATA_UPDATE
+    global LAST_DATA_UPDATE, LAST_ARBITRAGE_LAUNCH
     REFRESH_DELAY = getattr(config, 'REFRESH_DELAY_SECONDS', 5)
     logger.info(f"Logic Loop gestartet – REFRESH alle {REFRESH_DELAY}s")
 
@@ -2344,6 +2351,8 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 # 4. Kontrollierter Start der Trades
                 if trades_to_launch:
+                    global LAST_ARBITRAGE_LAUNCH
+                    LAST_ARBITRAGE_LAUNCH = time.time()  # <--- NEU: Setze Zeitstempel
                     logger.info(f"🚀 Launching {len(trades_to_launch)} trades (Slots available: {slots_available})")
                     
                     # Balance check for batch
@@ -2438,6 +2447,7 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                                 break
                             ACTIVE_TASKS[symbol] = task
                         
+                        LAST_ARBITRAGE_LAUNCH = time.time()
                         launched_count += 1
                         await asyncio.sleep(0.5)
                     
