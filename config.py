@@ -157,8 +157,10 @@ FORCE_REST_FALLBACK_THRESHOLD = 10  # Wenn weniger als N Rates gecached → REST
 # WebSocket Reconnect Settings
 WS_RECONNECT_DELAY_INITIAL = 5
 WS_RECONNECT_DELAY_MAX = 60
-WS_PING_INTERVAL = 20
-WS_PING_TIMEOUT = 10
+# X10 Server pingt alle ~15s und erwartet Pong innerhalb ~10s
+# Client pingt alle 14s um Verbindung "warm" zu halten
+WS_PING_INTERVAL = 14  # Knapp unter Server's 15s
+WS_PING_TIMEOUT = 8    # Unter Server's 10s Erwartung
 
 # ============================================================
 # EXIT-LOGIK

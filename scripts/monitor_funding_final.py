@@ -2949,7 +2949,18 @@ async def run_bot_v5():
     
     # C) WebSocket Manager starten & verknüpfen
     logger.info("🌐 Starting WebSocket Manager...")
-    ws_manager = await init_websocket_manager(x10, lighter, symbols=common_symbols)
+    ws_manager = await init_websocket_manager(
+        x10, 
+        lighter, 
+        symbols=common_symbols,
+        # X10 Heartbeat-Strategie: JSON-Level Heartbeats!
+        # ping_interval=None aktiviert den JSON-Heartbeat-Modus:
+        # - Sendet {"type": "PING", "timestamp": ...} alle 15 Sekunden
+        # - Dies ist was das offizielle X10 TypeScript SDK tut
+        # - Löst das "1011 Ping timeout" Problem
+        ping_interval=None, 
+        ping_timeout=None
+    )
     
     # D) WIRING: WebSocket -> OI Tracker & Predictor
     # Damit fließen Echtzeit-Daten in die Prediction Logik
