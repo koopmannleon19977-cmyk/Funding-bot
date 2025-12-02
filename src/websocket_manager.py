@@ -35,7 +35,7 @@ class WSConfig:
     reconnect_delay_max: float = 60.0
     reconnect_delay_multiplier: float = 2.0
     max_reconnect_attempts: int = 0  # 0 = infinite
-    message_queue_size: int = 1000
+    message_queue_size: int = 10000  # Increased from 1000 to handle initial orderbook snapshot bursts
     headers: Optional[Dict[str, str]] = None
 
 
@@ -85,7 +85,7 @@ class ManagedWebSocket:
         self._receive_task: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._process_task: Optional[asyncio.Task] = None  # NEW: Message processing task
-        self._message_queue: asyncio.Queue = asyncio.Queue(maxsize=1000)  # NEW: Message queue
+        self._message_queue: asyncio.Queue = asyncio.Queue(maxsize=config.message_queue_size)  # Use config value (10000) to handle snapshot bursts
         
         self._lock = asyncio.Lock()
     
@@ -335,10 +335,15 @@ class ManagedWebSocket:
         
         This decouples message processing from the receive loop,
         ensuring the receive loop stays free for ping/pong handling.
+        
+        OPTIMIZED: Process messages in batches during high-volume periods
+        (e.g., initial orderbook snapshot burst) to prevent queue backup.
         """
+        batch_size = 100  # Process up to 100 messages before yielding
+        
         while self._running:
             try:
-                # Wait for message with timeout to allow graceful shutdown
+                # Wait for at least one message with timeout
                 try:
                     message = await asyncio.wait_for(
                         self._message_queue.get(), 
@@ -347,16 +352,26 @@ class ManagedWebSocket:
                 except asyncio.TimeoutError:
                     continue
                 
-                # Process the message
-                try:
-                    data = json.loads(message)
-                    await self.message_handler(self.config.name, data)
-                except json.JSONDecodeError:
-                    logger.debug(f"[{self.config.name}] Invalid JSON: {message[:100]}")
-                except Exception as e:
-                    logger.error(f"[{self.config.name}] Handler error: {e}")
+                # Process the first message
+                await self._process_single_message(message)
                 
-                # Yield to event loop periodically
+                # Batch process additional queued messages without blocking
+                # This helps drain the queue quickly during snapshot bursts
+                processed = 1
+                while processed < batch_size:
+                    try:
+                        message = self._message_queue.get_nowait()
+                        await self._process_single_message(message)
+                        processed += 1
+                    except asyncio.QueueEmpty:
+                        break
+                
+                # Log queue depth periodically if it's backing up
+                qsize = self._message_queue.qsize()
+                if qsize > 1000:
+                    logger.warning(f"[{self.config.name}] Message queue depth: {qsize}")
+                
+                # Yield to event loop after batch
                 await asyncio.sleep(0)
                 
             except asyncio.CancelledError:
@@ -364,6 +379,16 @@ class ManagedWebSocket:
             except Exception as e:
                 logger.error(f"[{self.config.name}] Process loop error: {e}")
                 await asyncio.sleep(0.1)
+    
+    async def _process_single_message(self, message: str):
+        """Process a single message - extracted for batch processing."""
+        try:
+            data = json.loads(message)
+            await self.message_handler(self.config.name, data)
+        except json.JSONDecodeError:
+            logger.debug(f"[{self.config.name}] Invalid JSON: {message[:100]}")
+        except Exception as e:
+            logger.error(f"[{self.config.name}] Handler error: {e}")
     
     async def _heartbeat_loop(self):
         """Monitor connection health"""
