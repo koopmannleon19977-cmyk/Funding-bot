@@ -40,11 +40,7 @@ from src.volatility_monitor import get_volatility_monitor
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from src.prediction import (
-    update_funding_data as _update_funding_data,
-    get_best_opportunities as _get_best_opportunities,
-    get_predictor
-)
+from src.prediction_v2 import get_predictor, FundingPredictorV2
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
     get_database,
@@ -95,28 +91,41 @@ IN_FLIGHT_LOCK = asyncio.Lock()
 # ============================================================
 async def update_funding_data(symbol: str, rate_x10: float, rate_lighter: float, 
                                mark_price: float, open_interest: float):
-    """Feed data to prediction system for ML analysis"""
+    """Feed data to prediction system for ML analysis (V2)"""
     try:
-        await _update_funding_data(
-            symbol=symbol,
-            rate_x10=rate_x10,
-            rate_lighter=rate_lighter,
-            mark_price=mark_price,
-            open_interest=open_interest
-        )
+        predictor = get_predictor()
+        if predictor and hasattr(predictor, 'add_observation'):
+            await predictor.add_observation(
+                symbol=symbol,
+                rate_x10=rate_x10,
+                rate_lighter=rate_lighter,
+                mark_price=mark_price,
+                open_interest=open_interest
+            )
+    except AttributeError as e:
+        logger.debug(f"Predictor doesn't support add_observation: {e}")
     except Exception as e:
         logger.debug(f"Prediction update failed for {symbol}: {e}")
 
-async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: float, limit: int):
-    """Get ML-ranked trading opportunities"""
+async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: float, limit: int,
+                                 lighter_adapter=None, x10_adapter=None, btc_price: float = 0.0):
+    """Get ML-ranked trading opportunities (V2)"""
     try:
-        results = await _get_best_opportunities(
-            symbols=symbols,
-            min_apy=min_apy,
-            min_confidence=min_confidence,
-            limit=limit
-        )
-        return results
+        predictor = get_predictor()
+        if predictor and hasattr(predictor, 'get_top_opportunities'):
+            results = await predictor.get_top_opportunities(
+                symbols=symbols,
+                min_apy=min_apy,
+                min_confidence=min_confidence,
+                limit=limit,
+                lighter_adapter=lighter_adapter,
+                x10_adapter=x10_adapter,
+                btc_price=btc_price
+            )
+            return results
+        else:
+            logger.debug("Predictor doesn't support get_top_opportunities")
+            return []
     except Exception as e:
         logger.warning(f"Prediction opportunities failed: {e}")
         return []
@@ -650,11 +659,22 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     
     # Get ML-ranked opportunities
     available_symbols = [s for s, _, _, _, _ in clean_results if s not in open_syms]
+    
+    # Get BTC price for prediction
+    btc_price = 0.0
+    try:
+        btc_price = float(x10.fetch_mark_price("BTC-USD") or 0.0)
+    except:
+        pass
+    
     predictions = await get_best_opportunities(
         symbols=available_symbols,
         min_apy=getattr(config, 'MIN_APY_THRESHOLD', 10.0),
         min_confidence=0.5,
-        limit=20
+        limit=20,
+        lighter_adapter=lighter,
+        x10_adapter=x10,
+        btc_price=btc_price
     )
     
     # Convert predictions to opportunity format
@@ -835,8 +855,16 @@ async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
     symbol = opp['symbol']
     try:
         await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+    except asyncio.CancelledError:
+        logger.debug(f"Task {symbol} cancelled")
+        raise
     except Exception as e:
-        logger.error(f"Task {symbol} error: {e}")
+        logger.error(
+            f"❌ Task {symbol} failed: {e}",
+            exc_info=True
+        )
+        # Mark as failed for cooldown
+        FAILED_COINS[symbol] = time.time()
     finally:
         # CRITICAL FIX: Always remove from ACTIVE_TASKS
         if symbol in ACTIVE_TASKS:
@@ -862,8 +890,16 @@ async def launch_trade_task(opp: Dict, lighter, x10, parallel_exec):
     async def _task_wrapper():
         try:
             await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+        except asyncio.CancelledError:
+            logger.debug(f"Task {symbol} cancelled")
+            raise
         except Exception as e:
-            logger.error(f"Task {symbol} error: {e}")
+            logger.error(
+                f"❌ Task {symbol} failed: {e}",
+                exc_info=True
+            )
+            # Mark as failed for cooldown
+            FAILED_COINS[symbol] = time.time()
         finally:
             # CRITICAL: ALWAYS remove from ACTIVE_TASKS
             if symbol in ACTIVE_TASKS:
@@ -923,20 +959,37 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         if not vol_monitor.can_enter_trade(symbol):
             return False
 
-        # Prediction Logic
+        # ═══════════════════════════════════════════════════════════════
+        # PREDICTION MIT EXCEPTION HANDLING
+        # ═══════════════════════════════════════════════════════════════
         predictor = get_predictor()
         current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
         current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
         net_rate = current_rate_lit - current_rate_x10
-
-        pred_rate, delta, conf = await predictor.predict_next_funding_rate(
-            symbol=symbol,
-            current_lighter_rate=current_rate_lit,
-            current_x10_rate=current_rate_x10,
-            lighter_adapter=lighter,
-            x10_adapter=x10,
-            btc_price=x10.fetch_mark_price("BTC-USD")
-        )
+        
+        pred_rate, delta, conf = 0.0, 0.0, 0.5  # Defaults
+        
+        try:
+            if predictor and hasattr(predictor, 'predict_next_funding_rate'):
+                btc_price = 0.0
+                try:
+                    btc_price = float(x10.fetch_mark_price("BTC-USD") or 0.0)
+                except:
+                    pass
+                
+                pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                    symbol=symbol,
+                    current_lighter_rate=current_rate_lit,
+                    current_x10_rate=current_rate_x10,
+                    lighter_adapter=lighter,
+                    x10_adapter=x10,
+                    btc_price=btc_price
+                )
+                logger.debug(f"🧠 {symbol}: Prediction conf={conf:.2f}, delta={delta:.6f}")
+        except AttributeError as e:
+            logger.warning(f"⚠️ {symbol}: Predictor method missing: {e}")
+        except Exception as e:
+            logger.warning(f"⚠️ {symbol}: Prediction failed: {e}")
 
         # Predictor Filter
         if not opp.get('is_farm_trade'):
@@ -2525,6 +2578,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                             async with lock:
                                 try:
                                     await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+                                except asyncio.CancelledError:
+                                    logger.debug(f"Task {symbol} cancelled")
+                                    raise
+                                except Exception as e:
+                                    logger.error(
+                                        f"❌ Task {symbol} failed: {e}",
+                                        exc_info=True
+                                    )
+                                    # Mark as failed for cooldown
+                                    FAILED_COINS[symbol] = time.time()
                                 finally:
                                     async with TASKS_LOCK:
                                         ACTIVE_TASKS.pop(symbol, None)
@@ -2645,8 +2708,14 @@ async def maintenance_loop(lighter, x10):
             # NEU: OI → PREDICTION PIPELINE
             # ═══════════════════════════════════════════════════════════════
             try:
+                from src.open_interest_tracker import get_oi_tracker
+                
                 oi_tracker = get_oi_tracker()
                 predictor = get_predictor()
+                
+                if not predictor:
+                    logger.debug("Predictor not available for OI updates")
+                    return
                 
                 # Feed OI data to predictor
                 for symbol in list(oi_tracker._tracked_symbols)[:50]:  # Limit per cycle
@@ -2655,21 +2724,29 @@ async def maintenance_loop(lighter, x10):
                         
                         if oi_data and oi_data.get('oi', 0) > 0:
                             # Update predictor with OI velocity
-                            predictor.update_oi_velocity(symbol, oi_data['oi'])
+                            if hasattr(predictor, 'update_oi_velocity'):
+                                predictor.update_oi_velocity(symbol, oi_data['oi'])
+                            else:
+                                logger.debug(f"Predictor doesn't support OI velocity updates")
                             
                             # Update orderbook imbalance if available
                             imbalance = oi_data.get('oi_imbalance', 0)
                             if abs(imbalance) > 0.01:
-                                predictor.update_orderbook_imbalance(symbol, imbalance)
+                                if hasattr(predictor, 'update_orderbook_imbalance'):
+                                    predictor.update_orderbook_imbalance(symbol, imbalance)
                             
                             logger.debug(
                                 f"📊 OI→Pred {symbol}: OI=${oi_data['oi']:,.0f}, "
-                                f"Velocity={oi_data['oi_velocity']:.2f}, "
-                                f"Trend={oi_data['oi_trend']}"
+                                f"Velocity={oi_data.get('oi_velocity', 0):.2f}, "
+                                f"Trend={oi_data.get('oi_trend', 'N/A')}"
                             )
+                    except AttributeError as e:
+                        logger.debug(f"OI update skipped - method not available: {e}")
                     except Exception as e:
                         logger.debug(f"OI→Pred update failed for {symbol}: {e}")
                 
+            except ImportError:
+                logger.debug("OI tracker not available")
             except Exception as e:
                 logger.debug(f"OI→Prediction pipeline error: {e}")
             

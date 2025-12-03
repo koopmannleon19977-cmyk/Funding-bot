@@ -133,6 +133,102 @@ class FundingPredictorV2:
             return vel, acc
         except Exception:
             return 0.0, 0.0
+    
+    # === Compatibility Methods ===
+    async def add_observation(
+        self,
+        symbol: str,
+        rate_x10: float,
+        rate_lighter: float,
+        mark_price: float = 0.0,
+        open_interest: float = 0.0,
+        timestamp: Optional[int] = None
+    ):
+        """
+        Add a new funding rate observation to history.
+        Compatible with update_funding_data() from prediction.py
+        """
+        now = time.time()
+        current_rate = (rate_lighter + rate_x10) / 2.0
+        self._update_history(self.rate_history, symbol, current_rate, now)
+        
+        # Also update OI if provided
+        if open_interest > 0:
+            self.update_oi_velocity(symbol, open_interest)
+    
+    async def get_top_opportunities(
+        self,
+        symbols: List[str],
+        min_apy: float = 10.0,
+        min_confidence: float = 0.5,
+        limit: int = 10,
+        lighter_adapter = None,
+        x10_adapter = None,
+        btc_price: float = 0.0
+    ) -> List[Dict]:
+        """
+        Get top trading opportunities sorted by expected APY.
+        Compatible with get_best_opportunities() from prediction.py
+        
+        Returns list of dicts with: symbol, predicted_apy, confidence, should_trade
+        """
+        results = []
+        
+        for symbol in symbols:
+            try:
+                # Get current rates from adapters if available
+                current_lighter_rate = 0.0
+                current_x10_rate = 0.0
+                
+                if lighter_adapter:
+                    try:
+                        current_lighter_rate = lighter_adapter.fetch_funding_rate(symbol) or 0.0
+                    except:
+                        pass
+                
+                if x10_adapter:
+                    try:
+                        current_x10_rate = x10_adapter.fetch_funding_rate(symbol) or 0.0
+                    except:
+                        pass
+                
+                # Skip if no rates available
+                if current_lighter_rate == 0.0 and current_x10_rate == 0.0:
+                    continue
+                
+                # Get prediction
+                pred_rate, delta, conf = await self.predict_next_funding_rate(
+                    symbol=symbol,
+                    current_lighter_rate=current_lighter_rate,
+                    current_x10_rate=current_x10_rate,
+                    lighter_adapter=lighter_adapter,
+                    x10_adapter=x10_adapter,
+                    btc_price=btc_price
+                )
+                
+                # Calculate APY (annualized from hourly rate)
+                predicted_apy = abs(pred_rate) * 24 * 365 * 100  # Convert to percentage
+                
+                # Filter by thresholds
+                if predicted_apy >= min_apy and conf >= min_confidence:
+                    results.append({
+                        'symbol': symbol,
+                        'predicted_apy': predicted_apy,
+                        'confidence': conf,
+                        'should_trade': True,
+                        'predicted_rate': pred_rate,
+                        'delta': delta
+                    })
+            except Exception as e:
+                logger.debug(f"[PREDICT V2] {symbol}: Error: {e}")
+        
+        # Sort by APY * confidence (risk-adjusted)
+        results.sort(
+            key=lambda p: p['predicted_apy'] * p['confidence'],
+            reverse=True
+        )
+        
+        return results[:limit]
 
 # Singleton
 _predictor_v2: Optional[FundingPredictorV2] = None
