@@ -770,7 +770,48 @@ class X10Adapter(BaseAdapter):
             
             if resp.error:
                 err_msg = str(resp.error)
-                if reduce_only and ("1137" in err_msg or "1138" in err_msg):
+                
+                # Handle 1138 error (position side mismatch) with retry logic
+                if reduce_only and "1138" in err_msg:
+                    logger.warning(f"⚠️ X10 {symbol}: Error 1138 - Position side mismatch, fetching current position...")
+                    try:
+                        # Fetch current position to determine correct close side
+                        positions = await self.fetch_open_positions()
+                        current_pos = next((p for p in positions if p.get('symbol') == symbol), None)
+                        
+                        if current_pos is None:
+                            logger.info(f"✅ X10 {symbol}: Position already closed")
+                            return True, None
+                        
+                        actual_size = safe_float(current_pos.get('size', 0))
+                        if abs(actual_size) < 1e-8:
+                            logger.info(f"✅ X10 {symbol}: Position already closed (size={actual_size})")
+                            return True, None
+                        
+                        # Determine correct close side from actual position
+                        actual_side = 'BUY' if actual_size > 0 else 'SELL'
+                        correct_close_side = 'SELL' if actual_side == 'BUY' else 'BUY'
+                        
+                        logger.info(f"🔄 X10 {symbol}: Retrying close with correct side {correct_close_side} (actual position: {actual_side}, size={abs(actual_size):.6f})")
+                        
+                        # Retry with correct side
+                        price = safe_float(self.fetch_mark_price(symbol))
+                        if price <= 0:
+                            logger.error(f"X10 {symbol}: No valid price for retry")
+                            return False, None
+                        
+                        actual_notional = abs(actual_size) * price
+                        return await self.open_live_position(
+                            symbol, correct_close_side, actual_notional, 
+                            reduce_only=True, post_only=False, amount=abs(actual_size)
+                        )
+                    except Exception as retry_err:
+                        logger.error(f"X10 {symbol}: Error during 1138 retry: {retry_err}")
+                        return False, None
+                
+                # Handle 1137 error (position already closed)
+                if reduce_only and "1137" in err_msg:
+                    logger.info(f"✅ X10 {symbol}: Position already closed (1137)")
                     return True, None
                 
                 logger.error(f" X10 Order Fail: {resp.error}")
@@ -786,8 +827,50 @@ class X10Adapter(BaseAdapter):
             return True, str(resp.data.id)
         except Exception as e:
             err_str = str(e)
-            if reduce_only and ("1137" in err_str or "1138" in err_str):
+            
+            # Handle 1138 error in exception (if it wasn't caught in resp.error)
+            if reduce_only and "1138" in err_str:
+                logger.warning(f"⚠️ X10 {symbol}: Error 1138 in exception - Position side mismatch, fetching current position...")
+                try:
+                    # Fetch current position to determine correct close side
+                    positions = await self.fetch_open_positions()
+                    current_pos = next((p for p in positions if p.get('symbol') == symbol), None)
+                    
+                    if current_pos is None:
+                        logger.info(f"✅ X10 {symbol}: Position already closed")
+                        return True, None
+                    
+                    actual_size = safe_float(current_pos.get('size', 0))
+                    if abs(actual_size) < 1e-8:
+                        logger.info(f"✅ X10 {symbol}: Position already closed (size={actual_size})")
+                        return True, None
+                    
+                    # Determine correct close side from actual position
+                    actual_side = 'BUY' if actual_size > 0 else 'SELL'
+                    correct_close_side = 'SELL' if actual_side == 'BUY' else 'BUY'
+                    
+                    logger.info(f"🔄 X10 {symbol}: Retrying close with correct side {correct_close_side} (actual position: {actual_side}, size={abs(actual_size):.6f})")
+                    
+                    # Retry with correct side
+                    price = safe_float(self.fetch_mark_price(symbol))
+                    if price <= 0:
+                        logger.error(f"X10 {symbol}: No valid price for retry")
+                        return False, None
+                    
+                    actual_notional = abs(actual_size) * price
+                    return await self.open_live_position(
+                        symbol, correct_close_side, actual_notional, 
+                        reduce_only=True, post_only=False, amount=abs(actual_size)
+                    )
+                except Exception as retry_err:
+                    logger.error(f"X10 {symbol}: Error during 1138 exception retry: {retry_err}")
+                    return False, None
+            
+            # Handle 1137 error (position already closed)
+            if reduce_only and "1137" in err_str:
+                logger.info(f"✅ X10 {symbol}: Position already closed (1137)")
                 return True, None
+            
             if "429" in err_str:
                 self.rate_limiter.penalize_429()
             logger.error(f" X10 Order Exception: {e}")
