@@ -205,3 +205,12 @@ def get_detector() -> LatencyArbDetector:
     if _detector is None:
         _detector = LatencyArbDetector(lag_threshold_seconds=5.0)  # FIX: 5.0s für X10 Lag
     return _detector
+
+def is_latency_arb_enabled() -> bool:
+    """
+    Returns whether latency arbitrage is enabled.
+    
+    DISABLED: X10 ändert Funding Fees nur stündlich, daher ist 
+    Latency Arbitrage nicht möglich/nützlich.
+    """
+    return False
