@@ -1450,6 +1450,65 @@ async def get_cached_positions(lighter, x10, force=False):
         traceback.print_exc()
         return POSITION_CACHE.get('x10', []), POSITION_CACHE.get('lighter', [])
 
+async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.0) -> Decimal:
+    """
+    Calculate realized PnL including all entry and exit fees.
+    
+    Args:
+        trade: Trade dictionary with entry/exit information
+        fee_manager: FeeManager instance for fee calculations
+        gross_pnl: Gross PnL before fees (funding_pnl + spread_pnl)
+        
+    Returns:
+        Net PnL (gross PnL minus all fees) as Decimal
+    """
+    from decimal import Decimal
+    
+    # Get entry and exit values
+    entry_value = Decimal(str(trade.get('notional_usd', 0.0)))
+    
+    # For exit value, use current notional (same as entry for hedged trades)
+    # In hedged trades, entry and exit notional should be similar
+    exit_value = entry_value  # Hedged trades maintain same notional
+    
+    # Determine entry and exit sides based on leg1_exchange
+    leg1_exchange = trade.get('leg1_exchange', 'X10')
+    
+    # Entry sides: 
+    # - If leg1 is X10, X10 goes long (BUY) and Lighter goes short (SELL)
+    # - If leg1 is Lighter, Lighter goes long (BUY) and X10 goes short (SELL)
+    if leg1_exchange == 'X10':
+        entry_side_x10 = 'BUY'
+        entry_side_lighter = 'SELL'
+    else:  # leg1_exchange == 'Lighter'
+        entry_side_x10 = 'SELL'
+        entry_side_lighter = 'BUY'
+    
+    # Exit sides are opposite of entry sides
+    exit_side_x10 = 'SELL' if entry_side_x10 == 'BUY' else 'BUY'
+    exit_side_lighter = 'SELL' if entry_side_lighter == 'BUY' else 'BUY'
+    
+    # Calculate entry fees
+    # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
+    is_lighter_maker = True
+    is_x10_maker = False
+    
+    entry_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * entry_value
+    entry_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * entry_value
+    entry_fees = entry_fees_x10 + entry_fees_lighter
+    
+    # Calculate exit fees (same maker/taker status for exit)
+    exit_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * exit_value
+    exit_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * exit_value
+    exit_fees = exit_fees_x10 + exit_fees_lighter
+    
+    # Calculate net PnL
+    gross_pnl_decimal = Decimal(str(gross_pnl))
+    net_pnl = gross_pnl_decimal - entry_fees - exit_fees
+    
+    return net_pnl
+
+
 async def manage_open_trades(lighter, x10):
     trades = await get_open_trades()
     if not trades: return
@@ -1604,28 +1663,45 @@ async def manage_open_trades(lighter, x10):
                 spread_pnl = 0.0
                 current_spread_pct = 0.0
 
-            # Fees - Use FeeManager for dynamic fees
-            try:
-                fee_manager = get_fee_manager()
-                # Lighter nutzt POST_ONLY = Maker, X10 nutzt MARKET = Taker
-                is_lighter_maker = True   # Lighter nutzt POST_ONLY = Maker
-                is_x10_maker = False      # X10 nutzt MARKET = Taker
-                
-                fee_x10 = fee_manager.get_x10_fees(is_maker=is_x10_maker)
-                fee_lit = fee_manager.get_lighter_fees(is_maker=is_lighter_maker)
-            except Exception as e:
-                logger.debug(f"FeeManager error, using config fallback: {e}")
-                fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
-                fee_lit = getattr(config, 'FEES_LIGHTER', 0.0)
-            
-            # Calculate fees: 2 trades (open + close) on each exchange
-            est_fees = notional * (fee_x10 + fee_lit) * 2.0
-            
             # Gross PnL (before fees)
             gross_pnl = funding_pnl + spread_pnl
             
-            # Net PnL (after fees)
-            total_pnl = gross_pnl - est_fees
+            # Calculate Net PnL with proper entry and exit fees
+            try:
+                fee_manager = get_fee_manager()
+                # Use calculate_realized_pnl to properly account for entry and exit fees
+                net_pnl_decimal = await calculate_realized_pnl(t, fee_manager, gross_pnl)
+                total_pnl = float(net_pnl_decimal)
+                
+                # Calculate total fees for logging
+                entry_value = Decimal(str(notional))
+                exit_value = entry_value  # Same for hedged trades
+                
+                is_lighter_maker = True
+                is_x10_maker = False
+                
+                entry_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * entry_value
+                entry_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * entry_value
+                exit_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * exit_value
+                exit_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * exit_value
+                
+                est_fees = float(entry_fees_x10 + entry_fees_lighter + exit_fees_x10 + exit_fees_lighter)
+                
+            except Exception as e:
+                logger.debug(f"FeeManager error in PnL calculation, using fallback: {e}")
+                # Fallback to old calculation method
+                try:
+                    fee_manager = get_fee_manager()
+                    is_lighter_maker = True
+                    is_x10_maker = False
+                    fee_x10 = fee_manager.get_x10_fees(is_maker=is_x10_maker)
+                    fee_lit = fee_manager.get_lighter_fees(is_maker=is_lighter_maker)
+                except Exception:
+                    fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
+                    fee_lit = getattr(config, 'FEES_LIGHTER', 0.0)
+                
+                est_fees = notional * (fee_x10 + fee_lit) * 2.0
+                total_pnl = gross_pnl - est_fees
 
             # ═══════════════════════════════════════════════════════════════
             # FARM MODE PROFIT-MITNAHME (Nur wenn Preise verfügbar!)
