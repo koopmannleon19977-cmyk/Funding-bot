@@ -16,7 +16,7 @@ class LatencyArbDetector:
     - If the 'fast' exchange moves significantly, we front-run the 'slow' one.
     """
     
-    def __init__(self, lag_threshold_seconds: float = 5.0):  # FIX: 1.0s → 5.0s für X10 Lag
+    def __init__(self, lag_threshold_seconds: float = 2.0):  # 2s ist realistischer
         self.lag_threshold = lag_threshold_seconds
         self.last_update_times: Dict[str, Dict[str, float]] = {}
         self.rate_history: Dict[str, deque] = {}
@@ -57,26 +57,33 @@ class LatencyArbDetector:
     
     def _get_lag(self, symbol: str) -> Optional[Tuple[str, float]]:
         """
-        Calculate lag based on stored timestamps.
+        Calculate lag based on stored timestamps. 
         Returns: (lagging_exchange_name, lag_in_seconds)
         """
         if symbol not in self.last_update_times:
             return None
         
+        now = time.time()
         updates = self.last_update_times[symbol]
         x10_time = updates.get('X10', 0)
         lighter_time = updates.get('Lighter', 0)
         
+        # Berechne wie alt die Daten sind
+        x10_age = now - x10_time if x10_time > 0 else 999
+        lighter_age = now - lighter_time if lighter_time > 0 else 999
+        
         diff = x10_time - lighter_time
         lag = abs(diff)
         
-        # DEBUG: Logge JEDEN Lag über 0.5s, damit wir Aktivität sehen
-        if lag > 0.5:
+        # 🆕 DEBUG: Logge für Top-Symbole alle 10 Sekunden
+        if symbol in ["BTC-USD", "ETH-USD", "SOL-USD"] and int(now) % 10 == 0:
             lagger = 'X10' if x10_time < lighter_time else 'Lighter'
-            # Nur alle 10s loggen um Spam zu vermeiden
-            if int(time.time()) % 10 == 0:
-                logger.debug(f"🔍 Lag check {symbol}: {lag:.2f}s ({lagger} slow)")
-
+            logger.info(
+                f"🔍 LAG CHECK {symbol}: "
+                f"X10_age={x10_age:.1f}s, Lighter_age={lighter_age:.1f}s, "
+                f"Lag={lag:.2f}s ({lagger} slow)"
+            )
+        
         if lag < self.lag_threshold:
             return None
         
@@ -203,5 +210,5 @@ _detector = None
 def get_detector() -> LatencyArbDetector:
     global _detector
     if _detector is None:
-        _detector = LatencyArbDetector(lag_threshold_seconds=5.0)  # FIX: 5.0s für X10 Lag
+        _detector = LatencyArbDetector(lag_threshold_seconds=2.0)  # 2s ist realistischer
     return _detector

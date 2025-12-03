@@ -277,6 +277,8 @@ class X10Adapter(BaseAdapter):
                             rate = getattr(m.market_stats, 'funding_rate', None)
                             if rate is not None:
                                 self.funding_cache[name] = float(rate)
+                                self._funding_cache[name] = float(rate)
+                                self._funding_cache_time[name] = time.time()  # 🆕 LATENCY ARB FIX
 
                         if hasattr(m, 'market_stats'):
                             stats = m.market_stats
