@@ -1452,7 +1452,7 @@ async def get_cached_positions(lighter, x10, force=False):
 
 async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.0) -> Decimal:
     """
-    Calculate realized PnL including all entry and exit fees.
+    Calculate realized PnL including all entry and exit fees using FeeManager.calculate_trade_fees().
     
     Args:
         trade: Trade dictionary with entry/exit information
@@ -1465,46 +1465,35 @@ async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.
     from decimal import Decimal
     
     # Get entry and exit values
-    entry_value = Decimal(str(trade.get('notional_usd', 0.0)))
+    entry_value = float(trade.get('notional_usd', 0.0))
     
     # For exit value, use current notional (same as entry for hedged trades)
     # In hedged trades, entry and exit notional should be similar
     exit_value = entry_value  # Hedged trades maintain same notional
     
-    # Determine entry and exit sides based on leg1_exchange
-    leg1_exchange = trade.get('leg1_exchange', 'X10')
-    
-    # Entry sides: 
-    # - If leg1 is X10, X10 goes long (BUY) and Lighter goes short (SELL)
-    # - If leg1 is Lighter, Lighter goes long (BUY) and X10 goes short (SELL)
-    if leg1_exchange == 'X10':
-        entry_side_x10 = 'BUY'
-        entry_side_lighter = 'SELL'
-    else:  # leg1_exchange == 'Lighter'
-        entry_side_x10 = 'SELL'
-        entry_side_lighter = 'BUY'
-    
-    # Exit sides are opposite of entry sides
-    exit_side_x10 = 'SELL' if entry_side_x10 == 'BUY' else 'BUY'
-    exit_side_lighter = 'SELL' if entry_side_lighter == 'BUY' else 'BUY'
-    
-    # Calculate entry fees
+    # Calculate entry fees using calculate_trade_fees()
     # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
-    is_lighter_maker = True
-    is_x10_maker = False
+    entry_fees = fee_manager.calculate_trade_fees(
+        entry_value,
+        'LIGHTER', 'X10',
+        is_maker1=True,   # Lighter = POST-ONLY = Maker
+        is_maker2=False   # X10 = MARKET = Taker
+    )
     
-    entry_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * entry_value
-    entry_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * entry_value
-    entry_fees = entry_fees_x10 + entry_fees_lighter
-    
-    # Calculate exit fees (same maker/taker status for exit)
-    exit_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * exit_value
-    exit_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * exit_value
-    exit_fees = exit_fees_x10 + exit_fees_lighter
+    # Calculate exit fees using calculate_trade_fees()
+    # Exit usually uses market orders (both taker)
+    exit_fees = fee_manager.calculate_trade_fees(
+        exit_value,
+        'LIGHTER', 'X10',
+        is_maker1=False,  # Exit usually Market (Taker)
+        is_maker2=False   # X10 = MARKET = Taker
+    )
     
     # Calculate net PnL
     gross_pnl_decimal = Decimal(str(gross_pnl))
-    net_pnl = gross_pnl_decimal - entry_fees - exit_fees
+    entry_fees_decimal = Decimal(str(entry_fees))
+    exit_fees_decimal = Decimal(str(exit_fees))
+    net_pnl = gross_pnl_decimal - entry_fees_decimal - exit_fees_decimal
     
     return net_pnl
 
@@ -1673,19 +1662,25 @@ async def manage_open_trades(lighter, x10):
                 net_pnl_decimal = await calculate_realized_pnl(t, fee_manager, gross_pnl)
                 total_pnl = float(net_pnl_decimal)
                 
-                # Calculate total fees for logging
-                entry_value = Decimal(str(notional))
+                # Calculate total fees for logging using calculate_trade_fees()
+                entry_value = float(notional)
                 exit_value = entry_value  # Same for hedged trades
                 
-                is_lighter_maker = True
-                is_x10_maker = False
+                entry_fees = fee_manager.calculate_trade_fees(
+                    entry_value,
+                    'LIGHTER', 'X10',
+                    is_maker1=True,   # Lighter = POST-ONLY = Maker
+                    is_maker2=False   # X10 = MARKET = Taker
+                )
                 
-                entry_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * entry_value
-                entry_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * entry_value
-                exit_fees_x10 = Decimal(str(fee_manager.get_x10_fees(is_maker=is_x10_maker))) * exit_value
-                exit_fees_lighter = Decimal(str(fee_manager.get_lighter_fees(is_maker=is_lighter_maker))) * exit_value
+                exit_fees = fee_manager.calculate_trade_fees(
+                    exit_value,
+                    'LIGHTER', 'X10',
+                    is_maker1=False,  # Exit usually Market (Taker)
+                    is_maker2=False   # X10 = MARKET = Taker
+                )
                 
-                est_fees = float(entry_fees_x10 + entry_fees_lighter + exit_fees_x10 + exit_fees_lighter)
+                est_fees = entry_fees + exit_fees
                 
             except Exception as e:
                 logger.debug(f"FeeManager error in PnL calculation, using fallback: {e}")
@@ -1775,17 +1770,51 @@ async def manage_open_trades(lighter, x10):
                             await state_manager.update_trade(sym, {'funding_flip_start_time': None})
 
             if reason:
-                logger.info(
-                    f" 💸 EXIT {sym}: {reason} | "
-                    f"Gross PnL: ${gross_pnl:.2f} | "
-                    f"Fees: ${est_fees:.2f} | "
-                    f"Net PnL: ${total_pnl:.2f}"
-                )
+                # Calculate fees using FeeManager for logging
+                try:
+                    fee_manager = get_fee_manager()
+                    entry_value = float(notional)
+                    exit_value = entry_value  # Same for hedged trades
+                    
+                    entry_fees = fee_manager.calculate_trade_fees(
+                        entry_value,
+                        'LIGHTER', 'X10',
+                        is_maker1=True,   # Lighter = POST-ONLY = Maker
+                        is_maker2=False   # X10 = MARKET = Taker
+                    )
+                    
+                    exit_fees = fee_manager.calculate_trade_fees(
+                        exit_value,
+                        'LIGHTER', 'X10',
+                        is_maker1=False,  # Exit usually Market (Taker)
+                        is_maker2=False   # X10 = MARKET = Taker
+                    )
+                    
+                    total_fees = entry_fees + exit_fees
+                    
+                    logger.info(
+                        f" 💸 EXIT {sym}: {reason} | "
+                        f"Gross PnL: ${gross_pnl:.2f} | "
+                        f"Entry Fees: ${entry_fees:.4f} | "
+                        f"Exit Fees: ${exit_fees:.4f} | "
+                        f"Total Fees: ${total_fees:.4f} | "
+                        f"Net PnL: ${total_pnl:.2f}"
+                    )
+                except Exception as e:
+                    logger.debug(f"Error calculating fees for logging: {e}")
+                    logger.info(
+                        f" 💸 EXIT {sym}: {reason} | "
+                        f"Gross PnL: ${gross_pnl:.2f} | "
+                        f"Fees: ${est_fees:.2f} | "
+                        f"Net PnL: ${total_pnl:.2f}"
+                    )
+                    total_fees = est_fees
+                
                 if await close_trade(t, lighter, x10):
                     await close_trade_in_state(sym)
                     await archive_trade_to_history(t, reason, {
                         'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
-                        'spread_pnl': spread_pnl, 'fees': est_fees
+                        'spread_pnl': spread_pnl, 'fees': total_fees if 'total_fees' in locals() else est_fees
                     })
                     # Kelly Sizer Trade Recording
                     try:
@@ -1807,6 +1836,33 @@ async def manage_open_trades(lighter, x10):
             import traceback
             logger.debug(traceback.format_exc())
 
+def parse_iso_time(entry_time) -> Optional[datetime]:
+    """
+    Parse entry_time from various formats to datetime.
+    Returns None if parsing fails.
+    """
+    if entry_time is None:
+        return None
+    
+    # Handle string
+    if isinstance(entry_time, str):
+        try:
+            entry_time = entry_time.replace('Z', '+00:00')
+            entry_time = datetime.fromisoformat(entry_time)
+        except (ValueError, TypeError):
+            return None
+    
+    # Handle timestamp
+    if isinstance(entry_time, (int, float)):
+        entry_time = datetime.fromtimestamp(entry_time, tz=timezone.utc)
+    
+    # Ensure timezone
+    if entry_time.tzinfo is None:
+        entry_time = entry_time.replace(tzinfo=timezone.utc)
+    
+    return entry_time
+
+
 async def sync_check_and_fix(lighter, x10):
     """
     Prüft ob X10 und Lighter Positionen synchron sind und fixt Differenzen.
@@ -1816,6 +1872,32 @@ async def sync_check_and_fix(lighter, x10):
     logger.info("🔍 Starting Exchange Sync Check...")
     
     try:
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Skip symbols that were recently opened (within 30 seconds)
+        # Prevents race condition where sync check closes positions just opened
+        # ═══════════════════════════════════════════════════════════════
+        recently_opened = set()
+        current_time = time.time()
+        
+        try:
+            open_trades = await get_open_trades()
+            for trade in open_trades:
+                symbol = trade.get('symbol')
+                if not symbol:
+                    continue
+                
+                entry_time = parse_iso_time(trade.get('entry_time'))
+                if entry_time:
+                    # Convert to timestamp for comparison
+                    entry_timestamp = entry_time.timestamp()
+                    age_seconds = current_time - entry_timestamp
+                    
+                    if age_seconds < 30.0:  # 30 second grace period
+                        recently_opened.add(symbol)
+                        logger.debug(f"🔒 Skipping sync check for {symbol} (recently opened, age={age_seconds:.1f}s)")
+        except Exception as e:
+            logger.debug(f"Error checking recently opened trades: {e}")
+        
         # Fetch actual positions from both exchanges
         x10_positions = await x10.fetch_open_positions()
         lighter_positions = await lighter.fetch_open_positions()
@@ -1830,12 +1912,13 @@ async def sync_check_and_fix(lighter, x10):
             if abs(safe_float(p.get('size', 0))) > 1e-8
         }
         
-        # Find desync
-        only_on_x10 = x10_symbols - lighter_symbols
-        only_on_lighter = lighter_symbols - x10_symbols
+        # Find desync (exclude recently opened symbols)
+        only_on_x10 = (x10_symbols - lighter_symbols) - recently_opened
+        only_on_lighter = (lighter_symbols - x10_symbols) - recently_opened
         
         # ═══════════════════════════════════════════════════════════════
         # CRITICAL: Orphaned X10 positions (no Lighter hedge)
+        # Note: recently_opened symbols are already filtered out in only_on_x10 set
         # ═══════════════════════════════════════════════════════════════
         if only_on_x10:
             logger.error(f"🚨 DESYNC DETECTED: Positions only on X10: {only_on_x10}")
@@ -1854,6 +1937,10 @@ async def sync_check_and_fix(lighter, x10):
                 pass
             
             for sym in only_on_x10:
+                # Double-check: Skip if somehow still in recently_opened (defensive)
+                if sym in recently_opened:
+                    logger.debug(f"🔒 Skipping sync check for {sym} (recently opened)")
+                    continue
                 try:
                     logger.warning(f"🔻 Closing orphaned X10 position: {sym}")
                     pos = next((p for p in x10_positions if p.get('symbol') == sym), None)
@@ -1890,10 +1977,15 @@ async def sync_check_and_fix(lighter, x10):
         # CRITICAL: Orphaned Lighter positions (no X10 hedge)
         # ═══════════════════════════════════════════════════════════════
         if only_on_lighter:
-            # Filtere Symbole heraus, die gerade gehandelt werden
+            # Filtere Symbole heraus, die gerade gehandelt werden oder kürzlich geöffnet wurden
             real_orphans = []
             
             for sym in only_on_lighter:
+                # Skip if recently opened (grace period)
+                if sym in recently_opened:
+                    logger.debug(f"🔒 Skipping sync check for {sym} (recently opened)")
+                    continue
+                
                 # HOL DIR DEN LOCK: Wenn er gelockt ist, läuft gerade ein Trade!
                 lock = await get_execution_lock(sym)
                 if lock.locked():
