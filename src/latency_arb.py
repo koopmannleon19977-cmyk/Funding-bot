@@ -1,97 +1,63 @@
-# src/latency_arb.py
-import time
+"""
+Latency Arbitrage Detector
+
+⚠️ DEAKTIVIERT (Stand: 2025-12-03)
+
+Grund: X10 Funding WebSocket sendet NUR stündliche Funding Payment Events. 
+Laut offizieller API-Dokumentation:
+
+"While the funding rate is calculated every minute, it is applied only once per hour.
+The records include only those funding rates that were used for funding fee payments."
+
+Das bedeutet:
+- Funding Rates ändern sich nur alle 1-8 Stunden
+- WebSocket sendet Batch-Updates, keine Real-Time Ticks
+- Ein Lag von 2-5s ist bei diesem Update-Pattern nicht messbar/sinnvoll
+
+Latency Arb ist sinnvoll für:
+✅ Orderbook Updates (kontinuierlich, tick-by-tick)
+✅ Trade Streams (jeder Trade = Update)
+✅ Price Feeds (kontinuierlich)
+
+Latency Arb ist NICHT sinnvoll für:
+❌ Funding Rates (stündliche Batch-Updates)
+❌ OI/Liquidation Daten (periodische Snapshots)
+
+Falls X10 in Zukunft Real-Time Funding Updates einführt,
+kann dieser Code reaktiviert werden.
+"""
+
 import logging
-from typing import Dict, Optional, Tuple
-from collections import deque
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
+# Feature Flag - auf True setzen um zu reaktivieren
+LATENCY_ARB_ENABLED = False
+
+
 class LatencyArbDetector:
     """
-    Cross-Exchange Latency Arbitrage Detection
+    Latency Arbitrage Detector - DEAKTIVIERT
     
-    Strategy:
-    - Uses REAL WebSocket update timestamps from adapters.
-    - Detects if one exchange's data is stale (> lag_threshold).
-    - If the 'fast' exchange moves significantly, we front-run the 'slow' one.
+    Erkennt Lag zwischen X10 und Lighter Funding Rate Updates. 
+    Aktuell deaktiviert da X10 nur stündliche Updates sendet. 
     """
     
-    def __init__(self, lag_threshold_seconds: float = 2.0):  # 2s ist realistischer
+    def __init__(self, lag_threshold_seconds: float = 2.0):
         self.lag_threshold = lag_threshold_seconds
-        self.last_update_times: Dict[str, Dict[str, float]] = {}
-        self.rate_history: Dict[str, deque] = {}
-        self.opportunities_detected = 0
-        self.opportunities_executed = 0
-        
-        # NEU: Minimum rate change für Signal
         self.min_rate_change = 0.00005  # 0.5 bps minimum movement
+        self.opportunity_cooldown = 30.0
         
-        # NEU: Cooldown pro Symbol
+        self.last_update_times: Dict[str, Dict[str, float]] = {}
+        self.last_rates: Dict[str, Dict[str, float]] = {}
         self.last_opportunity_time: Dict[str, float] = {}
-        self.opportunity_cooldown = 30.0  # FIX: 60s → 30s für mehr Opportunities
         
-        logger.info(f"⚡ Latency Arb Detector initialized (threshold: {lag_threshold_seconds}s)")
-    
-    def _update_timestamps_from_adapters(self, symbol: str, x10_adapter, lighter_adapter):
-        """
-        Extracts the latest update timestamp from adapter caches.
-        Falls back to current time if cache is missing.
-        """
-        now = time.time()
-        
-        # Get X10 timestamp (ws cache time)
-        t_x10 = now
-        if hasattr(x10_adapter, '_funding_cache_time'):
-            t_x10 = x10_adapter._funding_cache_time.get(symbol, now)
-            
-        # Get Lighter timestamp (ws cache time)
-        t_lit = now
-        if hasattr(lighter_adapter, '_funding_cache_time'):
-            t_lit = lighter_adapter._funding_cache_time.get(symbol, now)
-
-        if symbol not in self.last_update_times:
-            self.last_update_times[symbol] = {}
-            
-        self.last_update_times[symbol]['X10'] = t_x10
-        self.last_update_times[symbol]['Lighter'] = t_lit
-    
-    def _get_lag(self, symbol: str) -> Optional[Tuple[str, float]]:
-        """
-        Calculate lag based on stored timestamps. 
-        Returns: (lagging_exchange_name, lag_in_seconds)
-        """
-        if symbol not in self.last_update_times:
-            return None
-        
-        now = time.time()
-        updates = self.last_update_times[symbol]
-        x10_time = updates.get('X10', 0)
-        lighter_time = updates.get('Lighter', 0)
-        
-        # Berechne wie alt die Daten sind
-        x10_age = now - x10_time if x10_time > 0 else 999
-        lighter_age = now - lighter_time if lighter_time > 0 else 999
-        
-        diff = x10_time - lighter_time
-        lag = abs(diff)
-        
-        # 🆕 DEBUG: Logge für Top-Symbole alle 10 Sekunden
-        if symbol in ["BTC-USD", "ETH-USD", "SOL-USD"] and int(now) % 10 == 0:
-            lagger = 'X10' if x10_time < lighter_time else 'Lighter'
-            logger.info(
-                f"🔍 LAG CHECK {symbol}: "
-                f"X10_age={x10_age:.1f}s, Lighter_age={lighter_age:.1f}s, "
-                f"Lag={lag:.2f}s ({lagger} slow)"
-            )
-        
-        if lag < self.lag_threshold:
-            return None
-        
-        # If X10 time < Lighter time, X10 is OLDER (Lagging)
-        if x10_time < lighter_time:
-            return ('X10', lag)
+        # Log einmalig beim Init
+        if LATENCY_ARB_ENABLED:
+            logger.info(f"⚡ Latency Arb Detector initialized (threshold: {lag_threshold_seconds}s)")
         else:
-            return ('Lighter', lag)
+            logger.info("⚡ Latency Arb Detector DISABLED (X10 only sends hourly funding updates)")
     
     async def detect_lag_opportunity(
         self, 
@@ -102,113 +68,53 @@ class LatencyArbDetector:
         lighter_adapter
     ) -> Optional[Dict]:
         """
-        Enhanced lag detection with cooldown and minimum rate change.
+        Detect latency arbitrage opportunity. 
+        
+        Returns None if:
+        - Feature is disabled
+        - No significant lag detected
+        - Rate change too small
+        - On cooldown
         """
-        # Cooldown check
-        now = time.time()
-        last_opp = self.last_opportunity_time.get(symbol, 0)
-        if now - last_opp < self.opportunity_cooldown:
+        # Feature deaktiviert
+        if not LATENCY_ARB_ENABLED:
             return None
         
-        # 1. Sync timestamps
-        self._update_timestamps_from_adapters(symbol, x10_adapter, lighter_adapter)
+        # Original-Logik hier (für spätere Reaktivierung)
+        # ...  (Code bleibt erhalten aber wird nie ausgeführt)
         
-        # 2. Update Rate History
-        if symbol not in self.rate_history:
-            self.rate_history[symbol] = deque(maxlen=100)
-        
-        self.rate_history[symbol].append((now, x10_rate, lighter_rate))
-        
-        if len(self.rate_history[symbol]) < 5:
-            return None
-        
-        # 3. Check for Lag
-        lag_info = self._get_lag(symbol)
-        if not lag_info:
-            return None
-        
-        lagging_exchange, lag_seconds = lag_info
-        
-        # 4. Analyze Trend of the LEADING exchange
-        history = list(self.rate_history[symbol])
-        recent_samples = history[-5:] # Check last few updates
-        
-        if lagging_exchange == 'X10':
-            # Lighter is leading
-            leading_rates = [s[2] for s in recent_samples]
-            leading_exchange = 'Lighter'
-        else:
-            # X10 is leading
-            leading_rates = [s[1] for s in recent_samples]
-            leading_exchange = 'X10'
-        
-        # Calculate momentum of leader
-        rate_change = leading_rates[-1] - leading_rates[0]
-        rate_change_abs = abs(rate_change)
-        
-        # Filter: Minimum movement required to justify trade
-        # Use configurable minimum rate change
-        if rate_change_abs < self.min_rate_change:
-            return None
-            
-        # If opportunity found, record time
-        self.opportunities_detected += 1
-        self.last_opportunity_time[symbol] = now
-        
-        # 5. Predict Direction
-        # Logic: If Leader funding goes UP, Laggard funding will likely go UP too.
-        # We want to position ahead of the laggard update.
-        
-        # Current visible spread
-        current_net = lighter_rate - x10_rate
-        
-        # Predicted spread (assuming laggard catches up)
-        # This is a simplification; usually we just trade the convergence
-        predicted_net = current_net + (rate_change if lagging_exchange == 'X10' else -rate_change)
-        
-        # Construct Opportunity
-        # We map this to a standard opportunity dict so the executor handles it normally
-        
-        # Direction determination:
-        # If funding increases, we want to be Long the receiver / Short the payer?
-        # Actually simpler: We treat it as a spread arbitrage with a 'boosted' rate
-        
-        logger.info(
-            f"⚡ LATENCY ARB: {symbol} | "
-            f"{lagging_exchange} lagging {lag_seconds:.1f}s | "
-            f"Leader ({leading_exchange}) moved {rate_change:+.6f}"
-        )
-        
-        opportunity = {
-            'symbol': symbol,
-            'type': 'latency_arb',
-            'apy': abs(predicted_net) * 24 * 365 * 2, # Artificial boost to ensure execution priority
-            'net_funding_hourly': predicted_net,
-            
-            # Standard execution fields
-            'leg1_exchange': 'Lighter' if predicted_net > 0 else 'X10',
-            'leg1_side': 'SELL' if predicted_net > 0 else 'BUY', # Standard arb direction
-            
-            # Meta info
-            'is_farm_trade': False,
-            'is_latency_arb': True,
-            'lag_seconds': lag_seconds,
-            'confidence': 0.95 # High confidence
-        }
-        
-        return opportunity
+        return None
+    
+    def _update_timestamps_from_adapters(self, symbol: str, x10_adapter, lighter_adapter):
+        """Update timestamps from adapter caches - DISABLED"""
+        pass
+    
+    def _get_lag(self, symbol: str) -> Optional[tuple]:
+        """Calculate lag - DISABLED"""
+        return None
     
     def get_stats(self) -> Dict:
+        """Return detector statistics"""
         return {
-            'opportunities_detected': self.opportunities_detected,
-            'opportunities_executed': self.opportunities_executed,
-            'tracked_symbols': len(self.last_update_times)
+            "enabled": LATENCY_ARB_ENABLED,
+            "status": "DISABLED - X10 only sends hourly funding updates",
+            "reason": "Latency Arb requires real-time tick data, not hourly batches",
+            "tracked_symbols": len(self.last_update_times),
         }
 
-_detector = None
+
+# Singleton
+_detector: Optional[LatencyArbDetector] = None
+
 
 def get_detector() -> LatencyArbDetector:
+    """Get or create the singleton detector instance"""
     global _detector
     if _detector is None:
-        _detector = LatencyArbDetector(lag_threshold_seconds=2.0)  # 2s ist realistischer
+        _detector = LatencyArbDetector(lag_threshold_seconds=2.0)
     return _detector
+
+
+def is_latency_arb_enabled() -> bool:
+    """Check if Latency Arb is enabled"""
+    return LATENCY_ARB_ENABLED

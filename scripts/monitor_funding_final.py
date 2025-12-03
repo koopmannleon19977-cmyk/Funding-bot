@@ -27,7 +27,7 @@ import config
 from src.telegram_bot import get_telegram_bot
 from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
-from src.latency_arb import get_detector
+from src.latency_arb import get_detector, is_latency_arb_enabled
 from src.state_manager import (
     InMemoryStateManager,
     get_state_manager,
@@ -591,57 +591,58 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             lighter_rates[s] = lr
 
     # ═══════════════════════════════════════════════════════════════
-    # LATENCY ARB: ERSTE PRIORITÄT
+    # LATENCY ARB: ERSTE PRIORITÄT (nur wenn enabled)
     # ═══════════════════════════════════════════════════════════════
     latency_opportunities = []
     
-    for s, rl, rx, px, pl in clean_results:
-        if s in open_syms:
-            continue
-        if rl is None or rx is None:
-            continue
-        
-        try:
-            # Detect lag opportunity
-            latency_opp = await detector.detect_lag_opportunity(
-                symbol=s,
-                x10_rate=float(rx),
-                lighter_rate=float(rl),
-                x10_adapter=x10,
-                lighter_adapter=lighter
-            )
+    if is_latency_arb_enabled():
+        for s, rl, rx, px, pl in clean_results:
+            if s in open_syms:
+                continue
+            if rl is None or rx is None:
+                continue
             
-            if latency_opp:
-                # Enrich with price data
-                latency_opp['price_x10'] = safe_float(px)
-                latency_opp['price_lighter'] = safe_float(pl)
-                latency_opp['spread_pct'] = abs(safe_float(px) - safe_float(pl)) / safe_float(px) if px else 0
-                
-                logger.info(
-                    f"⚡ LATENCY ARB DETECTED: {s} | "
-                    f"Lag={latency_opp.get('lag_seconds', 0):.2f}s | "
-                    f"Confidence={latency_opp.get('confidence', 0):.2f}"
+            try:
+                # Detect lag opportunity
+                latency_opp = await detector.detect_lag_opportunity(
+                    symbol=s,
+                    x10_rate=float(rx),
+                    lighter_rate=float(rl),
+                    x10_adapter=x10,
+                    lighter_adapter=lighter
                 )
                 
-                latency_opportunities.append(latency_opp)
-                
-        except Exception as e:
-            logger.debug(f"Latency check error for {s}: {e}")
-    
-    # ═══════════════════════════════════════════════════════════════
-    # RETURN LATENCY OPPS FIRST (MILLISECONDS MATTER!)
-    # ═══════════════════════════════════════════════════════════════
-    if latency_opportunities:
-        # Sort by confidence * lag (higher = better)
-        latency_opportunities.sort(
-            key=lambda x: x.get('confidence', 0) * x.get('lag_seconds', 0),
-            reverse=True
-        )
+                if latency_opp:
+                    # Enrich with price data
+                    latency_opp['price_x10'] = safe_float(px)
+                    latency_opp['price_lighter'] = safe_float(pl)
+                    latency_opp['spread_pct'] = abs(safe_float(px) - safe_float(pl)) / safe_float(px) if px else 0
+                    
+                    logger.info(
+                        f"⚡ LATENCY ARB DETECTED: {s} | "
+                        f"Lag={latency_opp.get('lag_seconds', 0):.2f}s | "
+                        f"Confidence={latency_opp.get('confidence', 0):.2f}"
+                    )
+                    
+                    latency_opportunities.append(latency_opp)
+                    
+            except Exception as e:
+                logger.debug(f"Latency check error for {s}: {e}")
         
-        logger.info(f"⚡ FAST LANE: {len(latency_opportunities)} Latency Arb opportunities!")
-        
-        # Return top latency opportunity immediately
-        return latency_opportunities[:1]  # Only best one for speed
+        # ═══════════════════════════════════════════════════════════════
+        # RETURN LATENCY OPPS FIRST (MILLISECONDS MATTER!)
+        # ═══════════════════════════════════════════════════════════════
+        if latency_opportunities:
+            # Sort by confidence * lag (higher = better)
+            latency_opportunities.sort(
+                key=lambda x: x.get('confidence', 0) * x.get('lag_seconds', 0),
+                reverse=True
+            )
+            
+            logger.info(f"⚡ FAST LANE: {len(latency_opportunities)} Latency Arb opportunities!")
+            
+            # Return top latency opportunity immediately
+            return latency_opportunities[:1]  # Only best one for speed
 
     # ═══════════════════════════════════════════════════════════════
     # PREDICTION V2 INTEGRATION (war vorher auskommentiert/stub)
