@@ -900,7 +900,6 @@ class LighterAdapter(BaseAdapter):
                         if data.get("i") == market_id:
                             self.funding_cache[symbol] = rate_float
                             self._funding_cache[symbol] = rate_float
-                            self._funding_cache_time[symbol] = time.time()  # 🆕 LATENCY ARB FIX
                             updated += 1
                             break
 
@@ -994,7 +993,6 @@ class LighterAdapter(BaseAdapter):
                                 if rate_float != 0:
                                     self._funding_cache[symbol] = rate_float
                                     self. funding_cache[symbol] = rate_float
-                                    self._funding_cache_time[symbol] = time.time()  # 🆕 LATENCY ARB FIX
                                     loaded += 1
                             except Exception:
                                 continue

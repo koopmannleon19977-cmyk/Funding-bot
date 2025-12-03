@@ -426,46 +426,11 @@ class ParallelExecutionManager:
         logger.error(f"❌ [ROLLBACK] {symbol}: All {self.MAX_ROLLBACK_ATTEMPTS} attempts failed!")
         return False
 
-    async def _close_x10_with_retry(self, symbol: str, size: Decimal, side: str) -> bool:
-        """Enhanced X10 close with proper error handling for code 1138"""
-        for attempt in range(3):
-            try:
-                # Hole aktuelle Position vor jedem Versuch
-                positions = await self.x10.get_positions()
-                current_pos = next((p for p in positions if p['symbol'] == symbol), None)
-                
-                if current_pos is None:
-                    logger.info(f"✅ {symbol}: Already closed on X10")
-                    return True
-                
-                actual_size = abs(Decimal(str(current_pos['size'])))
-                actual_side = 'BUY' if current_pos['size'] > 0 else 'SELL'
-                close_side = 'SELL' if actual_side == 'BUY' else 'BUY'
-                
-                result = await self.x10.close_position(
-                    symbol=symbol,
-                    size=actual_size,
-                    side=close_side,
-                    reduce_only=True
-                )
-                return result
-                
-            except Exception as e:
-                if '1138' in str(e):
-                    # Re-fetch position and retry with correct side
-                    logger.warning(f"⚠️ X10 {symbol}: Error 1138 on attempt {attempt + 1}, retrying...")
-                    await asyncio.sleep(1.0)
-                    continue
-                raise
-        
-        return False
-
     async def _rollback_x10(self, execution: TradeExecution) -> bool:
         """Rollback X10 position with actual position verification"""
         symbol = execution.symbol
         
         try:
-            # Use the enhanced retry method
             positions = await self.x10.fetch_open_positions()
             pos = next(
                 (p for p in (positions or []) 
@@ -478,27 +443,23 @@ class ParallelExecutionManager:
                 return True
 
             actual_size = safe_float(pos.get('size', 0))
-            actual_size_abs = abs(actual_size)
             # Positive = LONG, Negative = SHORT
             original_side = "BUY" if actual_size > 0 else "SELL"
-            close_side = "SELL" if actual_size > 0 else "BUY"
+            close_size = abs(actual_size)
 
             logger.info(
                 f"→ X10 Rollback {symbol}: size={actual_size:.6f}, side={original_side}"
             )
 
-            # Use enhanced retry method for better error handling
-            success = await self._close_x10_with_retry(
-                symbol=symbol,
-                size=Decimal(str(actual_size_abs)),
-                side=close_side
+            success, _ = await self.x10.close_live_position(
+                symbol, original_side, close_size
             )
 
             if success:
-                logger.info(f"✓ X10 rollback {symbol}: Success ({actual_size_abs:.6f} coins)")
+                logger.info(f"✓ X10 rollback {symbol}: Success ({close_size:.6f} coins)")
                 return True
             else:
-                logger. warning(f"✗ X10 rollback {symbol}: close failed after retries")
+                logger. warning(f"✗ X10 rollback {symbol}: close_live_position returned False")
                 return False
 
         except Exception as e:

@@ -65,9 +65,17 @@ class FeeManager:
         self._started = False
         
         # Fallback values from config
-        self._fallback_x10_maker = getattr(config, 'MAKER_FEE_X10', 0.0)
-        self._fallback_x10_taker = getattr(config, 'TAKER_FEE_X10', 0.000225)
-        self._fallback_lighter_fee = getattr(config, 'FEES_LIGHTER', 0.0)
+        self._fallback_x10_maker = float(getattr(config, 'MAKER_FEE_X10', 0.0))
+        self._fallback_x10_taker = float(getattr(config, 'TAKER_FEE_X10', 0.000225))
+        self._fallback_lighter_fee = float(getattr(config, 'FEES_LIGHTER', 0.0))
+        
+        # Validate fallback values
+        if self._fallback_x10_taker <= 0:
+            logger.warning(f"⚠️ FeeManager: TAKER_FEE_X10 is {self._fallback_x10_taker}, using default 0.000225")
+            self._fallback_x10_taker = 0.000225
+        if self._fallback_x10_maker < 0:
+            logger.warning(f"⚠️ FeeManager: MAKER_FEE_X10 is {self._fallback_x10_maker}, using default 0.0")
+            self._fallback_x10_maker = 0.0
         
         logger.info(
             f"💰 FeeManager initialized (Dynamic Fees: {'ENABLED' if self._enabled else 'DISABLED'})"
@@ -208,13 +216,25 @@ class FeeManager:
     def get_x10_fees(self, is_maker: bool = False) -> float:
         """Get X10 fee rate"""
         if not getattr(self, '_enabled', True):
-            return self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+            logger.debug(f"FeeManager: Dynamic fees disabled, using fallback: {fallback}")
+            return fallback
         
-        if self._x10_schedule is None or self._x10_schedule.is_expired(self._ttl_seconds):
-            # Return fallback if expired or not loaded
-            return self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+        # Check if schedule is None or expired
+        if self._x10_schedule is None:
+            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+            logger.debug(f"FeeManager: X10 schedule is None, using fallback: {fallback}")
+            return fallback
         
-        return self._x10_schedule.maker_fee if is_maker else self._x10_schedule.taker_fee
+        if self._x10_schedule.is_expired(self._ttl_seconds):
+            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+            logger.debug(f"FeeManager: X10 schedule expired, using fallback: {fallback}")
+            return fallback
+        
+        # Use cached schedule
+        fee = self._x10_schedule.maker_fee if is_maker else self._x10_schedule.taker_fee
+        logger.debug(f"FeeManager: Using X10 schedule fee: {fee} (maker={is_maker}, source={self._x10_schedule.source})")
+        return fee
     
     def get_lighter_fees(self, is_maker: bool = False) -> float:
         """Get Lighter fee rate"""

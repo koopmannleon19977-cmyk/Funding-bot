@@ -1658,6 +1658,20 @@ async def manage_open_trades(lighter, x10):
             # Calculate Net PnL with proper entry and exit fees
             try:
                 fee_manager = get_fee_manager()
+                
+                # Debug: Log FeeManager stats
+                try:
+                    stats = fee_manager.get_stats()
+                    logger.info(f"🔍 FeeManager Stats: enabled={stats.get('enabled')}, "
+                              f"X10(source={stats.get('x10', {}).get('source', 'unknown')}, "
+                              f"maker={stats.get('x10', {}).get('maker', 0):.6f}, "
+                              f"taker={stats.get('x10', {}).get('taker', 0):.6f}), "
+                              f"Lighter(source={stats.get('lighter', {}).get('source', 'unknown')}, "
+                              f"maker={stats.get('lighter', {}).get('maker', 0):.6f}, "
+                              f"taker={stats.get('lighter', {}).get('taker', 0):.6f})")
+                except Exception as stats_err:
+                    logger.debug(f"Error getting FeeManager stats: {stats_err}")
+                
                 # Use calculate_realized_pnl to properly account for entry and exit fees
                 net_pnl_decimal = await calculate_realized_pnl(t, fee_manager, gross_pnl)
                 total_pnl = float(net_pnl_decimal)
