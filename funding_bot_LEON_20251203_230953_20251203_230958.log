@@ -1,0 +1,606 @@
+23:09:58 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+23:09:58 [INFO] 🔥 BOT V5 (Architected) STARTING...
+23:09:58 [INFO] 🚀 Starting InMemoryStateManager...
+23:09:58 [INFO] 📂 Initializing database: data/trades.db
+23:09:58 [INFO] ✅ Read pool created: 5 connections
+23:09:58 [INFO] ✅ WAL mode enabled
+23:09:58 [INFO] 🔄 Running database migrations...
+23:09:58 [INFO] ✅ Migrations complete (15 statements)
+23:09:58 [INFO] ✅ Database initialized
+23:09:58 [INFO] 🖊️ Database write loop started
+23:09:58 [INFO] 📂 Loaded 1 trades from database
+23:09:58 [INFO] ✅ InMemoryStateManager started (loaded 1 trades)
+23:09:58 [INFO] ✅ State Manager started
+23:09:58 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+23:09:58 [INFO] ✅ Async database initialized
+23:09:58 [INFO] 📝 State writer loop started
+23:09:58 [DEBUG] ✅ Database schema up to date
+23:09:58 [INFO] Initialisiere X10 Adapter...
+23:09:58 [INFO]  X10 Account initialisiert.
+23:09:58 [INFO] Initialisiere Lighter Adapter...
+23:09:58 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+23:09:58 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+23:09:59 [WARNING] X10 Fee Schedule fetch error: 'list' object has no attribute 'get'
+23:09:59 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=config)
+23:09:59 [DEBUG] Lighter REST GET /api/v1/fees returned 404
+23:09:59 [DEBUG] Lighter Fee Schedule: No API endpoint available, using config
+23:09:59 [DEBUG] Lighter Fees: Using config fallback
+23:09:59 [INFO] ✅ FeeManager started with periodic refresh
+23:09:59 [INFO] ✅ FeeManager started
+23:09:59 [INFO] 📊 Loading Market Data via REST...
+23:09:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:09:59 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+23:09:59 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+23:10:00 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+23:10:02 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+23:10:02 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+23:10:02 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+23:10:02 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+23:10:02 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+23:10:02 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+23:10:02 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+23:10:02 [INFO] 📈 Pre-loading Lighter prices...
+23:10:03 [DEBUG] Lighter: Loaded 383 funding rates
+23:10:03 [DEBUG] Lighter: Loaded 115 prices via REST
+23:10:03 [INFO] ✅ Lighter prices loaded: 115 symbols
+23:10:03 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+23:10:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:10:05 [INFO] ✅ Execution clients warmed up & NETWORK READY
+23:10:05 [INFO] FundingPredictorV2 initialized with BTC Correlation
+23:10:05 [INFO] 启动 OI Tracker für 68 Symbole...
+23:10:05 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+23:10:05 [INFO] 🌐 Starting WebSocket Manager...
+23:10:05 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+23:10:05 [INFO] 🔌 [lighter] WebSocket manager started
+23:10:05 [INFO] 🔌 [x10_account] WebSocket manager started
+23:10:05 [INFO] 🔌 [x10_trades] WebSocket manager started
+23:10:05 [INFO] 🔌 [x10_funding] WebSocket manager started
+23:10:05 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+23:10:05 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+23:10:05 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+23:10:05 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+23:10:05 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+23:10:06 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$364,287, Total=$364,287
+23:10:06 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+23:10:06 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+23:10:06 [INFO] [x10_account] Receive loop started (async iterator)
+23:10:06 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+23:10:06 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+23:10:06 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+23:10:06 [INFO] [x10_trades] Receive loop started (async iterator)
+23:10:06 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+23:10:06 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+23:10:06 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+23:10:06 [INFO] [x10_funding] Receive loop started (async iterator)
+23:10:06 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+23:10:06 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+23:10:06 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+23:10:06 [INFO] [lighter] Resubscribing to 71 channels (paced)...
+23:10:06 [INFO] [lighter] Receive loop started (async iterator)
+23:10:06 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+23:10:06 [DEBUG] [lighter] Subscribed to order_book/55
+23:10:06 [DEBUG] [lighter] Subscribed to trade/55
+23:10:06 [DEBUG] [lighter] Subscribed to order_book/3
+23:10:06 [DEBUG] [lighter] Subscribed to trade/3
+23:10:06 [DEBUG] [lighter] Subscribed to order_book/98
+23:10:06 [DEBUG] [lighter] Subscribed to trade/98
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/31
+23:10:07 [DEBUG] [lighter] Subscribed to trade/31
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/93
+23:10:07 [DEBUG] [lighter] Subscribed to trade/93
+23:10:07 [DEBUG] [lighter] Resubscribed 10/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/13
+23:10:07 [DEBUG] [lighter] Subscribed to trade/13
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/60
+23:10:07 [DEBUG] [lighter] Subscribed to trade/60
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/39
+23:10:07 [DEBUG] [lighter] Subscribed to trade/39
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/47
+23:10:07 [DEBUG] [lighter] Subscribed to trade/47
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/91
+23:10:07 [DEBUG] [lighter] Subscribed to trade/91
+23:10:07 [DEBUG] [lighter] Resubscribed 20/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/92
+23:10:07 [DEBUG] [lighter] Subscribed to trade/92
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/34
+23:10:07 [DEBUG] [lighter] Subscribed to trade/34
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/63
+23:10:07 [DEBUG] [lighter] Subscribed to trade/63
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/104
+23:10:07 [DEBUG] [lighter] Subscribed to trade/104
+23:10:07 [DEBUG] [lighter] Resubscribed 30/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/32
+23:10:07 [DEBUG] [lighter] Subscribed to trade/32
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/35
+23:10:07 [DEBUG] [lighter] Subscribed to trade/35
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/50
+23:10:07 [DEBUG] [lighter] Subscribed to trade/50
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/12
+23:10:07 [DEBUG] [lighter] Subscribed to trade/12
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/2
+23:10:07 [DEBUG] [lighter] Subscribed to trade/2
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/40
+23:10:07 [DEBUG] [lighter] Subscribed to trade/40
+23:10:07 [DEBUG] [lighter] Resubscribed 40/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/83
+23:10:07 [DEBUG] [lighter] Subscribed to trade/83
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/52
+23:10:07 [DEBUG] [lighter] Subscribed to trade/52
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/58
+23:10:07 [DEBUG] [lighter] Subscribed to trade/58
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/38
+23:10:07 [DEBUG] [lighter] Subscribed to trade/38
+23:10:07 [DEBUG] [lighter] Resubscribed 50/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/23
+23:10:07 [DEBUG] [lighter] Subscribed to trade/23
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/51
+23:10:07 [DEBUG] [lighter] Subscribed to trade/51
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/71
+23:10:07 [DEBUG] [lighter] Subscribed to trade/71
+23:10:07 [DEBUG] [lighter] Resubscribed 60/71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/86
+23:10:07 [DEBUG] [lighter] Subscribed to trade/86
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/4
+23:10:07 [DEBUG] [lighter] Subscribed to trade/4
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/10
+23:10:07 [DEBUG] [lighter] Subscribed to trade/10
+23:10:07 [DEBUG] [lighter] Resubscribed 70/71 channels
+23:10:07 [INFO] [lighter] Resubscribed to 71 channels
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/5
+23:10:07 [DEBUG] [lighter] Subscribed to trade/5
+23:10:07 [DEBUG] [lighter] Subscribed to order_book/82
+23:10:07 [DEBUG] [lighter] Subscribed to trade/82
+23:10:07 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+23:10:07 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+23:10:07 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+23:10:07 [INFO] 🔍 DB meldet 1 offene Trades. Prüfe Exchange...
+23:10:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:08 [DEBUG] ✅ BERA-USD: X10=$205,268, Lighter=$924,541, Total=$1,129,809
+23:10:09 [INFO] Lighter: Found 0 open positions
+23:10:09 [INFO] 🌍 Echte Positionen auf Exchanges: []
+23:10:09 [WARNING] ⚠️  ZOMBIE GEFUNDEN: LTC-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+23:10:09 [INFO] ✅ Trade LTC-USD closed (PnL: $0.00)
+23:10:09 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+23:10:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:09 [DEBUG] 📝 Flushed 1 writes
+23:10:09 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:09 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+23:10:09 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+23:10:10 [INFO] Lighter: Found 0 open positions
+23:10:10 [INFO] ✅ No orphaned positions found
+23:10:10 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+23:10:10 [INFO] ✅ ParallelExecutionManager started
+23:10:10 [DEBUG] Registered task: logic_loop (priority=HIGH)
+23:10:10 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+23:10:10 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+23:10:10 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+23:10:10 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+23:10:10 [DEBUG] Registered task: health_reporter (priority=LOW)
+23:10:10 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+23:10:10 [INFO] ═══════════════════════════════════════════════════════════
+23:10:10 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+23:10:10 [INFO] ═══════════════════════════════════════════════════════════
+23:10:10 [INFO] 🚀 BotEventLoop starting...
+23:10:10 [INFO] ▶️ Started task: connection_watchdog
+23:10:10 [INFO] ▶️ Started task: logic_loop
+23:10:10 [INFO] ▶️ Started task: trade_management_loop
+23:10:10 [INFO] ▶️ Started task: farm_loop
+23:10:10 [INFO] ▶️ Started task: maintenance_loop
+23:10:10 [INFO] ▶️ Started task: cleanup_finished_tasks
+23:10:10 [INFO] ▶️ Started task: health_reporter
+23:10:10 [INFO] ✅ Started 7 tasks
+23:10:10 [INFO] 🔄 Rollback processor running...
+23:10:10 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+23:10:10 [INFO] Logic Loop gestartet – REFRESH alle 3s
+23:10:10 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+23:10:10 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+23:10:10 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+23:10:10 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+23:10:10 [INFO] 🛡️ Trade Management Loop gestartet
+23:10:10 [INFO] 🚜 Farm Mode ACTIVE
+23:10:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:10:10 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+23:10:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:10:10 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+23:10:10 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+23:10:10 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+23:10:10 [DEBUG] Skip 1000BONK-USD: Spread 0.84% too high
+23:10:10 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00005900, rx=0.00000400, net=-0.00006300, apy=55.2%
+23:10:10 [INFO] 💎 ENA-USD | APY: 55.2%
+23:10:10 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+23:10:10 [DEBUG] Skip VIRTUAL-USD: Spread 0.72% too high
+23:10:10 [INFO] 🔍 DEBUG WLD-USD: rl=-0.00005100, rx=0.00001000, net=-0.00006100, apy=53.4%
+23:10:10 [INFO] 💎 WLD-USD | APY: 53.4%
+23:10:10 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00004100, rx=-0.00012500, net=0.00008400, apy=73.6%
+23:10:10 [DEBUG] Skip EDEN-USD: Spread 0.62% too high
+23:10:10 [DEBUG] Skip TIA-USD: Spread 0.74% too high
+23:10:10 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+23:10:10 [DEBUG] Skip MON-USD: Spread 0.32% too high
+23:10:10 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+23:10:10 [INFO] 🔍 DEBUG RESOLV-USD: rl=0.00006600, rx=-0.00000200, net=0.00006800, apy=59.6%
+23:10:10 [INFO] 💎 RESOLV-USD | APY: 59.6%
+23:10:10 [INFO] ✅ Found 25 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+23:10:10 [INFO] 🎯 Found 3 opportunities, executing best...
+23:10:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:10:10 [DEBUG] ✅ TRX-USD: X10=$392,104, Lighter=$7,135,571, Total=$7,527,675
+23:10:11 [DEBUG] Lighter Balance: Raw=$291.39, Safe=$276.82
+23:10:11 [INFO] 🚜 Opening FARM: BERA-USD APY=19.3%
+23:10:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:11 [DEBUG] Lighter Balance: Raw=$291.39, Safe=$276.82
+23:10:11 [INFO] X10: Detected balance = $299.09
+23:10:11 [INFO] 🚀 Launching 2 trades (Slots available: 2)
+23:10:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:11 [INFO] Lighter: Found 0 open positions
+23:10:11 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+23:10:11 [DEBUG] 🧠 BERA-USD: Prediction conf=0.50, delta=-0.000019
+23:10:11 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.9539, min_qty_usd=$2.86, min_notional_api=$10.00, final=$11.00
+23:10:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:10:12 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+23:10:12 [DEBUG] X10: Funding Refresh OK, cache=91
+23:10:12 [DEBUG] 📊 Lighter Funding Cache refresh (current=116)
+23:10:12 [INFO] Lighter: Found 0 open positions
+23:10:12 [DEBUG] Lighter: Loaded 383 funding rates
+23:10:12 [DEBUG] ✅ AVAX-USD: X10=$602,928, Lighter=$282,580, Total=$885,507
+23:10:12 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+23:10:12 [INFO] 🎰 KELLY BERA-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0250, confidence=LOW, samples=0
+23:10:12 [INFO] 📊 KELLY SIZE BERA-USD: base=$30.0, kelly_recommended=$6.9, final=$30.0
+23:10:12 [INFO] 💰 Balance: X10=$299.1 (free=$296.1), Lit=$276.8 (free=$273.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+23:10:12 [INFO] 🚀 Launching trade for RESOLV-USD (APY=59.6%)
+23:10:12 [INFO] 🚀 Opening BERA-USD: Size=$30.0 (Min=$11.0)
+23:10:12 [INFO] 🔄 [PARALLEL] BERA-USD: Lighter POST-ONLY first
+23:10:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:12 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$30.00, price=$0.953950
+23:10:12 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+23:10:12 [DEBUG] QUANTIZE BERA-USD: USD=30.00, coins=31.448189, raw=314, lot_size=30, final=300
+23:10:12 [INFO] 🔄 [PARALLEL] BERA-USD: X10 MARKET order
+23:10:12 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1764799858482,"BaseAmount":300,"Price":94822,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767219012775,"ExpiredAt":1764800411775,"Nonce":2419,"Sig":"oK71Y5WuLb79DuF0VaYPGebvAN335//cEzTs9M7cRyyAswzg+k78DUdAZ98CXKBOoRqVoY12GAaGToTpVp7nNs3+mGX2uhy2VnNn5aw+8mM="}
+23:10:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+23:10:13 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='5e0de4aec9ffe8cb660e6d62ea99e3e6ed554320bde5a3ca4bbb473e3f7038b8807a547de9671e91' predicted_execution_time_ms=1764799803658 additional_properties={}
+23:10:13 [INFO] Lighter Order: 5e0de4aec9ffe8cb660e6d62ea99e3e6ed554320bde5a3ca4bbb473e3f7038b8807a547de9671e91
+23:10:13 [INFO] 🚀 Launching trade for ENA-USD (APY=55.2%)
+23:10:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:13 [DEBUG] Placing an order: id=2153602016667786008281032964456482984498546850716021025371683575281301815342
+23:10:13 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:10:13 [DEBUG] Lighter: Loaded 115 prices via REST
+23:10:13 [DEBUG] Lighter: Funding Refresh OK, cache=116
+23:10:13 [DEBUG] 📊 OI→Pred FIL-USD: OI=$364,287, Velocity=0.00, Trend=UNKNOWN
+23:10:13 [DEBUG] 📊 OI→Pred BERA-USD: OI=$1,129,809, Velocity=0.00, Trend=UNKNOWN
+23:10:13 [DEBUG] 📊 OI→Pred TRX-USD: OI=$7,527,675, Velocity=0.00, Trend=UNKNOWN
+23:10:13 [DEBUG] 📊 OI→Pred AVAX-USD: OI=$885,507, Velocity=0.00, Trend=UNKNOWN
+23:10:13 [INFO] 🔍 Running periodic exchange sync check...
+23:10:13 [INFO] 🔍 Starting Exchange Sync Check...
+23:10:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:13 [INFO] Lighter: Found 1 open positions
+23:10:13 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+23:10:13 [DEBUG] 🧠 RESOLV-USD: Prediction conf=0.50, delta=-0.000046
+23:10:13 [DEBUG] MIN_NOTIONAL RESOLV-USD: min_base=40.00000000 coins, price=$0.0794, min_qty_usd=$3.18, min_notional_api=$10.00, final=$11.00
+23:10:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:10:13 [INFO] ✅ Launched 2 trade tasks this cycle
+23:10:13 [INFO] Lighter: Found 1 open positions
+23:10:13 [DEBUG] ✅ ENA-USD verified: No existing positions on exchanges
+23:10:13 [DEBUG] 🧠 ENA-USD: Prediction conf=0.50, delta=0.000054
+23:10:13 [DEBUG] MIN_NOTIONAL ENA-USD: min_base=20.00000000 coins, price=$0.2938, min_qty_usd=$5.88, min_notional_api=$10.00, final=$11.00
+23:10:14 [INFO] Lighter: Found 1 open positions
+23:10:14 [INFO] 🔒 Skipping sync check for BERA-USD (Execution in progress)
+23:10:14 [INFO]  X10 Order: 1996341190547247104
+23:10:14 [INFO] ✅ [PARALLEL] BERA-USD: Both legs filled in 1625ms
+23:10:14 [DEBUG] 📝 Trade added to state: BERA-USD
+23:10:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:14 [INFO] ✅ OPENED BERA-USD: $30.00 | Entry Fees (est.): $0.0067
+23:10:14 [DEBUG] 📝 Flushed 1 writes
+23:10:14 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:14 [DEBUG] ✅ 1000BONK-USD: X10=$46,443, Lighter=$102,869,691, Total=$102,916,134
+23:10:15 [DEBUG] Fetching fresh positions (force=False, cache_age=1764799815.0s)
+23:10:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:15 [DEBUG] Lighter Balance: Raw=$291.39, Safe=$276.82
+23:10:15 [INFO] 🎰 KELLY RESOLV-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+23:10:15 [INFO] 📊 KELLY SIZE RESOLV-USD: base=$30.0, kelly_recommended=$7.4, final=$30.0
+23:10:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+23:10:15 [INFO] Lighter: Found 1 open positions
+23:10:15 [INFO] 📊 Positions: X10=1, Lighter=1
+23:10:15 [DEBUG] X10 positions: ['BERA-USD']
+23:10:15 [DEBUG] Lighter positions: ['BERA-USD']
+23:10:15 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:15 [DEBUG] Check BERA-USD: Age=1.1s (Limit=2700s)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [INFO] 🎰 KELLY ENA-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+23:10:15 [INFO] 📊 KELLY SIZE ENA-USD: base=$30.0, kelly_recommended=$7.4, final=$30.9
+23:10:15 [DEBUG] 🧹 Cleaned task: BERA-USD
+23:10:15 [INFO] 🚀 Opening RESOLV-USD: Size=$30.0 (Min=$11.0)
+23:10:15 [INFO] 🔄 [PARALLEL] RESOLV-USD: Lighter POST-ONLY first
+23:10:15 [INFO] 🚀 Opening ENA-USD: Size=$30.9 (Min=$30.9)
+23:10:15 [INFO] 🔄 [PARALLEL] ENA-USD: Lighter POST-ONLY first
+23:10:15 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=SELL, size_usd=$30.00, price=$0.079553
+23:10:15 [DEBUG] 🔍 DEBUG: RESOLV-USD market_id = 51 (raw=51, type=<class 'int'>)
+23:10:15 [DEBUG] QUANTIZE RESOLV-USD: USD=30.00, coins=377.107086, raw=377, lot_size=40, final=360
+23:10:15 [INFO] 🔄 [PARALLEL] RESOLV-USD: X10 MARKET order
+23:10:15 [INFO] 🔄 [PARALLEL] ENA-USD: X10 MARKET order
+23:10:15 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":51,"ClientOrderIndex":1764799894139,"BaseAmount":360,"Price":79075,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767219015488,"ExpiredAt":1764800414488,"Nonce":2420,"Sig":"e1qG2QOnnEsD9U7Wz9kkLfmlETKVzxJbfHlFGTEWwmXlMpcCmYuDEt9cPgOFoVX5oXt9dswGt35w6AtCO5eAnpCWxIUSA0QzFjH83u2eOXY="}
+23:10:15 [INFO] 🚀 LIGHTER OPEN ENA-USD: side=SELL, size_usd=$30.86, price=$0.293620
+23:10:15 [DEBUG] 🔍 DEBUG: ENA-USD market_id = 29 (raw=29, type=<class 'int'>)
+23:10:15 [DEBUG] QUANTIZE ENA-USD: USD=30.86, coins=105.093283, raw=1051, lot_size=200, final=1000
+23:10:15 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":29,"ClientOrderIndex":1764799893751,"BaseAmount":1000,"Price":29185,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767219015521,"ExpiredAt":1764800414521,"Nonce":2421,"Sig":"kwFN3ohaZtd5MQevJ1eEtzOceEQbQgZS4nbPY/RF/TKOFAC1/RPuafmKuJZfBv5fWj7AmWnyDBHIAfKgHztafRMh1Z4g4yXCvUqvQAMtUGI="}
+23:10:15 [DEBUG] Placing an order: id=2889519843406078248786878566423136113162312033232382539408378806509580911079
+23:10:15 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:10:15 [DEBUG] Placing an order: id=212672718854278120036461405053445562466780580442511888391345879242368347637
+23:10:15 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+23:10:15 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='3cc69d01fe263ce8780b36225117587ffdeb603fa5d86c70b2010af520a781675ee76751f8d34cab' predicted_execution_time_ms=1764799806371 additional_properties={}
+23:10:15 [INFO] Lighter Order: 3cc69d01fe263ce8780b36225117587ffdeb603fa5d86c70b2010af520a781675ee76751f8d34cab
+23:10:15 [INFO]  X10 Order: 1996341196407545856
+23:10:15 [INFO] ✅ [PARALLEL] RESOLV-USD: Both legs filled in 297ms
+23:10:15 [DEBUG] 📝 Trade added to state: RESOLV-USD
+23:10:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:15 [INFO] ✅ OPENED RESOLV-USD: $30.00 | Entry Fees (est.): $0.0067
+23:10:15 [DEBUG] 📝 Flushed 1 writes
+23:10:15 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:15 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='82c64057a8b784ab2a1d11500828dc9153c311e93851b7b4d8ee6dfcb658fdf08c8f56714c913695' predicted_execution_time_ms=1764799806405 additional_properties={}
+23:10:15 [INFO] Lighter Order: 82c64057a8b784ab2a1d11500828dc9153c311e93851b7b4d8ee6dfcb658fdf08c8f56714c913695
+23:10:16 [DEBUG] Using cached positions (age: 1.5s)
+23:10:16 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:16 [DEBUG] Check BERA-USD: Age=2.1s (Limit=2700s)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:16 [DEBUG] Check RESOLV-USD: Age=0.7s (Limit=2700s)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [INFO]  X10 Order: 1996341199800463360
+23:10:16 [INFO] ✅ [PARALLEL] ENA-USD: Both legs filled in 1110ms
+23:10:16 [DEBUG] 📝 Trade added to state: ENA-USD
+23:10:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:16 [INFO] ✅ OPENED ENA-USD: $30.86 | Entry Fees (est.): $0.0069
+23:10:16 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:10:16 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=0s ago, msgs=18)
+23:10:16 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s ago, msgs=43)
+23:10:16 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=12586)
+23:10:17 [DEBUG] Using cached positions (age: 2.5s)
+23:10:17 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:17 [DEBUG] Check BERA-USD: Age=3.1s (Limit=2700s)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:17 [DEBUG] Check RESOLV-USD: Age=1.7s (Limit=2700s)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:17 [DEBUG] Check ENA-USD: Age=0.9s (Limit=2700s)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:17 [DEBUG] 📝 Flushed 1 writes
+23:10:17 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:18 [DEBUG] ✅ FARTCOIN-USD: X10=$416,883, Lighter=$14,546,224, Total=$14,963,107
+23:10:18 [DEBUG] ✅ BERA-USD: X10 entry fee = 0.000225 (order: 1996341190547247104)
+23:10:18 [DEBUG] ✅ BERA-USD: Lighter entry fee = 0.000000 (order: 5e0de4aec9ffe8cb660e6d62ea99e3e6ed554320bde5a3ca4bbb473e3f7038b8807a547de9671e91)
+23:10:18 [WARNING] ⚠️ Failed to update entry fees for BERA-USD: Invalid format specifier '.6f if fees['x10_fee'] else 'N/A'' for object of type 'float'
+23:10:18 [DEBUG] Using cached positions (age: 3.5s)
+23:10:18 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:18 [DEBUG] Check BERA-USD: Age=4.1s (Limit=2700s)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:18 [DEBUG] Check RESOLV-USD: Age=2.7s (Limit=2700s)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:18 [DEBUG] Check ENA-USD: Age=1.9s (Limit=2700s)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] 📝 Flushed 1 writes
+23:10:19 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:19 [DEBUG] Using cached positions (age: 4.5s)
+23:10:19 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:19 [DEBUG] Check BERA-USD: Age=5.1s (Limit=2700s)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:19 [DEBUG] Check RESOLV-USD: Age=3.7s (Limit=2700s)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:19 [DEBUG] Check ENA-USD: Age=2.9s (Limit=2700s)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:19 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:10:19 [DEBUG] ✅ RESOLV-USD: X10 entry fee = 0.000225 (order: 1996341196407545856)
+23:10:19 [DEBUG] ✅ RESOLV-USD: Lighter entry fee = 0.000000 (order: 3cc69d01fe263ce8780b36225117587ffdeb603fa5d86c70b2010af520a781675ee76751f8d34cab)
+23:10:19 [WARNING] ⚠️ Failed to update entry fees for RESOLV-USD: Invalid format specifier '.6f if fees['x10_fee'] else 'N/A'' for object of type 'float'
+23:10:19 [DEBUG] ✅ ZORA-USD: X10=$202,995, Lighter=$25,578,351, Total=$25,781,346
+23:10:20 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+23:10:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+23:10:20 [DEBUG] ✅ ENA-USD: X10 entry fee = 0.000225 (order: 1996341199800463360)
+23:10:20 [DEBUG] ✅ ENA-USD: Lighter entry fee = 0.000000 (order: 82c64057a8b784ab2a1d11500828dc9153c311e93851b7b4d8ee6dfcb658fdf08c8f56714c913695)
+23:10:20 [WARNING] ⚠️ Failed to update entry fees for ENA-USD: Invalid format specifier '.6f if fees['x10_fee'] else 'N/A'' for object of type 'float'
+23:10:20 [DEBUG] 📝 Flushed 2 writes
+23:10:20 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:20 [INFO] Lighter: Found 3 open positions
+23:10:20 [INFO] 📊 Positions: X10=3, Lighter=3
+23:10:20 [DEBUG] X10 positions: ['BERA-USD', 'RESOLV-USD', 'ENA-USD']
+23:10:20 [DEBUG] Lighter positions: ['BERA-USD', 'ENA-USD', 'RESOLV-USD']
+23:10:20 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:20 [DEBUG] Check BERA-USD: Age=6.5s (Limit=2700s)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:20 [DEBUG] Check RESOLV-USD: Age=5.1s (Limit=2700s)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:20 [DEBUG] Check ENA-USD: Age=4.3s (Limit=2700s)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [DEBUG] ✅ ENA-USD: X10=$226,783, Lighter=$19,941,213, Total=$20,167,996
+23:10:21 [DEBUG] Using cached positions (age: 1.5s)
+23:10:21 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:21 [DEBUG] Check BERA-USD: Age=7.5s (Limit=2700s)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:21 [DEBUG] Check RESOLV-USD: Age=6.1s (Limit=2700s)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:21 [DEBUG] Check ENA-USD: Age=5.3s (Limit=2700s)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+23:10:22 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+23:10:22 [DEBUG] Using cached positions (age: 2.4s)
+23:10:22 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:22 [DEBUG] Check BERA-USD: Age=8.5s (Limit=2700s)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:22 [DEBUG] Check RESOLV-USD: Age=7.1s (Limit=2700s)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:22 [DEBUG] Check ENA-USD: Age=6.3s (Limit=2700s)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [DEBUG] ✅ UNI-USD: X10=$198,268, Lighter=$362,851, Total=$561,119
+23:10:23 [DEBUG] Using cached positions (age: 3.5s)
+23:10:23 [INFO] 🔍 DEBUG BERA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:14.387412+00:00
+23:10:23 [DEBUG] Check BERA-USD: Age=9.5s (Limit=2700s)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:15.782187+00:00
+23:10:23 [DEBUG] Check RESOLV-USD: Age=8.1s (Limit=2700s)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [INFO] 🔍 DEBUG ENA-USD: entry_time type=<class 'str'>, value=2025-12-03T22:10:16.588755+00:00
+23:10:23 [DEBUG] Check ENA-USD: Age=7.3s (Limit=2700s)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.0 (maker=True, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [INFO] 🔍 FeeManager Stats: enabled=True, X10(source=config, maker=0.000000, taker=0.000225), Lighter(source=config, maker=0.000000, taker=0.000000)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+23:10:24 [INFO] 🛑 Initiating shutdown...
+23:10:24 [DEBUG] Cancelled task: maintenance_loop
+23:10:24 [DEBUG] Cancelled task: cleanup_finished_tasks
+23:10:24 [DEBUG] Cancelled task: health_reporter
+23:10:24 [DEBUG] Cancelled task: farm_loop
+23:10:24 [DEBUG] Cancelled task: logic_loop
+23:10:24 [DEBUG] Cancelled task: trade_management_loop
+23:10:24 [DEBUG] Cancelled task: connection_watchdog
+23:10:24 [INFO] Logic loop cancelled
+23:10:24 [INFO] Connection watchdog cancelled
+23:10:25 [DEBUG] ✅ SPX-USD: X10=$180,139, Lighter=$4,343,419, Total=$4,523,558
+23:10:27 [INFO] 🔌 [x10_trades] WebSocket stopped
+23:10:28 [DEBUG] ✅ LINEA-USD: X10=$129,780, Lighter=$89,107,909, Total=$89,237,689
+23:10:29 [ERROR] WebSocket stop error: 
+23:10:29 [INFO] 🛑 Rollback processor: Shutdown signal received
+23:10:29 [INFO] ✅ ParallelExecutionManager: Stopped
+23:10:29 [INFO] 🛑 Stopping InMemoryStateManager...
+23:10:29 [INFO] 📝 State writer loop stopped
+23:10:29 [INFO] ✅ InMemoryStateManager stopped
+23:10:29 [INFO] ✅ Shutdown complete
+23:10:29 [INFO] 🛑 Shutting down...
+23:10:29 [INFO] 🛑 Shutdown requested...
+23:10:29 [INFO] ✅ ParallelExecutionManager: Stopped
+23:10:29 [INFO] 🔌 [lighter] WebSocket stopped
+23:10:29 [INFO] 🔌 [x10_trades] WebSocket stopped
+23:10:29 [INFO] 🔌 [x10_account] WebSocket stopped
+23:10:29 [INFO] 🔌 [x10_funding] WebSocket stopped
+23:10:29 [INFO] ✅ WebSocketManager stopped
+23:10:29 [INFO] ✅ OpenInterestTracker stopped
+23:10:29 [INFO] 🛑 Stopping InMemoryStateManager...
+23:10:29 [INFO] ✅ InMemoryStateManager stopped
+23:10:29 [INFO] 🔒 Closing database...
+23:10:29 [INFO] 🖊️ Database write loop stopped
+23:10:29 [INFO] ✅ Database closed
+23:10:29 [INFO] 🛑 FeeManager stopped
+23:10:29 [INFO] ✅ X10 Adapter geschlossen.
+23:10:29 [INFO] ✅ Lighter Adapter closed
+23:10:29 [INFO] ✅ Bot V5 shutdown complete

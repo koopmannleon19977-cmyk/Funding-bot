@@ -63,6 +63,10 @@ class TradeState:
     account_label: str = "Main"
     x10_order_id: Optional[str] = None
     lighter_order_id: Optional[str] = None
+    entry_fee_x10: Optional[float] = None  # Actual fee from API
+    entry_fee_lighter: Optional[float] = None  # Actual fee from API
+    exit_fee_x10: Optional[float] = None  # Actual fee from API
+    exit_fee_lighter: Optional[float] = None  # Actual fee from API
     db_id: Optional[int] = None  # Database row ID
     
     def to_dict(self) -> Dict[str, Any]:
@@ -613,6 +617,9 @@ class InMemoryStateManager:
                                     write.data. get('pnl', 0),
                                     write.data.get('funding_collected', 0)
                                 )
+                        else:
+                            # Generic update for other fields (e.g., fees)
+                            await repo.update_trade(write.key, write.data)
                         
                         if write.callback and not write.callback.done():
                             write.callback.set_result(True)
@@ -672,6 +679,10 @@ class InMemoryStateManager:
                         account_label=row.get('account_label', 'Main'),
                         x10_order_id=row. get('x10_order_id'),
                         lighter_order_id=row.get('lighter_order_id'),
+                        entry_fee_x10=safe_float(row.get('entry_fee_x10'), None) if row.get('entry_fee_x10') is not None else None,
+                        entry_fee_lighter=safe_float(row.get('entry_fee_lighter'), None) if row.get('entry_fee_lighter') is not None else None,
+                        exit_fee_x10=safe_float(row.get('exit_fee_x10'), None) if row.get('exit_fee_x10') is not None else None,
+                        exit_fee_lighter=safe_float(row.get('exit_fee_lighter'), None) if row.get('exit_fee_lighter') is not None else None,
                         db_id=row.get('id'),
                     )
                     self._trades[trade. symbol] = trade

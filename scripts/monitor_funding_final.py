@@ -428,6 +428,38 @@ async def add_trade_to_state(trade_data: dict) -> str:
     )
     return await sm.add_trade(trade)
 
+async def _fetch_fees_after_delay(
+    symbol: str,
+    x10_order_id: Optional[str],
+    lighter_order_id: Optional[str],
+    x10_adapter: X10Adapter,
+    lighter_adapter: LighterAdapter,
+    delay_seconds: float = 3.0
+):
+    """Helper function to fetch entry fees after a delay (ensures order is filled)"""
+    await asyncio.sleep(delay_seconds)
+    try:
+        from src.fee_tracker import update_trade_entry_fees
+        await update_trade_entry_fees(symbol, x10_order_id, lighter_order_id, x10_adapter, lighter_adapter)
+    except Exception as e:
+        logger.debug(f"Background entry fee fetch for {symbol} failed: {e}")
+
+async def _fetch_exit_fees_after_delay(
+    symbol: str,
+    x10_order_id: Optional[str],
+    lighter_order_id: Optional[str],
+    x10_adapter: X10Adapter,
+    lighter_adapter: LighterAdapter,
+    delay_seconds: float = 3.0
+):
+    """Helper function to fetch exit fees after a delay (ensures order is filled)"""
+    await asyncio.sleep(delay_seconds)
+    try:
+        from src.fee_tracker import update_trade_exit_fees
+        await update_trade_exit_fees(symbol, x10_order_id, lighter_order_id, x10_adapter, lighter_adapter)
+    except Exception as e:
+        logger.debug(f"Background exit fee fetch for {symbol} failed: {e}")
+
 async def close_trade_in_state(symbol: str, pnl: float = 0, funding: float = 0):
     """Close trade in state (writes to DB in background)"""
     sm = await get_state_manager()
@@ -1148,11 +1180,26 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     'entry_price_x10': x10.fetch_mark_price(symbol) or 0.0,
                     'entry_price_lighter': lighter.fetch_mark_price(symbol) or 0.0,
                     'is_farm_trade': opp.get('is_farm_trade', False),
-                    'account_label': f"Main/Main" # Placeholder until multi-account fix
+                    'account_label': f"Main/Main",  # Placeholder until multi-account fix
+                    'x10_order_id': str(x10_id) if x10_id else None,
+                    'lighter_order_id': str(lit_id) if lit_id else None
                 }
                 await add_trade_to_state(trade_data)
                 
-                # Log entry fees
+                # Fetch actual entry fees from API (async, non-blocking)
+                try:
+                    from src.fee_tracker import update_trade_entry_fees
+                    # Schedule fee fetch in background (with delay to ensure order is filled)
+                    asyncio.create_task(
+                        _fetch_fees_after_delay(
+                            symbol, str(x10_id) if x10_id else None,
+                            str(lit_id) if lit_id else None, x10, lighter
+                        )
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to schedule fee fetch for {symbol}: {e}")
+                
+                # Log estimated entry fees (using schedule)
                 try:
                     fee_manager = get_fee_manager()
                     # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
@@ -1161,7 +1208,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         is_maker1=False,  # X10 = Taker
                         is_maker2=True    # Lighter = Maker (POST_ONLY)
                     )
-                    logger.info(f"✅ OPENED {symbol}: ${final_usd:.2f} | Entry Fees: ${entry_fees:.4f}")
+                    logger.info(f"✅ OPENED {symbol}: ${final_usd:.2f} | Entry Fees (est.): ${entry_fees:.4f}")
                 except Exception:
                     pass
                 
@@ -1197,6 +1244,7 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     # ═══════════════════════════════════════════════════════════════
     lighter_success = False
     lighter_code_error = False
+    lighter_exit_order_id = None  # Initialize early to avoid NameError
 
     try:
         positions = await lighter.fetch_open_positions()
@@ -1217,7 +1265,11 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
                 # ═══════════════════════════════════════════════════════════════
                 try:
                     result = await lighter.close_live_position(symbol, side, usd_size)
-                    lighter_success = result[0] if isinstance(result, tuple) else bool(result)
+                    if isinstance(result, tuple):
+                        lighter_success = result[0]
+                        lighter_exit_order_id = result[1] if len(result) > 1 else None
+                    else:
+                        lighter_success = bool(result)
                 except TypeError as type_err:
                     # TypeError indicates data type mismatch (e.g., string vs float comparison)
                     logger.critical(
@@ -1298,9 +1350,10 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     logger.info(f"✅ Lighter {symbol} OK, closing X10...")
 
     x10_success = False
+    x10_exit_order_id = None
     try:
-        await safe_close_x10_position(x10, symbol, "AUTO", 0)
-        x10_success = True
+        x10_exit_order_id = await safe_close_x10_position(x10, symbol, "AUTO", 0)
+        x10_success = x10_exit_order_id is not None
 
     except Exception as e:
         logger.error(f"❌ X10 close failed for {symbol}: {e}")
@@ -1322,6 +1375,18 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     # ═══════════════════════════════════════════════════════════════
     if lighter_success and x10_success:
         logger.info(f"✅ {symbol} fully closed")
+        
+        # Fetch actual exit fees from API (async, non-blocking)
+        try:
+            from src.fee_tracker import update_trade_exit_fees
+            asyncio.create_task(
+                _fetch_exit_fees_after_delay(
+                    symbol, x10_exit_order_id, lighter_exit_order_id, x10, lighter
+                )
+            )
+        except Exception as e:
+            logger.debug(f"Failed to schedule exit fee fetch for {symbol}: {e}")
+        
         try:
             await close_trade_in_state(symbol, pnl=0, funding=0)
         except Exception:
@@ -1345,8 +1410,8 @@ async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
         return None
 
 
-async def safe_close_x10_position(x10, symbol, side, notional):
-    """Close X10 position using ACTUAL position size"""
+async def safe_close_x10_position(x10, symbol, side, notional) -> Optional[str]:
+    """Close X10 position using ACTUAL position size. Returns order_id if successful."""
     try:
         # Wait for settlement
         await asyncio.sleep(3.0)
@@ -1356,7 +1421,7 @@ async def safe_close_x10_position(x10, symbol, side, notional):
         
         if actual_size is None or abs(actual_size) < 1e-8:
             logger.info(f"✅ No X10 position to close for {symbol}")
-            return
+            return None
         
         actual_size_abs = abs(actual_size)
         
@@ -1372,19 +1437,22 @@ async def safe_close_x10_position(x10, symbol, side, notional):
         price = safe_float(x10.fetch_mark_price(symbol))
         if price <= 0:
             logger.error(f"No price for {symbol}")
-            return
+            return None
         
         notional_actual = actual_size_abs * price
         
-        success, _ = await x10.close_live_position(symbol, original_side, notional_actual)
+        success, order_id = await x10.close_live_position(symbol, original_side, notional_actual)
         
         if success:
             logger.info(f"✅ X10 {symbol} closed ({actual_size_abs:.6f} coins)")
+            return order_id
         else:
             logger.error(f"❌ X10 close failed for {symbol}")
+            return None
     
     except Exception as e:
         logger.error(f"X10 close exception: {e}")
+        return None
 
 # ============================================================
 # LOOPS & MANAGEMENT
@@ -1471,22 +1539,32 @@ async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.
     # In hedged trades, entry and exit notional should be similar
     exit_value = entry_value  # Hedged trades maintain same notional
     
-    # Calculate entry fees using calculate_trade_fees()
+    # Get actual fees from trade if available (from API)
+    entry_fee_lighter = trade.get('entry_fee_lighter')
+    entry_fee_x10 = trade.get('entry_fee_x10')
+    exit_fee_lighter = trade.get('exit_fee_lighter')
+    exit_fee_x10 = trade.get('exit_fee_x10')
+    
+    # Calculate entry fees - use actual fees if available, otherwise use schedule
     # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
     entry_fees = fee_manager.calculate_trade_fees(
         entry_value,
         'LIGHTER', 'X10',
         is_maker1=True,   # Lighter = POST-ONLY = Maker
-        is_maker2=False   # X10 = MARKET = Taker
+        is_maker2=False,  # X10 = MARKET = Taker
+        actual_fee1=entry_fee_lighter,  # Use actual fee if available
+        actual_fee2=entry_fee_x10       # Use actual fee if available
     )
     
-    # Calculate exit fees using calculate_trade_fees()
+    # Calculate exit fees - use actual fees if available, otherwise use schedule
     # Exit usually uses market orders (both taker)
     exit_fees = fee_manager.calculate_trade_fees(
         exit_value,
         'LIGHTER', 'X10',
         is_maker1=False,  # Exit usually Market (Taker)
-        is_maker2=False   # X10 = MARKET = Taker
+        is_maker2=False,  # X10 = MARKET = Taker
+        actual_fee1=exit_fee_lighter,   # Use actual fee if available
+        actual_fee2=exit_fee_x10        # Use actual fee if available
     )
     
     # Calculate net PnL
@@ -1677,21 +1755,31 @@ async def manage_open_trades(lighter, x10):
                 total_pnl = float(net_pnl_decimal)
                 
                 # Calculate total fees for logging using calculate_trade_fees()
+                # Use actual fees from trade if available, otherwise use schedule
                 entry_value = float(notional)
                 exit_value = entry_value  # Same for hedged trades
+                
+                entry_fee_lighter = t.get('entry_fee_lighter')
+                entry_fee_x10 = t.get('entry_fee_x10')
+                exit_fee_lighter = t.get('exit_fee_lighter')
+                exit_fee_x10 = t.get('exit_fee_x10')
                 
                 entry_fees = fee_manager.calculate_trade_fees(
                     entry_value,
                     'LIGHTER', 'X10',
                     is_maker1=True,   # Lighter = POST-ONLY = Maker
-                    is_maker2=False   # X10 = MARKET = Taker
+                    is_maker2=False,  # X10 = MARKET = Taker
+                    actual_fee1=entry_fee_lighter,  # Use actual fee if available
+                    actual_fee2=entry_fee_x10        # Use actual fee if available
                 )
                 
                 exit_fees = fee_manager.calculate_trade_fees(
                     exit_value,
                     'LIGHTER', 'X10',
                     is_maker1=False,  # Exit usually Market (Taker)
-                    is_maker2=False   # X10 = MARKET = Taker
+                    is_maker2=False,  # X10 = MARKET = Taker
+                    actual_fee1=exit_fee_lighter,   # Use actual fee if available
+                    actual_fee2=exit_fee_x10        # Use actual fee if available
                 )
                 
                 est_fees = entry_fees + exit_fees
@@ -1706,7 +1794,7 @@ async def manage_open_trades(lighter, x10):
                     fee_x10 = fee_manager.get_x10_fees(is_maker=is_x10_maker)
                     fee_lit = fee_manager.get_lighter_fees(is_maker=is_lighter_maker)
                 except Exception:
-                    fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
+                    fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
                     fee_lit = getattr(config, 'FEES_LIGHTER', 0.0)
                 
                 est_fees = notional * (fee_x10 + fee_lit) * 2.0
@@ -1790,18 +1878,28 @@ async def manage_open_trades(lighter, x10):
                     entry_value = float(notional)
                     exit_value = entry_value  # Same for hedged trades
                     
+                    # Use actual fees from trade if available, otherwise use schedule
+                    entry_fee_lighter = t.get('entry_fee_lighter')
+                    entry_fee_x10 = t.get('entry_fee_x10')
+                    exit_fee_lighter = t.get('exit_fee_lighter')
+                    exit_fee_x10 = t.get('exit_fee_x10')
+                    
                     entry_fees = fee_manager.calculate_trade_fees(
                         entry_value,
                         'LIGHTER', 'X10',
                         is_maker1=True,   # Lighter = POST-ONLY = Maker
-                        is_maker2=False   # X10 = MARKET = Taker
+                        is_maker2=False,  # X10 = MARKET = Taker
+                        actual_fee1=entry_fee_lighter,  # Use actual fee if available
+                        actual_fee2=entry_fee_x10        # Use actual fee if available
                     )
                     
                     exit_fees = fee_manager.calculate_trade_fees(
                         exit_value,
                         'LIGHTER', 'X10',
                         is_maker1=False,  # Exit usually Market (Taker)
-                        is_maker2=False   # X10 = MARKET = Taker
+                        is_maker2=False,  # X10 = MARKET = Taker
+                        actual_fee1=exit_fee_lighter,   # Use actual fee if available
+                        actual_fee2=exit_fee_x10         # Use actual fee if available
                     )
                     
                     total_fees = entry_fees + exit_fees
@@ -3107,6 +3205,10 @@ async def run_bot_v5():
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
     
+    # 2.1. INIT FEEMANAGER (CRITICAL: Fetch fees from API)
+    fee_manager = await init_fee_manager(x10, lighter)
+    logger.info("✅ FeeManager started")
+    
     # 3. LOAD MARKET DATA (CRITICAL: Before WS/OI)
     logger.info("📊 Loading Market Data via REST...")
     try:
@@ -3513,6 +3615,10 @@ async def main():
     # 2.1. Init FeeManager
     fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
+    
+    # Initialize with real fees from APIs
+    await fee_manager.init_fees(x10, lighter)
+    logger.info(f"✅ FeeManager: Real fees loaded from APIs")
     
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")

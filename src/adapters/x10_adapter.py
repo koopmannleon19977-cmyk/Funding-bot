@@ -143,63 +143,89 @@ class X10Adapter(BaseAdapter):
             logger.error(f"X10 Fee Fetch Error for {order_id}: {e}")
             return config.TAKER_FEE_X10
 
-    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
+    async def fetch_fee_schedule(self) -> Tuple[float, float]:
         """
-        Fetch fee schedule from X10 API (/api/v1/info/fees)
+        Fetch fee schedule from X10 account info endpoint.
+        
+        X10 doesn't have a dedicated /fees endpoint that returns global fees.
+        Fees are in the account info response.
         
         Returns:
-            Tuple[maker_fee, taker_fee] or None if failed
+            Tuple[maker_fee, taker_fee] - Always returns a valid tuple (falls back to config values)
         """
         try:
+            # Method 1: Try account info endpoint (where fees actually are)
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-            url = f"{base_url}/api/v1/info/fees"
+            url = f"{base_url}/api/v1/user/account"
+            
+            if not self.stark_account:
+                logger.warning("X10 Fee Schedule: No stark_account configured, using config values")
+                return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10))
+            
+            headers = {
+                'X-Api-Key': self.stark_account.api_key,
+                'User-Agent': 'X10PythonTradingClient/0.4.5'
+            }
             
             await self.rate_limiter.acquire()
             
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         self.rate_limiter.on_success()
                         
-                        # Parse fee schedule from response
-                        # Structure may vary, try common patterns
-                        fees_data = data.get('data') or data.get('fees') or data
+                        # Parse fee schedule from account info
+                        # Try various response structures
+                        account_data = data.get('data') or data
+                        fee_schedule = account_data.get('fee_schedule') or account_data.get('feeSchedule') or {}
+                        
+                        # If no fee_schedule in response, try tier-based fees
+                        if not fee_schedule:
+                            fee_schedule = account_data.get('fees') or {}
                         
                         maker_fee = safe_float(
-                            fees_data.get('maker_fee') or 
-                            fees_data.get('maker') or 
-                            fees_data.get('makerFee') or 
-                            config.MAKER_FEE_X10,
-                            config.MAKER_FEE_X10
+                            fee_schedule.get('maker') or 
+                            fee_schedule.get('maker_fee') or 
+                            fee_schedule.get('makerFee'),
+                            None  # Don't use fallback here - we want to know if it's missing
                         )
                         
                         taker_fee = safe_float(
-                            fees_data.get('taker_fee') or 
-                            fees_data.get('taker') or 
-                            fees_data.get('takerFee') or 
-                            config.TAKER_FEE_X10,
-                            config.TAKER_FEE_X10
+                            fee_schedule.get('taker') or 
+                            fee_schedule.get('taker_fee') or 
+                            fee_schedule.get('takerFee'),
+                            None
                         )
                         
-                        # Validate fees are reasonable (0-1%)
-                        if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
-                            logger.debug(f"X10 Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
-                            return (maker_fee, taker_fee)
-                        else:
-                            logger.warning(f"X10 Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
-                            return None
+                        # Validate fees
+                        if maker_fee is not None and taker_fee is not None:
+                            if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
+                                logger.info(f"✅ X10 Fee Schedule from API: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
+                                return (maker_fee, taker_fee)
+                        
+                        # Log what we got for debugging
+                        logger.debug(f"X10 Account response keys: {list(account_data.keys()) if isinstance(account_data, dict) else 'not a dict'}")
+                        logger.debug(f"X10 Fee schedule raw: {fee_schedule}")
+                        
+                    elif resp.status == 429:
+                        self.rate_limiter.penalize_429()
                     else:
-                        if resp.status == 429:
-                            self.rate_limiter.penalize_429()
-                        else:
-                            self.rate_limiter.on_success()
-                        logger.debug(f"X10 Fee Schedule API returned {resp.status}")
-                        return None
+                        self.rate_limiter.on_success()
+                        
+                    logger.debug(f"X10 Account API returned {resp.status}, fee schedule not available")
+            
+            # Method 2: Fallback - use config values but LOG that we're doing so
+            logger.warning(
+                f"⚠️ X10 Fee Schedule: API doesn't provide fees, using config: "
+                f"Maker={config.MAKER_FEE_X10}, Taker={config.TAKER_FEE_X10}"
+            )
+            return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10))
                         
         except Exception as e:
-            logger.debug(f"X10 Fee Schedule fetch error: {e}")
-            return None
+            logger.warning(f"X10 Fee Schedule fetch error: {e}")
+            # Return config values instead of None
+            return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10))
 
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
