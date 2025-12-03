@@ -670,7 +670,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     predictions = await get_best_opportunities(
         symbols=available_symbols,
         min_apy=getattr(config, 'MIN_APY_THRESHOLD', 10.0),
-        min_confidence=0.5,
+        min_confidence=0.6,  # 0.5 → 0.6 für bessere Trade-Qualität
         limit=20,
         lighter_adapter=lighter,
         x10_adapter=x10,
@@ -682,30 +682,31 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         logger.info(f"🧠 Prediction V2: Found {len(predictions)} ML-ranked opportunities")
         
         for pred in predictions:
-            if not pred.should_trade:
+            # FIX: pred ist ein Dictionary, nicht ein Objekt
+            if not pred.get('should_trade', False):
                 continue
             
             # Get rates from clean_results
-            symbol_data = next((r for r in clean_results if r[0] == pred.symbol), None)
+            symbol_data = next((r for r in clean_results if r[0] == pred.get('symbol')), None)
             if not symbol_data:
                 continue
             
             s, rl, rx, px, pl = symbol_data
             
             opp = {
-                'symbol': pred.symbol,
-                'apy': pred.predicted_apy,
-                'spread': pred.current_spread,
-                'confidence': pred.confidence,
-                'predicted_direction': pred.predicted_direction,
-                'size_multiplier': pred.recommended_size_multiplier,
-                'regime': pred.regime.value if hasattr(pred.regime, 'value') else str(pred.regime),
-                'signals': pred.signals,
+                'symbol': pred.get('symbol'),
+                'apy': pred.get('predicted_apy', 0),
+                'spread': pred.get('current_spread', 0),
+                'confidence': pred.get('confidence', 0.5),
+                'predicted_direction': pred.get('predicted_direction', 'long_lighter'),
+                'size_multiplier': pred.get('recommended_size_multiplier', 1.0),
+                'regime': pred.get('regime', 'UNKNOWN'),
+                'signals': pred.get('signals', {}),
                 'rate_x10': rx or 0,
                 'rate_lighter': rl or 0,
                 'is_farm_trade': is_farm_mode or False,
                 'net_funding_hourly': (rl or 0) - (rx or 0),
-                'leg1_exchange': 'Lighter' if pred.predicted_direction == "long_lighter" else 'X10',
+                'leg1_exchange': 'Lighter' if pred.get('predicted_direction', 'long_lighter') == "long_lighter" else 'X10',
                 'leg1_side': 'SELL' if (rl or 0) > (rx or 0) else 'BUY',
                 'price_x10': safe_float(px),
                 'price_lighter': safe_float(pl),
@@ -752,6 +753,19 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 60):
             logger.debug(f"⏰ Skip {s}: Failed cooldown")
             continue
+
+        # FIX P4: Volatility Filter für Risikoschutz
+        try:
+            vol_monitor = get_volatility_monitor()
+            vol_24h = vol_monitor.get_volatility_24h(s)
+            max_vol = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
+            if vol_24h > max_vol:
+                logger.debug(f"🌪️ Skip {s}: Volatility {vol_24h:.1f}% > {max_vol:.1f}%")
+                continue
+        except Exception as e:
+            logger.debug(f"Volatility check failed for {s}: {e}")
+            # Continue if volatility check fails (don't block trades)
+            pass
 
         # Count valid data
         has_rates = rl is not None and rx is not None
@@ -3014,6 +3028,64 @@ async def run_bot_v5():
                         logger.error(f"Zombie-Check: DB-Close für {tsym} fehlgeschlagen: {e}")
     else:
         logger.info("✅ DB ist sauber (keine offenen Trades).")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # REVERSE GHOST CHECK: Positionen auf Exchange ohne DB Entry
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...")
+    try:
+        x10_positions = await x10.fetch_open_positions()
+        lighter_positions = await lighter.fetch_open_positions()
+        
+        x10_syms = {p.get('symbol') for p in (x10_positions or [])}
+        lighter_syms = {p.get('symbol') for p in (lighter_positions or [])}
+        all_exchange_syms = x10_syms | lighter_syms
+        
+        # Extract symbols from db_trades (which represents open_trades from DB)
+        db_syms = set()
+        for t in db_trades:
+            if isinstance(t, dict):
+                sym = t.get('symbol')
+            else:
+                sym = getattr(t, 'symbol', None)
+            if sym:
+                db_syms.add(sym)
+        
+        orphaned = all_exchange_syms - db_syms
+        
+        if orphaned:
+            logger.warning(f"🚨 Found {len(orphaned)} ORPHANED positions: {orphaned}")
+            for sym in orphaned:
+                logger.warning(f"🧹 Cleaning orphaned position: {sym}")
+                try:
+                    # Get actual position details to determine side
+                    if sym in x10_syms:
+                        x10_pos = next((p for p in x10_positions if p.get('symbol') == sym), None)
+                        if x10_pos:
+                            size = float(x10_pos.get('size', 0))
+                            if size != 0:
+                                side = 'BUY' if size > 0 else 'SELL'
+                                logger.info(f"X10 {sym}: size={size}, closing as {side}")
+                                await x10.close_live_position(sym, side, abs(size))
+                    
+                    if sym in lighter_syms:
+                        lit_pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
+                        if lit_pos:
+                            size = float(lit_pos.get('size', 0))
+                            if size != 0:
+                                side = 'BUY' if size > 0 else 'SELL'
+                                notional = abs(size) * float(lighter.fetch_mark_price(sym) or 0)
+                                logger.info(f"Lighter {sym}: size={size}, closing as {side}, notional=${notional:.2f}")
+                                await lighter.close_live_position(sym, side, notional)
+                    
+                    logger.info(f"✅ Closed orphaned {sym}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to close orphaned {sym}: {e}")
+        else:
+            logger.info("✅ No orphaned positions found")
+    except Exception as e:
+        logger.error(f"Reverse ghost check failed: {e}")
+    
     # --- ENDE ZOMBIE KILLER ---
 
     # 6. INIT PARALLEL EXECUTION MANAGER

@@ -96,10 +96,10 @@ class OpenInterestTracker:
         # Lock for thread-safe updates
         self._lock = asyncio.Lock()
         
-        # Rate limiting parameters
-        self._fetch_interval = 30.0  # Sekunden zwischen Batches
-        self._batch_size = 5  # Nur 5 Symbole pro Batch
-        self._batch_delay = 3.0  # 3s zwischen einzelnen Calls
+        # Rate limiting parameters - OPTIMIERT für schnellere Trend Detection
+        self._fetch_interval = 15.0  # 30.0 → 15.0s zwischen Batches
+        self._batch_size = 5  # Bleibt bei 5 (sicher)
+        self._batch_delay = 1.0  # 3.0 → 1.0s zwischen Calls
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters (for lazy initialization)"""

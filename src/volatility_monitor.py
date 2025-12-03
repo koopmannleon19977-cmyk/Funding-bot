@@ -191,6 +191,11 @@ class VolatilityMonitor:
         safety = self.check_trade_safety(symbol)
         return safety.get('hold_time_multiplier', 1.0)
 
+    def get_volatility_24h(self, symbol: str) -> float:
+        """Get 24h volatility as percentage. Returns 0.0 if not available."""
+        vol = self._calculate_volatility(symbol)
+        return vol if vol is not None else 0.0
+
     def get_stats(self) -> Dict:
         """Monitor stats"""
         regime_counts = {}

@@ -16,7 +16,7 @@ class LatencyArbDetector:
     - If the 'fast' exchange moves significantly, we front-run the 'slow' one.
     """
     
-    def __init__(self, lag_threshold_seconds: float = 1.0):  # THRESHOLD GESENKT AUF 1.0s
+    def __init__(self, lag_threshold_seconds: float = 5.0):  # FIX: 1.0s → 5.0s für X10 Lag
         self.lag_threshold = lag_threshold_seconds
         self.last_update_times: Dict[str, Dict[str, float]] = {}
         self.rate_history: Dict[str, deque] = {}
@@ -28,7 +28,7 @@ class LatencyArbDetector:
         
         # NEU: Cooldown pro Symbol
         self.last_opportunity_time: Dict[str, float] = {}
-        self.opportunity_cooldown = 60.0  # 60s zwischen Opportunities pro Symbol
+        self.opportunity_cooldown = 30.0  # FIX: 60s → 30s für mehr Opportunities
         
         logger.info(f"⚡ Latency Arb Detector initialized (threshold: {lag_threshold_seconds}s)")
     
@@ -203,5 +203,5 @@ _detector = None
 def get_detector() -> LatencyArbDetector:
     global _detector
     if _detector is None:
-        _detector = LatencyArbDetector(lag_threshold_seconds=1.0)  # Standard 1s
+        _detector = LatencyArbDetector(lag_threshold_seconds=5.0)  # FIX: 5.0s für X10 Lag
     return _detector
