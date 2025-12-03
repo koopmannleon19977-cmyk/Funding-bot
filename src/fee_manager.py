@@ -35,18 +35,25 @@ class FeeSchedule:
 
 class FeeManager:
     """
-    Singleton Fee Manager for dynamic fee management.
+    Singleton Fee Manager for dynamic fee management. 
     
-    Caches fee schedules from exchanges with TTL.
+    Caches fee schedules from exchanges with TTL. 
     Falls back to config values if API fails.
     """
     
     _instance: Optional['FeeManager'] = None
-    _lock = asyncio.Lock()
+    _initialized: bool = False
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     
     def __init__(self):
-        if FeeManager._instance is not None:
-            raise RuntimeError("FeeManager is a singleton. Use get_fee_manager() instead.")
+        # Prevent re-initialization
+        if FeeManager._initialized:
+            return
+        FeeManager._initialized = True
         
         self._x10_schedule: Optional[FeeSchedule] = None
         self._lighter_schedule: Optional[FeeSchedule] = None
@@ -55,6 +62,7 @@ class FeeManager:
         self._x10_adapter = None
         self._lighter_adapter = None
         self._enabled = getattr(config, 'DYNAMIC_FEES_ENABLED', True)
+        self._started = False
         
         # Fallback values from config
         self._fallback_x10_maker = getattr(config, 'MAKER_FEE_X10', 0.0)
@@ -65,25 +73,21 @@ class FeeManager:
             f"💰 FeeManager initialized (Dynamic Fees: {'ENABLED' if self._enabled else 'DISABLED'})"
         )
     
-    @classmethod
-    async def get_instance(cls) -> 'FeeManager':
-        """Get or create singleton instance"""
-        if cls._instance is None:
-            async with cls._lock:
-                if cls._instance is None:
-                    cls._instance = cls.__new__(cls)
-                    cls._instance.__init__()
-        return cls._instance
-    
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set adapter references for fee fetching"""
         self._x10_adapter = x10_adapter
         self._lighter_adapter = lighter_adapter
+        logger.debug(f"FeeManager: Adapters set (X10={x10_adapter is not None}, Lighter={lighter_adapter is not None})")
     
     async def start(self):
         """Start proactive fee fetching"""
+        if self._started:
+            logger.debug("FeeManager already started")
+            return
+            
         if not self._enabled:
             logger.info("💰 Dynamic fees disabled, using config values")
+            self._started = True
             return
         
         # Initial fetch
@@ -91,17 +95,19 @@ class FeeManager:
         
         # Start periodic refresh (every 30 minutes)
         self._refresh_task = asyncio.create_task(self._periodic_refresh())
+        self._started = True
         logger.info("✅ FeeManager started with periodic refresh")
     
     async def stop(self):
         """Stop periodic refresh"""
-        if self._refresh_task:
+        if hasattr(self, '_refresh_task') and self._refresh_task:
             self._refresh_task.cancel()
             try:
                 await self._refresh_task
             except asyncio.CancelledError:
                 pass
             self._refresh_task = None
+        logger.info("🛑 FeeManager stopped")
     
     async def _periodic_refresh(self):
         """Periodic fee refresh task"""
@@ -116,17 +122,20 @@ class FeeManager:
     
     async def refresh_all_fees(self):
         """Refresh fees from both exchanges"""
-        if not self._enabled:
+        if not getattr(self, '_enabled', True):
             return
         
         tasks = []
-        if self._x10_adapter:
+        if getattr(self, '_x10_adapter', None):
             tasks.append(self._refresh_x10_fees())
-        if self._lighter_adapter:
+        if getattr(self, '_lighter_adapter', None):
             tasks.append(self._refresh_lighter_fees())
         
         if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Fee refresh task {i} failed: {result}")
     
     async def _refresh_x10_fees(self):
         """Refresh X10 fees"""
@@ -198,7 +207,7 @@ class FeeManager:
     
     def get_x10_fees(self, is_maker: bool = False) -> float:
         """Get X10 fee rate"""
-        if not self._enabled:
+        if not getattr(self, '_enabled', True):
             return self._fallback_x10_maker if is_maker else self._fallback_x10_taker
         
         if self._x10_schedule is None or self._x10_schedule.is_expired(self._ttl_seconds):
@@ -209,7 +218,7 @@ class FeeManager:
     
     def get_lighter_fees(self, is_maker: bool = False) -> float:
         """Get Lighter fee rate"""
-        if not self._enabled:
+        if not getattr(self, '_enabled', True):
             return self._fallback_lighter_fee
         
         if self._lighter_schedule is None or self._lighter_schedule.is_expired(self._ttl_seconds):
@@ -226,7 +235,7 @@ class FeeManager:
             return self.get_lighter_fees(is_maker)
         else:
             logger.warning(f"Unknown exchange: {exchange}, using X10 taker fee")
-            return self._fallback_x10_taker
+            return getattr(self, '_fallback_x10_taker', 0.000225)
     
     def calculate_trade_fees(
         self, 
@@ -244,7 +253,7 @@ class FeeManager:
     def get_stats(self) -> Dict:
         """Get fee manager statistics"""
         stats = {
-            'enabled': self._enabled,
+            'enabled': getattr(self, '_enabled', True),
             'x10': {
                 'maker': self.get_x10_fees(is_maker=True),
                 'taker': self.get_x10_fees(is_maker=False),
@@ -264,10 +273,25 @@ class FeeManager:
 # Singleton getter
 _fee_manager: Optional[FeeManager] = None
 
-async def get_fee_manager() -> FeeManager:
-    """Get singleton FeeManager instance"""
+def get_fee_manager() -> FeeManager:
+    """Get singleton FeeManager instance (synchronous)"""
     global _fee_manager
     if _fee_manager is None:
-        _fee_manager = await FeeManager.get_instance()
+        _fee_manager = FeeManager()
     return _fee_manager
 
+
+async def init_fee_manager(x10_adapter=None, lighter_adapter=None) -> FeeManager:
+    """Initialize and start the fee manager"""
+    manager = get_fee_manager()
+    if x10_adapter or lighter_adapter:
+        manager.set_adapters(x10_adapter, lighter_adapter)
+    await manager.start()
+    return manager
+
+
+async def stop_fee_manager():
+    """Stop the fee manager"""
+    global _fee_manager
+    if _fee_manager:
+        await _fee_manager.stop()

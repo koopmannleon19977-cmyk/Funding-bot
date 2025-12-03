@@ -37,7 +37,7 @@ from src.state_manager import (
 )
 from src.adaptive_threshold import get_threshold_manager
 from src.volatility_monitor import get_volatility_monitor
-from src.fee_manager import get_fee_manager
+from src.fee_manager import get_fee_manager, init_fee_manager, stop_fee_manager
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
@@ -1153,7 +1153,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 
                 # Log entry fees
                 try:
-                    fee_manager = await get_fee_manager()
+                    fee_manager = get_fee_manager()
                     # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
                     entry_fees = fee_manager.calculate_trade_fees(
                         final_usd, 'X10', 'Lighter',
@@ -1605,7 +1605,7 @@ async def manage_open_trades(lighter, x10):
 
             # Fees - Use FeeManager for dynamic fees
             try:
-                fee_manager = await get_fee_manager()
+                fee_manager = get_fee_manager()
                 # Lighter nutzt POST_ONLY = Maker, X10 nutzt MARKET = Taker
                 is_lighter_maker = True   # Lighter nutzt POST_ONLY = Maker
                 is_x10_maker = False      # X10 nutzt MARKET = Taker
@@ -3231,9 +3231,7 @@ async def run_bot_v5():
     
     # Stop FeeManager
     try:
-        fee_manager = await get_fee_manager()
-        await fee_manager.stop()
-        logger.info("✅ FeeManager stopped")
+        await stop_fee_manager()
     except Exception as e:
         logger.debug(f"FeeManager stop error: {e}")
     
@@ -3277,7 +3275,7 @@ async def health_reporter(event_loop: BotEventLoop, parallel_exec):
             
             # Fee Stats
             try:
-                fee_manager = await get_fee_manager()
+                fee_manager = get_fee_manager()
                 fee_stats = fee_manager.get_stats()
                 logger.info(
                     f"📊 FEES: X10={fee_stats['x10']['taker']:.4%} ({fee_stats['x10']['source']}) | "
@@ -3330,9 +3328,7 @@ async def main():
     lighter.price_update_event = price_event
     
     # 2.1. Init FeeManager
-    fee_manager = await get_fee_manager()
-    fee_manager.set_adapters(x10, lighter)
-    await fee_manager.start()
+    fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
     
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
@@ -3625,9 +3621,7 @@ async def main():
         
         # Stop FeeManager
         try:
-            fee_manager = await get_fee_manager()
-            await fee_manager.stop()
-            logger.info("✅ FeeManager stopped")
+            await stop_fee_manager()
         except Exception as e:
             logger.debug(f"FeeManager stop error: {e}")
         
