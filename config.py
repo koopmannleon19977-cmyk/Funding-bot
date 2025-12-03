@@ -212,7 +212,7 @@ FARM_MAX_HOLD_MINUTES = 0
 # Berechnung: Bei 0.0225% Fee kostet ein Trade (Rein+Raus) 0.045%.
 # Das holt eine durchschnittliche Funding-Rate in ~45 Min bis 2 Std wieder rein.
 # Wir setzen 45 Min, um das Volumen hochzuhalten (ca. 32 Trades pro Tag/Slot).
-FARM_HOLD_SECONDS = 60  # 45 Minuten
+FARM_HOLD_SECONDS = 2700  # War: 60
 
 FARM_MAX_CONCURRENT = 2  # Reduced parallel farm trades (was 3)
 

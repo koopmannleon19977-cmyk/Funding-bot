@@ -336,7 +336,7 @@ class AsyncDatabase:
         if self._shutdown:
             raise RuntimeError("Database is shutting down")
             
-        future = asyncio.get_event_loop(). create_future() if wait else None
+        future = asyncio.get_running_loop().create_future() if wait else None
         
         op = WriteOperation(
             sql=sql,

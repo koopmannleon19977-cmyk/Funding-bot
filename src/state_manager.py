@@ -75,17 +75,51 @@ class TradeState:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TradeState':
-        """Create from dictionary"""
-        if isinstance(data. get('status'), str):
-            data['status'] = TradeStatus(data['status'])
+        """Create from dictionary with robust type handling"""
+        data = data.copy()  # Don't modify original
         
-        # Deserialize entry_time from ISO string
+        # Status conversion
+        if isinstance(data.get('status'), str):
+            try:
+                data['status'] = TradeStatus(data['status'])
+            except ValueError:
+                data['status'] = TradeStatus.OPEN
+        
+        # Entry time conversion - ROBUST
         entry_time = data.get('entry_time')
-        if entry_time and isinstance(entry_time, str):
-            entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
-            data['entry_time'] = entry_time
+        if entry_time is not None:
+            if isinstance(entry_time, str):
+                try:
+                    # Handle various ISO formats
+                    entry_time = entry_time.replace('Z', '+00:00')
+                    if '.' in entry_time and '+' in entry_time:
+                        # Format: 2025-12-02T21:12:41.017751+00:00
+                        data['entry_time'] = datetime.fromisoformat(entry_time)
+                    elif 'T' in entry_time:
+                        # Format: 2025-12-02T21:12:41
+                        data['entry_time'] = datetime.fromisoformat(entry_time)
+                    else:
+                        # Format: 2025-12-02 21:12:41
+                        data['entry_time'] = datetime.strptime(entry_time, '%Y-%m-%d %H:%M:%S')
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Could not parse entry_time '{entry_time}': {e}")
+                    data['entry_time'] = datetime.now(timezone.utc)
+            elif isinstance(entry_time, (int, float)):
+                # Unix timestamp
+                data['entry_time'] = datetime.fromtimestamp(entry_time, tz=timezone.utc)
+            elif not isinstance(entry_time, datetime):
+                data['entry_time'] = datetime.now(timezone.utc)
+        else:
+            data['entry_time'] = datetime.now(timezone.utc)
         
-        return cls(**{k: v for k, v in data. items() if k in cls.__dataclass_fields__})
+        # Ensure timezone awareness
+        if data['entry_time'].tzinfo is None:
+            data['entry_time'] = data['entry_time'].replace(tzinfo=timezone.utc)
+        
+        # Filter to valid fields only
+        valid_fields = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        
+        return cls(**valid_fields)
 
 
 @dataclass
@@ -472,7 +506,7 @@ class InMemoryStateManager:
         wait: bool = False
     ) -> Optional[Any]:
         """Queue a write operation"""
-        future = asyncio.get_event_loop(). create_future() if wait else None
+        future = asyncio.get_running_loop().create_future() if wait else None
         
         write = PendingWrite(
             operation=operation,

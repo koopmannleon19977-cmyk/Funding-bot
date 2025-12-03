@@ -502,37 +502,67 @@ class ManagedWebSocket:
             logger.error(f"[{self.config.name}] Handler error: {e}")
     
     async def _heartbeat_loop(self):
-        """Monitor connection health.
+        """Enhanced heartbeat with specific checks for Firehose streams.
         
         X10 und Lighter WebSocket Ping-Verhalten:
         - Die websockets Library handhabt WebSocket-Protokoll-Pings automatisch
         - Sie antwortet auf Server-Pings mit Pongs
         - Mit ping_interval sendet sie auch Client-Pings
         
-        Diese Methode überwacht nur die Verbindungsgesundheit.
+        Diese Methode überwacht die Verbindungsgesundheit mit unterschiedlichen
+        Thresholds für Firehose-Streams (die nicht kontinuierlich senden) vs.
+        reguläre Streams.
         """
-        stale_threshold = 180.0  # 3 minutes without messages = stale
-        check_interval = 10.0    # Health check every 10s
+        # Unterschiedliche Thresholds für verschiedene Stream-Typen
+        if self.config.name in ["x10_trades", "x10_funding"]:
+            # Firehose: Mehr Toleranz, da nicht jede Sekunde Updates kommen
+            stale_threshold = 300.0  # 5 Minuten für Firehose
+            expected_interval = 60.0  # Erwarte mindestens alle 60s ein Update
+        else:
+            # Regular streams: Strenger
+            stale_threshold = 180.0  # 3 Minuten
+            expected_interval = 30.0
         
+        check_interval = 10.0
         connect_time = time.time()
-        logger.debug(f"💓 [{self.config.name}] Heartbeat monitor started (library handles ping/pong)")
+        
+        logger.debug(f"💓 [{self.config.name}] Heartbeat started (stale_threshold={stale_threshold}s)")
         
         while self._running and self.is_connected:
             try:
                 await asyncio.sleep(check_interval)
                 
-                # Connection health check
-                uptime = time.time() - connect_time
+                now = time.time()
+                uptime = now - connect_time
+                
                 if self._metrics.last_message_time > 0:
-                    silence = time.time() - self._metrics.last_message_time
+                    silence = now - self._metrics.last_message_time
+                    
+                    # Warning at expected_interval
+                    if silence > expected_interval and silence < stale_threshold:
+                        logger.debug(
+                            f"⚠️ [{self.config.name}] No messages for {silence:.0f}s "
+                            f"(expected every {expected_interval:.0f}s)"
+                        )
+                    
+                    # Reconnect at stale_threshold
                     if silence > stale_threshold:
-                        logger.warning(f"[{self.config.name}] No messages for {silence:.0f}s, reconnecting")
+                        logger.warning(
+                            f"🔴 [{self.config.name}] Stream stale ({silence:.0f}s), reconnecting..."
+                        )
                         break
                     else:
-                        logger.debug(f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, last_msg={silence:.0f}s ago)")
+                        logger.debug(
+                            f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, "
+                            f"last_msg={silence:.0f}s ago, msgs={self._metrics.messages_received})"
+                        )
                 else:
-                    logger.debug(f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, waiting for first message)")
-                        
+                    # No messages yet
+                    if uptime > 60.0:
+                        logger.warning(
+                            f"⚠️ [{self.config.name}] No messages received after {uptime:.0f}s"
+                        )
+                    
             except asyncio.CancelledError:
                 break
             except Exception as e:

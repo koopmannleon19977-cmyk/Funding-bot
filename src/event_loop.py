@@ -28,7 +28,7 @@ class ManagedTask:
     max_restarts: int = 10
     restart_count: int = 0
     task: Optional[asyncio.Task] = None
-    last_restart: float = 0. 0
+    last_restart: float = 0.0
     enabled: bool = True
 
 
@@ -231,7 +231,7 @@ class BotEventLoop:
         await asyncio.sleep(delay)
         
         if self._running and managed_task.enabled:
-            managed_task.last_restart = time. time()
+            managed_task.last_restart = time.time()
             await self._start_task(managed_task)
     
     async def _supervision_loop(self):
@@ -361,7 +361,7 @@ class BotEventLoop:
         if self.telegram_bot and hasattr(self.telegram_bot, 'stop'):
             try:
                 await self.telegram_bot. send_message("🛑 Bot shutting down")
-                await asyncio.wait_for(self. telegram_bot.stop(), timeout=5. 0)
+                await asyncio.wait_for(self.telegram_bot.stop(), timeout=5.0)
             except Exception as e:
                 logger.debug(f"Telegram stop error: {e}")
     

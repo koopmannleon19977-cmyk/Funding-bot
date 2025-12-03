@@ -23,6 +23,13 @@ class LatencyArbDetector:
         self.opportunities_detected = 0
         self.opportunities_executed = 0
         
+        # NEU: Minimum rate change für Signal
+        self.min_rate_change = 0.00005  # 0.5 bps minimum movement
+        
+        # NEU: Cooldown pro Symbol
+        self.last_opportunity_time: Dict[str, float] = {}
+        self.opportunity_cooldown = 60.0  # 60s zwischen Opportunities pro Symbol
+        
         logger.info(f"⚡ Latency Arb Detector initialized (threshold: {lag_threshold_seconds}s)")
     
     def _update_timestamps_from_adapters(self, symbol: str, x10_adapter, lighter_adapter):
@@ -88,8 +95,14 @@ class LatencyArbDetector:
         lighter_adapter
     ) -> Optional[Dict]:
         """
-        Detect if lag-based arbitrage opportunity exists.
+        Enhanced lag detection with cooldown and minimum rate change.
         """
+        # Cooldown check
+        now = time.time()
+        last_opp = self.last_opportunity_time.get(symbol, 0)
+        if now - last_opp < self.opportunity_cooldown:
+            return None
+        
         # 1. Sync timestamps
         self._update_timestamps_from_adapters(symbol, x10_adapter, lighter_adapter)
         
@@ -97,7 +110,6 @@ class LatencyArbDetector:
         if symbol not in self.rate_history:
             self.rate_history[symbol] = deque(maxlen=100)
         
-        now = time.time()
         self.rate_history[symbol].append((now, x10_rate, lighter_rate))
         
         if len(self.rate_history[symbol]) < 5:
@@ -128,11 +140,13 @@ class LatencyArbDetector:
         rate_change_abs = abs(rate_change)
         
         # Filter: Minimum movement required to justify trade
-        # REDUZIERT: 0.05% -> 0.01% um empfindlicher zu sein
-        if rate_change_abs < 0.0001:
+        # Use configurable minimum rate change
+        if rate_change_abs < self.min_rate_change:
             return None
             
+        # If opportunity found, record time
         self.opportunities_detected += 1
+        self.last_opportunity_time[symbol] = now
         
         # 5. Predict Direction
         # Logic: If Leader funding goes UP, Laggard funding will likely go UP too.

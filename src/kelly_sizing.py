@@ -67,15 +67,17 @@ class KellyPositionSizer:
     """
     
     # Konfiguration
-    MIN_SAMPLE_SIZE = 10           # Mindestanzahl Trades für Kelly
+    MIN_SAMPLE_SIZE = 20           # Mehr Samples bevor volle Kelly
+    RAMP_UP_PERIOD = 50            # Graduelles Hochfahren über 50 Trades
     MAX_HISTORY_SIZE = 100         # Maximale Trade-History
     SAFETY_FACTOR = 0.5            # Half Kelly (aggressiver)
     MAX_POSITION_FRACTION = 0.25   # Maximal 25% des Kapitals pro Trade
     MIN_POSITION_FRACTION = 0.02   # Mindestens 2% des Kapitals
     
     # Default-Werte wenn keine History vorhanden
-    DEFAULT_WIN_RATE = 0.80        # 80% Annahme für Funding Arb
-    DEFAULT_WIN_LOSS_RATIO = 1.5   # Annahme: Gewinne 1.5x so groß wie Verluste
+    # KONSERVATIVER: Lieber zu klein als zu groß bei Unsicherheit
+    DEFAULT_WIN_RATE = 0.60        # 60% - konservativer Start
+    DEFAULT_WIN_LOSS_RATIO = 1.0   # 1:1 - keine Annahme über Edge
     
     def __init__(self):
         # Globale Trade History
@@ -213,6 +215,27 @@ class KellyPositionSizer:
         # Safety Factor anwenden (Quarter Kelly)
         safe_fraction = kelly_fraction * self. SAFETY_FACTOR
         
+        # ═══════════════════════════════════════════════════════════════
+        # NEU: GRADUELLES RAMP-UP
+        # ═══════════════════════════════════════════════════════════════
+        if sample_size < self.MIN_SAMPLE_SIZE:
+            # Sehr konservativ bei wenig Daten
+            confidence = "LOW"
+            # Nutze nur 50% des berechneten Kelly
+            kelly_discount = 0.5
+        elif sample_size < self.RAMP_UP_PERIOD:
+            # Graduell hochfahren
+            confidence = "MEDIUM"
+            # Linear von 50% zu 100% über RAMP_UP_PERIOD
+            ramp_factor = (sample_size - self.MIN_SAMPLE_SIZE) / (self.RAMP_UP_PERIOD - self.MIN_SAMPLE_SIZE)
+            kelly_discount = 0.5 + (0.5 * ramp_factor)
+        else:
+            confidence = "HIGH"
+            kelly_discount = 1.0
+        
+        # Apply discount
+        safe_fraction = safe_fraction * kelly_discount
+        
         # APY-basierter Bonus/Malus
         # Höherer APY = mehr Konfidenz = leicht größere Position
         apy_multiplier = self._apy_confidence_multiplier(current_apy)
@@ -221,16 +244,6 @@ class KellyPositionSizer:
         # Grenzen anwenden
         safe_fraction = max(self.MIN_POSITION_FRACTION, 
                           min(self.MAX_POSITION_FRACTION, safe_fraction))
-        
-        # Confidence Level bestimmen
-        if sample_size < self.MIN_SAMPLE_SIZE:
-            confidence = "LOW"
-            # Bei wenig Daten: Nutze konservativere Defaults
-            safe_fraction = min(safe_fraction, 0.05)
-        elif sample_size < 30:
-            confidence = "MEDIUM"
-        else:
-            confidence = "HIGH"
         
         # Finale Position Size
         recommended_size = safe_fraction * available_capital

@@ -11,7 +11,7 @@ import traceback
 import aiohttp  # ← HINZUFÜGEN
 import signal
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Callable, Awaitable, Any, Set
+from typing import Optional, List, Dict, Callable, Awaitable, Any, Set, Tuple
 from decimal import Decimal
 from dataclasses import dataclass, field
 from enum import Enum
@@ -27,7 +27,6 @@ import config
 from src.telegram_bot import get_telegram_bot
 from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
-from src.prediction_v2 import get_predictor
 from src.latency_arb import get_detector
 from src.state_manager import (
     InMemoryStateManager,
@@ -41,7 +40,11 @@ from src.volatility_monitor import get_volatility_monitor
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from src.prediction import predict_next_funding_rates
+from src.prediction import (
+    update_funding_data as _update_funding_data,
+    get_best_opportunities as _get_best_opportunities,
+    get_predictor
+)
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
     get_database,
@@ -88,16 +91,35 @@ WATCHDOG_TIMEOUT = 120  # Sekunden ohne Daten = Verbindungsproblem
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
 # ============================================================
-# PREDICTION SYSTEM STUBS
+# PREDICTION SYSTEM - ACTIVE INTEGRATION
 # ============================================================
 async def update_funding_data(symbol: str, rate_x10: float, rate_lighter: float, 
                                mark_price: float, open_interest: float):
-    """Stub for prediction system - data already cached in adapters"""
-    pass
+    """Feed data to prediction system for ML analysis"""
+    try:
+        await _update_funding_data(
+            symbol=symbol,
+            rate_x10=rate_x10,
+            rate_lighter=rate_lighter,
+            mark_price=mark_price,
+            open_interest=open_interest
+        )
+    except Exception as e:
+        logger.debug(f"Prediction update failed for {symbol}: {e}")
 
 async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: float, limit: int):
-    """Stub - returns empty list, main logic uses find_opportunities fallback"""
-    return []
+    """Get ML-ranked trading opportunities"""
+    try:
+        results = await _get_best_opportunities(
+            symbols=symbols,
+            min_apy=min_apy,
+            min_confidence=min_confidence,
+            limit=limit
+        )
+        return results
+    except Exception as e:
+        logger.warning(f"Prediction opportunities failed: {e}")
+        return []
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -129,6 +151,44 @@ def safe_int(val, default=0):
         return int(float(str(val).strip()))
     except (ValueError, TypeError):
         return default
+
+
+def calculate_trade_age(trade: Dict) -> Tuple[float, float]:
+    """
+    Calculate trade age in seconds and hours.
+    
+    Returns:
+        (age_seconds, age_hours)
+    """
+    entry_time = trade.get('entry_time')
+    now = datetime.now(timezone.utc)
+    
+    if entry_time is None:
+        return 0.0, 0.0
+    
+    # Handle string
+    if isinstance(entry_time, str):
+        try:
+            entry_time = entry_time.replace('Z', '+00:00')
+            entry_time = datetime.fromisoformat(entry_time)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid entry_time string: {entry_time}")
+            return 0.0, 0.0
+    
+    # Handle timestamp
+    if isinstance(entry_time, (int, float)):
+        entry_time = datetime.fromtimestamp(entry_time, tz=timezone.utc)
+    
+    # Ensure timezone
+    if entry_time.tzinfo is None:
+        entry_time = entry_time.replace(tzinfo=timezone.utc)
+    
+    # Calculate age
+    age_delta = now - entry_time
+    age_seconds = age_delta.total_seconds()
+    age_hours = age_seconds / 3600
+    
+    return max(0.0, age_seconds), max(0.0, age_hours)
 
 # ============================================================
 # FEE & STARTUP LOGIC
@@ -520,76 +580,129 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if lr is not None:
             lighter_rates[s] = lr
 
-    # Update Predictor with current data
-    all_symbols = list(common)
-    for symbol in all_symbols:
-        rate_x10 = x10_rates.get(symbol, 0)
-        rate_lighter = lighter_rates.get(symbol, 0)
+    # ═══════════════════════════════════════════════════════════════
+    # LATENCY ARB: ERSTE PRIORITÄT
+    # ═══════════════════════════════════════════════════════════════
+    latency_opportunities = []
+    
+    for s, rl, rx, px, pl in clean_results:
+        if s in open_syms:
+            continue
+        if rl is None or rx is None:
+            continue
         
-        if rate_x10 != 0 or rate_lighter != 0:
+        try:
+            # Detect lag opportunity
+            latency_opp = await detector.detect_lag_opportunity(
+                symbol=s,
+                x10_rate=float(rx),
+                lighter_rate=float(rl),
+                x10_adapter=x10,
+                lighter_adapter=lighter
+            )
+            
+            if latency_opp:
+                # Enrich with price data
+                latency_opp['price_x10'] = safe_float(px)
+                latency_opp['price_lighter'] = safe_float(pl)
+                latency_opp['spread_pct'] = abs(safe_float(px) - safe_float(pl)) / safe_float(px) if px else 0
+                
+                logger.info(
+                    f"⚡ LATENCY ARB DETECTED: {s} | "
+                    f"Lag={latency_opp.get('lag_seconds', 0):.2f}s | "
+                    f"Confidence={latency_opp.get('confidence', 0):.2f}"
+                )
+                
+                latency_opportunities.append(latency_opp)
+                
+        except Exception as e:
+            logger.debug(f"Latency check error for {s}: {e}")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # RETURN LATENCY OPPS FIRST (MILLISECONDS MATTER!)
+    # ═══════════════════════════════════════════════════════════════
+    if latency_opportunities:
+        # Sort by confidence * lag (higher = better)
+        latency_opportunities.sort(
+            key=lambda x: x.get('confidence', 0) * x.get('lag_seconds', 0),
+            reverse=True
+        )
+        
+        logger.info(f"⚡ FAST LANE: {len(latency_opportunities)} Latency Arb opportunities!")
+        
+        # Return top latency opportunity immediately
+        return latency_opportunities[:1]  # Only best one for speed
+
+    # ═══════════════════════════════════════════════════════════════
+    # PREDICTION V2 INTEGRATION (war vorher auskommentiert/stub)
+    # ═══════════════════════════════════════════════════════════════
+    
+    # Feed current data to predictor
+    for s, lr, xr, px, pl in clean_results:
+        if lr is not None and xr is not None:
             await update_funding_data(
-                symbol=symbol,
-                rate_x10=rate_x10,
-                rate_lighter=rate_lighter,
-                mark_price=lighter.fetch_mark_price(symbol) or 0,
-                open_interest=0  # TODO: Add OI when available
+                symbol=s,
+                rate_x10=float(xr),
+                rate_lighter=float(lr),
+                mark_price=float(px) if px else 0.0,
+                open_interest=0.0  # Will be filled by OI tracker
             )
     
-    # Get predictions
+    # Get ML-ranked opportunities
+    available_symbols = [s for s, _, _, _, _ in clean_results if s not in open_syms]
     predictions = await get_best_opportunities(
-        symbols=[s for s in all_symbols if s not in open_syms],
+        symbols=available_symbols,
         min_apy=getattr(config, 'MIN_APY_THRESHOLD', 10.0),
         min_confidence=0.5,
         limit=20
     )
     
     # Convert predictions to opportunity format
-    opportunities = []
-    for pred in predictions:
-        if not pred.should_trade:
-            continue
+    if predictions:
+        logger.info(f"🧠 Prediction V2: Found {len(predictions)} ML-ranked opportunities")
         
-        opp = {
-            'symbol': pred.symbol,
-            'apy': pred.predicted_apy,
-            'spread': pred.current_spread,
-            'confidence': pred.confidence,
-            'predicted_direction': pred.predicted_direction,
-            'size_multiplier': pred.recommended_size_multiplier,
-            'regime': pred.regime.value,
-            'signals': pred.signals,
-            # Existing fields for compatibility
-            'rate_x10': x10_rates.get(pred.symbol, 0),
-            'rate_lighter': lighter_rates.get(pred.symbol, 0),
-            'is_farm_trade': is_farm_mode or False,
-            'net_funding_hourly': lighter_rates.get(pred.symbol, 0) - x10_rates.get(pred.symbol, 0),
-            'leg1_exchange': 'Lighter' if pred.predicted_direction == "long_lighter" else 'X10',
-            'spread_pct': pred.current_spread,
-            'price_x10': x10.fetch_mark_price(pred.symbol) or 0,
-            'price_lighter': lighter.fetch_mark_price(pred.symbol) or 0
-        }
+        for pred in predictions:
+            if not pred.should_trade:
+                continue
+            
+            # Get rates from clean_results
+            symbol_data = next((r for r in clean_results if r[0] == pred.symbol), None)
+            if not symbol_data:
+                continue
+            
+            s, rl, rx, px, pl = symbol_data
+            
+            opp = {
+                'symbol': pred.symbol,
+                'apy': pred.predicted_apy,
+                'spread': pred.current_spread,
+                'confidence': pred.confidence,
+                'predicted_direction': pred.predicted_direction,
+                'size_multiplier': pred.recommended_size_multiplier,
+                'regime': pred.regime.value if hasattr(pred.regime, 'value') else str(pred.regime),
+                'signals': pred.signals,
+                'rate_x10': rx or 0,
+                'rate_lighter': rl or 0,
+                'is_farm_trade': is_farm_mode or False,
+                'net_funding_hourly': (rl or 0) - (rx or 0),
+                'leg1_exchange': 'Lighter' if pred.predicted_direction == "long_lighter" else 'X10',
+                'leg1_side': 'SELL' if (rl or 0) > (rx or 0) else 'BUY',
+                'price_x10': safe_float(px),
+                'price_lighter': safe_float(pl),
+                'is_latency_arb': False,
+                'is_prediction_trade': True  # NEU: Markiert als Prediction-Trade
+            }
+            
+            opps.append(opp)
         
-        # Determine sides based on prediction
-        if pred.predicted_direction == "long_x10":
-            opp['leg1_side'] = 'BUY'   # Long on X10
-            opp['leg2_side'] = 'SELL'  # Short on Lighter
-        else:
-            opp['leg1_side'] = 'SELL'  # Short on X10
-            opp['leg2_side'] = 'BUY'   # Long on Lighter
-        
-        opportunities.append(opp)
+        # Wenn wir Predictions haben, diese priorisieren
+        if opps:
+            opps.sort(key=lambda x: x['apy'] * x.get('confidence', 1.0), reverse=True)
+            logger.info(f"✅ Returning {len(opps)} ML-ranked opportunities")
+            return opps[:config.MAX_OPEN_TRADES]
     
-    # Sort by APY * confidence
-    opportunities.sort(key=lambda x: x['apy'] * x.get('confidence', 1.0), reverse=True)
-    
-    logger.info(f"✅ Found {len(opportunities)} opportunities with predictions (farm_mode={is_farm_mode})")
-    
-    # NUR returnen wenn wir tatsächlich Opportunities haben
-    if opportunities:
-        return opportunities[:config.MAX_OPEN_TRADES]
-
-    # Wenn keine Predictions, weiter zum Fallback-Code unten
-    logger.info("⚠️ Keine Prediction-Opportunities, nutze Fallback mit echten Funding Rates...")
+    # Fallback: Alte Logik wenn keine Predictions
+    logger.info("⚠️ No prediction opportunities, using fallback logic...")
 
     # Update threshold manager (old code kept for fallback)
     current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
@@ -645,25 +758,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             spread = abs(px_float - pl_float) / px_float
         except:
             continue
-
-        # ---------------------------------------------------------
-        # ⚡ LATENCY ARBITRAGE CHECK
-        # ---------------------------------------------------------
-        try:
-            # Übergebe Adapter, damit Detector Timestamps prüfen kann
-            latency_opp = await detector.detect_lag_opportunity(s, rx, rl, x10, lighter)
-
-            if latency_opp:
-                # Preise hinzufügen für Execution
-                latency_opp['price_x10'] = px_float
-                latency_opp['price_lighter'] = pl_float
-                latency_opp['spread_pct'] = spread
-
-                logger.info(f"⚡ FAST LANE: Latency Arb gefunden für {s}! Breche Scan ab für sofortige Execution.")
-                # Sofortige Rückgabe nur dieser Opportunity, Millisekunden zählen
-                return [latency_opp]
-        except Exception as e:
-            logger.debug(f"Latency Check Error {s}: {e}")
 
         # ---------------------------------------------------------
         # STANDARD FUNDING STRATEGY
@@ -2540,25 +2634,44 @@ async def maintenance_loop(lighter, x10):
                         r_x = x10.fetch_funding_rate(symbol) or 0.0
                         current_rate = (float(r_l) + float(r_x)) / 2.0
 
-                        # OI
-                        oi = 0.0
-                        try:
-                            oi = await x10.fetch_open_interest(symbol)
-                        except Exception:
-                            pass
-                        if oi == 0.0:
-                            try:
-                                oi = await lighter.fetch_open_interest(symbol)
-                            except Exception:
-                                pass
-
                         predictor._update_history(predictor.rate_history, symbol, float(current_rate), now)
-                        predictor.update_oi_velocity(symbol, float(oi))
                         
                     except Exception:
                         continue
             except Exception:
                 pass
+            
+            # ═══════════════════════════════════════════════════════════════
+            # NEU: OI → PREDICTION PIPELINE
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                oi_tracker = get_oi_tracker()
+                predictor = get_predictor()
+                
+                # Feed OI data to predictor
+                for symbol in list(oi_tracker._tracked_symbols)[:50]:  # Limit per cycle
+                    try:
+                        oi_data = oi_tracker.get_oi_data_for_prediction(symbol)
+                        
+                        if oi_data and oi_data.get('oi', 0) > 0:
+                            # Update predictor with OI velocity
+                            predictor.update_oi_velocity(symbol, oi_data['oi'])
+                            
+                            # Update orderbook imbalance if available
+                            imbalance = oi_data.get('oi_imbalance', 0)
+                            if abs(imbalance) > 0.01:
+                                predictor.update_orderbook_imbalance(symbol, imbalance)
+                            
+                            logger.debug(
+                                f"📊 OI→Pred {symbol}: OI=${oi_data['oi']:,.0f}, "
+                                f"Velocity={oi_data['oi_velocity']:.2f}, "
+                                f"Trend={oi_data['oi_trend']}"
+                            )
+                    except Exception as e:
+                        logger.debug(f"OI→Pred update failed for {symbol}: {e}")
+                
+            except Exception as e:
+                logger.debug(f"OI→Prediction pipeline error: {e}")
             
             # ============================================================
             # Exchange Sync Check (every 5 minutes)
@@ -2634,280 +2747,17 @@ async def migrate_database():
 # ═══════════════════════════════════════════════════════════════════════════════
 # PUNKT 2: NON-BLOCKING MAIN LOOP
 # ═══════════════════════════════════════════════════════════════════════════════
-# Umbau auf asyncio Task-Management mit:
-# - Structured Concurrency (TaskGroup-ähnlich)
-# - Graceful Shutdown mit Signal Handlers
-# - Task Supervision & Auto-Restart
-# - Health Monitoring
+# Using centralized BotEventLoop from src/event_loop.py
 # ═══════════════════════════════════════════════════════════════════════════════
-
-class TaskState(Enum):
-    PENDING = "PENDING"
-    RUNNING = "RUNNING"
-    RESTARTING = "RESTARTING"
-    STOPPED = "STOPPED"
-    FAILED = "FAILED"
-    CANCELLED = "CANCELLED"
-
-
-@dataclass
-class ManagedTask:
-    """Tracks state of a managed background task"""
-    name: str
-    coro_factory: Callable[[], Awaitable[Any]]
-    task: Optional[asyncio.Task] = None
-    state: TaskState = TaskState.PENDING
-    restart_count: int = 0
-    max_restarts: int = 5
-    restart_delay: float = 5.0
-    last_error: Optional[str] = None
-    started_at: Optional[float] = None
-    critical: bool = True  # If True, shutdown bot on permanent failure
-
-
-class TaskSupervisor:
-    """
-    Manages async tasks with supervision, restart, and graceful shutdown. 
-    
-    Features:
-    - Auto-restart failed tasks with exponential backoff
-    - Graceful shutdown on SIGINT/SIGTERM
-    - Health monitoring
-    - Task isolation (one crash doesn't kill others)
-    """
-    
-    def __init__(self):
-        self.tasks: Dict[str, ManagedTask] = {}
-        self.shutdown_event = asyncio.Event()
-        self._shutdown_timeout = 30.0
-        self._health_check_interval = 10.0
-        self._signal_handlers_installed = False
-        self._supervisor_task: Optional[asyncio.Task] = None
-        
-    def register(
-        self,
-        name: str,
-        coro_factory: Callable[[], Awaitable[Any]],
-        critical: bool = True,
-        max_restarts: int = 5,
-        restart_delay: float = 5.0
-    ):
-        """Register a task to be supervised"""
-        self.tasks[name] = ManagedTask(
-            name=name,
-            coro_factory=coro_factory,
-            critical=critical,
-            max_restarts=max_restarts,
-            restart_delay=restart_delay
-        )
-        logger.info(f"📝 Registered task: {name} (critical={critical})")
-        
-    def _install_signal_handlers(self):
-        """Install signal handlers for graceful shutdown"""
-        if self._signal_handlers_installed:
-            return
-            
-        loop = asyncio.get_running_loop()
-        
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            try:
-                loop.add_signal_handler(
-                    sig,
-                    lambda s=sig: asyncio.create_task(self._signal_handler(s))
-                )
-                logger.debug(f"Installed handler for {sig.name}")
-            except NotImplementedError:
-                # Windows doesn't support add_signal_handler
-                signal.signal(sig, lambda s, f: asyncio.create_task(self._signal_handler(s)))
-                
-        self._signal_handlers_installed = True
-        logger.info("✅ Signal handlers installed (SIGINT, SIGTERM)")
-        
-    async def _signal_handler(self, sig):
-        """Handle shutdown signal"""
-        sig_name = signal.Signals(sig).name if isinstance(sig, int) else str(sig)
-        logger.warning(f"🛑 Received {sig_name}, initiating graceful shutdown...")
-        self.shutdown_event.set()
-        
-    async def start_all(self):
-        """Start all registered tasks"""
-        self._install_signal_handlers()
-        
-        for name, managed in self.tasks.items():
-            await self._start_task(managed)
-            
-        # Start supervisor loop
-        self._supervisor_task = asyncio.create_task(
-            self._supervisor_loop(),
-            name="supervisor"
-        )
-        
-        logger.info(f"🚀 Started {len(self.tasks)} tasks")
-        
-    async def _start_task(self, managed: ManagedTask):
-        """Start a single managed task"""
-        try:
-            managed.task = asyncio.create_task(
-                self._task_wrapper(managed),
-                name=managed.name
-            )
-            managed.state = TaskState.RUNNING
-            managed.started_at = time.monotonic()
-            logger.info(f"▶️  Started task: {managed.name}")
-        except Exception as e:
-            managed.state = TaskState.FAILED
-            managed.last_error = str(e)
-            logger.error(f"❌ Failed to start task {managed.name}: {e}")
-            
-    async def _task_wrapper(self, managed: ManagedTask):
-        """Wrapper that catches exceptions and enables restart"""
-        try:
-            await managed.coro_factory()
-        except asyncio.CancelledError:
-            managed.state = TaskState.CANCELLED
-            logger.info(f"🛑 Task {managed.name} cancelled")
-            raise
-        except Exception as e:
-            managed.state = TaskState.FAILED
-            managed.last_error = str(e)
-            logger.error(f"❌ Task {managed.name} crashed: {e}", exc_info=True)
-            raise
-            
-    async def _supervisor_loop(self):
-        """Monitor tasks and restart failed ones"""
-        logger.info("🔍 Supervisor loop started")
-        
-        while not self.shutdown_event.is_set():
-            try:
-                await asyncio.sleep(self._health_check_interval)
-                
-                for name, managed in self.tasks.items():
-                    if managed.task is None:
-                        continue
-                        
-                    if managed.task.done():
-                        # Task finished or crashed
-                        if managed.state == TaskState.CANCELLED:
-                            continue
-                            
-                        # Check for exception
-                        try:
-                            exc = managed.task.exception()
-                            if exc:
-                                managed.last_error = str(exc)
-                        except asyncio.CancelledError:
-                            continue
-                            
-                        # Attempt restart
-                        if managed.restart_count < managed.max_restarts:
-                            managed.restart_count += 1
-                            managed.state = TaskState.RESTARTING
-                            
-                            delay = managed.restart_delay * (2 ** (managed.restart_count - 1))
-                            delay = min(delay, 60.0)  # Cap at 60s
-                            
-                            logger.warning(
-                                f"🔄 Restarting {name} in {delay:.1f}s "
-                                f"(attempt {managed.restart_count}/{managed.max_restarts})"
-                            )
-                            
-                            await asyncio.sleep(delay)
-                            
-                            if not self.shutdown_event.is_set():
-                                await self._start_task(managed)
-                        else:
-                            managed.state = TaskState.FAILED
-                            logger.error(
-                                f"❌ Task {name} exceeded max restarts ({managed.max_restarts})"
-                            )
-                            
-                            if managed.critical:
-                                logger.critical(f"💀 Critical task {name} failed, initiating shutdown")
-                                self.shutdown_event.set()
-                                
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Supervisor error: {e}")
-                
-        logger.info("🔍 Supervisor loop stopped")
-        
-    async def wait_for_shutdown(self):
-        """Wait for shutdown signal"""
-        await self.shutdown_event.wait()
-        
-    async def shutdown(self):
-        """Gracefully shutdown all tasks"""
-        logger.info("🛑 Initiating graceful shutdown...")
-        self.shutdown_event.set()
-        
-        # Cancel supervisor first
-        if self._supervisor_task and not self._supervisor_task.done():
-            self._supervisor_task.cancel()
-            try:
-                await asyncio.wait_for(self._supervisor_task, timeout=5.0)
-            except (asyncio.CancelledError, asyncio.TimeoutError):
-                pass
-                
-        # Cancel all managed tasks
-        tasks_to_cancel = []
-        for name, managed in self.tasks.items():
-            if managed.task and not managed.task.done():
-                managed.task.cancel()
-                tasks_to_cancel.append(managed.task)
-                logger.info(f"🛑 Cancelling {name}...")
-                
-        if tasks_to_cancel:
-            # Wait for all tasks with timeout
-            try:
-                await asyncio.wait_for(
-                    asyncio.gather(*tasks_to_cancel, return_exceptions=True),
-                    timeout=self._shutdown_timeout
-                )
-            except asyncio.TimeoutError:
-                logger.warning(f"⚠️ Shutdown timeout ({self._shutdown_timeout}s) exceeded")
-                
-        # Update states
-        for managed in self.tasks.values():
-            if managed.state == TaskState.RUNNING:
-                managed.state = TaskState.STOPPED
-                
-        logger.info("✅ All tasks stopped")
-        
-    def get_health_report(self) -> Dict[str, Any]:
-        """Get health status of all tasks"""
-        report = {
-            "shutdown_requested": self.shutdown_event.is_set(),
-            "tasks": {}
-        }
-        
-        for name, managed in self.tasks.items():
-            task_info = {
-                "state": managed.state.value,
-                "restart_count": managed.restart_count,
-                "critical": managed.critical,
-            }
-            
-            if managed.started_at:
-                task_info["uptime_seconds"] = time.monotonic() - managed.started_at
-                
-            if managed.last_error:
-                task_info["last_error"] = managed.last_error
-                
-            if managed.task:
-                task_info["done"] = managed.task.done()
-                
-            report["tasks"][name] = task_info
-            
-        return report
 
 
 # ============================================================
 # IMPORTS FÜR V5 COMPONENT WIRING
 # ============================================================
+from src.event_loop import BotEventLoop, TaskPriority, get_event_loop
 from src.open_interest_tracker import init_oi_tracker, get_oi_tracker
 from src.websocket_manager import init_websocket_manager, get_websocket_manager
-from src.prediction_v2 import get_predictor
+# get_predictor already imported from src.prediction at top of file
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN BOT RUNNER V5 (Task Supervised & Component Wired)
@@ -3094,92 +2944,91 @@ async def run_bot_v5():
     await parallel_exec.start()
     logger.info("✅ ParallelExecutionManager started")
     
-    # 7. CREATE TASK SUPERVISOR
-    supervisor = TaskSupervisor()
+    # ═══════════════════════════════════════════════════════════════
+    # 7. NEU: Nutze BotEventLoop statt TaskSupervisor
+    # ═══════════════════════════════════════════════════════════════
+    event_loop = get_event_loop()
+    event_loop.x10_adapter = x10
+    event_loop.lighter_adapter = lighter
+    event_loop.parallel_exec = parallel_exec
+    event_loop.ws_manager = ws_manager
+    event_loop.state_manager = state_manager
+    event_loop.telegram_bot = telegram_bot
     
-    # Register core tasks
-    supervisor.register(
+    # Register tasks with priorities
+    event_loop.register_task(
         "logic_loop",
         lambda: logic_loop(lighter, x10, price_event, parallel_exec),
-        critical=True,
-        max_restarts=999 # Infinite restarts for main logic
+        priority=TaskPriority.HIGH,
+        restart_on_failure=True
     )
     
-    supervisor.register(
+    event_loop.register_task(
         "trade_management_loop",
         lambda: trade_management_loop(lighter, x10),
-        critical=True,
-        max_restarts=999
+        priority=TaskPriority.HIGH,
+        restart_on_failure=True
     )
     
-    supervisor.register(
+    event_loop.register_task(
         "farm_loop",
         lambda: farm_loop(lighter, x10, parallel_exec),
-        critical=False,
-        max_restarts=10
+        priority=TaskPriority.NORMAL,
+        restart_on_failure=True
     )
     
-    # Maintenance Loop (Funding Rates Refresh)
-    supervisor.register(
+    event_loop.register_task(
         "maintenance_loop",
         lambda: maintenance_loop(lighter, x10),
-        critical=False,
-        max_restarts=10
+        priority=TaskPriority.LOW,
+        restart_on_failure=True
     )
     
-    # Cleanup Tasks
-    supervisor.register(
+    event_loop.register_task(
         "cleanup_finished_tasks",
         lambda: cleanup_finished_tasks(),
-        critical=False,
-        max_restarts=5
+        priority=TaskPriority.LOW,
+        restart_on_failure=True
     )
     
-    # Health Reporter
-    supervisor.register(
+    event_loop.register_task(
         "health_reporter",
-        lambda: health_reporter(supervisor, parallel_exec),
-        critical=False,
-        max_restarts=5
+        lambda: health_reporter(event_loop, parallel_exec),
+        priority=TaskPriority.LOW,
+        restart_on_failure=True
     )
     
-    # Connection Watchdog (gegen Ping Timeout)
-    supervisor.register(
+    event_loop.register_task(
         "connection_watchdog",
         lambda: connection_watchdog(ws_manager, x10, lighter),
-        critical=True,  # Critical, da ohne Daten kein Trading möglich
-        max_restarts=999
+        priority=TaskPriority.CRITICAL,
+        restart_on_failure=True
     )
     
-    # 8. START ALL TASKS
-    await supervisor.start_all()
-    
+    # Start event loop
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.send_message(
             "🚀 **Funding Bot V5 Started**\n"
             f"OI Tracker: Active ({len(common_symbols)} syms)\n"
-            "Mode: Supervised"
+            "Mode: Centralized Event Loop"
         )
     
     logger.info("═══════════════════════════════════════════════════════════")
     logger.info("   BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   ")
     logger.info("═══════════════════════════════════════════════════════════")
     
-    # 9. WAIT FOR SHUTDOWN
     try:
-        await supervisor.wait_for_shutdown()
+        await event_loop.start()
     except (KeyboardInterrupt, asyncio.CancelledError):
-        logger.info("🛑 Shutdown requested via keyboard")
+        logger.info("🛑 Shutdown requested")
+    finally:
+        SHUTDOWN_FLAG = True
+        logger.info("🛑 Shutting down...")
         
-    # 10. GRACEFUL SHUTDOWN SEQUENCE
-    SHUTDOWN_FLAG = True
-    logger.info("🛑 Shutting down...")
-    
-    if telegram_bot and telegram_bot.enabled:
-        await telegram_bot.send_message("🛑 **Bot shutting down...**")
+        if telegram_bot and telegram_bot.enabled:
+            await telegram_bot.send_message("🛑 **Bot shutting down...**")
         
-    # Stop components in reverse order
-    await supervisor.shutdown()
+        await event_loop.stop()
     await parallel_exec.stop()
     
     if ws_manager:
@@ -3202,16 +3051,16 @@ async def run_bot_v5():
     logger.info("✅ Bot V5 shutdown complete")
 
 
-async def health_reporter(supervisor: TaskSupervisor, parallel_exec):
+async def health_reporter(event_loop: BotEventLoop, parallel_exec):
     """Periodic health status reporter"""
     interval = 3600  # 1 hour
     telegram = get_telegram_bot()
     
-    while not supervisor.shutdown_event.is_set():
+    while event_loop.is_running():
         try:
             await asyncio.sleep(interval)
             
-            health = supervisor.get_health_report()
+            task_status = event_loop.get_task_status()
             exec_stats = parallel_exec.get_execution_stats()
             
             # Get prediction stats
@@ -3219,8 +3068,8 @@ async def health_reporter(supervisor: TaskSupervisor, parallel_exec):
             pred_stats = predictor.get_stats()
             
             # Log health
-            running = sum(1 for t in health["tasks"].values() if t["state"] == "RUNNING")
-            total = len(health["tasks"])
+            running = sum(1 for t in task_status.values() if t["status"] == "running")
+            total = len(task_status)
             
             logger.info(
                 f"📊 Health: {running}/{total} tasks running, "

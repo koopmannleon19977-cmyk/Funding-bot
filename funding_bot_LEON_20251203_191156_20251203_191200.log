@@ -1,0 +1,1240 @@
+19:12:00 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+19:12:00 [INFO] 🔥 BOT V5 (Architected) STARTING...
+19:12:00 [INFO] 🚀 Starting InMemoryStateManager...
+19:12:00 [INFO] 📂 Initializing database: data/trades.db
+19:12:00 [INFO] ✅ Read pool created: 5 connections
+19:12:00 [INFO] ✅ WAL mode enabled
+19:12:00 [INFO] 🔄 Running database migrations...
+19:12:00 [INFO] ✅ Migrations complete (11 statements)
+19:12:00 [INFO] ✅ Database initialized
+19:12:00 [INFO] 🖊️ Database write loop started
+19:12:00 [INFO] 📂 Loaded 3 trades from database
+19:12:00 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+19:12:00 [INFO] ✅ State Manager started
+19:12:00 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+19:12:00 [INFO] ✅ Async database initialized
+19:12:00 [INFO] 📝 State writer loop started
+19:12:00 [DEBUG] ✅ Database schema up to date
+19:12:00 [INFO] Initialisiere X10 Adapter...
+19:12:00 [INFO]  X10 Account initialisiert.
+19:12:00 [INFO] Initialisiere Lighter Adapter...
+19:12:00 [INFO] 📊 Loading Market Data via REST...
+19:12:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:12:02 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+19:12:02 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+19:12:03 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+19:12:03 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+19:12:05 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+19:12:05 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+19:12:05 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+19:12:05 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+19:12:05 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+19:12:05 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+19:12:05 [INFO] 📈 Pre-loading Lighter prices...
+19:12:05 [DEBUG] Lighter: Loaded 383 funding rates
+19:12:06 [DEBUG] Lighter: Loaded 115 prices via REST
+19:12:06 [INFO] ✅ Lighter prices loaded: 115 symbols
+19:12:06 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+19:12:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:12:08 [INFO] ✅ Execution clients warmed up & NETWORK READY
+19:12:08 [INFO] 启动 OI Tracker für 68 Symbole...
+19:12:08 [INFO] ✅ OpenInterestTracker started (interval=30.0s)
+19:12:08 [INFO] 🌐 Starting WebSocket Manager...
+19:12:08 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+19:12:08 [INFO] 🔌 [lighter] WebSocket manager started
+19:12:08 [INFO] 🔌 [x10_account] WebSocket manager started
+19:12:08 [INFO] 🔌 [x10_trades] WebSocket manager started
+19:12:08 [INFO] 🔌 [x10_funding] WebSocket manager started
+19:12:08 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:12:08 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:12:08 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:12:08 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:12:08 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+19:12:09 [DEBUG] ✅ LINK-USD: X10=$412,992, Lighter=$232,088, Total=$645,081
+19:12:09 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+19:12:09 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:12:09 [INFO] [x10_trades] Receive loop started (async iterator)
+19:12:09 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+19:12:09 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+19:12:09 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:12:09 [INFO] [x10_account] Receive loop started (async iterator)
+19:12:09 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+19:12:09 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+19:12:09 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+19:12:09 [INFO] [lighter] Resubscribing to 79 channels (paced)...
+19:12:09 [INFO] [lighter] Receive loop started (async iterator)
+19:12:09 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+19:12:09 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+19:12:09 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:12:09 [INFO] [x10_funding] Receive loop started (async iterator)
+19:12:09 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/26
+19:12:09 [DEBUG] [lighter] Subscribed to trade/26
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/25
+19:12:09 [DEBUG] [lighter] Subscribed to trade/25
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/98
+19:12:09 [DEBUG] [lighter] Subscribed to trade/98
+19:12:09 [DEBUG] [lighter] Resubscribed 10/79 channels
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/6
+19:12:09 [DEBUG] [lighter] Subscribed to trade/6
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/83
+19:12:09 [DEBUG] [lighter] Subscribed to trade/83
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/41
+19:12:09 [DEBUG] [lighter] Subscribed to trade/41
+19:12:09 [DEBUG] [lighter] Resubscribed 20/79 channels
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/103
+19:12:09 [DEBUG] [lighter] Subscribed to trade/103
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/90
+19:12:09 [DEBUG] [lighter] Subscribed to trade/90
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/47
+19:12:09 [DEBUG] [lighter] Subscribed to trade/47
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/21
+19:12:09 [DEBUG] [lighter] Subscribed to trade/21
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/91
+19:12:09 [DEBUG] [lighter] Subscribed to trade/91
+19:12:09 [DEBUG] [lighter] Resubscribed 30/79 channels
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/2
+19:12:09 [DEBUG] [lighter] Subscribed to trade/2
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/33
+19:12:09 [DEBUG] [lighter] Subscribed to trade/33
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/43
+19:12:09 [DEBUG] [lighter] Subscribed to trade/43
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/15
+19:12:09 [DEBUG] [lighter] Subscribed to trade/15
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/34
+19:12:09 [DEBUG] [lighter] Subscribed to trade/34
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/60
+19:12:09 [DEBUG] [lighter] Subscribed to trade/60
+19:12:09 [DEBUG] [lighter] Resubscribed 40/79 channels
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/17
+19:12:09 [DEBUG] [lighter] Subscribed to trade/17
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/12
+19:12:09 [DEBUG] [lighter] Subscribed to trade/12
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/76
+19:12:09 [DEBUG] [lighter] Subscribed to trade/76
+19:12:09 [DEBUG] [lighter] Subscribed to order_book/55
+19:12:09 [DEBUG] [lighter] Subscribed to trade/55
+19:12:09 [DEBUG] [lighter] Resubscribed 50/79 channels
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/46
+19:12:10 [DEBUG] [lighter] Subscribed to trade/46
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/104
+19:12:10 [DEBUG] [lighter] Subscribed to trade/104
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/67
+19:12:10 [DEBUG] [lighter] Subscribed to trade/67
+19:12:10 [DEBUG] [lighter] Resubscribed 60/79 channels
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/52
+19:12:10 [DEBUG] [lighter] Subscribed to trade/52
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/50
+19:12:10 [DEBUG] [lighter] Subscribed to trade/50
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/16
+19:12:10 [DEBUG] [lighter] Subscribed to trade/16
+19:12:10 [DEBUG] [lighter] Subscribed to order_book/11
+19:12:10 [DEBUG] [lighter] Subscribed to trade/11
+19:12:10 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+19:12:10 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+19:12:10 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+19:12:10 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+19:12:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:10 [DEBUG] [lighter] Resubscribed 70/79 channels
+19:12:10 [INFO] [lighter] Resubscribed to 79 channels
+19:12:11 [INFO] Lighter: Found 0 open positions
+19:12:11 [INFO] 🌍 Echte Positionen auf Exchanges: []
+19:12:11 [WARNING] ⚠️  ZOMBIE GEFUNDEN: POPCAT-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+19:12:11 [INFO] ✅ Trade POPCAT-USD closed (PnL: $0.00)
+19:12:11 [WARNING] ⚠️  ZOMBIE GEFUNDEN: IP-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+19:12:11 [INFO] ✅ Trade IP-USD closed (PnL: $0.00)
+19:12:11 [WARNING] ⚠️  ZOMBIE GEFUNDEN: APEX-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+19:12:11 [INFO] ✅ Trade APEX-USD closed (PnL: $0.00)
+19:12:11 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+19:12:11 [INFO] ✅ ParallelExecutionManager started
+19:12:11 [DEBUG] Registered task: logic_loop (priority=HIGH)
+19:12:11 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+19:12:11 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+19:12:11 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+19:12:11 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+19:12:11 [DEBUG] Registered task: health_reporter (priority=LOW)
+19:12:11 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+19:12:11 [INFO] ═══════════════════════════════════════════════════════════
+19:12:11 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+19:12:11 [INFO] ═══════════════════════════════════════════════════════════
+19:12:11 [INFO] 🚀 BotEventLoop starting...
+19:12:11 [INFO] ▶️ Started task: connection_watchdog
+19:12:11 [INFO] ▶️ Started task: logic_loop
+19:12:11 [INFO] ▶️ Started task: trade_management_loop
+19:12:11 [INFO] ▶️ Started task: farm_loop
+19:12:11 [INFO] ▶️ Started task: maintenance_loop
+19:12:11 [INFO] ▶️ Started task: cleanup_finished_tasks
+19:12:11 [INFO] ▶️ Started task: health_reporter
+19:12:11 [INFO] ✅ Started 7 tasks
+19:12:11 [INFO] 🔄 Rollback processor running...
+19:12:11 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+19:12:11 [INFO] Logic Loop gestartet – REFRESH alle 3s
+19:12:11 [INFO] ⚡ Latency Arb Detector initialized (threshold: 1.0s)
+19:12:11 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:11 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:11 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:11 [INFO] 🛡️ Trade Management Loop gestartet
+19:12:11 [INFO] 🚜 Farm Mode ACTIVE
+19:12:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:11 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+19:12:11 [DEBUG] 📝 Flushed 1 writes
+19:12:11 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+19:12:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:12:11 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:12 [DEBUG] [PREDICT] LINK-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] MNT-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] APT-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] XRP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] MKR-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] BTC-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] BCH-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] SPX-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ADA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] APEX-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] XAG-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] S-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] LTC-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] XAU-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] SEI-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] UNI-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ENA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] CRV-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] BERA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] TAO-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] XPL-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] WIF-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] JUP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] BNB-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] WLD-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ETH-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] FIL-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] MON-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] SOL-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] TRX-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] IP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] TON-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] OP-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] LDO-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] STRK-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] TIA-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] ARB-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] SUI-USD: Insufficient history (1/24)
+19:12:12 [DEBUG] [PREDICT] DOT-USD: Insufficient history (1/24)
+19:12:12 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:12 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+19:12:12 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:12 [INFO] 💎 EDEN-USD | APY: 55.2%
+19:12:12 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:12 [INFO] 💎 ONDO-USD | APY: 71.0%
+19:12:12 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:12 [DEBUG] Skip RESOLV-USD: Spread 0.37% too high
+19:12:12 [DEBUG] Skip AVNT-USD: Spread 0.30% too high
+19:12:12 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:12 [DEBUG] Skip NEAR-USD: Spread 0.33% too high
+19:12:12 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:12 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:12 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:12 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:12 [INFO] 💎 ZORA-USD | APY: 81.5%
+19:12:12 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:12 [INFO] 💎 ENA-USD | APY: 71.0%
+19:12:12 [DEBUG] Skip XPL-USD: Spread 0.36% too high
+19:12:12 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:12 [DEBUG] Skip ZEC-USD: Spread 0.68% too high
+19:12:12 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:12 [INFO] 💎 KAITO-USD | APY: 53.4%
+19:12:12 [DEBUG] Skip IP-USD: Spread 0.35% too high
+19:12:12 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:12 [DEBUG] Skip 1000SHIB-USD: Spread 0.35% too high
+19:12:12 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:12 [INFO] 💎 OP-USD | APY: 50.8%
+19:12:12 [INFO] ✅ Found 33 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:12 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:12 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+19:12:12 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+19:12:12 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+19:12:12 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:12 [INFO] 🚜 Opening FARM: EDEN-USD APY=55.2%
+19:12:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:13 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:13 [INFO] X10: Detected balance = $298.64
+19:12:13 [INFO] 🚀 Launching 2 trades (Slots available: 2)
+19:12:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:13 [INFO] Lighter: Found 0 open positions
+19:12:13 [DEBUG] ✅ EDEN-USD verified: No existing positions on exchanges
+19:12:13 [ERROR] Task EDEN-USD error: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:13 [DEBUG] 🧹 Cleaned task: EDEN-USD
+19:12:13 [DEBUG] ✅ EDEN-USD: X10=$56,425, Lighter=$5,573,931, Total=$5,630,356
+19:12:13 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+19:12:13 [DEBUG] X10: Funding Refresh OK, cache=91
+19:12:13 [DEBUG] 📊 Lighter Funding Cache refresh (current=116)
+19:12:13 [DEBUG] 📝 Flushed 2 writes
+19:12:13 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+19:12:13 [INFO] Lighter: Found 0 open positions
+19:12:13 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:13 [INFO] 🚀 Launching trade for ZORA-USD (APY=81.5%)
+19:12:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:14 [INFO] 🚀 Launching trade for ONDO-USD (APY=71.0%)
+19:12:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:14 [DEBUG] Lighter: Loaded 383 funding rates
+19:12:14 [INFO] Lighter: Found 0 open positions
+19:12:14 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+19:12:14 [INFO] ✅ Launched 2 trade tasks this cycle
+19:12:14 [INFO] Lighter: Found 0 open positions
+19:12:14 [DEBUG] ✅ ONDO-USD verified: No existing positions on exchanges
+19:12:15 [DEBUG] Lighter: Loaded 115 prices via REST
+19:12:15 [DEBUG] Lighter: Funding Refresh OK, cache=116
+19:12:15 [DEBUG] OI→Pred update failed for LINK-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:15 [DEBUG] OI→Pred update failed for EDEN-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:15 [INFO] 🔍 Running periodic exchange sync check...
+19:12:15 [INFO] 🔍 Starting Exchange Sync Check...
+19:12:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:15 [INFO] Lighter: Found 0 open positions
+19:12:15 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+19:12:16 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-1795' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:17 [DEBUG] ✅ ONDO-USD: X10=$104,727, Lighter=$2,167,281, Total=$2,272,008
+19:12:17 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:17 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:17 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:17 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:18 [DEBUG] [PREDICT] LINK-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] MNT-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] APT-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] XRP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] MKR-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] BTC-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] BCH-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] SPX-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ADA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] APEX-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] XAG-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] S-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] LTC-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] XAU-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] SEI-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] UNI-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ENA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] CRV-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] BERA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] TAO-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] XPL-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] WIF-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] JUP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] BNB-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] WLD-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ETH-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] FIL-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] MON-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] SOL-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] TRX-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] IP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] TON-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] OP-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] LDO-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] STRK-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] TIA-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] ARB-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] SUI-USD: Insufficient history (2/24)
+19:12:18 [DEBUG] [PREDICT] DOT-USD: Insufficient history (2/24)
+19:12:18 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:18 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:18 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:18 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:18 [DEBUG] Skip RESOLV-USD: Spread 0.32% too high
+19:12:18 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.05%)
+19:12:18 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.02%)
+19:12:18 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:18 [INFO] 💎 NEAR-USD | APY: 58.7%
+19:12:18 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:12:18 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:18 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:18 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:18 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:18 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:18 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:12:18 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.02%)
+19:12:18 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.55%)
+19:12:18 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:18 [INFO] 💎 ZEC-USD | APY: 88.5%
+19:12:18 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.12%)
+19:12:18 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:18 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:18 [INFO] 💎 1000SHIB-USD | APY: 92.9%
+19:12:18 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:18 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:12:18 [INFO] ✅ Found 39 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:18 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:19 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:19 [INFO] X10: Detected balance = $298.64
+19:12:19 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+19:12:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:19 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=2s ago, msgs=27)
+19:12:19 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=14312)
+19:12:19 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+19:12:19 [INFO] Lighter: Found 0 open positions
+19:12:19 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:19 [INFO] 🚀 Launching trade for 1000SHIB-USD (APY=92.9%)
+19:12:19 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-2060' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:20 [INFO] 🚀 Launching trade for ZEC-USD (APY=88.5%)
+19:12:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:20 [INFO] Lighter: Found 0 open positions
+19:12:20 [DEBUG] ✅ 1000SHIB-USD verified: No existing positions on exchanges
+19:12:20 [INFO] 🚀 Launching trade for ZORA-USD (APY=81.5%)
+19:12:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:21 [INFO] Lighter: Found 0 open positions
+19:12:21 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+19:12:21 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-5735' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:21 [DEBUG] ✅ RESOLV-USD: X10=$291,151, Lighter=$8,816,727, Total=$9,107,878
+19:12:21 [INFO] ✅ Launched 3 trade tasks this cycle
+19:12:21 [INFO] Lighter: Found 0 open positions
+19:12:21 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+19:12:21 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-5458' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:24 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:24 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:24 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:24 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:24 [DEBUG] [PREDICT] LINK-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] MNT-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] APT-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] XRP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] MKR-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] BTC-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] BCH-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] SPX-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ADA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] APEX-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] XAG-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] S-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] LTC-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] XAU-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] SEI-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] UNI-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ENA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] CRV-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] BERA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] TAO-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] XPL-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] WIF-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] JUP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] BNB-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] WLD-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ETH-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] FIL-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] MON-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] SOL-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] TRX-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] IP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] TON-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] OP-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] LDO-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] STRK-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] TIA-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] ARB-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] SUI-USD: Insufficient history (3/24)
+19:12:24 [DEBUG] [PREDICT] DOT-USD: Insufficient history (3/24)
+19:12:24 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:24 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:24 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:24 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:24 [INFO] 💎 RESOLV-USD | APY: 106.9%
+19:12:24 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:24 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:24 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:24 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:24 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:24 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:24 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:24 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:24 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:24 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:24 [INFO] ✅ Found 40 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:24 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:24 [DEBUG] ✅ DOGE-USD: X10=$210,353, Lighter=$21,461,234, Total=$21,671,587
+19:12:25 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:25 [INFO] X10: Detected balance = $298.64
+19:12:25 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+19:12:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:26 [INFO] Lighter: Found 0 open positions
+19:12:26 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:26 [INFO] 🚀 Launching trade for RESOLV-USD (APY=106.9%)
+19:12:26 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-6056' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:27 [INFO] 🚀 Launching trade for 1000SHIB-USD (APY=92.9%)
+19:12:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:27 [INFO] Lighter: Found 0 open positions
+19:12:27 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+19:12:27 [INFO] 🚀 Launching trade for ZEC-USD (APY=88.5%)
+19:12:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:27 [INFO] Lighter: Found 0 open positions
+19:12:27 [DEBUG] ✅ 1000SHIB-USD verified: No existing positions on exchanges
+19:12:27 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-11125' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:28 [INFO] ✅ Launched 3 trade tasks this cycle
+19:12:28 [INFO] Lighter: Found 0 open positions
+19:12:28 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+19:12:29 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=1s ago, msgs=142)
+19:12:29 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+19:12:29 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=39560)
+19:12:30 [DEBUG] ✅ HYPE-USD: X10=$3,301,254, Lighter=$1,383,165, Total=$4,684,419
+19:12:31 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:31 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:31 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:31 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:31 [DEBUG] [PREDICT] LINK-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] MNT-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] APT-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] XRP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] MKR-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] BTC-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] BCH-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] SPX-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ADA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] APEX-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] XAG-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] S-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] LTC-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] XAU-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] SEI-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] UNI-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ENA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] CRV-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] BERA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] TAO-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] XPL-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] WIF-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] JUP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] BNB-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] WLD-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ETH-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] FIL-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] MON-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] SOL-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] TRX-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] IP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] TON-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] OP-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] LDO-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] STRK-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] TIA-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] ARB-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] SUI-USD: Insufficient history (4/24)
+19:12:31 [DEBUG] [PREDICT] DOT-USD: Insufficient history (4/24)
+19:12:31 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:31 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:31 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:31 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:31 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:31 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:31 [DEBUG] Skip ADA-USD: Spread 0.37% too high
+19:12:31 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:31 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:31 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:31 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:31 [DEBUG] Skip XPL-USD: Spread 0.39% too high
+19:12:31 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:31 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:31 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:31 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:31 [INFO] ✅ Found 38 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:31 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:31 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-10643' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:32 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:32 [INFO] X10: Detected balance = $298.64
+19:12:32 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+19:12:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:33 [INFO] Lighter: Found 0 open positions
+19:12:33 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:33 [INFO] 🚀 Launching trade for RESOLV-USD (APY=106.9%)
+19:12:33 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-11603' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:33 [INFO] 🚀 Launching trade for 1000SHIB-USD (APY=92.9%)
+19:12:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:33 [INFO] Lighter: Found 0 open positions
+19:12:33 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+19:12:34 [INFO] 🚀 Launching trade for ZEC-USD (APY=88.5%)
+19:12:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:34 [INFO] Lighter: Found 0 open positions
+19:12:34 [DEBUG] ✅ 1000SHIB-USD verified: No existing positions on exchanges
+19:12:34 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-16531' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:34 [DEBUG] ✅ MNT-USD: X10=$118,578, Lighter=$2,748,231, Total=$2,866,809
+19:12:34 [INFO] ✅ Launched 3 trade tasks this cycle
+19:12:34 [INFO] Lighter: Found 0 open positions
+19:12:34 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+19:12:36 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-15962' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:37 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:37 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:37 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:37 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:37 [DEBUG] [PREDICT] LINK-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] MNT-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] APT-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] XRP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] MKR-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] BTC-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] BCH-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] SPX-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ADA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] APEX-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] XAG-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] S-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] LTC-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] XAU-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] SEI-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] UNI-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ENA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] CRV-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] BERA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] TAO-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] XPL-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] WIF-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] JUP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] BNB-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] WLD-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ETH-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] FIL-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] MON-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] SOL-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] TRX-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] IP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] TON-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] OP-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] LDO-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] STRK-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] TIA-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] ARB-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] SUI-USD: Insufficient history (5/24)
+19:12:37 [DEBUG] [PREDICT] DOT-USD: Insufficient history (5/24)
+19:12:37 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:37 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:37 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:37 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:37 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:37 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:37 [DEBUG] Skip ADA-USD: Spread 0.31% too high
+19:12:37 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:37 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:37 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:37 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:37 [DEBUG] Skip XPL-USD: Spread 0.39% too high
+19:12:37 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:37 [DEBUG] Skip ZEC-USD: Spread 0.37% too high
+19:12:37 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:37 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:37 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:37 [INFO] ✅ Found 37 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:37 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:38 [DEBUG] ✅ AVNT-USD: X10=$104,467, Lighter=$1,951,328, Total=$2,055,795
+19:12:38 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:38 [INFO] X10: Detected balance = $298.64
+19:12:38 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+19:12:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:39 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=183)
+19:12:39 [DEBUG] ⚠️ [x10_account] No messages for 30s (expected every 30s)
+19:12:39 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s ago, msgs=3)
+19:12:39 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=62911)
+19:12:39 [INFO] Lighter: Found 0 open positions
+19:12:39 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:39 [INFO] 🚀 Launching trade for RESOLV-USD (APY=106.9%)
+19:12:39 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-16892' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:40 [INFO] 🚀 Launching trade for 1000SHIB-USD (APY=92.9%)
+19:12:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:40 [INFO] Lighter: Found 0 open positions
+19:12:40 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+19:12:40 [INFO] 🚀 Launching trade for ZORA-USD (APY=81.5%)
+19:12:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:40 [INFO] Lighter: Found 0 open positions
+19:12:40 [DEBUG] ✅ 1000SHIB-USD verified: No existing positions on exchanges
+19:12:40 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-21350' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:41 [INFO] ✅ Launched 3 trade tasks this cycle
+19:12:41 [INFO] Lighter: Found 0 open positions
+19:12:41 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+19:12:41 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-20939' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:41 [DEBUG] 🐕 Watchdog OK: Daten-Alter 4.1s
+19:12:41 [DEBUG] 📊 Task health: 7 alive, 0 dead
+19:12:41 [DEBUG] ✅ AAVE-USD: X10=$407,445, Lighter=$47,219, Total=$454,663
+19:12:44 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:44 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:44 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:44 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:44 [DEBUG] [PREDICT] LINK-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] MNT-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] APT-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] XRP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] MKR-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] BTC-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] BCH-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] SPX-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ADA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] APEX-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] XAG-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] S-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] LTC-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] XAU-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] SEI-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] UNI-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ENA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] CRV-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] BERA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] TAO-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] XPL-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] WIF-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] JUP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] BNB-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] WLD-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ETH-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] FIL-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] MON-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] SOL-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] TRX-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] IP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] TON-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] OP-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] LDO-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] STRK-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] TIA-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] ARB-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] SUI-USD: Insufficient history (6/24)
+19:12:44 [DEBUG] [PREDICT] DOT-USD: Insufficient history (6/24)
+19:12:44 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:44 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:44 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:44 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:44 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:44 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:44 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:44 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:44 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:44 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:44 [DEBUG] Skip XPL-USD: Spread 0.38% too high
+19:12:44 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:44 [DEBUG] Skip ZEC-USD: Spread 0.36% too high
+19:12:44 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:44 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:44 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:44 [INFO] ✅ Found 38 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:44 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:45 [DEBUG] Lighter Balance: Raw=$294.55, Safe=$279.82
+19:12:45 [INFO] X10: Detected balance = $298.64
+19:12:45 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+19:12:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:45 [DEBUG] ✅ APT-USD: X10=$391,170, Lighter=$1,465,811, Total=$1,856,981
+19:12:45 [DEBUG] OI→Pred update failed for LINK-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for EDEN-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for ONDO-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for RESOLV-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for DOGE-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for HYPE-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for MNT-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for AVNT-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for AAVE-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:45 [DEBUG] OI→Pred update failed for APT-USD: 'FundingPredictor' object has no attribute 'update_oi_velocity'
+19:12:46 [INFO] Lighter: Found 0 open positions
+19:12:46 [INFO] 💰 Balance: X10=$298.6 (free=$295.6), Lit=$279.8 (free=$276.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:12:46 [INFO] 🚀 Launching trade for RESOLV-USD (APY=106.9%)
+19:12:46 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-21700' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:46 [INFO] 🚀 Launching trade for 1000SHIB-USD (APY=92.9%)
+19:12:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:46 [INFO] Lighter: Found 0 open positions
+19:12:46 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+19:12:47 [INFO] 🚀 Launching trade for ZORA-USD (APY=81.5%)
+19:12:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:12:47 [INFO] Lighter: Found 0 open positions
+19:12:47 [DEBUG] ✅ 1000SHIB-USD verified: No existing positions on exchanges
+19:12:47 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-25858' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:47 [INFO] ✅ Launched 3 trade tasks this cycle
+19:12:47 [INFO] Lighter: Found 0 open positions
+19:12:47 [DEBUG] ✅ ZORA-USD verified: No existing positions on exchanges
+19:12:49 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=2s ago, msgs=213)
+19:12:49 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=83515)
+19:12:49 [DEBUG] ⚠️ [x10_account] No messages for 40s (expected every 30s)
+19:12:49 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=40s ago, msgs=3)
+19:12:50 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+19:12:50 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+19:12:50 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+19:12:50 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:12:51 [DEBUG] [PREDICT] LINK-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] EDEN-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ONDO-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] RESOLV-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] DOGE-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] HYPE-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] MNT-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] AVNT-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] AAVE-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] APT-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] PUMP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] 1000BONK-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] XRP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] MKR-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] NEAR-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] WLFI-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] EIGEN-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] AVAX-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] BTC-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] BCH-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] SPX-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] POPCAT-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ADA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] APEX-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] XAG-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] S-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] LTC-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] XAU-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ZORA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] SEI-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] UNI-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ENA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] CRV-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] 1000PEPE-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] BERA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] PENDLE-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] TAO-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] XPL-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] WIF-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] JUP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] BNB-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] USDJPY-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] WLD-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ASTER-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] VIRTUAL-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ETH-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] FIL-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ZEC-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] PENGU-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] FARTCOIN-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] MON-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] SOL-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] KAITO-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] TRX-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] TRUMP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] IP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ZRO-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] 1000SHIB-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] TON-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] LINEA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] OP-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] LDO-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] STRK-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] TIA-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] GRASS-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] ARB-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] SUI-USD: Insufficient history (7/24)
+19:12:51 [DEBUG] [PREDICT] DOT-USD: Insufficient history (7/24)
+19:12:51 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+19:12:51 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000300, rx=-0.00006600, net=0.00006300, apy=55.2%
+19:12:51 [INFO] 🔍 DEBUG ONDO-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:51 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00044500, rx=-0.00056700, net=0.00012200, apy=106.9%
+19:12:51 [INFO] 🔍 DEBUG NEAR-USD: rl=-0.00005400, rx=0.00001300, net=-0.00006700, apy=58.7%
+19:12:51 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:12:51 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+19:12:51 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+19:12:51 [INFO] 🔍 DEBUG ZORA-USD: rl=-0.00012200, rx=-0.00002900, net=-0.00009300, apy=81.5%
+19:12:51 [INFO] 🔍 DEBUG ENA-USD: rl=-0.00006800, rx=0.00001300, net=-0.00008100, apy=71.0%
+19:12:51 [DEBUG] Skip XPL-USD: Spread 0.37% too high
+19:12:51 [INFO] 🔍 DEBUG ZEC-USD: rl=0.00001200, rx=0.00011300, net=-0.00010100, apy=88.5%
+19:12:51 [INFO] 🔍 DEBUG KAITO-USD: rl=0.00000000, rx=-0.00006100, net=0.00006100, apy=53.4%
+19:12:51 [INFO] 🔍 DEBUG 1000SHIB-USD: rl=0.00000900, rx=-0.00009700, net=0.00010600, apy=92.9%
+19:12:51 [INFO] 🔍 DEBUG OP-USD: rl=-0.00004700, rx=0.00001100, net=-0.00005800, apy=50.8%
+19:12:51 [INFO] ✅ Found 39 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+19:12:51 [INFO] 🎯 Found 3 opportunities, executing best...
+19:12:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:12:51 [DEBUG] ✅ PUMP-USD: X10=$641,247, Lighter=$2,281,359,202, Total=$2,282,000,449
+19:12:51 [INFO] 🛑 Initiating shutdown...
+19:12:51 [DEBUG] Cancelled task: maintenance_loop
+19:12:51 [DEBUG] Cancelled task: cleanup_finished_tasks
+19:12:51 [DEBUG] Cancelled task: health_reporter
+19:12:51 [DEBUG] Cancelled task: farm_loop
+19:12:51 [DEBUG] Cancelled task: logic_loop
+19:12:51 [DEBUG] Cancelled task: trade_management_loop
+19:12:51 [DEBUG] Cancelled task: connection_watchdog
+19:12:51 [INFO] Logic loop cancelled
+19:12:51 [ERROR] Task exception was never retrieved
+future: <Task finished name='Task-26159' coro=<logic_loop.<locals>._handle_with_lock() done, defined at C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py:2524> exception=AttributeError("'FundingPredictor' object has no attribute 'predict_next_funding_rate'")>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 2527, in _handle_with_lock
+    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
+  File "C:\Users\koopm\funding-bot\scripts\monitor_funding_final.py", line 932, in execute_trade_parallel
+    pred_rate, delta, conf = await predictor.predict_next_funding_rate(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'FundingPredictor' object has no attribute 'predict_next_funding_rate'
+19:12:51 [INFO] Connection watchdog cancelled
+19:12:51 [INFO] 🔌 [x10_trades] WebSocket stopped
+19:12:55 [DEBUG] ✅ 1000BONK-USD: X10=$59,833, Lighter=$103,308,852, Total=$103,368,685
+19:12:56 [ERROR] WebSocket stop error: 
+19:12:56 [INFO] 🛑 Rollback processor: Shutdown signal received
+19:12:56 [INFO] ✅ ParallelExecutionManager: Stopped
+19:12:56 [INFO] 🛑 Stopping InMemoryStateManager...
+19:12:56 [INFO] 📝 State writer loop stopped
+19:12:56 [INFO] ✅ InMemoryStateManager stopped
+19:12:56 [INFO] ✅ Shutdown complete
+19:12:56 [INFO] 🛑 Shutting down...
+19:12:56 [INFO] 🛑 Shutdown requested...
+19:12:56 [INFO] ✅ ParallelExecutionManager: Stopped
+19:12:56 [INFO] 🔌 [x10_account] WebSocket stopped
+19:12:56 [INFO] 🔌 [x10_trades] WebSocket stopped
+19:12:56 [INFO] 🔌 [x10_funding] WebSocket stopped
+19:12:56 [INFO] 🔌 [lighter] WebSocket stopped
+19:12:56 [INFO] ✅ WebSocketManager stopped
+19:12:56 [INFO] ✅ OpenInterestTracker stopped
+19:12:56 [INFO] 🛑 Stopping InMemoryStateManager...
+19:12:56 [INFO] ✅ InMemoryStateManager stopped
+19:12:56 [INFO] 🔒 Closing database...
+19:12:56 [INFO] 🖊️ Database write loop stopped
+19:12:56 [INFO] ✅ Database closed
+19:12:56 [INFO] ✅ X10 Adapter geschlossen.
+19:12:56 [INFO] ✅ Lighter Adapter closed
+19:12:56 [INFO] ✅ Bot V5 shutdown complete

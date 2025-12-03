@@ -217,10 +217,15 @@ class ParallelExecutionManager:
             
             finally:
                 # Schedule cleanup after 60s
-                asyncio.get_event_loop(). call_later(
-                    60.0, 
-                    lambda s=symbol: self. active_executions. pop(s, None)
-                )
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.call_later(
+                        60.0, 
+                        lambda s=symbol: self. active_executions. pop(s, None)
+                    )
+                except RuntimeError:
+                    # Fallback if no running loop
+                    pass
 
     async def _execute_parallel_internal(
         self, 
