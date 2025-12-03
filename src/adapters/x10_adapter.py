@@ -143,6 +143,64 @@ class X10Adapter(BaseAdapter):
             logger.error(f"X10 Fee Fetch Error for {order_id}: {e}")
             return config.TAKER_FEE_X10
 
+    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
+        """
+        Fetch fee schedule from X10 API (/api/v1/info/fees)
+        
+        Returns:
+            Tuple[maker_fee, taker_fee] or None if failed
+        """
+        try:
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/info/fees"
+            
+            await self.rate_limiter.acquire()
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.rate_limiter.on_success()
+                        
+                        # Parse fee schedule from response
+                        # Structure may vary, try common patterns
+                        fees_data = data.get('data') or data.get('fees') or data
+                        
+                        maker_fee = safe_float(
+                            fees_data.get('maker_fee') or 
+                            fees_data.get('maker') or 
+                            fees_data.get('makerFee') or 
+                            config.MAKER_FEE_X10,
+                            config.MAKER_FEE_X10
+                        )
+                        
+                        taker_fee = safe_float(
+                            fees_data.get('taker_fee') or 
+                            fees_data.get('taker') or 
+                            fees_data.get('takerFee') or 
+                            config.TAKER_FEE_X10,
+                            config.TAKER_FEE_X10
+                        )
+                        
+                        # Validate fees are reasonable (0-1%)
+                        if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
+                            logger.debug(f"X10 Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
+                            return (maker_fee, taker_fee)
+                        else:
+                            logger.warning(f"X10 Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
+                            return None
+                    else:
+                        if resp.status == 429:
+                            self.rate_limiter.penalize_429()
+                        else:
+                            self.rate_limiter.on_success()
+                        logger.debug(f"X10 Fee Schedule API returned {resp.status}")
+                        return None
+                        
+        except Exception as e:
+            logger.debug(f"X10 Fee Schedule fetch error: {e}")
+            return None
+
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
         logger.info(f"🌐 {self.name}: WebSocket Manager starting streams...")

@@ -37,6 +37,7 @@ from src.state_manager import (
 )
 from src.adaptive_threshold import get_threshold_manager
 from src.volatility_monitor import get_volatility_monitor
+from src.fee_manager import get_fee_manager
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
@@ -1149,6 +1150,20 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     'account_label': f"Main/Main" # Placeholder until multi-account fix
                 }
                 await add_trade_to_state(trade_data)
+                
+                # Log entry fees
+                try:
+                    fee_manager = await get_fee_manager()
+                    # Lighter uses POST_ONLY = Maker, X10 uses MARKET = Taker
+                    entry_fees = fee_manager.calculate_trade_fees(
+                        final_usd, 'X10', 'Lighter',
+                        is_maker1=False,  # X10 = Taker
+                        is_maker2=True    # Lighter = Maker (POST_ONLY)
+                    )
+                    logger.info(f"✅ OPENED {symbol}: ${final_usd:.2f} | Entry Fees: ${entry_fees:.4f}")
+                except Exception:
+                    pass
+                
                 return True
             else:
                 FAILED_COINS[symbol] = time.time()
@@ -1588,12 +1603,28 @@ async def manage_open_trades(lighter, x10):
                 spread_pnl = 0.0
                 current_spread_pct = 0.0
 
-            # Fees
-            fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
-            fee_lit = 0.0  # Lighter hat keine/niedrige Taker Fees
+            # Fees - Use FeeManager for dynamic fees
+            try:
+                fee_manager = await get_fee_manager()
+                # Lighter nutzt POST_ONLY = Maker, X10 nutzt MARKET = Taker
+                is_lighter_maker = True   # Lighter nutzt POST_ONLY = Maker
+                is_x10_maker = False      # X10 nutzt MARKET = Taker
+                
+                fee_x10 = fee_manager.get_x10_fees(is_maker=is_x10_maker)
+                fee_lit = fee_manager.get_lighter_fees(is_maker=is_lighter_maker)
+            except Exception as e:
+                logger.debug(f"FeeManager error, using config fallback: {e}")
+                fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.0006)
+                fee_lit = getattr(config, 'FEES_LIGHTER', 0.0)
+            
+            # Calculate fees: 2 trades (open + close) on each exchange
             est_fees = notional * (fee_x10 + fee_lit) * 2.0
-
-            total_pnl = funding_pnl + spread_pnl - est_fees
+            
+            # Gross PnL (before fees)
+            gross_pnl = funding_pnl + spread_pnl
+            
+            # Net PnL (after fees)
+            total_pnl = gross_pnl - est_fees
 
             # ═══════════════════════════════════════════════════════════════
             # FARM MODE PROFIT-MITNAHME (Nur wenn Preise verfügbar!)
@@ -1667,7 +1698,12 @@ async def manage_open_trades(lighter, x10):
                             await state_manager.update_trade(sym, {'funding_flip_start_time': None})
 
             if reason:
-                logger.info(f" 💸 EXIT {sym}: {reason} | PnL ${total_pnl:.2f} (Fees: ${est_fees:.2f})")
+                logger.info(
+                    f" 💸 EXIT {sym}: {reason} | "
+                    f"Gross PnL: ${gross_pnl:.2f} | "
+                    f"Fees: ${est_fees:.2f} | "
+                    f"Net PnL: ${total_pnl:.2f}"
+                )
                 if await close_trade(t, lighter, x10):
                     await close_trade_in_state(sym)
                     await archive_trade_to_history(t, reason, {
@@ -3193,6 +3229,14 @@ async def run_bot_v5():
     
     await close_database()
     
+    # Stop FeeManager
+    try:
+        fee_manager = await get_fee_manager()
+        await fee_manager.stop()
+        logger.info("✅ FeeManager stopped")
+    except Exception as e:
+        logger.debug(f"FeeManager stop error: {e}")
+    
     # Close adapters
     await x10.aclose()
     await lighter.aclose()
@@ -3230,6 +3274,17 @@ async def health_reporter(event_loop: BotEventLoop, parallel_exec):
                 f"📊 Prediction: {pred_stats['predictions_made']} predictions, "
                 f"avg confidence: {pred_stats['avg_confidence']:.2f}"
             )
+            
+            # Fee Stats
+            try:
+                fee_manager = await get_fee_manager()
+                fee_stats = fee_manager.get_stats()
+                logger.info(
+                    f"📊 FEES: X10={fee_stats['x10']['taker']:.4%} ({fee_stats['x10']['source']}) | "
+                    f"Lighter={fee_stats['lighter']['taker']:.4%} ({fee_stats['lighter']['source']})"
+                )
+            except Exception:
+                pass
             
             # Send to Telegram every 6 hours
             if interval >= 3600 and telegram.enabled:
@@ -3273,6 +3328,12 @@ async def main():
     price_event = asyncio.Event()
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
+    
+    # 2.1. Init FeeManager
+    fee_manager = await get_fee_manager()
+    fee_manager.set_adapters(x10, lighter)
+    await fee_manager.start()
+    logger.info("✅ FeeManager started")
     
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")
@@ -3561,6 +3622,14 @@ async def main():
         
         logger.info("🔒 Closing database...")
         await close_database()
+        
+        # Stop FeeManager
+        try:
+            fee_manager = await get_fee_manager()
+            await fee_manager.stop()
+            logger.info("✅ FeeManager stopped")
+        except Exception as e:
+            logger.debug(f"FeeManager stop error: {e}")
         
         # Close Adapters
         logger.info("🔌 Closing adapters...")
