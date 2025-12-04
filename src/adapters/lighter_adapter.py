@@ -136,8 +136,8 @@ class LighterAdapter(BaseAdapter):
                 self.rate_limiter.on_success()
                 return data
         except asyncio.CancelledError:
-            logger.debug(f"_rest_get cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("_rest_get cancelled (shutdown)")
+            return None  # Return None statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger. debug(f"{self.name} REST GET {path} error: {e}")
             return None
@@ -842,13 +842,13 @@ class LighterAdapter(BaseAdapter):
 
     async def load_funding_rates_and_prices(self):
         """Lädt Funding Rates UND Preise von der Lighter REST API"""
-        if not getattr(config, "LIVE_TRADING", False):
-            return
-
-        if not HAVE_LIGHTER_SDK:
-            return
-
         try:
+            if not getattr(config, "LIVE_TRADING", False):
+                return
+
+            if not HAVE_LIGHTER_SDK:
+                return
+
             signer = await self._get_signer()
             
             # 1.  FUNDING RATES laden
@@ -909,8 +909,8 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Lighter: Loaded {price_count} prices via REST")
                     
             except asyncio.CancelledError:
-                logger.debug(f"load_funding_rates_and_prices cancelled (shutdown)")
-                raise  # WICHTIG: Re-raise für saubere Propagation
+                logger.debug("load_funding_rates_and_prices cancelled (shutdown)")
+                return  # Return statt raise - verhindert _GatheringFuture error
             except Exception as e:
                 if "429" in str(e):
                     self. rate_limiter. penalize_429()
@@ -918,8 +918,8 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Lighter price fetch warning: {e}")
 
         except asyncio.CancelledError:
-            logger.debug(f"load_funding_rates_and_prices cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("load_funding_rates_and_prices cancelled (shutdown)")
+            return  # Return statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -1052,6 +1052,9 @@ class LighterAdapter(BaseAdapter):
 
                 return result
 
+        except asyncio.CancelledError:
+            logger.debug("fetch_orderbook cancelled (shutdown)")
+            return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "rate limit" in err_str:
@@ -1213,13 +1216,13 @@ class LighterAdapter(BaseAdapter):
         return self.fetch_mark_price(symbol)
 
     async def get_real_available_balance(self) -> float:
-        if time.time() - self._last_balance_update < 2.0:
-            return self._balance_cache
-
-        if not HAVE_LIGHTER_SDK:
-            return 0.0
-
         try:
+            if time.time() - self._last_balance_update < 2.0:
+                return self._balance_cache
+
+            if not HAVE_LIGHTER_SDK:
+                return 0.0
+
             await self.rate_limiter.acquire()
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
@@ -1245,8 +1248,8 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Lighter Balance: Raw=${val:.2f}, Safe=${safe_balance:.2f}")
                     break
                 except asyncio.CancelledError:
-                    logger.debug(f"get_real_available_balance cancelled (shutdown)")
-                    raise  # WICHTIG: Re-raise für saubere Propagation
+                    logger.debug("get_real_available_balance cancelled (shutdown)")
+                    return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                 except Exception as e:
                     if "429" in str(e):
                         await asyncio.sleep(2)
@@ -1255,23 +1258,24 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(1)
                         continue
                     raise
+            return self._balance_cache
         except asyncio.CancelledError:
-            logger.debug(f"get_real_available_balance cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("get_real_available_balance cancelled (shutdown)")
+            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" not in str(e):
                 logger.error(f"❌ Lighter Balance Error: {e}")
-
-        return self._balance_cache
+            return 0.0
 
     async def fetch_open_positions(self) -> List[dict]:
-        if not getattr(config, "LIVE_TRADING", False):
-            return []
-
-        if not HAVE_LIGHTER_SDK:
-            return []
-
+        """Fetch open positions from Lighter"""
         try:
+            if not getattr(config, "LIVE_TRADING", False):
+                return []
+
+            if not HAVE_LIGHTER_SDK:
+                return []
+
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
 
@@ -1312,10 +1316,10 @@ class LighterAdapter(BaseAdapter):
             return positions
 
         except asyncio.CancelledError:
-            logger.debug(f"fetch_open_positions cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("fetch_open_positions cancelled (shutdown)")
+            return []  # Return empty list statt raise - verhindert _GatheringFuture error
         except Exception as e:
-            logger. error(f"Lighter Positions Error: {e}")
+            logger.error(f"fetch_open_positions error: {e}")
             return []
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
@@ -1527,8 +1531,8 @@ class LighterAdapter(BaseAdapter):
                     return True, str(tx_hash)
 
                 except asyncio.CancelledError:
-                    logger.debug(f"open_live_position cancelled (shutdown)")
-                    raise  # WICHTIG: Re-raise für saubere Propagation
+                    logger.debug("open_live_position cancelled (shutdown)")
+                    return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
                 except Exception as inner_e:
                     logger.error(f"Lighter Inner Error: {inner_e}")
                     return False, None
@@ -1536,8 +1540,8 @@ class LighterAdapter(BaseAdapter):
             return False, None
 
         except asyncio.CancelledError:
-            logger.debug(f"open_live_position cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("open_live_position cancelled (shutdown)")
+            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"Lighter Execution Error: {e}")
             return False, None
@@ -1555,18 +1559,17 @@ class LighterAdapter(BaseAdapter):
         """
         import traceback
         
-        # ═══════════════════════════════════════════════════════════════════════════
-        # DEBUG: Log ALL input types and values at entry point
-        # ═══════════════════════════════════════════════════════════════════════════
-        logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
-        logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
-        logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
-        
-        if not getattr(config, "LIVE_TRADING", False):
-            logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
-            return True, "DRY_RUN_CLOSE_456"
-
         try:
+            # ═══════════════════════════════════════════════════════════════════════════
+            # DEBUG: Log ALL input types and values at entry point
+            # ═══════════════════════════════════════════════════════════════════════════
+            logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
+            logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
+            logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
+            
+            if not getattr(config, "LIVE_TRADING", False):
+                logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
+                return True, "DRY_RUN_CLOSE_456"
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 1: Hole aktuelle Positionen
             # ═══════════════════════════════════════════════════════════════
@@ -1685,8 +1688,8 @@ class LighterAdapter(BaseAdapter):
             
             return False, None
         except asyncio.CancelledError:
-            logger.debug(f"close_live_position cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("close_live_position cancelled (shutdown)")
+            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None

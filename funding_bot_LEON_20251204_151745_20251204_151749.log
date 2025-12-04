@@ -1,0 +1,199 @@
+15:17:49 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+15:17:49 [INFO] 🔥 BOT V5 (Architected) STARTING...
+15:17:49 [INFO] 🚀 Starting InMemoryStateManager...
+15:17:49 [INFO] 📂 Initializing database: data/trades.db
+15:17:49 [INFO] ✅ Read pool created: 5 connections
+15:17:49 [INFO] ✅ WAL mode enabled
+15:17:49 [INFO] 🔄 Running database migrations...
+15:17:49 [INFO] ✅ Migrations complete (15 statements)
+15:17:49 [INFO] ✅ Database initialized
+15:17:49 [INFO] 🖊️ Database write loop started
+15:17:49 [INFO] 📂 Loaded 3 trades from database
+15:17:49 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+15:17:49 [INFO] ✅ State Manager started
+15:17:49 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+15:17:49 [INFO] ✅ Async database initialized
+15:17:49 [INFO] 📝 State writer loop started
+15:17:49 [INFO] Initialisiere X10 Adapter...
+15:17:49 [INFO]  X10 Account initialisiert.
+15:17:49 [INFO] Initialisiere Lighter Adapter...
+15:17:49 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+15:17:49 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+15:17:50 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+15:17:50 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+15:17:50 [INFO] ✅ FeeManager started with periodic refresh
+15:17:50 [INFO] ✅ FeeManager started
+15:17:50 [INFO] 📊 Loading Market Data via REST...
+15:17:52 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+15:17:54 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+15:17:56 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+15:17:56 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+15:17:56 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+15:17:56 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+15:17:56 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+15:17:56 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+15:17:56 [INFO] 📈 Pre-loading Lighter prices...
+15:17:57 [INFO] ✅ Lighter prices loaded: 115 symbols
+15:17:57 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+15:18:00 [INFO] ✅ Execution clients warmed up & NETWORK READY
+15:18:00 [INFO] FundingPredictorV2 initialized with BTC Correlation
+15:18:00 [INFO] 📂 Loaded prediction history: 68 symbols
+15:18:00 [INFO] ✅ FundingPredictorV2 started with persistence
+15:18:00 [INFO] 启动 OI Tracker für 68 Symbole...
+15:18:00 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+15:18:00 [INFO] 🌐 Starting WebSocket Manager...
+15:18:00 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+15:18:00 [INFO] 🔌 [lighter] WebSocket manager started
+15:18:00 [INFO] 🔌 [x10_account] WebSocket manager started
+15:18:00 [INFO] 🔌 [x10_trades] WebSocket manager started
+15:18:00 [INFO] 🔌 [x10_funding] WebSocket manager started
+15:18:00 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+15:18:00 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:18:00 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:18:00 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:18:00 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+15:18:01 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+15:18:01 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:18:01 [INFO] [x10_trades] Receive loop started (async iterator)
+15:18:01 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+15:18:01 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:18:01 [INFO] [x10_account] Receive loop started (async iterator)
+15:18:01 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+15:18:01 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:18:01 [INFO] [x10_funding] Receive loop started (async iterator)
+15:18:01 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+15:18:01 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+15:18:01 [INFO] [lighter] Resubscribing to 89 channels (paced)...
+15:18:01 [INFO] [lighter] Receive loop started (async iterator)
+15:18:02 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+15:18:02 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+15:18:02 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+15:18:02 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+15:18:02 [INFO] [lighter] Resubscribed to 89 channels
+15:18:04 [INFO] Lighter: Found 0 open positions
+15:18:04 [INFO] 🌍 Echte Positionen auf Exchanges: []
+15:18:04 [WARNING] ⚠️  ZOMBIE GEFUNDEN: APEX-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+15:18:04 [INFO] ✅ Trade APEX-USD closed (PnL: $0.00)
+15:18:04 [WARNING] ⚠️  ZOMBIE GEFUNDEN: STRK-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+15:18:04 [INFO] ✅ Trade STRK-USD closed (PnL: $0.00)
+15:18:04 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ADA-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+15:18:04 [INFO] ✅ Trade ADA-USD closed (PnL: $0.00)
+15:18:04 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+15:18:06 [INFO] Lighter: Found 0 open positions
+15:18:06 [INFO] ✅ No orphaned positions found
+15:18:06 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+15:18:06 [INFO] ✅ ParallelExecutionManager started
+15:18:06 [INFO] ═══════════════════════════════════════════════════════════
+15:18:06 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+15:18:06 [INFO] ═══════════════════════════════════════════════════════════
+15:18:06 [INFO] 🚀 BotEventLoop starting...
+15:18:06 [INFO] ▶️ Started task: connection_watchdog
+15:18:06 [INFO] ▶️ Started task: logic_loop
+15:18:06 [INFO] ▶️ Started task: trade_management_loop
+15:18:06 [INFO] ▶️ Started task: farm_loop
+15:18:06 [INFO] ▶️ Started task: maintenance_loop
+15:18:06 [INFO] ▶️ Started task: cleanup_finished_tasks
+15:18:06 [INFO] ▶️ Started task: health_reporter
+15:18:06 [INFO] ✅ Started 7 tasks
+15:18:06 [INFO] 🔄 Rollback processor running...
+15:18:06 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+15:18:06 [INFO] Logic Loop gestartet – REFRESH alle 3s
+15:18:06 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+15:18:06 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+15:18:06 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+15:18:06 [INFO] 🛡️ Trade Management Loop gestartet
+15:18:06 [INFO] 🚜 Farm Mode ACTIVE
+15:18:06 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+15:18:06 [INFO] ✅ Returning 20 ML-ranked opportunities
+15:18:06 [INFO] 🎯 Found 3 opportunities, executing best...
+15:18:07 [INFO] 🚜 Opening FARM: APEX-USD APY=17.5%
+15:18:07 [INFO] X10: Detected balance = $297.28
+15:18:07 [INFO] 🚀 Launching 2 trades (Slots available: 2)
+15:18:08 [INFO] Lighter: Found 0 open positions
+15:18:08 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+15:18:08 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+15:18:08 [INFO] 🎰 KELLY APEX-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0250, confidence=LOW, samples=0
+15:18:08 [INFO] 📊 KELLY SIZE APEX-USD: base=$30.0, kelly_recommended=$6.9, final=$30.0
+15:18:08 [INFO] 🚀 Opening APEX-USD: Size=$30.0 (Min=$11.0)
+15:18:08 [INFO] 🔄 [PARALLEL] APEX-USD: Lighter POST-ONLY first
+15:18:08 [INFO] 🚀 LIGHTER OPEN APEX-USD: side=SELL, size_usd=$30.00, price=$0.541670
+15:18:08 [INFO] 🔄 [PARALLEL] APEX-USD: X10 MARKET order
+15:18:08 [INFO] Lighter: Found 0 open positions
+15:18:08 [INFO] 💰 Balance: X10=$297.3 (free=$262.8), Lit=$276.9 (free=$242.4) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+15:18:08 [INFO] 🚀 Launching trade for STRK-USD (APY=285123.9%)
+15:18:08 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+15:18:08 [INFO] Lighter Order: 747e589f79587209a25a64a9bcf206aa931b2ae4f597048e7f48f50585b1bffe46c7914b867c396b
+15:18:09 [INFO] 🚀 Launching trade for MON-USD (APY=198129.8%)
+15:18:09 [INFO] Lighter: Found 1 open positions
+15:18:09 [INFO] ✅ Launched 2 trade tasks this cycle
+15:18:09 [INFO] 🎰 KELLY STRK-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0325, confidence=LOW, samples=0
+15:18:09 [INFO] 📊 KELLY SIZE STRK-USD: base=$30.0, kelly_recommended=$8.0, final=$30.0
+15:18:09 [INFO] 🚀 Opening STRK-USD: Size=$30.0 (Min=$12.6)
+15:18:09 [INFO] 🔄 [PARALLEL] STRK-USD: Lighter POST-ONLY first
+15:18:09 [INFO] 🚀 LIGHTER OPEN STRK-USD: side=BUY, size_usd=$30.00, price=$0.119810
+15:18:09 [INFO] 🔄 [PARALLEL] STRK-USD: X10 MARKET order
+15:18:10 [INFO] Lighter: Found 1 open positions
+15:18:10 [INFO] 🔍 Running periodic exchange sync check...
+15:18:10 [INFO] 🔍 Starting Exchange Sync Check...
+15:18:10 [INFO] ⏳ Sync check: Found 2 symbols with active executions: {'STRK-USD', 'APEX-USD'}
+15:18:10 [INFO]  X10 Order: 1996584786445639680
+15:18:10 [INFO] ✅ [PARALLEL] APEX-USD: Both legs filled in 2313ms
+15:18:10 [INFO] ✅ OPENED APEX-USD: $30.00 | Entry Fees (est.): $0.0067
+15:18:11 [INFO] Lighter Order: cb397e0c956c2b6b82ec4a33d6d9a9907ab58bdb707d8c7086a440c8b1b7949a304b1d366bf99c60
+15:18:11 [INFO]  X10 Order: 1996584787868635136
+15:18:11 [INFO] ✅ [PARALLEL] STRK-USD: Both legs filled in 1391ms
+15:18:11 [INFO] ✅ OPENED STRK-USD: $30.00 | Entry Fees (est.): $0.0067
+15:18:11 [INFO] 🎰 KELLY MON-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0325, confidence=LOW, samples=0
+15:18:11 [INFO] 📊 KELLY SIZE MON-USD: base=$30.0, kelly_recommended=$7.0, final=$30.0
+15:18:11 [INFO] 🚀 Opening MON-USD: Size=$30.0 (Min=$11.0)
+15:18:11 [INFO] 🔄 [PARALLEL] MON-USD: Lighter POST-ONLY first
+15:18:11 [INFO] 🚀 LIGHTER OPEN MON-USD: side=BUY, size_usd=$30.00, price=$0.029330
+15:18:11 [INFO] 🔄 [PARALLEL] MON-USD: X10 MARKET order
+15:18:11 [INFO] Lighter Order: 81b67d5f28b1ceb78f4f248fb8a953714c326ab74a46f190acbd594e9743f3663e147dbc17eb70b3
+15:18:11 [INFO]  X10 Order: 1996584789705035776
+15:18:11 [INFO] ✅ [PARALLEL] MON-USD: Both legs filled in 375ms
+15:18:11 [INFO] ✅ OPENED MON-USD: $30.00 | Entry Fees (est.): $0.0067
+15:18:12 [INFO] Lighter: Found 2 open positions
+15:18:12 [INFO] 📊 Positions: X10=2, Lighter=2
+15:18:15 [INFO] 💰 APEX-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+15:18:15 [INFO] 💰 STRK-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+15:18:15 [INFO] 💰 MON-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+15:18:17 [INFO] Lighter: Found 3 open positions
+15:18:17 [INFO] 📊 Positions: X10=3, Lighter=3
+15:18:20 [WARNING] ⏸️ Sync check: Still 3 active executions after timeout: {'STRK-USD', 'MON-USD', 'APEX-USD'}
+15:18:20 [INFO] ⏳ Sync check: Skipping 3 symbols with active executions: {'STRK-USD', 'MON-USD', 'APEX-USD'}
+15:18:21 [INFO] Lighter: Found 3 open positions
+15:18:21 [INFO] ✅ Exchanges are SYNCED: 3 paired positions
+15:18:23 [INFO] Lighter: Found 3 open positions
+15:18:23 [INFO] 📊 Positions: X10=3, Lighter=3
+15:18:28 [INFO] Lighter: Found 3 open positions
+15:18:28 [INFO] 📊 Positions: X10=3, Lighter=3
+15:18:30 [INFO] 🛑 Initiating shutdown...
+15:18:30 [INFO] Logic loop cancelled
+15:18:30 [INFO] Connection watchdog cancelled
+15:18:31 [INFO] 🔌 [x10_trades] WebSocket stopped
+15:18:35 [ERROR] WebSocket stop error: 
+15:18:35 [INFO] 🛑 Rollback processor: Shutdown signal received
+15:18:35 [INFO] ✅ ParallelExecutionManager: Stopped
+15:18:35 [INFO] 🛑 Stopping InMemoryStateManager...
+15:18:35 [INFO] 📝 State writer loop stopped
+15:18:35 [INFO] ✅ InMemoryStateManager stopped
+15:18:35 [INFO] ✅ Shutdown complete
+15:18:35 [INFO] 🛑 Shutting down...
+15:18:35 [INFO] 🛑 Shutdown requested...
+15:18:35 [INFO] ✅ ParallelExecutionManager: Stopped
+15:18:35 [INFO] 🔌 [x10_account] WebSocket stopped
+15:18:35 [INFO] 🔌 [x10_trades] WebSocket stopped
+15:18:35 [INFO] 🔌 [x10_funding] WebSocket stopped
+15:18:35 [INFO] 🔌 [lighter] WebSocket stopped
+15:18:35 [INFO] ✅ WebSocketManager stopped
+15:18:35 [INFO] ✅ OpenInterestTracker stopped
+15:18:35 [INFO] 🛑 Stopping InMemoryStateManager...
+15:18:35 [INFO] ✅ InMemoryStateManager stopped
+15:18:35 [INFO] 🔒 Closing database...
+15:18:35 [INFO] 🖊️ Database write loop stopped
+15:18:35 [INFO] ✅ Database closed
+15:18:35 [INFO] 🛑 FeeManager stopped
+15:18:35 [INFO] ✅ X10 Adapter geschlossen.
+15:18:35 [INFO] ✅ Lighter Adapter closed
+15:18:35 [INFO] ✅ Bot V5 shutdown complete

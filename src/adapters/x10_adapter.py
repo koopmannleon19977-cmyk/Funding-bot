@@ -455,6 +455,9 @@ class X10Adapter(BaseAdapter):
                             self.rate_limiter.penalize_429()
                         logger.debug(f"X10 orderbook {symbol}: HTTP {resp.status}")
                         
+        except asyncio.CancelledError:
+            logger.debug("fetch_orderbook cancelled (shutdown)")
+            return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
         except asyncio.TimeoutError:
             logger.debug(f"X10 orderbook {symbol}: Timeout")
         except Exception as e:
@@ -525,11 +528,12 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
     async def fetch_open_positions(self) -> list:
-        if not self.stark_account:
-            logger.warning("X10: No stark_account configured")
-            return []
-
+        """Fetch open positions from X10"""
         try:
+            if not self.stark_account:
+                logger.warning("X10: No stark_account configured")
+                return []
+
             client = await self._get_auth_client()
             await self.rate_limiter.acquire()
             resp = await client.account.get_positions()
@@ -553,8 +557,8 @@ class X10Adapter(BaseAdapter):
             return positions
 
         except asyncio.CancelledError:
-            logger.debug(f"fetch_open_positions cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("fetch_open_positions cancelled (shutdown)")
+            return []  # Return empty list statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -614,10 +618,9 @@ class X10Adapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
-        if not config.LIVE_TRADING:
-            return True, None
-        
         try:
+            if not config.LIVE_TRADING:
+                return True, None
             # Warte auf Token BEVOR Request gesendet wird
             await self.rate_limiter.acquire()
             
@@ -705,8 +708,8 @@ class X10Adapter(BaseAdapter):
                 self.rate_limiter.on_success()
                 return True, str(resp.data.id)
             except asyncio.CancelledError:
-                logger.debug(f"open_live_position cancelled (shutdown)")
-                raise  # WICHTIG: Re-raise für saubere Propagation
+                logger.debug("open_live_position cancelled (shutdown)")
+                return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
             except Exception as e:
                 err_str = str(e)
                 if reduce_only and ("1137" in err_str or "1138" in err_str):
@@ -716,8 +719,8 @@ class X10Adapter(BaseAdapter):
                 logger.error(f" X10 Order Exception: {e}")
                 return False, None
         except asyncio.CancelledError:
-            logger.debug(f"open_live_position cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("open_live_position cancelled (shutdown)")
+            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f" X10 open_live_position error: {e}")
             return False, None
@@ -728,78 +731,85 @@ class X10Adapter(BaseAdapter):
         original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                positions = await self.fetch_open_positions()
-                actual_pos = next(
-                    (p for p in (positions or []) if p.get('symbol') == symbol),
-                    None
-                )
+        try:
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    positions = await self.fetch_open_positions()
+                    actual_pos = next(
+                        (p for p in (positions or []) if p.get('symbol') == symbol),
+                        None
+                    )
 
-                if not actual_pos or abs(safe_float(actual_pos.get('size', 0))) < 1e-8:
-                    logger.info(f"✅ X10 {symbol} already closed")
-                    return True, None
+                    if not actual_pos or abs(safe_float(actual_pos.get('size', 0))) < 1e-8:
+                        logger.info(f"✅ X10 {symbol} already closed")
+                        return True, None
 
-                actual_size = safe_float(actual_pos.get('size', 0))
-                actual_size_abs = abs(actual_size)
+                    actual_size = safe_float(actual_pos.get('size', 0))
+                    actual_size_abs = abs(actual_size)
 
-                if actual_size > 0:
-                    close_side = "SELL"
-                else:
-                    close_side = "BUY"
+                    if actual_size > 0:
+                        close_side = "SELL"
+                    else:
+                        close_side = "BUY"
 
-                price = safe_float(self.fetch_mark_price(symbol))
-                if price <= 0:
+                    price = safe_float(self.fetch_mark_price(symbol))
+                    if price <= 0:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2)
+                            continue
+                        return False, None
+
+                    actual_notional = actual_size_abs * price
+
+                    logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
+
+                    success, order_id = await self.open_live_position(
+                        symbol,
+                        close_side,
+                        actual_notional,
+                        reduce_only=True,
+                        post_only=False,
+                        amount=actual_size_abs
+                    )
+
+                    if not success:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(2 + attempt)
+                            continue
+                        return False, None
+
+                    await asyncio.sleep(2 + attempt)
+                    updated_positions = await self.fetch_open_positions()
+                    still_open = any(
+                        p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
+                        for p in (updated_positions or [])
+                    )
+
+                    if not still_open:
+                        return True, order_id
+                    else:
+                        if attempt < max_retries - 1:
+                            continue
+                        return False, order_id
+
+                except asyncio.CancelledError:
+                    logger.debug("close_live_position cancelled (shutdown)")
+                    return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
+                except Exception as e:
+                    logger.error(f"X10 Close exception for {symbol}: {e}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(2)
                         continue
                     return False, None
 
-                actual_notional = actual_size_abs * price
-
-                logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
-
-                success, order_id = await self.open_live_position(
-                    symbol,
-                    close_side,
-                    actual_notional,
-                    reduce_only=True,
-                    post_only=False,
-                    amount=actual_size_abs
-                )
-
-                if not success:
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(2 + attempt)
-                        continue
-                    return False, None
-
-                await asyncio.sleep(2 + attempt)
-                updated_positions = await self.fetch_open_positions()
-                still_open = any(
-                    p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
-                    for p in (updated_positions or [])
-                )
-
-                if not still_open:
-                    return True, order_id
-                else:
-                    if attempt < max_retries - 1:
-                        continue
-                    return False, order_id
-
-            except asyncio.CancelledError:
-                logger.debug(f"close_live_position cancelled (shutdown)")
-                raise  # WICHTIG: Re-raise für saubere Propagation
-            except Exception as e:
-                logger.error(f"X10 Close exception for {symbol}: {e}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                    continue
-                return False, None
-
-        return False, None
+            return False, None
+        except asyncio.CancelledError:
+            logger.debug("close_live_position cancelled (shutdown)")
+            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
+        except Exception as e:
+            logger.error(f"X10 Close exception for {symbol}: {e}")
+            return False, None
     
     async def cancel_all_orders(self, symbol: str) -> bool:
         try:
@@ -862,8 +872,8 @@ class X10Adapter(BaseAdapter):
                                     except:
                                         continue
                     except asyncio.CancelledError:
-                        logger.debug(f"get_real_available_balance cancelled (shutdown)")
-                        raise  # WICHTIG: Re-raise für saubere Propagation
+                        logger.debug("get_real_available_balance cancelled (shutdown)")
+                        return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                     except Exception:
                         continue
 
@@ -890,8 +900,8 @@ class X10Adapter(BaseAdapter):
                                                 except:
                                                     continue
                         except asyncio.CancelledError:
-                            logger.debug(f"get_real_available_balance cancelled (shutdown)")
-                            raise  # WICHTIG: Re-raise für saubere Propagation
+                            logger.debug("get_real_available_balance cancelled (shutdown)")
+                            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                         except Exception:
                             continue
 
@@ -905,8 +915,8 @@ class X10Adapter(BaseAdapter):
                         if val is not None:
                             return float(val)
             except asyncio.CancelledError:
-                logger.debug(f"get_real_available_balance cancelled (shutdown)")
-                raise  # WICHTIG: Re-raise für saubere Propagation
+                logger.debug("get_real_available_balance cancelled (shutdown)")
+                return 0.0  # Return default statt raise - verhindert _GatheringFuture error
             except Exception:
                 pass
             
@@ -914,8 +924,8 @@ class X10Adapter(BaseAdapter):
             return 0.0
             
         except asyncio.CancelledError:
-            logger.debug(f"get_real_available_balance cancelled (shutdown)")
-            raise  # WICHTIG: Re-raise für saubere Propagation
+            logger.debug("get_real_available_balance cancelled (shutdown)")
+            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"X10 Balance fetch komplett fehlgeschlagen: {e}")
             return 0.0
