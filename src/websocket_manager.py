@@ -21,6 +21,8 @@ from websockets.exceptions import ConnectionClosed, InvalidStatusCode
 
 logger = logging.getLogger(__name__)
 import config
+from src.orderbook_utils import calculate_orderbook_imbalance
+from src.btc_correlation import get_btc_monitor
 
 
 def safe_float(val, default=0.0):
@@ -697,6 +699,9 @@ class WebSocketManager:
         
         # OI Tracker
         self. oi_tracker = None
+        
+        # Rate limit for imbalance logs (1 log per symbol per 60s)
+        self._imbalance_log_times: Dict[str, float] = {}
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters for data updates"""
@@ -1001,6 +1006,18 @@ class WebSocketManager:
                         'asks': asks,
                         'timestamp': time.time()
                     }
+                    
+                    # Calculate and feed orderbook imbalance to predictor
+                    if self.predictor and (bids or asks):
+                        imbalance = calculate_orderbook_imbalance(bids, asks)
+                        self.predictor.update_orderbook_imbalance(symbol, imbalance)
+                        # Rate-limited logging (once per symbol per 60s)
+                        if abs(imbalance) > 0.1:
+                            now = time.time()
+                            last_log = self._imbalance_log_times.get(symbol, 0)
+                            if now - last_log > 60:
+                                logger.info(f"📊 [OB] Lighter {symbol}: Imbalance={imbalance:+.2f}")
+                                self._imbalance_log_times[symbol] = now
     
     async def _handle_lighter_trade(self, msg: dict):
         """Process Lighter trade"""
@@ -1014,6 +1031,10 @@ class WebSocketManager:
                 if symbol and self.lighter_adapter:
                     self.lighter_adapter._price_cache[symbol] = float(price)
                     self. lighter_adapter._price_cache_time[symbol] = time. time()
+                    
+                    # Feed BTC price to crash-protection monitor
+                    if symbol == "BTC-USD":
+                        get_btc_monitor().update_price(price)
     
     async def _handle_x10_message(self, msg: dict):
         """Handle X10 WebSocket messages"""
@@ -1090,6 +1111,18 @@ class WebSocketManager:
                     'asks': asks,
                     'timestamp': time.time()
                 }
+                
+                # Calculate and feed orderbook imbalance to predictor
+                if self.predictor:
+                    imbalance = calculate_orderbook_imbalance(bids, asks)
+                    self.predictor.update_orderbook_imbalance(symbol, imbalance)
+                    # Rate-limited logging (once per symbol per 60s)
+                    if abs(imbalance) > 0.1:
+                        now = time.time()
+                        last_log = self._imbalance_log_times.get(symbol, 0)
+                        if now - last_log > 60:
+                            logger.info(f"📊 [OB] X10 {symbol}: Imbalance={imbalance:+.2f}")
+                            self._imbalance_log_times[symbol] = now
     
     async def _handle_x10_open_interest(self, msg: dict):
         """Process X10 open interest"""
@@ -1145,6 +1178,10 @@ class WebSocketManager:
             if symbol and price and self.x10_adapter:
                 self.x10_adapter._price_cache[symbol] = float(price)
                 self.x10_adapter._price_cache_time[symbol] = time.time()
+                
+                # Feed BTC price to crash-protection monitor (redundant with Lighter)
+                if symbol == "BTC-USD":
+                    get_btc_monitor().update_price(float(price))
 
     def _lighter_market_id_to_symbol(self, market_id: int) -> Optional[str]:
         """Convert Lighter market ID to symbol"""

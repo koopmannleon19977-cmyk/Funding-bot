@@ -1875,8 +1875,8 @@ async def manage_open_trades(lighter, x10):
             # 3. Stop Loss / Take Profit
             if not reason:
                 if notional > 0:
-                    if total_pnl < -notional * 0.03:
-                        reason = "STOP_LOSS"
+                    if total_pnl < -notional * 0.005:
+                        reason = "BREAKEVEN_EXIT"
                     elif total_pnl > notional * 0.05:
                         reason = "TAKE_PROFIT"
                 

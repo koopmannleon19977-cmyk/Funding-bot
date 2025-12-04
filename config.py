@@ -54,27 +54,27 @@ TRADE_COOLDOWN_SECONDS = 120
 # POSITIONSGRÖSSEN & LIMITS
 # ============================================================
 # ═════════════════════════════════════════════════════════════════════════════==
-# OPTIMIERT für $60 Total Balance
+# OPTIMIERT für ~$590 Total Balance (X10: $296, Lighter: $291)
 # ═════════════════════════════════════════════════════════════════════════════==
-DESIRED_NOTIONAL_USD = 8          # Kleiner starten
-MIN_POSITION_SIZE_USD = 5.0       # API Minimum
-MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
-MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
-MAX_TRADE_SIZE_USD = 50.0         # Max pro Trade
-MAX_OPEN_TRADES = 3               # Nicht zu viele gleichzeitig, um Übersicht zu behalten
+DESIRED_NOTIONAL_USD = 30         # ~5% pro Trade
+MIN_POSITION_SIZE_USD = 15.0      # Unter $15 lohnt sich kaum
+MIN_TRADE_SIZE_USD = 15.0         # Gleich wie MIN_POSITION
+MAX_NOTIONAL_USD = 60.0           # Für starke Opportunities
+MAX_TRADE_SIZE_USD = 80.0         # Max einzelner Trade
+MAX_OPEN_TRADES = 4               # 4 × $30 = $120 = ~20% exposed pro Exchange
 
-# Safety: Reserve 20% statt 30%
-BALANCE_RESERVE_PCT = 0.20        # Gesenkt von 0.30
+# Safety: 15% Reserve
+BALANCE_RESERVE_PCT = 0.15        # ~$44 Puffer pro Exchange
 
 # ============================================================
 # PROFIT-FILTER (EINSTIEG)
 # ============================================================
-MIN_APY_FILTER = 0.05  # lowered from 0.12 to 0.05
+MIN_APY_FILTER = 0.30  # 30% APY minimum
 MIN_DAILY_PROFIT_FILTER = MIN_APY_FILTER / 365
 
 DYNAMIC_MIN_APY_ENABLED = True
 DYNAMIC_MIN_APY_MULTIPLIER = 1.1
-MIN_APY_FALLBACK = 0.05
+MIN_APY_FALLBACK = 0.30  # 30% APY fallback
 
 DYNAMIC_FEES_ENABLED = True
 
@@ -93,12 +93,15 @@ HIGH_RISK_SYMBOLS = {"HYPE-USD", "MEME-USD", "PEPE-USD", "DOGE-USD"}
 # Sonst rechnet der Bot mit Phantom-Gewinnen.
 
 # Rebate calculation
+# HINWEIS: Lighter Standard-Account hat bereits 0.00% Maker/Taker Fees.
+# Rebates (negative Fees) gibt es NUR bei Exchanges wie Hyperliquid (-0.002%).
+# Da wir 0% Fees haben, sind Rebates nicht anwendbar → auf 0.0 gesetzt.
 TAKER_FEE = 0.00025
 MAKER_FEE = 0.00000
 REBATE_TRADES_PER_DAY = 3
-REBATE_MAX_ANNUAL_DISCOUNT = 0.0  # Auf 0.0 gesetzt - keine Rebates!
-REBATE_MIN_ANNUAL_DISCOUNT = 0.0  # Ebenfalls auf 0.0 gesetzt
-MIN_SAFE_THRESHOLD = 0.03
+REBATE_MAX_ANNUAL_DISCOUNT = 0.0  # Lighter 0% Account = keine Rebates
+REBATE_MIN_ANNUAL_DISCOUNT = 0.0  # Lighter 0% Account = keine Rebates
+MIN_SAFE_THRESHOLD = 0.25  # Safe floor für 30% APY minimum
 
 # ============================================================
 # ============================================================
@@ -216,28 +219,27 @@ FARM_HOLD_SECONDS = 2700  # War: 60
 
 FARM_MAX_CONCURRENT = 2  # Reduced parallel farm trades (was 3)
 
-# Mindest-APY: 12%
-# Wir traden nichts unter 12%, damit die Funding-Rate die Gebühren deckt.
-FARM_MIN_APY = 0.12
+# Mindest-APY: 30%
+# Wir traden nichts unter 30%, damit die Funding-Rate die Gebühren deckt.
+FARM_MIN_APY = 0.30
 
 # Sicherheits-Limits
 FARM_MAX_VOLATILITY_24H = 8.0  # Mittlere Volatilität erlauben
 
-# Spread Filter: 0.04%
-# Da deine Fees so niedrig sind, darf der Spread etwas höher sein als bei 0.05% Fees.
-# Aber Vorsicht: Spread + Fee muss < Profit sein.
-FARM_MAX_SPREAD_PCT = 0.04
+# Spread Filter: 0.02%
+# Strenger Spread = weniger Schlupf
+FARM_MAX_SPREAD_PCT = 0.02
 
 # Volume Farm Rate Limiting
 FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades
 FARM_BURST_LIMIT = 10  # Max trades per minute
 FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
 
-# FARM Exit Konfiguration - Konservativere Einstellungen
+# FARM Exit Konfiguration - Sehr konservativ für "Niemals Minus"
 FARM_MIN_AGE_SECONDS = 300      # Mindestens 5 Minuten halten bevor Quick-Exit
-FARM_MIN_PROFIT_USD = 0.01      # Mindestens $0.01 Brutto-Profit für Quick-Exit
-FARM_SPREAD_THRESHOLD = 0.02    # 0.02% Spread gilt als "sehr niedrig"
-FARM_MAX_AGE_FOR_BREAKEVEN = 1800  # Nach 30 Minuten auch Break-Even akzeptieren
+FARM_MIN_PROFIT_USD = 0.05      # Mindestens $0.05 Brutto-Profit für Quick-Exit
+FARM_SPREAD_THRESHOLD = 0.01    # 0.01% Spread gilt als "sehr niedrig"
+FARM_MAX_AGE_FOR_BREAKEVEN = 900  # Nach 15 Minuten auch Break-Even akzeptieren
 
 # ============================================================
 # SYSTEM

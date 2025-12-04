@@ -10,8 +10,10 @@ Wir verwenden "Fractional Kelly" (Quarter Kelly) für konservativeres Sizing.
 """
 
 import logging
-from dataclasses import dataclass
-from typing import Optional
+import json
+import os
+from dataclasses import dataclass, asdict
+from typing import Optional, List
 from collections import deque
 import time
 
@@ -74,6 +76,9 @@ class KellyPositionSizer:
     MAX_POSITION_FRACTION = 0.25   # Maximal 25% des Kapitals pro Trade
     MIN_POSITION_FRACTION = 0.02   # Mindestens 2% des Kapitals
     
+    # Persistence
+    HISTORY_FILE = "data/kelly_history.json"
+    
     # Default-Werte wenn keine History vorhanden
     # KONSERVATIVER: Lieber zu klein als zu groß bei Unsicherheit
     DEFAULT_WIN_RATE = 0.60        # 60% - konservativer Start
@@ -95,7 +100,73 @@ class KellyPositionSizer:
             self. SAFETY_FACTOR = getattr(config, 'KELLY_SAFETY_FACTOR', 0.25)
             self.MAX_POSITION_FRACTION = getattr(config, 'MAX_SINGLE_TRADE_RISK_PCT', 0.10)
         
+        # Load persisted history
+        self._load_history()
+        
         logger.info(f"🎲 KellyPositionSizer initialized (Safety={self.SAFETY_FACTOR}, MaxFraction={self.MAX_POSITION_FRACTION})")
+    
+    def _load_history(self):
+        """Load trade history from JSON file."""
+        if not os.path.exists(self.HISTORY_FILE):
+            logger.debug(f"Kelly history file not found: {self.HISTORY_FILE}")
+            return
+        
+        try:
+            with open(self.HISTORY_FILE, 'r') as f:
+                data = json.load(f)
+            
+            # Load global history
+            for trade_dict in data.get('trades', []):
+                result = TradeResult(
+                    symbol=trade_dict['symbol'],
+                    pnl_usd=trade_dict['pnl_usd'],
+                    hold_time_seconds=trade_dict['hold_time_seconds'],
+                    entry_apy=trade_dict['entry_apy'],
+                    timestamp=trade_dict.get('timestamp', time.time())
+                )
+                self._trade_history.append(result)
+                
+                # Also populate symbol history
+                if result.symbol not in self._symbol_history:
+                    self._symbol_history[result.symbol] = deque(maxlen=50)
+                self._symbol_history[result.symbol].append(result)
+            
+            logger.info(f"📂 Loaded {len(self._trade_history)} trades from kelly_history.json")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to load Kelly history: {e}")
+    
+    def save_history(self):
+        """Save trade history to JSON file."""
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self.HISTORY_FILE), exist_ok=True)
+            
+            # Serialize trades
+            trades_data = [
+                {
+                    'symbol': t.symbol,
+                    'pnl_usd': t.pnl_usd,
+                    'hold_time_seconds': t.hold_time_seconds,
+                    'entry_apy': t.entry_apy,
+                    'timestamp': t.timestamp
+                }
+                for t in self._trade_history
+            ]
+            
+            data = {
+                'version': 1,
+                'saved_at': time.time(),
+                'trades': trades_data
+            }
+            
+            with open(self.HISTORY_FILE, 'w') as f:
+                json.dump(data, f, indent=2)
+            
+            logger.debug(f"💾 Saved {len(trades_data)} trades to kelly_history.json")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to save Kelly history: {e}")
     
     def record_trade(self, symbol: str, pnl_usd: float, hold_time_seconds: float, entry_apy: float):
         """Zeichnet einen abgeschlossenen Trade auf."""
@@ -117,6 +188,9 @@ class KellyPositionSizer:
         # Cache invalidieren
         self._stats_cache.pop(symbol, None)
         self._stats_cache. pop("__global__", None)
+        
+        # Persist to disk
+        self.save_history()
         
         status = "✅ WIN" if result.is_winner else "❌ LOSS"
         logger.debug(f"📊 Trade recorded: {symbol} {status} ${pnl_usd:.2f}")
