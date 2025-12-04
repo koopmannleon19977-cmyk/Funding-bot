@@ -1576,6 +1576,50 @@ async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.
     return net_pnl
 
 
+def should_farm_quick_exit(symbol: str, trade: Dict, current_spread: float, gross_pnl: float) -> tuple[bool, str]:
+    """
+    Bestimmt ob ein Farm-Trade per Quick-Exit geschlossen werden soll.
+    
+    Returns:
+        (should_exit: bool, reason: str)
+    """
+    # Berechne Trade-Alter
+    age_seconds, _ = calculate_trade_age(trade)
+    
+    # === REGEL 1: Minimum Haltezeit ===
+    min_age = getattr(config, 'FARM_MIN_AGE_SECONDS', 300)
+    if age_seconds < min_age:
+        logger.debug(f"🚜 FARM {symbol}: Keeping - too young ({age_seconds:.0f}s < {min_age}s)")
+        return False, "too_young"
+    
+    # === REGEL 2: Niemals mit Verlust schließen für Quick-Exit ===
+    if gross_pnl < 0:
+        logger.debug(f"🚜 FARM {symbol}: Keeping - negative PnL (${gross_pnl:.4f})")
+        return False, "negative_pnl"
+    
+    # === REGEL 3: Spread niedrig + Profit vorhanden ===
+    spread_threshold = getattr(config, 'FARM_SPREAD_THRESHOLD', 0.02) / 100.0  # Convert % to decimal
+    min_profit = getattr(config, 'FARM_MIN_PROFIT_USD', 0.01)
+    
+    if current_spread <= spread_threshold:
+        if gross_pnl >= min_profit:
+            # Guter Exit: Niedriger Spread UND Profit
+            return True, f"FARM_PROFIT (age={age_seconds:.0f}s, spread={current_spread*100:.3f}%, pnl=${gross_pnl:.4f})"
+        
+        # === REGEL 4: Sehr alte Trades - Break-Even akzeptieren ===
+        max_age_breakeven = getattr(config, 'FARM_MAX_AGE_FOR_BREAKEVEN', 1800)
+        if age_seconds >= max_age_breakeven and gross_pnl >= 0:
+            return True, f"FARM_AGED_OUT (age={age_seconds:.0f}s, pnl=${gross_pnl:.4f})"
+        
+        # Spread niedrig aber kein Profit - warten
+        logger.debug(f"🚜 FARM {symbol}: Keeping - low spread but no profit yet (spread={current_spread*100:.3f}%, pnl=${gross_pnl:.4f})")
+        return False, "waiting_for_profit"
+    
+    # Spread nicht niedrig genug
+    logger.debug(f"🚜 FARM {symbol}: Keeping - spread too high ({current_spread*100:.3f}% > {spread_threshold*100:.3f}%)")
+    return False, "spread_too_high"
+
+
 async def manage_open_trades(lighter, x10):
     trades = await get_open_trades()
     if not trades: return
@@ -1807,26 +1851,24 @@ async def manage_open_trades(lighter, x10):
             
             # 1. FARM MODE: Profit Take bei günstigem Spread
             if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
-                # ÄNDERUNG: Statt 300s hartcodiert, nehmen wir einen kürzeren Wert
-                min_hold_time = getattr(config, 'FARM_MIN_HOLD_SECONDS', 15)  # Standard: 15 Sekunden
+                should_exit, exit_reason = should_farm_quick_exit(
+                    symbol=sym,
+                    trade=t,
+                    current_spread=current_spread_pct,
+                    gross_pnl=gross_pnl
+                )
                 
-                # Erst nach min_hold_time prüfen
-                if age_seconds > min_hold_time:
-                    # Bei deinen Fees (0.045% roundtrip) ist alles unter 0.04% Spread Profit
-                    # Spread < 0.04% = günstige Exit-Bedingung
-                    if current_spread_pct < 0.0004:  # 0.04%
+                if should_exit:
+                    # Map exit reason to close reason
+                    if "FARM_PROFIT" in exit_reason:
                         reason = "FARM_QUICK_PROFIT"
-                        logger.info(
-                            f"🚜 [FARM] Profit Take {sym}: Age={int(age_seconds)}s, "
-                            f"Spread={current_spread_pct*100:.3f}% (sehr niedrig), PnL=${total_pnl:.2f}"
-                        )
-                    # Alternative: Wenn Total PnL positiv und Spread akzeptabel
-                    elif total_pnl > 0 and current_spread_pct < 0.0005:  # 0.05%
-                        reason = "FARM_QUICK_PROFIT"
-                        logger.info(
-                            f"🚜 [FARM] Profit Take {sym}: Age={int(age_seconds)}s, "
-                            f"PnL=${total_pnl:.2f}, Spread={current_spread_pct*100:.3f}%"
-                        )
+                    elif "FARM_AGED_OUT" in exit_reason:
+                        reason = "FARM_AGED_OUT"
+                    else:
+                        reason = "FARM_EXIT"
+                    
+                    logger.info(f"🚜 [FARM] Quick Exit {sym}: {exit_reason}")
+                # else: Position behalten (debug log bereits in Funktion)
 
             # 2. Volatility Panic
             if not reason:
@@ -1975,7 +2017,7 @@ def parse_iso_time(entry_time) -> Optional[datetime]:
     return entry_time
 
 
-async def sync_check_and_fix(lighter, x10):
+async def sync_check_and_fix(lighter, x10, parallel_exec=None):
     """
     Prüft ob X10 und Lighter Positionen synchron sind und fixt Differenzen.
     CRITICAL: Verhindert ungehedgte Positionen die zu Directional Risk führen.
@@ -1984,6 +2026,28 @@ async def sync_check_and_fix(lighter, x10):
     logger.info("🔍 Starting Exchange Sync Check...")
     
     try:
+        # ═══════════════════════════════════════════════════════════════
+        # Check for active executions - don't interfere with in-flight trades
+        # ═══════════════════════════════════════════════════════════════
+        active_symbols = set()
+        if parallel_exec and hasattr(parallel_exec, 'active_executions'):
+            active_symbols = set(parallel_exec.active_executions.keys())
+            if active_symbols:
+                logger.info(f"⏳ Sync check: Found {len(active_symbols)} symbols with active executions: {active_symbols}")
+                # Wait max 10 seconds if active executions are running
+                max_wait_time = 10.0
+                wait_start = time.time()
+                while active_symbols and (time.time() - wait_start) < max_wait_time:
+                    await asyncio.sleep(0.5)
+                    active_symbols = set(parallel_exec.active_executions.keys())
+                    if not active_symbols:
+                        logger.info("✅ All active executions completed, proceeding with sync check")
+                        break
+                
+                if active_symbols:
+                    logger.warning(f"⏸️ Sync check: Still {len(active_symbols)} active executions after timeout: {active_symbols}")
+                    logger.info(f"⏳ Sync check: Skipping {len(active_symbols)} symbols with active executions: {active_symbols}")
+        
         # ═══════════════════════════════════════════════════════════════
         # CRITICAL: Skip symbols that were recently opened (within 30 seconds)
         # Prevents race condition where sync check closes positions just opened
@@ -2053,6 +2117,12 @@ async def sync_check_and_fix(lighter, x10):
                 if sym in recently_opened:
                     logger.debug(f"🔒 Skipping sync check for {sym} (recently opened)")
                     continue
+                
+                # Skip if symbol has active execution
+                if sym in active_symbols:
+                    logger.warning(f"⏸️ Skipping {sym}: Active execution in progress")
+                    continue
+                
                 try:
                     logger.warning(f"🔻 Closing orphaned X10 position: {sym}")
                     pos = next((p for p in x10_positions if p.get('symbol') == sym), None)
@@ -2096,6 +2166,11 @@ async def sync_check_and_fix(lighter, x10):
                 # Skip if recently opened (grace period)
                 if sym in recently_opened:
                     logger.debug(f"🔒 Skipping sync check for {sym} (recently opened)")
+                    continue
+                
+                # Skip if symbol has active execution
+                if sym in active_symbols:
+                    logger.warning(f"⏸️ Skipping {sym}: Active execution in progress")
                     continue
                 
                 # HOL DIR DEN LOCK: Wenn er gelockt ist, läuft gerade ein Trade!
@@ -2972,7 +3047,7 @@ async def trade_management_loop(lighter, x10):
             logger.error(f"Trade Management Error: {e}")
             await asyncio.sleep(5)
 
-async def maintenance_loop(lighter, x10):
+async def maintenance_loop(lighter, x10, parallel_exec=None):
     """Background tasks: Funding rates refresh + REST Fallback für BEIDE Exchanges + Sync Check"""
     global LAST_DATA_UPDATE
     funding_refresh_interval = 30  # Alle 30s Funding Rates refreshen
@@ -3087,7 +3162,7 @@ async def maintenance_loop(lighter, x10):
             if now - last_sync_check > sync_check_interval:
                 logger.info("🔍 Running periodic exchange sync check...")
                 try:
-                    await sync_check_and_fix(lighter, x10)
+                    await sync_check_and_fix(lighter, x10, parallel_exec)
                     last_sync_check = now
                 except Exception as e:
                     logger.error(f"Sync check failed: {e}")
@@ -3259,6 +3334,7 @@ async def run_bot_v5():
     
     # A) Prediction Engine holen
     predictor = get_predictor()
+    await predictor.start()  # This loads history AND starts auto-save
     
     # B) Open Interest Tracker starten
     # Sammelt OI Daten via REST und bereitet WS Updates vor
@@ -3449,7 +3525,7 @@ async def run_bot_v5():
     
     event_loop.register_task(
         "maintenance_loop",
-        lambda: maintenance_loop(lighter, x10),
+        lambda: maintenance_loop(lighter, x10, parallel_exec),
         priority=TaskPriority.LOW,
         restart_on_failure=True
     )
@@ -3750,7 +3826,16 @@ async def main():
     # ═══════════════════════════════════════════════════════════════
     logger.info("🔍 Running startup exchange sync check...")
     try:
-        await sync_check_and_fix(lighter, x10)
+        # Try to get parallel_exec from event loop if available, otherwise None
+        parallel_exec = None
+        try:
+            from src.event_loop import get_event_loop
+            event_loop = get_event_loop()
+            if hasattr(event_loop, 'parallel_exec'):
+                parallel_exec = event_loop.parallel_exec
+        except Exception:
+            pass
+        await sync_check_and_fix(lighter, x10, parallel_exec)
     except Exception as e:
         logger.error(f"Startup sync check failed: {e}")
     await asyncio.sleep(2)
@@ -3805,7 +3890,7 @@ async def main():
     tasks = [
         asyncio.create_task(logic_loop(lighter, x10, price_event, parallel_exec), name="logic_loop"),
         asyncio.create_task(farm_loop(lighter, x10, parallel_exec), name="farm_loop"),
-        asyncio.create_task(maintenance_loop(lighter, x10), name="maintenance_loop"),
+        asyncio.create_task(maintenance_loop(lighter, x10, parallel_exec), name="maintenance_loop"),
         asyncio.create_task(cleanup_finished_tasks(), name="cleanup_finished_tasks"),   # ← PUNKT 2
         asyncio.create_task(connection_watchdog(ws_manager, x10, lighter), name="connection_watchdog"),  # ← Watchdog gegen Ping Timeout
 
@@ -3913,6 +3998,14 @@ async def main():
             await stop_fee_manager()
         except Exception as e:
             logger.debug(f"FeeManager stop error: {e}")
+        
+        # Save prediction history before shutdown
+        try:
+            predictor = get_predictor()
+            await predictor.stop()  # This saves history AND stops auto-save
+            logger.info("✅ Prediction history saved")
+        except Exception as e:
+            logger.warning(f"Failed to save prediction history: {e}")
         
         # Close Adapters
         logger.info("🔌 Closing adapters...")

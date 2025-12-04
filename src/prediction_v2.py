@@ -1,10 +1,12 @@
 # src/prediction_v2.py → FINAL & BULLETPROOF VERSION (Updated for BTC Correlation)
 
 import asyncio
+import json
 import logging
 import time
 import numpy as np
 from collections import deque
+from pathlib import Path
 from typing import Dict, Tuple, Optional, List
 
 import config
@@ -16,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class FundingPredictorV2:
+    HISTORY_FILE = "data/prediction_history.json"
+    SAVE_INTERVAL = 60  # Sekunden zwischen Auto-Saves
+    
     def __init__(self):
         self.rate_history: Dict[str, deque] = {}
         self.ob_imbalance_history: Dict[str, deque] = {}
@@ -28,6 +33,10 @@ class FundingPredictorV2:
         
         # BTC Monitor Reference
         self.btc_monitor = get_btc_monitor()
+        
+        # Auto-save task
+        self._save_task: Optional[asyncio.Task] = None
+        self._running = False
         
         logger.info("FundingPredictorV2 initialized with BTC Correlation")
 
@@ -229,6 +238,99 @@ class FundingPredictorV2:
         )
         
         return results[:limit]
+
+    # === Persistence Methods ===
+    async def save_history(self):
+        """Save rate history to disk for persistence across restarts"""
+        try:
+            history_data = {}
+            for symbol, deque_data in self.rate_history.items():
+                # Convert deque to list of (timestamp, rate) tuples
+                history_data[symbol] = list(deque_data)
+            
+            # Ensure directory exists
+            Path(self.HISTORY_FILE).parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.HISTORY_FILE, 'w') as f:
+                json.dump({
+                    'rate_history': history_data,
+                    'oi_cache': self.oi_cache,
+                    'saved_at': time.time()
+                }, f)
+            
+            logger.debug(f"📸 Saved prediction history: {len(history_data)} symbols")
+        except Exception as e:
+            logger.warning(f"Failed to save prediction history: {e}")
+
+    async def load_history(self):
+        """Load rate history from disk"""
+        try:
+            if not Path(self.HISTORY_FILE).exists():
+                logger.info("📂 No prediction history file found, starting fresh")
+                return False
+            
+            with open(self.HISTORY_FILE, 'r') as f:
+                data = json.load(f)
+            
+            # Check if data is too old (more than 24 hours)
+            saved_at = data.get('saved_at', 0)
+            if time.time() - saved_at > 86400:  # 24 hours
+                logger.info("📂 Prediction history too old (>24h), starting fresh")
+                return False
+            
+            # Restore rate history
+            for symbol, history_list in data.get('rate_history', {}).items():
+                self.rate_history[symbol] = deque(history_list, maxlen=self.max_history)
+            
+            # Restore OI cache
+            self.oi_cache = data.get('oi_cache', {})
+            
+            loaded_count = len(self.rate_history)
+            logger.info(f"📂 Loaded prediction history: {loaded_count} symbols")
+            return True
+            
+        except Exception as e:
+            logger.warning(f"Failed to load prediction history: {e}")
+            return False
+
+    async def start(self):
+        """Start the predictor with history loading and auto-save"""
+        if self._running:
+            return
+        
+        # Load saved history
+        await self.load_history()
+        
+        # Start auto-save task
+        self._running = True
+        self._save_task = asyncio.create_task(self._auto_save_loop())
+        logger.info("✅ FundingPredictorV2 started with persistence")
+
+    async def stop(self):
+        """Stop the predictor and save history"""
+        self._running = False
+        
+        if self._save_task:
+            self._save_task.cancel()
+            try:
+                await self._save_task
+            except asyncio.CancelledError:
+                pass
+        
+        # Final save
+        await self.save_history()
+        logger.info("✅ FundingPredictorV2 stopped, history saved")
+
+    async def _auto_save_loop(self):
+        """Periodically save history to disk"""
+        while self._running:
+            try:
+                await asyncio.sleep(self.SAVE_INTERVAL)
+                await self.save_history()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"Auto-save error: {e}")
 
 # Singleton
 _predictor_v2: Optional[FundingPredictorV2] = None

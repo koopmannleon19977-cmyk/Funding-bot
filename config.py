@@ -233,6 +233,12 @@ FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades
 FARM_BURST_LIMIT = 10  # Max trades per minute
 FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
 
+# FARM Exit Konfiguration - Konservativere Einstellungen
+FARM_MIN_AGE_SECONDS = 300      # Mindestens 5 Minuten halten bevor Quick-Exit
+FARM_MIN_PROFIT_USD = 0.01      # Mindestens $0.01 Brutto-Profit für Quick-Exit
+FARM_SPREAD_THRESHOLD = 0.02    # 0.02% Spread gilt als "sehr niedrig"
+FARM_MAX_AGE_FOR_BREAKEVEN = 1800  # Nach 30 Minuten auch Break-Even akzeptieren
+
 # ============================================================
 # SYSTEM
 # ============================================================
