@@ -61,6 +61,13 @@ logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
 
+# Set global log level to INFO to suppress DEBUG messages
+logging.getLogger().setLevel(logging.INFO)
+
+# Set specific loggers to WARNING for verbose modules
+logging.getLogger('fee_manager').setLevel(logging.WARNING)
+logging.getLogger('position_cache').setLevel(logging.WARNING)
+
 # Globals
 FAILED_COINS = {}
 ACTIVE_TASKS: dict[str, asyncio.Task] = {}           # symbol → Task (nur eine pro Symbol gleichzeitig)
@@ -832,10 +839,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         # ---------------------------------------------------------
         net = rl - rx
         apy = abs(net) * 24 * 365  # Rates sind jetzt Hourly -> 24x am Tag
-
-        # ↓↓↓ DIESE ZEILE EINFÜGEN ↓↓↓
-        if apy > 0.5:  # Nur loggen wenn APY > 50%
-            logger.info(f"🔍 DEBUG {s}: rl={rl:.8f}, rx={rx:.8f}, net={net:.8f}, apy={apy*100:.1f}%")
 
         req_apy = threshold_manager.get_threshold(s, is_maker=True)
         if apy < req_apy:
@@ -1635,10 +1638,6 @@ async def manage_open_trades(lighter, x10):
         try:
             sym = t['symbol']
             
-            # DEBUG: Zeige den Typ und Wert von entry_time
-            raw_entry_time = t.get('entry_time')
-            logger.info(f"🔍 DEBUG {sym}: entry_time type={type(raw_entry_time)}, value={raw_entry_time}")
-            
             # ═══════════════════════════════════════════════════════════════
             # FIX: Daten-Sanitizing für ALLE numerischen Felder
             # ═══════════════════════════════════════════════════════════════
@@ -1780,19 +1779,6 @@ async def manage_open_trades(lighter, x10):
             # Calculate Net PnL with proper entry and exit fees
             try:
                 fee_manager = get_fee_manager()
-                
-                # Debug: Log FeeManager stats
-                try:
-                    stats = fee_manager.get_stats()
-                    logger.info(f"🔍 FeeManager Stats: enabled={stats.get('enabled')}, "
-                              f"X10(source={stats.get('x10', {}).get('source', 'unknown')}, "
-                              f"maker={stats.get('x10', {}).get('maker', 0):.6f}, "
-                              f"taker={stats.get('x10', {}).get('taker', 0):.6f}), "
-                              f"Lighter(source={stats.get('lighter', {}).get('source', 'unknown')}, "
-                              f"maker={stats.get('lighter', {}).get('maker', 0):.6f}, "
-                              f"taker={stats.get('lighter', {}).get('taker', 0):.6f})")
-                except Exception as stats_err:
-                    logger.debug(f"Error getting FeeManager stats: {stats_err}")
                 
                 # Use calculate_realized_pnl to properly account for entry and exit fees
                 net_pnl_decimal = await calculate_realized_pnl(t, fee_manager, gross_pnl)
