@@ -571,7 +571,8 @@ class InMemoryStateManager:
                     last_flush = now
                     
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_writer_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"Writer loop error: {e}")
                 await asyncio.sleep(1.0)
@@ -700,7 +701,8 @@ class InMemoryStateManager:
                 await self._verify_state()
                 self._stats["syncs"] += 1
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_sync_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"Sync error: {e}")
 
@@ -744,7 +746,8 @@ class InMemoryStateManager:
                 await self._save_snapshot()
                 self._stats["snapshots"] += 1
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_snapshot_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger. error(f"Snapshot error: {e}")
 

@@ -135,6 +135,9 @@ class LighterAdapter(BaseAdapter):
                 data = await resp.json()
                 self.rate_limiter.on_success()
                 return data
+        except asyncio.CancelledError:
+            logger.debug(f"_rest_get cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger. debug(f"{self.name} REST GET {path} error: {e}")
             return None
@@ -905,12 +908,18 @@ class LighterAdapter(BaseAdapter):
                     self.rate_limiter.on_success()
                     logger.debug(f"Lighter: Loaded {price_count} prices via REST")
                     
+            except asyncio.CancelledError:
+                logger.debug(f"load_funding_rates_and_prices cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 if "429" in str(e):
                     self. rate_limiter. penalize_429()
                 else:
                     logger.debug(f"Lighter price fetch warning: {e}")
 
+        except asyncio.CancelledError:
+            logger.debug(f"load_funding_rates_and_prices cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -1235,6 +1244,9 @@ class LighterAdapter(BaseAdapter):
 
                     logger.debug(f"Lighter Balance: Raw=${val:.2f}, Safe=${safe_balance:.2f}")
                     break
+                except asyncio.CancelledError:
+                    logger.debug(f"get_real_available_balance cancelled (shutdown)")
+                    raise  # WICHTIG: Re-raise für saubere Propagation
                 except Exception as e:
                     if "429" in str(e):
                         await asyncio.sleep(2)
@@ -1243,6 +1255,9 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(1)
                         continue
                     raise
+        except asyncio.CancelledError:
+            logger.debug(f"get_real_available_balance cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             if "429" not in str(e):
                 logger.error(f"❌ Lighter Balance Error: {e}")
@@ -1296,6 +1311,9 @@ class LighterAdapter(BaseAdapter):
             logger.info(f"Lighter: Found {len(positions)} open positions")
             return positions
 
+        except asyncio.CancelledError:
+            logger.debug(f"fetch_open_positions cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger. error(f"Lighter Positions Error: {e}")
             return []
@@ -1414,31 +1432,31 @@ class LighterAdapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
-        # ═══════════════════════════════════════════════════════════════
-        notional_usd_safe = safe_float(notional_usd, 0.0)
-        if notional_usd_safe <= 0:
-            logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
-            return False, None
-        
-        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
-        if not is_valid:
-            logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
-            raise ValueError(f"Order validation failed: {error_msg}")
-
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Safe-cast price (could be string from API)
-        # ═══════════════════════════════════════════════════════════════
-        if price is None:
-            price = self.get_price(symbol)
-        price_safe = safe_float(price, 0.0)
-        if price_safe <= 0:
-            raise ValueError(f"No valid price available for {symbol}: {price}")
-
-        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
-
         try:
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
+            # ═══════════════════════════════════════════════════════════════
+            notional_usd_safe = safe_float(notional_usd, 0.0)
+            if notional_usd_safe <= 0:
+                logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
+                return False, None
+            
+            is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
+            if not is_valid:
+                logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
+                raise ValueError(f"Order validation failed: {error_msg}")
+
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Safe-cast price (could be string from API)
+            # ═══════════════════════════════════════════════════════════════
+            if price is None:
+                price = self.get_price(symbol)
+            price_safe = safe_float(price, 0.0)
+            if price_safe <= 0:
+                raise ValueError(f"No valid price available for {symbol}: {price}")
+
+            logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
+
             # ═══════════════════════════════════════════════════════════════
             # CRITICAL: Safe-cast market_id (market_info values can be strings!)
             # ═══════════════════════════════════════════════════════════════
@@ -1508,12 +1526,18 @@ class LighterAdapter(BaseAdapter):
                     logger.info(f"Lighter Order: {tx_hash}")
                     return True, str(tx_hash)
 
+                except asyncio.CancelledError:
+                    logger.debug(f"open_live_position cancelled (shutdown)")
+                    raise  # WICHTIG: Re-raise für saubere Propagation
                 except Exception as inner_e:
                     logger.error(f"Lighter Inner Error: {inner_e}")
                     return False, None
 
             return False, None
 
+        except asyncio.CancelledError:
+            logger.debug(f"open_live_position cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger.error(f"Lighter Execution Error: {e}")
             return False, None
@@ -1660,6 +1684,9 @@ class LighterAdapter(BaseAdapter):
                     logger.error(f"     - {key}: {val} (type={type(val)})")
             
             return False, None
+        except asyncio.CancelledError:
+            logger.debug(f"close_live_position cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None

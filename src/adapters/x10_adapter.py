@@ -552,6 +552,9 @@ class X10Adapter(BaseAdapter):
                     })
             return positions
 
+        except asyncio.CancelledError:
+            logger.debug(f"fetch_open_positions cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -614,99 +617,109 @@ class X10Adapter(BaseAdapter):
         if not config.LIVE_TRADING:
             return True, None
         
-        # Warte auf Token BEVOR Request gesendet wird
-        await self.rate_limiter.acquire()
-        
-        client = await self._get_trading_client()
-        market = self.market_info.get(symbol)
-        if not market:
-            return False, None
-
-        price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
-        if price <= 0:
-            return False, None
-
-        slippage = Decimal(str(config.X10_MAX_SLIPPAGE_PCT)) / 100
-        raw_price = price * (
-            Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
-        )
-
-        cfg = market.trading_config
-        if hasattr(cfg, "round_price") and callable(cfg.round_price):
-            try:
-                limit_price = cfg.round_price(raw_price)
-            except:
-                limit_price = raw_price.quantize(
-                    Decimal("0.01"), 
-                    rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
-                )
-        else:
-            tick_size = Decimal(getattr(cfg, "min_price_change", "0.01"))
-            if side == "BUY":
-                limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
-            else:
-                limit_price = (raw_price // tick_size) * tick_size
-
-        if amount is not None and amount > 0:
-            qty = Decimal(str(amount))
-        else:
-            qty = Decimal(str(notional_usd)) / limit_price
-        step = Decimal(getattr(cfg, "min_order_size_change", "0"))
-        min_size = Decimal(getattr(cfg, "min_order_size", "0"))
-        
-        if step > 0:
-            qty = (qty // step) * step
-            if qty < min_size:
-                qty = ((qty // step) + 1) * step
-
-        order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
-        tif = TimeInForce.GTT
-        
-        if post_only:
-            if hasattr(TimeInForce, "POST_ONLY"):
-                tif = TimeInForce.POST_ONLY
-            elif hasattr(TimeInForce, "PostOnly"):
-                tif = TimeInForce.PostOnly
-            else:
-                post_only = False
-
-        expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
-
         try:
+            # Warte auf Token BEVOR Request gesendet wird
             await self.rate_limiter.acquire()
-            resp = await client.place_order(
-                market_name=symbol,
-                amount_of_synthetic=qty,
-                price=limit_price,
-                side=order_side,
-                time_in_force=tif,
-                expire_time=expire,
-                reduce_only=reduce_only,
-            )
             
-            if resp.error:
-                err_msg = str(resp.error)
-                if reduce_only and ("1137" in err_msg or "1138" in err_msg):
-                    return True, None
-                
-                logger.error(f" X10 Order Fail: {resp.error}")
-                if post_only and "post only" in err_msg.lower():
-                    logger.info(" Retry ohne PostOnly...")
-                    return await self.open_live_position(
-                        symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
-                    )
+            client = await self._get_trading_client()
+            market = self.market_info.get(symbol)
+            if not market:
                 return False, None
+
+            price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
+            if price <= 0:
+                return False, None
+
+            slippage = Decimal(str(config.X10_MAX_SLIPPAGE_PCT)) / 100
+            raw_price = price * (
+                Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
+            )
+
+            cfg = market.trading_config
+            if hasattr(cfg, "round_price") and callable(cfg.round_price):
+                try:
+                    limit_price = cfg.round_price(raw_price)
+                except:
+                    limit_price = raw_price.quantize(
+                        Decimal("0.01"), 
+                        rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
+                    )
+            else:
+                tick_size = Decimal(getattr(cfg, "min_price_change", "0.01"))
+                if side == "BUY":
+                    limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
+                else:
+                    limit_price = (raw_price // tick_size) * tick_size
+
+            if amount is not None and amount > 0:
+                qty = Decimal(str(amount))
+            else:
+                qty = Decimal(str(notional_usd)) / limit_price
+            step = Decimal(getattr(cfg, "min_order_size_change", "0"))
+            min_size = Decimal(getattr(cfg, "min_order_size", "0"))
+            
+            if step > 0:
+                qty = (qty // step) * step
+                if qty < min_size:
+                    qty = ((qty // step) + 1) * step
+
+            order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
+            tif = TimeInForce.GTT
+            
+            if post_only:
+                if hasattr(TimeInForce, "POST_ONLY"):
+                    tif = TimeInForce.POST_ONLY
+                elif hasattr(TimeInForce, "PostOnly"):
+                    tif = TimeInForce.PostOnly
+                else:
+                    post_only = False
+
+            expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
+
+            try:
+                await self.rate_limiter.acquire()
+                resp = await client.place_order(
+                    market_name=symbol,
+                    amount_of_synthetic=qty,
+                    price=limit_price,
+                    side=order_side,
+                    time_in_force=tif,
+                    expire_time=expire,
+                    reduce_only=reduce_only,
+                )
                 
-            logger.info(f" X10 Order: {resp.data.id}")
-            self.rate_limiter.on_success()
-            return True, str(resp.data.id)
+                if resp.error:
+                    err_msg = str(resp.error)
+                    if reduce_only and ("1137" in err_msg or "1138" in err_msg):
+                        return True, None
+                    
+                    logger.error(f" X10 Order Fail: {resp.error}")
+                    if post_only and "post only" in err_msg.lower():
+                        logger.info(" Retry ohne PostOnly...")
+                        return await self.open_live_position(
+                            symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
+                        )
+                    return False, None
+                    
+                logger.info(f" X10 Order: {resp.data.id}")
+                self.rate_limiter.on_success()
+                return True, str(resp.data.id)
+            except asyncio.CancelledError:
+                logger.debug(f"open_live_position cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
+            except Exception as e:
+                err_str = str(e)
+                if reduce_only and ("1137" in err_str or "1138" in err_str):
+                    return True, None
+                if "429" in err_str:
+                    self.rate_limiter.penalize_429()
+                logger.error(f" X10 Order Exception: {e}")
+                return False, None
+        except asyncio.CancelledError:
+            logger.debug(f"open_live_position cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
-            err_str = str(e)
-            if reduce_only and ("1137" in err_str or "1138" in err_str):
-                return True, None
-            if "429" in err_str:
-                self.rate_limiter.penalize_429()
-            logger.error(f" X10 Order Exception: {e}")
+            logger.error(f" X10 open_live_position error: {e}")
             return False, None
 
     async def close_live_position(
@@ -776,6 +789,9 @@ class X10Adapter(BaseAdapter):
                         continue
                     return False, order_id
 
+            except asyncio.CancelledError:
+                logger.debug(f"close_live_position cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"X10 Close exception for {symbol}: {e}")
                 if attempt < max_retries - 1:
@@ -824,8 +840,8 @@ class X10Adapter(BaseAdapter):
             return False
     
     async def get_real_available_balance(self) -> float:
-        await self.rate_limiter.acquire()
         try:
+            await self.rate_limiter.acquire()
             client = await self._get_auth_client()
             
             # METHODE 1: SDK get_balance()
@@ -845,6 +861,9 @@ class X10Adapter(BaseAdapter):
                                             return balance
                                     except:
                                         continue
+                    except asyncio.CancelledError:
+                        logger.debug(f"get_real_available_balance cancelled (shutdown)")
+                        raise  # WICHTIG: Re-raise für saubere Propagation
                     except Exception:
                         continue
 
@@ -870,6 +889,9 @@ class X10Adapter(BaseAdapter):
                                                     return float(data[field])
                                                 except:
                                                     continue
+                        except asyncio.CancelledError:
+                            logger.debug(f"get_real_available_balance cancelled (shutdown)")
+                            raise  # WICHTIG: Re-raise für saubere Propagation
                         except Exception:
                             continue
 
@@ -882,12 +904,18 @@ class X10Adapter(BaseAdapter):
                         val = data.get(field)
                         if val is not None:
                             return float(val)
+            except asyncio.CancelledError:
+                logger.debug(f"get_real_available_balance cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception:
                 pass
             
             logger.error("X10: ALLE Balance-Methoden fehlgeschlagen!")
             return 0.0
             
+        except asyncio.CancelledError:
+            logger.debug(f"get_real_available_balance cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger.error(f"X10 Balance fetch komplett fehlgeschlagen: {e}")
             return 0.0

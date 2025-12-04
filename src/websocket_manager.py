@@ -388,7 +388,8 @@ class ManagedWebSocket:
         except ConnectionClosed as e:
             logger.warning(f"[{self.config.name}] Connection closed: {e.code} {e.reason}")
         except asyncio.CancelledError:
-            raise
+            logger.debug(f"_receive_loop cancelled (shutdown)")
+            raise  # WICHTIG: Re-raise für saubere Propagation
         except Exception as e:
             logger.error(f"[{self.config.name}] Receive error: {e}")
             raise
@@ -444,7 +445,8 @@ class ManagedWebSocket:
                 await asyncio.sleep(0)
                 
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_process_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"[{self.config.name}] Process loop error: {e}")
                 await asyncio.sleep(0.1)
@@ -564,7 +566,8 @@ class ManagedWebSocket:
                         )
                     
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_heartbeat_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"[{self.config.name}] Heartbeat error: {e}")
     

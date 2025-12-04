@@ -178,6 +178,9 @@ class OpenInterestTracker:
                             if self.x10:
                                 try:
                                     oi_x10 = await self.x10.fetch_open_interest(sym)
+                                except asyncio.CancelledError:
+                                    logger.debug(f"_update_loop cancelled (shutdown)")
+                                    raise  # WICHTIG: Re-raise für saubere Propagation
                                 except Exception as e:
                                     if "429" in str(e):
                                         rate_limited = True
@@ -189,6 +192,9 @@ class OpenInterestTracker:
                             if self.lighter:
                                 try:
                                     oi_lighter = await self.lighter.fetch_open_interest(sym)
+                                except asyncio.CancelledError:
+                                    logger.debug(f"_update_loop cancelled (shutdown)")
+                                    raise  # WICHTIG: Re-raise für saubere Propagation
                                 except Exception as e:
                                     if "429" in str(e):
                                         rate_limited = True
@@ -220,6 +226,9 @@ class OpenInterestTracker:
                                 failed_count += 1
                                 logger.debug(f"⚠️ {sym}: No OI data available")
                                 
+                        except asyncio.CancelledError:
+                            logger.debug(f"_update_loop cancelled (shutdown)")
+                            raise  # WICHTIG: Re-raise für saubere Propagation
                         except Exception as e:
                             failed_count += 1
                             if "429" in str(e):
@@ -263,7 +272,8 @@ class OpenInterestTracker:
                 
                 
             except asyncio.CancelledError:
-                break
+                logger.debug(f"_update_loop cancelled (shutdown)")
+                raise  # WICHTIG: Re-raise für saubere Propagation
             except Exception as e:
                 logger.error(f"OI Tracker error: {e}")
                 await asyncio.sleep(60.0)
