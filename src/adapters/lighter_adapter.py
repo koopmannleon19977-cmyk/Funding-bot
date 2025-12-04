@@ -358,52 +358,20 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Fee Fetch Error for {order_id}: {e}")
             return 0.0
 
-    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
+    async def fetch_fee_schedule(self) -> Tuple[float, float, str]:
         """
-        Fetch fee schedule from Lighter API
+        Fetch fee schedule from Lighter.
+        
+        Note: Lighter has no fees API endpoint and always charges 0% fees.
+        We return 0.0 directly without making an API call to save requests
+        and avoid 404 errors in logs.
         
         Returns:
-            Tuple[maker_fee, taker_fee] or None if failed
+            Tuple[maker_fee, taker_fee, source] - Always returns (0.0, 0.0, 'config')
         """
-        try:
-            # Try REST API endpoint for fee info
-            data = await self._rest_get("/api/v1/fees")
-            
-            if data:
-                # Parse fee schedule from response
-                fees_data = data.get('data') or data.get('fees') or data
-                
-                maker_fee = safe_float(
-                    fees_data.get('maker_fee') or 
-                    fees_data.get('maker') or 
-                    fees_data.get('makerFee') or 
-                    getattr(config, 'FEES_LIGHTER', 0.0),
-                    getattr(config, 'FEES_LIGHTER', 0.0)
-                )
-                
-                taker_fee = safe_float(
-                    fees_data.get('taker_fee') or 
-                    fees_data.get('taker') or 
-                    fees_data.get('takerFee') or 
-                    getattr(config, 'FEES_LIGHTER', 0.0),
-                    getattr(config, 'FEES_LIGHTER', 0.0)
-                )
-                
-                # Validate fees are reasonable (0-1%)
-                if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
-                    logger.debug(f"Lighter Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
-                    return (maker_fee, taker_fee)
-                else:
-                    logger.warning(f"Lighter Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
-                    return None
-            
-            # If REST API doesn't have fees endpoint, return None (will use config fallback)
-            logger.debug("Lighter Fee Schedule: No API endpoint available, using config")
-            return None
-                        
-        except Exception as e:
-            logger.debug(f"Lighter Fee Schedule fetch error: {e}")
-            return None
+        # Lighter has no fees API and always charges 0% fees
+        # Return directly without API call to save requests
+        return (0.0, 0.0, 'config')
 
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
