@@ -143,95 +143,63 @@ class X10Adapter(BaseAdapter):
             logger.error(f"X10 Fee Fetch Error for {order_id}: {e}")
             return config.TAKER_FEE_X10
 
-    async def fetch_fee_schedule(self) -> Tuple[float, float, str]:
+    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
         """
-        Fetch fee schedule from X10 API.
-        
-        API Endpoint: GET /api/v1/user/fees?market=BTC-USD
-        Docs: https://api.docs.extended.exchange/#get-fees
-        Returns: TradingFeeModel[] (list of market-specific fees)
+        Fetch fee schedule from X10 API (/api/v1/info/fees)
         
         Returns:
-            Tuple[maker_fee, taker_fee, source] - Always returns a valid tuple (falls back to config values)
-            source: 'api' if successfully fetched from API, 'config' if using fallback
+            Tuple[maker_fee, taker_fee] or None if failed
         """
         try:
-            # Method 1: Try dedicated fees endpoint (requires market parameter)
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-            # Use BTC-USD as representative market (fees are usually the same across markets)
-            url = f"{base_url}/api/v1/user/fees?market=BTC-USD"
-            
-            if not self.stark_account:
-                logger.warning("X10 Fee Schedule: No stark_account configured, using config values")
-                return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10), 'config')
-            
-            headers = {
-                'X-Api-Key': self.stark_account.api_key,
-                'User-Agent': 'X10PythonTradingClient/0.4.5'
-            }
+            url = f"{base_url}/api/v1/info/fees"
             
             await self.rate_limiter.acquire()
             
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         self.rate_limiter.on_success()
                         
-                        # Parse fee schedule from fees endpoint response
-                        # Response structure: {"data": [{"market": "BTC-USD", "makerFeeRate": "0.0", "takerFeeRate": "0.000225", ...}]}
-                        fees_list = data.get('data') or data
+                        # Parse fee schedule from response
+                        # Structure may vary, try common patterns
+                        fees_data = data.get('data') or data.get('fees') or data
                         
-                        # Handle case where API returns a list
-                        if isinstance(fees_list, list) and len(fees_list) > 0:
-                            # Take first market's fees (they're usually the same across markets)
-                            fee_data = fees_list[0]
-                            
-                            maker_fee = safe_float(
-                                fee_data.get('makerFeeRate') or 
-                                fee_data.get('maker_fee_rate') or 
-                                fee_data.get('maker') or 
-                                fee_data.get('makerFee'),
-                                None
-                            )
-                            
-                            taker_fee = safe_float(
-                                fee_data.get('takerFeeRate') or 
-                                fee_data.get('taker_fee_rate') or 
-                                fee_data.get('taker') or 
-                                fee_data.get('takerFee'),
-                                None
-                            )
-                            
-                            # Validate fees
-                            if maker_fee is not None and taker_fee is not None:
-                                if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
-                                    logger.info(f"✅ X10 Fee Schedule from API: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
-                                    return (maker_fee, taker_fee, 'api')
+                        maker_fee = safe_float(
+                            fees_data.get('maker_fee') or 
+                            fees_data.get('maker') or 
+                            fees_data.get('makerFee') or 
+                            config.MAKER_FEE_X10,
+                            config.MAKER_FEE_X10
+                        )
                         
-                        # Log what we got for debugging
-                        logger.debug(f"X10 Fees API response type: {type(fees_list).__name__}, length: {len(fees_list) if isinstance(fees_list, list) else 'N/A'}")
-                        if isinstance(fees_list, list) and len(fees_list) > 0:
-                            logger.debug(f"X10 Fees first entry: {fees_list[0]}")
+                        taker_fee = safe_float(
+                            fees_data.get('taker_fee') or 
+                            fees_data.get('taker') or 
+                            fees_data.get('takerFee') or 
+                            config.TAKER_FEE_X10,
+                            config.TAKER_FEE_X10
+                        )
                         
-                    elif resp.status == 429:
-                        self.rate_limiter.penalize_429()
+                        # Validate fees are reasonable (0-1%)
+                        if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
+                            logger.debug(f"X10 Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
+                            return (maker_fee, taker_fee)
+                        else:
+                            logger.warning(f"X10 Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
+                            return None
                     else:
-                        self.rate_limiter.on_success()
-                        
-                    logger.debug(f"X10 Fees API returned {resp.status}, fee schedule not available")
-            
-            # Method 2: Fallback - use config values but LOG that we're doing so
-            logger.warning(
-                f"⚠️ X10 Fee Schedule: API doesn't provide fees, using config: "
-                f"Maker={config.MAKER_FEE_X10}, Taker={config.TAKER_FEE_X10}"
-            )
-            return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10), 'config')
+                        if resp.status == 429:
+                            self.rate_limiter.penalize_429()
+                        else:
+                            self.rate_limiter.on_success()
+                        logger.debug(f"X10 Fee Schedule API returned {resp.status}")
+                        return None
                         
         except Exception as e:
-            logger.warning(f"X10 Fee Schedule fetch error: {e}")
-            # Return config values instead of None
-            return (float(config.MAKER_FEE_X10), float(config.TAKER_FEE_X10), 'config')
+            logger.debug(f"X10 Fee Schedule fetch error: {e}")
+            return None
 
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
@@ -455,9 +423,6 @@ class X10Adapter(BaseAdapter):
                             self.rate_limiter.penalize_429()
                         logger.debug(f"X10 orderbook {symbol}: HTTP {resp.status}")
                         
-        except asyncio.CancelledError:
-            logger.debug("fetch_orderbook cancelled (shutdown)")
-            return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
         except asyncio.TimeoutError:
             logger.debug(f"X10 orderbook {symbol}: Timeout")
         except Exception as e:
@@ -528,12 +493,11 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
     async def fetch_open_positions(self) -> list:
-        """Fetch open positions from X10"""
-        try:
-            if not self.stark_account:
-                logger.warning("X10: No stark_account configured")
-                return []
+        if not self.stark_account:
+            logger.warning("X10: No stark_account configured")
+            return []
 
+        try:
             client = await self._get_auth_client()
             await self.rate_limiter.acquire()
             resp = await client.account.get_positions()
@@ -556,9 +520,6 @@ class X10Adapter(BaseAdapter):
                     })
             return positions
 
-        except asyncio.CancelledError:
-            logger.debug("fetch_open_positions cancelled (shutdown)")
-            return []  # Return empty list statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -618,111 +579,102 @@ class X10Adapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
-        try:
-            if not config.LIVE_TRADING:
-                return True, None
-            # Warte auf Token BEVOR Request gesendet wird
-            await self.rate_limiter.acquire()
-            
-            client = await self._get_trading_client()
-            market = self.market_info.get(symbol)
-            if not market:
-                return False, None
+        if not config.LIVE_TRADING:
+            return True, None
+        
+        # Warte auf Token BEVOR Request gesendet wird
+        await self.rate_limiter.acquire()
+        
+        client = await self._get_trading_client()
+        market = self.market_info.get(symbol)
+        if not market:
+            return False, None
 
-            price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
-            if price <= 0:
-                return False, None
+        price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
+        if price <= 0:
+            return False, None
 
-            slippage = Decimal(str(config.X10_MAX_SLIPPAGE_PCT)) / 100
-            raw_price = price * (
-                Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
-            )
+        slippage = Decimal(str(config.X10_MAX_SLIPPAGE_PCT)) / 100
+        raw_price = price * (
+            Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
+        )
 
-            cfg = market.trading_config
-            if hasattr(cfg, "round_price") and callable(cfg.round_price):
-                try:
-                    limit_price = cfg.round_price(raw_price)
-                except:
-                    limit_price = raw_price.quantize(
-                        Decimal("0.01"), 
-                        rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
-                    )
-            else:
-                tick_size = Decimal(getattr(cfg, "min_price_change", "0.01"))
-                if side == "BUY":
-                    limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
-                else:
-                    limit_price = (raw_price // tick_size) * tick_size
-
-            if amount is not None and amount > 0:
-                qty = Decimal(str(amount))
-            else:
-                qty = Decimal(str(notional_usd)) / limit_price
-            step = Decimal(getattr(cfg, "min_order_size_change", "0"))
-            min_size = Decimal(getattr(cfg, "min_order_size", "0"))
-            
-            if step > 0:
-                qty = (qty // step) * step
-                if qty < min_size:
-                    qty = ((qty // step) + 1) * step
-
-            order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
-            tif = TimeInForce.GTT
-            
-            if post_only:
-                if hasattr(TimeInForce, "POST_ONLY"):
-                    tif = TimeInForce.POST_ONLY
-                elif hasattr(TimeInForce, "PostOnly"):
-                    tif = TimeInForce.PostOnly
-                else:
-                    post_only = False
-
-            expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
-
+        cfg = market.trading_config
+        if hasattr(cfg, "round_price") and callable(cfg.round_price):
             try:
-                await self.rate_limiter.acquire()
-                resp = await client.place_order(
-                    market_name=symbol,
-                    amount_of_synthetic=qty,
-                    price=limit_price,
-                    side=order_side,
-                    time_in_force=tif,
-                    expire_time=expire,
-                    reduce_only=reduce_only,
+                limit_price = cfg.round_price(raw_price)
+            except:
+                limit_price = raw_price.quantize(
+                    Decimal("0.01"), 
+                    rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
                 )
-                
-                if resp.error:
-                    err_msg = str(resp.error)
-                    if reduce_only and ("1137" in err_msg or "1138" in err_msg):
-                        return True, None
-                    
-                    logger.error(f" X10 Order Fail: {resp.error}")
-                    if post_only and "post only" in err_msg.lower():
-                        logger.info(" Retry ohne PostOnly...")
-                        return await self.open_live_position(
-                            symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
-                        )
-                    return False, None
-                    
-                logger.info(f" X10 Order: {resp.data.id}")
-                self.rate_limiter.on_success()
-                return True, str(resp.data.id)
-            except asyncio.CancelledError:
-                logger.debug("open_live_position cancelled (shutdown)")
-                return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
-            except Exception as e:
-                err_str = str(e)
-                if reduce_only and ("1137" in err_str or "1138" in err_str):
+        else:
+            tick_size = Decimal(getattr(cfg, "min_price_change", "0.01"))
+            if side == "BUY":
+                limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
+            else:
+                limit_price = (raw_price // tick_size) * tick_size
+
+        if amount is not None and amount > 0:
+            qty = Decimal(str(amount))
+        else:
+            qty = Decimal(str(notional_usd)) / limit_price
+        step = Decimal(getattr(cfg, "min_order_size_change", "0"))
+        min_size = Decimal(getattr(cfg, "min_order_size", "0"))
+        
+        if step > 0:
+            qty = (qty // step) * step
+            if qty < min_size:
+                qty = ((qty // step) + 1) * step
+
+        order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
+        tif = TimeInForce.GTT
+        
+        if post_only:
+            if hasattr(TimeInForce, "POST_ONLY"):
+                tif = TimeInForce.POST_ONLY
+            elif hasattr(TimeInForce, "PostOnly"):
+                tif = TimeInForce.PostOnly
+            else:
+                post_only = False
+
+        expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
+
+        try:
+            await self.rate_limiter.acquire()
+            resp = await client.place_order(
+                market_name=symbol,
+                amount_of_synthetic=qty,
+                price=limit_price,
+                side=order_side,
+                time_in_force=tif,
+                expire_time=expire,
+                reduce_only=reduce_only,
+            )
+            
+            if resp.error:
+                err_msg = str(resp.error)
+                if reduce_only and ("1137" in err_msg or "1138" in err_msg):
                     return True, None
-                if "429" in err_str:
-                    self.rate_limiter.penalize_429()
-                logger.error(f" X10 Order Exception: {e}")
+                
+                logger.error(f" X10 Order Fail: {resp.error}")
+                if post_only and "post only" in err_msg.lower():
+                    logger.info(" Retry ohne PostOnly...")
+                    return await self.open_live_position(
+                        symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
+                    )
                 return False, None
-        except asyncio.CancelledError:
-            logger.debug("open_live_position cancelled (shutdown)")
-            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
+                
+            logger.info(f" X10 Order: {resp.data.id}")
+            self.rate_limiter.on_success()
+            return True, str(resp.data.id)
         except Exception as e:
-            logger.error(f" X10 open_live_position error: {e}")
+            err_str = str(e)
+            if reduce_only and ("1137" in err_str or "1138" in err_str):
+                return True, None
+            if "429" in err_str:
+                self.rate_limiter.penalize_429()
+            logger.error(f" X10 Order Exception: {e}")
             return False, None
 
     async def close_live_position(
@@ -731,85 +683,75 @@ class X10Adapter(BaseAdapter):
         original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
-        try:
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    positions = await self.fetch_open_positions()
-                    actual_pos = next(
-                        (p for p in (positions or []) if p.get('symbol') == symbol),
-                        None
-                    )
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                positions = await self.fetch_open_positions()
+                actual_pos = next(
+                    (p for p in (positions or []) if p.get('symbol') == symbol),
+                    None
+                )
 
-                    if not actual_pos or abs(safe_float(actual_pos.get('size', 0))) < 1e-8:
-                        logger.info(f"✅ X10 {symbol} already closed")
-                        return True, None
+                if not actual_pos or abs(safe_float(actual_pos.get('size', 0))) < 1e-8:
+                    logger.info(f"✅ X10 {symbol} already closed")
+                    return True, None
 
-                    actual_size = safe_float(actual_pos.get('size', 0))
-                    actual_size_abs = abs(actual_size)
+                actual_size = safe_float(actual_pos.get('size', 0))
+                actual_size_abs = abs(actual_size)
 
-                    if actual_size > 0:
-                        close_side = "SELL"
-                    else:
-                        close_side = "BUY"
+                if actual_size > 0:
+                    close_side = "SELL"
+                else:
+                    close_side = "BUY"
 
-                    price = safe_float(self.fetch_mark_price(symbol))
-                    if price <= 0:
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(2)
-                            continue
-                        return False, None
-
-                    actual_notional = actual_size_abs * price
-
-                    logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
-
-                    success, order_id = await self.open_live_position(
-                        symbol,
-                        close_side,
-                        actual_notional,
-                        reduce_only=True,
-                        post_only=False,
-                        amount=actual_size_abs
-                    )
-
-                    if not success:
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(2 + attempt)
-                            continue
-                        return False, None
-
-                    await asyncio.sleep(2 + attempt)
-                    updated_positions = await self.fetch_open_positions()
-                    still_open = any(
-                        p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
-                        for p in (updated_positions or [])
-                    )
-
-                    if not still_open:
-                        return True, order_id
-                    else:
-                        if attempt < max_retries - 1:
-                            continue
-                        return False, order_id
-
-                except asyncio.CancelledError:
-                    logger.debug("close_live_position cancelled (shutdown)")
-                    return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
-                except Exception as e:
-                    logger.error(f"X10 Close exception for {symbol}: {e}")
+                price = safe_float(self.fetch_mark_price(symbol))
+                if price <= 0:
                     if attempt < max_retries - 1:
                         await asyncio.sleep(2)
                         continue
                     return False, None
 
-            return False, None
-        except asyncio.CancelledError:
-            logger.debug("close_live_position cancelled (shutdown)")
-            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
-        except Exception as e:
-            logger.error(f"X10 Close exception for {symbol}: {e}")
-            return False, None
+                actual_notional = actual_size_abs * price
+
+                logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
+
+                success, order_id = await self.open_live_position(
+                    symbol,
+                    close_side,
+                    actual_notional,
+                    reduce_only=True,
+                    post_only=False,
+                    amount=actual_size_abs
+                )
+
+                if not success:
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 + attempt)
+                        continue
+                    return False, None
+
+                await asyncio.sleep(2 + attempt)
+                updated_positions = await self.fetch_open_positions()
+                still_open = any(
+                    p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
+                    for p in (updated_positions or [])
+                )
+
+                if not still_open:
+                    return True, order_id
+                else:
+                    if attempt < max_retries - 1:
+                        continue
+                    return False, order_id
+
+            except Exception as e:
+                logger.error(f"X10 Close exception for {symbol}: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(2)
+                    continue
+                return False, None
+
+        return False, None
     
     async def cancel_all_orders(self, symbol: str) -> bool:
         try:
@@ -850,8 +792,8 @@ class X10Adapter(BaseAdapter):
             return False
     
     async def get_real_available_balance(self) -> float:
+        await self.rate_limiter.acquire()
         try:
-            await self.rate_limiter.acquire()
             client = await self._get_auth_client()
             
             # METHODE 1: SDK get_balance()
@@ -871,9 +813,6 @@ class X10Adapter(BaseAdapter):
                                             return balance
                                     except:
                                         continue
-                    except asyncio.CancelledError:
-                        logger.debug("get_real_available_balance cancelled (shutdown)")
-                        return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                     except Exception:
                         continue
 
@@ -899,9 +838,6 @@ class X10Adapter(BaseAdapter):
                                                     return float(data[field])
                                                 except:
                                                     continue
-                        except asyncio.CancelledError:
-                            logger.debug("get_real_available_balance cancelled (shutdown)")
-                            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                         except Exception:
                             continue
 
@@ -914,18 +850,12 @@ class X10Adapter(BaseAdapter):
                         val = data.get(field)
                         if val is not None:
                             return float(val)
-            except asyncio.CancelledError:
-                logger.debug("get_real_available_balance cancelled (shutdown)")
-                return 0.0  # Return default statt raise - verhindert _GatheringFuture error
             except Exception:
                 pass
             
             logger.error("X10: ALLE Balance-Methoden fehlgeschlagen!")
             return 0.0
             
-        except asyncio.CancelledError:
-            logger.debug("get_real_available_balance cancelled (shutdown)")
-            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"X10 Balance fetch komplett fehlgeschlagen: {e}")
             return 0.0

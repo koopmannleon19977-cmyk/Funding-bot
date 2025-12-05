@@ -74,7 +74,7 @@ ACTIVE_TASKS: dict[str, asyncio.Task] = {}           # symbol → Task (nur eine
 SYMBOL_LOCKS: dict[str, asyncio.Lock] = {}           # symbol → asyncio.Lock() für race-free execution
 SHUTDOWN_FLAG = False
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
-POSITION_CACHE_TTL = 5.0  # 5s for fresher data (was 30s)
+POSITION_CACHE_TTL = 2.0  # REDUCED from 5.0s for faster desync detection
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 TASKS_LOCK = asyncio.Lock()
@@ -86,6 +86,13 @@ LAST_ARBITRAGE_LAUNCH = 0.0  # Time of last arbitrage trade launch
 # ============================================================
 LAST_DATA_UPDATE = time.time()  # Global timestamp für letzte Datenaktivität
 WATCHDOG_TIMEOUT = 120  # Sekunden ohne Daten = Verbindungsproblem
+
+# ============================================================
+# DESYNC PROTECTION: Track recently attempted trades  
+# ============================================================
+# Trades attempted within this window are protected from sync_check closure
+RECENTLY_OPENED_TRADES: Dict[str, float] = {}  # symbol -> timestamp when attempted
+RECENTLY_OPENED_PROTECTION_SECONDS = 60.0  # Protect trades for 60s after open attempt
 
 # ============================================================
 # GLOBALS (Ergänzung)
@@ -1164,6 +1171,12 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             lit_side = leg1_side if leg1_ex == 'Lighter' else ("SELL" if leg1_side == "BUY" else "BUY")
 
             logger.info(f"🚀 Opening {symbol}: Size=${final_usd:.1f} (Min=${min_req:.1f})")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Register trade BEFORE execution to prevent sync_check race
+            # This protects the trade from being closed as "orphan" during execution  
+            # ═══════════════════════════════════════════════════════════════
+            RECENTLY_OPENED_TRADES[symbol] = time.time()
 
             success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
                 symbol=symbol,
@@ -2035,12 +2048,23 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                     logger.info(f"⏳ Sync check: Skipping {len(active_symbols)} symbols with active executions: {active_symbols}")
         
         # ═══════════════════════════════════════════════════════════════
-        # CRITICAL: Skip symbols that were recently opened (within 30 seconds)
-        # Prevents race condition where sync check closes positions just opened
+        # CRITICAL: Skip symbols that were recently opened (within protection window)
+        # This includes BOTH DB-tracked trades AND in-flight trade attempts
         # ═══════════════════════════════════════════════════════════════
         recently_opened = set()
         current_time = time.time()
         
+        # 1. Check RECENTLY_OPENED_TRADES dict (protects in-flight trades without DB entry)
+        for sym, open_time in list(RECENTLY_OPENED_TRADES.items()):
+            age = current_time - open_time
+            if age < RECENTLY_OPENED_PROTECTION_SECONDS:
+                recently_opened.add(sym)
+                logger.debug(f"🔒 Skipping sync check for {sym} (in RECENTLY_OPENED_TRADES, age={age:.1f}s)")
+            else:
+                # Cleanup expired entries
+                RECENTLY_OPENED_TRADES.pop(sym, None)
+        
+        # 2. Check DB trades (original logic)
         try:
             open_trades = await get_open_trades()
             for trade in open_trades:
@@ -2056,7 +2080,7 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                     
                     if age_seconds < 30.0:  # 30 second grace period
                         recently_opened.add(symbol)
-                        logger.debug(f"🔒 Skipping sync check for {symbol} (recently opened, age={age_seconds:.1f}s)")
+                        logger.debug(f"🔒 Skipping sync check for {symbol} (recently opened in DB, age={age_seconds:.1f}s)")
         except Exception as e:
             logger.debug(f"Error checking recently opened trades: {e}")
         
@@ -3320,7 +3344,7 @@ async def run_bot_v5():
     
     # A) Prediction Engine holen
     predictor = get_predictor()
-    await predictor.start()  # This loads history AND starts auto-save
+    # Note: FundingPredictorV2 is ready to use immediately (no start() needed)
     
     # B) Open Interest Tracker starten
     # Sammelt OI Daten via REST und bereitet WS Updates vor

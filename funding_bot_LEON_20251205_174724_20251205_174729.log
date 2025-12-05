@@ -1,0 +1,227 @@
+17:47:29 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+17:47:29 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:47:29 [INFO] 🚀 Starting InMemoryStateManager...
+17:47:29 [INFO] 📂 Initializing database: data/trades.db
+17:47:29 [INFO] ✅ Read pool created: 5 connections
+17:47:29 [INFO] ✅ WAL mode enabled
+17:47:29 [INFO] 🔄 Running database migrations...
+17:47:29 [INFO] ✅ Migrations complete (11 statements)
+17:47:29 [INFO] ✅ Database initialized
+17:47:29 [INFO] 🖊️ Database write loop started
+17:47:29 [INFO] 📂 Loaded 2 trades from database
+17:47:29 [INFO] ✅ InMemoryStateManager started (loaded 2 trades)
+17:47:29 [INFO] ✅ State Manager started
+17:47:29 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:47:29 [INFO] ✅ Async database initialized
+17:47:29 [INFO] 📝 State writer loop started
+17:47:29 [INFO] Initialisiere X10 Adapter...
+17:47:29 [INFO]  X10 Account initialisiert.
+17:47:29 [INFO] Initialisiere Lighter Adapter...
+17:47:29 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:47:30 [WARNING] X10 fee refresh failed: cannot unpack non-iterable NoneType object, using fallback
+17:47:30 [WARNING] Lighter fee refresh failed: cannot unpack non-iterable NoneType object, using fallback
+17:47:30 [INFO] ✅ FeeManager started with periodic refresh
+17:47:30 [INFO] ✅ FeeManager started
+17:47:30 [INFO] 📊 Loading Market Data via REST...
+17:47:30 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+17:47:33 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:47:33 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+17:47:33 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:47:33 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:47:33 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:47:33 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:47:33 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+17:47:33 [INFO] 📈 Pre-loading Lighter prices...
+17:47:34 [INFO] ✅ Lighter prices loaded: 115 symbols
+17:47:34 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:47:37 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:47:37 [INFO] FundingPredictorV2 initialized with BTC Correlation
+17:47:37 [INFO] 启动 OI Tracker für 68 Symbole...
+17:47:37 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:47:37 [INFO] 🌐 Starting WebSocket Manager...
+17:47:37 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+17:47:37 [INFO] 🔌 [lighter] WebSocket manager started
+17:47:37 [INFO] 🔌 [x10_account] WebSocket manager started
+17:47:37 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:47:37 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:47:37 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+17:47:37 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:47:37 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:47:37 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:47:37 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+17:47:38 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:47:38 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+17:47:38 [INFO] [lighter] Resubscribing to 75 channels (paced)...
+17:47:38 [INFO] [lighter] Receive loop started (async iterator)
+17:47:38 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:47:38 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:47:38 [INFO] [x10_funding] Receive loop started (async iterator)
+17:47:38 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:47:38 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:47:38 [INFO] [x10_trades] Receive loop started (async iterator)
+17:47:38 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:47:38 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:47:38 [INFO] [x10_account] Receive loop started (async iterator)
+17:47:39 [INFO] [lighter] Resubscribed to 75 channels
+17:47:39 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:47:39 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:47:39 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:47:39 [INFO] 🔍 DB meldet 2 offene Trades. Prüfe Exchange...
+17:47:40 [INFO] Lighter: Found 2 open positions
+17:47:40 [INFO] 🌍 Echte Positionen auf Exchanges: ['APT-USD', 'LINEA-USD']
+17:47:40 [WARNING] ⚠️  ZOMBIE GEFUNDEN: RESOLV-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+17:47:40 [INFO] ✅ Trade RESOLV-USD closed (PnL: $0.00)
+17:47:40 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:47:41 [INFO] Lighter: Found 2 open positions
+17:47:41 [WARNING] 🚨 Found 1 ORPHANED positions: {'LINEA-USD'}
+17:47:41 [WARNING] 🧹 Cleaning orphaned position: LINEA-USD
+17:47:41 [INFO] Lighter LINEA-USD: size=-3500.0, closing as SELL, notional=$28.81
+17:47:41 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:47:41 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:47:41 [INFO] 🔍 DEBUG: notional_usd=28.808500000000002 (type=<class 'float'>)
+17:47:42 [INFO] Lighter: Found 2 open positions
+17:47:42 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0082, notional=$28.81
+17:47:42 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=BUY, size_usd=$28.81, price=$0.008231
+17:47:42 [INFO] Lighter Order: 816393035958239b1779519810d79bdca3111d23d8b09b3864cc78979ea55d75b2f8dbaaa8f6cc4f
+17:47:42 [INFO] ✅ Lighter close LINEA-USD: Erfolgreich ($28.81)
+17:47:42 [INFO] ✅ Closed orphaned LINEA-USD
+17:47:42 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+17:47:42 [INFO] ✅ ParallelExecutionManager started
+17:47:42 [INFO] ═══════════════════════════════════════════════════════════
+17:47:42 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:47:42 [INFO] ═══════════════════════════════════════════════════════════
+17:47:42 [INFO] 🚀 BotEventLoop starting...
+17:47:42 [INFO] ▶️ Started task: connection_watchdog
+17:47:42 [INFO] ▶️ Started task: logic_loop
+17:47:42 [INFO] ▶️ Started task: trade_management_loop
+17:47:42 [INFO] ▶️ Started task: farm_loop
+17:47:42 [INFO] ▶️ Started task: maintenance_loop
+17:47:42 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:47:42 [INFO] ▶️ Started task: health_reporter
+17:47:42 [INFO] ✅ Started 7 tasks
+17:47:42 [INFO] 🔄 Rollback processor running...
+17:47:42 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:47:42 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:47:42 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+17:47:42 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: {'APT-USD'}
+17:47:42 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+17:47:42 [INFO] 🛡️ Trade Management Loop gestartet
+17:47:42 [INFO] 🚜 Farm Mode ACTIVE
+17:47:42 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+17:47:42 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:47:42 [INFO] 💎 RESOLV-USD | APY: 82.3%
+17:47:42 [INFO] 💎 AVNT-USD | APY: 51.7%
+17:47:42 [INFO] 💎 ONDO-USD | APY: 50.8%
+17:47:42 [INFO] 💎 KAITO-USD | APY: 63.1%
+17:47:42 [INFO] ✅ Found 30 opportunities from 63 valid pairs (farm_mode=True, scanned=68)
+17:47:42 [INFO] 🎯 Found 3 opportunities, executing best...
+17:47:42 [INFO] Lighter: Found 2 open positions
+17:47:43 [INFO] 📊 Positions: X10=0, Lighter=2
+17:47:43 [INFO] 🚜 Opening FARM: WLFI-USD APY=39.4%
+17:47:43 [INFO] X10: Detected balance = $297.45
+17:47:43 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+17:47:44 [INFO] Lighter: Found 2 open positions
+17:47:44 [INFO] Lighter: Found 2 open positions
+17:47:44 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+17:47:44 [INFO] 🎰 KELLY WLFI-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0275, confidence=LOW, samples=0
+17:47:44 [INFO] 📊 KELLY SIZE WLFI-USD: base=$30.0, kelly_recommended=$7.4, final=$30.0
+17:47:44 [INFO] 💰 Balance: X10=$297.4 (free=$284.8), Lit=$268.5 (free=$255.9) | DB_Trades=1, Real_Positions=2, Locked=$10/ex
+17:47:44 [INFO] 🚀 Launching trade for RESOLV-USD (APY=82.3%)
+17:47:44 [INFO] 🚀 Opening WLFI-USD: Size=$30.0 (Min=$15.7)
+17:47:44 [INFO] 🔄 [PARALLEL] WLFI-USD: Lighter POST-ONLY first
+17:47:44 [INFO] 🚀 LIGHTER OPEN WLFI-USD: side=SELL, size_usd=$30.00, price=$0.149680
+17:47:44 [INFO] 🔄 [PARALLEL] WLFI-USD: X10 MARKET order
+17:47:44 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+17:47:44 [INFO] Lighter: Found 2 open positions
+17:47:44 [INFO] 📊 Positions: X10=0, Lighter=2
+17:47:44 [INFO] Lighter Order: a7363ffe5f385ad476871a3afed24d55b531e5262f0a409c71f21f08837477f1a3d9bd1ebaa2128a
+17:47:45 [INFO] ✅ Launched 1 trade tasks this cycle
+17:47:45 [INFO] Lighter: Found 2 open positions
+17:47:45 [INFO] 🎰 KELLY RESOLV-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+17:47:45 [INFO] 📊 KELLY SIZE RESOLV-USD: base=$30.0, kelly_recommended=$7.1, final=$30.0
+17:47:45 [INFO] 🚀 Opening RESOLV-USD: Size=$30.0 (Min=$11.0)
+17:47:45 [INFO] 🔄 [PARALLEL] RESOLV-USD: Lighter POST-ONLY first
+17:47:45 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=SELL, size_usd=$30.00, price=$0.077846
+17:47:45 [INFO] 🔄 [PARALLEL] RESOLV-USD: X10 MARKET order
+17:47:45 [INFO] Lighter Order: dd530c909fb48156846c6947179678ebe255d359bda2f39af21db8cf9da9ccae118be951ae9d4c70
+17:47:47 [INFO]  X10 Order: 1996984816674836480
+17:47:47 [INFO] ✅ [PARALLEL] WLFI-USD: Both legs filled in 2438ms
+17:47:47 [INFO] ✅ OPENED WLFI-USD: $30.00 | Entry Fees (est.): $0.0067
+17:47:47 [INFO] Lighter: Found 4 open positions
+17:47:47 [INFO] 📊 Positions: X10=0, Lighter=4
+17:47:47 [INFO] 🔍 Running periodic exchange sync check...
+17:47:47 [INFO] 🔍 Starting Exchange Sync Check...
+17:47:47 [INFO] ⏳ Sync check: Found 2 symbols with active executions: {'WLFI-USD', 'RESOLV-USD'}
+17:47:48 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: {'WLFI-USD', 'APT-USD'}
+17:47:48 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+17:47:48 [INFO] 🧠 Prediction V2: Found 3 ML-ranked opportunities
+17:47:48 [INFO] ✅ Returning 3 ML-ranked opportunities
+17:47:48 [INFO] 🎯 Found 3 opportunities, executing best...
+17:47:48 [INFO]  X10 Order: 1996984822958796800
+17:47:48 [INFO] ✅ [PARALLEL] RESOLV-USD: Both legs filled in 2953ms
+17:47:48 [INFO] ✅ OPENED RESOLV-USD: $30.00 | Entry Fees (est.): $0.0067
+17:47:49 [INFO] X10: Detected balance = $297.44
+17:47:49 [INFO] Lighter: Found 4 open positions
+17:47:49 [INFO] 📊 Positions: X10=2, Lighter=4
+17:47:51 [INFO] 💰 WLFI-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:47:52 [INFO] Lighter: Found 4 open positions
+17:47:52 [INFO] 📊 Positions: X10=2, Lighter=4
+17:47:52 [INFO] 💰 RESOLV-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:47:54 [INFO] Lighter: Found 4 open positions
+17:47:54 [INFO] 📊 Positions: X10=2, Lighter=4
+17:47:57 [INFO] Lighter: Found 4 open positions
+17:47:57 [INFO] 📊 Positions: X10=2, Lighter=4
+17:47:57 [WARNING] ⏸️ Sync check: Still 2 active executions after timeout: {'WLFI-USD', 'RESOLV-USD'}
+17:47:57 [INFO] ⏳ Sync check: Skipping 2 symbols with active executions: {'WLFI-USD', 'RESOLV-USD'}
+17:47:58 [INFO] Lighter: Found 4 open positions
+17:47:58 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: ['LINEA-USD']
+17:47:58 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+17:47:58 [WARNING] 🔻 Closing orphaned Lighter position: LINEA-USD
+17:47:58 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:47:58 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:47:58 [INFO] 🔍 DEBUG: notional_usd=28.622999999999998 (type=<class 'float'>)
+17:47:58 [INFO] Lighter: Found 4 open positions
+17:47:58 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0082, notional=$28.62
+17:47:58 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=BUY, size_usd=$28.62, price=$0.008178
+17:47:59 [INFO] Lighter Order: fd9d5833f2e87c5ffca9555cd8a99a6abb82eb591797fbba4779f0104b4f7d6360e2a7748e61a2c2
+17:47:59 [INFO] ✅ Lighter close LINEA-USD: Erfolgreich ($28.62)
+17:47:59 [INFO] ✅ Closed orphaned Lighter LINEA-USD
+17:47:59 [INFO] Lighter: Found 4 open positions
+17:47:59 [INFO] 📊 Positions: X10=2, Lighter=4
+17:48:02 [INFO] Lighter: Found 4 open positions
+17:48:02 [INFO] 📊 Positions: X10=2, Lighter=4
+17:48:04 [INFO] Lighter: Found 4 open positions
+17:48:04 [INFO] 📊 Positions: X10=2, Lighter=4
+17:48:07 [INFO] Lighter: Found 4 open positions
+17:48:07 [INFO] 📊 Positions: X10=2, Lighter=4
+17:48:09 [INFO] Lighter: Found 4 open positions
+17:48:09 [INFO] 📊 Positions: X10=2, Lighter=4
+17:48:10 [INFO] 🛑 Initiating shutdown...
+17:48:10 [INFO] Logic loop cancelled
+17:48:10 [INFO] Connection watchdog cancelled
+17:48:11 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:48:15 [ERROR] WebSocket stop error: 
+17:48:15 [INFO] 🛑 Rollback processor: Shutdown signal received
+17:48:15 [INFO] ✅ ParallelExecutionManager: Stopped
+17:48:15 [INFO] 🛑 Stopping InMemoryStateManager...
+17:48:15 [INFO] 📝 State writer loop stopped
+17:48:15 [INFO] ✅ InMemoryStateManager stopped
+17:48:15 [INFO] ✅ Shutdown complete
+17:48:15 [INFO] 🛑 Shutting down...
+17:48:15 [INFO] 🛑 Shutdown requested...
+17:48:15 [INFO] ✅ ParallelExecutionManager: Stopped
+17:48:15 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:48:15 [INFO] 🔌 [lighter] WebSocket stopped
+17:48:15 [INFO] 🔌 [x10_account] WebSocket stopped
+17:48:15 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:48:15 [INFO] ✅ WebSocketManager stopped
+17:48:15 [INFO] ✅ OpenInterestTracker stopped
+17:48:15 [INFO] 🛑 Stopping InMemoryStateManager...
+17:48:15 [INFO] ✅ InMemoryStateManager stopped
+17:48:15 [INFO] 🔒 Closing database...
+17:48:15 [INFO] 🖊️ Database write loop stopped
+17:48:15 [INFO] ✅ Database closed
+17:48:15 [INFO] 🛑 FeeManager stopped
+17:48:15 [INFO] ✅ X10 Adapter geschlossen.
+17:48:15 [INFO] ✅ Lighter Adapter closed
+17:48:15 [INFO] ✅ Bot V5 shutdown complete

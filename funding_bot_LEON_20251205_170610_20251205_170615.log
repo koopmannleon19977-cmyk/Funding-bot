@@ -1,0 +1,292 @@
+17:06:15 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+17:06:15 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:06:15 [INFO] 🚀 Starting InMemoryStateManager...
+17:06:15 [INFO] 📂 Initializing database: data/trades.db
+17:06:15 [INFO] ✅ Read pool created: 5 connections
+17:06:15 [INFO] ✅ WAL mode enabled
+17:06:15 [INFO] 🔄 Running database migrations...
+17:06:15 [INFO] ✅ Migrations complete (15 statements)
+17:06:15 [INFO] ✅ Database initialized
+17:06:15 [INFO] 🖊️ Database write loop started
+17:06:15 [INFO] 📂 Loaded 0 trades from database
+17:06:15 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+17:06:15 [INFO] ✅ State Manager started
+17:06:15 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:06:15 [INFO] ✅ Async database initialized
+17:06:15 [INFO] 📝 State writer loop started
+17:06:15 [INFO] Initialisiere X10 Adapter...
+17:06:15 [INFO]  X10 Account initialisiert.
+17:06:15 [INFO] Initialisiere Lighter Adapter...
+17:06:15 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:06:15 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+17:06:16 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+17:06:16 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:06:16 [INFO] ✅ FeeManager started with periodic refresh
+17:06:16 [INFO] ✅ FeeManager started
+17:06:16 [INFO] 📊 Loading Market Data via REST...
+17:06:18 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+17:06:19 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:06:21 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+17:06:21 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:06:21 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:06:21 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:06:21 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:06:21 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+17:06:21 [INFO] 📈 Pre-loading Lighter prices...
+17:06:22 [INFO] ✅ Lighter prices loaded: 115 symbols
+17:06:22 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:06:24 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:06:24 [INFO] FundingPredictorV2 initialized with BTC Correlation
+17:06:24 [INFO] 📂 Loaded prediction history: 68 symbols
+17:06:24 [INFO] ✅ FundingPredictorV2 started with persistence
+17:06:24 [INFO] 启动 OI Tracker für 68 Symbole...
+17:06:24 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:06:24 [INFO] 🌐 Starting WebSocket Manager...
+17:06:24 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+17:06:24 [INFO] 🔌 [lighter] WebSocket manager started
+17:06:24 [INFO] 🔌 [x10_account] WebSocket manager started
+17:06:24 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:06:24 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:06:24 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+17:06:24 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:06:24 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:06:24 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:06:24 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+17:06:25 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:06:25 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+17:06:25 [INFO] [lighter] Resubscribing to 75 channels (paced)...
+17:06:25 [INFO] [lighter] Receive loop started (async iterator)
+17:06:25 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:06:25 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:06:25 [INFO] [x10_account] Receive loop started (async iterator)
+17:06:25 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:06:25 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:06:25 [INFO] [x10_funding] Receive loop started (async iterator)
+17:06:25 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:06:25 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:06:25 [INFO] [x10_trades] Receive loop started (async iterator)
+17:06:26 [INFO] [lighter] Resubscribed to 75 channels
+17:06:26 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:06:26 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:06:26 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:06:26 [INFO] ✅ DB ist sauber (keine offenen Trades).
+17:06:26 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:06:26 [INFO] 📊 [OB] Lighter IP-USD: Imbalance=+1.00
+17:06:26 [INFO] 📊 [OB] Lighter LINEA-USD: Imbalance=+0.16
+17:06:26 [INFO] 📊 [OB] Lighter UNI-USD: Imbalance=+1.00
+17:06:26 [INFO] 📊 [OB] Lighter FARTCOIN-USD: Imbalance=+0.12
+17:06:26 [INFO] 📊 [OB] Lighter KAITO-USD: Imbalance=+0.11
+17:06:26 [INFO] 📊 [OB] Lighter USDJPY-USD: Imbalance=+0.35
+17:06:26 [INFO] 📊 [OB] Lighter TON-USD: Imbalance=-0.29
+17:06:26 [INFO] 📊 [OB] Lighter ARB-USD: Imbalance=+0.10
+17:06:26 [INFO] 📊 [OB] Lighter AVAX-USD: Imbalance=-0.13
+17:06:26 [INFO] 📊 [OB] Lighter WLFI-USD: Imbalance=-0.21
+17:06:27 [INFO] 📊 [OB] Lighter ASTER-USD: Imbalance=+0.14
+17:06:27 [INFO] 📊 [OB] Lighter HYPE-USD: Imbalance=-0.50
+17:06:27 [INFO] 📊 [OB] Lighter 1000SHIB-USD: Imbalance=+0.99
+17:06:27 [INFO] 📊 [OB] Lighter AAVE-USD: Imbalance=-0.20
+17:06:27 [INFO] 📊 [OB] Lighter GRASS-USD: Imbalance=+0.34
+17:06:27 [INFO] 📊 [OB] Lighter DOGE-USD: Imbalance=+0.93
+17:06:27 [INFO] 📊 [OB] Lighter SOL-USD: Imbalance=-0.22
+17:06:27 [INFO] 📊 [OB] Lighter OP-USD: Imbalance=-0.17
+17:06:27 [INFO] 📊 [OB] Lighter DOT-USD: Imbalance=-0.13
+17:06:27 [INFO] 📊 [OB] Lighter ENA-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter SEI-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter POPCAT-USD: Imbalance=+0.12
+17:06:27 [INFO] 📊 [OB] Lighter ADA-USD: Imbalance=+0.14
+17:06:27 [INFO] 📊 [OB] Lighter TRUMP-USD: Imbalance=+0.67
+17:06:27 [INFO] 📊 [OB] Lighter PUMP-USD: Imbalance=-0.49
+17:06:27 [INFO] 📊 [OB] Lighter EDEN-USD: Imbalance=+0.12
+17:06:27 [INFO] 📊 [OB] Lighter TRX-USD: Imbalance=+0.53
+17:06:27 [INFO] 📊 [OB] Lighter WLD-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter ZORA-USD: Imbalance=-0.19
+17:06:27 [INFO] 📊 [OB] Lighter JUP-USD: Imbalance=-0.13
+17:06:27 [INFO] 📊 [OB] Lighter BCH-USD: Imbalance=-0.81
+17:06:27 [INFO] 📊 [OB] Lighter S-USD: Imbalance=+0.29
+17:06:27 [INFO] 📊 [OB] Lighter BERA-USD: Imbalance=-0.48
+17:06:27 [INFO] 📊 [OB] Lighter NEAR-USD: Imbalance=-0.16
+17:06:27 [INFO] 📊 [OB] Lighter 1000BONK-USD: Imbalance=-0.25
+17:06:27 [INFO] 📊 [OB] Lighter XAG-USD: Imbalance=-0.68
+17:06:27 [INFO] 📊 [OB] Lighter FIL-USD: Imbalance=+0.12
+17:06:27 [INFO] 📊 [OB] Lighter TIA-USD: Imbalance=-0.48
+17:06:27 [INFO] 📊 [OB] Lighter XPL-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter RESOLV-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter MON-USD: Imbalance=-0.85
+17:06:27 [INFO] 📊 [OB] Lighter STRK-USD: Imbalance=-0.14
+17:06:27 [INFO] 📊 [OB] Lighter XAU-USD: Imbalance=+0.91
+17:06:27 [INFO] 📊 [OB] Lighter LINK-USD: Imbalance=+0.32
+17:06:27 [INFO] 📊 [OB] Lighter LDO-USD: Imbalance=+0.16
+17:06:27 [INFO] 📊 [OB] Lighter TAO-USD: Imbalance=-0.50
+17:06:27 [INFO] 📊 [OB] Lighter BNB-USD: Imbalance=-0.15
+17:06:27 [INFO] 📊 [OB] Lighter SPX-USD: Imbalance=+0.20
+17:06:27 [INFO] 📊 [OB] Lighter 1000PEPE-USD: Imbalance=-0.13
+17:06:27 [INFO] 📊 [OB] Lighter EIGEN-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter SUI-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter LTC-USD: Imbalance=+0.27
+17:06:27 [INFO] 📊 [OB] Lighter ZEC-USD: Imbalance=+0.22
+17:06:27 [INFO] 📊 [OB] Lighter BTC-USD: Imbalance=-0.10
+17:06:27 [INFO] 📊 [OB] Lighter CRV-USD: Imbalance=+0.20
+17:06:27 [INFO] 📊 [OB] Lighter WIF-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter XRP-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter APEX-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter ZRO-USD: Imbalance=+0.14
+17:06:27 [INFO] 📊 [OB] Lighter PENGU-USD: Imbalance=-0.38
+17:06:27 [INFO] 📊 [OB] Lighter MNT-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter APT-USD: Imbalance=+0.81
+17:06:27 [INFO] 📊 [OB] Lighter ONDO-USD: Imbalance=+1.00
+17:06:27 [INFO] 📊 [OB] Lighter AVNT-USD: Imbalance=-0.71
+17:06:27 [INFO] 📊 [OB] Lighter VIRTUAL-USD: Imbalance=+0.47
+17:06:27 [INFO] 📊 [OB] Lighter PENDLE-USD: Imbalance=+0.25
+17:06:27 [INFO] Lighter: Found 1 open positions
+17:06:27 [WARNING] 🚨 Found 1 ORPHANED positions: {'LINEA-USD'}
+17:06:27 [WARNING] 🧹 Cleaning orphaned position: LINEA-USD
+17:06:27 [INFO] Lighter LINEA-USD: size=-3500.0, closing as SELL, notional=$29.30
+17:06:27 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:06:27 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:06:27 [INFO] 🔍 DEBUG: notional_usd=29.2985 (type=<class 'float'>)
+17:06:28 [INFO] Lighter: Found 1 open positions
+17:06:28 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0084, notional=$29.30
+17:06:28 [INFO] 🔻 IOC CLOSE ORDER: LINEA-USD BUY base=3500 price=8539
+17:06:28 [ERROR] ❌ Lighter IOC Execution Error: type object 'SignerClient' has no attribute 'ORDER_TIME_IN_FORCE_IOC'
+17:06:28 [WARNING] ❌ Lighter close LINEA-USD: IOC order failed
+17:06:28 [INFO] ✅ Closed orphaned LINEA-USD
+17:06:28 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+17:06:28 [INFO] ✅ ParallelExecutionManager: Cleanup task started
+17:06:28 [INFO] ✅ ParallelExecutionManager started
+17:06:28 [INFO] ═══════════════════════════════════════════════════════════
+17:06:28 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:06:28 [INFO] ═══════════════════════════════════════════════════════════
+17:06:28 [INFO] 🚀 BotEventLoop starting...
+17:06:28 [INFO] ▶️ Started task: connection_watchdog
+17:06:28 [INFO] ▶️ Started task: logic_loop
+17:06:28 [INFO] ▶️ Started task: trade_management_loop
+17:06:28 [INFO] ▶️ Started task: farm_loop
+17:06:28 [INFO] ▶️ Started task: maintenance_loop
+17:06:28 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:06:28 [INFO] ▶️ Started task: health_reporter
+17:06:28 [INFO] ✅ Started 7 tasks
+17:06:28 [INFO] 🔄 Rollback processor running...
+17:06:28 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:06:28 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:06:28 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+17:06:28 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+17:06:28 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+17:06:28 [INFO] 🛡️ Trade Management Loop gestartet
+17:06:28 [INFO] 🚜 Farm Mode ACTIVE
+17:06:28 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+17:06:28 [INFO] ✅ Returning 20 ML-ranked opportunities
+17:06:28 [INFO] 🎯 Found 4 opportunities, executing best...
+17:06:29 [INFO] 🚜 Opening FARM: JUP-USD APY=42.9%
+17:06:29 [INFO] X10: Detected balance = $297.61
+17:06:29 [INFO] 🚀 Launching 3 trades (Slots available: 3)
+17:06:29 [INFO] Lighter: Found 1 open positions
+17:06:29 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:06:30 [INFO] 📂 Loaded 7 trades from kelly_history.json
+17:06:30 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+17:06:30 [INFO] 🎰 KELLY JUP-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+17:06:30 [INFO] 📊 KELLY SIZE JUP-USD: base=$30.0, kelly_recommended=$5.4, final=$30.0
+17:06:30 [INFO] 🚀 Opening JUP-USD: Size=$30.0 (Min=$11.0)
+17:06:30 [INFO] 🔄 [PARALLEL] JUP-USD: Lighter POST-ONLY first
+17:06:30 [INFO] 🚀 LIGHTER OPEN JUP-USD: side=SELL, size_usd=$30.00, price=$0.237580
+17:06:30 [INFO] 🔄 [PARALLEL] JUP-USD: X10 MARKET order
+17:06:30 [INFO] Lighter: Found 1 open positions
+17:06:30 [INFO] 💰 Balance: X10=$297.6 (free=$245.1), Lit=$270.3 (free=$217.8) | DB_Trades=0, Real_Positions=1, Locked=$18/ex
+17:06:30 [INFO] 🚀 Launching trade for KAITO-USD (APY=2665465.4%)
+17:06:30 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+17:06:30 [INFO] 🚀 Launching trade for ZEC-USD (APY=643024.7%)
+17:06:31 [INFO] Lighter: Found 1 open positions
+17:06:31 [INFO] 🚀 Launching trade for AVAX-USD (APY=544513.1%)
+17:06:31 [INFO] Lighter Order: b60614375112a922b30b461f892defe8c0fe033d864fba3786e612a3f3289a14c9167cc99c20d08f
+17:06:31 [INFO] 🔍 Running periodic exchange sync check...
+17:06:31 [INFO] 🔍 Starting Exchange Sync Check...
+17:06:31 [INFO] ⏳ Sync check: Found 1 symbols with active executions: {'JUP-USD'}
+17:06:31 [INFO]  X10 Order: 1996974434791002112
+17:06:31 [INFO] ✅ [PARALLEL] JUP-USD: Both legs filled in 1594ms
+17:06:31 [INFO] ✅ OPENED JUP-USD: $30.00 | Entry Fees (est.): $0.0067
+17:06:31 [INFO] Lighter: Found 1 open positions
+17:06:31 [INFO] ✅ Launched 3 trade tasks this cycle
+17:06:32 [INFO] Lighter: Found 2 open positions
+17:06:32 [INFO] Lighter: Found 2 open positions
+17:06:32 [INFO] 📊 Positions: X10=1, Lighter=2
+17:06:32 [INFO] 🎰 KELLY KAITO-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+17:06:32 [INFO] 📊 KELLY SIZE KAITO-USD: base=$30.0, kelly_recommended=$4.8, final=$30.0
+17:06:33 [INFO] 🎰 KELLY ZEC-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=7
+17:06:33 [INFO] 📊 KELLY SIZE ZEC-USD: base=$30.0, kelly_recommended=$5.4, final=$41.3
+17:06:33 [INFO] 🎰 KELLY AVAX-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=7
+17:06:33 [INFO] 📊 KELLY SIZE AVAX-USD: base=$30.0, kelly_recommended=$5.4, final=$30.0
+17:06:33 [INFO] 🚀 Opening KAITO-USD: Size=$30.0 (Min=$11.0)
+17:06:33 [INFO] 🔄 [PARALLEL] KAITO-USD: Lighter POST-ONLY first
+17:06:33 [INFO] 🚀 Opening ZEC-USD: Size=$41.3 (Min=$41.3)
+17:06:33 [INFO] 🔄 [PARALLEL] ZEC-USD: Lighter POST-ONLY first
+17:06:33 [INFO] 🚀 LIGHTER OPEN KAITO-USD: side=BUY, size_usd=$30.00, price=$0.659980
+17:06:33 [INFO] 🔄 [PARALLEL] KAITO-USD: X10 MARKET order
+17:06:33 [INFO] 🚀 Opening AVAX-USD: Size=$30.0 (Min=$14.2)
+17:06:33 [INFO] 🔄 [PARALLEL] AVAX-USD: Lighter POST-ONLY first
+17:06:33 [INFO] 🔄 [PARALLEL] ZEC-USD: X10 MARKET order
+17:06:33 [INFO] 🔄 [PARALLEL] AVAX-USD: X10 MARKET order
+17:06:33 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=BUY, size_usd=$41.32, price=$375.466000
+17:06:33 [INFO] 🚀 LIGHTER OPEN AVAX-USD: side=BUY, size_usd=$30.00, price=$13.563600
+17:06:33 [INFO] Lighter Order: b9b4d2d6edbbfdd86735da0263eedbb2e64dba363a8feb448aba536f4ddc0c7bba09df40ae179482
+17:06:33 [INFO]  X10 Order: 1996974442648535040
+17:06:33 [INFO] ✅ [PARALLEL] KAITO-USD: Both legs filled in 344ms
+17:06:33 [INFO] ✅ OPENED KAITO-USD: $30.00 | Entry Fees (est.): $0.0067
+17:06:33 [INFO] Lighter Order: 18b795f157360a85bc93a4a89393bc98cfab4e93e504ea42d318181d8367c1f58f3155b6af061aba
+17:06:33 [INFO] Lighter Order: 3364c59104d158228623a1ef4e29188c903255aeaf5e1f9293d729a64f17c6022858bb0d76253063
+17:06:34 [INFO]  X10 Order: 1996974446573514752
+17:06:34 [INFO] ✅ [PARALLEL] ZEC-USD: Both legs filled in 1282ms
+17:06:34 [INFO] ✅ OPENED ZEC-USD: $41.32 | Entry Fees (est.): $0.0093
+17:06:34 [INFO]  X10 Order: 1996974446821249024
+17:06:34 [INFO] ✅ [PARALLEL] AVAX-USD: Both legs filled in 1328ms
+17:06:34 [INFO] ✅ OPENED AVAX-USD: $30.00 | Entry Fees (est.): $0.0067
+17:06:35 [INFO] 💰 JUP-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:06:37 [INFO] 💰 KAITO-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:06:38 [INFO] Lighter: Found 5 open positions
+17:06:38 [INFO] 📊 Positions: X10=4, Lighter=5
+17:06:38 [INFO] 💰 ZEC-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:06:38 [INFO] 💰 AVAX-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+17:06:41 [WARNING] ⏸️ Sync check: Still 4 active executions after timeout: {'ZEC-USD', 'JUP-USD', 'AVAX-USD', 'KAITO-USD'}
+17:06:41 [INFO] ⏳ Sync check: Skipping 4 symbols with active executions: {'ZEC-USD', 'JUP-USD', 'AVAX-USD', 'KAITO-USD'}
+17:06:42 [INFO] Lighter: Found 5 open positions
+17:06:42 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: ['LINEA-USD']
+17:06:42 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+17:06:42 [WARNING] 🔻 Closing orphaned Lighter position: LINEA-USD
+17:06:42 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:06:42 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:06:42 [INFO] 🔍 DEBUG: notional_usd=28.955500000000004 (type=<class 'float'>)
+17:06:42 [INFO] Lighter: Found 5 open positions
+17:06:42 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0083, notional=$28.96
+17:06:42 [INFO] 🔻 IOC CLOSE ORDER: LINEA-USD BUY base=3500 price=8439
+17:06:42 [ERROR] ❌ Lighter IOC Execution Error: type object 'SignerClient' has no attribute 'ORDER_TIME_IN_FORCE_IOC'
+17:06:42 [WARNING] ❌ Lighter close LINEA-USD: IOC order failed
+17:06:42 [INFO] ✅ Closed orphaned Lighter LINEA-USD
+17:06:43 [INFO] Lighter: Found 5 open positions
+17:06:43 [INFO] 📊 Positions: X10=4, Lighter=5
+17:06:47 [INFO] 🛑 Initiating shutdown...
+17:06:47 [INFO] Logic loop cancelled
+17:06:47 [INFO] Connection watchdog cancelled
+17:06:47 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:06:52 [WARNING] WebSocket stop timed out
+17:06:52 [INFO] 🛑 Rollback processor: Shutdown signal received
+17:06:52 [INFO] ✅ ParallelExecutionManager: Stopped
+17:06:52 [INFO] 🛑 Stopping InMemoryStateManager...
+17:06:52 [INFO] 📝 State writer loop stopped
+17:06:52 [INFO] ✅ InMemoryStateManager stopped
+17:06:52 [INFO] ✅ Shutdown complete
+17:06:52 [INFO] 🛑 Shutting down...
+17:06:52 [INFO] 🛑 Shutdown requested...
+17:06:52 [INFO] ✅ ParallelExecutionManager: Stopped
+17:06:52 [INFO] 🔌 [lighter] WebSocket stopped
+17:06:52 [INFO] 🔌 [x10_account] WebSocket stopped
+17:06:52 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:06:52 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:06:52 [INFO] ✅ WebSocketManager stopped
+17:06:52 [INFO] ✅ OpenInterestTracker stopped
+17:06:52 [INFO] 🛑 Stopping InMemoryStateManager...
+17:06:52 [INFO] ✅ InMemoryStateManager stopped
+17:06:52 [INFO] 🔒 Closing database...
+17:06:52 [INFO] 🖊️ Database write loop stopped
+17:06:52 [INFO] ✅ Database closed
+17:06:52 [INFO] 🛑 FeeManager stopped
+17:06:52 [INFO] ✅ X10 Adapter geschlossen.
+17:06:52 [INFO] ✅ Lighter Adapter closed
+17:06:52 [INFO] ✅ Bot V5 shutdown complete

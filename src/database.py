@@ -244,31 +244,14 @@ class AsyncDatabase:
                 applied_at INTEGER NOT NULL
             )
             """,
-            
-            # Migration 8: Add actual fee tracking columns (only if they don't exist)
-            # Note: SQLite doesn't support IF NOT EXISTS for ALTER TABLE ADD COLUMN
-            # So we'll catch the "duplicate column" error and ignore it
-            """
-            ALTER TABLE trades ADD COLUMN entry_fee_x10 REAL DEFAULT NULL
-            """,
-            """
-            ALTER TABLE trades ADD COLUMN entry_fee_lighter REAL DEFAULT NULL
-            """,
-            """
-            ALTER TABLE trades ADD COLUMN exit_fee_x10 REAL DEFAULT NULL
-            """,
-            """
-            ALTER TABLE trades ADD COLUMN exit_fee_lighter REAL DEFAULT NULL
-            """,
         ]
         
         for i, sql in enumerate(migrations):
             try:
                 await self._write_conn.execute(sql)
             except Exception as e:
-                error_str = str(e).lower()
-                # Ignore "already exists" and "duplicate column" errors
-                if "already exists" not in error_str and "duplicate column" not in error_str:
+                # Ignore "already exists" errors
+                if "already exists" not in str(e). lower():
                     logger.warning(f"Migration {i+1} warning: {e}")
                     
         await self._write_conn.commit()
@@ -534,10 +517,8 @@ class TradeRepository:
                 symbol, side_x10, side_lighter, size_usd,
                 entry_price_x10, entry_price_lighter, status,
                 is_farm_trade, created_at, account_label,
-                x10_order_id, lighter_order_id,
-                entry_fee_x10, entry_fee_lighter,
-                exit_fee_x10, exit_fee_lighter
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                x10_order_id, lighter_order_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         params = (
@@ -553,10 +534,6 @@ class TradeRepository:
             trade.get('account_label', 'Main'),
             trade.get('x10_order_id'),
             trade.get('lighter_order_id'),
-            trade.get('entry_fee_x10'),
-            trade.get('entry_fee_lighter'),
-            trade.get('exit_fee_x10'),
-            trade.get('exit_fee_lighter'),
         )
         
         return await self.db. execute(sql, params, wait=True)
@@ -600,34 +577,6 @@ class TradeRepository:
             WHERE symbol = ?  AND status = 'open'
         """
         await self. db.execute(sql, (funding_amount, symbol))
-    
-    async def update_trade(self, symbol: str, updates: Dict[str, Any]):
-        """Update trade fields (generic update method)"""
-        if not updates:
-            return
-        
-        # Build SET clause dynamically
-        set_clauses = []
-        params = []
-        
-        for key, value in updates.items():
-            if key in ['entry_fee_x10', 'entry_fee_lighter', 'exit_fee_x10', 'exit_fee_lighter',
-                       'x10_order_id', 'lighter_order_id', 'pnl', 'funding_collected',
-                       'entry_price_x10', 'entry_price_lighter', 'size_usd']:
-                set_clauses.append(f"{key} = ?")
-                params.append(value)
-        
-        if not set_clauses:
-            return
-        
-        sql = f"""
-            UPDATE trades 
-            SET {', '.join(set_clauses)}
-            WHERE symbol = ? AND status = 'open'
-        """
-        params.append(symbol)
-        
-        await self.db.execute(sql, tuple(params), wait=False)
 
     async def get_trade_count(self) -> int:
         """Get count of open trades"""

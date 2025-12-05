@@ -330,16 +330,11 @@ class BotEventLoop:
     async def _stop_components(self):
         """Stop all bot components"""
         # WebSocket Manager
-        if self.ws_manager and hasattr(self.ws_manager, 'stop'):
+        if self. ws_manager and hasattr(self. ws_manager, 'stop'):
             try:
                 await asyncio.wait_for(self.ws_manager.stop(), timeout=5.0)
-            except asyncio.CancelledError:
-                pass  # Normal during shutdown
-            except asyncio.TimeoutError:
-                logger.warning("WebSocket stop timed out")
             except Exception as e:
-                if str(e):  # Only log if there's an actual error message
-                    logger.error(f"WebSocket stop error: {e}")
+                logger.error(f"WebSocket stop error: {e}")
         
         # OI Tracker
         if self.oi_tracker and hasattr(self.oi_tracker, 'stop'):

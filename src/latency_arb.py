@@ -207,10 +207,9 @@ def get_detector() -> LatencyArbDetector:
     return _detector
 
 def is_latency_arb_enabled() -> bool:
-    """
-    Returns whether latency arbitrage is enabled.
-    
-    DISABLED: X10 ändert Funding Fees nur stündlich, daher ist 
-    Latency Arbitrage nicht möglich/nützlich.
-    """
-    return False
+    """Check if latency arbitrage is enabled in config."""
+    try:
+        import config
+        return getattr(config, 'ENABLE_LATENCY_ARB', True)
+    except Exception:
+        return True  # Default: enabled

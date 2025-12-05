@@ -1,0 +1,573 @@
+16:46:02 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+16:46:02 [INFO] 🔥 BOT V5 (Architected) STARTING...
+16:46:02 [INFO] 🚀 Starting InMemoryStateManager...
+16:46:02 [INFO] 📂 Initializing database: data/trades.db
+16:46:02 [INFO] ✅ Read pool created: 5 connections
+16:46:02 [INFO] ✅ WAL mode enabled
+16:46:02 [INFO] 🔄 Running database migrations...
+16:46:02 [INFO] ✅ Migrations complete (15 statements)
+16:46:02 [INFO] ✅ Database initialized
+16:46:02 [INFO] 🖊️ Database write loop started
+16:46:02 [INFO] 📂 Loaded 4 trades from database
+16:46:02 [INFO] ✅ InMemoryStateManager started (loaded 4 trades)
+16:46:02 [INFO] ✅ State Manager started
+16:46:02 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+16:46:02 [INFO] ✅ Async database initialized
+16:46:02 [INFO] 📝 State writer loop started
+16:46:02 [INFO] Initialisiere X10 Adapter...
+16:46:02 [INFO]  X10 Account initialisiert.
+16:46:02 [INFO] Initialisiere Lighter Adapter...
+16:46:02 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+16:46:02 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+16:46:03 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+16:46:03 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+16:46:03 [INFO] ✅ FeeManager started with periodic refresh
+16:46:03 [INFO] ✅ FeeManager started
+16:46:03 [INFO] 📊 Loading Market Data via REST...
+16:46:05 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+16:46:05 [INFO] 📊 MARKET ADA-USD: size_decimals=8, price_decimals=6, min_base_amount=10.0
+16:46:05 [INFO] 📊 MARKET SEI-USD: size_decimals=8, price_decimals=6, min_base_amount=50.0
+16:46:05 [INFO] 📊 MARKET RESOLV-USD: size_decimals=8, price_decimals=6, min_base_amount=40.0
+16:46:05 [INFO] 📊 MARKET TIA-USD: size_decimals=8, price_decimals=6, min_base_amount=3.0
+16:46:05 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:46:05 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+16:46:05 [INFO] 📈 Pre-loading Lighter prices...
+16:46:05 [INFO] ✅ Lighter prices loaded: 0 symbols
+16:46:05 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+16:46:05 [WARNING] ⚠️ Warmup warning: Lighter SDK not installed
+16:46:05 [INFO] FundingPredictorV2 initialized with BTC Correlation
+16:46:05 [INFO] 📂 Loaded prediction history: 68 symbols
+16:46:05 [INFO] ✅ FundingPredictorV2 started with persistence
+16:46:05 [INFO] 启动 OI Tracker für 68 Symbole...
+16:46:05 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+16:46:05 [INFO] 🌐 Starting WebSocket Manager...
+16:46:05 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+16:46:05 [INFO] 🔌 [lighter] WebSocket manager started
+16:46:05 [INFO] 🔌 [x10_account] WebSocket manager started
+16:46:05 [INFO] 🔌 [x10_trades] WebSocket manager started
+16:46:05 [INFO] 🔌 [x10_funding] WebSocket manager started
+16:46:05 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+16:46:05 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:46:05 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:46:05 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:46:05 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+16:46:06 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+16:46:06 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:46:06 [INFO] [x10_account] Receive loop started (async iterator)
+16:46:06 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+16:46:06 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+16:46:06 [INFO] [lighter] Resubscribing to 77 channels (paced)...
+16:46:06 [INFO] [lighter] Receive loop started (async iterator)
+16:46:06 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+16:46:06 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:46:06 [INFO] [x10_trades] Receive loop started (async iterator)
+16:46:06 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+16:46:06 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:46:06 [INFO] [x10_funding] Receive loop started (async iterator)
+16:46:07 [INFO] [lighter] Resubscribed to 77 channels
+16:46:07 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+16:46:07 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+16:46:07 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+16:46:07 [INFO] 🔍 DB meldet 4 offene Trades. Prüfe Exchange...
+16:46:07 [INFO] 📊 [OB] Lighter RESOLV-USD: Imbalance=-0.39
+16:46:07 [INFO] 📊 [OB] Lighter PUMP-USD: Imbalance=-0.57
+16:46:08 [INFO] 📊 [OB] Lighter NEAR-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter EIGEN-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter 1000PEPE-USD: Imbalance=+0.98
+16:46:08 [INFO] 📊 [OB] Lighter GRASS-USD: Imbalance=-0.53
+16:46:08 [INFO] 📊 [OB] Lighter MNT-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter 1000SHIB-USD: Imbalance=-0.18
+16:46:08 [INFO] 📊 [OB] Lighter AVAX-USD: Imbalance=+0.21
+16:46:08 [INFO] 📊 [OB] Lighter ZORA-USD: Imbalance=+0.23
+16:46:08 [INFO] 📊 [OB] Lighter FIL-USD: Imbalance=-0.25
+16:46:08 [INFO] 📊 [OB] Lighter ONDO-USD: Imbalance=-0.20
+16:46:08 [INFO] 📊 [OB] Lighter ARB-USD: Imbalance=-0.77
+16:46:08 [INFO] 📊 [OB] Lighter LDO-USD: Imbalance=+0.83
+16:46:08 [INFO] 📊 [OB] Lighter WIF-USD: Imbalance=-0.19
+16:46:08 [INFO] 📊 [OB] Lighter ENA-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter PENGU-USD: Imbalance=+0.53
+16:46:08 [INFO] 📊 [OB] Lighter SPX-USD: Imbalance=-0.77
+16:46:08 [INFO] 📊 [OB] Lighter TIA-USD: Imbalance=-0.76
+16:46:08 [INFO] 📊 [OB] Lighter S-USD: Imbalance=-0.73
+16:46:08 [INFO] 🌍 Echte Positionen auf Exchanges: []
+16:46:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: KAITO-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:46:08 [INFO] ✅ Trade KAITO-USD closed (PnL: $0.00)
+16:46:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: EIGEN-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:46:08 [INFO] ✅ Trade EIGEN-USD closed (PnL: $0.00)
+16:46:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ZEC-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:46:08 [INFO] ✅ Trade ZEC-USD closed (PnL: $0.00)
+16:46:08 [WARNING] ⚠️  ZOMBIE GEFUNDEN: SUI-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+16:46:08 [INFO] ✅ Trade SUI-USD closed (PnL: $0.00)
+16:46:08 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+16:46:08 [INFO] 📊 [OB] Lighter AVNT-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter TRX-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter ZEC-USD: Imbalance=-0.27
+16:46:08 [INFO] 📊 [OB] Lighter APT-USD: Imbalance=-0.30
+16:46:08 [INFO] 📊 [OB] Lighter UNI-USD: Imbalance=+1.00
+16:46:08 [INFO] 📊 [OB] Lighter EDEN-USD: Imbalance=+0.28
+16:46:08 [INFO] 📊 [OB] Lighter BCH-USD: Imbalance=+0.16
+16:46:08 [INFO] 📊 [OB] Lighter XPL-USD: Imbalance=-0.12
+16:46:08 [INFO] 📊 [OB] Lighter APEX-USD: Imbalance=-0.10
+16:46:08 [INFO] ✅ No orphaned positions found
+16:46:08 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+16:46:08 [INFO] ✅ ParallelExecutionManager: Cleanup task started
+16:46:08 [INFO] ✅ ParallelExecutionManager started
+16:46:08 [INFO] ═══════════════════════════════════════════════════════════
+16:46:08 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+16:46:08 [INFO] ═══════════════════════════════════════════════════════════
+16:46:08 [INFO] 🚀 BotEventLoop starting...
+16:46:08 [INFO] ▶️ Started task: connection_watchdog
+16:46:08 [INFO] ▶️ Started task: logic_loop
+16:46:08 [INFO] ▶️ Started task: trade_management_loop
+16:46:08 [INFO] ▶️ Started task: farm_loop
+16:46:08 [INFO] ▶️ Started task: maintenance_loop
+16:46:08 [INFO] ▶️ Started task: cleanup_finished_tasks
+16:46:08 [INFO] ▶️ Started task: health_reporter
+16:46:08 [INFO] ✅ Started 7 tasks
+16:46:08 [INFO] 🔄 Rollback processor running...
+16:46:08 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+16:46:08 [INFO] Logic Loop gestartet – REFRESH alle 3s
+16:46:08 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+16:46:08 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:08 [INFO] 🛡️ Trade Management Loop gestartet
+16:46:08 [INFO] 🚜 Farm Mode ACTIVE
+16:46:09 [INFO] 📊 [OB] Lighter AAVE-USD: Imbalance=-0.28
+16:46:09 [INFO] 📊 [OB] Lighter 1000BONK-USD: Imbalance=-0.29
+16:46:09 [INFO] 📊 [OB] Lighter POPCAT-USD: Imbalance=+0.35
+16:46:09 [INFO] 📊 [OB] Lighter TON-USD: Imbalance=+0.54
+16:46:09 [INFO] 📊 [OB] Lighter MON-USD: Imbalance=-0.11
+16:46:09 [INFO] 📊 [OB] Lighter DOT-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter WLFI-USD: Imbalance=-0.58
+16:46:09 [INFO] 📊 [OB] Lighter SEI-USD: Imbalance=+0.71
+16:46:09 [INFO] 📊 [OB] Lighter USDJPY-USD: Imbalance=+0.10
+16:46:09 [INFO] 📊 [OB] Lighter VIRTUAL-USD: Imbalance=-0.11
+16:46:09 [INFO] 📊 [OB] Lighter BNB-USD: Imbalance=-0.25
+16:46:09 [INFO] 📊 [OB] Lighter XAU-USD: Imbalance=-0.71
+16:46:09 [INFO] 📊 [OB] Lighter LINEA-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter WLD-USD: Imbalance=+0.18
+16:46:09 [INFO] 📊 [OB] Lighter PENDLE-USD: Imbalance=+0.78
+16:46:09 [INFO] 📊 [OB] Lighter XRP-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter TRUMP-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter SOL-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter HYPE-USD: Imbalance=-0.28
+16:46:09 [INFO] 📊 [OB] Lighter TAO-USD: Imbalance=-0.26
+16:46:09 [INFO] 📊 [OB] Lighter BERA-USD: Imbalance=+0.11
+16:46:09 [INFO] 📊 [OB] Lighter CRV-USD: Imbalance=+0.58
+16:46:09 [INFO] 📊 [OB] Lighter OP-USD: Imbalance=-0.16
+16:46:09 [INFO] 📊 [OB] Lighter LINK-USD: Imbalance=+0.33
+16:46:09 [INFO] 📊 [OB] Lighter DOGE-USD: Imbalance=-0.56
+16:46:09 [INFO] 📊 [OB] Lighter FARTCOIN-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter ZRO-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter BTC-USD: Imbalance=-0.48
+16:46:09 [INFO] 📊 [OB] Lighter STRK-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter JUP-USD: Imbalance=-1.00
+16:46:09 [INFO] 📊 [OB] Lighter SUI-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter ASTER-USD: Imbalance=-1.00
+16:46:09 [INFO] 📊 [OB] Lighter KAITO-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter LTC-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter IP-USD: Imbalance=+1.00
+16:46:09 [INFO] 📊 [OB] Lighter ADA-USD: Imbalance=+1.00
+16:46:10 [INFO] 📊 [OB] Lighter XAG-USD: Imbalance=+1.00
+16:46:11 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:46:11 [INFO] 🔍 Running periodic exchange sync check...
+16:46:11 [INFO] 🔍 Starting Exchange Sync Check...
+16:46:11 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+16:46:11 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:14 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:17 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:20 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:23 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:26 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:29 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:32 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:35 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:38 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:39 [INFO] 🚜 Farm Mode ACTIVE
+16:46:41 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:44 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:47 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:50 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:53 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:56 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:46:59 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:02 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:05 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:07 [INFO] 📊 [OB] Lighter PUMP-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter RESOLV-USD: Imbalance=-0.18
+16:47:08 [INFO] 📊 [OB] Lighter 1000PEPE-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter EIGEN-USD: Imbalance=-1.00
+16:47:08 [INFO] 📊 [OB] Lighter NEAR-USD: Imbalance=-1.00
+16:47:08 [INFO] 📊 [OB] Lighter ARB-USD: Imbalance=-0.45
+16:47:08 [INFO] 📊 [OB] Lighter AVAX-USD: Imbalance=-0.38
+16:47:08 [INFO] 📊 [OB] Lighter GRASS-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter FIL-USD: Imbalance=+0.88
+16:47:08 [INFO] 📊 [OB] Lighter ONDO-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter ZORA-USD: Imbalance=-0.89
+16:47:08 [INFO] 📊 [OB] Lighter ENA-USD: Imbalance=+0.71
+16:47:08 [INFO] 📊 [OB] Lighter PENGU-USD: Imbalance=-0.94
+16:47:08 [INFO] 📊 [OB] Lighter TIA-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter SPX-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter LDO-USD: Imbalance=-0.68
+16:47:08 [INFO] 📊 [OB] Lighter WIF-USD: Imbalance=-0.72
+16:47:08 [INFO] 📊 [OB] Lighter S-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter ZEC-USD: Imbalance=+0.40
+16:47:08 [INFO] 📊 [OB] Lighter UNI-USD: Imbalance=-0.35
+16:47:08 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:08 [INFO] 📊 [OB] Lighter AVNT-USD: Imbalance=+1.00
+16:47:08 [INFO] 📊 [OB] Lighter BCH-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter APT-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter DOT-USD: Imbalance=+0.15
+16:47:09 [INFO] 📊 [OB] Lighter 1000BONK-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter TRX-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter 1000SHIB-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter SEI-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter EDEN-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter AAVE-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter APEX-USD: Imbalance=-0.29
+16:47:09 [INFO] 📊 [OB] Lighter WLFI-USD: Imbalance=+0.47
+16:47:09 [INFO] 📊 [OB] Lighter POPCAT-USD: Imbalance=-1.00
+16:47:09 [INFO] 📊 [OB] Lighter MNT-USD: Imbalance=-1.00
+16:47:09 [INFO] 📊 [OB] Lighter TON-USD: Imbalance=-0.19
+16:47:09 [INFO] 📊 [OB] Lighter XRP-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter BNB-USD: Imbalance=+0.19
+16:47:09 [INFO] 📊 [OB] Lighter XPL-USD: Imbalance=-0.18
+16:47:09 [INFO] 📊 [OB] Lighter USDJPY-USD: Imbalance=-0.44
+16:47:09 [INFO] 📊 [OB] Lighter WLD-USD: Imbalance=-0.46
+16:47:09 [INFO] 📊 [OB] Lighter VIRTUAL-USD: Imbalance=+0.75
+16:47:09 [INFO] 📊 [OB] Lighter PENDLE-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter LINEA-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter MON-USD: Imbalance=-0.64
+16:47:09 [INFO] 📊 [OB] Lighter HYPE-USD: Imbalance=+0.76
+16:47:09 [INFO] 📊 [OB] Lighter TAO-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter SOL-USD: Imbalance=-0.16
+16:47:09 [INFO] 📊 [OB] Lighter BERA-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter TRUMP-USD: Imbalance=+0.13
+16:47:09 [INFO] 📊 [OB] Lighter BTC-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter SUI-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter KAITO-USD: Imbalance=-0.80
+16:47:09 [INFO] 📊 [OB] Lighter ZRO-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter ASTER-USD: Imbalance=+1.00
+16:47:09 [INFO] 📊 [OB] Lighter LINK-USD: Imbalance=+0.35
+16:47:09 [INFO] 📊 [OB] Lighter ADA-USD: Imbalance=+0.96
+16:47:09 [INFO] 📊 [OB] Lighter LTC-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter DOGE-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter OP-USD: Imbalance=-0.57
+16:47:10 [INFO] 📊 [OB] Lighter CRV-USD: Imbalance=+1.00
+16:47:10 [INFO] 🚜 Farm Mode ACTIVE
+16:47:10 [INFO] 📊 [OB] Lighter JUP-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter XAU-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter XAG-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter FARTCOIN-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter STRK-USD: Imbalance=+1.00
+16:47:10 [INFO] 📊 [OB] Lighter IP-USD: Imbalance=+1.00
+16:47:11 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:13 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:47:14 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:17 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:20 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:23 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:26 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:29 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:32 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:35 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:38 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:41 [INFO] 🚜 Farm Mode ACTIVE
+16:47:41 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:44 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:47 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:50 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:53 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:56 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:47:59 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:02 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:05 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:08 [INFO] 📊 [OB] Lighter PUMP-USD: Imbalance=+0.61
+16:48:08 [INFO] 📊 [OB] Lighter EIGEN-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter ARB-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter NEAR-USD: Imbalance=+0.42
+16:48:08 [INFO] 📊 [OB] Lighter GRASS-USD: Imbalance=-0.25
+16:48:08 [INFO] 📊 [OB] Lighter RESOLV-USD: Imbalance=-0.18
+16:48:08 [INFO] 📊 [OB] Lighter 1000PEPE-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter ENA-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter SPX-USD: Imbalance=+0.28
+16:48:08 [INFO] 📊 [OB] Lighter TIA-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter FIL-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter WIF-USD: Imbalance=-0.66
+16:48:08 [INFO] 📊 [OB] Lighter AVAX-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter S-USD: Imbalance=+0.33
+16:48:08 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:08 [INFO] 📊 [OB] Lighter ZEC-USD: Imbalance=+1.00
+16:48:08 [INFO] 📊 [OB] Lighter ONDO-USD: Imbalance=+0.12
+16:48:09 [INFO] 📊 [OB] Lighter AVNT-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter LDO-USD: Imbalance=+0.61
+16:48:09 [INFO] 📊 [OB] Lighter UNI-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter BCH-USD: Imbalance=-0.47
+16:48:09 [INFO] 📊 [OB] Lighter APT-USD: Imbalance=+0.78
+16:48:09 [INFO] 📊 [OB] Lighter PENGU-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter ZORA-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter AAVE-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter SEI-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter EDEN-USD: Imbalance=+0.17
+16:48:09 [INFO] 📊 [OB] Lighter BNB-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter USDJPY-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter 1000BONK-USD: Imbalance=-0.22
+16:48:09 [INFO] 📊 [OB] Lighter XRP-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter WLFI-USD: Imbalance=+0.21
+16:48:09 [INFO] 📊 [OB] Lighter XPL-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter 1000SHIB-USD: Imbalance=+0.25
+16:48:09 [INFO] 📊 [OB] Lighter MON-USD: Imbalance=-0.34
+16:48:09 [INFO] 📊 [OB] Lighter HYPE-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter POPCAT-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter DOT-USD: Imbalance=-0.13
+16:48:09 [INFO] 📊 [OB] Lighter TON-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter SOL-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter TAO-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter SUI-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter ZRO-USD: Imbalance=-0.39
+16:48:09 [INFO] 📊 [OB] Lighter LINK-USD: Imbalance=+1.00
+16:48:09 [INFO] 📊 [OB] Lighter BTC-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter KAITO-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter VIRTUAL-USD: Imbalance=+0.12
+16:48:10 [INFO] 📊 [OB] Lighter ADA-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter LTC-USD: Imbalance=-0.82
+16:48:10 [INFO] 📊 [OB] Lighter DOGE-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter TRX-USD: Imbalance=+0.15
+16:48:10 [INFO] 📊 [OB] Lighter MNT-USD: Imbalance=+0.14
+16:48:10 [INFO] 📊 [OB] Lighter OP-USD: Imbalance=-0.54
+16:48:10 [INFO] 📊 [OB] Lighter BERA-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter CRV-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter LINEA-USD: Imbalance=+0.22
+16:48:10 [INFO] 📊 [OB] Lighter WLD-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter TRUMP-USD: Imbalance=+0.13
+16:48:10 [INFO] 📊 [OB] Lighter JUP-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter PENDLE-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter FARTCOIN-USD: Imbalance=-1.00
+16:48:10 [INFO] 📊 [OB] Lighter IP-USD: Imbalance=+1.00
+16:48:10 [INFO] 📊 [OB] Lighter XAG-USD: Imbalance=+0.60
+16:48:10 [INFO] 📊 [OB] Lighter STRK-USD: Imbalance=+0.42
+16:48:10 [INFO] 📊 [OB] Lighter APEX-USD: Imbalance=-0.18
+16:48:10 [INFO] 📊 [OB] Lighter ASTER-USD: Imbalance=+1.00
+16:48:11 [INFO] 📊 [OB] Lighter XAU-USD: Imbalance=-0.26
+16:48:11 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:12 [INFO] 🚜 Farm Mode ACTIVE
+16:48:14 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:15 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:48:15 [INFO] 📊 OI Tracker Cycle 1: 63 updated, 5 failed, total OI: $67,537,297
+16:48:15 [INFO] 📈 Top 5 Symbols by Open Interest:
+16:48:15 [INFO]    1. BTC-USD: $25,682,289 (UNKNOWN)
+16:48:15 [INFO]    2. ETH-USD: $11,407,269 (UNKNOWN)
+16:48:15 [INFO]    3. SOL-USD: $5,032,119 (UNKNOWN)
+16:48:15 [INFO]    4. XAU-USD: $4,704,339 (UNKNOWN)
+16:48:15 [INFO]    5. HYPE-USD: $4,218,072 (UNKNOWN)
+16:48:17 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:20 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:23 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:26 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:29 [INFO] ❄️ Warming up caches (waiting for WS data)... X10=91, Lit=0
+16:48:30 [INFO] 🛑 Initiating shutdown...
+16:48:30 [INFO] Logic loop cancelled
+16:48:30 [INFO] Connection watchdog cancelled
+16:48:30 [INFO] 📊 OI Tracker: Starting cycle 2 (68 symbols)
+16:48:32 [INFO] 🔌 [x10_trades] WebSocket stopped
+16:48:35 [WARNING] WebSocket stop timed out
+16:48:35 [INFO] 🛑 Rollback processor: Shutdown signal received
+16:48:35 [INFO] ✅ ParallelExecutionManager: Stopped
+16:48:35 [INFO] 🛑 Stopping InMemoryStateManager...
+16:48:35 [INFO] 📝 State writer loop stopped
+16:48:35 [INFO] ✅ InMemoryStateManager stopped
+16:48:35 [INFO] ✅ Shutdown complete
+16:48:35 [INFO] 🛑 Shutting down...
+16:48:35 [INFO] 🛑 Shutdown requested...
+16:48:35 [INFO] ✅ ParallelExecutionManager: Stopped
+16:48:35 [INFO] 🔌 [x10_trades] WebSocket stopped
+16:48:35 [INFO] 🔌 [x10_funding] WebSocket stopped
+16:48:35 [INFO] 🔌 [x10_account] WebSocket stopped
+16:50:42 [INFO] 📊 OI Tracker Cycle 2: 63 updated, 5 failed, total OI: $66,954,210
+16:50:57 [INFO] 📊 OI Tracker: Starting cycle 3 (68 symbols)
+16:53:08 [INFO] 📊 OI Tracker Cycle 3: 63 updated, 5 failed, total OI: $66,954,210
+16:53:08 [INFO] 📈 Top 5 Symbols by Open Interest:
+16:53:08 [INFO]    1. BTC-USD: $25,541,501 (FALLING)
+16:53:08 [INFO]    2. ETH-USD: $11,022,720 (FALLING)
+16:53:08 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+16:53:08 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+16:53:08 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+16:53:23 [INFO] 📊 OI Tracker: Starting cycle 4 (68 symbols)
+16:55:34 [INFO] 📊 OI Tracker Cycle 4: 63 updated, 5 failed, total OI: $66,954,210
+16:55:49 [INFO] 📊 OI Tracker: Starting cycle 5 (68 symbols)
+16:58:00 [INFO] 📊 OI Tracker Cycle 5: 63 updated, 5 failed, total OI: $66,954,210
+16:58:15 [INFO] 📊 OI Tracker: Starting cycle 6 (68 symbols)
+17:00:27 [INFO] 📊 OI Tracker Cycle 6: 63 updated, 5 failed, total OI: $66,954,210
+17:00:27 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:00:27 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:00:27 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:00:27 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:00:27 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:00:27 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:00:42 [INFO] 📊 OI Tracker: Starting cycle 7 (68 symbols)
+17:02:53 [INFO] 📊 OI Tracker Cycle 7: 63 updated, 5 failed, total OI: $66,954,210
+17:03:08 [INFO] 📊 OI Tracker: Starting cycle 8 (68 symbols)
+17:05:19 [INFO] 📊 OI Tracker Cycle 8: 63 updated, 5 failed, total OI: $66,954,210
+17:05:34 [INFO] 📊 OI Tracker: Starting cycle 9 (68 symbols)
+17:07:46 [INFO] 📊 OI Tracker Cycle 9: 63 updated, 5 failed, total OI: $66,954,210
+17:07:46 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:07:46 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:07:46 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:07:46 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:07:46 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:07:46 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:08:01 [INFO] 📊 OI Tracker: Starting cycle 10 (68 symbols)
+17:10:12 [INFO] 📊 OI Tracker Cycle 10: 63 updated, 5 failed, total OI: $66,954,210
+17:10:27 [INFO] 📊 OI Tracker: Starting cycle 11 (68 symbols)
+17:12:39 [INFO] 📊 OI Tracker Cycle 11: 63 updated, 5 failed, total OI: $66,954,210
+17:12:54 [INFO] 📊 OI Tracker: Starting cycle 12 (68 symbols)
+17:15:05 [INFO] 📊 OI Tracker Cycle 12: 63 updated, 5 failed, total OI: $66,954,210
+17:15:05 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:15:05 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:15:05 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:15:05 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:15:05 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:15:05 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:15:20 [INFO] 📊 OI Tracker: Starting cycle 13 (68 symbols)
+17:16:03 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+17:16:04 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+17:16:04 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:17:31 [INFO] 📊 OI Tracker Cycle 13: 63 updated, 5 failed, total OI: $66,954,210
+17:17:46 [INFO] 📊 OI Tracker: Starting cycle 14 (68 symbols)
+17:19:58 [INFO] 📊 OI Tracker Cycle 14: 63 updated, 5 failed, total OI: $66,954,210
+17:20:13 [INFO] 📊 OI Tracker: Starting cycle 15 (68 symbols)
+17:22:25 [INFO] 📊 OI Tracker Cycle 15: 63 updated, 5 failed, total OI: $66,954,210
+17:22:25 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:22:25 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:22:25 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:22:25 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:22:25 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:22:25 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:22:40 [INFO] 📊 OI Tracker: Starting cycle 16 (68 symbols)
+17:24:51 [INFO] 📊 OI Tracker Cycle 16: 63 updated, 5 failed, total OI: $66,954,210
+17:25:06 [INFO] 📊 OI Tracker: Starting cycle 17 (68 symbols)
+17:27:17 [INFO] 📊 OI Tracker Cycle 17: 63 updated, 5 failed, total OI: $66,954,210
+17:27:32 [INFO] 📊 OI Tracker: Starting cycle 18 (68 symbols)
+17:29:43 [INFO] 📊 OI Tracker Cycle 18: 63 updated, 5 failed, total OI: $66,954,210
+17:29:43 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:29:43 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:29:43 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:29:43 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:29:43 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:29:43 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:29:58 [INFO] 📊 OI Tracker: Starting cycle 19 (68 symbols)
+17:32:10 [INFO] 📊 OI Tracker Cycle 19: 63 updated, 5 failed, total OI: $66,954,210
+17:32:25 [INFO] 📊 OI Tracker: Starting cycle 20 (68 symbols)
+17:34:36 [INFO] 📊 OI Tracker Cycle 20: 63 updated, 5 failed, total OI: $66,954,210
+17:34:51 [INFO] 📊 OI Tracker: Starting cycle 21 (68 symbols)
+17:37:02 [INFO] 📊 OI Tracker Cycle 21: 63 updated, 5 failed, total OI: $66,954,210
+17:37:02 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:37:02 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:37:02 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:37:02 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:37:02 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:37:02 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:37:17 [INFO] 📊 OI Tracker: Starting cycle 22 (68 symbols)
+17:39:29 [INFO] 📊 OI Tracker Cycle 22: 63 updated, 5 failed, total OI: $66,954,210
+17:39:44 [INFO] 📊 OI Tracker: Starting cycle 23 (68 symbols)
+17:41:55 [INFO] 📊 OI Tracker Cycle 23: 63 updated, 5 failed, total OI: $66,954,210
+17:42:10 [INFO] 📊 OI Tracker: Starting cycle 24 (68 symbols)
+17:44:22 [INFO] 📊 OI Tracker Cycle 24: 63 updated, 5 failed, total OI: $66,954,210
+17:44:22 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:44:22 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:44:22 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:44:22 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:44:22 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:44:22 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:44:37 [INFO] 📊 OI Tracker: Starting cycle 25 (68 symbols)
+17:46:04 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+17:46:05 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+17:46:05 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:46:48 [INFO] 📊 OI Tracker Cycle 25: 63 updated, 5 failed, total OI: $66,954,210
+17:47:03 [INFO] 📊 OI Tracker: Starting cycle 26 (68 symbols)
+17:49:14 [INFO] 📊 OI Tracker Cycle 26: 63 updated, 5 failed, total OI: $66,954,210
+17:49:29 [INFO] 📊 OI Tracker: Starting cycle 27 (68 symbols)
+17:51:40 [INFO] 📊 OI Tracker Cycle 27: 63 updated, 5 failed, total OI: $66,954,210
+17:51:40 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:51:40 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:51:40 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:51:40 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:51:40 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:51:40 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:51:55 [INFO] 📊 OI Tracker: Starting cycle 28 (68 symbols)
+17:54:07 [INFO] 📊 OI Tracker Cycle 28: 63 updated, 5 failed, total OI: $66,954,210
+17:54:22 [INFO] 📊 OI Tracker: Starting cycle 29 (68 symbols)
+17:56:33 [INFO] 📊 OI Tracker Cycle 29: 63 updated, 5 failed, total OI: $66,954,210
+17:56:48 [INFO] 📊 OI Tracker: Starting cycle 30 (68 symbols)
+17:59:00 [INFO] 📊 OI Tracker Cycle 30: 63 updated, 5 failed, total OI: $66,954,210
+17:59:00 [INFO] 📈 Top 5 Symbols by Open Interest:
+17:59:00 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+17:59:00 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+17:59:00 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+17:59:00 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+17:59:00 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+17:59:15 [INFO] 📊 OI Tracker: Starting cycle 31 (68 symbols)
+18:01:26 [INFO] 📊 OI Tracker Cycle 31: 63 updated, 5 failed, total OI: $66,954,210
+18:01:41 [INFO] 📊 OI Tracker: Starting cycle 32 (68 symbols)
+18:03:52 [INFO] 📊 OI Tracker Cycle 32: 63 updated, 5 failed, total OI: $66,954,210
+18:04:07 [INFO] 📊 OI Tracker: Starting cycle 33 (68 symbols)
+18:06:18 [INFO] 📊 OI Tracker Cycle 33: 63 updated, 5 failed, total OI: $66,954,210
+18:06:18 [INFO] 📈 Top 5 Symbols by Open Interest:
+18:06:18 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+18:06:18 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+18:06:18 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+18:06:18 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+18:06:18 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+18:06:33 [INFO] 📊 OI Tracker: Starting cycle 34 (68 symbols)
+18:08:44 [INFO] 📊 OI Tracker Cycle 34: 63 updated, 5 failed, total OI: $66,954,210
+18:08:59 [INFO] 📊 OI Tracker: Starting cycle 35 (68 symbols)
+18:11:10 [INFO] 📊 OI Tracker Cycle 35: 63 updated, 5 failed, total OI: $66,954,210
+18:11:25 [INFO] 📊 OI Tracker: Starting cycle 36 (68 symbols)
+18:13:36 [INFO] 📊 OI Tracker Cycle 36: 63 updated, 5 failed, total OI: $66,954,210
+18:13:36 [INFO] 📈 Top 5 Symbols by Open Interest:
+18:13:36 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+18:13:36 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+18:13:36 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+18:13:36 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+18:13:36 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+18:13:52 [INFO] 📊 OI Tracker: Starting cycle 37 (68 symbols)
+18:16:03 [INFO] 📊 OI Tracker Cycle 37: 63 updated, 5 failed, total OI: $66,954,210
+18:16:05 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=config)
+18:16:06 [INFO] ✅ X10 Fee Schedule from API: Maker=0.000000, Taker=0.000225
+18:16:06 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+18:16:18 [INFO] 📊 OI Tracker: Starting cycle 38 (68 symbols)
+18:18:28 [INFO] 📊 OI Tracker Cycle 38: 63 updated, 5 failed, total OI: $66,954,210
+18:18:43 [INFO] 📊 OI Tracker: Starting cycle 39 (68 symbols)
+18:20:54 [INFO] 📊 OI Tracker Cycle 39: 63 updated, 5 failed, total OI: $66,954,210
+18:20:54 [INFO] 📈 Top 5 Symbols by Open Interest:
+18:20:54 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+18:20:54 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+18:20:54 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+18:20:54 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+18:20:54 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+18:21:09 [INFO] 📊 OI Tracker: Starting cycle 40 (68 symbols)
+18:23:20 [INFO] 📊 OI Tracker Cycle 40: 63 updated, 5 failed, total OI: $66,954,210
+18:23:35 [INFO] 📊 OI Tracker: Starting cycle 41 (68 symbols)
+18:25:46 [INFO] 📊 OI Tracker Cycle 41: 63 updated, 5 failed, total OI: $66,954,210
+18:26:01 [INFO] 📊 OI Tracker: Starting cycle 42 (68 symbols)
+18:28:13 [INFO] 📊 OI Tracker Cycle 42: 63 updated, 5 failed, total OI: $66,954,210
+18:28:13 [INFO] 📈 Top 5 Symbols by Open Interest:
+18:28:13 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+18:28:13 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+18:28:13 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+18:28:13 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+18:28:13 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+18:28:28 [INFO] 📊 OI Tracker: Starting cycle 43 (68 symbols)
+18:30:39 [INFO] 📊 OI Tracker Cycle 43: 63 updated, 5 failed, total OI: $66,954,210
+18:30:54 [INFO] 📊 OI Tracker: Starting cycle 44 (68 symbols)
+18:33:05 [INFO] 📊 OI Tracker Cycle 44: 63 updated, 5 failed, total OI: $66,954,210
+18:33:20 [INFO] 📊 OI Tracker: Starting cycle 45 (68 symbols)
+18:35:31 [INFO] 📊 OI Tracker Cycle 45: 63 updated, 5 failed, total OI: $66,954,210
+18:35:31 [INFO] 📈 Top 5 Symbols by Open Interest:
+18:35:31 [INFO]    1. BTC-USD: $25,541,501 (STABLE)
+18:35:31 [INFO]    2. ETH-USD: $11,022,720 (STABLE)
+18:35:31 [INFO]    3. SOL-USD: $5,018,995 (STABLE)
+18:35:31 [INFO]    4. XAU-USD: $4,699,893 (STABLE)
+18:35:31 [INFO]    5. HYPE-USD: $4,220,147 (STABLE)
+18:35:46 [INFO] 📊 OI Tracker: Starting cycle 46 (68 symbols)
+18:37:57 [INFO] 📊 OI Tracker Cycle 46: 63 updated, 5 failed, total OI: $66,954,210
+18:38:12 [INFO] 📊 OI Tracker: Starting cycle 47 (68 symbols)

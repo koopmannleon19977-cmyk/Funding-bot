@@ -135,9 +135,6 @@ class LighterAdapter(BaseAdapter):
                 data = await resp.json()
                 self.rate_limiter.on_success()
                 return data
-        except asyncio.CancelledError:
-            logger.debug("_rest_get cancelled (shutdown)")
-            return None  # Return None statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger. debug(f"{self.name} REST GET {path} error: {e}")
             return None
@@ -361,20 +358,52 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Fee Fetch Error for {order_id}: {e}")
             return 0.0
 
-    async def fetch_fee_schedule(self) -> Tuple[float, float, str]:
+    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
         """
-        Fetch fee schedule from Lighter.
-        
-        Note: Lighter has no fees API endpoint and always charges 0% fees.
-        We return 0.0 directly without making an API call to save requests
-        and avoid 404 errors in logs.
+        Fetch fee schedule from Lighter API
         
         Returns:
-            Tuple[maker_fee, taker_fee, source] - Always returns (0.0, 0.0, 'config')
+            Tuple[maker_fee, taker_fee] or None if failed
         """
-        # Lighter has no fees API and always charges 0% fees
-        # Return directly without API call to save requests
-        return (0.0, 0.0, 'config')
+        try:
+            # Try REST API endpoint for fee info
+            data = await self._rest_get("/api/v1/fees")
+            
+            if data:
+                # Parse fee schedule from response
+                fees_data = data.get('data') or data.get('fees') or data
+                
+                maker_fee = safe_float(
+                    fees_data.get('maker_fee') or 
+                    fees_data.get('maker') or 
+                    fees_data.get('makerFee') or 
+                    getattr(config, 'FEES_LIGHTER', 0.0),
+                    getattr(config, 'FEES_LIGHTER', 0.0)
+                )
+                
+                taker_fee = safe_float(
+                    fees_data.get('taker_fee') or 
+                    fees_data.get('taker') or 
+                    fees_data.get('takerFee') or 
+                    getattr(config, 'FEES_LIGHTER', 0.0),
+                    getattr(config, 'FEES_LIGHTER', 0.0)
+                )
+                
+                # Validate fees are reasonable (0-1%)
+                if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
+                    logger.debug(f"Lighter Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
+                    return (maker_fee, taker_fee)
+                else:
+                    logger.warning(f"Lighter Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
+                    return None
+            
+            # If REST API doesn't have fees endpoint, return None (will use config fallback)
+            logger.debug("Lighter Fee Schedule: No API endpoint available, using config")
+            return None
+                        
+        except Exception as e:
+            logger.debug(f"Lighter Fee Schedule fetch error: {e}")
+            return None
 
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
@@ -842,13 +871,13 @@ class LighterAdapter(BaseAdapter):
 
     async def load_funding_rates_and_prices(self):
         """Lädt Funding Rates UND Preise von der Lighter REST API"""
+        if not getattr(config, "LIVE_TRADING", False):
+            return
+
+        if not HAVE_LIGHTER_SDK:
+            return
+
         try:
-            if not getattr(config, "LIVE_TRADING", False):
-                return
-
-            if not HAVE_LIGHTER_SDK:
-                return
-
             signer = await self._get_signer()
             
             # 1.  FUNDING RATES laden
@@ -908,18 +937,12 @@ class LighterAdapter(BaseAdapter):
                     self.rate_limiter.on_success()
                     logger.debug(f"Lighter: Loaded {price_count} prices via REST")
                     
-            except asyncio.CancelledError:
-                logger.debug("load_funding_rates_and_prices cancelled (shutdown)")
-                return  # Return statt raise - verhindert _GatheringFuture error
             except Exception as e:
                 if "429" in str(e):
                     self. rate_limiter. penalize_429()
                 else:
                     logger.debug(f"Lighter price fetch warning: {e}")
 
-        except asyncio.CancelledError:
-            logger.debug("load_funding_rates_and_prices cancelled (shutdown)")
-            return  # Return statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -1052,9 +1075,6 @@ class LighterAdapter(BaseAdapter):
 
                 return result
 
-        except asyncio.CancelledError:
-            logger.debug("fetch_orderbook cancelled (shutdown)")
-            return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "rate limit" in err_str:
@@ -1216,13 +1236,13 @@ class LighterAdapter(BaseAdapter):
         return self.fetch_mark_price(symbol)
 
     async def get_real_available_balance(self) -> float:
+        if time.time() - self._last_balance_update < 2.0:
+            return self._balance_cache
+
+        if not HAVE_LIGHTER_SDK:
+            return 0.0
+
         try:
-            if time.time() - self._last_balance_update < 2.0:
-                return self._balance_cache
-
-            if not HAVE_LIGHTER_SDK:
-                return 0.0
-
             await self.rate_limiter.acquire()
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
@@ -1247,9 +1267,6 @@ class LighterAdapter(BaseAdapter):
 
                     logger.debug(f"Lighter Balance: Raw=${val:.2f}, Safe=${safe_balance:.2f}")
                     break
-                except asyncio.CancelledError:
-                    logger.debug("get_real_available_balance cancelled (shutdown)")
-                    return 0.0  # Return default statt raise - verhindert _GatheringFuture error
                 except Exception as e:
                     if "429" in str(e):
                         await asyncio.sleep(2)
@@ -1258,24 +1275,20 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(1)
                         continue
                     raise
-            return self._balance_cache
-        except asyncio.CancelledError:
-            logger.debug("get_real_available_balance cancelled (shutdown)")
-            return 0.0  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             if "429" not in str(e):
                 logger.error(f"❌ Lighter Balance Error: {e}")
-            return 0.0
+
+        return self._balance_cache
 
     async def fetch_open_positions(self) -> List[dict]:
-        """Fetch open positions from Lighter"""
+        if not getattr(config, "LIVE_TRADING", False):
+            return []
+
+        if not HAVE_LIGHTER_SDK:
+            return []
+
         try:
-            if not getattr(config, "LIVE_TRADING", False):
-                return []
-
-            if not HAVE_LIGHTER_SDK:
-                return []
-
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
 
@@ -1315,11 +1328,8 @@ class LighterAdapter(BaseAdapter):
             logger.info(f"Lighter: Found {len(positions)} open positions")
             return positions
 
-        except asyncio.CancelledError:
-            logger.debug("fetch_open_positions cancelled (shutdown)")
-            return []  # Return empty list statt raise - verhindert _GatheringFuture error
         except Exception as e:
-            logger.error(f"fetch_open_positions error: {e}")
+            logger. error(f"Lighter Positions Error: {e}")
             return []
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
@@ -1436,31 +1446,31 @@ class LighterAdapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
+        # ═══════════════════════════════════════════════════════════════
+        notional_usd_safe = safe_float(notional_usd, 0.0)
+        if notional_usd_safe <= 0:
+            logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
+            return False, None
+        
+        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
+        if not is_valid:
+            logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
+            raise ValueError(f"Order validation failed: {error_msg}")
+
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL: Safe-cast price (could be string from API)
+        # ═══════════════════════════════════════════════════════════════
+        if price is None:
+            price = self.get_price(symbol)
+        price_safe = safe_float(price, 0.0)
+        if price_safe <= 0:
+            raise ValueError(f"No valid price available for {symbol}: {price}")
+
+        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
+
         try:
-            # ═══════════════════════════════════════════════════════════════
-            # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
-            # ═══════════════════════════════════════════════════════════════
-            notional_usd_safe = safe_float(notional_usd, 0.0)
-            if notional_usd_safe <= 0:
-                logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
-                return False, None
-            
-            is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
-            if not is_valid:
-                logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
-                raise ValueError(f"Order validation failed: {error_msg}")
-
-            # ═══════════════════════════════════════════════════════════════
-            # CRITICAL: Safe-cast price (could be string from API)
-            # ═══════════════════════════════════════════════════════════════
-            if price is None:
-                price = self.get_price(symbol)
-            price_safe = safe_float(price, 0.0)
-            if price_safe <= 0:
-                raise ValueError(f"No valid price available for {symbol}: {price}")
-
-            logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
-
             # ═══════════════════════════════════════════════════════════════
             # CRITICAL: Safe-cast market_id (market_info values can be strings!)
             # ═══════════════════════════════════════════════════════════════
@@ -1530,18 +1540,12 @@ class LighterAdapter(BaseAdapter):
                     logger.info(f"Lighter Order: {tx_hash}")
                     return True, str(tx_hash)
 
-                except asyncio.CancelledError:
-                    logger.debug("open_live_position cancelled (shutdown)")
-                    return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
                 except Exception as inner_e:
                     logger.error(f"Lighter Inner Error: {inner_e}")
                     return False, None
 
             return False, None
 
-        except asyncio.CancelledError:
-            logger.debug("open_live_position cancelled (shutdown)")
-            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"Lighter Execution Error: {e}")
             return False, None
@@ -1559,17 +1563,18 @@ class LighterAdapter(BaseAdapter):
         """
         import traceback
         
+        # ═══════════════════════════════════════════════════════════════════════════
+        # DEBUG: Log ALL input types and values at entry point
+        # ═══════════════════════════════════════════════════════════════════════════
+        logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
+        logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
+        logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
+        
+        if not getattr(config, "LIVE_TRADING", False):
+            logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
+            return True, "DRY_RUN_CLOSE_456"
+
         try:
-            # ═══════════════════════════════════════════════════════════════════════════
-            # DEBUG: Log ALL input types and values at entry point
-            # ═══════════════════════════════════════════════════════════════════════════
-            logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
-            logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
-            logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
-            
-            if not getattr(config, "LIVE_TRADING", False):
-                logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
-                return True, "DRY_RUN_CLOSE_456"
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 1: Hole aktuelle Positionen
             # ═══════════════════════════════════════════════════════════════
@@ -1687,9 +1692,6 @@ class LighterAdapter(BaseAdapter):
                     logger.error(f"     - {key}: {val} (type={type(val)})")
             
             return False, None
-        except asyncio.CancelledError:
-            logger.debug("close_live_position cancelled (shutdown)")
-            return (False, None)  # Return default statt raise - verhindert _GatheringFuture error
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None

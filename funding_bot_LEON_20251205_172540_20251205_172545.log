@@ -1,0 +1,732 @@
+17:25:45 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+17:25:45 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:25:45 [INFO] 🚀 Starting InMemoryStateManager...
+17:25:45 [INFO] 📂 Initializing database: data/trades.db
+17:25:45 [INFO] ✅ Read pool created: 5 connections
+17:25:45 [INFO] ✅ WAL mode enabled
+17:25:45 [INFO] 🔄 Running database migrations...
+17:25:45 [INFO] ✅ Migrations complete (11 statements)
+17:25:45 [INFO] ✅ Database initialized
+17:25:45 [INFO] 🖊️ Database write loop started
+17:25:45 [INFO] 📂 Loaded 4 trades from database
+17:25:45 [INFO] ✅ InMemoryStateManager started (loaded 4 trades)
+17:25:45 [INFO] ✅ State Manager started
+17:25:45 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:25:45 [INFO] ✅ Async database initialized
+17:25:45 [INFO] 📝 State writer loop started
+17:25:45 [DEBUG] ✅ Database schema up to date
+17:25:45 [INFO] Initialisiere X10 Adapter...
+17:25:45 [INFO]  X10 Account initialisiert.
+17:25:45 [INFO] Initialisiere Lighter Adapter...
+17:25:45 [INFO] 📊 Loading Market Data via REST...
+17:25:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:25:47 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+17:25:47 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+17:25:48 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+17:25:48 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:25:50 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+17:25:50 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:25:50 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:25:50 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:25:50 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:25:50 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+17:25:50 [INFO] 📈 Pre-loading Lighter prices...
+17:25:50 [DEBUG] Lighter: Loaded 383 funding rates
+17:25:51 [DEBUG] Lighter: Loaded 115 prices via REST
+17:25:51 [INFO] ✅ Lighter prices loaded: 115 symbols
+17:25:51 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:25:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:25:53 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:25:53 [INFO] FundingPredictorV2 initialized with BTC Correlation
+17:25:53 [INFO] 启动 OI Tracker für 68 Symbole...
+17:25:53 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:25:53 [INFO] 🌐 Starting WebSocket Manager...
+17:25:53 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+17:25:53 [INFO] 🔌 [lighter] WebSocket manager started
+17:25:53 [INFO] 🔌 [x10_account] WebSocket manager started
+17:25:53 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:25:53 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:25:53 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+17:25:53 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:25:53 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:25:53 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:25:53 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+17:25:53 [DEBUG] ✅ GRASS-USD: X10=$209,818, Lighter=$1,565,122, Total=$1,774,940
+17:25:54 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:25:54 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:25:54 [INFO] [x10_account] Receive loop started (async iterator)
+17:25:54 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+17:25:54 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:25:54 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+17:25:54 [INFO] [lighter] Resubscribing to 75 channels (paced)...
+17:25:54 [INFO] [lighter] Receive loop started (async iterator)
+17:25:54 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/91
+17:25:54 [DEBUG] [lighter] Subscribed to trade/91
+17:25:54 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:25:54 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:25:54 [INFO] [x10_trades] Receive loop started (async iterator)
+17:25:54 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/18
+17:25:54 [DEBUG] [lighter] Subscribed to trade/18
+17:25:54 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:25:54 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:25:54 [INFO] [x10_funding] Receive loop started (async iterator)
+17:25:54 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/47
+17:25:54 [DEBUG] [lighter] Subscribed to trade/47
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/90
+17:25:54 [DEBUG] [lighter] Subscribed to trade/90
+17:25:54 [DEBUG] [lighter] Resubscribed 10/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/21
+17:25:54 [DEBUG] [lighter] Subscribed to trade/21
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/17
+17:25:54 [DEBUG] [lighter] Subscribed to trade/17
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/45
+17:25:54 [DEBUG] [lighter] Subscribed to trade/45
+17:25:54 [DEBUG] [lighter] Resubscribed 20/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/10
+17:25:54 [DEBUG] [lighter] Subscribed to trade/10
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/31
+17:25:54 [DEBUG] [lighter] Subscribed to trade/31
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/25
+17:25:54 [DEBUG] [lighter] Subscribed to trade/25
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/29
+17:25:54 [DEBUG] [lighter] Subscribed to trade/29
+17:25:54 [DEBUG] [lighter] Resubscribed 30/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/23
+17:25:54 [DEBUG] [lighter] Subscribed to trade/23
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/93
+17:25:54 [DEBUG] [lighter] Subscribed to trade/93
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/89
+17:25:54 [DEBUG] [lighter] Subscribed to trade/89
+17:25:54 [DEBUG] [lighter] Resubscribed 40/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/35
+17:25:54 [DEBUG] [lighter] Subscribed to trade/35
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/103
+17:25:54 [DEBUG] [lighter] Subscribed to trade/103
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/86
+17:25:54 [DEBUG] [lighter] Subscribed to trade/86
+17:25:54 [DEBUG] [lighter] Resubscribed 50/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/4
+17:25:54 [DEBUG] [lighter] Subscribed to trade/4
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/9
+17:25:54 [DEBUG] [lighter] Subscribed to trade/9
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/98
+17:25:54 [DEBUG] [lighter] Subscribed to trade/98
+17:25:54 [DEBUG] [lighter] Resubscribed 60/75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/39
+17:25:54 [DEBUG] [lighter] Subscribed to trade/39
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/11
+17:25:54 [DEBUG] [lighter] Subscribed to trade/11
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/41
+17:25:54 [DEBUG] [lighter] Subscribed to trade/41
+17:25:54 [DEBUG] [lighter] Resubscribed 70/75 channels
+17:25:54 [INFO] [lighter] Resubscribed to 75 channels
+17:25:54 [DEBUG] [lighter] Subscribed to order_book/15
+17:25:54 [DEBUG] [lighter] Subscribed to trade/15
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/30
+17:25:55 [DEBUG] [lighter] Subscribed to trade/30
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/92
+17:25:55 [DEBUG] [lighter] Subscribed to trade/92
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/38
+17:25:55 [DEBUG] [lighter] Subscribed to trade/38
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/42
+17:25:55 [DEBUG] [lighter] Subscribed to trade/42
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/104
+17:25:55 [DEBUG] [lighter] Subscribed to trade/104
+17:25:55 [DEBUG] [lighter] Subscribed to order_book/3
+17:25:55 [DEBUG] [lighter] Subscribed to trade/3
+17:25:55 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:25:55 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:25:55 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:25:55 [INFO] 🔍 DB meldet 4 offene Trades. Prüfe Exchange...
+17:25:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:25:55 [DEBUG] ✅ ZORA-USD: X10=$157,166, Lighter=$34,544,523, Total=$34,701,689
+17:25:56 [INFO] Lighter: Found 2 open positions
+17:25:56 [INFO] 🌍 Echte Positionen auf Exchanges: ['APT-USD', 'LINEA-USD']
+17:25:56 [WARNING] ⚠️  ZOMBIE GEFUNDEN: AVAX-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+17:25:56 [INFO] ✅ Trade AVAX-USD closed (PnL: $0.00)
+17:25:56 [WARNING] ⚠️  ZOMBIE GEFUNDEN: KAITO-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+17:25:56 [INFO] ✅ Trade KAITO-USD closed (PnL: $0.00)
+17:25:56 [WARNING] ⚠️  ZOMBIE GEFUNDEN: BERA-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+17:25:56 [INFO] ✅ Trade BERA-USD closed (PnL: $0.00)
+17:25:56 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:25:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:25:56 [DEBUG] 📝 Flushed 1 writes
+17:25:56 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:25:57 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+17:25:57 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+17:25:57 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+17:25:57 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:25:58 [INFO] Lighter: Found 2 open positions
+17:25:58 [WARNING] 🚨 Found 1 ORPHANED positions: {'LINEA-USD'}
+17:25:58 [WARNING] 🧹 Cleaning orphaned position: LINEA-USD
+17:25:58 [INFO] Lighter LINEA-USD: size=-3500.0, closing as SELL, notional=$29.05
+17:25:58 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:25:58 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:25:58 [INFO] 🔍 DEBUG: notional_usd=29.05 (type=<class 'float'>)
+17:25:58 [DEBUG] 📝 Flushed 2 writes
+17:25:58 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:25:58 [INFO] Lighter: Found 2 open positions
+17:25:58 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0083, notional=$29.05
+17:25:58 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=BUY, size_usd=$29.05, price=$0.008300
+17:25:58 [DEBUG] 🔍 DEBUG: LINEA-USD market_id = 76 (raw=76, type=<class 'int'>)
+17:25:58 [DEBUG] QUANTIZE LINEA-USD: USD=29.05, coins=3500.000000, raw=3500, lot_size=100, final=3500
+17:25:59 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1764952032078,"BaseAmount":3500,"Price":8350,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767371158997,"ExpiredAt":1764952557997,"Nonce":4108,"Sig":"C5ao9DIBoK28B6hKxcHsXx30ee48G1JCmlLJyK8SKXuYLQn2u0mPd53C2FI2Q5jBg8KwbYv9/FVSqM/k5enX40q3GyUOz96YeL1ymXJZRi0="}
+17:25:59 [DEBUG] ✅ KAITO-USD: X10=$437,516, Lighter=$1,780,596, Total=$2,218,112
+17:25:59 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='68ea723d9e39443be4baa5963c02b781ddcee4524d2943dee8fc9e724f3e3197dae847dcff7b689f' predicted_execution_time_ms=1764951949616 additional_properties={}
+17:25:59 [INFO] Lighter Order: 68ea723d9e39443be4baa5963c02b781ddcee4524d2943dee8fc9e724f3e3197dae847dcff7b689f
+17:25:59 [INFO] ✅ Lighter close LINEA-USD: Erfolgreich ($29.05)
+17:25:59 [INFO] ✅ Closed orphaned LINEA-USD
+17:25:59 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+17:25:59 [INFO] ✅ ParallelExecutionManager started
+17:25:59 [DEBUG] Registered task: logic_loop (priority=HIGH)
+17:25:59 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+17:25:59 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+17:25:59 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+17:25:59 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+17:25:59 [DEBUG] Registered task: health_reporter (priority=LOW)
+17:25:59 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+17:25:59 [INFO] ═══════════════════════════════════════════════════════════
+17:25:59 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:25:59 [INFO] ═══════════════════════════════════════════════════════════
+17:25:59 [INFO] 🚀 BotEventLoop starting...
+17:25:59 [INFO] ▶️ Started task: connection_watchdog
+17:25:59 [INFO] ▶️ Started task: logic_loop
+17:25:59 [INFO] ▶️ Started task: trade_management_loop
+17:25:59 [INFO] ▶️ Started task: farm_loop
+17:25:59 [INFO] ▶️ Started task: maintenance_loop
+17:25:59 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:25:59 [INFO] ▶️ Started task: health_reporter
+17:25:59 [INFO] ✅ Started 7 tasks
+17:25:59 [INFO] 🔄 Rollback processor running...
+17:25:59 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:25:59 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:25:59 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+17:25:59 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: {'APT-USD'}
+17:25:59 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+17:25:59 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+17:25:59 [INFO] 🛡️ Trade Management Loop gestartet
+17:25:59 [DEBUG] Fetching fresh positions (force=False, cache_age=1764951959.3s)
+17:25:59 [INFO] 🚜 Farm Mode ACTIVE
+17:25:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:25:59 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+17:25:59 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+17:25:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:25:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:25:59 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+17:25:59 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:25:59 [DEBUG] Skip GRASS-USD: Spread 0.31% too high
+17:25:59 [INFO] 🔍 DEBUG AVNT-USD: rl=0.00001200, rx=-0.00004800, net=0.00006000, apy=52.6%
+17:25:59 [INFO] 💎 AVNT-USD | APY: 52.6%
+17:25:59 [DEBUG] Skip SEI-USD: Spread 0.46% too high
+17:25:59 [INFO] 🔍 DEBUG JUP-USD: rl=-0.00006000, rx=0.00001000, net=-0.00007000, apy=61.3%
+17:25:59 [DEBUG] Skip JUP-USD: Spread 0.68% too high
+17:25:59 [INFO] 🔍 DEBUG RESOLV-USD: rl=-0.00016400, rx=-0.00006600, net=-0.00009800, apy=85.8%
+17:25:59 [INFO] 💎 RESOLV-USD | APY: 85.8%
+17:25:59 [DEBUG] Skip OP-USD: Spread 0.34% too high
+17:25:59 [DEBUG] Skip S-USD: Spread 0.37% too high
+17:25:59 [INFO] 🔍 DEBUG ZEC-USD: rl=-0.00007500, rx=-0.00000300, net=-0.00007200, apy=63.1%
+17:25:59 [INFO] 💎 ZEC-USD | APY: 63.1%
+17:25:59 [DEBUG] 🔄 Skip APT-USD: Already open (in open_syms)
+17:25:59 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+17:25:59 [INFO] 🔍 DEBUG EDEN-USD: rl=-0.00000600, rx=-0.00022900, net=0.00022300, apy=195.3%
+17:25:59 [DEBUG] Skip EDEN-USD: Spread 0.37% too high
+17:25:59 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+17:25:59 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+17:25:59 [INFO] ✅ Found 35 opportunities from 63 valid pairs (farm_mode=True, scanned=68)
+17:25:59 [INFO] 🎯 Found 3 opportunities, executing best...
+17:25:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:25:59 [INFO] Lighter: Found 2 open positions
+17:26:00 [DEBUG] Lighter Balance: Raw=$284.04, Safe=$269.84
+17:26:00 [INFO] 🚜 Opening FARM: GRASS-USD APY=12.3%
+17:26:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:00 [INFO] 📊 Positions: X10=0, Lighter=2
+17:26:00 [DEBUG] Lighter positions: ['APT-USD', 'LINEA-USD']
+17:26:00 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:00 [DEBUG] Check APT-USD: Age=14.7s (Limit=2700s)
+17:26:00 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:26:00 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:00 [DEBUG] Lighter Balance: Raw=$284.04, Safe=$269.84
+17:26:00 [INFO] X10: Detected balance = $297.53
+17:26:00 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+17:26:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:00 [DEBUG] ✅ ETH-USD: X10=$12,510,869, Lighter=$0, Total=$12,510,869
+17:26:00 [INFO] Lighter: Found 2 open positions
+17:26:00 [DEBUG] ✅ GRASS-USD verified: No existing positions on exchanges
+17:26:00 [DEBUG] 🧠 GRASS-USD: Prediction conf=0.50, delta=0.000012
+17:26:00 [DEBUG] MIN_NOTIONAL GRASS-USD: min_base=10.00000000 coins, price=$0.3148, min_qty_usd=$3.15, min_notional_api=$10.00, final=$11.00
+17:26:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:26:01 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+17:26:01 [INFO] 🎰 KELLY GRASS-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0250, confidence=LOW, samples=0
+17:26:01 [INFO] 📊 KELLY SIZE GRASS-USD: base=$30.0, kelly_recommended=$6.7, final=$30.0
+17:26:01 [INFO] 🚀 Opening GRASS-USD: Size=$30.0 (Min=$11.0)
+17:26:01 [INFO] 🔄 [PARALLEL] GRASS-USD: Lighter POST-ONLY first
+17:26:01 [INFO] 🚀 LIGHTER OPEN GRASS-USD: side=SELL, size_usd=$30.00, price=$0.314840
+17:26:01 [DEBUG] 🔍 DEBUG: GRASS-USD market_id = 52 (raw=52, type=<class 'int'>)
+17:26:01 [DEBUG] QUANTIZE GRASS-USD: USD=30.00, coins=95.286495, raw=953, lot_size=100, final=900
+17:26:01 [INFO] 🔄 [PARALLEL] GRASS-USD: X10 MARKET order
+17:26:01 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":52,"ClientOrderIndex":1764951995205,"BaseAmount":900,"Price":31295,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767371161267,"ExpiredAt":1764952560267,"Nonce":4109,"Sig":"W1Oy6aLCNtvS5Z6bs+pLD73KwjLWBTwsr/WgbcZy3xztTwHuby+oAiYv8YfJxm91eF3uXA8UbM4VPFRV02Jqt4PykwDPR8MFlj1T+TyA9Bc="}
+17:26:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:26:01 [INFO] Lighter: Found 2 open positions
+17:26:01 [INFO] 💰 Balance: X10=$297.5 (free=$253.4), Lit=$269.8 (free=$225.7) | DB_Trades=1, Real_Positions=2, Locked=$10/ex
+17:26:01 [INFO] 🚀 Launching trade for RESOLV-USD (APY=85.8%)
+17:26:01 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+17:26:01 [DEBUG] X10: Funding Refresh OK, cache=91
+17:26:01 [DEBUG] 📊 Lighter Funding Cache refresh (current=116)
+17:26:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:01 [DEBUG] Using cached positions (age: 2.1s)
+17:26:01 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:01 [DEBUG] Check APT-USD: Age=15.7s (Limit=2700s)
+17:26:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:01 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='778f343a4d6efecfdbbe2b24348658de6f9c4d8081b7b6b6799d01dea2d376212fe66bec879cafd8' predicted_execution_time_ms=1764951951885 additional_properties={}
+17:26:01 [INFO] Lighter Order: 778f343a4d6efecfdbbe2b24348658de6f9c4d8081b7b6b6799d01dea2d376212fe66bec879cafd8
+17:26:01 [DEBUG] Lighter: Loaded 383 funding rates
+17:26:01 [DEBUG] Placing an order: id=3393936900046153298273924725695724549263272283662448444942751543496719792550
+17:26:01 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+17:26:01 [INFO] ✅ Launched 1 trade tasks this cycle
+17:26:02 [INFO] Lighter: Found 3 open positions
+17:26:02 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+17:26:02 [DEBUG] 🧠 RESOLV-USD: Prediction conf=0.50, delta=0.000081
+17:26:02 [DEBUG] MIN_NOTIONAL RESOLV-USD: min_base=40.00000000 coins, price=$0.0799, min_qty_usd=$3.20, min_notional_api=$10.00, final=$11.00
+17:26:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:26:02 [INFO] 🎰 KELLY RESOLV-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+17:26:02 [INFO] 📊 KELLY SIZE RESOLV-USD: base=$30.0, kelly_recommended=$7.2, final=$30.0
+17:26:02 [INFO] 🚀 Opening RESOLV-USD: Size=$30.0 (Min=$11.0)
+17:26:02 [INFO] 🔄 [PARALLEL] RESOLV-USD: Lighter POST-ONLY first
+17:26:02 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=SELL, size_usd=$30.00, price=$0.079920
+17:26:02 [DEBUG] 🔍 DEBUG: RESOLV-USD market_id = 51 (raw=51, type=<class 'int'>)
+17:26:02 [DEBUG] QUANTIZE RESOLV-USD: USD=30.00, coins=375.375375, raw=375, lot_size=40, final=360
+17:26:02 [INFO] 🔄 [PARALLEL] RESOLV-USD: X10 MARKET order
+17:26:02 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":51,"ClientOrderIndex":1764951979992,"BaseAmount":360,"Price":79440,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767371162357,"ExpiredAt":1764952561357,"Nonce":4110,"Sig":"UY8/cSP3OTfC4+WqfxTg43j7DnV1SXnOYza87zi5XVLA0QW1Kh0/cZchaIKGteHHMYAgbGY5NInmDV68WsxQtEIBWdBueeuFInECcVUEnxs="}
+17:26:02 [DEBUG] Placing an order: id=1960495596430606511239598019386390834720552421402210234935363613812698154825
+17:26:02 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+17:26:02 [DEBUG] Using cached positions (age: 3.1s)
+17:26:02 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:02 [DEBUG] Check APT-USD: Age=16.7s (Limit=2700s)
+17:26:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:02 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='a690579670cd718b92914924f0f1a4b174cbbe08aeec6c03afb9700d27d77a6de9f6434855aae1e5' predicted_execution_time_ms=1764951952978 additional_properties={}
+17:26:02 [INFO] Lighter Order: a690579670cd718b92914924f0f1a4b174cbbe08aeec6c03afb9700d27d77a6de9f6434855aae1e5
+17:26:02 [DEBUG] Lighter: Loaded 115 prices via REST
+17:26:02 [DEBUG] Lighter: Funding Refresh OK, cache=116
+17:26:02 [DEBUG] 📊 OI→Pred GRASS-USD: OI=$1,774,940, Velocity=0.00, Trend=UNKNOWN
+17:26:02 [DEBUG] 📊 OI→Pred ZORA-USD: OI=$34,701,689, Velocity=0.00, Trend=UNKNOWN
+17:26:02 [DEBUG] 📊 OI→Pred MKR-USD: OI=$9,283, Velocity=0.00, Trend=UNKNOWN
+17:26:02 [DEBUG] 📊 OI→Pred KAITO-USD: OI=$2,218,112, Velocity=0.00, Trend=UNKNOWN
+17:26:02 [DEBUG] 📊 OI→Pred ETH-USD: OI=$12,510,869, Velocity=0.00, Trend=UNKNOWN
+17:26:02 [INFO] 🔍 Running periodic exchange sync check...
+17:26:02 [INFO] 🔍 Starting Exchange Sync Check...
+17:26:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:02 [INFO]  X10 Order: 1996979346389213184
+17:26:02 [INFO] ✅ [PARALLEL] GRASS-USD: Both legs filled in 1625ms
+17:26:02 [DEBUG] 📝 Trade added to state: GRASS-USD
+17:26:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:02 [INFO] ✅ OPENED GRASS-USD: $30.00 | Entry Fees: $0.0067
+17:26:02 [DEBUG] 🧹 Cleaned task: GRASS-USD
+17:26:02 [DEBUG] 📝 Flushed 1 writes
+17:26:02 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:26:03 [INFO] Lighter: Found 4 open positions
+17:26:03 [INFO] 🔒 Skipping sync check for RESOLV-USD (Execution in progress)
+17:26:03 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: ['GRASS-USD', 'APT-USD', 'LINEA-USD']
+17:26:03 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+17:26:03 [WARNING] 🔻 Closing orphaned Lighter position: GRASS-USD
+17:26:03 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=GRASS-USD (type=<class 'str'>)
+17:26:03 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:26:03 [INFO] 🔍 DEBUG: notional_usd=28.3851 (type=<class 'float'>)
+17:26:03 [DEBUG] Using cached positions (age: 4.1s)
+17:26:03 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:03 [DEBUG] Check APT-USD: Age=17.7s (Limit=2700s)
+17:26:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:03 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:03 [DEBUG] Check GRASS-USD: Age=0.5s (Limit=2700s)
+17:26:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:03 [INFO]  X10 Order: 1996979348745289728
+17:26:03 [INFO] ✅ [PARALLEL] RESOLV-USD: Both legs filled in 1094ms
+17:26:03 [DEBUG] 📝 Trade added to state: RESOLV-USD
+17:26:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:03 [INFO] ✅ OPENED RESOLV-USD: $30.00 | Entry Fees: $0.0067
+17:26:03 [INFO] Lighter: Found 4 open positions
+17:26:03 [INFO] 🔻 LIGHTER CLOSE GRASS-USD: size=-90.000000 coins, side=BUY, price=$0.3154, notional=$28.39
+17:26:03 [INFO] 🚀 LIGHTER OPEN GRASS-USD: side=BUY, size_usd=$28.39, price=$0.315390
+17:26:03 [DEBUG] 🔍 DEBUG: GRASS-USD market_id = 52 (raw=52, type=<class 'int'>)
+17:26:03 [DEBUG] QUANTIZE GRASS-USD: USD=28.39, coins=90.000000, raw=900, lot_size=100, final=900
+17:26:03 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":52,"ClientOrderIndex":1764951974256,"BaseAmount":900,"Price":31729,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767371163850,"ExpiredAt":1764952562850,"Nonce":4111,"Sig":"1O+GgSNnkizyfBGYik+OWs0v0wdVP/yL7r3jyKL0VIUUQXUNpO0EVKvjUOyxy2rWZRPqVNPmur8Qt7xwxd/dVw3P6gwHRQxnLJjH+NhmQRw="}
+17:26:04 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b435de55cb5b95efa2dcfb08a11514a9fddd2d3a712ccc9ea027a763cd7297b74ed4f922aa7290e4' predicted_execution_time_ms=1764951954471 additional_properties={}
+17:26:04 [INFO] Lighter Order: b435de55cb5b95efa2dcfb08a11514a9fddd2d3a712ccc9ea027a763cd7297b74ed4f922aa7290e4
+17:26:04 [INFO] ✅ Lighter close GRASS-USD: Erfolgreich ($28.39)
+17:26:04 [INFO] ✅ Closed orphaned Lighter GRASS-USD
+17:26:04 [WARNING] 🔻 Closing orphaned Lighter position: APT-USD
+17:26:04 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=APT-USD (type=<class 'str'>)
+17:26:04 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:26:04 [INFO] 🔍 DEBUG: notional_usd=28.8112 (type=<class 'float'>)
+17:26:04 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=1s ago, msgs=13)
+17:26:04 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=11697)
+17:26:04 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s ago, msgs=76)
+17:26:04 [DEBUG] 💓 [x10_funding] Alive (uptime=10s, last_msg=2s ago, msgs=91)
+17:26:04 [DEBUG] Fetching fresh positions (force=False, cache_age=5.1s)
+17:26:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:04 [DEBUG] 📝 Flushed 1 writes
+17:26:04 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:26:04 [DEBUG] ✅ ZRO-USD: X10=$141,416, Lighter=$526,373, Total=$667,789
+17:26:04 [INFO] Lighter: Found 3 open positions
+17:26:04 [INFO] 🔻 LIGHTER CLOSE APT-USD: size=-16.000000 coins, side=BUY, price=$1.8007, notional=$28.81
+17:26:04 [INFO] 🚀 LIGHTER OPEN APT-USD: side=BUY, size_usd=$28.81, price=$1.800700
+17:26:04 [DEBUG] 🔍 DEBUG: APT-USD market_id = 31 (raw=31, type=<class 'int'>)
+17:26:04 [DEBUG] QUANTIZE APT-USD: USD=28.81, coins=16.000000, raw=1600, lot_size=200, final=1600
+17:26:04 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":31,"ClientOrderIndex":1764951997512,"BaseAmount":1600,"Price":18116,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767371164583,"ExpiredAt":1764952563583,"Nonce":4112,"Sig":"HCqU2LDsbQzYnyTXG+qvVIels5zYHyrZzkBWgcsnMkFEczQZt5cgGzeR4Gj62n7P6iOkJiGdNTrdcYckFIJkR0SmQ0Fcy/9ysTEbn7LQKl8="}
+17:26:04 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:04 [INFO] Lighter: Found 3 open positions
+17:26:04 [INFO] 📊 Positions: X10=2, Lighter=3
+17:26:04 [DEBUG] X10 positions: ['GRASS-USD', 'RESOLV-USD']
+17:26:04 [DEBUG] Lighter positions: ['APT-USD', 'RESOLV-USD', 'LINEA-USD']
+17:26:04 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:04 [DEBUG] Check APT-USD: Age=19.1s (Limit=2700s)
+17:26:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:04 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:04 [DEBUG] Check GRASS-USD: Age=2.0s (Limit=2700s)
+17:26:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:04 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:04 [DEBUG] Check RESOLV-USD: Age=1.4s (Limit=2700s)
+17:26:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:04 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b586e07b36d1feb48ef3447e499e7e369ea77dbbdf105a3c2621e57b12e458f9e168377a695c03de' predicted_execution_time_ms=1764951955205 additional_properties={}
+17:26:04 [INFO] Lighter Order: b586e07b36d1feb48ef3447e499e7e369ea77dbbdf105a3c2621e57b12e458f9e168377a695c03de
+17:26:04 [INFO] ✅ Lighter close APT-USD: Erfolgreich ($28.81)
+17:26:04 [INFO] ✅ Closed orphaned Lighter APT-USD
+17:26:04 [WARNING] 🔻 Closing orphaned Lighter position: LINEA-USD
+17:26:04 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=LINEA-USD (type=<class 'str'>)
+17:26:04 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+17:26:04 [INFO] 🔍 DEBUG: notional_usd=29.011499999999998 (type=<class 'float'>)
+17:26:05 [INFO] Lighter: Found 3 open positions
+17:26:05 [INFO] 🔻 LIGHTER CLOSE LINEA-USD: size=-3500.000000 coins, side=BUY, price=$0.0083, notional=$29.01
+17:26:05 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=BUY, size_usd=$29.01, price=$0.008289
+17:26:05 [DEBUG] 🔍 DEBUG: LINEA-USD market_id = 76 (raw=76, type=<class 'int'>)
+17:26:05 [DEBUG] QUANTIZE LINEA-USD: USD=29.01, coins=3500.000000, raw=3500, lot_size=100, final=3500
+17:26:05 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1764951984970,"BaseAmount":3500,"Price":8339,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767371165318,"ExpiredAt":1764952564318,"Nonce":4113,"Sig":"gLo2JyQcfUJJcKGz0Pl/V49tc6mdpX2So92+e0gYqIqah0cnWYT+LjoHpwgBtu23doijFL6YRQ94GyqTb1MOxra3IJtS2UHxgDzpmM0qhhI="}
+17:26:05 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='9bfd0cf0f8de210bae48c790f3bf3ff3e68e7101cc3e1383479bee92f0063b85c740018e4ebd9267' predicted_execution_time_ms=1764951955937 additional_properties={}
+17:26:05 [INFO] Lighter Order: 9bfd0cf0f8de210bae48c790f3bf3ff3e68e7101cc3e1383479bee92f0063b85c740018e4ebd9267
+17:26:05 [INFO] ✅ Lighter close LINEA-USD: Erfolgreich ($29.01)
+17:26:05 [INFO] ✅ Closed orphaned Lighter LINEA-USD
+17:26:05 [DEBUG] Using cached positions (age: 1.5s)
+17:26:05 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:05 [DEBUG] Check APT-USD: Age=20.1s (Limit=2700s)
+17:26:05 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:05 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:05 [DEBUG] Check GRASS-USD: Age=3.0s (Limit=2700s)
+17:26:05 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:05 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:05 [DEBUG] Check RESOLV-USD: Age=2.4s (Limit=2700s)
+17:26:05 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:06 [DEBUG] ✅ AVNT-USD: X10=$195,550, Lighter=$2,110,191, Total=$2,305,741
+17:26:06 [DEBUG] Using cached positions (age: 2.4s)
+17:26:06 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:06 [DEBUG] Check APT-USD: Age=21.1s (Limit=2700s)
+17:26:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:06 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:06 [DEBUG] Check GRASS-USD: Age=4.0s (Limit=2700s)
+17:26:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:06 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:06 [DEBUG] Check RESOLV-USD: Age=3.4s (Limit=2700s)
+17:26:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:07 [DEBUG] Using cached positions (age: 3.5s)
+17:26:07 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:07 [DEBUG] Check APT-USD: Age=22.1s (Limit=2700s)
+17:26:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:07 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:07 [DEBUG] Check GRASS-USD: Age=5.0s (Limit=2700s)
+17:26:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:07 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:07 [DEBUG] Check RESOLV-USD: Age=4.4s (Limit=2700s)
+17:26:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:07 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:08 [DEBUG] ✅ TON-USD: X10=$186,846, Lighter=$751,284, Total=$938,131
+17:26:08 [DEBUG] Using cached positions (age: 4.4s)
+17:26:08 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:08 [DEBUG] Check APT-USD: Age=23.1s (Limit=2700s)
+17:26:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:08 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:08 [DEBUG] Check GRASS-USD: Age=6.0s (Limit=2700s)
+17:26:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:08 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:08 [DEBUG] Check RESOLV-USD: Age=5.4s (Limit=2700s)
+17:26:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:09 [DEBUG] ✅ SEI-USD: X10=$163,959, Lighter=$7,307,139, Total=$7,471,098
+17:26:09 [DEBUG] Fetching fresh positions (force=False, cache_age=5.4s)
+17:26:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:10 [INFO] Lighter: Found 3 open positions
+17:26:10 [INFO] 📊 Positions: X10=2, Lighter=3
+17:26:10 [DEBUG] X10 positions: ['GRASS-USD', 'RESOLV-USD']
+17:26:10 [DEBUG] Lighter positions: ['APT-USD', 'RESOLV-USD', 'LINEA-USD']
+17:26:10 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:10 [DEBUG] Check APT-USD: Age=24.6s (Limit=2700s)
+17:26:10 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:10 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:10 [DEBUG] Check GRASS-USD: Age=7.4s (Limit=2700s)
+17:26:10 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:10 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:10 [DEBUG] Check RESOLV-USD: Age=6.9s (Limit=2700s)
+17:26:10 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:10 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:11 [DEBUG] Using cached positions (age: 1.5s)
+17:26:11 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:11 [DEBUG] Check APT-USD: Age=25.6s (Limit=2700s)
+17:26:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:11 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:11 [DEBUG] Check GRASS-USD: Age=8.4s (Limit=2700s)
+17:26:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:11 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:11 [DEBUG] Check RESOLV-USD: Age=7.9s (Limit=2700s)
+17:26:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:11 [DEBUG] ✅ AAVE-USD: X10=$362,292, Lighter=$45,822, Total=$408,114
+17:26:12 [DEBUG] Using cached positions (age: 2.5s)
+17:26:12 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:12 [DEBUG] Check APT-USD: Age=26.6s (Limit=2700s)
+17:26:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:12 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:12 [DEBUG] Check GRASS-USD: Age=9.4s (Limit=2700s)
+17:26:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:12 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:12 [DEBUG] Check RESOLV-USD: Age=8.9s (Limit=2700s)
+17:26:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:13 [DEBUG] Using cached positions (age: 3.5s)
+17:26:13 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:13 [DEBUG] Check APT-USD: Age=27.6s (Limit=2700s)
+17:26:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:13 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:13 [DEBUG] Check GRASS-USD: Age=10.5s (Limit=2700s)
+17:26:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:13 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:13 [DEBUG] Check RESOLV-USD: Age=9.9s (Limit=2700s)
+17:26:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:13 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:14 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=11s ago, msgs=13)
+17:26:14 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=23985)
+17:26:14 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=114)
+17:26:14 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, last_msg=12s ago, msgs=91)
+17:26:14 [DEBUG] Using cached positions (age: 4.5s)
+17:26:14 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:14 [DEBUG] Check APT-USD: Age=28.6s (Limit=2700s)
+17:26:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:14 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:14 [DEBUG] Check GRASS-USD: Age=11.5s (Limit=2700s)
+17:26:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:14 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:14 [DEBUG] Check RESOLV-USD: Age=10.9s (Limit=2700s)
+17:26:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:15 [DEBUG] ✅ CRV-USD: X10=$213,481, Lighter=$1,880,064, Total=$2,093,545
+17:26:15 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+17:26:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:15 [INFO] Lighter: Found 3 open positions
+17:26:15 [INFO] 📊 Positions: X10=2, Lighter=3
+17:26:15 [DEBUG] X10 positions: ['GRASS-USD', 'RESOLV-USD']
+17:26:15 [DEBUG] Lighter positions: ['APT-USD', 'RESOLV-USD', 'LINEA-USD']
+17:26:15 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:15 [DEBUG] Check APT-USD: Age=30.0s (Limit=2700s)
+17:26:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:15 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:15 [DEBUG] Check GRASS-USD: Age=12.9s (Limit=2700s)
+17:26:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:15 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:15 [DEBUG] Check RESOLV-USD: Age=12.3s (Limit=2700s)
+17:26:15 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:16 [DEBUG] Using cached positions (age: 1.4s)
+17:26:16 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:16 [DEBUG] Check APT-USD: Age=31.0s (Limit=2700s)
+17:26:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:16 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:16 [DEBUG] Check GRASS-USD: Age=13.9s (Limit=2700s)
+17:26:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:16 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:16 [DEBUG] Check RESOLV-USD: Age=13.3s (Limit=2700s)
+17:26:16 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:16 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:16 [DEBUG] ✅ WLD-USD: X10=$94,100, Lighter=$1,771,058, Total=$1,865,157
+17:26:17 [DEBUG] Using cached positions (age: 2.4s)
+17:26:17 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:17 [DEBUG] Check APT-USD: Age=32.0s (Limit=2700s)
+17:26:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:17 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:17 [DEBUG] Check GRASS-USD: Age=14.9s (Limit=2700s)
+17:26:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:17 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:17 [DEBUG] Check RESOLV-USD: Age=14.3s (Limit=2700s)
+17:26:17 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:18 [DEBUG] Using cached positions (age: 3.4s)
+17:26:18 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:18 [DEBUG] Check APT-USD: Age=33.0s (Limit=2700s)
+17:26:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:18 [INFO] 🔍 DEBUG GRASS-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:02.867298+00:00
+17:26:18 [DEBUG] Check GRASS-USD: Age=15.9s (Limit=2700s)
+17:26:18 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:18 [INFO] 🚜 [FARM] Profit Take GRASS-USD: Age=15s, Spread=0.009% (sehr niedrig), PnL=$0.00
+17:26:18 [INFO]  💸 EXIT GRASS-USD: FARM_QUICK_PROFIT | Gross PnL: $0.00 | Fees: $0.00 | Net PnL: $0.00
+17:26:18 [INFO]  🔻 CLOSING GRASS-USD (Atomic Smart Close)...
+17:26:18 [DEBUG] ✅ SUI-USD: X10=$794,375, Lighter=$1,917,995, Total=$2,712,370
+17:26:19 [INFO] Lighter: Found 3 open positions
+17:26:19 [INFO] ✅ Lighter GRASS-USD: No position to close
+17:26:19 [INFO] ✅ Lighter GRASS-USD OK, closing X10...
+17:26:19 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:20 [DEBUG] ✅ LINK-USD: X10=$267,063, Lighter=$212,112, Total=$479,174
+17:26:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:22 [DEBUG] ✅ EIGEN-USD: X10=$142,541, Lighter=$1,725,214, Total=$1,867,755
+17:26:22 [INFO] 🔻 Closing X10 GRASS-USD: size=94.000000 coins, side=BUY
+17:26:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:22 [INFO] 🔻 X10 CLOSE GRASS-USD: size=94.000000, side=SELL
+17:26:22 [DEBUG] Placing an order: id=3123604681484393046741994794105480772210432146214938574338265350922683344695
+17:26:22 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: 'a1c9207f79f0e57ddc454bf1e16dbe49'}
+17:26:22 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:23 [INFO]  X10 Order: 1996979434322247680
+17:26:24 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=0s ago, msgs=18)
+17:26:24 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=184)
+17:26:24 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=36352)
+17:26:24 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=22s ago, msgs=91)
+17:26:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:25 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+17:26:26 [DEBUG] ✅ XRP-USD: X10=$565,145, Lighter=$5,140,526, Total=$5,705,671
+17:26:26 [INFO] ✅ X10 GRASS-USD closed (94.000000 coins)
+17:26:26 [INFO] ✅ GRASS-USD fully closed
+17:26:26 [INFO] ✅ Trade GRASS-USD closed (PnL: $0.00)
+17:26:26 [INFO] ✅ Trade GRASS-USD closed (PnL: $0.00)
+17:26:26 [DEBUG] 📝 Flushed 1 writes
+17:26:26 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:26:26 [INFO]  💰 PnL GRASS-USD: $0.00 (FARM_QUICK_PROFIT)
+17:26:26 [DEBUG] 📊 Trade recorded: GRASS-USD ❌ LOSS $0.00
+17:26:26 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:26 [DEBUG] Check RESOLV-USD: Age=22.7s (Limit=2700s)
+17:26:26 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:27 [DEBUG] Fetching fresh positions (force=False, cache_age=11.9s)
+17:26:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:26:27 [INFO] Lighter: Found 3 open positions
+17:26:27 [INFO] 📊 Positions: X10=1, Lighter=3
+17:26:27 [DEBUG] X10 positions: ['RESOLV-USD']
+17:26:27 [DEBUG] Lighter positions: ['APT-USD', 'RESOLV-USD', 'LINEA-USD']
+17:26:27 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:27 [DEBUG] Check APT-USD: Age=41.9s (Limit=2700s)
+17:26:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:27 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:27 [DEBUG] Check RESOLV-USD: Age=24.2s (Limit=2700s)
+17:26:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:27 [DEBUG] ✅ LDO-USD: X10=$160,190, Lighter=$2,306,527, Total=$2,466,718
+17:26:28 [DEBUG] 📝 Flushed 1 writes
+17:26:28 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:26:28 [DEBUG] Using cached positions (age: 1.4s)
+17:26:28 [INFO] 🔍 DEBUG APT-USD: entry_time type=<class 'str'>, value=2025-12-05T16:25:45.723887+00:00
+17:26:28 [DEBUG] Check APT-USD: Age=42.9s (Limit=2700s)
+17:26:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:28 [INFO] 🔍 DEBUG RESOLV-USD: entry_time type=<class 'str'>, value=2025-12-05T16:26:03.430090+00:00
+17:26:28 [DEBUG] Check RESOLV-USD: Age=25.2s (Limit=2700s)
+17:26:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+17:26:28 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: {'RESOLV-USD', 'APT-USD'}
+17:26:28 [DEBUG] Price cache status: X10=68/68, Lighter=67/68
+17:26:28 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+17:26:28 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for S-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XAG-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XAU-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+17:26:29 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+17:26:29 [INFO] 🧠 Prediction V2: Found 5 ML-ranked opportunities
+17:26:29 [INFO] ✅ Returning 5 ML-ranked opportunities
+17:26:29 [INFO] 🎯 Found 3 opportunities, executing best...
+17:26:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:26:29 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.4s
+17:26:29 [DEBUG] 📊 Task health: 7 alive, 0 dead
+17:26:29 [INFO] 🛑 Initiating shutdown...
+17:26:29 [DEBUG] Cancelled task: maintenance_loop
+17:26:29 [DEBUG] Cancelled task: cleanup_finished_tasks
+17:26:29 [DEBUG] Cancelled task: health_reporter
+17:26:29 [DEBUG] Cancelled task: farm_loop
+17:26:29 [DEBUG] Cancelled task: logic_loop
+17:26:29 [DEBUG] Cancelled task: trade_management_loop
+17:26:29 [DEBUG] Cancelled task: connection_watchdog
+17:26:29 [INFO] Logic loop cancelled
+17:26:29 [INFO] Connection watchdog cancelled
+17:26:29 [DEBUG] ✅ BTC-USD: X10=$23,194,253, Lighter=$3,029, Total=$23,197,282
+17:26:29 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:26:31 [DEBUG] ✅ WIF-USD: X10=$169,708, Lighter=$1,566,605, Total=$1,736,313
+17:26:33 [DEBUG] ✅ PENDLE-USD: X10=$141,766, Lighter=$1,144,489, Total=$1,286,255
+17:26:34 [ERROR] WebSocket stop error: 
+17:26:34 [INFO] 🛑 Rollback processor: Shutdown signal received
+17:26:34 [INFO] ✅ ParallelExecutionManager: Stopped
+17:26:34 [INFO] 🛑 Stopping InMemoryStateManager...
+17:26:34 [INFO] 📝 State writer loop stopped
+17:26:34 [INFO] ✅ InMemoryStateManager stopped
+17:26:34 [INFO] ✅ Shutdown complete
+17:26:34 [INFO] 🛑 Shutting down...
+17:26:34 [INFO] 🛑 Shutdown requested...
+17:26:34 [INFO] ✅ ParallelExecutionManager: Stopped
+17:26:34 [INFO] 🔌 [lighter] WebSocket stopped
+17:26:34 [INFO] 🔌 [x10_account] WebSocket stopped
+17:26:34 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:26:34 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:26:34 [INFO] ✅ WebSocketManager stopped
+17:26:34 [INFO] ✅ OpenInterestTracker stopped
+17:26:34 [INFO] 🛑 Stopping InMemoryStateManager...
+17:26:34 [INFO] ✅ InMemoryStateManager stopped
+17:26:34 [INFO] 🔒 Closing database...
+17:26:34 [INFO] 🖊️ Database write loop stopped
+17:26:34 [INFO] ✅ Database closed
+17:26:34 [INFO] 🛑 FeeManager stopped
+17:26:34 [INFO] ✅ X10 Adapter geschlossen.
+17:26:34 [INFO] ✅ Lighter Adapter closed
+17:26:34 [INFO] ✅ Bot V5 shutdown complete
