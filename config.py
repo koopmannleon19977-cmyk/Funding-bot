@@ -43,10 +43,7 @@ FEES_LIGHTER = 0.00000
 # ============================================================
 # BLACKLIST
 # ============================================================
-BLACKLIST_SYMBOLS = {
-    "AERO-USD",
-    "MEGA-USD",
-}
+BLACKLIST_SYMBOLS = set()
 
 TRADE_COOLDOWN_SECONDS = 120
 
@@ -56,25 +53,26 @@ TRADE_COOLDOWN_SECONDS = 120
 # ═════════════════════════════════════════════════════════════════════════════==
 # OPTIMIERT für $60 Total Balance
 # ═════════════════════════════════════════════════════════════════════════════==
-DESIRED_NOTIONAL_USD = 8          # Kleiner starten
+DESIRED_NOTIONAL_USD = 100        # Aggressiver Start
 MIN_POSITION_SIZE_USD = 5.0       # API Minimum
 MIN_TRADE_SIZE_USD = 5.0          # NEU: Explicit setzen
-MAX_NOTIONAL_USD = 15.0           # Nicht zu groß
-MAX_TRADE_SIZE_USD = 50.0         # Max pro Trade
-MAX_OPEN_TRADES = 3               # Nicht zu viele gleichzeitig, um Übersicht zu behalten
+MAX_NOTIONAL_USD = 150.0          # Raum nach oben
+MAX_TRADE_SIZE_USD = 200.0        # Max pro Trade
+MAX_OPEN_TRADES = 5               # 5 Trades concurrent
 
 # Safety: Reserve 20% statt 30%
-BALANCE_RESERVE_PCT = 0.20        # Gesenkt von 0.30
+# Safety: Reserve 10% (aggressiv)
+BALANCE_RESERVE_PCT = 0.10        # Gesenkt auf 10%
 
 # ============================================================
 # PROFIT-FILTER (EINSTIEG)
 # ============================================================
-MIN_APY_FILTER = 0.05  # lowered from 0.12 to 0.05
+MIN_APY_FILTER = 0.40  # Increased to 50%
 MIN_DAILY_PROFIT_FILTER = MIN_APY_FILTER / 365
 
 DYNAMIC_MIN_APY_ENABLED = True
 DYNAMIC_MIN_APY_MULTIPLIER = 1.1
-MIN_APY_FALLBACK = 0.05
+MIN_APY_FALLBACK = 0.50
 
 DYNAMIC_FEES_ENABLED = True
 
@@ -211,25 +209,25 @@ LIGHTER_AUTO_ACCOUNT_INDEX = False
 # ============================================================
 VOLUME_FARM_MODE = True
 
-# Positionsgröße: $50
-# Konservativ starten. Wenn alles läuft, kannst du auf $100 erhöhen.
-FARM_POSITION_SIZE_USD = 50.0
-FARM_NOTIONAL_USD = 30  # Bestehend (kann mit FARM_POSITION_SIZE_USD harmonisiert werden)
+# Positionsgröße: $100
+# Aggressiv für $577 Kapital
+FARM_POSITION_SIZE_USD = 100.0
+FARM_NOTIONAL_USD = 100   # Gleichziehen mit Position Size
 FARM_RANDOM_SIZE_PCT = 0.25
 FARM_MIN_HOLD_MINUTES = 0
 FARM_MAX_HOLD_MINUTES = 0
 
-# Haltedauer: 45 Minuten
+# Haltedauer: 15 Minuten
 # Berechnung: Bei 0.0225% Fee kostet ein Trade (Rein+Raus) 0.045%.
 # Das holt eine durchschnittliche Funding-Rate in ~45 Min bis 2 Std wieder rein.
 # Wir setzen 45 Min, um das Volumen hochzuhalten (ca. 32 Trades pro Tag/Slot).
-FARM_HOLD_SECONDS = 2700  # 45 Minuten (war temporär 60 für Test)
+FARM_HOLD_SECONDS = 900  # 15 Minuten (Ziel: Schneller Umschlag bei Profit)
 
-FARM_MAX_CONCURRENT = 2  # Reduced parallel farm trades (was 3)
+FARM_MAX_CONCURRENT = 5  # Max parallel trades (5 x $100)
 
-# Mindest-APY: 12%
-# Wir traden nichts unter 12%, damit die Funding-Rate die Gebühren deckt.
-FARM_MIN_APY = 0.12
+# Mindest-APY: 50%
+# Wir traden nichts unter 50%, damit die Funding-Rate die Gebühren deckt.
+FARM_MIN_APY = 0.40
 
 # Sicherheits-Limits
 FARM_MAX_VOLATILITY_24H = 8.0  # Mittlere Volatilität erlauben
@@ -237,12 +235,12 @@ FARM_MAX_VOLATILITY_24H = 8.0  # Mittlere Volatilität erlauben
 # Spread Filter: 0.04%
 # Da deine Fees so niedrig sind, darf der Spread etwas höher sein als bei 0.05% Fees.
 # Aber Vorsicht: Spread + Fee muss < Profit sein.
-FARM_MAX_SPREAD_PCT = 0.04
+FARM_MAX_SPREAD_PCT = 0.0015
 
 # Volume Farm Rate Limiting
 FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades
 FARM_BURST_LIMIT = 10  # Max trades per minute
-FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
+FARM_MAX_CONCURRENT_ORDERS = 10  # Max parallel farm orders
 
 # ============================================================
 # LATENCY ARBITRAGE (DEAKTIVIERT)

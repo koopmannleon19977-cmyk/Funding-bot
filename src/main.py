@@ -42,6 +42,7 @@ from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
 from src.prediction_v2 import get_predictor, FundingPredictorV2
+from src.trading.smart_exit import should_hold_for_funding
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
     get_database,
@@ -1418,6 +1419,12 @@ async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
 async def safe_close_x10_position(x10, symbol, side, notional) -> Optional[str]:
     """Close X10 position using ACTUAL position size. Returns order_id if successful."""
     try:
+        # 0. CANCEL ORDERS FIRST to avoid "reduce-only" conflicts
+        try:
+            await x10.cancel_all_orders(symbol)
+        except Exception as e:
+            logger.warning(f"Failed to cancel orders for {symbol} before close: {e}")
+
         # Wait for settlement
         await asyncio.sleep(3.0)
         
@@ -1684,31 +1691,29 @@ async def manage_open_trades(lighter, x10):
             logger.debug(f"Check {sym}: Age={age_seconds:.1f}s (Limit={config.FARM_HOLD_SECONDS}s)")
             
             # ═══════════════════════════════════════════════════════════════
-            # NOT-AUS: Force Close nach Zeit (VOR Preis-Check!)
+            # NOT-AUS: Force Close nach Zeit (Hard Limit 72h)
             # ═══════════════════════════════════════════════════════════════
-            # KRITISCH: Prüfe Zeit-Limit ZUERST, bevor wir Preise brauchen.
-            # Das garantiert, dass der Bot auch bei schlechter Verbindung schließt.
-            
-            if config.VOLUME_FARM_MODE and t.get('is_farm_trade') and age_seconds > config.FARM_HOLD_SECONDS:
-                logger.warning(
-                    f"🚜 [FARM] NOT-AUS: Zwangsschließung für {sym} "
-                    f"(Zeit abgelaufen: {int(age_seconds)}s > {config.FARM_HOLD_SECONDS}s)"
-                )
-                
-                # Versuche zu schließen, AUCH WENN wir keine Preise haben
-                if await close_trade(t, lighter, x10):
-                    await close_trade_in_state(sym)
-                    await archive_trade_to_history(t, "FARM_TIME_LIMIT", {
-                        'total_net_pnl': 0.0,  # Unbekannt ohne Preise
-                        'funding_pnl': 0.0, 
-                        'spread_pnl': 0.0, 
-                        'fees': notional * 0.0005  # Geschätzte Fees
-                    })
-                    logger.info(f"✅ {sym} zwangsgeschlossen (Farm Time Limit)")
-                else:
-                    logger.error(f"❌ Zwangsschließung von {sym} fehlgeschlagen - Retry im nächsten Cycle")
-                
-                continue  # Nächster Trade
+            # Hard Limit: Schließe in jedem Fall nach 72h (totes Kapital freigeben)
+            FARM_HARD_LIMIT = 72 * 3600
+            if config.VOLUME_FARM_MODE and t.get('is_farm_trade') and age_seconds > FARM_HARD_LIMIT:
+                 logger.warning(
+                        f"🚜 [FARM] HARD LIMIT: Zwangsschließung für {sym} "
+                        f"(Zeit abgelaufen: {int(age_seconds)}s > {FARM_HARD_LIMIT}s)"
+                    )
+                 if await close_trade(t, lighter, x10):
+                        await close_trade_in_state(sym)
+                        await archive_trade_to_history(t, "FARM_HARD_LIMIT", {
+                            'total_net_pnl': 0.0,
+                            'funding_pnl': 0.0, 
+                            'spread_pnl': 0.0, 
+                            'fees': notional * 0.0005
+                        })
+                        logger.info(f"✅ {sym} zwangsgeschlossen (Hard Limit)")
+                 continue
+
+            # ═══════════════════════════════════════════════════════════════
+            # Standard "Soft" Time Limit Logic verschoben NACH PnL-Berechnung!
+            # ═══════════════════════════════════════════════════════════════
             
             # ═══════════════════════════════════════════════════════════════
             # Preise holen (für Profit-Check & normale Exits)
@@ -1838,6 +1843,21 @@ async def manage_open_trades(lighter, x10):
             reason = None
             
             # 1. FARM MODE: Profit Take bei günstigem Spread
+            # ═══════════════════════════════════════════════════════════════
+            # FARM MODE: Time Limit Check with PNL Protection
+            # ═══════════════════════════════════════════════════════════════
+            if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
+                if age_seconds > config.FARM_HOLD_SECONDS:
+                    # Only close if we are PROFITABLE (or Break-Even)
+                    if total_pnl > -0.01: # Buffer for rounding errors
+                        reason = "FARM_TIME_LIMIT_PROFIT"
+                        logger.info(f"🚜 [FARM] Time Limit Reached & PnL >= 0 (${total_pnl:.2f}) -> CLOSING {sym}")
+                    else:
+                        # Log wait message occasionally
+                        if int(age_seconds) % 300 == 0:
+                            logger.info(f"🚜 [FARM] Holding {sym} past time limit for break-even (PnL: ${total_pnl:.2f})")
+            
+            # 2. FARM MODE: Quick Profit Take (existing logic)
             if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
                 should_exit, exit_reason = should_farm_quick_exit(
                     symbol=sym,
@@ -1902,6 +1922,13 @@ async def manage_open_trades(lighter, x10):
                             await state_manager.update_trade(sym, {'funding_flip_start_time': None})
 
             if reason:
+                # 🛑 SMART EXIT CHECK 🛑
+                # If we are profitable via funding, and funding is imminent, WAIT.
+                # Do NOT wait if reason is 'VOLATILITY_PANIC' (safety first).
+                if reason != "VOLATILITY_PANIC" and await should_hold_for_funding(t, x10, lighter):
+                     logger.info(f"⏳ [SMART EXIT] Holding {sym} for funding payout (Reason: {reason})")
+                     continue
+
                 # Calculate fees using FeeManager for logging
                 try:
                     fee_manager = get_fee_manager()
@@ -3295,6 +3322,13 @@ async def run_bot_v5():
         
     await setup_database()
     await migrate_database()
+
+    # 1.1 INIT PREDICTOR V2 (Load History)
+    try:
+        predictor = get_predictor()
+        await predictor.initialize()
+    except Exception as e:
+        logger.warning(f"⚠️ Predictor init failed: {e}")
     
     # 2. INIT ADAPTERS
     x10 = X10Adapter()
@@ -3620,6 +3654,14 @@ async def run_bot_v5():
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.stop()
     
+    # Save prediction history
+    try:
+        predictor = get_predictor()
+        await predictor.stop()
+        logger.info("✅ Prediction history saved")
+    except Exception as e:
+        logger.warning(f"Failed to save prediction history: {e}")
+
     await close_database()
     
     # Stop FeeManager
@@ -4004,6 +4046,13 @@ async def main():
                 for p in x10_pos:
                     if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
+                        
+                        # Fix: Cancel orders first
+                        try:
+                            await x10.cancel_all_orders(p['symbol'])
+                        except Exception:
+                            pass
+                            
                         price = safe_float(x10.fetch_mark_price(p['symbol']))
                         size = safe_float(p.get('size', 0))
                         if price > 0:
