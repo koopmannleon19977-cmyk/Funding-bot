@@ -603,6 +603,29 @@ class TradeRepository:
             sql = f"DELETE FROM trades WHERE status = 'open' AND symbol NOT IN ({placeholders})"
             await self.db.execute(sql, tuple(valid_symbols), wait=True)
 
+    async def get_closed_trades_for_kelly(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get recent closed trades for Kelly history initialization.
+        
+        Returns trades with pnl, hold_time, and symbol for Kelly sizing calculations.
+        """
+        sql = """
+            SELECT 
+                symbol, 
+                pnl,
+                CASE 
+                    WHEN closed_at IS NOT NULL AND created_at IS NOT NULL 
+                    THEN (closed_at - created_at) / 1000.0 
+                    ELSE 3600.0 
+                END as hold_time_seconds,
+                size_usd
+            FROM trades 
+            WHERE status = 'closed' AND pnl IS NOT NULL
+            ORDER BY closed_at DESC
+            LIMIT ?
+        """
+        return await self.db.fetch_all(sql, (limit,))
+
 
 class FundingRepository:
     """Repository for funding history operations"""

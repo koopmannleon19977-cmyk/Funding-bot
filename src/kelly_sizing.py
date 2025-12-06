@@ -97,6 +97,54 @@ class KellyPositionSizer:
         
         logger.info(f"🎲 KellyPositionSizer initialized (Safety={self.SAFETY_FACTOR}, MaxFraction={self.MAX_POSITION_FRACTION})")
     
+    async def load_history_from_db(self, trade_repo) -> int:
+        """
+        Load closed trades from database into Kelly history.
+        
+        Call this on startup to restore Kelly's historical data.
+        
+        Args:
+            trade_repo: TradeRepository instance
+            
+        Returns:
+            Number of trades loaded
+        """
+        try:
+            trades = await trade_repo.get_closed_trades_for_kelly(limit=self.MAX_HISTORY_SIZE)
+            
+            loaded = 0
+            for t in trades:
+                pnl = t.get('pnl', 0)
+                if pnl is None:
+                    continue
+                    
+                self.record_trade(
+                    symbol=t.get('symbol', 'UNKNOWN'),
+                    pnl_usd=float(pnl),
+                    hold_time_seconds=float(t.get('hold_time_seconds', 3600)),
+                    entry_apy=0.10  # Fallback - not stored in DB
+                )
+                loaded += 1
+            
+            if loaded > 0:
+                # Calculate stats for logging
+                trades_list = list(self._trade_history)
+                winners = sum(1 for t in trades_list if t.is_winner)
+                win_rate = winners / loaded if loaded > 0 else 0
+                
+                logger.info(
+                    f"📂 Kelly loaded {loaded} historical trades from DB "
+                    f"(Win Rate: {win_rate:.1%}, Winners: {winners}, Losers: {loaded - winners})"
+                )
+            else:
+                logger.info("📂 Kelly: No historical trades found in DB")
+                
+            return loaded
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Kelly history load failed: {e}")
+            return 0
+    
     def record_trade(self, symbol: str, pnl_usd: float, hold_time_seconds: float, entry_apy: float):
         """Zeichnet einen abgeschlossenen Trade auf."""
         result = TradeResult(

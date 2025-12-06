@@ -172,15 +172,19 @@ class FeeManager:
             return
         
         try:
-            # fetch_fee_schedule() returns (maker, taker, source)
-            maker, taker, source = await self._x10_adapter.fetch_fee_schedule()
+            # fetch_fee_schedule() returns (maker, taker) or None
+            result = await self._x10_adapter.fetch_fee_schedule()
+            if result is None:
+                raise ValueError("API returned no fee data")
+            
+            maker, taker = result  # Only 2 values
             self._x10_schedule = FeeSchedule(
                 maker_fee=maker,
                 taker_fee=taker,
                 timestamp=time.time(),
-                source=source  # Use source directly from API call
+                source='api'
             )
-            logger.info(f"✅ X10 Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source={source})")
+            logger.info(f"✅ X10 Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source=api)")
         except Exception as e:
             logger.warning(f"X10 fee refresh failed: {e}, using fallback")
             self._x10_schedule = FeeSchedule(
@@ -196,15 +200,19 @@ class FeeManager:
             return
         
         try:
-            # fetch_fee_schedule() returns (maker, taker, source)
-            maker, taker, source = await self._lighter_adapter.fetch_fee_schedule()
+            # fetch_fee_schedule() returns (maker, taker) or None
+            result = await self._lighter_adapter.fetch_fee_schedule()
+            if result is None:
+                raise ValueError("API returned no fee data")
+            
+            maker, taker = result  # Only 2 values
             self._lighter_schedule = FeeSchedule(
                 maker_fee=maker,
                 taker_fee=taker,
                 timestamp=time.time(),
-                source=source  # Use source directly from API call
+                source='api'
             )
-            logger.info(f"✅ Lighter Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source={source})")
+            logger.info(f"✅ Lighter Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source=api)")
         except Exception as e:
             logger.warning(f"Lighter fee refresh failed: {e}, using fallback")
             self._lighter_schedule = FeeSchedule(

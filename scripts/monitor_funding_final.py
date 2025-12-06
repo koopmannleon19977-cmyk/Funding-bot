@@ -1177,6 +1177,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             # This protects the trade from being closed as "orphan" during execution  
             # ═══════════════════════════════════════════════════════════════
             RECENTLY_OPENED_TRADES[symbol] = time.time()
+            logger.info(f"🛡️ Registered {symbol} in RECENTLY_OPENED_TRADES for {RECENTLY_OPENED_PROTECTION_SECONDS}s protection")
 
             success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
                 symbol=symbol,
@@ -2055,14 +2056,19 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
         current_time = time.time()
         
         # 1. Check RECENTLY_OPENED_TRADES dict (protects in-flight trades without DB entry)
+        protected_by_dict = []
         for sym, open_time in list(RECENTLY_OPENED_TRADES.items()):
             age = current_time - open_time
             if age < RECENTLY_OPENED_PROTECTION_SECONDS:
                 recently_opened.add(sym)
-                logger.debug(f"🔒 Skipping sync check for {sym} (in RECENTLY_OPENED_TRADES, age={age:.1f}s)")
+                protected_by_dict.append(f"{sym}({age:.0f}s)")
             else:
                 # Cleanup expired entries
+                logger.info(f"🗑️ Expired protection for {sym} (age={age:.1f}s)")
                 RECENTLY_OPENED_TRADES.pop(sym, None)
+        
+        if protected_by_dict:
+            logger.info(f"🛡️ RECENTLY_OPENED protection active: {protected_by_dict}")
         
         # 2. Check DB trades (original logic)
         try:
@@ -3293,6 +3299,14 @@ async def run_bot_v5():
     # 2.1. INIT FEEMANAGER (CRITICAL: Fetch fees from API)
     fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
+    
+    # 2.2. INIT KELLY SIZER WITH HISTORICAL DATA
+    try:
+        trade_repo = await get_trade_repository()
+        kelly_sizer = get_kelly_sizer()
+        await kelly_sizer.load_history_from_db(trade_repo)
+    except Exception as e:
+        logger.warning(f"⚠️ Kelly history load failed: {e}")
     
     # 3. LOAD MARKET DATA (CRITICAL: Before WS/OI)
     logger.info("📊 Loading Market Data via REST...")
