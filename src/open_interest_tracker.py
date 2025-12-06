@@ -438,13 +438,23 @@ class OpenInterestTracker:
         now = time.time()
         current = history[-1]
         
-        # Find oldest point within lookback
+        # Find OLDEST point within lookback window (iterate from oldest to newest)
+        oldest_in_window = None
         for snapshot in history:
-            if now - snapshot.timestamp <= lookback_seconds:
-                dt = current.timestamp - snapshot. timestamp
-                if dt > 0:
-                    return (current.total - snapshot.total) / dt * 60  # Per minute
+            age = now - snapshot.timestamp
+            if age <= lookback_seconds:
+                # First snapshot within window = oldest
+                oldest_in_window = snapshot
                 break
+        
+        if oldest_in_window is None:
+            # All snapshots are older than lookback - use the newest old one
+            oldest_in_window = history[0]
+        
+        dt = current.timestamp - oldest_in_window.timestamp
+        if dt > 1.0:  # At least 1 second difference
+            velocity = (current.total - oldest_in_window.total) / dt * 60  # Per minute
+            return velocity
         
         return 0.0
     

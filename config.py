@@ -87,17 +87,28 @@ REBATE_PREFIXES = ("BTC", "ETH", "SOL")
 HIGH_RISK_SYMBOLS = {"HYPE-USD", "MEME-USD", "PEPE-USD", "DOGE-USD"}
 
 # ============================================================
-# 1. REBATES DEAKTIVIEREN (WICHTIG!)
+# REBATES - NICHT VERFÜGBAR!
 # ============================================================
-# Setze dies auf 0.0, da deine Prüfung 0% ergab.
-# Sonst rechnet der Bot mit Phantom-Gewinnen.
-
-# Rebate calculation
+# WICHTIG: Echte Exchange-Rebates sind bei uns NICHT verfügbar:
+#
+# Was ist ein Rebate?
+#   - Rebate = Exchange ZAHLT DIR GELD für Maker-Orders (negative Fee)
+#   - Beispiel: -0.01% = Du bekommst 0.01% zurück pro Maker-Trade
+#
+# Unsere Situation (Stand 2025-12-06):
+#   - X10:     Maker Fee = 0.00% (kostenlos, aber KEIN Geld zurück)
+#   - Lighter: Maker Fee = 0.00% (kostenlos, aber KEIN Geld zurück)
+#
+# Das "Rebate-Feature" im Code ist ein Threshold-Discount, der die
+# APY-Schwelle senkt wenn du Maker bist. Es simuliert keine echten
+# Exchange-Rebates - die gibt es bei uns nicht!
+#
+# → Daher auf 0.0 lassen!
 TAKER_FEE = 0.00025
 MAKER_FEE = 0.00000
 REBATE_TRADES_PER_DAY = 3
-REBATE_MAX_ANNUAL_DISCOUNT = 0.0  # Auf 0.0 gesetzt - keine Rebates!
-REBATE_MIN_ANNUAL_DISCOUNT = 0.0  # Ebenfalls auf 0.0 gesetzt
+REBATE_MAX_ANNUAL_DISCOUNT = 0.0  # KEINE echten Rebates verfügbar
+REBATE_MIN_ANNUAL_DISCOUNT = 0.0  # KEINE echten Rebates verfügbar
 MIN_SAFE_THRESHOLD = 0.03
 
 # ============================================================
@@ -232,6 +243,14 @@ FARM_MAX_SPREAD_PCT = 0.04
 FARM_MIN_INTERVAL_SECONDS = 15  # Min time between farm trades
 FARM_BURST_LIMIT = 10  # Max trades per minute
 FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
+
+# ============================================================
+# LATENCY ARBITRAGE (DEAKTIVIERT)
+# ============================================================
+# Latency Arb ist für Funding Arbitrage nicht sinnvoll:
+# - Funding Rates ändern sich nur stündlich, nicht in Sekunden
+# - Millisekunden-Vorsprung bringt nichts bei 1h Settlement
+ENABLE_LATENCY_ARB = False
 
 # ============================================================
 # SYSTEM
