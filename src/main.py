@@ -61,6 +61,30 @@ logging.getLogger("aiosqlite").setLevel(logging.WARNING)
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
 
+def check_secrets():
+    """Check for missing secrets and warn user"""
+    missing = []
+    
+    # Telegram
+    if not os.getenv("TELEGRAM_BOT_TOKEN"):
+        missing.append("TELEGRAM_BOT_TOKEN")
+    if not os.getenv("TELEGRAM_CHAT_ID"):
+        missing.append("TELEGRAM_CHAT_ID")
+        
+    # Lighter
+    if not os.getenv("LIGHTER_API_PRIVATE_KEY"):
+        missing.append("LIGHTER_API_PRIVATE_KEY")
+        
+    if missing:
+        logger.warning("⚠️  MISSING SECRETS DETECTED:")
+        for m in missing:
+            logger.warning(f"   - {m} is missing in .env")
+        logger.warning("   Some features (Alerts, Trading) may not work!")
+    else:
+        logger.info("✅ All secrets present")
+
+check_secrets()
+
 # Set global log level to INFO to suppress DEBUG messages
 logging.getLogger().setLevel(logging.INFO)
 
@@ -514,8 +538,6 @@ async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data
         logger.error(f"Archive Error: {e}")
         return False
 
-    return True
-
 # ============================================================
 # CORE TRADING LOGIC
 # ============================================================
@@ -561,11 +583,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     
     if x10_rates_count < 10 or lighter_rates_count < 10:
         logger.info(f"❄️ Warming up caches (waiting for WS data)... X10={x10_rates_count}, Lit={lighter_rates_count}")
-        # Return empty list to skip this cycle and prevent false 'missing rates' logs
         return []
-    # ═══════════════════════════════════════════════════════════════
-    
-    logger.info(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
+
+    logger.debug(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
     
     # Verify price cache has data
     x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None])
@@ -582,12 +602,12 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             lighter.load_funding_rates_and_prices()
         )
 
-    logger.info(
+    logger.debug(
         f"🔍 Scanning {len(common)} pairs. "
         f"Lighter markets: {len(lighter.market_info)}, X10 markets: {len(x10.market_info)}"
     )
 
-    semaphore = asyncio.Semaphore(10)  # Reduced from 20 to avoid rate limits
+    semaphore = asyncio.Semaphore(10)
 
     async def fetch_symbol_data(s: str):
         async with semaphore:
@@ -935,7 +955,6 @@ async def execute_trade_task(opp: Dict, lighter, x10, parallel_exec):
 async def launch_trade_task(opp: Dict, lighter, x10, parallel_exec):
     """Launch trade execution in background task."""
     symbol = opp['symbol']
-    
     # CRITICAL: Check FAILED_COINS before creating task
     if symbol in FAILED_COINS:
         cooldown = time.time() - FAILED_COINS[symbol]

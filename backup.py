@@ -22,19 +22,15 @@ FILES_TO_BACKUP = [
     "config.py",
     "requirements.txt",
     "backup.py",
-    "symbols_common.txt",
+    "START_BOT2.bat",
     ".env",  # WICHTIG: API Keys (nicht in Git!)
     
     # ─────────────────────────────────────────────────────────────────────────
     # SCRIPTS: Bot-Skripte und Utilities
     # ─────────────────────────────────────────────────────────────────────────
     "scripts/monitor_funding_final.py",  # HAUPTSKRIPT
-    "scripts/patch_desync_fix.py",
-    "scripts/patch_logging.py",
     "scripts/force_close.py",
     "scripts/full_cleanup.py",
-    "scripts/check_db.py",
-    "scripts/check_positions.py",
     
     # ─────────────────────────────────────────────────────────────────────────
     # SRC: Core Modules
@@ -71,16 +67,12 @@ FILES_TO_BACKUP = [
     "src/adapters/x10_adapter.py",
     
     # ─────────────────────────────────────────────────────────────────────────
-    # DATA: Datenbank
+    # DATA: Datenbank & State
     # ─────────────────────────────────────────────────────────────────────────
     "data/trades.db",
-    
-    # ─────────────────────────────────────────────────────────────────────────
-    # DOCS: Dokumentation
-    # ─────────────────────────────────────────────────────────────────────────
-    "CHECKLIST_OPTIMIERUNG.md",
-    "FUNDING_TRACKER_GUIDE.md",
-    "HISTORY.md",
+    "data/kelly_history.json",
+    "data/prediction_history.json",
+    "data/state_snapshot.json",
 ]
 
 BASE_DIR = Path(__file__).resolve().parent

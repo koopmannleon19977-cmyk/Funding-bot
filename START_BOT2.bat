@@ -32,7 +32,7 @@ call .venv\Scripts\activate.bat
 
 echo Testing Python path... & python --version
 echo. 
-if not exist scripts\monitor_funding_final.py (
+if not exist src\main.py (
     echo ✗ Script NOT found! 
     pause
     exit /b 1
@@ -47,7 +47,7 @@ echo.
 
 set BOT_LOG_FILE=%FULL_LOG%
 
-python scripts\monitor_funding_final.py
+python src\main.py
 
 REM --- FEHLER-LOG ERSTELLUNG ---
 echo. 
