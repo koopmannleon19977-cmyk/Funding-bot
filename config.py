@@ -253,6 +253,13 @@ FARM_MAX_CONCURRENT_ORDERS = 5  # Max parallel farm orders
 ENABLE_LATENCY_ARB = False
 
 # ============================================================
+# SHUTDOWN SETTINGS
+# ============================================================
+# Bei Ctrl+C alle Trades auf beiden Exchanges schließen
+CLOSE_ALL_ON_SHUTDOWN = True  # True = alle Trades schließen, False = offen lassen
+SHUTDOWN_CLOSE_TIMEOUT = 60   # Max Sekunden für Close-All Operation
+
+# ============================================================
 # SYSTEM
 # ============================================================
 CONCURRENT_REQUEST_LIMIT = 10  # Increased concurrency for aggressive scanning (2 -> 10)
