@@ -55,42 +55,13 @@ from src.database import (
 logging.getLogger("websockets").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 logging.getLogger("aiosqlite").setLevel(logging.WARNING)
-# --------------------------------------------------------------------------
+# Set specific loggers to WARNING for verbose modules
+logging.getLogger('fee_manager').setLevel(logging.WARNING)
+logging.getLogger('position_cache').setLevel(logging.WARNING)
 
 # Logging Setup
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
-
-def check_secrets():
-    """Check for missing secrets and warn user"""
-    missing = []
-    
-    # Telegram
-    if not os.getenv("TELEGRAM_BOT_TOKEN"):
-        missing.append("TELEGRAM_BOT_TOKEN")
-    if not os.getenv("TELEGRAM_CHAT_ID"):
-        missing.append("TELEGRAM_CHAT_ID")
-        
-    # Lighter
-    if not os.getenv("LIGHTER_API_PRIVATE_KEY"):
-        missing.append("LIGHTER_API_PRIVATE_KEY")
-        
-    if missing:
-        logger.warning("⚠️  MISSING SECRETS DETECTED:")
-        for m in missing:
-            logger.warning(f"   - {m} is missing in .env")
-        logger.warning("   Some features (Alerts, Trading) may not work!")
-    else:
-        logger.info("✅ All secrets present")
-
-check_secrets()
-
-# Set global log level to INFO to suppress DEBUG messages
-logging.getLogger().setLevel(logging.INFO)
-
-# Set specific loggers to WARNING for verbose modules
-logging.getLogger('fee_manager').setLevel(logging.WARNING)
-logging.getLogger('position_cache').setLevel(logging.WARNING)
 
 # Globals
 FAILED_COINS = {}
@@ -576,21 +547,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         return []
 
     # ═══════════════════════════════════════════════════════════════
-    # WARMUP CHECK: Wait for WebSocket to fill caches
-    # ═══════════════════════════════════════════════════════════════
-    x10_rates_count = len(getattr(x10, 'funding_cache', {}))
-    lighter_rates_count = len(getattr(lighter, 'funding_cache', {}))
     
-    if x10_rates_count < 10 or lighter_rates_count < 10:
-        logger.info(f"❄️ Warming up caches (waiting for WS data)... X10={x10_rates_count}, Lit={lighter_rates_count}")
-        return []
-
-    logger.debug(f"🔍 {mode_indicator} Scanning {len(common)} pairs. Open symbols to skip: {open_syms}")
-    
-    # Verify price cache has data
-    x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None])
-    lit_prices = len([s for s in common if lighter.fetch_mark_price(s) is not None])
-    
+    x10_prices = len(x10.price_cache)
+    lit_prices = len(lighter.price_cache)
     logger.debug(f"Price cache status: X10={x10_prices}/{len(common)}, Lighter={lit_prices}/{len(common)}")
     
     if x10_prices == 0 and lit_prices == 0:
@@ -1161,6 +1120,16 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                         return False
                 else:
                     logger.info(f"📊 KELLY SIZE {symbol}: ${final_usd:.1f} (kelly-optimized)")
+
+            # 5.1 LIQUIDITY CHECK (Lighter)
+            # Determine Lighter side
+            l_ex = opp.get('leg1_exchange', 'X10')
+            l_side = opp.get('leg1_side', 'BUY')
+            lit_side_check = l_side if l_ex == 'Lighter' else ("SELL" if l_side == "BUY" else "BUY")
+            
+            if not await lighter.check_liquidity(symbol, lit_side_check, final_usd):
+                logger.warning(f"🛑 {symbol}: Insufficient Lighter liquidity for ${final_usd:.2f}")
+                return False
 
             # 5. Final Balance Check
             required_x10 = final_usd * 1.05

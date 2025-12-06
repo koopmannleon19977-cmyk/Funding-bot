@@ -36,6 +36,7 @@ FILES_TO_BACKUP = [
     # SRC: Core Modules
     # ─────────────────────────────────────────────────────────────────────────
     "src/__init__.py",
+    "src/main.py",  # NEU: Das eigentliche Hauptskript
     "src/account_manager.py",
     "src/adaptive_threshold.py",
     "src/btc_correlation.py",

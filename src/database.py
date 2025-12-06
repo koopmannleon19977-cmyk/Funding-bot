@@ -244,6 +244,22 @@ class AsyncDatabase:
                 applied_at INTEGER NOT NULL
             )
             """,
+            
+            # Migration 8: Funding Rate History for ML Predictions (Claude's Request)
+            """
+            CREATE TABLE IF NOT EXISTS funding_rate_history (
+                symbol TEXT NOT NULL,
+                rate_lighter REAL NOT NULL,
+                rate_x10 REAL NOT NULL,
+                timestamp INTEGER NOT NULL,
+                ob_imbalance REAL DEFAULT 0,
+                oi_velocity REAL DEFAULT 0,
+                PRIMARY KEY (symbol, timestamp)
+            )
+            """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_frh_ts ON funding_rate_history(timestamp)
+            """,
         ]
         
         for i, sql in enumerate(migrations):
@@ -659,6 +675,37 @@ class FundingRepository:
             SELECT * FROM funding_history 
             WHERE symbol = ? AND timestamp > ? 
             ORDER BY timestamp DESC
+        """
+        return await self.db.fetch_all(sql, (symbol, cutoff))
+
+    async def add_rate_history(
+        self,
+        symbol: str,
+        rate_lighter: float,
+        rate_x10: float,
+        timestamp: int,
+        ob_imbalance: float = 0,
+        oi_velocity: float = 0
+    ):
+        """Add a funding rate history record for ML"""
+        sql = """
+            INSERT OR REPLACE INTO funding_rate_history 
+            (symbol, rate_lighter, rate_x10, timestamp, ob_imbalance, oi_velocity)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """
+        await self.db.execute(sql, (symbol, rate_lighter, rate_x10, timestamp, ob_imbalance, oi_velocity))
+
+    async def get_rate_history(
+        self,
+        symbol: str,
+        hours: int = 48
+    ) -> List[Dict[str, Any]]:
+        """Get funding rate history for ML training"""
+        cutoff = int(time.time() * 1000) - (hours * 3600 * 1000)
+        sql = """
+            SELECT * FROM funding_rate_history
+            WHERE symbol = ? AND timestamp > ?
+            ORDER BY timestamp ASC
         """
         return await self.db.fetch_all(sql, (symbol, cutoff))
 

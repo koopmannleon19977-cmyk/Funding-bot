@@ -1083,6 +1083,69 @@ class LighterAdapter(BaseAdapter):
 
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
+    async def check_liquidity(self, symbol: str, side: str, quantity_usd: float, max_slippage_pct: float = 0.02) -> bool:
+        """
+        Check if there is sufficient liquidity to execute a trade without excessive slippage.
+        
+        Args:
+            symbol: Trading pair (e.g., 'ETH-USD')
+            side: 'BUY' or 'SELL'
+            quantity_usd: Size of the trade in USD
+            max_slippage_pct: Maximum allowed slippage (default 2%)
+            
+        Returns:
+            bool: True if liquidity is sufficient, False otherwise
+        """
+        try:
+            logger.debug(f"🔍 Checking liquidity for {symbol} {side}: Need ${quantity_usd:.2f} (Max Slip: {max_slippage_pct:.1%})")
+            ob = await self.fetch_orderbook(symbol, limit=20)
+            if not ob:
+                logger.warning(f"⚠️ {self.name}: No orderbook data for {symbol}")
+                return False
+            
+            bids_len = len(ob.get('bids', []))
+            asks_len = len(ob.get('asks', []))
+            logger.debug(f"🔍 Orderbook for {symbol}: Bids={bids_len}, Asks={asks_len}")
+
+            # If buying, we consume ASKS. If selling, we consume BIDS.
+            orders = ob['asks'] if side.upper() == 'BUY' else ob['bids']
+            
+            if not orders:
+                logger.warning(f"⚠️ {self.name}: Empty orderbook side for {symbol} {side}")
+                return False
+
+            best_price = orders[0][0]
+            if best_price <= 0:
+                return False
+
+            filled_usd = 0.0
+            worst_price = best_price
+
+            for price, size in orders:
+                chunk_usd = price * size
+                filled_usd += chunk_usd
+                worst_price = price
+                
+                if filled_usd >= quantity_usd:
+                    break
+            
+            if filled_usd < quantity_usd:
+                logger.warning(f"⚠️ {self.name} {symbol}: Insufficient depth. Need ${quantity_usd:.2f}, found ${filled_usd:.2f}")
+                return False
+
+            # Calculate slippage
+            slippage = abs(worst_price - best_price) / best_price
+            
+            if slippage > max_slippage_pct:
+                logger.warning(f"⚠️ {self.name} {symbol}: High slippage detected. Est: {slippage*100:.2f}% > Max: {max_slippage_pct*100:.2f}%")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Liquidity check error for {symbol}: {e}")
+            return False
+
     async def fetch_open_interest(self, symbol: str) -> float:
         if not hasattr(self, "_oi_cache"):
             self._oi_cache = {}
@@ -1090,14 +1153,14 @@ class LighterAdapter(BaseAdapter):
 
         now = time.time()
         if symbol in self._oi_cache:
-            if now - self._oi_cache_time. get(symbol, 0) < 60.0:
+            if now - self._oi_cache_time.get(symbol, 0) < 60.0:
                 return self._oi_cache[symbol]
 
         try:
             if not HAVE_LIGHTER_SDK:
                 return 0.0
 
-            market_data = self. market_info.get(symbol)
+            market_data = self.market_info.get(symbol)
             if not market_data:
                 return 0.0
 
