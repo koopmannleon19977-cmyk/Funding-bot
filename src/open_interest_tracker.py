@@ -392,13 +392,15 @@ class OpenInterestTracker:
         history = self._history. get(symbol)
         
         if not history or len(history) < 2:
+            # With 1 snapshot we cannot calculate velocity, but "no change" = STABLE
+            # (more informative than UNKNOWN, which suggests data is missing)
             return OIMetrics(
                 symbol=symbol,
                 current_oi=history[-1].total if history else 0.0,
                 velocity_1m=0.0,
                 velocity_5m=0.0,
                 velocity_15m=0.0,
-                trend=OITrend.UNKNOWN,
+                trend=OITrend.STABLE,  # Changed from UNKNOWN - no velocity = stable
                 imbalance=history[-1].imbalance if history else 0.0,
                 zscore=0.0,
                 last_update=time.time()
