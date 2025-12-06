@@ -745,6 +745,15 @@ class X10Adapter(BaseAdapter):
                     return False, order_id
 
             except Exception as e:
+                err_str = str(e)
+                # FIX: Handle code 1138 "Position is same side as reduce-only order"
+                if "1138" in err_str or "same side as reduce" in err_str.lower():
+                    logger.warning(f"⚠️ X10 {symbol}: 1138 error - checking if position closed...")
+                    await asyncio.sleep(1)
+                    vpos = await self.fetch_open_positions()
+                    if not any(p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8 for p in (vpos or [])):
+                        logger.info(f"✅ X10 {symbol}: Position confirmed closed (1138)")
+                        return True, None
                 logger.error(f"X10 Close exception for {symbol}: {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)

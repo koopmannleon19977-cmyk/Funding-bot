@@ -1,0 +1,318 @@
+09:11:03 [INFO]  CONFIG VALIDIERUNG abgeschlossen.
+09:11:03 [INFO] 🔥 BOT V5 (Architected) STARTING...
+09:11:03 [INFO] 🚀 Starting InMemoryStateManager...
+09:11:03 [INFO] 📂 Initializing database: data/trades.db
+09:11:03 [INFO] ✅ Read pool created: 5 connections
+09:11:03 [INFO] ✅ WAL mode enabled
+09:11:03 [INFO] 🔄 Running database migrations...
+09:11:03 [INFO] ✅ Migrations complete (11 statements)
+09:11:03 [INFO] ✅ Database initialized
+09:11:03 [INFO] 🖊️ Database write loop started
+09:11:03 [INFO] 📂 Loaded 3 trades from database
+09:11:03 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+09:11:03 [INFO] ✅ State Manager started
+09:11:03 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+09:11:03 [INFO] ✅ Async database initialized
+09:11:03 [INFO] 📝 State writer loop started
+09:11:03 [INFO] Initialisiere X10 Adapter...
+09:11:03 [INFO]  X10 Account initialisiert.
+09:11:03 [INFO] Initialisiere Lighter Adapter...
+09:11:03 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+09:11:04 [WARNING] X10 fee refresh failed: API returned no fee data, using fallback
+09:11:04 [WARNING] Lighter fee refresh failed: API returned no fee data, using fallback
+09:11:04 [INFO] ✅ FeeManager started with periodic refresh
+09:11:04 [INFO] ✅ FeeManager started
+09:11:04 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+09:11:04 [INFO] 📂 Kelly loaded 54 historical trades from DB (Win Rate: 0.0%, Winners: 0, Losers: 54)
+09:11:04 [INFO] 📊 Loading Market Data via REST...
+09:11:05 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+09:11:07 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+09:11:07 [INFO] ✅ Lighter: Updated 116 markets with size_decimals from API
+09:11:07 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+09:11:07 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+09:11:07 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+09:11:07 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+09:11:07 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+09:11:07 [INFO] 📈 Pre-loading Lighter prices...
+09:11:08 [INFO] ✅ Lighter prices loaded: 115 symbols
+09:11:08 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+09:11:11 [INFO] ✅ Execution clients warmed up & NETWORK READY
+09:11:11 [INFO] FundingPredictorV2 initialized with BTC Correlation
+09:11:11 [INFO] 启动 OI Tracker für 68 Symbole...
+09:11:11 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+09:11:11 [INFO] 🌐 Starting WebSocket Manager...
+09:11:11 [INFO] 📊 OI Tracker: Starting cycle 1 (68 symbols)
+09:11:11 [INFO] 🔌 [lighter] WebSocket manager started
+09:11:11 [INFO] 🔌 [x10_account] WebSocket manager started
+09:11:11 [INFO] 🔌 [x10_trades] WebSocket manager started
+09:11:11 [INFO] 🔌 [x10_funding] WebSocket manager started
+09:11:11 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+09:11:11 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+09:11:11 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+09:11:11 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': 'a1c9207f79f0e57ddc454bf1e16dbe49', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+09:11:11 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+09:11:12 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+09:11:12 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+09:11:12 [INFO] [lighter] Resubscribing to 73 channels (paced)...
+09:11:12 [INFO] [lighter] Receive loop started (async iterator)
+09:11:12 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+09:11:12 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+09:11:12 [INFO] [x10_account] Receive loop started (async iterator)
+09:11:12 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+09:11:12 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+09:11:12 [INFO] [x10_funding] Receive loop started (async iterator)
+09:11:12 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+09:11:12 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+09:11:12 [INFO] [x10_trades] Receive loop started (async iterator)
+09:11:12 [INFO] [lighter] Resubscribed to 73 channels
+09:11:13 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+09:11:13 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+09:11:13 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+09:11:13 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+09:11:14 [INFO] Lighter: Found 0 open positions
+09:11:14 [INFO] 🌍 Echte Positionen auf Exchanges: []
+09:11:14 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ZRO-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+09:11:14 [INFO] ✅ Trade ZRO-USD closed (PnL: $0.00)
+09:11:14 [WARNING] ⚠️  ZOMBIE GEFUNDEN: RESOLV-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+09:11:14 [INFO] ✅ Trade RESOLV-USD closed (PnL: $0.00)
+09:11:14 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ZEC-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+09:11:14 [INFO] ✅ Trade ZEC-USD closed (PnL: $0.00)
+09:11:14 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+09:11:15 [INFO] Lighter: Found 0 open positions
+09:11:15 [INFO] ✅ No orphaned positions found
+09:11:15 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+09:11:15 [INFO] ✅ ParallelExecutionManager started
+09:11:15 [INFO] ═══════════════════════════════════════════════════════════
+09:11:15 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+09:11:15 [INFO] ═══════════════════════════════════════════════════════════
+09:11:15 [INFO] 🚀 BotEventLoop starting...
+09:11:15 [INFO] ▶️ Started task: connection_watchdog
+09:11:15 [INFO] ▶️ Started task: logic_loop
+09:11:15 [INFO] ▶️ Started task: trade_management_loop
+09:11:15 [INFO] ▶️ Started task: farm_loop
+09:11:15 [INFO] ▶️ Started task: maintenance_loop
+09:11:15 [INFO] ▶️ Started task: cleanup_finished_tasks
+09:11:15 [INFO] ▶️ Started task: health_reporter
+09:11:15 [INFO] ✅ Started 7 tasks
+09:11:15 [INFO] 🔄 Rollback processor running...
+09:11:15 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+09:11:15 [INFO] Logic Loop gestartet – REFRESH alle 3s
+09:11:15 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+09:11:15 [INFO] 🔍 🚜 FARM Scanning 68 pairs. Open symbols to skip: set()
+09:11:15 [INFO] 🔍 Scanning 68 pairs. Lighter markets: 116, X10 markets: 91
+09:11:15 [INFO] 🛡️ Trade Management Loop gestartet
+09:11:15 [INFO] 🚜 Farm Mode ACTIVE
+09:11:15 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+09:11:15 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+09:11:15 [INFO] 💎 AVNT-USD | APY: 56.1%
+09:11:15 [INFO] 💎 KAITO-USD | APY: 71.8%
+09:11:15 [INFO] 💎 DOGE-USD | APY: 50.8%
+09:11:15 [INFO] 💎 RESOLV-USD | APY: 74.5%
+09:11:15 [INFO] 💎 LTC-USD | APY: 50.8%
+09:11:15 [INFO] 💎 ZRO-USD | APY: 76.2%
+09:11:15 [INFO] 💎 ENA-USD | APY: 60.4%
+09:11:15 [INFO] 💎 BERA-USD | APY: 59.6%
+09:11:15 [INFO] ✅ Found 44 opportunities from 64 valid pairs (farm_mode=True, scanned=68)
+09:11:15 [INFO] 🎯 Found 3 opportunities, executing best...
+09:11:16 [INFO] 🚜 Opening FARM: EDEN-USD APY=31.5%
+09:11:16 [INFO] X10: Detected balance = $297.78
+09:11:16 [INFO] Lighter: Found 0 open positions
+09:11:17 [INFO] Lighter: Found 0 open positions
+09:11:17 [INFO] 📊 Positions: X10=0, Lighter=0
+09:11:17 [INFO] 🚀 Launching 2 trades (Slots available: 2)
+09:11:17 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+09:11:17 [INFO] 🎰 KELLY EDEN-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+09:11:17 [INFO] 📊 KELLY SIZE EDEN-USD: base=$30.0, kelly_recommended=$5.3, final=$30.0
+09:11:17 [INFO] 🚀 Opening EDEN-USD: Size=$30.0 (Min=$11.0)
+09:11:17 [INFO] 🛡️ Registered EDEN-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+09:11:17 [INFO] 🔄 [PARALLEL] EDEN-USD: Lighter POST-ONLY first
+09:11:17 [INFO] 🚀 LIGHTER OPEN EDEN-USD: side=SELL, size_usd=$30.00, price=$0.075660
+09:11:17 [INFO] 🔄 [PARALLEL] EDEN-USD: X10 MARKET order
+09:11:18 [INFO] Lighter: Found 0 open positions
+09:11:18 [INFO] 💰 Balance: X10=$297.8 (free=$263.3), Lit=$267.1 (free=$232.6) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+09:11:18 [INFO] 🚀 Launching trade for ZRO-USD (APY=76.2%)
+09:11:18 [INFO] Lighter Order: 163bf05fe56f01d321b2c6e3382d14b5f1a1bd6c8806aca681163bbc7a28ed59fde79a7eff4f407c
+09:11:18 [INFO] 🔍 Running periodic exchange sync check...
+09:11:18 [INFO] 🔍 Starting Exchange Sync Check...
+09:11:18 [INFO] ⏳ Sync check: Found 1 symbols with active executions: {'EDEN-USD'}
+09:11:18 [INFO] 🚀 Launching trade for RESOLV-USD (APY=74.5%)
+09:11:18 [INFO] Lighter: Found 1 open positions
+09:11:19 [INFO] ✅ Launched 2 trade tasks this cycle
+09:11:19 [INFO] Lighter: Found 1 open positions
+09:11:19 [INFO]  X10 Order: 1997217230651240448
+09:11:19 [INFO] ✅ [PARALLEL] EDEN-USD: Both legs filled in 1625ms
+09:11:19 [INFO] ✅ OPENED EDEN-USD: $30.00 | Entry Fees (est.): $0.0067
+09:11:19 [INFO] 🎰 KELLY ZRO-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+09:11:19 [INFO] 📊 KELLY SIZE ZRO-USD: base=$30.0, kelly_recommended=$4.7, final=$30.0
+09:11:20 [INFO] 🎰 KELLY RESOLV-USD: win_rate=0.0%, kelly_fraction=0.0000, safe_fraction=0.0200, confidence=LOW, samples=1
+09:11:20 [INFO] 📊 KELLY SIZE RESOLV-USD: base=$30.0, kelly_recommended=$4.7, final=$30.0
+09:11:20 [INFO] 🚀 Opening ZRO-USD: Size=$30.0 (Min=$14.5)
+09:11:20 [INFO] 🛡️ Registered ZRO-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+09:11:20 [INFO] 🔄 [PARALLEL] ZRO-USD: Lighter POST-ONLY first
+09:11:20 [INFO] 🚀 Opening RESOLV-USD: Size=$30.0 (Min=$11.0)
+09:11:20 [INFO] 🛡️ Registered RESOLV-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+09:11:20 [INFO] 🔄 [PARALLEL] RESOLV-USD: Lighter POST-ONLY first
+09:11:20 [INFO] 🚀 LIGHTER OPEN ZRO-USD: side=SELL, size_usd=$30.00, price=$1.380320
+09:11:20 [INFO] 🔄 [PARALLEL] ZRO-USD: X10 MARKET order
+09:11:20 [INFO] 🔄 [PARALLEL] RESOLV-USD: X10 MARKET order
+09:11:20 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=SELL, size_usd=$30.00, price=$0.077520
+09:11:20 [INFO] Lighter Order: 24721feeb93249354eba05cd2dd490ef5b44a11a2f58867a0d56fb3b8f1722b65cf23618ba528a79
+09:11:20 [INFO]  X10 Order: 1997217233805848576
+09:11:20 [INFO] ✅ [PARALLEL] ZRO-USD: Both legs filled in 313ms
+09:11:20 [INFO] ✅ OPENED ZRO-USD: $30.00 | Entry Fees (est.): $0.0067
+09:11:20 [INFO] Lighter Order: 00d7ddc4233fb90c63f2341fd902dfa3233c593a20ca2a9c5c01b1a8a819f3014941096403207684
+09:11:20 [INFO] Lighter: Found 3 open positions
+09:11:20 [INFO] 📊 Positions: X10=1, Lighter=3
+09:11:21 [INFO]  X10 Order: 1997217237518049280
+09:11:21 [INFO] ✅ [PARALLEL] RESOLV-USD: Both legs filled in 1203ms
+09:11:21 [INFO] ✅ OPENED RESOLV-USD: $30.00 | Entry Fees (est.): $0.0067
+09:11:23 [INFO] Lighter: Found 3 open positions
+09:11:23 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:23 [INFO] 💰 EDEN-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+09:11:24 [INFO] 💰 ZRO-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+09:11:25 [INFO] 💰 RESOLV-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+09:11:25 [INFO] Lighter: Found 3 open positions
+09:11:25 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:28 [INFO] Lighter: Found 3 open positions
+09:11:28 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:28 [WARNING] ⏸️ Sync check: Still 3 active executions after timeout: {'RESOLV-USD', 'ZRO-USD', 'EDEN-USD'}
+09:11:28 [INFO] ⏳ Sync check: Skipping 3 symbols with active executions: {'RESOLV-USD', 'ZRO-USD', 'EDEN-USD'}
+09:11:28 [INFO] 🛡️ RECENTLY_OPENED protection active: ['EDEN-USD(11s)', 'ZRO-USD(9s)', 'RESOLV-USD(9s)']
+09:11:29 [INFO] Lighter: Found 3 open positions
+09:11:29 [INFO] ✅ Exchanges are SYNCED: 3 paired positions
+09:11:30 [INFO] Lighter: Found 3 open positions
+09:11:30 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:32 [INFO] Lighter: Found 3 open positions
+09:11:32 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:35 [INFO] Lighter: Found 3 open positions
+09:11:35 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:37 [INFO] Lighter: Found 3 open positions
+09:11:37 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:40 [INFO] Lighter: Found 3 open positions
+09:11:40 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:42 [INFO] Lighter: Found 3 open positions
+09:11:42 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:45 [INFO] Lighter: Found 3 open positions
+09:11:45 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:47 [INFO] Lighter: Found 3 open positions
+09:11:47 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:50 [INFO] Lighter: Found 3 open positions
+09:11:50 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:52 [INFO] Lighter: Found 3 open positions
+09:11:52 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:54 [INFO] Lighter: Found 3 open positions
+09:11:54 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:56 [INFO] 🚜 Farm Mode ACTIVE
+09:11:57 [INFO] Lighter: Found 3 open positions
+09:11:57 [INFO] 📊 Positions: X10=3, Lighter=3
+09:11:59 [INFO] Lighter: Found 3 open positions
+09:11:59 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:01 [INFO] 🚜 Farm Mode ACTIVE
+09:12:02 [INFO] Lighter: Found 3 open positions
+09:12:02 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:04 [INFO] Lighter: Found 3 open positions
+09:12:04 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:06 [INFO] 🚜 Farm Mode ACTIVE
+09:12:07 [INFO] Lighter: Found 3 open positions
+09:12:07 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:09 [INFO] Lighter: Found 3 open positions
+09:12:09 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:11 [INFO] 🚜 Farm Mode ACTIVE
+09:12:12 [INFO] Lighter: Found 3 open positions
+09:12:12 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:14 [INFO] Lighter: Found 3 open positions
+09:12:14 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:16 [INFO] 🚜 Farm Mode ACTIVE
+09:12:16 [INFO] Lighter: Found 3 open positions
+09:12:16 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:19 [INFO] Lighter: Found 3 open positions
+09:12:19 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:21 [INFO] 🚜 Farm Mode ACTIVE
+09:12:21 [INFO] 🛑 Initiating shutdown...
+09:12:21 [INFO] 🔒 SHUTDOWN: Closing all open trades...
+09:12:21 [INFO] Lighter: Found 3 open positions
+09:12:21 [INFO] 📊 Positions: X10=3, Lighter=3
+09:12:22 [INFO] Lighter: Found 3 open positions
+09:12:22 [INFO] 📊 SHUTDOWN: Found 3 X10 + 3 Lighter positions
+09:12:22 [INFO] 🔻 SHUTDOWN CLOSE X10: RESOLV-USD (size=380.000000)
+09:12:22 [INFO] 🔻 X10 CLOSE RESOLV-USD: size=380.000000, side=SELL
+09:12:23 [INFO]  X10 Order: 1997217498832556032
+09:12:24 [INFO] Lighter: Found 3 open positions
+09:12:24 [INFO] 📊 Positions: X10=2, Lighter=3
+09:12:25 [INFO] ✅ SHUTDOWN: X10 RESOLV-USD closed
+09:12:25 [INFO] 🔻 SHUTDOWN CLOSE X10: ZRO-USD (size=21.000000)
+09:12:26 [INFO] 🔻 X10 CLOSE ZRO-USD: size=21.000000, side=SELL
+09:12:26 [INFO] 🚜 Farm Mode ACTIVE
+09:12:26 [INFO]  X10 Order: 1997217510516146176
+09:12:26 [INFO] Lighter: Found 3 open positions
+09:12:26 [INFO] 📊 Positions: X10=1, Lighter=3
+09:12:28 [INFO] ✅ SHUTDOWN: X10 ZRO-USD closed
+09:12:28 [INFO] 🔻 SHUTDOWN CLOSE X10: EDEN-USD (size=390.000000)
+09:12:28 [INFO] 🔻 X10 CLOSE EDEN-USD: size=390.000000, side=SELL
+09:12:29 [INFO]  X10 Order: 1997217522176626688
+09:12:29 [INFO] Lighter: Found 3 open positions
+09:12:29 [INFO] 📊 Positions: X10=1, Lighter=3
+09:12:31 [INFO] 🚜 Farm Mode ACTIVE
+09:12:31 [INFO] ✅ SHUTDOWN: X10 EDEN-USD closed
+09:12:31 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: RESOLV-USD (size=-360.000000)
+09:12:31 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=RESOLV-USD (type=<class 'str'>)
+09:12:31 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+09:12:31 [INFO] 🔍 DEBUG: notional_usd=27.93708 (type=<class 'float'>)
+09:12:31 [INFO] Lighter: Found 3 open positions
+09:12:31 [INFO] 📊 Positions: X10=0, Lighter=3
+09:12:31 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+09:12:31 [INFO] Lighter: Found 3 open positions
+09:12:31 [INFO] 🔻 LIGHTER CLOSE RESOLV-USD: size=-360.000000 coins, side=BUY, price=$0.0776, notional=$27.92
+09:12:31 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=BUY, size_usd=$27.92, price=$0.077552
+09:12:32 [INFO] Lighter Order: b8c567b73953b28f959d31c44bd84f1f7d99f10de2b6bec42c09780dad1c54dc72d5ffce9cc7a56e
+09:12:32 [INFO] ✅ Lighter close RESOLV-USD: Erfolgreich ($27.92)
+09:12:32 [INFO] ✅ SHUTDOWN: Lighter RESOLV-USD closed
+09:12:32 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: ZRO-USD (size=-21.000000)
+09:12:32 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ZRO-USD (type=<class 'str'>)
+09:12:32 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+09:12:32 [INFO] 🔍 DEBUG: notional_usd=28.96887 (type=<class 'float'>)
+09:12:32 [INFO] Lighter: Found 2 open positions
+09:12:32 [INFO] 🔻 LIGHTER CLOSE ZRO-USD: size=-21.000000 coins, side=BUY, price=$1.3795, notional=$28.97
+09:12:32 [INFO] 🚀 LIGHTER OPEN ZRO-USD: side=BUY, size_usd=$28.97, price=$1.379470
+09:12:32 [INFO] Lighter Order: a957b33fc8f064fe0b6f1bb45f2bafa3591c77086a89c95cc892ce5304bfae87c9969a8684bbcfdf
+09:12:32 [INFO] ✅ Lighter close ZRO-USD: Erfolgreich ($28.97)
+09:12:32 [INFO] ✅ SHUTDOWN: Lighter ZRO-USD closed
+09:12:32 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: EDEN-USD (size=-390.000000)
+09:12:32 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=EDEN-USD (type=<class 'str'>)
+09:12:32 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+09:12:32 [INFO] 🔍 DEBUG: notional_usd=29.4528 (type=<class 'float'>)
+09:12:33 [INFO] Lighter: Found 1 open positions
+09:12:33 [INFO] 🔻 LIGHTER CLOSE EDEN-USD: size=-390.000000 coins, side=BUY, price=$0.0755, notional=$29.45
+09:12:33 [INFO] 🚀 LIGHTER OPEN EDEN-USD: side=BUY, size_usd=$29.45, price=$0.075520
+09:12:33 [INFO] Lighter Order: e7112530f9bdb4bfb03319f446c2522982a3baf3bc9e2175a2c0e3aec9ad8d2bddf7688ff6e05c2a
+09:12:33 [INFO] ✅ Lighter close EDEN-USD: Erfolgreich ($29.45)
+09:12:33 [INFO] ✅ SHUTDOWN: Lighter EDEN-USD closed
+09:12:33 [INFO] 🔒 SHUTDOWN COMPLETE: 6 closed, 0 failed
+09:12:33 [INFO] Logic loop cancelled
+09:12:33 [INFO] Connection watchdog cancelled
+09:12:34 [INFO] 🔌 [x10_trades] WebSocket stopped
+09:12:38 [ERROR] WebSocket stop error: 
+09:12:38 [INFO] 🛑 Rollback processor: Shutdown signal received
+09:12:38 [INFO] ✅ ParallelExecutionManager: Stopped
+09:12:38 [INFO] 🛑 Stopping InMemoryStateManager...
+09:12:38 [INFO] 📝 State writer loop stopped
+09:12:38 [INFO] ✅ InMemoryStateManager stopped
+09:12:38 [INFO] ✅ Shutdown complete
+09:12:38 [INFO] 🛑 Shutting down...
+09:12:38 [INFO] 🛑 Shutdown requested...
+09:12:38 [INFO] ✅ ParallelExecutionManager: Stopped
+09:12:38 [INFO] 🔌 [x10_trades] WebSocket stopped
+09:12:38 [INFO] 🔌 [lighter] WebSocket stopped
+09:12:38 [INFO] 🔌 [x10_account] WebSocket stopped
+09:12:38 [INFO] 🔌 [x10_funding] WebSocket stopped
+09:12:38 [INFO] ✅ WebSocketManager stopped
+09:12:38 [INFO] ✅ OpenInterestTracker stopped
+09:12:38 [INFO] 🛑 Stopping InMemoryStateManager...
+09:12:38 [INFO] ✅ InMemoryStateManager stopped
+09:12:38 [INFO] 🔒 Closing database...
+09:12:38 [INFO] 🖊️ Database write loop stopped
+09:12:38 [INFO] ✅ Database closed
+09:12:38 [INFO] 🛑 FeeManager stopped
+09:12:38 [INFO] ✅ X10 Adapter geschlossen.
+09:12:38 [INFO] ✅ Lighter Adapter closed
+09:12:38 [INFO] ✅ Bot V5 shutdown complete

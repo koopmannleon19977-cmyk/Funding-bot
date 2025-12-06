@@ -2876,7 +2876,27 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     executing_symbols = set(ACTIVE_TASKS.keys())
                 
                 # Union bilden
-                all_active_symbols = open_symbols_db | executing_symbols
+                # FIX: Fetch REAL exchange positions to prevent slot miscalculation
+                try:
+                    x10_pos, lighter_pos = await get_cached_positions(lighter, x10, force=False)
+                    real_x10_symbols = {
+                        p.get('symbol') for p in (x10_pos or [])
+                        if abs(safe_float(p.get('size', 0))) > 1e-8
+                    }
+                    real_lighter_symbols = {
+                        p.get('symbol') for p in (lighter_pos or [])
+                        if abs(safe_float(p.get('size', 0))) > 1e-8
+                    }
+                    real_exchange_symbols = real_x10_symbols | real_lighter_symbols
+                    desync = real_exchange_symbols - open_symbols_db
+                    if desync:
+                        logger.warning(f"⚠️ DESYNC: {desync} on exchanges but not in DB")
+                except Exception as e:
+                    logger.warning(f"Failed to fetch real positions: {e}")
+                    real_exchange_symbols = set()
+                
+                # Union: DB + Real positions + Active tasks
+                all_active_symbols = open_symbols_db | executing_symbols | real_exchange_symbols
                 current_total_count = len(all_active_symbols)
                 
                 # Berechne exakt freie Slots
