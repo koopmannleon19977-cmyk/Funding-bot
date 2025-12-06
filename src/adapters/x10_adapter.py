@@ -725,6 +725,12 @@ class X10Adapter(BaseAdapter):
                 )
 
                 if not success:
+                    # FIX: Verify position state after error (handles 1138 race condition)
+                    await asyncio.sleep(1)
+                    recheck = await self.fetch_open_positions()
+                    if not any(p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8 for p in (recheck or [])):
+                        logger.info(f"✅ X10 {symbol}: Position verified closed (post-error)")
+                        return True, None
                     if attempt < max_retries - 1:
                         await asyncio.sleep(2 + attempt)
                         continue
