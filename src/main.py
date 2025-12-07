@@ -25,6 +25,7 @@ if project_root not in sys.path:
 
 import config
 from src.telegram_bot import get_telegram_bot
+from src.api_server import DashboardApi
 from src.adapters.lighter_adapter import LighterAdapter
 from src.adapters.x10_adapter import X10Adapter
 from src.latency_arb import get_detector, is_latency_arb_enabled
@@ -3644,6 +3645,11 @@ async def run_bot_v5():
     parallel_exec = ParallelExecutionManager(x10, lighter, db, circuit_breaker=circuit_breaker)
     await parallel_exec.start()
     logger.info("✅ ParallelExecutionManager started with Circuit Breaker")
+
+    # 6.5 INIT DASHBOARD API
+    start_time = time.time()
+    api_server = DashboardApi(state_manager, parallel_exec, start_time)
+    await api_server.start()
     
     # ═══════════════════════════════════════════════════════════════
     # 7. NEU: Nutze BotEventLoop statt TaskSupervisor
@@ -3730,6 +3736,10 @@ async def run_bot_v5():
             await telegram_bot.send_message("🛑 **Bot shutting down...**")
         
         await event_loop.stop()
+    
+    if locals().get('api_server'):
+        await api_server.stop()
+
     await parallel_exec.stop()
     
     if ws_manager:

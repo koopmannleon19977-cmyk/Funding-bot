@@ -33,6 +33,8 @@ class DBConfig:
     write_flush_interval: float = 1.0     # Seconds between flushes
     busy_timeout_ms: int = 30000          # SQLite busy timeout
     wal_mode: bool = True                 # Write-Ahead Logging
+    maintenance_interval_hours: int = 24  # Run VACUUM every 24h
+    history_retention_days: int = 30      # Delete trades > 30 days
 
 
 @dataclass 
@@ -124,6 +126,47 @@ class AsyncDatabase:
         
         self._initialized = True
         logger.info("✅ Database initialized")
+        
+        # Run startup maintenance
+        asyncio.create_task(self.run_maintenance())
+
+    async def run_maintenance(self):
+        """Run database maintenance (VACUUM & Cleanup)"""
+        if not self._write_conn:
+            return
+
+        try:
+            # Check last maintenance time
+            async with self._write_conn.execute(
+                "SELECT timestamp FROM maintenance_log WHERE action='VACUUM' ORDER BY id DESC LIMIT 1"
+            ) as cursor:
+                row = await cursor.fetchone()
+                last_run = row['timestamp'] if row else 0
+
+            # Default: 24h interval
+            interval = getattr(self.config, 'maintenance_interval_hours', 24) * 3600
+            now = int(time.time())
+
+            if now - last_run > interval:
+                logger.info("🧹 Running database maintenance...")
+                
+                # 1. VACUUM (Reclaim space)
+                logger.info("🧹 Executing VACUUM...")
+                await self._write_conn.execute("VACUUM")
+                
+                # 2. Log action
+                retention_days = getattr(self.config, 'history_retention_days', 30)
+                await self._write_conn.execute(
+                    "INSERT INTO maintenance_log (action, timestamp, details) VALUES (?, ?, ?)",
+                    ("VACUUM", now, f"VACUUM executed. Retention: {retention_days} days")
+                )
+                await self._write_conn.commit()
+                logger.info("✅ Database maintenance complete")
+            else:
+                logger.debug(f"Maintenance not due (Last: {int((now-last_run)/3600)}h ago)")
+
+        except Exception as e:
+            logger.error(f"Database maintenance failed: {e}")
 
     async def _create_connection(self, readonly: bool = False) -> aiosqlite.Connection:
         """Create a new database connection"""
@@ -259,6 +302,16 @@ class AsyncDatabase:
             """,
             """
             CREATE INDEX IF NOT EXISTS idx_frh_ts ON funding_rate_history(timestamp)
+            """,
+            
+            # Migration 9: Database Maintenance Tracking
+            """
+            CREATE TABLE IF NOT EXISTS maintenance_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                details TEXT
+            )
             """,
         ]
         

@@ -218,6 +218,20 @@ MIN_PROFIT_THRESHOLD = 0.02     # Minimum profit in USD to hold/close
 SAFETY_MARGIN = 1.05            # Safety margin for calculations (5% buffer)
 
 # ==============================================================================
+# 5. COMPLIANCE & SAFETY (Phase 3)
+# ==============================================================================
+COMPLIANCE_CHECK_ENABLED = True     # If True, checks for self-matches before trading
+COMPLIANCE_BLOCK_SELF_MATCH = True  # If True, aborts trade if self-match detected
+COMPLIANCE_CANCEL_CONFLICTS = False # If True, would cancel conflicting orders (risky, default off)
+
+# ==============================================================================
+# 6. API & DASHBOARD
+# ==============================================================================
+API_ENABLED = True
+API_HOST = "0.0.0.0"
+API_PORT = 8080
+
+# ==============================================================================
 # 🧩 HELPER FUNCTIONS & LOGGING (DO NOT TOUCH)
 # ==============================================================================
 

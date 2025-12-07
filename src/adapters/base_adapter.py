@@ -83,6 +83,17 @@ class BaseAdapter:
         logger.warning(f"{self.name}: fetch_open_positions nicht implementiert.")
         return []
 
+    async def get_open_orders(self, symbol: str) -> List[dict]:
+        """
+        Fetch open orders for a symbol.
+        Returns: [{'id': str, 'price': float, 'side': 'BUY'|'SELL', 'size': float}]
+        """
+        if not getattr(config, "LIVE_TRADING", False):
+            return []
+        # Default empty, but should be implemented
+        logger.warning(f"{self.name}: get_open_orders nicht implementiert.")
+        return []
+
     async def open_live_position(
         self, 
         symbol: str, 

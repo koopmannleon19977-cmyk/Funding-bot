@@ -8,7 +8,7 @@ import aiohttp
 import time
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 
 from src.rate_limiter import X10_RATE_LIMITER, get_rate_limiter, Exchange
 import config
@@ -517,6 +517,67 @@ class X10Adapter(BaseAdapter):
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
             logger.error(f"X10 Positions Error: {e}")
+            return []
+
+    async def get_open_orders(self, symbol: str) -> List[dict]:
+        """SAFE open orders fetch for compliance check"""
+        if not self.stark_account:
+            return []
+        
+        try:
+            client = await self._get_auth_client()
+            orders_resp = None
+            # Defensive SDK check (same as cancel_all_orders)
+            candidate_methods = ['get_open_orders', 'list_orders', 'get_orders']
+            
+            for method_name in candidate_methods:
+                if hasattr(client.account, method_name):
+                    method = getattr(client.account, method_name)
+                    try:
+                        await self.rate_limiter.acquire()
+                        try:
+                            # Try with market filter
+                            orders_resp = await method(market_name=symbol)
+                        except TypeError:
+                             # Try without arguments if filter fails
+                            orders_resp = await method()
+                        break
+                    except Exception:
+                        continue
+            
+            if not orders_resp or not getattr(orders_resp, 'data', None):
+                return []
+            
+            open_orders = []
+            for o in orders_resp.data:
+                # Filter strict for this symbol and OPEN status
+                status = getattr(o, 'status', 'UNKNOWN')
+                # market might be 'market' or 'symbol' depending on API version
+                market = getattr(o, 'market', getattr(o, 'symbol', ''))
+                
+                if market == symbol and status in ["PENDING", "OPEN", "NEW"]:
+                    # Normalize fields
+                    qty = float(getattr(o, 'amount_of_synthetic', getattr(o, 'amount', 0)))
+                    price = float(getattr(o, 'price', 0))
+                    side_raw = getattr(o, 'side', 'UNKNOWN') # "BUY" / "SELL" or Enum
+                    
+                    # Side normalization
+                    side_str = str(side_raw).upper()
+                    if "BUY" in side_str: side = "BUY"
+                    elif "SELL" in side_str: side = "SELL"
+                    else: side = side_str
+                    
+                    open_orders.append({
+                        "id": str(getattr(o, 'id', '')),
+                        "price": price,
+                        "size": qty,
+                        "side": side,
+                        "symbol": symbol
+                    })
+            return open_orders
+
+        except Exception as e:
+            logger.error(f"X10 get_open_orders failed: {e}")
             return []
 
     async def refresh_missing_prices(self):

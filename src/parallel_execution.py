@@ -174,6 +174,14 @@ class ParallelExecutionManager:
             self.execution_locks[symbol] = asyncio.Lock()
 
         async with self.execution_locks[symbol]:
+            # ═══════════════════════════════════════════════════════════════
+            # PHASE 3: COMPLIANCE CHECK (Wash Trading Prevention)
+            # ═══════════════════════════════════════════════════════════════
+            is_compliant = await self._run_compliance_check(symbol, side_x10, side_lighter)
+            if not is_compliant:
+                logger.warning(f"🛡️ Trade blocked by Compliance Check for {symbol}")
+                return False, None, None
+
             # Create execution tracker
             execution = TradeExecution(
                 symbol=symbol,
@@ -530,3 +538,65 @@ class ParallelExecutionManager:
     def get_execution(self, symbol: str) -> Optional[TradeExecution]:
         """Get execution state for a symbol"""
         return self.active_executions.get(symbol)
+
+    async def _run_compliance_check(self, symbol: str, side_x10: str, side_lighter: str) -> bool:
+        """
+        Checks for self-match / wash trading risks.
+        Returns TRUE if safe to trade, FALSE if risk detected.
+        """
+        if not getattr(config, 'COMPLIANCE_CHECK_ENABLED', False):
+            return True
+        
+        try:
+            # 1. Fetch Open Orders (Parallel)
+            # Use return_exceptions=True so one failure doesn't crash the other
+            results = await asyncio.gather(
+                self.x10.get_open_orders(symbol),
+                self.lighter.get_open_orders(symbol),
+                return_exceptions=True
+            )
+            
+            orders_x10 = results[0]
+            orders_lit = results[1]
+            
+            # Handle potential exceptions during fetch
+            if isinstance(orders_x10, Exception):
+                logger.warning(f"Compliance Check X10 Error: {orders_x10}")
+                orders_x10 = []
+            if isinstance(orders_lit, Exception):
+                logger.warning(f"Compliance Check Lighter Error: {orders_lit}")
+                orders_lit = []
+            
+            risk_detected = False
+            
+            # 2. Check X10 Conflicts
+            # If I want to BUY, I must not have any SELL orders open
+            for o in orders_x10:
+                o_side = str(o.get('side', '')).upper()
+                if side_x10 == "BUY" and o_side == "SELL":
+                    logger.warning(f"⛔ COMPLIANCE ALERT: Self-Match risk on X10 {symbol}! (Buying into own Sell Order {o.get('id')})")
+                    risk_detected = True
+                if side_x10 == "SELL" and o_side == "BUY":
+                    logger.warning(f"⛔ COMPLIANCE ALERT: Self-Match risk on X10 {symbol}! (Selling into own Buy Order {o.get('id')})")
+                    risk_detected = True
+            
+            # 3. Check Lighter Conflicts
+            for o in orders_lit:
+                o_side = str(o.get('side', '')).upper()
+                if side_lighter == "BUY" and o_side == "SELL":
+                    logger.warning(f"⛔ COMPLIANCE ALERT: Self-Match risk on Lighter {symbol}! (Buying into own Sell Order {o.get('id')})")
+                    risk_detected = True
+                if side_lighter == "SELL" and o_side == "BUY":
+                    logger.warning(f"⛔ COMPLIANCE ALERT: Self-Match risk on Lighter {symbol}! (Selling into own Buy Order {o.get('id')})")
+                    risk_detected = True
+            
+            if risk_detected:
+                if getattr(config, 'COMPLIANCE_BLOCK_SELF_MATCH', True):
+                    return False
+                
+            return True
+            
+        except Exception as e:
+            logger.error(f"Compliance Check Failed: {e}")
+            # Fail safe: Allow trading if check errors locally
+            return True

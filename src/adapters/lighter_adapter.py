@@ -212,6 +212,78 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Validation error {symbol}: {e}")
             return True, ""
 
+            return True, ""
+
+    async def get_open_orders(self, symbol: str) -> List[dict]:
+        """Fetch open orders using Lighter REST API."""
+        try:
+            # Resolve indices if needed
+            if not getattr(self, '_resolved_account_index', None):
+                 await self._resolve_account_index()
+            
+            acc_idx = getattr(self, '_resolved_account_index', None)
+            if acc_idx is None:
+                return []
+                
+            market = self.market_info.get(symbol)
+            if not market:
+                return []
+            
+            market_index = market.get('market_index')
+            if market_index is None:
+                return []
+
+            # GET /api/v1/orders
+            params = {
+                "account_index": acc_idx,
+                "market_index": market_index,
+                "status": 10,  # 10 = Open
+                "limit": 50
+            }
+            
+            # API endpoint guess: /api/v1/orders or similar
+            # Try /api/v1/orders first
+            resp = await self._rest_get("/api/v1/orders", params=params)
+            
+            if not resp:
+                return []
+            
+            # If resp is a list directly or in 'data'
+            orders_data = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+            
+            open_orders = []
+            for o in orders_data:
+                # Filter strictly for OPEN status if API returns mixed
+                # Status 10 usually OPEN
+                status = o.get('status')
+                
+                # Check if truly open (assuming status 10 is OPEN based on common ZK patterns)
+                # If unsure, we include everything that looks open
+                if status in [10, 0, 1]:  # Defensive, check mapping
+                    price = safe_float(o.get('price', 0))
+                    size = safe_float(o.get('remaining_size', o.get('total_size', 0)))
+                    
+                    side_raw = o.get('side', 0)
+                    # Side: 0=Buy, 1=Sell ?? Or "buy"/"sell"?
+                    # Lighter usually uses int: 0/1. 
+                    if isinstance(side_raw, int):
+                         side = "BUY" if side_raw == 0 else "SELL"
+                    else:
+                         side = str(side_raw).upper()
+                    
+                    open_orders.append({
+                        "id": str(o.get('id', '')),
+                        "price": price,
+                        "size": size,
+                        "side": side,
+                        "symbol": symbol
+                    })
+            return open_orders
+            
+        except Exception as e:
+            logger.error(f"Lighter get_open_orders error: {e}")
+            return []
+
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
         await self.load_market_cache(force=True)
