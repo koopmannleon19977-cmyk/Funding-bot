@@ -770,7 +770,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             
             opp = {
                 'symbol': pred.get('symbol'),
-                'apy': pred.get('predicted_apy', 0),
+                'apy': pred.get('apy', pred.get('predicted_apy', 0)),  # Use current APY (fallback to predicted if not available)
                 'spread': pred.get('current_spread', 0),
                 'confidence': pred.get('confidence', 0.5),
                 'predicted_direction': pred.get('predicted_direction', 'long_lighter'),
@@ -2055,7 +2055,8 @@ async def manage_open_trades(lighter, x10):
                     total_fees = est_fees
                 
                 if await close_trade(t, lighter, x10):
-                    await close_trade_in_state(sym)
+                    # FIX: Pass actual PnL values to state (was missing, causing $0.00 in Kelly history)
+                    await close_trade_in_state(sym, pnl=total_pnl, funding=funding_pnl)
                     await archive_trade_to_history(t, reason, {
                         'total_net_pnl': total_pnl, 'funding_pnl': funding_pnl,
                         'spread_pnl': spread_pnl, 'fees': total_fees if 'total_fees' in locals() else est_fees

@@ -236,6 +236,47 @@ API_PORT = 8080
 # ==============================================================================
 
 def setup_logging(per_run: bool = False, run_id: str | None = None, timestamp_format: str = "%Y%m%d_%H%M%S"):
+    import re
+    
+    # =========================================================================
+    # SECURITY: Custom filter to mask API keys and sensitive data in ALL logs
+    # =========================================================================
+    class SensitiveDataFilter(logging.Filter):
+        """Filter that masks sensitive data (API keys, secrets) in log messages."""
+        
+        # Patterns to match and mask
+        SENSITIVE_PATTERNS = [
+            # X-Api-Key header (exact or in dict repr)
+            (re.compile(r"('X-Api-Key':\s*'?)([a-zA-Z0-9]{20,})('?)"), r"\1***MASKED***\3"),
+            (re.compile(r'("X-Api-Key":\s*"?)([a-zA-Z0-9]{20,})("?)'), r'"X-Api-Key": "***MASKED***"'),
+            # X10 SDK RequestHeader format: <RequestHeader.API_KEY: 'X-Api-Key'>: 'key'
+            (re.compile(r"(<RequestHeader\.API_KEY:\s*'X-Api-Key'>:\s*')([a-zA-Z0-9]{20,})('?)"), r"\1***MASKED***\3"),
+            # API key as value in headers dict
+            (re.compile(r"(api[_-]?key['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
+            # Private keys (hex)
+            (re.compile(r"(private[_-]?key['\"]?:\s*['\"]?)(0x[a-fA-F0-9]{32,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
+            # Generic secrets/tokens
+            (re.compile(r"(secret['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
+            (re.compile(r"(token['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
+            # Catch any 32-char hex string that looks like an API key in context
+            (re.compile(r"('[a-fA-F0-9]{32}')"), r"'***MASKED***'"),
+        ]
+        
+        def filter(self, record: logging.LogRecord) -> bool:
+            # Mask sensitive data in the message
+            original_msg = str(record.getMessage())
+            masked_msg = original_msg
+            
+            for pattern, replacement in self.SENSITIVE_PATTERNS:
+                masked_msg = pattern.sub(replacement, masked_msg)
+            
+            # Only modify if we actually masked something
+            if masked_msg != original_msg:
+                record.msg = masked_msg
+                record.args = ()  # Clear args since we've already formatted
+            
+            return True  # Always allow the record through
+    
     if sys.platform == 'win32':
         os.environ['PYTHONIOENCODING'] = 'utf-8'
     logger = logging.getLogger()
@@ -244,6 +285,9 @@ def setup_logging(per_run: bool = False, run_id: str | None = None, timestamp_fo
         for h in list(logger.handlers):
             logger.removeHandler(h)
     log_format = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%H:%M:%S')
+    
+    # Create the sensitive data filter
+    sensitive_filter = SensitiveDataFilter()
     
     if per_run:
         ts = datetime.now().strftime(timestamp_format)
@@ -261,9 +305,13 @@ def setup_logging(per_run: bool = False, run_id: str | None = None, timestamp_fo
     file_handler = logging.FileHandler(log_file, mode='a', encoding="utf-8")
     file_handler.setLevel(LOG_LEVEL)
     file_handler.setFormatter(log_format)
+    file_handler.addFilter(sensitive_filter)  # SECURITY: Apply filter
+    
     console_handler = logging.StreamHandler(io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True))
     console_handler.setLevel(LOG_LEVEL)
     console_handler.setFormatter(log_format)
+    console_handler.addFilter(sensitive_filter)  # SECURITY: Apply filter
+    
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
     return logger

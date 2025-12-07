@@ -79,8 +79,20 @@ class FundingPredictorV2:
         # If we predict positive funding (Long bias), punish it with the btc_factor.
         if predicted_rate > 0 and btc_factor < 1.0:
             predicted_rate *= btc_factor
+        
+        # === SANITY CHECK: Clamp predicted_rate to realistic bounds ===
+        # Funding rates should never exceed ~0.5% per hour (~4380% APY) in normal markets
+        MAX_HOURLY_RATE = 0.005  # 0.5% per hour = 4380% APY max
+        if abs(predicted_rate) > MAX_HOURLY_RATE:
+            logger.warning(f"⚠️ {symbol}: Predicted rate {predicted_rate:.6f} clamped to {MAX_HOURLY_RATE:.6f}")
+            predicted_rate = MAX_HOURLY_RATE if predicted_rate > 0 else -MAX_HOURLY_RATE
             
         delta = predicted_rate - current_rate
+        
+        # === SANITY CHECK: Clamp delta as well ===
+        if abs(delta) > MAX_HOURLY_RATE:
+            logger.warning(f"⚠️ {symbol}: Delta {delta:.6f} indicates calculation error, capping")
+            delta = MAX_HOURLY_RATE if delta > 0 else -MAX_HOURLY_RATE
 
         # === Confidence ===
         # === Confidence ===
@@ -171,7 +183,7 @@ class FundingPredictorV2:
         Get top trading opportunities sorted by expected APY.
         Compatible with get_best_opportunities() from prediction.py
         
-        Returns list of dicts with: symbol, predicted_apy, confidence, should_trade
+        Returns list of dicts with: symbol, apy (current), predicted_apy, confidence, should_trade
         """
         results = []
         
@@ -207,25 +219,34 @@ class FundingPredictorV2:
                     btc_price=btc_price
                 )
                 
-                # Calculate APY (annualized from hourly rate)
-                predicted_apy = abs(pred_rate) * 24 * 365 * 100  # Convert to percentage
+                # FIX: Calculate CURRENT APY from actual rate difference (not predicted!)
+                # This is the REAL opportunity, matching what the dashboard shows
+                current_rate_diff = abs(current_lighter_rate - current_x10_rate)
+                current_apy = current_rate_diff * 24 * 365 * 100  # Hourly rate → APY percentage
                 
-                # Filter by thresholds
-                if predicted_apy >= min_apy and conf >= min_confidence:
+                # Also calculate predicted APY for reference
+                predicted_apy = abs(pred_rate) * 24 * 365 * 100
+                
+                # Filter by CURRENT APY thresholds (what we can actually capture)
+                if current_apy >= min_apy and conf >= min_confidence:
                     results.append({
                         'symbol': symbol,
-                        'predicted_apy': predicted_apy,
+                        'apy': current_apy,              # CURRENT APY (for display/logging)
+                        'predicted_apy': predicted_apy,  # Predicted APY (for reference)
                         'confidence': conf,
                         'should_trade': True,
                         'predicted_rate': pred_rate,
-                        'delta': delta
+                        'delta': delta,
+                        'net_funding_hourly': current_lighter_rate - current_x10_rate,
+                        'leg1_exchange': 'Lighter' if current_lighter_rate > current_x10_rate else 'X10',
+                        'leg1_side': 'SELL' if current_lighter_rate > current_x10_rate else 'BUY',
                     })
             except Exception as e:
                 logger.debug(f"[PREDICT V2] {symbol}: Error: {e}")
         
-        # Sort by APY * confidence (risk-adjusted)
+        # Sort by current APY * confidence (risk-adjusted)
         results.sort(
-            key=lambda p: p['predicted_apy'] * p['confidence'],
+            key=lambda p: p['apy'] * p['confidence'],
             reverse=True
         )
         

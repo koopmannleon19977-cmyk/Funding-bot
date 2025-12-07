@@ -441,6 +441,29 @@ class BotEventLoop:
             
             logger.info(f"🔒 SHUTDOWN COMPLETE: {closed_count} closed, {failed_count} failed")
             
+            # FIX: Mark trades as closed in state (with $0 PnL - we can't calculate real PnL during shutdown)
+            # This ensures the database is consistent and trades aren't reopened on next startup
+            if self.state_manager:
+                try:
+                    # Get all symbols that were closed
+                    closed_symbols = set()
+                    for pos in (x10_positions or []):
+                        if abs(pos.get('size', 0)) > 1e-8:
+                            closed_symbols.add(pos.get('symbol'))
+                    for pos in (lighter_positions or []):
+                        if abs(pos.get('size', 0)) > 1e-8:
+                            closed_symbols.add(pos.get('symbol'))
+                    
+                    # Mark each as closed in state
+                    for symbol in closed_symbols:
+                        try:
+                            await self.state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
+                            logger.debug(f"📝 SHUTDOWN: Marked {symbol} as closed in state")
+                        except Exception as e:
+                            logger.debug(f"SHUTDOWN: Could not mark {symbol} in state: {e}")
+                except Exception as e:
+                    logger.debug(f"SHUTDOWN: State cleanup error: {e}")
+            
         except asyncio.TimeoutError:
             logger.error("❌ SHUTDOWN: Close-all operation timed out")
         except Exception as e:

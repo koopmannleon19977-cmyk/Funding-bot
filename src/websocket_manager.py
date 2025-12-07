@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 import config
 
 
-from src.utils import safe_float
+from src.utils import safe_float, mask_sensitive_data
 
 
 @dataclass
@@ -307,7 +307,9 @@ class ManagedWebSocket:
             if self.config.headers:
                 connect_kwargs["additional_headers"] = self.config.headers
             
-            logger.info(f"🔌 [{self.config.name}] Connecting with kwargs: {connect_kwargs}")
+            # SECURITY: Mask sensitive data (API keys, tokens) before logging
+            safe_kwargs = mask_sensitive_data(connect_kwargs)
+            logger.info(f"🔌 [{self.config.name}] Connecting with kwargs: {safe_kwargs}")
             
             self._ws = await asyncio.wait_for(
                 ws_connect(self.config.url, **connect_kwargs),
