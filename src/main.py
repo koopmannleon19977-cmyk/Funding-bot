@@ -747,7 +747,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     
     predictions = await get_best_opportunities(
         symbols=available_symbols,
-        min_apy=getattr(config, 'MIN_APY_THRESHOLD', 10.0),
+        min_apy=getattr(config, 'MIN_APY_FILTER', 0.15) * 100,  # 0.15 -> 15.0%
         min_confidence=0.6,  # 0.5 → 0.6 für bessere Trade-Qualität
         limit=20,
         lighter_adapter=lighter,
@@ -770,6 +770,15 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 continue
             
             s, rl, rx, px, pl = symbol_data
+            
+            # STRICT FILTER: Check CURRENT APY
+            current_net = abs((rl or 0) - (rx or 0))
+            current_apy = current_net * 24 * 365
+            min_required = getattr(config, 'MIN_APY_FILTER', 0.15)
+            
+            if current_apy < min_required:
+                logger.debug(f"📉 Prediction {s} skipped: Current APY {current_apy*100:.1f}% < Min {min_required*100:.1f}%")
+                continue
             
             opp = {
                 'symbol': pred.get('symbol'),
@@ -3057,7 +3066,9 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         actual_open_count = current_open_count  # Fallback
                     
                     # Use ACTUAL open count, not DB count
-                    locked_per_exchange = actual_open_count * avg_trade_size * 0.6
+                    leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 1.0)
+                    # Correctly calculate locked margin based on leverage (Margin + 20% buffer)
+                    locked_per_exchange = actual_open_count * (avg_trade_size / leverage) * 1.2
                     
                     async with IN_FLIGHT_LOCK:
                         available_x10 = bal_x10 - IN_FLIGHT_MARGIN.get('X10', 0) - locked_per_exchange

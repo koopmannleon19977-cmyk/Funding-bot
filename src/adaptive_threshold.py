@@ -132,9 +132,12 @@ class AdaptiveThresholdManager:
         base = float(self.current_threshold)
 
         # Symbol-specific adjustments
+        # Symbol-specific adjustments
         if symbol:
-            if symbol.startswith(("BTC", "ETH")):
-                base = max(self.min_limit, base * 0.8)
+            # REMOVED: BTC/ETH discount (user wants strict MIN_APY)
+            # if symbol.startswith(("BTC", "ETH")):
+            #     base = max(self.min_limit, base * 0.8)
+            
             if symbol in getattr(config, 'HIGH_RISK_SYMBOLS', ["HYPE-USD", "MEME-USD"]):
                 base = base * 1.5
 
