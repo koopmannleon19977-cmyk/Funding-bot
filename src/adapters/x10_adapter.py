@@ -139,49 +139,46 @@ class X10Adapter(BaseAdapter):
     async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
         """
         Fetch fee schedule from X10 API via Account Info (Authenticated)
-        FALLBACK: /api/v1/user/account
-        
-        Returns:
-            Tuple[maker_fee, taker_fee] or None if failed
         """
         try:
             # 1. Try via Trading Client SDK (Authenticated)
             try:
                 client = await self._get_trading_client()
-                if hasattr(client, 'account') and hasattr(client.account, 'get_account_info'):
+                # Check for both get_account_info and get_profile
+                method = getattr(client.account, 'get_account_info', getattr(client.account, 'get_profile', None))
+                
+                if method:
                     await self.rate_limiter.acquire()
-                    resp = await client.account.get_account_info()
+                    resp = await method()
                     self.rate_limiter.on_success()
-                    
+                
                     if resp and getattr(resp, 'data', None):
-                        # SDK often wraps response in .data
                         info = resp.data
                     else:
                         info = resp
 
-                    if info:
-                        # Direct attribute access or dict access
-                        # info might be AccountInfo object or dict
-                        fee_schedule = None
-                        if hasattr(info, 'fee_schedule'):
-                            fee_schedule = info.fee_schedule
-                        elif isinstance(info, dict):
-                            fee_schedule = info.get('fee_schedule')
-                        
-                        if fee_schedule:
-                            maker = safe_float(getattr(fee_schedule, 'maker', None) or fee_schedule.get('maker'), config.MAKER_FEE_X10)
-                            taker = safe_float(getattr(fee_schedule, 'taker', None) or fee_schedule.get('taker'), config.TAKER_FEE_X10)
-                            logger.info(f"✅ X10 Fee Schedule (SDK): Maker={maker:.6f}, Taker={taker:.6f}")
-                            return (maker, taker)
+                    # Parsing logic...
+                    fee_schedule = None
+                    if hasattr(info, 'fee_schedule'):
+                        fee_schedule = info.fee_schedule
+                    elif isinstance(info, dict):
+                        fee_schedule = info.get('fee_schedule')
+                    
+                    if fee_schedule:
+                        maker = safe_float(getattr(fee_schedule, 'maker', None) or fee_schedule.get('maker'), config.MAKER_FEE_X10)
+                        taker = safe_float(getattr(fee_schedule, 'taker', None) or fee_schedule.get('taker'), config.TAKER_FEE_X10)
+                        logger.info(f"✅ X10 Fee Schedule (SDK): Maker={maker:.6f}, Taker={taker:.6f}")
+                        return (maker, taker)
             except Exception as e:
                 logger.debug(f"X10 SDK Fee fetch failed: {e}")
 
-            # 2. Fallback: Direct Authenticated REST Call to /api/v1/user/account
+            # 2. Fallback: Direct Authenticated REST Call
+            # FIX: Try multiple endpoints since /user/account often 404s
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-            url = f"{base_url}/api/v1/user/account"
+            
+            endpoints = ["/api/v1/user/profile", "/api/v1/user", "/api/v1/user/account"]
             
             if not self.stark_account or not self.stark_account.api_key:
-                logger.warning("X10 Fee Fetch: No API Key available for fallback")
                 return None
 
             headers = {
@@ -190,28 +187,35 @@ class X10Adapter(BaseAdapter):
                 'Accept': 'application/json'
             }
 
-            await self.rate_limiter.acquire()
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self.rate_limiter.on_success()
-                        
-                        # data structure: {"status": "OK", "data": {"fee_schedule": {...}}}
-                        inner = data.get('data') or data
-                        fee_sched = inner.get('fee_schedule', {})
-                        
-                        maker = safe_float(fee_sched.get('maker'), config.MAKER_FEE_X10)
-                        taker = safe_float(fee_sched.get('taker'), config.TAKER_FEE_X10)
-                        
-                        logger.info(f"✅ X10 Fee Schedule (REST): Maker={maker:.6f}, Taker={taker:.6f}")
-                        return (maker, taker)
-                    else:
-                        if resp.status == 429:
-                            self.rate_limiter.penalize_429()
-                        logger.warning(f"X10 REST Fee fetch failed: HTTP {resp.status}")
-                        return None
-                    
+                for endpoint in endpoints:
+                    url = f"{base_url}{endpoint}"
+                    try:
+                        await self.rate_limiter.acquire()
+                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                self.rate_limiter.on_success()
+                            
+                                inner = data.get('data') or data
+                                fee_sched = inner.get('fee_schedule', {})
+                                
+                                # Falls fee_schedule gefunden, parse es
+                                if fee_sched:
+                                    maker = safe_float(fee_sched.get('maker'), config.MAKER_FEE_X10)
+                                    taker = safe_float(fee_sched.get('taker'), config.TAKER_FEE_X10)
+                                    logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker:.6f}, Taker={taker:.6f}")
+                                    return (maker, taker)
+                            elif resp.status == 404:
+                                continue # Try next endpoint
+                            else:
+                                logger.debug(f"X10 Fee {endpoint} failed: {resp.status}")
+                    except Exception:
+                        pass
+            
+            logger.warning("X10 Fee Fetch: All endpoints failed, using config defaults.")
+            return (config.MAKER_FEE_X10, config.TAKER_FEE_X10)
+                
         except Exception as e:
             logger.error(f"X10 Fee Schedule fetch error: {e}")
             return None
@@ -796,6 +800,16 @@ class X10Adapter(BaseAdapter):
 
                 actual_notional = actual_size_abs * price
 
+                # FIX: Minimum Notional Check für X10 Shutdown
+                min_notional = self.min_notional_usd(symbol)
+                if actual_notional < min_notional:
+                    if actual_notional < 1.0: # Dust tolerance
+                        logger.warning(f"⚠️ X10 {symbol}: Skipping dust position (${actual_notional:.2f}). Treating as closed.")
+                        return True, "DUST_SKIPPED"
+                    
+                    logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < ${min_notional:.2f}")
+                    return False, None
+
                 logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
 
                 success, order_id = await self.open_live_position(
@@ -890,73 +904,138 @@ class X10Adapter(BaseAdapter):
             return False
     
     async def get_real_available_balance(self) -> float:
-        await self.rate_limiter.acquire()
-        try:
-            client = await self._get_auth_client()
-            
-            # METHODE 1: SDK get_balance()
-            for method_name in ['get_balance', 'get_account_balance', 'get_balances']:
-                if hasattr(client.account, method_name):
-                    try:
-                        method = getattr(client.account, method_name)
-                        resp = await method()
-                        if resp and hasattr(resp, 'data'):
-                            data = resp.data if isinstance(resp.data, dict) else resp.data.__dict__
-                            for field in ['available_margin', 'collateral_balance', 'equity', 'balance']:
-                                val = data.get(field)
-                                if val is not None:
-                                    try:
-                                        balance = float(val)
-                                        if balance > 0.01:
-                                            return balance
-                                    except:
-                                        continue
-                    except Exception:
-                        continue
-
-            # METHODE 2: REST API Fallback
-            if self.stark_account:
-                base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-                endpoints = ['/api/v1/user/balance', '/api/v1/user/account/balance']
-                headers = {"X-Api-Key": self.stark_account.api_key, "Accept": "application/json"}
-                
-                async with aiohttp.ClientSession() as session:
-                    for endpoint in endpoints:
-                        try:
-                            url = f"{base_url}{endpoint}"
-                            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                                if resp.status == 200:
-                                    data = await resp.json()
-                                    if isinstance(data, dict):
-                                        if 'data' in data and isinstance(data['data'], dict):
-                                            data = data['data']
-                                        for field in ['available_margin', 'collateral_balance', 'equity', 'balance']:
-                                            if field in data:
-                                                try:
-                                                    return float(data[field])
-                                                except:
-                                                    continue
-                        except Exception:
-                            continue
-
-            # METHODE 3: Legacy Fallback
+        """
+        Korrekte Balance-Abfrage für X10 – funktioniert mit aktuellem SDK (Dezember 2025)
+        Methode: trading_client.account.get_balance()
+        """
+        if not self.trading_client:
             try:
-                resp = await client.account.get_account()
-                if resp and resp.data:
-                    data = resp.data if isinstance(resp.data, dict) else resp.data.__dict__
-                    for field in ['available_margin', 'collateral_balance']:
-                        val = data.get(field)
-                        if val is not None:
-                            return float(val)
-            except Exception:
-                pass
+                await self._get_trading_client()
+            except Exception as e:
+                logger.error(f"X10 trading_client nicht initialisiert: {e}")
+                return 0.0
+
+        try:
+            await self.rate_limiter.acquire()
             
-            logger.error("X10: ALLE Balance-Methoden fehlgeschlagen!")
-            return 0.0
+            # RICHTIGE METHODE: account.get_balance()
+            balance_response = await self.trading_client.account.get_balance()
+            self.rate_limiter.on_success()
             
+            # X10 SDK gibt Response-Objekt zurück mit .data = BalanceModel
+            if balance_response:
+                # Die Balance ist in response.data.balance oder response.data.available_for_trade
+                data = getattr(balance_response, 'data', balance_response)
+                
+                # Priorität: available_for_trade > equity > balance
+                for attr in ['available_for_trade', 'equity', 'balance', 'available_collateral']:
+                    available = getattr(data, attr, None)
+                    if available is not None:
+                        try:
+                            balance = float(available)
+                            if balance > 0:
+                                logger.info(f"💰 X10 verfügbare Balance: ${balance:.2f} USDC")
+                                return balance
+                        except (ValueError, TypeError):
+                            continue
+                
+                logger.warning(f"X10 get_balance(): Balance-Felder gefunden aber Wert=0 oder nicht parsebar")
+                return 0.0
+            else:
+                logger.warning("X10 get_balance() lieferte keine Antwort")
+                return 0.0
+
+        except AttributeError as e:
+            # Falls SDK alte Version ohne account.get_balance()
+            logger.error(f"X10 SDK Methode nicht gefunden: {e}")
+            # Fallback: REST API direkt
+            return await self._get_balance_via_rest()
         except Exception as e:
-            logger.error(f"X10 Balance fetch komplett fehlgeschlagen: {e}")
+            logger.error(f"X10 Balance-Abfrage fehlgeschlagen: {e}", exc_info=True)
             return 0.0
+
+    async def _get_balance_via_rest(self) -> float:
+        """Fallback: Hole Balance direkt via REST API"""
+        try:
+            if not self.stark_account:
+                return 0.0
+            
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/user/account"
+            
+            headers = {
+                'X-Api-Key': self.stark_account.api_key,
+                'User-Agent': 'X10PythonTradingClient/0.4.5',
+                'Accept': 'application/json'
+            }
+            
+            await self.rate_limiter.acquire()
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.rate_limiter.on_success()
+                        
+                        # Parse response
+                        inner = data.get('data') or data
+                        
+                        for key in ['available_collateral', 'availableCollateral', 'balance', 'equity', 'free_collateral']:
+                            val = inner.get(key)
+                            if val is not None:
+                                balance = float(val)
+                                if balance > 0:
+                                    logger.info(f"💰 X10 Balance via REST: ${balance:.2f} USDC")
+                                    return balance
+                        
+                        logger.warning(f"X10 REST: Keine Balance in Antwort gefunden: {list(inner.keys())}")
+                    else:
+                        logger.warning(f"X10 REST Balance-Abfrage: HTTP {resp.status}")
+        except Exception as e:
+            logger.error(f"X10 REST Balance-Fallback fehlgeschlagen: {e}")
+        
+        return 0.0
+
+    async def get_price(self, symbol: str) -> Optional[float]:
+        """
+        Gibt den aktuellen Mark-Preis von X10 zurück (aus Cache oder frisch via REST).
+        Wird von execute_trade() und dem Predictor benötigt.
+        """
+        # 1. Zuerst aus dem WebSocket-Cache
+        if symbol in self.price_cache and self.price_cache[symbol] > 0:
+            cache_time = self._price_cache_time.get(symbol, 0)
+            if time.time() - cache_time < 15:  # maximal 15 Sekunden alt
+                return self.price_cache[symbol]
+
+        # 2. Fallback: REST-Abfrage über das offizielle SDK
+        try:
+            if not self.trading_client:
+                await self._get_trading_client()
+                
+            if not self.trading_client:
+                return None
+
+            await self.rate_limiter.acquire()
+            # X10 SDK Methode für Mark Price
+            ticker = await self.trading_client.get_market_ticker(symbol.replace("-USD", ""))  # X10 erwartet "BTC" statt "BTC-USD"
+            self.rate_limiter.on_success()
+            
+            if ticker and hasattr(ticker, 'mark_price') and ticker.mark_price:
+                price = float(ticker.mark_price)
+                # Cache aktualisieren
+                self.price_cache[symbol] = price
+                self._price_cache[symbol] = price
+                self._price_cache_time[symbol] = time.time()
+                logger.debug(f"X10 Preis frisch abgefragt {symbol}: ${price}")
+                return price
+        except Exception as e:
+            logger.debug(f"X10 Preisabfrage fehlgeschlagen {symbol}: {e}")
+
+        # 3. Fallback: fetch_mark_price (sync cache lookup)
+        cached = self.fetch_mark_price(symbol)
+        if cached and cached > 0:
+            return cached
+
+        return None
 
     async def aclose(self):
         """Cleanup all resources including SDK clients"""
@@ -993,24 +1072,8 @@ class X10Adapter(BaseAdapter):
         logger.info("✅ X10 Adapter geschlossen.")
 
     async def get_collateral_balance(self, account_index: int = 0) -> float:
-        """
-        Ruft die verfügbare USDC Balance ab.
-        Kritischer Fix: Gibt die echte Balance zurück, ohne künstliche 50$.
-        """
-        try:
-            # Aktuell wird nur ein Account genutzt; account_index bleibt für spätere Erweiterungen erhalten
-            # switch_account(account_index) wäre hier, falls Multi-Account später benötigt wird
-
-            # Über die bestehende robuste Methode holen
-            amount = await self.get_real_available_balance()
-
-            # Immer echte Balance zurückgeben (kein Hack/Fallback auf 50$)
-            return float(amount or 0.0)
-
-        except Exception as e:
-            logger.error(f"Fehler beim Abrufen der X10 Balance: {e}")
-            # Im Fehlerfall 0 zurückgeben, um Trades zu verhindern
-            return 0.0
+        """Alias für Kompatibilität – einfach weiterleiten"""
+        return await self.get_real_available_balance()
 
     async def get_free_balance(self) -> float:
         """Alias for get_collateral_balance to satisfy interface."""

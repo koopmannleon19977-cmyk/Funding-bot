@@ -8,29 +8,54 @@ Features:
 - Proactive fee fetching on start and periodically
 - Fallback to config values if API fails
 - Per-exchange fee schedules
+- Decimal precision for fee calculations
 """
 
 import time
 import logging
 import asyncio
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 from dataclasses import dataclass
+from decimal import Decimal
 import config
+
+from src.utils import safe_decimal, quantize_usd
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class FeeSchedule:
-    """Fee schedule for an exchange"""
-    maker_fee: float
-    taker_fee: float
+    """
+    Fee schedule for an exchange.
+    
+    Fee rates are stored as Decimal for precision in financial calculations.
+    """
+    maker_fee: Decimal
+    taker_fee: Decimal
     timestamp: float
     source: str  # 'api' or 'config'
+    
+    def __post_init__(self):
+        """Ensure fees are Decimal"""
+        if not isinstance(self.maker_fee, Decimal):
+            self.maker_fee = safe_decimal(self.maker_fee)
+        if not isinstance(self.taker_fee, Decimal):
+            self.taker_fee = safe_decimal(self.taker_fee)
     
     def is_expired(self, ttl_seconds: float = 3600.0) -> bool:
         """Check if fee schedule is expired"""
         return (time.time() - self.timestamp) > ttl_seconds
+    
+    @property
+    def maker_fee_float(self) -> float:
+        """Return maker fee as float for API compatibility"""
+        return float(self.maker_fee)
+    
+    @property
+    def taker_fee_float(self) -> float:
+        """Return taker fee as float for API compatibility"""
+        return float(self.taker_fee)
 
 
 class FeeManager:
@@ -64,24 +89,24 @@ class FeeManager:
         self._enabled = getattr(config, 'DYNAMIC_FEES_ENABLED', True)
         self._started = False
         
-        # Real-time fee values (initialized via init_fees)
-        self.x10_maker_fee: float = 0.0
-        self.x10_taker_fee: float = 0.000225
-        self.lighter_maker_fee: float = 0.0
-        self.lighter_taker_fee: float = 0.0
+        # Real-time fee values as Decimal (initialized via init_fees)
+        self.x10_maker_fee: Decimal = Decimal('0')
+        self.x10_taker_fee: Decimal = Decimal('0.000225')
+        self.lighter_maker_fee: Decimal = Decimal('0')
+        self.lighter_taker_fee: Decimal = Decimal('0')
         
-        # Fallback values from config
-        self._fallback_x10_maker = float(getattr(config, 'MAKER_FEE_X10', 0.0))
-        self._fallback_x10_taker = float(getattr(config, 'TAKER_FEE_X10', 0.000225))
-        self._fallback_lighter_fee = float(getattr(config, 'FEES_LIGHTER', 0.0))
+        # Fallback values from config (as Decimal)
+        self._fallback_x10_maker = safe_decimal(getattr(config, 'MAKER_FEE_X10', 0.0))
+        self._fallback_x10_taker = safe_decimal(getattr(config, 'TAKER_FEE_X10', 0.000225))
+        self._fallback_lighter_fee = safe_decimal(getattr(config, 'FEES_LIGHTER', 0.0))
         
         # Validate fallback values
-        if self._fallback_x10_taker <= 0:
+        if self._fallback_x10_taker <= Decimal('0'):
             logger.warning(f"⚠️ FeeManager: TAKER_FEE_X10 is {self._fallback_x10_taker}, using default 0.000225")
-            self._fallback_x10_taker = 0.000225
-        if self._fallback_x10_maker < 0:
+            self._fallback_x10_taker = Decimal('0.000225')
+        if self._fallback_x10_maker < Decimal('0'):
             logger.warning(f"⚠️ FeeManager: MAKER_FEE_X10 is {self._fallback_x10_maker}, using default 0.0")
-            self._fallback_x10_maker = 0.0
+            self._fallback_x10_maker = Decimal('0')
         
         # Initialize schedules with fallback values to prevent None
         # They will be updated when refresh_all_fees() is called
@@ -178,13 +203,17 @@ class FeeManager:
                 raise ValueError("API returned no fee data")
             
             maker, taker = result  # Only 2 values
+            # Convert to Decimal for precision
+            maker_decimal = safe_decimal(maker)
+            taker_decimal = safe_decimal(taker)
+            
             self._x10_schedule = FeeSchedule(
-                maker_fee=maker,
-                taker_fee=taker,
+                maker_fee=maker_decimal,
+                taker_fee=taker_decimal,
                 timestamp=time.time(),
                 source='api'
             )
-            logger.info(f"✅ X10 Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source=api)")
+            logger.info(f"✅ X10 Fees updated: Maker={float(maker_decimal):.6f}, Taker={float(taker_decimal):.6f} (source=api)")
         except Exception as e:
             logger.warning(f"X10 fee refresh failed: {e}, using fallback")
             self._x10_schedule = FeeSchedule(
@@ -206,13 +235,17 @@ class FeeManager:
                 raise ValueError("API returned no fee data")
             
             maker, taker = result  # Only 2 values
+            # Convert to Decimal for precision
+            maker_decimal = safe_decimal(maker)
+            taker_decimal = safe_decimal(taker)
+            
             self._lighter_schedule = FeeSchedule(
-                maker_fee=maker,
-                taker_fee=taker,
+                maker_fee=maker_decimal,
+                taker_fee=taker_decimal,
                 timestamp=time.time(),
                 source='api'
             )
-            logger.info(f"✅ Lighter Fees updated: Maker={maker:.6f}, Taker={taker:.6f} (source=api)")
+            logger.info(f"✅ Lighter Fees updated: Maker={float(maker_decimal):.6f}, Taker={float(taker_decimal):.6f} (source=api)")
         except Exception as e:
             logger.warning(f"Lighter fee refresh failed: {e}, using fallback")
             self._lighter_schedule = FeeSchedule(
@@ -223,61 +256,43 @@ class FeeManager:
             )
     
     def get_x10_fees(self, is_maker: bool = False) -> float:
-        """Get X10 fee rate"""
-        if not getattr(self, '_enabled', True):
-            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
-            logger.debug(f"FeeManager: Dynamic fees disabled, using fallback: {fallback}")
-            return fallback
+        """
+        Get X10 fee rate as float.
         
-        # Check if schedule is None or expired
-        if self._x10_schedule is None:
-            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
-            logger.debug(f"FeeManager: X10 schedule is None, using fallback: {fallback}")
-            return fallback
-        
-        if self._x10_schedule.is_expired(self._ttl_seconds):
-            fallback = self._fallback_x10_maker if is_maker else self._fallback_x10_taker
-            logger.debug(f"FeeManager: X10 schedule expired, using fallback: {fallback}")
-            return fallback
-        
-        # Use cached schedule
-        fee = self._x10_schedule.maker_fee if is_maker else self._x10_schedule.taker_fee
-        logger.debug(f"FeeManager: Using X10 schedule fee: {fee} (maker={is_maker}, source={self._x10_schedule.source})")
-        return fee
+        For precision-critical calculations, use get_x10_fees_decimal() instead.
+        """
+        return float(self.get_x10_fees_decimal(is_maker))
     
     def get_lighter_fees(self, is_maker: bool = False) -> float:
-        """Get Lighter fee rate"""
-        if not getattr(self, '_enabled', True):
-            return self._fallback_lighter_fee
+        """
+        Get Lighter fee rate as float.
         
-        if self._lighter_schedule is None or self._lighter_schedule.is_expired(self._ttl_seconds):
-            # Return fallback if expired or not loaded
-            return self._fallback_lighter_fee
-        
-        return self._lighter_schedule.maker_fee if is_maker else self._lighter_schedule.taker_fee
+        For precision-critical calculations, use get_lighter_fees_decimal() instead.
+        """
+        return float(self.get_lighter_fees_decimal(is_maker))
     
     def get_fees_for_exchange(self, exchange: str, is_maker: bool = False) -> float:
-        """Get fees for exchange by name"""
-        if exchange.upper() == 'X10':
-            return self.get_x10_fees(is_maker)
-        elif exchange.upper() == 'LIGHTER':
-            return self.get_lighter_fees(is_maker)
-        else:
-            logger.warning(f"Unknown exchange: {exchange}, using X10 taker fee")
-            return getattr(self, '_fallback_x10_taker', 0.000225)
+        """
+        Get fees for exchange by name as float.
+        
+        For precision-critical calculations, use get_fees_for_exchange_decimal() instead.
+        """
+        return float(self.get_fees_for_exchange_decimal(exchange, is_maker))
     
     def calculate_trade_fees(
         self, 
-        notional_usd: float, 
+        notional_usd: Union[float, Decimal], 
         exchange1: str, 
         exchange2: str,
         is_maker1: bool = False,
         is_maker2: bool = False,
-        actual_fee1: Optional[float] = None,
-        actual_fee2: Optional[float] = None
-    ) -> float:
+        actual_fee1: Optional[Union[float, Decimal]] = None,
+        actual_fee2: Optional[Union[float, Decimal]] = None
+    ) -> Decimal:
         """
         Calculate total fees for a trade across two exchanges.
+        
+        Uses Decimal internally for precision.
         
         Args:
             notional_usd: Trade notional value
@@ -289,20 +304,54 @@ class FeeManager:
             actual_fee2: Actual fee rate from exchange2 (if available)
             
         Returns:
-            Total fees in USD
+            Total fees in USD (Decimal)
         """
+        # Convert notional to Decimal
+        notional = safe_decimal(notional_usd)
+        
         # Use actual fees if provided, otherwise use schedule
         if actual_fee1 is not None:
-            fee1 = actual_fee1
+            fee1 = safe_decimal(actual_fee1)
         else:
-            fee1 = self.get_fees_for_exchange(exchange1, is_maker1)
+            fee1 = self.get_fees_for_exchange_decimal(exchange1, is_maker1)
         
         if actual_fee2 is not None:
-            fee2 = actual_fee2
+            fee2 = safe_decimal(actual_fee2)
         else:
-            fee2 = self.get_fees_for_exchange(exchange2, is_maker2)
+            fee2 = self.get_fees_for_exchange_decimal(exchange2, is_maker2)
         
-        return notional_usd * (fee1 + fee2)
+        total_fees = notional * (fee1 + fee2)
+        return quantize_usd(total_fees)
+    
+    def get_fees_for_exchange_decimal(self, exchange: str, is_maker: bool = False) -> Decimal:
+        """Get fees for exchange as Decimal"""
+        if exchange.upper() == 'X10':
+            return self.get_x10_fees_decimal(is_maker)
+        elif exchange.upper() == 'LIGHTER':
+            return self.get_lighter_fees_decimal(is_maker)
+        else:
+            logger.warning(f"Unknown exchange: {exchange}, using X10 taker fee")
+            return self._fallback_x10_taker
+    
+    def get_x10_fees_decimal(self, is_maker: bool = False) -> Decimal:
+        """Get X10 fee rate as Decimal"""
+        if not getattr(self, '_enabled', True):
+            return self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+        
+        if self._x10_schedule is None or self._x10_schedule.is_expired(self._ttl_seconds):
+            return self._fallback_x10_maker if is_maker else self._fallback_x10_taker
+        
+        return self._x10_schedule.maker_fee if is_maker else self._x10_schedule.taker_fee
+    
+    def get_lighter_fees_decimal(self, is_maker: bool = False) -> Decimal:
+        """Get Lighter fee rate as Decimal"""
+        if not getattr(self, '_enabled', True):
+            return self._fallback_lighter_fee
+        
+        if self._lighter_schedule is None or self._lighter_schedule.is_expired(self._ttl_seconds):
+            return self._fallback_lighter_fee
+        
+        return self._lighter_schedule.maker_fee if is_maker else self._lighter_schedule.taker_fee
     
     async def init_fees(self, x10_adapter, lighter_adapter):
         """Initialize with real fees from APIs"""
@@ -312,8 +361,8 @@ class FeeManager:
         # Refresh all fees using standard method
         await self.refresh_all_fees()
         
-        # Update local properties for backward compatibility if needed
-        # (Though get_x10_fees() uses the schedule directly now)
+        # Update local properties for backward compatibility
+        # These are now Decimal
         if self._x10_schedule:
             self.x10_maker_fee = self._x10_schedule.maker_fee
             self.x10_taker_fee = self._x10_schedule.taker_fee
@@ -324,27 +373,27 @@ class FeeManager:
         
         logger.info(
             f"💰 FeeManager Initialized: "
-            f"X10(M/T)={self.x10_maker_fee:.4%}/{self.x10_taker_fee:.4%} | "
-            f"Lighter(M/T)={self.lighter_maker_fee:.4%}/{self.lighter_taker_fee:.4%}"
+            f"X10(M/T)={float(self.x10_maker_fee):.4%}/{float(self.x10_taker_fee):.4%} | "
+            f"Lighter(M/T)={float(self.lighter_maker_fee):.4%}/{float(self.lighter_taker_fee):.4%}"
         )
         
         logger.info(
-            f"💰 FeeManager: X10 Maker={self.x10_maker_fee:.4%}, Taker={self.x10_taker_fee:.4%} | "
+            f"💰 FeeManager: X10 Maker={float(self.x10_maker_fee):.4%}, Taker={float(self.x10_taker_fee):.4%} | "
             f"Lighter: 0.00% (both)"
         )
     
     def get_stats(self) -> Dict:
-        """Get fee manager statistics"""
+        """Get fee manager statistics (all values as float for JSON compatibility)"""
         stats = {
             'enabled': getattr(self, '_enabled', True),
             'x10': {
-                'maker': self.get_x10_fees(is_maker=True),
+                'maker': self.get_x10_fees(is_maker=True),  # Already returns float
                 'taker': self.get_x10_fees(is_maker=False),
                 'source': self._x10_schedule.source if self._x10_schedule else 'config',
                 'age_seconds': time.time() - self._x10_schedule.timestamp if self._x10_schedule else 0
             },
             'lighter': {
-                'maker': self.get_lighter_fees(is_maker=True),
+                'maker': self.get_lighter_fees(is_maker=True),  # Already returns float
                 'taker': self.get_lighter_fees(is_maker=False),
                 'source': self._lighter_schedule.source if self._lighter_schedule else 'config',
                 'age_seconds': time.time() - self._lighter_schedule.timestamp if self._lighter_schedule else 0

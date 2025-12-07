@@ -129,20 +129,31 @@ class ManagedWebSocket:
         self._state = WSState.STOPPED
         
         # Cancel tasks
+        tasks = []
         for task in [self._receive_task, self._heartbeat_task, self._connect_task, self._process_task]:
             if task and not task.done():
                 task.cancel()
-                try:
-                    await asyncio.wait_for(task, timeout=2.0)
-                except (asyncio.CancelledError, asyncio.TimeoutError):
-                    pass
+                tasks.append(task)
+                
+        # Wait for handlers to finish
+        if tasks:
+            try:
+                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=3.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                logger.debug(f"[{self.config.name}] WebSocket tasks stopped (Timeout/Cancelled).")
+            except Exception as e:
+                logger.warning(f"[{self.config.name}] WebSocket stop error: {e}")
         
         # Close connection
-        if self._ws:
-            try:
-                await self._ws.close()
-            except Exception:
-                pass
+        try:
+            # FIX: Timeout erhöhen oder Fehler ignorieren, da wir eh abschalten
+            if self._ws:
+                await asyncio.wait_for(self._ws.close(), timeout=2.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            logger.debug(f"[{self.config.name}] WebSocket connection closed forcefully (Timeout).")
+        except Exception as e:
+            logger.debug(f"[{self.config.name}] Error closing WebSocket connection: {e}")
+        finally:
             self._ws = None
         
         logger.info(f"🔌 [{self.config.name}] WebSocket stopped")

@@ -149,6 +149,8 @@ class TokenBucketRateLimiter:
         }
 
 
+
+
 # ═══════════════════════════════════════════════════════════════
 # EXCHANGE-SPECIFIC LIMITERS (SINGLETON INSTANCES)
 # ═══════════════════════════════════════════════════════════════
@@ -159,7 +161,7 @@ X10_RATE_LIMITER = TokenBucketRateLimiter(
         tokens_per_second=15.0,
         max_tokens=50.0,
         min_request_interval=0.06,
-        penalty_429_seconds=30.0
+        penalty_429_seconds=10.0  # Reduced from 30s
     ),
     name="X10"
 )
@@ -171,7 +173,7 @@ LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(
         tokens_per_second=50.0,
         max_tokens=100.0,
         min_request_interval=0.02,
-        penalty_429_seconds=30.0
+        penalty_429_seconds=10.0  # Reduced from 30s for smoother shutdown
     ),
     name="LIGHTER"
 )

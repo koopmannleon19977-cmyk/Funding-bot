@@ -71,7 +71,7 @@ ACTIVE_TASKS: dict[str, asyncio.Task] = {}           # symbol → Task (nur eine
 SYMBOL_LOCKS: dict[str, asyncio.Lock] = {}           # symbol → asyncio.Lock() für race-free execution
 SHUTDOWN_FLAG = False
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
-POSITION_CACHE_TTL = 2.0  # REDUCED from 5.0s for faster desync detection
+POSITION_CACHE_TTL = 10.0  # OPTIMIZED: Increased from 2.0s to 10.0s to reduce REST usage (rely on WS)
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 TASKS_LOCK = asyncio.Lock()
@@ -89,6 +89,7 @@ WATCHDOG_TIMEOUT = 120  # Sekunden ohne Daten = Verbindungsproblem
 # ============================================================
 # Trades attempted within this window are protected from sync_check closure
 RECENTLY_OPENED_TRADES: Dict[str, float] = {}  # symbol -> timestamp when attempted
+RECENTLY_OPENED_LOCK = asyncio.Lock()
 RECENTLY_OPENED_PROTECTION_SECONDS = 60.0  # Protect trades for 60s after open attempt
 
 # ============================================================
@@ -143,8 +144,10 @@ async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: 
         return []
 
 # ============================================================
-# PRE-TRADE PROFITABILITY CHECK
+# PRE-TRADE PROFITABILITY CHECK (Using Decimal for precision)
 # ============================================================
+from src.utils import safe_decimal, quantize_usd, USD_PRECISION, RATE_PRECISION
+
 def calculate_expected_profit(
     notional_usd: float,
     hourly_funding_rate: float,
@@ -157,6 +160,8 @@ def calculate_expected_profit(
     
     ⚡ KRITISCH: Verhindert Trades die nie profitabel werden!
     
+    Uses Decimal internally for precision, returns float for compatibility.
+    
     Args:
         notional_usd: Trade size in USD
         hourly_funding_rate: Net funding rate per hour (|lighter_rate - x10_rate|)
@@ -165,18 +170,25 @@ def calculate_expected_profit(
         fee_rate: Taker fee rate (default: X10 taker)
         
     Returns:
-        (expected_profit_usd, hours_to_breakeven)
+        (expected_profit_usd: float, hours_to_breakeven: float)
     """
+    # Convert all inputs to Decimal for precision
+    notional = safe_decimal(notional_usd)
+    rate = safe_decimal(abs(hourly_funding_rate))
+    hours = safe_decimal(hold_hours)
+    spread = safe_decimal(spread_pct)
+    fee = safe_decimal(fee_rate)
+    
     # Expected funding income over hold period
-    funding_income = abs(hourly_funding_rate) * hold_hours * notional_usd
+    funding_income = rate * hours * notional
     
     # Entry + Exit fees on both exchanges
     # X10: Taker both ways (entry + exit) = fee_rate * 2
     # Lighter: Maker = 0% (free)
-    total_fees = notional_usd * fee_rate * 2  # Only X10 fees
+    total_fees = notional * fee * Decimal('2')  # Only X10 fees
     
     # Spread slippage cost (estimated as half the spread on entry)
-    slippage_cost = notional_usd * spread_pct * 0.5
+    slippage_cost = notional * spread * Decimal('0.5')
     
     # Total cost
     total_cost = total_fees + slippage_cost
@@ -185,13 +197,14 @@ def calculate_expected_profit(
     expected_profit = funding_income - total_cost
     
     # Hours to breakeven (how long to hold to cover costs)
-    hourly_income = abs(hourly_funding_rate) * notional_usd
-    if hourly_income > 0:
+    hourly_income = rate * notional
+    if hourly_income > Decimal('0'):
         hours_to_breakeven = total_cost / hourly_income
     else:
-        hours_to_breakeven = float('inf')  # Never profitable
+        hours_to_breakeven = Decimal('999999')  # Never profitable
     
-    return expected_profit, hours_to_breakeven
+    # Return as float for compatibility with existing code
+    return float(quantize_usd(expected_profit)), float(hours_to_breakeven)
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -1323,7 +1336,9 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             # CRITICAL: Register trade BEFORE execution to prevent sync_check race
             # This protects the trade from being closed as "orphan" during execution  
             # ═══════════════════════════════════════════════════════════════
-            RECENTLY_OPENED_TRADES[symbol] = time.time()
+            # ═══════════════════════════════════════════════════════════════
+            async with RECENTLY_OPENED_LOCK:
+                RECENTLY_OPENED_TRADES[symbol] = time.time()
             logger.info(f"🛡️ Registered {symbol} in RECENTLY_OPENED_TRADES for {RECENTLY_OPENED_PROTECTION_SECONDS}s protection")
 
             success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
@@ -2102,6 +2117,9 @@ async def manage_open_trades(lighter, x10):
                     
                     total_fees = entry_fees + exit_fees
                     
+                    # UPDATE: Recalculate Net PnL with accurate fees
+                    total_pnl = gross_pnl - total_fees
+                    
                     logger.info(
                         f" 💸 EXIT {sym}: {reason} | "
                         f"Gross PnL: ${gross_pnl:.2f} | "
@@ -2112,6 +2130,11 @@ async def manage_open_trades(lighter, x10):
                     )
                 except Exception as e:
                     logger.debug(f"Error calculating fees for logging: {e}")
+                    
+                    # Fallback to estimated fees
+                    total_fees = est_fees
+                    total_pnl = gross_pnl - total_fees
+                    
                     logger.info(
                         f" 💸 EXIT {sym}: {reason} | "
                         f"Gross PnL: ${gross_pnl:.2f} | "
@@ -2214,15 +2237,17 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
         
         # 1. Check RECENTLY_OPENED_TRADES dict (protects in-flight trades without DB entry)
         protected_by_dict = []
-        for sym, open_time in list(RECENTLY_OPENED_TRADES.items()):
-            age = current_time - open_time
-            if age < RECENTLY_OPENED_PROTECTION_SECONDS:
-                recently_opened.add(sym)
-                protected_by_dict.append(f"{sym}({age:.0f}s)")
-            else:
-                # Cleanup expired entries
-                logger.info(f"🗑️ Expired protection for {sym} (age={age:.1f}s)")
-                RECENTLY_OPENED_TRADES.pop(sym, None)
+        async with RECENTLY_OPENED_LOCK:
+            # Iterate over a copy since we might modify it (though we use pop, iteration over copy is safer/cleaner with lock)
+            for sym, open_time in list(RECENTLY_OPENED_TRADES.items()):
+                age = current_time - open_time
+                if age < RECENTLY_OPENED_PROTECTION_SECONDS:
+                    recently_opened.add(sym)
+                    protected_by_dict.append(f"{sym}({age:.0f}s)")
+                else:
+                    # Cleanup expired entries
+                    logger.info(f"🗑️ Expired protection for {sym} (age={age:.1f}s)")
+                    RECENTLY_OPENED_TRADES.pop(sym, None)
         
         if protected_by_dict:
             logger.info(f"🛡️ RECENTLY_OPENED protection active: {protected_by_dict}")
@@ -3061,6 +3086,14 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 all_active_symbols = open_symbols_db | executing_symbols | real_exchange_symbols
                 current_total_count = len(all_active_symbols)
                 
+                # DESYNC STATUS logging for visibility
+                logger.debug(
+                    f"SYNC STATUS: DB={len(open_symbols_db)}, "
+                    f"Executing={len(executing_symbols)}, "
+                    f"RealExchange={len(real_exchange_symbols)}, "
+                    f"TotalActive={current_total_count}"
+                )
+                
                 # Berechne exakt freie Slots
                 slots_available = max_trades - current_total_count
 
@@ -3485,6 +3518,31 @@ async def run_bot_v5():
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
     
+    # ═══════════════════════════════════════════════════════════════
+    # CRITICAL: STARTUP BALANCE CHECK - Verify API Key & Balance Work
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("💰 Checking exchange balances at startup...")
+    try:
+        # Force trading client initialization first
+        await x10._get_trading_client()
+        
+        bal_x10 = await x10.get_real_available_balance()
+        bal_lit = await lighter.get_real_available_balance()
+        
+        logger.info(f"💰 STARTUP BALANCE CHECK: X10=${bal_x10:.2f}, Lighter=${bal_lit:.2f}")
+        
+        if bal_x10 == 0 and bal_lit == 0:
+            logger.critical("🚨 CRITICAL: BOTH exchange balances are $0 - Check API Keys!")
+            logger.critical("🚨 Bot will not trade without capital. Fix your credentials!")
+        elif bal_x10 == 0:
+            logger.warning("⚠️ X10 balance is $0 - Check X10 API Key/Vault!")
+        elif bal_lit == 0:
+            logger.warning("⚠️ Lighter balance is $0 - Check Lighter wallet!")
+        else:
+            logger.info("✅ Exchange balances OK - Bot can trade!")
+    except Exception as e:
+        logger.error(f"❌ STARTUP BALANCE CHECK FAILED: {e}", exc_info=True)
+    
     # 2.1. INIT FEEMANAGER (CRITICAL: Fetch fees from API)
     fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
@@ -3617,6 +3675,14 @@ async def run_bot_v5():
         except Exception as e:
             logger.warning(f"Zombie-Check: Lighter Positions-Load fehlgeschlagen: {e}")
             real_lighter_pos = []
+
+        # FIX: Waisen adoptieren (Trades auf Exchange aber nicht in DB)
+        try:
+            sm = await get_state_manager()
+            await sm.reconcile_with_exchange('X10', real_x10_pos)
+            await sm.reconcile_with_exchange('Lighter', real_lighter_pos)
+        except Exception as e:
+            logger.error(f"Zombie-Check: Reconcile failed: {e}")
 
         # Erstelle eine Liste aller Symbole, die wirklich offen sind
         def _get_sym(p):
@@ -4205,16 +4271,15 @@ async def main():
                         price = safe_float(x10.fetch_mark_price(p['symbol']))
                         size = safe_float(p.get('size', 0))
                         if price > 0:
+                            close_side = "BUY" if size > 0 else "SELL"
                             try:
-                                await x10.close_live_position(p['symbol'], "BUY", abs(size) * price)
+                                await x10.close_live_position(p['symbol'], close_side, abs(size) * price)
                             except TypeError as te:
                                 logger.critical(f"🚨 TypeError closing X10 {p['symbol']} on shutdown: {te}")
-
-            except Exception as ex_scan:
-                logger.error(f"Error scanning/closing orphans: {ex_scan}")
-
-        except Exception as e:
-            logger.error(f"CRITICAL ERROR during shutdown close: {e}")
+            except Exception as e:
+                logger.error(f"CRITICAL ERROR during shutdown close: {e}")
+        except (Exception, asyncio.CancelledError) as e:
+            logger.error(f"FATAL ERROR in shutdown sequence: {e}")
         # ═══════════════════════════════════════════════════════════════
 
         logger.info("🛑 Stopping InMemoryStateManager...")
@@ -4247,10 +4312,15 @@ async def main():
         
         # Close Adapters
         logger.info("🔌 Closing adapters...")
-        if x10: await x10.aclose()
-        if lighter: await lighter.aclose()
+        try:
+            if x10: await x10.aclose()
+        except: pass
+        try:
+            if lighter: await lighter.aclose()
+        except: pass
         
         logger.info("✅ Bot V5 shutdown complete")
+
 
 if __name__ == "__main__":
     if sys.platform == 'win32':

@@ -1,0 +1,1006 @@
+21:30:31 [INFO] CONFIG VALIDATION COMPLETED.
+21:30:31 [INFO] 🔥 BOT V5 (Architected) STARTING...
+21:30:31 [INFO] 🚀 Starting InMemoryStateManager...
+21:30:31 [INFO] 📂 Initializing database: data/trades.db
+21:30:31 [INFO] ✅ Read pool created: 5 connections
+21:30:31 [INFO] ✅ WAL mode enabled
+21:30:31 [INFO] 🔄 Running database migrations...
+21:30:31 [INFO] ✅ Migrations complete (14 statements)
+21:30:31 [INFO] ✅ Database initialized
+21:30:31 [INFO] 🖊️ Database write loop started
+21:30:31 [DEBUG] Maintenance not due (Last: 10h ago)
+21:30:31 [INFO] 📂 Loaded 0 trades from database
+21:30:31 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+21:30:31 [INFO] ✅ State Manager started
+21:30:31 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+21:30:31 [INFO] ✅ Async database initialized
+21:30:31 [INFO] 📝 State writer loop started
+21:30:31 [DEBUG] ✅ Database schema up to date
+21:30:31 [INFO] Initialisiere X10 Adapter...
+21:30:31 [INFO]  X10 Account initialisiert.
+21:30:31 [INFO] Initialisiere Lighter Adapter...
+21:30:31 [INFO] 💰 Checking exchange balances at startup...
+21:30:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:32 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:32 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+21:30:33 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+21:30:35 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:30:35 [INFO] 💰 STARTUP BALANCE CHECK: X10=$247.54, Lighter=$249.42
+21:30:35 [INFO] ✅ Exchange balances OK - Bot can trade!
+21:30:35 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+21:30:35 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+21:30:35 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+21:30:35 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+21:30:36 [WARNING] X10 Fee Fetch: All endpoints failed, using config defaults.
+21:30:36 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+21:30:36 [INFO] ✅ FeeManager started with periodic refresh
+21:30:36 [INFO] ✅ FeeManager started
+21:30:36 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+21:30:36 [WARNING] ⚠️ Kelly: All 28 trades had $0.00 PnL - check PnL recording in close_trade!
+21:30:36 [INFO] ✅ Funding Tracker started (updates every 3600s)
+21:30:36 [INFO] ✅ FundingTracker started (interval=3600s)
+21:30:36 [INFO] 📊 Loading Market Data via REST...
+21:30:36 [INFO] 🔄 Funding tracking loop started...
+21:30:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+21:30:36 [INFO] 📊 No open trades to track
+21:30:38 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+21:30:39 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+21:30:39 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+21:30:39 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+21:30:39 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+21:30:39 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+21:30:40 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+21:30:40 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+21:30:40 [INFO] 📈 Pre-loading Lighter prices...
+21:30:40 [DEBUG] Lighter: Loaded 380 funding rates
+21:30:41 [DEBUG] Lighter: Loaded 112 prices via REST
+21:30:41 [INFO] ✅ Lighter prices loaded: 112 symbols
+21:30:41 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+21:30:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+21:30:44 [INFO] ✅ Execution clients warmed up & NETWORK READY
+21:30:44 [INFO] FundingPredictorV2 initialized with BTC Correlation
+21:30:44 [INFO] 启动 OI Tracker für 65 Symbole...
+21:30:44 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+21:30:44 [INFO] 🌐 Starting WebSocket Manager...
+21:30:44 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+21:30:44 [INFO] 🔌 [lighter] WebSocket manager started
+21:30:44 [INFO] 🔌 [x10_account] WebSocket manager started
+21:30:44 [INFO] 🔌 [x10_trades] WebSocket manager started
+21:30:44 [INFO] 🔌 [x10_funding] WebSocket manager started
+21:30:44 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+21:30:44 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+21:30:44 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+21:30:44 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+21:30:44 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+21:30:44 [DEBUG] ✅ TIA-USD: X10=$306,366, Lighter=$1,849,551, Total=$2,155,917
+21:30:45 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+21:30:45 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+21:30:45 [INFO] [x10_account] Receive loop started (async iterator)
+21:30:45 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+21:30:45 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+21:30:45 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+21:30:45 [INFO] [lighter] Resubscribing to 81 channels (paced)...
+21:30:45 [INFO] [lighter] Receive loop started (async iterator)
+21:30:45 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/18
+21:30:45 [DEBUG] [lighter] Subscribed to trade/18
+21:30:45 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+21:30:45 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+21:30:45 [INFO] [x10_trades] Receive loop started (async iterator)
+21:30:45 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+21:30:45 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+21:30:45 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+21:30:45 [INFO] [x10_funding] Receive loop started (async iterator)
+21:30:45 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/86
+21:30:45 [DEBUG] [lighter] Subscribed to trade/86
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/65
+21:30:45 [DEBUG] [lighter] Subscribed to trade/65
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/90
+21:30:45 [DEBUG] [lighter] Subscribed to trade/90
+21:30:45 [DEBUG] [lighter] Resubscribed 10/81 channels
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/32
+21:30:45 [DEBUG] [lighter] Subscribed to trade/32
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/76
+21:30:45 [DEBUG] [lighter] Subscribed to trade/76
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/8
+21:30:45 [DEBUG] [lighter] Subscribed to trade/8
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/23
+21:30:45 [DEBUG] [lighter] Subscribed to trade/23
+21:30:45 [DEBUG] [lighter] Resubscribed 20/81 channels
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/46
+21:30:45 [DEBUG] [lighter] Subscribed to trade/46
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/71
+21:30:45 [DEBUG] [lighter] Subscribed to trade/71
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/82
+21:30:45 [DEBUG] [lighter] Subscribed to trade/82
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/30
+21:30:45 [DEBUG] [lighter] Subscribed to trade/30
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/49
+21:30:45 [DEBUG] [lighter] Subscribed to trade/49
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/51
+21:30:45 [DEBUG] [lighter] Subscribed to trade/51
+21:30:45 [DEBUG] [lighter] Resubscribed 30/81 channels
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/9
+21:30:45 [DEBUG] [lighter] Subscribed to trade/9
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/52
+21:30:45 [DEBUG] [lighter] Subscribed to trade/52
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/45
+21:30:45 [DEBUG] [lighter] Subscribed to trade/45
+21:30:45 [DEBUG] [lighter] Resubscribed 40/81 channels
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/34
+21:30:45 [DEBUG] [lighter] Subscribed to trade/34
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/17
+21:30:45 [DEBUG] [lighter] Subscribed to trade/17
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/31
+21:30:45 [DEBUG] [lighter] Subscribed to trade/31
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/58
+21:30:45 [DEBUG] [lighter] Subscribed to trade/58
+21:30:45 [DEBUG] [lighter] Resubscribed 50/81 channels
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/13
+21:30:45 [DEBUG] [lighter] Subscribed to trade/13
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/4
+21:30:45 [DEBUG] [lighter] Subscribed to trade/4
+21:30:45 [DEBUG] [lighter] Subscribed to order_book/10
+21:30:45 [DEBUG] [lighter] Subscribed to trade/10
+21:30:45 [DEBUG] [lighter] Resubscribed 60/81 channels
+21:30:45 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+21:30:45 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+21:30:45 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+21:30:45 [INFO] ✅ DB ist sauber (keine offenen Trades).
+21:30:45 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+21:30:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:46 [DEBUG] [lighter] Resubscribed 70/81 channels
+21:30:46 [DEBUG] [lighter] Resubscribed 80/81 channels
+21:30:46 [INFO] [lighter] Resubscribed to 81 channels
+21:30:46 [DEBUG] ✅ STRK-USD: X10=$273,078, Lighter=$6,050,102, Total=$6,323,180
+21:30:47 [INFO] Lighter: Found 0 open positions
+21:30:47 [INFO] ✅ No orphaned positions found
+21:30:47 [INFO] ✅ ParallelExecutionManager started
+21:30:47 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+21:30:47 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+21:30:47 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+21:30:47 [INFO] 🔄 Rollback processor running...
+21:30:47 [DEBUG] Registered task: logic_loop (priority=HIGH)
+21:30:47 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+21:30:47 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+21:30:47 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+21:30:47 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+21:30:47 [DEBUG] Registered task: health_reporter (priority=LOW)
+21:30:47 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+21:30:47 [INFO] ═══════════════════════════════════════════════════════════
+21:30:47 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+21:30:47 [INFO] ═══════════════════════════════════════════════════════════
+21:30:47 [INFO] 🚀 BotEventLoop starting...
+21:30:47 [INFO] ▶️ Started task: connection_watchdog
+21:30:47 [INFO] ▶️ Started task: logic_loop
+21:30:47 [INFO] ▶️ Started task: trade_management_loop
+21:30:47 [INFO] ▶️ Started task: farm_loop
+21:30:47 [INFO] ▶️ Started task: maintenance_loop
+21:30:47 [INFO] ▶️ Started task: cleanup_finished_tasks
+21:30:47 [INFO] ▶️ Started task: health_reporter
+21:30:47 [INFO] ✅ Started 7 tasks
+21:30:47 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+21:30:47 [INFO] Logic Loop gestartet – REFRESH alle 3s
+21:30:47 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+21:30:47 [DEBUG] Price cache status: X10=78/65, Lighter=112/65
+21:30:47 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:30:47 [INFO] 🛡️ Trade Management Loop gestartet
+21:30:47 [INFO] 🚜 Farm Mode ACTIVE
+21:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:47 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+21:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+21:30:47 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:30:47 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:30:47 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:30:47 [INFO] 🎯 Found 3 opportunities, executing best...
+21:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:48 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+21:30:48 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+21:30:48 [DEBUG] ✅ LTC-USD: X10=$197,449, Lighter=$17,586, Total=$215,035
+21:30:48 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:49 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:49 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:30:49 [INFO] 🚜 Opening FARM: TIA-USD APY=55.2%
+21:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:49 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:30:49 [INFO] X10: Detected balance = $247.54
+21:30:49 [DEBUG] Fetching fresh positions (force=False, cache_age=1765139449.8s)
+21:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:50 [INFO] Lighter: Found 0 open positions
+21:30:50 [DEBUG] ✅ TIA-USD verified: No existing positions on exchanges
+21:30:50 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+21:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:50 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:50 [DEBUG] 🧠 TIA-USD: Prediction conf=0.50, delta=-0.000054
+21:30:50 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5848, min_qty_usd=$1.75, min_notional_api=$10.00, final=$11.00
+21:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:50 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:50 [INFO] 🎰 KELLY TIA-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+21:30:50 [INFO] 📊 KELLY SIZE TIA-USD: base=$60.0, kelly_recommended=$7.4, final=$60.0
+21:30:50 [DEBUG] 🔍 Checking liquidity for TIA-USD SELL: Need $60.00 (Max Slip: 2.0%)
+21:30:50 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+21:30:50 [DEBUG] X10: Funding Refresh OK, cache=91
+21:30:50 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+21:30:50 [DEBUG] 🔍 Orderbook for TIA-USD: Bids=20, Asks=20
+21:30:50 [INFO] 🚀 Opening TIA-USD: Size=$60.0 (Min=$11.0)
+21:30:50 [INFO] 🛡️ Registered TIA-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+21:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:30:51 [DEBUG] ✅ DOGE-USD: X10=$245,559, Lighter=$20,098,526, Total=$20,344,085
+21:30:51 [INFO] 🔄 [MAKER STRATEGY] TIA-USD: Placing Lighter Maker Order...
+21:30:51 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$60.00, price=$0.584840
+21:30:51 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+21:30:51 [INFO] 🛡️ Lighter Maker Price TIA-USD SELL: $0.584167
+21:30:51 [DEBUG] QUANTIZE TIA-USD: USD=60.00, coins=102.592162, raw=1026, lot_size=30, final=1020
+21:30:51 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765139520771,"BaseAmount":1020,"Price":58416,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767558651239,"ExpiredAt":1765140050239,"Nonce":5192,"Sig":"Avd/N4SKa/kd2RLG/OrF0BBzYQQL6qexTGbFxMWGRdur+bIhJHR4Us5/cSSsuel9KUTPsQeDKH/CICWmaftJ+PNWLgpj5iJDg+9b94TjeV8="}
+21:30:51 [INFO] Lighter: Found 0 open positions
+21:30:51 [INFO] 📊 Positions: X10=0, Lighter=0
+21:30:51 [DEBUG] SYNC STATUS: DB=0, Executing=1, RealExchange=0, TotalActive=1
+21:30:51 [INFO] 🚀 Launching 2 trades (Slots available: 2)
+21:30:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:51 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81' predicted_execution_time_ms=1765139439533 additional_properties={}
+21:30:51 [INFO] Lighter Order: e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81
+21:30:51 [INFO] ⏳ [MAKER STRATEGY] TIA-USD: Lighter placed (e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81), waiting for fill...
+21:30:52 [INFO] Lighter: Found 0 open positions
+21:30:52 [DEBUG] 👻 Ghost pending: TIA-USD (0.6s)
+21:30:52 [INFO] 💰 Balance: X10=$247.5 (free=$217.5), Lit=$249.4 (free=$219.4) | DB_Trades=0, Real_Positions=1, Locked=$14/ex
+21:30:52 [INFO] 🚀 Launching trade for RESOLV-USD (APY=85.8%)
+21:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:52 [DEBUG] Lighter: Loaded 380 funding rates
+21:30:52 [INFO] Lighter: Found 0 open positions
+21:30:52 [DEBUG] 👻 Ghost pending: TIA-USD (0.7s)
+21:30:52 [INFO] 🚀 Launching trade for IP-USD (APY=85.0%)
+21:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:52 [INFO] Lighter: Found 0 open positions
+21:30:52 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for TIA-USD (Age: 1.3s)
+21:30:52 [DEBUG] ✅ RESOLV-USD verified: No existing positions on exchanges
+21:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:52 [DEBUG] ✅ ADA-USD: X10=$310,646, Lighter=$2,757,054, Total=$3,067,700
+21:30:53 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:53 [DEBUG] 🧠 RESOLV-USD: Prediction conf=0.50, delta=-0.000083
+21:30:53 [DEBUG] MIN_NOTIONAL RESOLV-USD: min_base=40.00000000 coins, price=$0.0738, min_qty_usd=$2.95, min_notional_api=$10.00, final=$11.00
+21:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:53 [INFO] ✅ Launched 2 trade tasks this cycle
+21:30:53 [INFO] Lighter: Found 0 open positions
+21:30:53 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for TIA-USD (Age: 1.7s)
+21:30:53 [INFO] Lighter: Found 0 open positions
+21:30:53 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for TIA-USD (Age: 1.8s)
+21:30:53 [DEBUG] ✅ IP-USD verified: No existing positions on exchanges
+21:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:53 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:53 [DEBUG] Lighter: Loaded 112 prices via REST
+21:30:53 [DEBUG] Lighter: Funding Refresh OK, cache=113
+21:30:53 [DEBUG] 📊 OI→Pred TIA-USD: OI=$2,155,917, Velocity=0.00, Trend=STABLE
+21:30:53 [DEBUG] 📊 OI→Pred STRK-USD: OI=$6,323,180, Velocity=0.00, Trend=STABLE
+21:30:53 [DEBUG] 📊 OI→Pred LTC-USD: OI=$215,035, Velocity=0.00, Trend=STABLE
+21:30:53 [DEBUG] 📊 OI→Pred DOGE-USD: OI=$20,344,085, Velocity=0.00, Trend=STABLE
+21:30:53 [DEBUG] 📊 OI→Pred ADA-USD: OI=$3,067,700, Velocity=0.00, Trend=STABLE
+21:30:53 [INFO] 🔍 Running periodic exchange sync check...
+21:30:53 [INFO] 🔍 Starting Exchange Sync Check...
+21:30:53 [INFO] ⏳ Sync check: Found 1 symbols with active executions: {'TIA-USD'}
+21:30:53 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:53 [DEBUG] 🧠 IP-USD: Prediction conf=0.50, delta=-0.000082
+21:30:53 [DEBUG] MIN_NOTIONAL IP-USD: min_base=2.00000000 coins, price=$2.1691, min_qty_usd=$4.34, min_notional_api=$10.00, final=$11.00
+21:30:54 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:30:54 [INFO] 🎰 KELLY RESOLV-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+21:30:54 [INFO] 📊 KELLY SIZE RESOLV-USD: base=$60.0, kelly_recommended=$7.0, final=$60.0
+21:30:54 [DEBUG] 🔍 Checking liquidity for RESOLV-USD SELL: Need $60.00 (Max Slip: 2.0%)
+21:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:54 [INFO] Lighter: Found 0 open positions
+21:30:54 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for TIA-USD (Age: 2.6s)
+21:30:54 [DEBUG] 🔍 Orderbook for RESOLV-USD: Bids=20, Asks=20
+21:30:54 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:54 [INFO] 🎰 KELLY IP-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+21:30:54 [INFO] 📊 KELLY SIZE IP-USD: base=$60.0, kelly_recommended=$7.0, final=$60.0
+21:30:54 [DEBUG] 🔍 Checking liquidity for IP-USD SELL: Need $60.00 (Max Slip: 2.0%)
+21:30:54 [INFO] 🚀 Opening RESOLV-USD: Size=$60.0 (Min=$11.0)
+21:30:54 [INFO] 🛡️ Registered RESOLV-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+21:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:30:54 [INFO] 🔄 [MAKER STRATEGY] RESOLV-USD: Placing Lighter Maker Order...
+21:30:54 [INFO] 🚀 LIGHTER OPEN RESOLV-USD: side=SELL, size_usd=$60.00, price=$0.073840
+21:30:54 [DEBUG] 🔍 DEBUG: RESOLV-USD market_id = 51 (raw=51, type=<class 'int'>)
+21:30:54 [INFO] 🛡️ Lighter Maker Price RESOLV-USD SELL: $0.073795
+21:30:54 [DEBUG] QUANTIZE RESOLV-USD: USD=60.00, coins=812.567714, raw=813, lot_size=40, final=800
+21:30:54 [DEBUG] 🔍 Orderbook for IP-USD: Bids=20, Asks=20
+21:30:54 [INFO] 🚀 Opening IP-USD: Size=$60.0 (Min=$22.7)
+21:30:54 [INFO] 🛡️ Registered IP-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+21:30:54 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":51,"ClientOrderIndex":1765139475762,"BaseAmount":800,"Price":73795,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767558654570,"ExpiredAt":1765140053570,"Nonce":5193,"Sig":"bl9C8I4YNTWaVQTwzkEg8gMG5wsSMF31qDBWYEHDn4WcrSjv4UnRHCKrBpjCjDVeWvISphuo6N4p3hPdvHwWQPToQCSEbFe1v2/KUTYz+TU="}
+21:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:30:54 [INFO] 🔄 [MAKER STRATEGY] IP-USD: Placing Lighter Maker Order...
+21:30:54 [INFO] 🚀 LIGHTER OPEN IP-USD: side=SELL, size_usd=$60.00, price=$2.169100
+21:30:54 [DEBUG] 🔍 DEBUG: IP-USD market_id = 34 (raw=34, type=<class 'int'>)
+21:30:54 [INFO] 🛡️ Lighter Maker Price IP-USD SELL: $2.166233
+21:30:54 [DEBUG] QUANTIZE IP-USD: USD=60.00, coins=27.661242, raw=2766, lot_size=200, final=2600
+21:30:54 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":34,"ClientOrderIndex":1765139475408,"BaseAmount":2600,"Price":21662,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767558654833,"ExpiredAt":1765140053833,"Nonce":5194,"Sig":"YUsONUsz8nSP7LbLu9l52EW3BGtaOpzLVQ/I4W0dpaCaqL/ZUrWxT2it/L02dxWo/puwimVckNk9ODM5XFj1gXZY3UjhGo1v802ENhg3Bjo="}
+21:30:54 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95' predicted_execution_time_ms=1765139442858 additional_properties={}
+21:30:54 [INFO] Lighter Order: 66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95
+21:30:54 [INFO] ⏳ [MAKER STRATEGY] RESOLV-USD: Lighter placed (66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95), waiting for fill...
+21:30:55 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188' predicted_execution_time_ms=1765139443125 additional_properties={}
+21:30:55 [INFO] Lighter Order: 573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188
+21:30:55 [INFO] ⏳ [MAKER STRATEGY] IP-USD: Lighter placed (573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188), waiting for fill...
+21:30:55 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+21:30:55 [INFO] Lighter: Found 0 open positions
+21:30:55 [DEBUG] 👻 Ghost pending: RESOLV-USD (0.5s)
+21:30:55 [DEBUG] 👻 Ghost pending: IP-USD (0.2s)
+21:30:55 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=10592)
+21:30:55 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=1s ago, msgs=26)
+21:30:55 [INFO] Lighter: Found 0 open positions
+21:30:55 [DEBUG] 👻 Ghost pending: RESOLV-USD (0.5s)
+21:30:55 [DEBUG] 👻 Ghost pending: IP-USD (0.3s)
+21:30:55 [INFO] Lighter: Found 0 open positions
+21:30:55 [DEBUG] 👻 Ghost pending: RESOLV-USD (0.7s)
+21:30:55 [DEBUG] 👻 Ghost pending: IP-USD (0.4s)
+21:30:56 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:30:56 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:30:56 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:30:56 [INFO] Lighter: Found 0 open positions
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 1.4s)
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 1.1s)
+21:30:56 [INFO] Lighter: Found 0 open positions
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 1.5s)
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 1.2s)
+21:30:56 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:30:56 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:30:56 [INFO] 🎯 Found 3 opportunities, executing best...
+21:30:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:30:56 [INFO] Lighter: Found 0 open positions
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 1.7s)
+21:30:56 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 1.4s)
+21:30:56 [DEBUG] ✅ BNB-USD: X10=$1,727,425, Lighter=$15,199, Total=$1,742,625
+21:30:56 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:30:57 [INFO] Lighter: Found 0 open positions
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 2.4s)
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 2.1s)
+21:30:57 [INFO] Lighter: Found 0 open positions
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 2.4s)
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 2.2s)
+21:30:57 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:30:57 [INFO] X10: Detected balance = $247.54
+21:30:57 [DEBUG] Fetching fresh positions (force=False, cache_age=7.6s)
+21:30:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:30:57 [INFO] Lighter: Found 0 open positions
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for RESOLV-USD (Age: 2.6s)
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 2.4s)
+21:30:57 [INFO] Lighter: Found 0 open positions
+21:30:57 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for IP-USD (Age: 2.7s)
+21:30:57 [INFO] 📊 Positions: X10=0, Lighter=1
+21:30:57 [DEBUG] Lighter positions: ['IP-USD']
+21:30:57 [WARNING] ⚠️ DESYNC: {'IP-USD'} on exchanges but not in DB
+21:30:57 [DEBUG] SYNC STATUS: DB=0, Executing=3, RealExchange=1, TotalActive=3
+21:30:57 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+21:30:58 [INFO] Lighter: Found 0 open positions
+21:30:58 [INFO] Lighter: Found 0 open positions
+21:30:58 [DEBUG] ✅ WLFI-USD: X10=$853,757, Lighter=$25,031,813, Total=$25,885,570
+21:30:58 [INFO] Lighter: Found 0 open positions
+21:30:59 [INFO] Lighter: Found 0 open positions
+21:30:59 [INFO] Lighter: Found 0 open positions
+21:30:59 [INFO] Lighter: Found 0 open positions
+21:31:00 [INFO] Lighter: Found 1 open positions
+21:31:00 [INFO] Lighter: Found 1 open positions
+21:31:00 [DEBUG] ✅ TRX-USD: X10=$352,666, Lighter=$6,411,162, Total=$6,763,829
+21:31:00 [INFO] Lighter: Found 1 open positions
+21:31:00 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:00 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:00 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:01 [INFO] Lighter: Found 1 open positions
+21:31:01 [INFO] Lighter: Found 1 open positions
+21:31:01 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:01 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:01 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:01 [INFO] Lighter: Found 1 open positions
+21:31:01 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:31:01 [DEBUG] ✅ TON-USD: X10=$130,185, Lighter=$582,572, Total=$712,756
+21:31:01 [INFO] Lighter: Found 1 open positions
+21:31:02 [INFO] Lighter: Found 1 open positions
+21:31:02 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:31:02 [INFO] X10: Detected balance = $247.54
+21:31:02 [DEBUG] Using cached positions (age: 4.8s)
+21:31:02 [WARNING] ⚠️ DESYNC: {'IP-USD'} on exchanges but not in DB
+21:31:02 [DEBUG] SYNC STATUS: DB=0, Executing=3, RealExchange=1, TotalActive=3
+21:31:02 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+21:31:02 [INFO] Lighter: Found 1 open positions
+21:31:03 [INFO] Lighter: Found 1 open positions
+21:31:03 [INFO] Lighter: Found 1 open positions
+21:31:03 [INFO] Lighter: Found 1 open positions
+21:31:03 [DEBUG] ✅ JUP-USD: X10=$249,742, Lighter=$3,227,844, Total=$3,477,587
+21:31:03 [WARNING] ⏸️ Sync check: Still 3 active executions after timeout: {'TIA-USD', 'RESOLV-USD', 'IP-USD'}
+21:31:03 [INFO] ⏳ Sync check: Skipping 3 symbols with active executions: {'TIA-USD', 'RESOLV-USD', 'IP-USD'}
+21:31:03 [INFO] 🛡️ RECENTLY_OPENED protection active: ['TIA-USD(13s)', 'RESOLV-USD(10s)', 'IP-USD(9s)']
+21:31:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:04 [INFO] Lighter: Found 1 open positions
+21:31:04 [INFO] Lighter: Found 1 open positions
+21:31:04 [INFO] Lighter: Found 1 open positions
+21:31:04 [INFO] Lighter: Found 1 open positions
+21:31:04 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+21:31:05 [INFO] Lighter: Found 1 open positions
+21:31:05 [INFO] Lighter: Found 1 open positions
+21:31:05 [INFO] Lighter: Found 1 open positions
+21:31:05 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:05 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:05 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+21:31:05 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:05 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=20320)
+21:31:05 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, last_msg=1s ago, msgs=91)
+21:31:05 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=44)
+21:31:05 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:05 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:05 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:05 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:31:06 [INFO] Lighter: Found 1 open positions
+21:31:06 [INFO] Lighter: Found 1 open positions
+21:31:06 [INFO] Lighter: Found 1 open positions
+21:31:06 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.42
+21:31:06 [INFO] X10: Detected balance = $247.54
+21:31:06 [DEBUG] Using cached positions (age: 9.1s)
+21:31:06 [WARNING] ⚠️ DESYNC: {'IP-USD'} on exchanges but not in DB
+21:31:06 [DEBUG] SYNC STATUS: DB=0, Executing=3, RealExchange=1, TotalActive=3
+21:31:06 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+21:31:06 [WARNING] ⏰ [MAKER STRATEGY] TIA-USD: Wait timeout! Cancelling Lighter order e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81...
+21:31:06 [INFO] 🔍 Lighter: Attempting to resolve Hash e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81 to Order ID for TIA-USD...
+21:31:06 [INFO] Lighter: Found 1 open positions
+21:31:07 [INFO] Lighter: Found 1 open positions
+21:31:07 [DEBUG] ✅ ENA-USD: X10=$273,945, Lighter=$21,524,477, Total=$21,798,422
+21:31:07 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+21:31:07 [WARNING] ⚠️ Lighter Cancel: Could not find open order matching hash e46cb111ffd7314032579af4e5102c5cac3c3bb04dd14ee2ce8591d7aa1e840830cb79ba4544dc81. Assuming already closed.
+21:31:07 [INFO] 🔍 [MAKER STRATEGY] TIA-USD: Order status post-cancel: UNKNOWN
+21:31:07 [INFO] Lighter: Found 1 open positions
+21:31:07 [INFO] Lighter: Found 1 open positions
+21:31:08 [INFO] Lighter: Found 1 open positions
+21:31:08 [INFO] ✓ [MAKER STRATEGY] TIA-USD: Cancel confirmed. Clean exit.
+21:31:08 [WARNING] Circuit Breaker: Trade failed for TIA-USD. Consecutive failures: 1/5
+21:31:08 [DEBUG] 🧹 Cleaned task: TIA-USD
+21:31:08 [INFO] Lighter: Found 1 open positions
+21:31:08 [INFO] Lighter: Found 1 open positions
+21:31:09 [DEBUG] ✅ ZORA-USD: X10=$160,662, Lighter=$33,761,361, Total=$33,922,023
+21:31:09 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:09 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:09 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:09 [INFO] Lighter: Found 1 open positions
+21:31:09 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:09 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:09 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:09 [INFO] Lighter: Found 1 open positions
+21:31:10 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:31:10 [WARNING] ⏰ [MAKER STRATEGY] RESOLV-USD: Wait timeout! Cancelling Lighter order 66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95...
+21:31:10 [INFO] 🔍 Lighter: Attempting to resolve Hash 66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95 to Order ID for RESOLV-USD...
+21:31:10 [WARNING] ⏰ [MAKER STRATEGY] IP-USD: Wait timeout! Cancelling Lighter order 573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188...
+21:31:10 [INFO] 🔍 Lighter: Attempting to resolve Hash 573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188 to Order ID for IP-USD...
+21:31:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+21:31:10 [WARNING] ⚠️ Lighter Cancel: Could not find open order matching hash 66e7efb65e3f4fefcdf699c3f6ed419a9c6a4d733e8e79c0d80deb209a58e3f4427cd3db0c112a95. Assuming already closed.
+21:31:10 [INFO] 🔍 [MAKER STRATEGY] RESOLV-USD: Order status post-cancel: UNKNOWN
+21:31:10 [DEBUG] ✅ SUI-USD: X10=$651,815, Lighter=$2,142,483, Total=$2,794,298
+21:31:10 [DEBUG] Lighter Balance: Raw=$262.54, Safe=$249.42
+21:31:10 [INFO] X10: Detected balance = $247.54
+21:31:10 [DEBUG] Fetching fresh positions (force=False, cache_age=13.5s)
+21:31:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:11 [INFO] Lighter: Found 1 open positions
+21:31:11 [INFO] 📊 Positions: X10=0, Lighter=1
+21:31:11 [DEBUG] Lighter positions: ['IP-USD']
+21:31:11 [WARNING] ⚠️ DESYNC: {'IP-USD'} on exchanges but not in DB
+21:31:11 [DEBUG] SYNC STATUS: DB=0, Executing=2, RealExchange=1, TotalActive=2
+21:31:11 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+21:31:11 [WARNING] ⚠️ Lighter Cancel: Could not find open order matching hash 573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188. Assuming already closed.
+21:31:11 [INFO] 🔍 [MAKER STRATEGY] IP-USD: Order status post-cancel: UNKNOWN
+21:31:11 [INFO] Lighter: Found 1 open positions
+21:31:11 [INFO] ✓ [MAKER STRATEGY] RESOLV-USD: Cancel confirmed. Clean exit.
+21:31:11 [WARNING] Circuit Breaker: Trade failed for RESOLV-USD. Consecutive failures: 2/5
+21:31:12 [INFO] Lighter: Found 1 open positions
+21:31:12 [WARNING] ⚠️ [MAKER STRATEGY] IP-USD: Status UNKNOWN but POSITION FOUND (-26.0)! Hedging...
+21:31:12 [INFO] ✅ [MAKER STRATEGY] IP-USD: Lighter Filled! Executing X10 Hedge...
+21:31:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+21:31:12 [DEBUG] ✅ PENGU-USD: X10=$167,231, Lighter=$75,057,777, Total=$75,225,008
+21:31:14 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:14 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:14 [DEBUG] ✅ ONDO-USD: X10=$155,719, Lighter=$1,803,919, Total=$1,959,638
+21:31:14 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:14 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:14 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:14 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:14 [INFO] 💰 X10 verfügbare Balance: $247.54 USDC
+21:31:15 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s ago, msgs=3)
+21:31:15 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=11s ago, msgs=91)
+21:31:15 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=124)
+21:31:15 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=31935)
+21:31:15 [DEBUG] Placing an order: id=832384528832591158606296419041177774611779280135094187236097720020021053263
+21:31:15 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+21:31:15 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.43
+21:31:15 [INFO] X10: Detected balance = $247.54
+21:31:15 [DEBUG] Using cached positions (age: 4.8s)
+21:31:15 [WARNING] ⚠️ DESYNC: {'IP-USD'} on exchanges but not in DB
+21:31:15 [DEBUG] SYNC STATUS: DB=0, Executing=1, RealExchange=1, TotalActive=1
+21:31:16 [INFO]  X10 Order: 1997765826208051200
+21:31:16 [INFO] Circuit Breaker: Failure count reset (was 2) after success on IP-USD
+21:31:16 [DEBUG] 📝 Trade added to state: IP-USD
+21:31:16 [INFO] ✅ OPENED IP-USD: $60.00 | Entry Fees (est.): $0.0600
+21:31:16 [DEBUG] 📝 Flushed 1 writes
+21:31:16 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+21:31:17 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.2s
+21:31:17 [DEBUG] 📊 Task health: 7 alive, 0 dead
+21:31:17 [DEBUG] Using cached positions (age: 6.7s)
+21:31:17 [DEBUG] Check IP-USD: Age=0.9s (Limit=14400s)
+21:31:17 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:18 [DEBUG] ✅ CRV-USD: X10=$213,542, Lighter=$2,812,824, Total=$3,026,366
+21:31:18 [DEBUG] Using cached positions (age: 7.7s)
+21:31:18 [DEBUG] Check IP-USD: Age=1.9s (Limit=14400s)
+21:31:18 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:18 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:18 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:18 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:18 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:18 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:18 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:19 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:19 [DEBUG] Using cached positions (age: 8.7s)
+21:31:19 [DEBUG] Check IP-USD: Age=2.9s (Limit=14400s)
+21:31:19 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:19 [DEBUG] ✅ FARTCOIN-USD: X10=$390,064, Lighter=$13,395,144, Total=$13,785,208
+21:31:19 [DEBUG] Lighter Balance: Raw=$262.54, Safe=$249.42
+21:31:19 [INFO] X10: Detected balance = $241.71
+21:31:19 [DEBUG] Using cached positions (age: 9.1s)
+21:31:19 [DEBUG] SYNC STATUS: DB=1, Executing=0, RealExchange=1, TotalActive=1
+21:31:19 [INFO] 🚀 Launching 1 trades (Slots available: 2)
+21:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:20 [DEBUG] Using cached positions (age: 9.7s)
+21:31:20 [DEBUG] Check IP-USD: Age=3.9s (Limit=14400s)
+21:31:20 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:20 [DEBUG] ✅ IP-USD: X10 entry fee = 0.000225 (order: 1997765826208051200)
+21:31:20 [DEBUG] ✅ IP-USD: Lighter entry fee = 0.000000 (order: 573d93052f539df96eec2e64ff9e789c110ed0a8f107952003a3d83c43908bc1a3b27b182f497188)
+21:31:20 [INFO] 💰 IP-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+21:31:20 [DEBUG] 📝 Flushed 1 writes
+21:31:20 [INFO] Lighter: Found 1 open positions
+21:31:20 [INFO] 💰 Balance: X10=$241.7 (free=$224.3), Lit=$249.4 (free=$232.0) | DB_Trades=1, Real_Positions=1, Locked=$14/ex
+21:31:20 [INFO] 🚀 Launching trade for ZRO-USD (APY=61.3%)
+21:31:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:21 [INFO] ✅ Launched 1 trade tasks this cycle
+21:31:21 [INFO] Lighter: Found 1 open positions
+21:31:21 [DEBUG] ✅ ZRO-USD verified: No existing positions on exchanges
+21:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:21 [DEBUG] Fetching fresh positions (force=False, cache_age=10.7s)
+21:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:21 [DEBUG] ✅ WIF-USD: X10=$345,123, Lighter=$1,992,139, Total=$2,337,261
+21:31:21 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:21 [DEBUG] 🧠 ZRO-USD: Prediction conf=0.50, delta=-0.000059
+21:31:21 [DEBUG] MIN_NOTIONAL ZRO-USD: min_base=3.00000000 coins, price=$1.4158, min_qty_usd=$4.25, min_notional_api=$10.00, final=$11.00
+21:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:21 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:21 [INFO] 🎰 KELLY ZRO-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+21:31:21 [INFO] 📊 KELLY SIZE ZRO-USD: base=$60.0, kelly_recommended=$7.2, final=$60.0
+21:31:21 [DEBUG] 🔍 Checking liquidity for ZRO-USD SELL: Need $60.00 (Max Slip: 2.0%)
+21:31:21 [INFO] Lighter: Found 1 open positions
+21:31:21 [INFO] 📊 Positions: X10=1, Lighter=1
+21:31:21 [DEBUG] X10 positions: ['IP-USD']
+21:31:21 [DEBUG] Lighter positions: ['IP-USD']
+21:31:21 [DEBUG] Check IP-USD: Age=5.4s (Limit=14400s)
+21:31:21 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:22 [DEBUG] 🔍 Orderbook for ZRO-USD: Bids=20, Asks=20
+21:31:22 [INFO] 🚀 Opening ZRO-USD: Size=$60.0 (Min=$14.9)
+21:31:22 [INFO] 🛡️ Registered ZRO-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+21:31:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:31:22 [INFO] 🔄 [MAKER STRATEGY] ZRO-USD: Placing Lighter Maker Order...
+21:31:22 [INFO] 🚀 LIGHTER OPEN ZRO-USD: side=SELL, size_usd=$60.00, price=$1.415770
+21:31:22 [DEBUG] 🔍 DEBUG: ZRO-USD market_id = 60 (raw=60, type=<class 'int'>)
+21:31:22 [INFO] 🛡️ Lighter Maker Price ZRO-USD SELL: $1.416973
+21:31:22 [DEBUG] QUANTIZE ZRO-USD: USD=60.00, coins=42.379765, raw=424, lot_size=30, final=420
+21:31:22 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":60,"ClientOrderIndex":1765139549679,"BaseAmount":420,"Price":141697,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767558682429,"ExpiredAt":1765140081429,"Nonce":5195,"Sig":"aq5pWWSkWts5vhYQ52M3SQWR4VEignZ22D+ogeZil87Q+NPswW9MWy5B5ZYQ0kNNZpqjFjGZD2mwhGgzdybFUItK6bFy0nehpxT3wmjh4RU="}
+21:31:22 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e' predicted_execution_time_ms=1765139470714 additional_properties={}
+21:31:22 [INFO] Lighter Order: 194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e
+21:31:22 [INFO] ⏳ [MAKER STRATEGY] ZRO-USD: Lighter placed (194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e), waiting for fill...
+21:31:22 [DEBUG] Using cached positions (age: 1.5s)
+21:31:22 [DEBUG] Check IP-USD: Age=6.4s (Limit=14400s)
+21:31:22 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:23 [INFO] Lighter: Found 1 open positions
+21:31:23 [DEBUG] 👻 Ghost pending: ZRO-USD (0.5s)
+21:31:23 [DEBUG] ✅ MON-USD: X10=$264,246, Lighter=$225,456,812, Total=$225,721,058
+21:31:23 [DEBUG] Using cached positions (age: 2.5s)
+21:31:23 [DEBUG] Check IP-USD: Age=7.4s (Limit=14400s)
+21:31:23 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:24 [INFO] Lighter: Found 1 open positions
+21:31:24 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZRO-USD (Age: 1.4s)
+21:31:24 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:24 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:24 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:24 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:24 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:24 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:24 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:24 [DEBUG] Using cached positions (age: 3.4s)
+21:31:24 [DEBUG] Check IP-USD: Age=8.4s (Limit=14400s)
+21:31:24 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:25 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+21:31:25 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=8s ago, msgs=8)
+21:31:25 [INFO] Lighter: Found 1 open positions
+21:31:25 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZRO-USD (Age: 2.6s)
+21:31:25 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s ago, msgs=177)
+21:31:25 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=21s ago, msgs=91)
+21:31:25 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=44703)
+21:31:25 [DEBUG] Lighter Balance: Raw=$262.54, Safe=$249.42
+21:31:25 [INFO] X10: Detected balance = $241.71
+21:31:25 [DEBUG] Using cached positions (age: 4.0s)
+21:31:25 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+21:31:25 [DEBUG] Using cached positions (age: 4.5s)
+21:31:25 [DEBUG] Check IP-USD: Age=9.4s (Limit=14400s)
+21:31:25 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:26 [INFO] Lighter: Found 1 open positions
+21:31:26 [DEBUG] Using cached positions (age: 5.4s)
+21:31:26 [DEBUG] Check IP-USD: Age=10.4s (Limit=14400s)
+21:31:26 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:27 [INFO] Lighter: Found 1 open positions
+21:31:27 [DEBUG] Using cached positions (age: 6.4s)
+21:31:27 [DEBUG] Check IP-USD: Age=11.4s (Limit=14400s)
+21:31:27 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:28 [INFO] Lighter: Found 1 open positions
+21:31:28 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:28 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:28 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:28 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:28 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:28 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:28 [DEBUG] ✅ ARB-USD: X10=$183,391, Lighter=$8,593,723, Total=$8,777,113
+21:31:28 [DEBUG] Using cached positions (age: 7.4s)
+21:31:28 [DEBUG] Check IP-USD: Age=12.4s (Limit=14400s)
+21:31:28 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:29 [INFO] Lighter: Found 1 open positions
+21:31:29 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:29 [INFO] 🚜 Farm Mode ACTIVE
+21:31:29 [DEBUG] Lighter Balance: Raw=$262.54, Safe=$249.42
+21:31:29 [INFO] X10: Detected balance = $241.71
+21:31:29 [DEBUG] Using cached positions (age: 8.4s)
+21:31:29 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+21:31:29 [DEBUG] Using cached positions (age: 8.4s)
+21:31:29 [DEBUG] Check IP-USD: Age=13.4s (Limit=14400s)
+21:31:29 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:30 [INFO] Lighter: Found 1 open positions
+21:31:30 [INFO] 🚜 Farm Mode ACTIVE
+21:31:30 [DEBUG] ✅ ASTER-USD: X10=$351,653, Lighter=$14,462,702, Total=$14,814,355
+21:31:30 [DEBUG] Using cached positions (age: 9.4s)
+21:31:30 [DEBUG] Check IP-USD: Age=14.4s (Limit=14400s)
+21:31:30 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:31 [INFO] Lighter: Found 1 open positions
+21:31:31 [INFO] 🚜 Farm Mode ACTIVE
+21:31:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:31 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:31 [INFO] 🚜 Opening FARM: STRK-USD APY=25.4%
+21:31:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:31 [DEBUG] Fetching fresh positions (force=False, cache_age=10.4s)
+21:31:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:32 [INFO] Lighter: Found 1 open positions
+21:31:32 [DEBUG] ✅ ZRO-USD: X10=$264,856, Lighter=$607,260, Total=$872,116
+21:31:32 [INFO] Lighter: Found 1 open positions
+21:31:32 [INFO] Lighter: Found 1 open positions
+21:31:32 [DEBUG] ✅ STRK-USD verified: No existing positions on exchanges
+21:31:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:32 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:32 [DEBUG] 🧠 STRK-USD: Prediction conf=0.75, delta=-0.000005
+21:31:32 [DEBUG] MIN_NOTIONAL STRK-USD: min_base=50.00000000 coins, price=$0.1151, min_qty_usd=$5.75, min_notional_api=$10.00, final=$11.00
+21:31:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:32 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:32 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:33 [INFO] Lighter: Found 1 open positions
+21:31:33 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:33 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:33 [INFO] 📊 Positions: X10=1, Lighter=1
+21:31:33 [DEBUG] X10 positions: ['IP-USD']
+21:31:33 [DEBUG] Lighter positions: ['IP-USD']
+21:31:33 [DEBUG] Check IP-USD: Age=16.4s (Limit=14400s)
+21:31:33 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:33 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:33 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:33 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:33 [INFO] 💰 X10 verfügbare Balance: $241.71 USDC
+21:31:33 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.43
+21:31:33 [INFO] 🎰 KELLY STRK-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0250, confidence=LOW, samples=0
+21:31:33 [INFO] 📊 KELLY SIZE STRK-USD: base=$60.0, kelly_recommended=$5.7, final=$60.0
+21:31:33 [DEBUG] 🔍 Checking liquidity for STRK-USD SELL: Need $60.00 (Max Slip: 2.0%)
+21:31:33 [INFO] Lighter: Found 1 open positions
+21:31:34 [DEBUG] Using cached positions (age: 2.0s)
+21:31:34 [DEBUG] Check IP-USD: Age=17.4s (Limit=14400s)
+21:31:34 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:34 [DEBUG] 🔍 Orderbook for STRK-USD: Bids=20, Asks=20
+21:31:34 [INFO] 🚀 Opening STRK-USD: Size=$60.0 (Min=$12.1)
+21:31:34 [INFO] 🛡️ Registered STRK-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+21:31:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:31:34 [DEBUG] ✅ WLD-USD: X10=$151,536, Lighter=$1,920,193, Total=$2,071,729
+21:31:34 [INFO] 🔄 [MAKER STRATEGY] STRK-USD: Placing Lighter Maker Order...
+21:31:34 [INFO] 🚀 LIGHTER OPEN STRK-USD: side=SELL, size_usd=$60.00, price=$0.115100
+21:31:34 [DEBUG] 🔍 DEBUG: STRK-USD market_id = 104 (raw=104, type=<class 'int'>)
+21:31:34 [INFO] 🛡️ Lighter Maker Price STRK-USD SELL: $0.114992
+21:31:34 [DEBUG] QUANTIZE STRK-USD: USD=60.00, coins=521.285838, raw=5213, lot_size=500, final=5000
+21:31:34 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":104,"ClientOrderIndex":1765139566702,"BaseAmount":5000,"Price":11499,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767558694318,"ExpiredAt":1765140093318,"Nonce":5196,"Sig":"/tryxfbcPrmUWPRlt/Tb+29VMnGy/PR4Fyvy9Q9hmPiNb+RkIPlcAcb9K6CYy0KPesXpkdYbTxlUPpRYg9rgkWTgFA21LPBdKMnQolSAwCk="}
+21:31:34 [DEBUG] Lighter Balance: Raw=$262.55, Safe=$249.43
+21:31:34 [INFO] X10: Detected balance = $241.71
+21:31:34 [DEBUG] Using cached positions (age: 2.5s)
+21:31:34 [DEBUG] SYNC STATUS: DB=1, Executing=2, RealExchange=1, TotalActive=3
+21:31:34 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+21:31:34 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='0b13c7437868122e4e7b4e15889cd46acda9936d1a2ee6d671a8d9a21c0c8ea1da719864efbd07b8' predicted_execution_time_ms=1765139482605 additional_properties={}
+21:31:34 [INFO] Lighter Order: 0b13c7437868122e4e7b4e15889cd46acda9936d1a2ee6d671a8d9a21c0c8ea1da719864efbd07b8
+21:31:34 [INFO] ⏳ [MAKER STRATEGY] STRK-USD: Lighter placed (0b13c7437868122e4e7b4e15889cd46acda9936d1a2ee6d671a8d9a21c0c8ea1da719864efbd07b8), waiting for fill...
+21:31:34 [DEBUG] 📊 OI→Pred TIA-USD: OI=$2,155,917, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred STRK-USD: OI=$6,323,180, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred LTC-USD: OI=$215,035, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred DOGE-USD: OI=$20,344,085, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ADA-USD: OI=$3,067,700, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred BNB-USD: OI=$1,742,625, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred WLFI-USD: OI=$25,885,570, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred TRX-USD: OI=$6,763,829, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred TON-USD: OI=$712,756, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred JUP-USD: OI=$3,477,587, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ENA-USD: OI=$21,798,422, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ZORA-USD: OI=$33,922,023, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred SUI-USD: OI=$2,794,298, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred PENGU-USD: OI=$75,225,008, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ONDO-USD: OI=$1,959,638, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred CRV-USD: OI=$3,026,366, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred FARTCOIN-USD: OI=$13,785,208, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred WIF-USD: OI=$2,337,261, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred MON-USD: OI=$225,721,058, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred MKR-USD: OI=$9,283, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ARB-USD: OI=$8,777,113, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ASTER-USD: OI=$14,814,355, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred ZRO-USD: OI=$872,116, Velocity=0.00, Trend=STABLE
+21:31:34 [DEBUG] 📊 OI→Pred WLD-USD: OI=$2,071,729, Velocity=0.00, Trend=STABLE
+21:31:34 [INFO] Lighter: Found 1 open positions
+21:31:34 [DEBUG] 👻 Ghost pending: STRK-USD (0.3s)
+21:31:35 [DEBUG] Using cached positions (age: 3.0s)
+21:31:35 [DEBUG] Check IP-USD: Age=18.4s (Limit=14400s)
+21:31:35 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:35 [INFO] Lighter: Found 1 open positions
+21:31:35 [DEBUG] 👻 Ghost pending: STRK-USD (0.5s)
+21:31:35 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=18s ago, msgs=8)
+21:31:35 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=31s ago, msgs=91)
+21:31:35 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s ago, msgs=56823)
+21:31:35 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago, msgs=202)
+21:31:35 [INFO] Lighter: Found 2 open positions
+21:31:35 [DEBUG] ✅ BTC-USD: X10=$25,448,763, Lighter=$2,879, Total=$25,451,642
+21:31:35 [INFO] Lighter: Found 2 open positions
+21:31:35 [INFO] ✅ [MAKER STRATEGY] STRK-USD: Lighter Filled! Executing X10 Hedge...
+21:31:36 [DEBUG] Using cached positions (age: 4.1s)
+21:31:36 [DEBUG] Check IP-USD: Age=19.4s (Limit=14400s)
+21:31:36 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:36 [DEBUG] Placing an order: id=1627561890268592701851519353399776650404964919567409935762678089515345156202
+21:31:36 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+21:31:36 [INFO] Lighter: Found 2 open positions
+21:31:37 [DEBUG] Using cached positions (age: 5.0s)
+21:31:37 [DEBUG] Check IP-USD: Age=20.4s (Limit=14400s)
+21:31:37 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:37 [INFO]  X10 Order: 1997765912225902592
+21:31:37 [DEBUG] 📝 Trade added to state: STRK-USD
+21:31:37 [INFO] ✅ OPENED STRK-USD: $60.00 | Entry Fees (est.): $0.0600
+21:31:37 [DEBUG] 🧹 Cleaned task: STRK-USD
+21:31:37 [DEBUG] 📝 Flushed 1 writes
+21:31:37 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+21:31:37 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:37 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:37 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:37 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:37 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:37 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:37 [INFO] Lighter: Found 2 open positions
+21:31:38 [DEBUG] Using cached positions (age: 6.1s)
+21:31:38 [DEBUG] Check IP-USD: Age=21.4s (Limit=14400s)
+21:31:38 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:38 [DEBUG] Check STRK-USD: Age=0.9s (Limit=14400s)
+21:31:38 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:38 [INFO] 💰 X10 verfügbare Balance: $235.78 USDC
+21:31:38 [WARNING] ⏰ [MAKER STRATEGY] ZRO-USD: Wait timeout! Cancelling Lighter order 194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e...
+21:31:38 [INFO] 🔍 Lighter: Attempting to resolve Hash 194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e to Order ID for ZRO-USD...
+21:31:38 [DEBUG] Lighter Balance: Raw=$262.56, Safe=$249.43
+21:31:38 [INFO] X10: Detected balance = $235.78
+21:31:38 [DEBUG] Using cached positions (age: 6.9s)
+21:31:38 [DEBUG] SYNC STATUS: DB=2, Executing=1, RealExchange=1, TotalActive=3
+21:31:38 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+21:31:39 [DEBUG] Using cached positions (age: 7.0s)
+21:31:39 [DEBUG] Check IP-USD: Age=22.4s (Limit=14400s)
+21:31:39 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:39 [DEBUG] Check STRK-USD: Age=1.9s (Limit=14400s)
+21:31:39 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:39 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+21:31:39 [WARNING] ⚠️ Lighter Cancel: Could not find open order matching hash 194f65830e48f4c4c724788e9c5992df43b12580a1abc97e0e97bb74f7bc276e4cde26295b8bbc8e. Assuming already closed.
+21:31:39 [INFO] 🔍 [MAKER STRATEGY] ZRO-USD: Order status post-cancel: UNKNOWN
+21:31:39 [DEBUG] ✅ MNT-USD: X10=$65,127, Lighter=$3,169,972, Total=$3,235,099
+21:31:39 [INFO] 🛑 Initiating shutdown...
+21:31:39 [INFO] 🔒 SHUTDOWN: Closing all open trades...
+21:31:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:40 [DEBUG] Using cached positions (age: 8.1s)
+21:31:40 [DEBUG] Check IP-USD: Age=23.4s (Limit=14400s)
+21:31:40 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:40 [DEBUG] Check STRK-USD: Age=2.9s (Limit=14400s)
+21:31:40 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:40 [INFO] Lighter: Found 2 open positions
+21:31:40 [INFO] ✓ [MAKER STRATEGY] ZRO-USD: Cancel confirmed. Clean exit.
+21:31:40 [WARNING] Circuit Breaker: Trade failed for ZRO-USD. Consecutive failures: 1/5
+21:31:40 [INFO] Lighter: Found 2 open positions
+21:31:40 [INFO] 📊 SHUTDOWN: Found 2 X10 + 2 Lighter positions
+21:31:40 [INFO] 🔻 SHUTDOWN CLOSE X10: IP-USD (size=27.000000)
+21:31:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:31:41 [DEBUG] Using cached positions (age: 9.0s)
+21:31:41 [DEBUG] Check IP-USD: Age=24.4s (Limit=14400s)
+21:31:41 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:41 [DEBUG] Check STRK-USD: Age=3.9s (Limit=14400s)
+21:31:41 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:41 [DEBUG] ✅ STRK-USD: X10 entry fee = 0.000225 (order: 1997765912225902592)
+21:31:41 [DEBUG] ✅ STRK-USD: Lighter entry fee = 0.000000 (order: 0b13c7437868122e4e7b4e15889cd46acda9936d1a2ee6d671a8d9a21c0c8ea1da719864efbd07b8)
+21:31:41 [INFO] 💰 STRK-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+21:31:41 [DEBUG] 📝 Flushed 1 writes
+21:31:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:41 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$367,606, Total=$367,606
+21:31:41 [INFO] 🔻 X10 CLOSE IP-USD: size=27.000000, side=SELL
+21:31:41 [DEBUG] Placing an order: id=3441132098798694307791420571036554378436022299702302172443696913227062642727
+21:31:41 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+21:31:41 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:41 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:41 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:42 [INFO]  X10 Order: 1997765932798345216
+21:31:42 [DEBUG] Fetching fresh positions (force=False, cache_age=10.1s)
+21:31:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:42 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:42 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:42 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:42 [INFO] 💰 X10 verfügbare Balance: $241.56 USDC
+21:31:42 [INFO] Lighter: Found 2 open positions
+21:31:42 [INFO] 📊 Positions: X10=1, Lighter=2
+21:31:42 [DEBUG] X10 positions: ['STRK-USD']
+21:31:42 [DEBUG] Lighter positions: ['IP-USD', 'STRK-USD']
+21:31:42 [DEBUG] Check IP-USD: Age=25.9s (Limit=14400s)
+21:31:42 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:42 [DEBUG] Check STRK-USD: Age=5.4s (Limit=14400s)
+21:31:42 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:43 [DEBUG] Lighter Balance: Raw=$262.57, Safe=$249.44
+21:31:43 [INFO] X10: Detected balance = $241.56
+21:31:43 [DEBUG] Using cached positions (age: 1.1s)
+21:31:43 [DEBUG] SYNC STATUS: DB=2, Executing=0, RealExchange=2, TotalActive=2
+21:31:43 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$454,448, Total=$454,448
+21:31:43 [DEBUG] Using cached positions (age: 1.4s)
+21:31:43 [DEBUG] Check IP-USD: Age=26.9s (Limit=14400s)
+21:31:43 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:43 [DEBUG] Check STRK-USD: Age=6.4s (Limit=14400s)
+21:31:43 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:44 [INFO] ✅ SHUTDOWN: X10 IP-USD closed
+21:31:44 [INFO] 🔻 SHUTDOWN CLOSE X10: STRK-USD (size=510.000000)
+21:31:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+21:31:44 [DEBUG] Using cached positions (age: 2.4s)
+21:31:44 [DEBUG] Check IP-USD: Age=27.9s (Limit=14400s)
+21:31:44 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:44 [DEBUG] Check STRK-USD: Age=7.4s (Limit=14400s)
+21:31:44 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:44 [DEBUG] ✅ SOL-USD: X10=$4,803,516, Lighter=$372,567, Total=$5,176,083
+21:31:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:45 [INFO] 🔻 X10 CLOSE STRK-USD: size=510.000000, side=SELL
+21:31:45 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=3s ago, msgs=18)
+21:31:45 [DEBUG] Placing an order: id=1853659823069732464716448343119785419282738531541780862972414765396838142896
+21:31:45 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+21:31:45 [DEBUG] [lighter] Responded to JSON ping with pong
+21:31:45 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=0s ago, msgs=273)
+21:31:45 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s ago, msgs=68199)
+21:31:45 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=41s ago, msgs=91)
+21:31:45 [DEBUG] Using cached positions (age: 3.4s)
+21:31:45 [DEBUG] Check IP-USD: Age=28.9s (Limit=14400s)
+21:31:45 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:45 [DEBUG] Check STRK-USD: Age=8.4s (Limit=14400s)
+21:31:45 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:45 [INFO]  X10 Order: 1997765947800666112
+21:31:46 [DEBUG] Price cache status: X10=81/65, Lighter=112/65
+21:31:46 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+21:31:46 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+21:31:46 [DEBUG] Using cached positions (age: 4.4s)
+21:31:46 [DEBUG] Check IP-USD: Age=29.9s (Limit=14400s)
+21:31:46 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:46 [DEBUG] Check STRK-USD: Age=9.4s (Limit=14400s)
+21:31:46 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:46 [INFO] 🧠 Prediction V2: Found 20 ML-ranked opportunities
+21:31:46 [INFO] ✅ Returning 20 ML-ranked opportunities
+21:31:46 [INFO] 🎯 Found 3 opportunities, executing best...
+21:31:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+21:31:46 [DEBUG] ✅ AAVE-USD: X10=$589,437, Lighter=$46,453, Total=$635,889
+21:31:46 [INFO] 💰 X10 verfügbare Balance: $247.45 USDC
+21:31:47 [DEBUG] 🐕 Watchdog OK: Daten-Alter 1.3s
+21:31:47 [DEBUG] Using cached positions (age: 5.4s)
+21:31:47 [DEBUG] Check IP-USD: Age=30.9s (Limit=14400s)
+21:31:47 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:47 [DEBUG] Check STRK-USD: Age=10.4s (Limit=14400s)
+21:31:47 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:47 [DEBUG] Lighter Balance: Raw=$262.57, Safe=$249.44
+21:31:47 [INFO] X10: Detected balance = $247.45
+21:31:47 [DEBUG] Using cached positions (age: 5.5s)
+21:31:47 [DEBUG] SYNC STATUS: DB=2, Executing=0, RealExchange=2, TotalActive=2
+21:31:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+21:31:47 [INFO] ✅ SHUTDOWN: X10 STRK-USD closed
+21:31:47 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: IP-USD (size=-26.000000)
+21:31:47 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=IP-USD (type=<class 'str'>)
+21:31:47 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+21:31:47 [INFO] 🔍 DEBUG: notional_usd=56.29259999999999 (type=<class 'float'>)
+21:31:48 [DEBUG] Using cached positions (age: 6.5s)
+21:31:48 [DEBUG] Check IP-USD: Age=31.9s (Limit=14400s)
+21:31:48 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:48 [DEBUG] Check STRK-USD: Age=11.4s (Limit=14400s)
+21:31:48 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:48 [INFO] Lighter: Found 2 open positions
+21:31:48 [DEBUG] MIN_NOTIONAL IP-USD: min_base=2.00000000 coins, price=$2.1651, min_qty_usd=$4.33, min_notional_api=$10.00, final=$11.00
+21:31:48 [INFO] 🔻 LIGHTER CLOSE IP-USD: size=-26.000000 coins, side=BUY, price=$2.1651, notional=$56.29
+21:31:48 [INFO] 🚀 LIGHTER OPEN IP-USD: side=BUY, size_usd=$56.29, price=$2.165100
+21:31:48 [DEBUG] 🔍 DEBUG: IP-USD market_id = 34 (raw=34, type=<class 'int'>)
+21:31:48 [DEBUG] QUANTIZE IP-USD: USD=56.29, coins=26.000000, raw=2600, lot_size=200, final=2600
+21:31:48 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":34,"ClientOrderIndex":1765139555746,"BaseAmount":2600,"Price":21781,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767558708708,"ExpiredAt":1765140107708,"Nonce":5197,"Sig":"xCPE8WLEjyUvJmU2vuBQvvXzsf38Zh5MBDU/HSL+3Vb8qMlzTty8Xl+vC/FK20IBZVKE1tpRf4qAoOIGyAPaexYK8MUYpjtrFfcJ+sEzLkY="}
+21:31:48 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='fd30b63bebca0f529665172ef09c21a2be5d7327b8510dfdbd6adc8504c6e7d047e3abef7a724793' predicted_execution_time_ms=1765139497001 additional_properties={}
+21:31:48 [INFO] Lighter Order: fd30b63bebca0f529665172ef09c21a2be5d7327b8510dfdbd6adc8504c6e7d047e3abef7a724793
+21:31:48 [INFO] ✅ Lighter close IP-USD: Erfolgreich ($56.29)
+21:31:48 [INFO] ✅ SHUTDOWN: Lighter IP-USD closed
+21:31:48 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: STRK-USD (size=-500.000000)
+21:31:48 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=STRK-USD (type=<class 'str'>)
+21:31:48 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+21:31:48 [INFO] 🔍 DEBUG: notional_usd=57.475 (type=<class 'float'>)
+21:31:49 [INFO] Lighter: Found 1 open positions
+21:31:49 [DEBUG] 👻 Ghost pending: IP-USD (0.5s)
+21:31:49 [DEBUG] MIN_NOTIONAL STRK-USD: min_base=50.00000000 coins, price=$0.1149, min_qty_usd=$5.75, min_notional_api=$10.00, final=$11.00
+21:31:49 [INFO] 🔻 LIGHTER CLOSE STRK-USD: size=-500.000000 coins, side=BUY, price=$0.1149, notional=$57.48
+21:31:49 [INFO] 🚀 LIGHTER OPEN STRK-USD: side=BUY, size_usd=$57.48, price=$0.114950
+21:31:49 [DEBUG] 🔍 DEBUG: STRK-USD market_id = 104 (raw=104, type=<class 'int'>)
+21:31:49 [DEBUG] QUANTIZE STRK-USD: USD=57.48, coins=500.000000, raw=5000, lot_size=500, final=5000
+21:31:49 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":104,"ClientOrderIndex":1765139586951,"BaseAmount":5000,"Price":11564,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767558709459,"ExpiredAt":1765140108459,"Nonce":5198,"Sig":"9eT8FVwdMJdYqaTJ5DUJz5PBu2g5Ra8634wAUK7xcLaERsQWBtVfPLqOwrLgftJ5aa+f/nDfpw+AbfHtobR6W0+xfdplLXq10eIkUjLelEw="}
+21:31:49 [DEBUG] Using cached positions (age: 7.5s)
+21:31:49 [DEBUG] Check IP-USD: Age=32.9s (Limit=14400s)
+21:31:49 [DEBUG] 💎 [HODL] IP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:49 [DEBUG] Check STRK-USD: Age=12.4s (Limit=14400s)
+21:31:49 [DEBUG] 💎 [HODL] STRK-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+21:31:49 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='0f94f8d70c9b2ccd7eafd2fd5d594fab9b3fc200d7a8ac64544b3480dea8de0fc672469ff5fe3255' predicted_execution_time_ms=1765139497751 additional_properties={}
+21:31:49 [INFO] Lighter Order: 0f94f8d70c9b2ccd7eafd2fd5d594fab9b3fc200d7a8ac64544b3480dea8de0fc672469ff5fe3255
+21:31:49 [INFO] ✅ Lighter close STRK-USD: Erfolgreich ($57.48)
+21:31:49 [INFO] ✅ SHUTDOWN: Lighter STRK-USD closed
+21:31:49 [INFO] 🔒 SHUTDOWN COMPLETE: 4 closed, 0 failed
+21:31:49 [DEBUG] 📝 SHUTDOWN: Marked STRK-USD as closed in state
+21:31:49 [DEBUG] 📝 SHUTDOWN: Marked IP-USD as closed in state
+21:31:49 [DEBUG] Cancelled task: maintenance_loop
+21:31:49 [DEBUG] Cancelled task: cleanup_finished_tasks
+21:31:49 [DEBUG] Cancelled task: health_reporter
+21:31:49 [DEBUG] Cancelled task: farm_loop
+21:31:49 [DEBUG] Cancelled task: logic_loop
+21:31:49 [DEBUG] Cancelled task: trade_management_loop
+21:31:49 [DEBUG] Cancelled task: connection_watchdog
+21:31:49 [INFO] Logic loop cancelled
+21:31:49 [INFO] Connection watchdog cancelled
+21:31:49 [DEBUG] 📝 Flushed 1 writes
+21:31:49 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+21:31:50 [INFO] 🔌 [x10_trades] WebSocket stopped
+21:31:50 [DEBUG] ✅ EDEN-USD: X10=$166,934, Lighter=$6,199,520, Total=$6,366,454
+21:31:50 [DEBUG] 📝 Flushed 1 writes
+21:31:50 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+21:31:51 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+21:31:51 [INFO] 🔌 [x10_funding] WebSocket stopped
+21:31:51 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+21:31:51 [INFO] 🔌 [x10_account] WebSocket stopped
+21:31:51 [DEBUG] [lighter] WebSocket connection closed forcefully (Timeout).
+21:31:51 [INFO] 🔌 [lighter] WebSocket stopped
+21:31:51 [INFO] ✅ WebSocketManager stopped
+21:31:51 [INFO] ✅ ParallelExecutionManager: Stopped
+21:31:51 [INFO] 🛑 Stopping InMemoryStateManager...
+21:31:51 [INFO] 📝 State writer loop stopped
+21:31:51 [INFO] ✅ InMemoryStateManager stopped
+21:31:51 [INFO] ✅ Shutdown complete
+21:31:51 [INFO] 🛑 Shutting down...
+21:31:51 [INFO] 🛑 Shutdown requested...
+21:31:51 [INFO] 🛑 Stopping Dashboard API...
+21:31:51 [INFO] ✅ ParallelExecutionManager: Stopped
+21:31:51 [INFO] ✅ WebSocketManager stopped
+21:31:51 [INFO] ✅ OpenInterestTracker stopped
+21:31:51 [INFO] 🛑 Funding tracker: Cancelled
+21:31:51 [INFO] ✅ Funding Tracker stopped
+21:31:51 [INFO] ✅ FundingTracker stopped
+21:31:51 [INFO] 🛑 Stopping InMemoryStateManager...
+21:31:51 [INFO] ✅ InMemoryStateManager stopped
+21:31:51 [INFO] 🔒 Closing database...
+21:31:51 [INFO] 🖊️ Database write loop stopped
+21:31:51 [INFO] ✅ Database closed
+21:31:51 [INFO] 🛑 FeeManager stopped
+21:31:51 [INFO] ✅ X10 Adapter geschlossen.
+21:31:51 [INFO] ✅ Lighter Adapter closed
+21:31:51 [INFO] ✅ Bot V5 shutdown complete

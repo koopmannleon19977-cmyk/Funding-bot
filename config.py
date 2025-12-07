@@ -22,7 +22,7 @@ load_dotenv()
 # $500 * 5 Trades = $2500 Total Exposure. Bei $270 Kapital -> 9.25x Hebel (OK)
 # $1000 * 5 Trades = $5000 Total Exposure. Bei $500 Kapital -> 10x Hebel (OK)
 DESIRED_NOTIONAL_USD = 60.0       # Reduced to $60 to allow 4-5 concurrent trades with $270 capital
-MAX_OPEN_TRADES = 5               # 5 * 60 = $300 (fits with minimal leverage)
+MAX_OPEN_TRADES = 3               # 5 * 60 = $300 (fits with minimal leverage)
 LEVERAGE_MULTIPLIER = 5.0         # Reduced to 5x (plenty for low leverage alts)
 # Burs Limit (New)
 FARM_MAX_CONCURRENT_ORDERS = 3    # Limit concurrent launches to 3
@@ -65,6 +65,9 @@ LIVE_TRADING = True
 X10_DRY_RUN = False
 LIGHTER_DRY_RUN = False
 EMERGENCY_CLOSE_ON_START = False  # Set True to panic close everything
+
+# Global shutdown latch to block new orders during graceful shutdown
+IS_SHUTTING_DOWN = False
 
 # --- Fees (DO NOT CHANGE unless exchange fees change) ---
 TAKER_FEE_X10 = 0.000225  # 0.0225%

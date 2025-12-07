@@ -7,13 +7,18 @@ Das Kelly Criterion optimiert die Position Size basierend auf:
 - Konfidenz-Level der Opportunity
 
 Wir verwenden "Fractional Kelly" (Quarter Kelly) für konservativeres Sizing.
+
+IMPORTANT: All PnL calculations use Decimal for precision.
 """
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Union
 from collections import deque
+from decimal import Decimal, ROUND_HALF_UP
 import time
+
+from src.utils import safe_decimal, quantize_usd, USD_PRECISION
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +31,13 @@ except ImportError:
 
 @dataclass
 class TradeResult:
-    """Ergebnis eines abgeschlossenen Trades."""
+    """
+    Ergebnis eines abgeschlossenen Trades.
+    
+    IMPORTANT: pnl_usd is stored as Decimal for precision.
+    """
     symbol: str
-    pnl_usd: float
+    pnl_usd: Decimal  # Changed from float to Decimal
     hold_time_seconds: float
     entry_apy: float
     timestamp: float = None
@@ -36,23 +45,41 @@ class TradeResult:
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = time.time()
+        # Ensure pnl_usd is Decimal
+        if not isinstance(self.pnl_usd, Decimal):
+            self.pnl_usd = safe_decimal(self.pnl_usd)
     
     @property
     def is_winner(self) -> bool:
-        return self.pnl_usd > 0
+        return self.pnl_usd > Decimal('0')
+    
+    @property
+    def pnl_float(self) -> float:
+        """Return pnl as float for APIs that require it."""
+        return float(self.pnl_usd)
 
 
 @dataclass 
 class KellyResult:
-    """Ergebnis der Kelly-Berechnung."""
-    kelly_fraction: float      # Rohe Kelly Fraction (0-1)
-    safe_fraction: float       # Mit Safety Factor (Quarter Kelly)
-    recommended_size_usd: float
+    """
+    Ergebnis der Kelly-Berechnung.
+    
+    Financial values (recommended_size_usd, avg_win, avg_loss) are Decimal.
+    Ratios (kelly_fraction, safe_fraction, win_rate) remain float as they are percentages.
+    """
+    kelly_fraction: float           # Rohe Kelly Fraction (0-1)
+    safe_fraction: float            # Mit Safety Factor (Quarter Kelly)
+    recommended_size_usd: Decimal   # Changed to Decimal
     win_rate: float
-    avg_win: float
-    avg_loss: float
+    avg_win: Decimal                # Changed to Decimal
+    avg_loss: Decimal               # Changed to Decimal
     sample_size: int
-    confidence: str            # "LOW", "MEDIUM", "HIGH"
+    confidence: str                 # "LOW", "MEDIUM", "HIGH"
+    
+    @property
+    def recommended_size_float(self) -> float:
+        """Return size as float for APIs that require it."""
+        return float(self.recommended_size_usd)
 
 
 class KellyPositionSizer:
@@ -113,14 +140,23 @@ class KellyPositionSizer:
             trades = await trade_repo.get_closed_trades_for_kelly(limit=self.MAX_HISTORY_SIZE)
             
             loaded = 0
+            skipped_zero = 0
             for t in trades:
                 pnl = t.get('pnl', 0)
                 if pnl is None:
                     continue
+                
+                # Convert to Decimal for precision
+                pnl_decimal = safe_decimal(pnl)
+                
+                # Skip trades with zero PnL (likely data recording bug)
+                if pnl_decimal == Decimal('0'):
+                    skipped_zero += 1
+                    continue
                     
                 self.record_trade(
                     symbol=t.get('symbol', 'UNKNOWN'),
-                    pnl_usd=float(pnl),
+                    pnl_usd=pnl_decimal,  # Already Decimal
                     hold_time_seconds=float(t.get('hold_time_seconds', 3600)),
                     entry_apy=0.10  # Fallback - not stored in DB
                 )
@@ -136,8 +172,19 @@ class KellyPositionSizer:
                     f"📂 Kelly loaded {loaded} historical trades from DB "
                     f"(Win Rate: {win_rate:.1%}, Winners: {winners}, Losers: {loaded - winners})"
                 )
+                if skipped_zero > 0:
+                    logger.warning(
+                        f"⚠️ Kelly skipped {skipped_zero} trades with $0.00 PnL "
+                        f"(possible data recording bug)"
+                    )
             else:
-                logger.info("📂 Kelly: No historical trades found in DB")
+                if skipped_zero > 0:
+                    logger.warning(
+                        f"⚠️ Kelly: All {skipped_zero} trades had $0.00 PnL - "
+                        f"check PnL recording in close_trade!"
+                    )
+                else:
+                    logger.info("📂 Kelly: No historical trades found in DB")
                 
             return loaded
             
@@ -145,17 +192,34 @@ class KellyPositionSizer:
             logger.warning(f"⚠️ Kelly history load failed: {e}")
             return 0
     
-    def record_trade(self, symbol: str, pnl_usd: float, hold_time_seconds: float, entry_apy: float):
-        """Zeichnet einen abgeschlossenen Trade auf."""
+    def record_trade(
+        self, 
+        symbol: str, 
+        pnl_usd: Union[float, Decimal, str], 
+        hold_time_seconds: float, 
+        entry_apy: float
+    ):
+        """
+        Zeichnet einen abgeschlossenen Trade auf.
+        
+        Args:
+            symbol: Trading pair
+            pnl_usd: PnL in USD (will be converted to Decimal)
+            hold_time_seconds: How long the trade was held
+            entry_apy: APY at entry
+        """
+        # Convert to Decimal for precision
+        pnl_decimal = safe_decimal(pnl_usd)
+        
         result = TradeResult(
             symbol=symbol,
-            pnl_usd=pnl_usd,
+            pnl_usd=pnl_decimal,
             hold_time_seconds=hold_time_seconds,
             entry_apy=entry_apy
         )
         
         # Globale History
-        self._trade_history. append(result)
+        self._trade_history.append(result)
         
         # Symbol-spezifische History
         if symbol not in self._symbol_history:
@@ -164,27 +228,42 @@ class KellyPositionSizer:
         
         # Cache invalidieren
         self._stats_cache.pop(symbol, None)
-        self._stats_cache. pop("__global__", None)
+        self._stats_cache.pop("__global__", None)
         
         status = "✅ WIN" if result.is_winner else "❌ LOSS"
-        logger.debug(f"📊 Trade recorded: {symbol} {status} ${pnl_usd:.2f}")
+        logger.debug(f"📊 Trade recorded: {symbol} {status} ${float(pnl_decimal):.4f}")
     
-    def _calculate_stats(self, trades: list[TradeResult]) -> tuple[float, float, float]:
-        """Berechnet Win Rate, Avg Win, Avg Loss aus Trade-Liste."""
-        if not trades:
-            return self.DEFAULT_WIN_RATE, 1.0, 1.0
+    def _calculate_stats(self, trades: list[TradeResult]) -> tuple[float, Decimal, Decimal]:
+        """
+        Berechnet Win Rate, Avg Win, Avg Loss aus Trade-Liste.
         
-        winners = [t for t in trades if t. is_winner]
+        Returns:
+            (win_rate: float, avg_win: Decimal, avg_loss: Decimal)
+        """
+        if not trades:
+            return self.DEFAULT_WIN_RATE, Decimal('1.0'), Decimal('1.0')
+        
+        winners = [t for t in trades if t.is_winner]
         losers = [t for t in trades if not t.is_winner]
         
         win_rate = len(winners) / len(trades) if trades else self.DEFAULT_WIN_RATE
         
-        avg_win = sum(t.pnl_usd for t in winners) / len(winners) if winners else 1.0
-        avg_loss = abs(sum(t. pnl_usd for t in losers) / len(losers)) if losers else 1.0
+        # Use Decimal for PnL calculations
+        if winners:
+            total_wins = sum((t.pnl_usd for t in winners), Decimal('0'))
+            avg_win = total_wins / Decimal(str(len(winners)))
+        else:
+            avg_win = Decimal('1.0')
+        
+        if losers:
+            total_losses = sum((t.pnl_usd for t in losers), Decimal('0'))
+            avg_loss = abs(total_losses / Decimal(str(len(losers))))
+        else:
+            avg_loss = Decimal('1.0')
         
         # Prevent division by zero
-        if avg_loss == 0:
-            avg_loss = 0.01
+        if avg_loss == Decimal('0'):
+            avg_loss = Decimal('0.01')
         
         return win_rate, avg_win, avg_loss
     
@@ -210,7 +289,7 @@ class KellyPositionSizer:
     def calculate_position_size(
         self,
         symbol: str,
-        available_capital: float,
+        available_capital: Union[float, Decimal],
         current_apy: float,
         use_symbol_stats: bool = True
     ) -> KellyResult:
@@ -224,8 +303,11 @@ class KellyPositionSizer:
             use_symbol_stats: True = Symbol-spezifische Stats, False = Globale Stats
         
         Returns:
-            KellyResult mit empfohlener Position Size
+            KellyResult mit empfohlener Position Size (Decimal)
         """
+        # Convert capital to Decimal
+        capital_decimal = safe_decimal(available_capital)
+        
         cache_key = symbol if use_symbol_stats else "__global__"
         
         # Check Cache
@@ -233,7 +315,8 @@ class KellyPositionSizer:
             cached_time, cached_result = self._stats_cache[cache_key]
             if time.time() - cached_time < self._cache_ttl:
                 # Update nur die Size basierend auf aktuellem Kapital
-                new_size = cached_result.safe_fraction * available_capital
+                new_size = Decimal(str(cached_result.safe_fraction)) * capital_decimal
+                new_size = quantize_usd(new_size)
                 return KellyResult(
                     kelly_fraction=cached_result.kelly_fraction,
                     safe_fraction=cached_result.safe_fraction,
@@ -253,15 +336,17 @@ class KellyPositionSizer:
         
         sample_size = len(trades)
         
-        # Berechne Statistiken
+        # Berechne Statistiken (now returns Decimal for avg_win/avg_loss)
         win_rate, avg_win, avg_loss = self._calculate_stats(trades)
-        win_loss_ratio = avg_win / avg_loss if avg_loss > 0 else self.DEFAULT_WIN_LOSS_RATIO
+        
+        # Calculate win_loss_ratio as float for Kelly formula
+        win_loss_ratio = float(avg_win / avg_loss) if avg_loss > Decimal('0') else self.DEFAULT_WIN_LOSS_RATIO
         
         # Kelly Fraction berechnen
         kelly_fraction = self._kelly_formula(win_rate, win_loss_ratio)
         
         # Safety Factor anwenden (Quarter Kelly)
-        safe_fraction = kelly_fraction * self. SAFETY_FACTOR
+        safe_fraction = kelly_fraction * self.SAFETY_FACTOR
         
         # ═══════════════════════════════════════════════════════════════
         # NEU: GRADUELLES RAMP-UP
@@ -293,8 +378,9 @@ class KellyPositionSizer:
         safe_fraction = max(self.MIN_POSITION_FRACTION, 
                           min(self.MAX_POSITION_FRACTION, safe_fraction))
         
-        # Finale Position Size
-        recommended_size = safe_fraction * available_capital
+        # Finale Position Size (Decimal)
+        recommended_size = Decimal(str(safe_fraction)) * capital_decimal
+        recommended_size = quantize_usd(recommended_size)
         
         result = KellyResult(
             kelly_fraction=kelly_fraction,
@@ -339,20 +425,29 @@ class KellyPositionSizer:
                 "message": "No trades recorded yet"
             }
         
-        winners = [t for t in trades if t. is_winner]
+        winners = [t for t in trades if t.is_winner]
         losers = [t for t in trades if not t.is_winner]
         
-        total_pnl = sum(t.pnl_usd for t in trades)
+        # Use Decimal for PnL sums
+        total_pnl = sum((t.pnl_usd for t in trades), Decimal('0'))
+        
+        avg_win = Decimal('0')
+        if winners:
+            avg_win = sum((t.pnl_usd for t in winners), Decimal('0')) / Decimal(str(len(winners)))
+        
+        avg_loss = Decimal('0')
+        if losers:
+            avg_loss = sum((t.pnl_usd for t in losers), Decimal('0')) / Decimal(str(len(losers)))
         
         return {
             "total_trades": len(trades),
             "winners": len(winners),
             "losers": len(losers),
             "win_rate": len(winners) / len(trades),
-            "total_pnl_usd": total_pnl,
-            "avg_pnl_per_trade": total_pnl / len(trades),
-            "avg_win": sum(t.pnl_usd for t in winners) / len(winners) if winners else 0,
-            "avg_loss": sum(t.pnl_usd for t in losers) / len(losers) if losers else 0,
+            "total_pnl_usd": float(total_pnl),  # Convert for JSON serialization
+            "avg_pnl_per_trade": float(total_pnl / Decimal(str(len(trades)))),
+            "avg_win": float(avg_win),
+            "avg_loss": float(avg_loss),
             "symbols_traded": len(self._symbol_history),
             "best_symbol": self._get_best_symbol(),
             "worst_symbol": self._get_worst_symbol()
@@ -364,10 +459,10 @@ class KellyPositionSizer:
             return None
         
         best = None
-        best_pnl = float('-inf')
+        best_pnl = Decimal('-999999999')  # Use Decimal instead of float('-inf')
         
         for symbol, trades in self._symbol_history.items():
-            total = sum(t.pnl_usd for t in trades)
+            total = sum((t.pnl_usd for t in trades), Decimal('0'))
             if total > best_pnl:
                 best_pnl = total
                 best = symbol
@@ -380,10 +475,10 @@ class KellyPositionSizer:
             return None
         
         worst = None
-        worst_pnl = float('inf')
+        worst_pnl = Decimal('999999999')  # Use Decimal instead of float('inf')
         
         for symbol, trades in self._symbol_history.items():
-            total = sum(t.pnl_usd for t in trades)
+            total = sum((t.pnl_usd for t in trades), Decimal('0'))
             if total < worst_pnl:
                 worst_pnl = total
                 worst = symbol
@@ -405,11 +500,11 @@ def get_kelly_sizer() -> KellyPositionSizer:
 
 def calculate_smart_size(
     symbol: str,
-    available_capital: float,
+    available_capital: Union[float, Decimal],
     current_apy: float,
-    min_size: float = 5.0,
-    max_size: float = 100.0
-) -> float:
+    min_size: Union[float, Decimal] = 5.0,
+    max_size: Union[float, Decimal] = 100.0
+) -> Decimal:
     """
     Convenience-Funktion für schnelle Size-Berechnung.
     
@@ -421,16 +516,21 @@ def calculate_smart_size(
         max_size: Maximale Position Size
     
     Returns:
-        Empfohlene Position Size in USD
+        Empfohlene Position Size in USD (Decimal)
     """
     sizer = get_kelly_sizer()
     result = sizer.calculate_position_size(symbol, available_capital, current_apy)
     
+    # Convert limits to Decimal
+    min_decimal = safe_decimal(min_size)
+    max_decimal = safe_decimal(max_size)
+    
     # Grenzen anwenden
-    size = max(min_size, min(max_size, result.recommended_size_usd))
+    size = max(min_decimal, min(max_decimal, result.recommended_size_usd))
+    size = quantize_usd(size)
     
     logger.info(
-        f"📊 Kelly Size for {symbol}: ${size:.2f} "
+        f"📊 Kelly Size for {symbol}: ${float(size):.2f} "
         f"(Kelly={result.kelly_fraction:.3f}, Safe={result.safe_fraction:.3f}, "
         f"WinRate={result.win_rate:.1%}, Confidence={result.confidence})"
     )

@@ -17,15 +17,16 @@ import time
 import json
 import copy
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Set, Callable
+from typing import Dict, List, Optional, Any, Set, Callable, Union
 from dataclasses import dataclass, field, asdict
+from decimal import Decimal
 from enum import Enum
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 
-from src.utils import safe_float
+from src.utils import safe_float, safe_decimal, quantize_usd
 
 
 class TradeStatus(Enum):
@@ -39,14 +40,20 @@ class TradeStatus(Enum):
 
 @dataclass
 class TradeState:
-    """In-memory representation of a trade"""
+    """
+    In-memory representation of a trade.
+    
+    Financial fields (size_usd, pnl, funding_collected) are stored as float
+    for SQLite compatibility, but Decimal properties are provided for 
+    precision-critical calculations.
+    """
     symbol: str
     side_x10: str
     side_lighter: str
     size_usd: float
     entry_price_x10: float = 0.0
     entry_price_lighter: float = 0.0
-    status: TradeStatus = TradeStatus. OPEN
+    status: TradeStatus = TradeStatus.OPEN
     is_farm_trade: bool = False
     created_at: int = field(default_factory=lambda: int(time.time() * 1000))
     entry_time: Optional[datetime] = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -57,6 +64,43 @@ class TradeState:
     x10_order_id: Optional[str] = None
     lighter_order_id: Optional[str] = None
     db_id: Optional[int] = None  # Database row ID
+    
+    # ═══════════════════════════════════════════════════════════════
+    # DECIMAL PROPERTIES FOR PRECISION-CRITICAL CALCULATIONS
+    # ═══════════════════════════════════════════════════════════════
+    
+    @property
+    def size_usd_decimal(self) -> Decimal:
+        """Get size_usd as Decimal for precise calculations"""
+        return safe_decimal(self.size_usd)
+    
+    @property
+    def pnl_decimal(self) -> Decimal:
+        """Get pnl as Decimal for precise calculations"""
+        return safe_decimal(self.pnl)
+    
+    @property
+    def funding_collected_decimal(self) -> Decimal:
+        """Get funding_collected as Decimal for precise calculations"""
+        return safe_decimal(self.funding_collected)
+    
+    @property
+    def entry_price_x10_decimal(self) -> Decimal:
+        """Get entry_price_x10 as Decimal"""
+        return safe_decimal(self.entry_price_x10)
+    
+    @property
+    def entry_price_lighter_decimal(self) -> Decimal:
+        """Get entry_price_lighter as Decimal"""
+        return safe_decimal(self.entry_price_lighter)
+    
+    def set_pnl_from_decimal(self, value: Union[Decimal, float]) -> None:
+        """Set pnl from a Decimal value (converts to float for storage)"""
+        self.pnl = float(quantize_usd(safe_decimal(value)))
+    
+    def set_funding_from_decimal(self, value: Union[Decimal, float]) -> None:
+        """Set funding_collected from a Decimal value"""
+        self.funding_collected = float(quantize_usd(safe_decimal(value)))
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
@@ -360,15 +404,25 @@ class InMemoryStateManager:
     async def close_trade(
         self,
         symbol: str,
-        pnl: float = 0.0,
-        funding: float = 0.0
+        pnl: Union[float, Decimal] = 0.0,
+        funding: Union[float, Decimal] = 0.0
     ) -> bool:
-        """Close a trade"""
+        """
+        Close a trade with PnL and funding values.
+        
+        Accepts both float and Decimal for pnl/funding.
+        Internally converts to float for storage, using Decimal for precision.
+        """
+        # Convert to Decimal for precise calculation, then to float for storage
+        # REMOVED quantize_usd to preserve precision for small PnL (e.g. < $0.01)
+        pnl_value = float(safe_decimal(pnl))
+        funding_value = float(safe_decimal(funding))
+        
         return await self.update_trade(symbol, {
             'status': TradeStatus.CLOSED,
             'closed_at': int(time.time() * 1000),
-            'pnl': pnl,
-            'funding_collected': funding,
+            'pnl': pnl_value,
+            'funding_collected': funding_value,
         })
 
     async def remove_trade(self, symbol: str) -> bool:
@@ -400,6 +454,85 @@ class InMemoryStateManager:
             t.symbol for t in self._trades.values()
             if t.status in (TradeStatus. OPEN, TradeStatus.PENDING)
         }
+
+    async def reconcile_with_exchange(self, exchange_name: str, real_positions: list):
+        """
+        Gleicht State mit echten Positionen ab.
+        1. Schließt Trades in State, die auf Exchange weg sind (Zombies). -> Logic usually handled elsewhere, but can be here.
+           NOTE: Zombie check is complex because we have two legs. 
+           If one leg is missing, we might want to close the other? Or just mark as closed?
+           For now, we implement ONLY the ORPHAN ADOPTION as requested.
+        2. Adoptiert Trades in State, die auf Exchange existieren aber in State fehlen (Waisen).
+        """
+        if not real_positions:
+            return
+
+        # 2. WAISEN ADOPTION
+        real_map = {p['symbol']: p for p in real_positions if not p.get('is_ghost')}
+        
+        # Use a copy of keys to avoid modification issues if we add
+        async with self._trade_lock:
+             known_symbols = set(self._trades.keys())
+
+        for symbol, real_pos in real_map.items():
+            if symbol not in known_symbols:
+                logger.warning(f"⚠️ DESYNC FIX: Found ORPHAN {symbol} on {exchange_name}. Adopting into DB...")
+                
+                try:
+                    # Parse position data
+                    size = safe_float(real_pos.get('size'), 0.0)
+                    price = safe_float(real_pos.get('entry_price') or real_pos.get('mark_price'), 0.0)
+                    
+                    if size == 0:
+                        continue
+                        
+                    # Determine sides
+                    side_x10 = "NONE"
+                    side_lighter = "NONE"
+                    entry_px_x10 = 0.0
+                    entry_px_lit = 0.0
+                    
+                    # Lighter uses 'size' signed for side? Adapter usually provides abs in 'size' but let's check.
+                    # Lighter adapter 'fetch_open_positions':
+                    # positions.append({"symbol": symbol, "size": size}) where size is already signed!
+                    # X10 adapter 'fetch_open_positions' usually returns signed size too.
+                    
+                    rec_side = "BUY" if size > 0 else "SELL"
+                    
+                    if exchange_name == 'X10':
+                        side_x10 = rec_side
+                        entry_px_x10 = price
+                    elif exchange_name == 'Lighter':
+                        side_lighter = rec_side
+                        entry_px_lit = price
+                        
+                    # Estimate USD size
+                    size_usd = abs(size) * price
+                    
+                    # Create Recovery Trade
+                    trade = TradeState(
+                        symbol=symbol,
+                        side_x10=side_x10,
+                        side_lighter=side_lighter,
+                        size_usd=size_usd,
+                        entry_price_x10=entry_px_x10,
+                        entry_price_lighter=entry_px_lit,
+                        status=TradeStatus.OPEN,
+                        is_farm_trade=False,
+                        created_at=int(time.time() * 1000),
+                        pnl=0.0,
+                        funding_collected=0.0,
+                        account_label="Recovery",
+                        x10_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}",
+                        lighter_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}"
+                    )
+                    
+                    await self.add_trade(trade)
+                    known_symbols.add(symbol) # prevent double add if loop logic changes
+                    logger.info(f"✅ Successfully adopted orphan trade {symbol}")
+                    
+                except Exception as e:
+                    logger.error(f"❌ Failed to adopt orphan {symbol}: {e}")
 
     # ═══════════════════════════════════════════════════════════════════════════
     # BALANCE OPERATIONS

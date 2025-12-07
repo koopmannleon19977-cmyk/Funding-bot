@@ -8,12 +8,15 @@
 # ✓ Automatic Schema Migration
 # ✓ Transaction Support
 # ✓ Query Caching für häufige Reads
+# ✓ Decimal precision support for financial data
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import asyncio
 import aiosqlite
+import sqlite3
 import logging
 import time
+from decimal import Decimal
 from typing import Optional, List, Dict, Any, Tuple, Union
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
@@ -21,6 +24,32 @@ from pathlib import Path
 import json
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DECIMAL ADAPTER/CONVERTER FOR SQLITE
+# ═══════════════════════════════════════════════════════════════════════════════
+# SQLite stores REAL as IEEE 754 floats, which can cause precision loss.
+# These adapters allow storing Decimal as TEXT and converting back on read.
+# Note: Existing REAL columns will continue to work - this just allows
+# passing Decimal objects directly to queries.
+
+def _adapt_decimal(d: Decimal) -> str:
+    """Convert Decimal to string for SQLite storage"""
+    return str(d)
+
+def _convert_decimal(s: bytes) -> Decimal:
+    """Convert string from SQLite to Decimal"""
+    return Decimal(s.decode('utf-8'))
+
+# Register the adapter and converter globally for sqlite3
+# This affects both sqlite3 and aiosqlite (which wraps sqlite3)
+sqlite3.register_adapter(Decimal, _adapt_decimal)
+sqlite3.register_converter("DECIMAL", _convert_decimal)
+
+# Also register for common float-like types that might store Decimal
+# Note: REAL columns will still return float, but Decimal params will work
+logger.debug("✅ Decimal adapter registered for SQLite")
 
 
 @dataclass

@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import logging
+import traceback
 from typing import Optional, List, Callable, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum
@@ -105,6 +106,12 @@ class BotEventLoop:
         
         self._running = True
         self._shutdown_event. clear()
+        # Reset global shutdown latch
+        try:
+            import config
+            setattr(config, "IS_SHUTTING_DOWN", False)
+        except Exception:
+            pass
         
         logger.info("🚀 BotEventLoop starting...")
         
@@ -287,6 +294,12 @@ class BotEventLoop:
         """Graceful shutdown procedure"""
         logger. info("🛑 Initiating shutdown...")
         self._running = False
+        # Set global shutdown latch to block new orders
+        try:
+            import config
+            setattr(config, "IS_SHUTTING_DOWN", True)
+        except Exception:
+            pass
         
         # FIRST: Close all trades if enabled
         await self._close_all_trades_on_shutdown()
@@ -351,6 +364,7 @@ class BotEventLoop:
         try:
             closed_count = 0
             failed_count = 0
+            closed_symbols = set()
             
             # Fetch positions from both exchanges
             x10_positions = await asyncio.wait_for(
@@ -394,6 +408,7 @@ class BotEventLoop:
                     if success:
                         closed_count += 1
                         logger.info(f"✅ SHUTDOWN: X10 {symbol} closed")
+                        closed_symbols.add(symbol)
                     else:
                         failed_count += 1
                         logger.warning(f"⚠️ SHUTDOWN: X10 {symbol} close failed")
@@ -428,6 +443,7 @@ class BotEventLoop:
                     if success:
                         closed_count += 1
                         logger.info(f"✅ SHUTDOWN: Lighter {symbol} closed")
+                        closed_symbols.add(symbol)
                     else:
                         failed_count += 1
                         logger.warning(f"⚠️ SHUTDOWN: Lighter {symbol} close failed")
@@ -441,28 +457,14 @@ class BotEventLoop:
             
             logger.info(f"🔒 SHUTDOWN COMPLETE: {closed_count} closed, {failed_count} failed")
             
-            # FIX: Mark trades as closed in state (with $0 PnL - we can't calculate real PnL during shutdown)
-            # This ensures the database is consistent and trades aren't reopened on next startup
-            if self.state_manager:
-                try:
-                    # Get all symbols that were closed
-                    closed_symbols = set()
-                    for pos in (x10_positions or []):
-                        if abs(pos.get('size', 0)) > 1e-8:
-                            closed_symbols.add(pos.get('symbol'))
-                    for pos in (lighter_positions or []):
-                        if abs(pos.get('size', 0)) > 1e-8:
-                            closed_symbols.add(pos.get('symbol'))
-                    
-                    # Mark each as closed in state
-                    for symbol in closed_symbols:
-                        try:
-                            await self.state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
-                            logger.debug(f"📝 SHUTDOWN: Marked {symbol} as closed in state")
-                        except Exception as e:
-                            logger.debug(f"SHUTDOWN: Could not mark {symbol} in state: {e}")
-                except Exception as e:
-                    logger.debug(f"SHUTDOWN: State cleanup error: {e}")
+            # Mark only successfully closed symbols in state
+            if self.state_manager and closed_symbols:
+                for symbol in closed_symbols:
+                    try:
+                        await self.state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
+                        logger.debug(f"📝 SHUTDOWN: Marked {symbol} as closed in state")
+                    except Exception as e:
+                        logger.debug(f"SHUTDOWN: Could not mark {symbol} in state: {e}")
             
         except asyncio.TimeoutError:
             logger.error("❌ SHUTDOWN: Close-all operation timed out")
@@ -476,7 +478,10 @@ class BotEventLoop:
             try:
                 await asyncio.wait_for(self.ws_manager.stop(), timeout=5.0)
             except Exception as e:
-                logger.error(f"WebSocket stop error: {e}")
+                logger.error(
+                    f"WebSocket stop error: {e.__class__.__name__}: {e}",
+                    exc_info=True
+                )
         
         # OI Tracker
         if self.oi_tracker and hasattr(self.oi_tracker, 'stop'):
