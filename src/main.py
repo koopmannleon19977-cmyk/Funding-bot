@@ -148,7 +148,7 @@ def calculate_expected_profit(
     hourly_funding_rate: float,
     hold_hours: float,
     spread_pct: float,
-    fee_rate: float = 0.000225  # X10 taker fee (0.0225%)
+    fee_rate: float = config.TAKER_FEE_X10  # X10 taker fee
 ) -> tuple:
     """
     Calculate expected profit and hours to breakeven for a trade.
@@ -194,21 +194,8 @@ def calculate_expected_profit(
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-def safe_float(val, default=0.0):
-    """Convert any value to float safely - handles API strings."""
-    if val is None:
-        return default
-    if isinstance(val, (int, float)):
-        return float(val)
-    if isinstance(val, str):
-        try:
-            return float(val)
-        except ValueError:
-            return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
+
 
 
 def safe_int(val, default=0):
@@ -281,7 +268,7 @@ async def process_fee_update(adapter, symbol: str, order_id: str):
         return
 
     # Wait for order to settle
-    await asyncio.sleep(3.0)
+    await asyncio.sleep(config.SLEEP_LONG)
 
     for retry in range(2):
         try:
@@ -494,7 +481,7 @@ async def _fetch_fees_after_delay(
     lighter_order_id: Optional[str],
     x10_adapter: X10Adapter,
     lighter_adapter: LighterAdapter,
-    delay_seconds: float = 3.0
+    delay_seconds: float = config.ROLLBACK_DELAY_SECONDS
 ):
     """Helper function to fetch entry fees after a delay (ensures order is filled)"""
     await asyncio.sleep(delay_seconds)
@@ -510,7 +497,7 @@ async def _fetch_exit_fees_after_delay(
     lighter_order_id: Optional[str],
     x10_adapter: X10Adapter,
     lighter_adapter: LighterAdapter,
-    delay_seconds: float = 3.0
+    delay_seconds: float = config.ROLLBACK_DELAY_SECONDS
 ):
     """Helper function to fetch exit fees after a delay (ensures order is filled)"""
     await asyncio.sleep(delay_seconds)
@@ -3639,10 +3626,24 @@ async def run_bot_v5():
     
     # --- ENDE ZOMBIE KILLER ---
 
+    # 5.5 INIT CIRCUIT BREAKER
+    from src.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+    cb_config = CircuitBreakerConfig(
+        max_consecutive_failures=config.CB_MAX_CONSECUTIVE_FAILURES,
+        max_drawdown_pct=config.CB_MAX_DRAWDOWN_PCT,
+        drawdown_window_seconds=config.CB_DRAWDOWN_WINDOW,
+        enable_kill_switch=config.CB_ENABLE_KILL_SWITCH
+    )
+    circuit_breaker = CircuitBreaker(cb_config)
+
     # 6. INIT PARALLEL EXECUTION MANAGER
-    parallel_exec = ParallelExecutionManager(x10, lighter)
+    # Note: We use get_database() here as db
+    from src.database import get_database
+    db = get_database()
+    
+    parallel_exec = ParallelExecutionManager(x10, lighter, db, circuit_breaker=circuit_breaker)
     await parallel_exec.start()
-    logger.info("✅ ParallelExecutionManager started")
+    logger.info("✅ ParallelExecutionManager started with Circuit Breaker")
     
     # ═══════════════════════════════════════════════════════════════
     # 7. NEU: Nutze BotEventLoop statt TaskSupervisor
@@ -3821,34 +3822,6 @@ async def health_reporter(event_loop: BotEventLoop, parallel_exec):
 # ============================================================
 async def main():
     global SHUTDOWN_FLAG, state_manager
-    logger.info(" 🔥 BOT V4 (Full Architected) STARTING...")
-
-    # 1. Init Infrastructure
-    from src.state_manager import get_state_manager as get_sm_async
-    state_manager = await get_sm_async()
-    logger.info("✅ State Manager started")
-    global telegram_bot
-    telegram_bot = get_telegram_bot()
-    if telegram_bot.enabled:
-        await telegram_bot.start()
-        logger.info("📱 Telegram Bot connected")
-    await setup_database()
-    await migrate_database()
-    
-    # 2. Init Adapters
-    x10 = X10Adapter()
-    lighter = LighterAdapter()
-    price_event = asyncio.Event()
-    x10.price_update_event = price_event
-    lighter.price_update_event = price_event
-    
-    # 2.1. Init FeeManager
-    fee_manager = await init_fee_manager(x10, lighter)
-    logger.info("✅ FeeManager started")
-    
-    # Initialize with real fees from APIs
-    await fee_manager.init_fees(x10, lighter)
-    logger.info(f"✅ FeeManager: Real fees loaded from APIs")
     
     # 3. Load Market Data FIRST (CRITICAL - Required for WebSocket subscriptions)
     logger.info("📊 Loading Market Data...")

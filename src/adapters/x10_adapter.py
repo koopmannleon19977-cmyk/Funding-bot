@@ -27,14 +27,7 @@ from .base_adapter import BaseAdapter
 logger = logging.getLogger(__name__)
 
 
-def safe_float(val, default=0.0):
-    """Safely convert a value to float, returning default on failure."""
-    if val is None:
-        return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
 
 
 class X10Adapter(BaseAdapter):

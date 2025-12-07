@@ -18,13 +18,7 @@ from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
-def safe_float(val, default=0.0):
-    if val is None or val == "" or val == "None":
-        return default
-    try:
-        return float(str(val).strip())
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
 
 
 

@@ -1,4 +1,4 @@
-# src/parallel_execution. py - PUNKT 1: PARALLEL EXECUTION MIT OPTIMISTIC ROLLBACK
+# src/parallel_execution.py - PUNKT 1: PARALLEL EXECUTION MIT OPTIMISTIC ROLLBACK
 # ═══════════════════════════════════════════════════════════════════════════════
 # FEATURES:
 # ✓ State Machine für Trade Tracking
@@ -19,14 +19,8 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 
-def safe_float(val, default=0.0):
-    """Safely convert a value to float, returning default on failure."""
-    if val is None:
-        return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
+import config
+from src.utils import safe_float
 
 
 class ExecutionState(Enum):
@@ -48,7 +42,7 @@ class ExecutionState(Enum):
 class TradeExecution:
     """Tracks state of a single parallel trade execution"""
     symbol: str
-    state: ExecutionState = ExecutionState. PENDING
+    state: ExecutionState = ExecutionState.PENDING
     x10_order_id: Optional[str] = None
     lighter_order_id: Optional[str] = None
     x10_filled: bool = False
@@ -83,16 +77,19 @@ class ParallelExecutionManager:
     """
     
     MAX_ROLLBACK_ATTEMPTS = 3
-    ROLLBACK_BASE_DELAY = 2.0  # seconds
-    EXECUTION_TIMEOUT = 15.0   # seconds
+    ROLLBACK_BASE_DELAY = config.ROLLBACK_DELAY_SECONDS
+    EXECUTION_TIMEOUT = config.PARALLEL_EXECUTION_TIMEOUT
 
-    def __init__(self, x10_adapter, lighter_adapter):
+    def __init__(self, x10_adapter, lighter_adapter, db, circuit_breaker=None):
         self.x10 = x10_adapter
         self.lighter = lighter_adapter
+        self.db = db
+        self.circuit_breaker = circuit_breaker
         self.execution_locks: Dict[str, asyncio.Lock] = {}
-        self. active_executions: Dict[str, TradeExecution] = {}
+        self.active_executions: Dict[str, TradeExecution] = {}
         self._rollback_queue: asyncio.Queue[Optional[TradeExecution]] = asyncio.Queue()
         self._rollback_task: Optional[asyncio.Task] = None
+        self._shutdown_event = asyncio.Event()
         self._stats = {
             "total_executions": 0,
             "successful": 0,
@@ -100,47 +97,42 @@ class ParallelExecutionManager:
             "rollbacks_triggered": 0,
             "rollbacks_successful": 0,
             "rollbacks_failed": 0,
+            "rollbacks": 0
         }
+        logger.info("✅ ParallelExecutionManager started")
 
     async def start(self):
         """Start background rollback processor"""
-        if self._rollback_task is None or self._rollback_task.done():
-            self._rollback_task = asyncio.create_task(
-                self._rollback_processor(), 
-                name="rollback_processor"
-            )
-            logger.info("✅ ParallelExecutionManager: Rollback processor started")
+        self._rollback_task = asyncio.create_task(self._rollback_processor())
+        logger.info("✅ ParallelExecutionManager: Rollback processor started")
 
     async def stop(self):
         """Stop background tasks gracefully"""
-        if self._rollback_task and not self._rollback_task. done():
-            # Signal shutdown
-            await self._rollback_queue.put(None)
+        self._shutdown_event.set()
+        if self._rollback_task:
+            self._rollback_task.cancel()
             try:
-                await asyncio.wait_for(self._rollback_task, timeout=10.0)
-            except asyncio.TimeoutError:
-                self._rollback_task.cancel()
-                try:
-                    await self._rollback_task
-                except asyncio.CancelledError:
-                    pass
-        self._rollback_task = None
+                await self._rollback_task
+            except asyncio.CancelledError:
+                pass
         logger.info("✅ ParallelExecutionManager: Stopped")
 
     async def _rollback_processor(self):
         """Background task that processes rollback queue with retry logic"""
         logger.info("🔄 Rollback processor running...")
         
-        while True:
+        while not self._shutdown_event.is_set():
             try:
                 execution = await self._rollback_queue.get()
                 
                 # Shutdown signal
                 if execution is None:
-                    logger.info("🛑 Rollback processor: Shutdown signal received")
+                    self._rollback_queue.task_done()
                     break
                 
-                execution.state = ExecutionState. ROLLBACK_IN_PROGRESS
+                execution.state = ExecutionState.ROLLBACK_IN_PROGRESS
+                self._stats["rollbacks"] += 1
+                
                 success = await self._execute_rollback_with_retry(execution)
                 
                 if success:
@@ -153,7 +145,6 @@ class ParallelExecutionManager:
                 self._rollback_queue.task_done()
                 
             except asyncio.CancelledError:
-                logger.info("🛑 Rollback processor: Cancelled")
                 break
             except Exception as e:
                 logger.error(f"❌ Rollback processor error: {e}", exc_info=True)
@@ -176,15 +167,13 @@ class ParallelExecutionManager:
         Returns:
             (success, x10_order_id, lighter_order_id)
         """
-        # (Removed temporary debug block for type inspection)
-        
-        timeout = timeout or self. EXECUTION_TIMEOUT
+        timeout = timeout or self.EXECUTION_TIMEOUT
         
         # Ensure symbol-level lock exists
         if symbol not in self.execution_locks:
             self.execution_locks[symbol] = asyncio.Lock()
 
-        async with self. execution_locks[symbol]:
+        async with self.execution_locks[symbol]:
             # Create execution tracker
             execution = TradeExecution(
                 symbol=symbol,
@@ -201,18 +190,26 @@ class ParallelExecutionManager:
                     execution, timeout
                 )
                 
-                if result[0]:
+                success = result[0]
+                if success:
                     self._stats["successful"] += 1
                 else:
                     self._stats["failed"] += 1
                 
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_trade_result(success, symbol)
+                
                 return result
 
             except Exception as e:
-                execution.state = ExecutionState. FAILED
+                execution.state = ExecutionState.FAILED
                 execution.error = str(e)
                 self._stats["failed"] += 1
                 logger.error(f"❌ [PARALLEL] {symbol}: Exception: {e}", exc_info=True)
+                
+                if self.circuit_breaker:
+                    self.circuit_breaker.record_trade_result(False, symbol)
+                    
                 return False, None, None
             
             finally:
@@ -221,7 +218,7 @@ class ParallelExecutionManager:
                     loop = asyncio.get_running_loop()
                     loop.call_later(
                         60.0, 
-                        lambda s=symbol: self. active_executions. pop(s, None)
+                        lambda s=symbol: self.active_executions.pop(s, None)
                     )
                 except RuntimeError:
                     # Fallback if no running loop
@@ -260,13 +257,13 @@ class ParallelExecutionManager:
         # PHASE 2: X10 MARKET (Taker) - FILLS IMMEDIATELY
         # ═══════════════════════════════════════════════════════════════════
         logger.info(f"🔄 [PARALLEL] {symbol}: X10 MARKET order")
-        execution. state = ExecutionState.LEG2_SENT
+        execution.state = ExecutionState.LEG2_SENT
 
         x10_task = asyncio.create_task(
             self._execute_x10_leg(
                 symbol, 
-                execution. side_x10, 
-                execution. size_x10,
+                execution.side_x10, 
+                execution.size_x10,
                 post_only=False
             ),
             name=f"x10_{symbol}"
@@ -276,7 +273,7 @@ class ParallelExecutionManager:
         # PHASE 3: WAIT FOR BOTH WITH TIMEOUT
         # ═══════════════════════════════════════════════════════════════════
         try:
-            results = await asyncio. wait_for(
+            results = await asyncio.wait_for(
                 asyncio.gather(lighter_task, x10_task, return_exceptions=True),
                 timeout=timeout
             )
@@ -287,7 +284,7 @@ class ParallelExecutionManager:
             
             # Check what was partially filled
             try:
-                lighter_result = lighter_task.result() if lighter_task. done() else None
+                lighter_result = lighter_task.result() if lighter_task.done() else None
                 x10_result = x10_task.result() if x10_task.done() else None
             except (asyncio.CancelledError, asyncio.InvalidStateError):
                 lighter_result = None
@@ -311,7 +308,7 @@ class ParallelExecutionManager:
         execution.lighter_order_id = lighter_order
         execution.x10_order_id = x10_order
         execution.lighter_filled = lighter_success
-        execution. x10_filled = x10_success
+        execution.x10_filled = x10_success
 
         # ═══════════════════════════════════════════════════════════════════
         # PHASE 4: EVALUATE & ROLLBACK IF NEEDED
@@ -325,7 +322,7 @@ class ParallelExecutionManager:
 
         # One or both failed - need rollback
         if lighter_success and not x10_success:
-            execution. error = f"X10 failed: {x10_result}"
+            execution.error = f"X10 failed: {x10_result}"
             logger.error(f"🔄 [ROLLBACK] {symbol}: X10 failed, queueing Lighter rollback")
             await self._queue_rollback(execution)
             return False, None, lighter_order
@@ -383,7 +380,7 @@ class ParallelExecutionManager:
 
     async def _queue_rollback(self, execution: TradeExecution):
         """Queue execution for background rollback (non-blocking)"""
-        execution.state = ExecutionState. ROLLBACK_QUEUED
+        execution.state = ExecutionState.ROLLBACK_QUEUED
         self._stats["rollbacks_triggered"] += 1
         await self._rollback_queue.put(execution)
         logger.info(f"📤 [ROLLBACK] {execution.symbol}: Queued for background processing")
@@ -417,7 +414,7 @@ class ParallelExecutionManager:
                     return True
 
                 if success:
-                    logger. info(f"✅ [ROLLBACK] {symbol}: Complete (attempt {attempt + 1})")
+                    logger.info(f"✅ [ROLLBACK] {symbol}: Complete (attempt {attempt + 1})")
                     return True
 
             except Exception as e:
@@ -439,7 +436,7 @@ class ParallelExecutionManager:
             )
 
             if not pos:
-                logger.info(f"✓ X10 Rollback {symbol}: No position found (already closed? )")
+                logger.info(f"✓ X10 Rollback {symbol}: No position found (already closed?)")
                 return True
 
             actual_size = safe_float(pos.get('size', 0))
@@ -459,7 +456,7 @@ class ParallelExecutionManager:
                 logger.info(f"✓ X10 rollback {symbol}: Success ({close_size:.6f} coins)")
                 return True
             else:
-                logger. warning(f"✗ X10 rollback {symbol}: close_live_position returned False")
+                logger.warning(f"✗ X10 rollback {symbol}: close_live_position returned False")
                 return False
 
         except Exception as e:
@@ -520,8 +517,8 @@ class ParallelExecutionManager:
         """Return current execution statistics for monitoring"""
         active_states = {}
         for ex in self.active_executions.values():
-            state_name = ex.state. value
-            active_states[state_name] = active_states. get(state_name, 0) + 1
+            state_name = ex.state.value
+            active_states[state_name] = active_states.get(state_name, 0) + 1
         
         return {
             "active_executions": len(self.active_executions),

@@ -23,14 +23,7 @@ logger = logging.getLogger(__name__)
 import config
 
 
-def safe_float(val, default=0.0):
-    """Safely convert a value to float, returning default on failure."""
-    if val is None or val == "" or val == "None":
-        return default
-    try:
-        return float(str(val).strip())
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
 
 
 @dataclass

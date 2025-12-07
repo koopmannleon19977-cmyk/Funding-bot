@@ -29,6 +29,14 @@ MAX_OPEN_TRADES = 5               # Wie viele Trades gleichzeitig?
 # Leverage = $1000 Notional / ($500 Balance / 5 Trades) = 10x
 LEVERAGE_MULTIPLIER = 10.0
 
+# 🔴 CIRCUIT BREAKER (NOT-AUS)
+# ------------------------------------------------------------------------------
+# Schaltet den Bot ab, wenn zu viele Fehler passieren oder zu viel Geld verloren geht.
+CB_MAX_CONSECUTIVE_FAILURES = 5     # Nach 5 fehlgeschlagenen Trades in Folge -> STOP
+CB_MAX_DRAWDOWN_PCT = 0.15          # Nach 15% Equity-Verlust in 1 Stunde -> STOP
+CB_ENABLE_KILL_SWITCH = True        # Soll der Bot sich beenden? (Ja/Nein)
+CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
+
 # 2. STRATEGIE & PROFIT
 # ------------------------------------------------------------------------------
 MIN_APY_FILTER = 0.30       # 30% APY Minimum (0.30 = 30%)
@@ -133,6 +141,7 @@ ORDER_GUARDIAN_TIMEOUT_SECONDS = 10
 ORDER_GUARDIAN_LEG2_RETRY = 1
 ORDER_GUARDIAN_RETRY_DELAY_SECONDS = 1.0
 ROLLBACK_DELAY_SECONDS = 3
+PARALLEL_EXECUTION_TIMEOUT = 15.0   # Timeout for parallel execution logic
 
 X10_MAX_SLIPPAGE_PCT = 0.6
 X10_PRICE_EPSILON_PCT = 0.15
@@ -178,6 +187,35 @@ MIN_KELLY_SAMPLE_SIZE = 10
 BTC_STRONG_MOMENTUM_PCT = 5.0
 BTC_MEDIUM_MOMENTUM_PCT = 3.0
 BTC_WEAK_MOMENTUM_PCT = 1.5
+
+# ==============================================================================
+# 4. CENTRALIZED MAGIC NUMBERS (NEW)
+# ==============================================================================
+
+# Timeouts & Delays
+SLEEP_SHORT = 0.3               # Standard loop delay (0.3s)
+SLEEP_LONG = 3.0                # Longer wait (e.g. after error)
+WS_RECONNECT_DELAY = 5.0        # Delay before reconnecting WS
+
+# Prediction Weights (v2)
+PRED_WEIGHT_FUNDING = 0.6       # 60% weight on APY/Funding
+PRED_WEIGHT_MOMENTUM = 0.3      # 30% weight on Momentum
+PRED_WEIGHT_VOLATILITY = 0.1    # 10% weight on Volatility
+
+# Prediction Confidence Weights (Detail)
+PRED_CONF_WEIGHT_DIVERGENCE = 0.30
+PRED_CONF_WEIGHT_IMBALANCE = 0.25
+PRED_CONF_WEIGHT_OI = 0.20
+PRED_CONF_WEIGHT_TREND = 0.15
+
+# Monitoring Intervals
+ZOMBIE_CHECK_INTERVAL = 300     # Check for zombie trades every 5 minutes
+SYNC_CHECK_INTERVAL = 60        # Sync check every minute
+HEALTH_CHECK_INTERVAL = 60      # Health report every minute
+
+# Trading Thresholds (Aliases/New)
+MIN_PROFIT_THRESHOLD = 0.02     # Minimum profit in USD to hold/close
+SAFETY_MARGIN = 1.05            # Safety margin for calculations (5% buffer)
 
 # ==============================================================================
 # 🧩 HELPER FUNCTIONS & LOGGING (DO NOT TOUCH)

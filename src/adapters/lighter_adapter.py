@@ -49,21 +49,7 @@ MARKET_OVERRIDES = {
 # GLOBAL TYPE-SAFETY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def safe_float(val, default=0.0):
-    """Convert any value to float safely."""
-    if val is None:
-        return default
-    if isinstance(val, (int, float)):
-        return float(val)
-    if isinstance(val, str):
-        try:
-            return float(val. replace(',', ''). strip())
-        except ValueError:
-            return default
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
 
 
 def safe_int(val, default=0):

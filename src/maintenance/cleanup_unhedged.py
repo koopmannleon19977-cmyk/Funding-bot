@@ -19,15 +19,10 @@ except ImportError:
 
 logger = logging.getLogger("cleanup_unhedged")
 
-def safe_float(val, default=0.0):
-    if val is None or val == "" or val == "None":
-        return default
-    try:
-        return float(str(val).strip())
-    except (ValueError, TypeError):
-        return default
+from src.utils import safe_float
 
 
+logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )

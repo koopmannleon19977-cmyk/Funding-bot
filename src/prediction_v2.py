@@ -83,11 +83,12 @@ class FundingPredictorV2:
         delta = predicted_rate - current_rate
 
         # === Confidence ===
+        # === Confidence ===
         confidence = 0.5
-        confidence += min(0.30, abs_div * 15)
-        confidence += min(0.25, abs(imbalance) * 1.2)
-        confidence += min(0.20, abs(oi_velocity) * 0.00001)
-        confidence += min(0.15, abs(vel) * 36000)
+        confidence += min(config.PRED_CONF_WEIGHT_DIVERGENCE, abs_div * 15)
+        confidence += min(config.PRED_CONF_WEIGHT_IMBALANCE, abs(imbalance) * 1.2)
+        confidence += min(config.PRED_CONF_WEIGHT_OI, abs(oi_velocity) * 0.00001)
+        confidence += min(config.PRED_CONF_WEIGHT_TREND, abs(vel) * 36000)
         
         # Penalize confidence if BTC market is chaotic
         if btc_regime == "CRASH":

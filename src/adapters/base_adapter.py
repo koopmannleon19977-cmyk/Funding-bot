@@ -15,6 +15,15 @@ class BaseAdapter:
         logger.info(f"Initialisiere {self.name} Adapter...")
         # Wird von den konkreten Adaptern überschrieben
         self.rate_limiter = None
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get existing session or create a new one if missing/closed."""
+        if self._session is None or self._session.closed:
+            # Use a slightly larger pool limit if needed, or default
+            connector = aiohttp.TCPConnector(limit=100)
+            self._session = aiohttp.ClientSession(connector=connector)
+        return self._session
 
     async def _request_with_ratelimit(self, method: str, url: str, **kwargs):
         """Zentrale Methode – alle HTTP-Requests gehen hier durch"""
@@ -23,17 +32,17 @@ class BaseAdapter:
 
         await self.rate_limiter.acquire()
 
+        session = await self._get_session()
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.request(method, url, **kwargs) as resp:
-                    if resp.status == 429:
-                        self.rate_limiter.penalize_429()
-                        resp.raise_for_status()  # wirft weiter
-                    if resp.status >= 400:
-                        text = await resp.text()
-                        logger.error(f"{self.name} HTTP {resp.status} {url} → {text}")
-                    resp.raise_for_status()
-                    return await resp.json()
+            async with session.request(method, url, **kwargs) as resp:
+                if resp.status == 429:
+                    self.rate_limiter.penalize_429()
+                    resp.raise_for_status()  # wirft weiter
+                if resp.status >= 400:
+                    text = await resp.text()
+                    logger.error(f"{self.name} HTTP {resp.status} {url} → {text}")
+                resp.raise_for_status()
+                return await resp.json()
         except aiohttp.ClientResponseError as e:
             if e.status == 429:
                 self.rate_limiter.penalize_429()
