@@ -48,6 +48,7 @@ MIN_PROFIT_EXIT_USD = 0.02  # Schließen ab $0.02 Profit (nach Gebühren)
 MAX_SPREAD_FILTER_PERCENT = 0.003  # Max 0.3% Spread erlaubt
 MAX_BREAKEVEN_HOURS = 4.0          # Trade muss in 4h profitabel sein
 BALANCE_RESERVE_PCT = 0.03         # 3% des Kapitals immer frei lassen
+MAX_TOTAL_EXPOSURE_PCT = 0.90      # Max 90% des Kapitals darf in Trades sein
 
 # Blacklist (Coins die NIE getradet werden sollen)
 BLACKLIST_SYMBOLS = {
@@ -85,7 +86,7 @@ VOLUME_FARM_MODE = True
 FARM_POSITION_SIZE_USD = DESIRED_NOTIONAL_USD
 FARM_NOTIONAL_USD = DESIRED_NOTIONAL_USD
 FARM_RANDOM_SIZE_PCT = 0.05
-FARM_HOLD_SECONDS = 7200  # 2h hold
+FARM_HOLD_SECONDS = 14400  # 4h hold (was 2h - increased for profitability)
 FARM_MAX_CONCURRENT = MAX_OPEN_TRADES
 FARM_MIN_APY = MIN_APY_FILTER
 FARM_MAX_SPREAD_PCT = MAX_SPREAD_FILTER_PERCENT

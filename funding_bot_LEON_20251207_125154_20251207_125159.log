@@ -1,0 +1,1971 @@
+12:51:59 [INFO] CONFIG VALIDATION COMPLETED.
+12:51:59 [INFO] 🔥 BOT V5 (Architected) STARTING...
+12:51:59 [INFO] 🚀 Starting InMemoryStateManager...
+12:51:59 [INFO] 📂 Initializing database: data/trades.db
+12:51:59 [INFO] ✅ Read pool created: 5 connections
+12:51:59 [INFO] ✅ WAL mode enabled
+12:51:59 [INFO] 🔄 Running database migrations...
+12:51:59 [INFO] ✅ Migrations complete (14 statements)
+12:51:59 [INFO] ✅ Database initialized
+12:51:59 [INFO] 🖊️ Database write loop started
+12:51:59 [DEBUG] Maintenance not due (Last: 2h ago)
+12:51:59 [INFO] 📂 Loaded 0 trades from database
+12:51:59 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+12:51:59 [INFO] ✅ State Manager started
+12:51:59 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+12:51:59 [INFO] ✅ Async database initialized
+12:51:59 [INFO] 📝 State writer loop started
+12:51:59 [DEBUG] ✅ Database schema up to date
+12:51:59 [INFO] Initialisiere X10 Adapter...
+12:51:59 [INFO]  X10 Account initialisiert.
+12:51:59 [INFO] Initialisiere Lighter Adapter...
+12:51:59 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+12:51:59 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+12:52:00 [DEBUG] Lighter REST GET /api/v1/fees returned 404
+12:52:00 [DEBUG] Lighter Fee Schedule: No API endpoint available, using config
+12:52:00 [WARNING] Lighter fee refresh failed: API returned no fee data, using fallback
+12:52:00 [DEBUG] X10 Fee Schedule API returned 404
+12:52:00 [WARNING] X10 fee refresh failed: API returned no fee data, using fallback
+12:52:00 [INFO] ✅ FeeManager started with periodic refresh
+12:52:00 [INFO] ✅ FeeManager started
+12:52:00 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+12:52:00 [INFO] 📂 Kelly: No historical trades found in DB
+12:52:00 [INFO] ✅ Funding Tracker started (updates every 3600s)
+12:52:00 [INFO] ✅ FundingTracker started (interval=3600s)
+12:52:00 [INFO] 📊 Loading Market Data via REST...
+12:52:00 [INFO] 🔄 Funding tracking loop started...
+12:52:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:52:00 [INFO] 📊 No open trades to track
+12:52:01 [INFO] ✅ Lighter: Loaded 119 markets (base data)
+12:52:01 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+12:52:02 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+12:52:03 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+12:52:04 [INFO] ✅ Lighter: Updated 118 markets with size_decimals from API
+12:52:04 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+12:52:04 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+12:52:04 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+12:52:04 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+12:52:04 [INFO] ✅ Markets loaded: X10=91, Lighter=119
+12:52:04 [INFO] 📈 Pre-loading Lighter prices...
+12:52:04 [DEBUG] Lighter: Loaded 389 funding rates
+12:52:05 [DEBUG] Lighter: Loaded 115 prices via REST
+12:52:05 [INFO] ✅ Lighter prices loaded: 115 symbols
+12:52:05 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+12:52:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:52:08 [INFO] ✅ Execution clients warmed up & NETWORK READY
+12:52:08 [INFO] FundingPredictorV2 initialized with BTC Correlation
+12:52:08 [INFO] 启动 OI Tracker für 70 Symbole...
+12:52:08 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+12:52:08 [INFO] 🌐 Starting WebSocket Manager...
+12:52:08 [INFO] 📊 OI Tracker: Starting cycle 1 (70 symbols)
+12:52:08 [INFO] 🔌 [lighter] WebSocket manager started
+12:52:08 [INFO] 🔌 [x10_account] WebSocket manager started
+12:52:08 [INFO] 🔌 [x10_trades] WebSocket manager started
+12:52:08 [INFO] 🔌 [x10_funding] WebSocket manager started
+12:52:08 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+12:52:08 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+12:52:08 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+12:52:08 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+12:52:08 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+12:52:09 [DEBUG] ✅ UNI-USD: X10=$203,368, Lighter=$334,547, Total=$537,915
+12:52:09 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+12:52:09 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+12:52:09 [INFO] [lighter] Resubscribing to 73 channels (paced)...
+12:52:09 [INFO] [lighter] Receive loop started (async iterator)
+12:52:09 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+12:52:09 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+12:52:09 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+12:52:09 [INFO] [x10_trades] Receive loop started (async iterator)
+12:52:09 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/16
+12:52:09 [DEBUG] [lighter] Subscribed to trade/16
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/41
+12:52:09 [DEBUG] [lighter] Subscribed to trade/41
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/51
+12:52:09 [DEBUG] [lighter] Subscribed to trade/51
+12:52:09 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+12:52:09 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+12:52:09 [INFO] [x10_account] Receive loop started (async iterator)
+12:52:09 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+12:52:09 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+12:52:09 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+12:52:09 [INFO] [x10_funding] Receive loop started (async iterator)
+12:52:09 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/38
+12:52:09 [DEBUG] [lighter] Subscribed to trade/38
+12:52:09 [DEBUG] [lighter] Resubscribed 10/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/25
+12:52:09 [DEBUG] [lighter] Subscribed to trade/25
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/45
+12:52:09 [DEBUG] [lighter] Subscribed to trade/45
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/21
+12:52:09 [DEBUG] [lighter] Subscribed to trade/21
+12:52:09 [DEBUG] [lighter] Resubscribed 20/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/71
+12:52:09 [DEBUG] [lighter] Subscribed to trade/71
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/17
+12:52:09 [DEBUG] [lighter] Subscribed to trade/17
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/98
+12:52:09 [DEBUG] [lighter] Subscribed to trade/98
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/10
+12:52:09 [DEBUG] [lighter] Subscribed to trade/10
+12:52:09 [DEBUG] [lighter] Resubscribed 30/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/24
+12:52:09 [DEBUG] [lighter] Subscribed to trade/24
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/23
+12:52:09 [DEBUG] [lighter] Subscribed to trade/23
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/49
+12:52:09 [DEBUG] [lighter] Subscribed to trade/49
+12:52:09 [DEBUG] [lighter] Resubscribed 40/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/3
+12:52:09 [DEBUG] [lighter] Subscribed to trade/3
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/50
+12:52:09 [DEBUG] [lighter] Subscribed to trade/50
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/42
+12:52:09 [DEBUG] [lighter] Subscribed to trade/42
+12:52:09 [DEBUG] [lighter] Resubscribed 50/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/94
+12:52:09 [DEBUG] [lighter] Subscribed to trade/94
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/83
+12:52:09 [DEBUG] [lighter] Subscribed to trade/83
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/47
+12:52:09 [DEBUG] [lighter] Subscribed to trade/47
+12:52:09 [DEBUG] [lighter] Resubscribed 60/73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/35
+12:52:09 [DEBUG] [lighter] Subscribed to trade/35
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/40
+12:52:09 [DEBUG] [lighter] Subscribed to trade/40
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/93
+12:52:09 [DEBUG] [lighter] Subscribed to trade/93
+12:52:09 [DEBUG] [lighter] Resubscribed 70/73 channels
+12:52:09 [INFO] [lighter] Resubscribed to 73 channels
+12:52:09 [DEBUG] [lighter] Subscribed to order_book/34
+12:52:09 [DEBUG] [lighter] Subscribed to trade/34
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/15
+12:52:10 [DEBUG] [lighter] Subscribed to trade/15
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/37
+12:52:10 [DEBUG] [lighter] Subscribed to trade/37
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/76
+12:52:10 [DEBUG] [lighter] Subscribed to trade/76
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/27
+12:52:10 [DEBUG] [lighter] Subscribed to trade/27
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/12
+12:52:10 [DEBUG] [lighter] Subscribed to trade/12
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/63
+12:52:10 [DEBUG] [lighter] Subscribed to trade/63
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/20
+12:52:10 [DEBUG] [lighter] Subscribed to trade/20
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/92
+12:52:10 [DEBUG] [lighter] Subscribed to trade/92
+12:52:10 [DEBUG] [lighter] Subscribed to order_book/58
+12:52:10 [DEBUG] [lighter] Subscribed to trade/58
+12:52:10 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+12:52:10 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+12:52:10 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+12:52:10 [INFO] ✅ DB ist sauber (keine offenen Trades).
+12:52:10 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+12:52:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:10 [DEBUG] ✅ KAITO-USD: X10=$642,290, Lighter=$2,044,189, Total=$2,686,479
+12:52:11 [INFO] Lighter: Found 2 open positions
+12:52:11 [WARNING] 🚨 Found 2 ORPHANED positions: {'EIGEN-USD', 'DOT-USD'}
+12:52:11 [WARNING] 🧹 Cleaning orphaned position: EIGEN-USD
+12:52:11 [INFO] X10 EIGEN-USD: size=998.0, closing as BUY
+12:52:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:12 [INFO] 🔻 X10 CLOSE EIGEN-USD: size=998.000000, side=SELL
+12:52:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:52:12 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+12:52:12 [DEBUG] ✅ ETH-USD: X10=$14,566,190, Lighter=$0, Total=$14,566,190
+12:52:12 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+12:52:12 [DEBUG] Placing an order: id=2649379542215563729551365212820897408290487858289628883085195718980356477990
+12:52:12 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:13 [INFO]  X10 Order: 1997635205125197824
+12:52:14 [DEBUG] ✅ AVNT-USD: X10=$259,157, Lighter=$2,026,652, Total=$2,285,808
+12:52:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:15 [DEBUG] ✅ LDO-USD: X10=$212,195, Lighter=$1,934,118, Total=$2,146,313
+12:52:15 [INFO] Lighter EIGEN-USD: size=-1005.0, closing as SELL, notional=$499.06
+12:52:15 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=EIGEN-USD (type=<class 'str'>)
+12:52:15 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+12:52:15 [INFO] 🔍 DEBUG: notional_usd=499.0629 (type=<class 'float'>)
+12:52:16 [INFO] Lighter: Found 2 open positions
+12:52:16 [INFO] 🔻 LIGHTER CLOSE EIGEN-USD: size=-1005.000000 coins, side=BUY, price=$0.4966, notional=$499.06
+12:52:16 [INFO] 🚀 LIGHTER OPEN EIGEN-USD: side=BUY, size_usd=$499.06, price=$0.496580
+12:52:16 [DEBUG] 🔍 DEBUG: EIGEN-USD market_id = 49 (raw=49, type=<class 'int'>)
+12:52:16 [DEBUG] QUANTIZE EIGEN-USD: USD=499.06, coins=1005.000000, raw=10050, lot_size=50, final=10050
+12:52:16 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":49,"ClientOrderIndex":1765108421756,"BaseAmount":10050,"Price":49956,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527536496,"ExpiredAt":1765108935496,"Nonce":5018,"Sig":"SdlvDjHQeJpqL78pfyQ3mx2yNupKBTggDT0Y2JTyBbqmzVvlfqHCMr5uQ8K3wDx4xPY2LJGV5QwQebZpH3GvAquKjz4eiKax47+gRTnoQE0="}
+12:52:16 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='e5b43196a5e993b2abec3e64ef60389263e357c528f203cb31ce1574fadaf4bb875b5cfef447c971' predicted_execution_time_ms=1765108325167 additional_properties={}
+12:52:16 [INFO] Lighter Order: e5b43196a5e993b2abec3e64ef60389263e357c528f203cb31ce1574fadaf4bb875b5cfef447c971
+12:52:16 [INFO] ✅ Lighter close EIGEN-USD: Erfolgreich ($499.06)
+12:52:16 [INFO] ✅ Closed orphaned EIGEN-USD
+12:52:16 [WARNING] 🧹 Cleaning orphaned position: DOT-USD
+12:52:16 [INFO] Lighter DOT-USD: size=-238.0, closing as SELL, notional=$499.27
+12:52:16 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=DOT-USD (type=<class 'str'>)
+12:52:16 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+12:52:16 [INFO] 🔍 DEBUG: notional_usd=499.27164000000005 (type=<class 'float'>)
+12:52:17 [INFO] Lighter: Found 1 open positions
+12:52:17 [INFO] 🔻 LIGHTER CLOSE DOT-USD: size=-238.000000 coins, side=BUY, price=$2.0978, notional=$499.27
+12:52:17 [INFO] 🚀 LIGHTER OPEN DOT-USD: side=BUY, size_usd=$499.27, price=$2.097780
+12:52:17 [DEBUG] 🔍 DEBUG: DOT-USD market_id = 11 (raw=11, type=<class 'int'>)
+12:52:17 [DEBUG] QUANTIZE DOT-USD: USD=499.27, coins=238.000000, raw=2380, lot_size=20, final=2380
+12:52:17 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":11,"ClientOrderIndex":1765108395314,"BaseAmount":2380,"Price":211037,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527537318,"ExpiredAt":1765108936318,"Nonce":5019,"Sig":"dSP0H6x+/+OAZQBBnH0iWkrilbf25SiP6F1PpMOhynvwBlEBeKkPZ2Uq4GU1/QyhHzRgHltb5uNKPZr493eivyR5mBmY64TLtkj1Sf2Hg0w="}
+12:52:17 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='0551abfe8da508b28cfbe373a191a818f1b884a606100e83fcea10a50017b642fd94f85db073aeff' predicted_execution_time_ms=1765108325985 additional_properties={}
+12:52:17 [INFO] Lighter Order: 0551abfe8da508b28cfbe373a191a818f1b884a606100e83fcea10a50017b642fd94f85db073aeff
+12:52:17 [INFO] ✅ Lighter close DOT-USD: Erfolgreich ($499.27)
+12:52:17 [INFO] ✅ Closed orphaned DOT-USD
+12:52:17 [INFO] ✅ ParallelExecutionManager started
+12:52:17 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+12:52:17 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+12:52:17 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+12:52:17 [INFO] 🔄 Rollback processor running...
+12:52:17 [DEBUG] Registered task: logic_loop (priority=HIGH)
+12:52:17 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+12:52:17 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+12:52:17 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+12:52:17 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+12:52:17 [DEBUG] Registered task: health_reporter (priority=LOW)
+12:52:17 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+12:52:17 [INFO] ═══════════════════════════════════════════════════════════
+12:52:17 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+12:52:17 [INFO] ═══════════════════════════════════════════════════════════
+12:52:17 [INFO] 🚀 BotEventLoop starting...
+12:52:17 [INFO] ▶️ Started task: connection_watchdog
+12:52:17 [INFO] ▶️ Started task: logic_loop
+12:52:17 [INFO] ▶️ Started task: trade_management_loop
+12:52:17 [INFO] ▶️ Started task: farm_loop
+12:52:17 [INFO] ▶️ Started task: maintenance_loop
+12:52:17 [INFO] ▶️ Started task: cleanup_finished_tasks
+12:52:17 [INFO] ▶️ Started task: health_reporter
+12:52:17 [INFO] ✅ Started 7 tasks
+12:52:17 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+12:52:17 [INFO] Logic Loop gestartet – REFRESH alle 3s
+12:52:17 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+12:52:17 [DEBUG] Price cache status: X10=78/70, Lighter=115/70
+12:52:17 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:17 [INFO] 🛡️ Trade Management Loop gestartet
+12:52:17 [INFO] 🚜 Farm Mode ACTIVE
+12:52:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:17 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+12:52:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+12:52:17 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:17 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:17 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+12:52:17 [DEBUG] Skip CRV-USD: Spread 0.40% too high
+12:52:17 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-6.2355 < $0.02 (breakeven: 36.8h, hold: 4.0h)
+12:52:17 [DEBUG] Skip EDEN-USD: Spread 0.68% too high
+12:52:17 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-7.7181 < $0.02 (breakeven: 35.5h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.3314 < $0.02 (breakeven: 14.6h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-2.2997 < $0.02 (breakeven: 13.0h, hold: 4.0h)
+12:52:17 [INFO] 💎 AVAX-USD | APY: 50.8%
+12:52:17 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-1.9900 < $0.02 (breakeven: 10.9h, hold: 4.0h)
+12:52:17 [DEBUG] Skip TIA-USD: Spread 0.40% too high
+12:52:17 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-6.2164 < $0.02 (breakeven: 38.5h, hold: 4.0h)
+12:52:17 [INFO] 💎 RESOLV-USD | APY: 99.9%
+12:52:17 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-2.4238 < $0.02 (breakeven: 8.3h, hold: 4.0h)
+12:52:17 [INFO] 💎 ONDO-USD | APY: 117.4%
+12:52:17 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.7103 < $0.02 (breakeven: 5.1h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.4701 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-8.1187 < $0.02 (breakeven: 38.5h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-5.4786 < $0.02 (breakeven: 28.9h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-2.3571 < $0.02 (breakeven: 13.4h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:17 [DEBUG] Skip MEGA-USD: Spread 2.23% too high
+12:52:17 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.0128 < $0.02 (breakeven: 26.9h, hold: 4.0h)
+12:52:17 [INFO] 💎 S-USD | APY: 62.2%
+12:52:17 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2408 < $0.02 (breakeven: 15.9h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:17 [INFO] 💎 LINEA-USD | APY: 71.8%
+12:52:17 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.5657 < $0.02 (breakeven: 7.8h, hold: 4.0h)
+12:52:17 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:17 [INFO] ✅ Found 0 opportunities from 66 valid pairs (farm_mode=True, scanned=70)
+12:52:18 [DEBUG] Lighter Balance: Raw=$269.97, Safe=$256.47
+12:52:18 [INFO] 🚜 Opening FARM: WLFI-USD APY=33.3%
+12:52:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:19 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=13032)
+12:52:19 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=1s ago, msgs=25)
+12:52:19 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=5s ago, msgs=8)
+12:52:19 [INFO] Lighter: Found 1 open positions
+12:52:19 [DEBUG] ✅ WLFI-USD verified: No existing positions on exchanges
+12:52:19 [DEBUG] 🧠 WLFI-USD: Prediction conf=0.50, delta=0.000032
+12:52:19 [DEBUG] MIN_NOTIONAL WLFI-USD: min_base=25.00000000 coins, price=$0.1465, min_qty_usd=$3.66, min_notional_api=$10.00, final=$11.00
+12:52:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:19 [INFO] 🎰 KELLY WLFI-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0275, confidence=LOW, samples=0
+12:52:19 [INFO] 📊 KELLY SIZE WLFI-USD: base=$500.0, kelly_recommended=$7.0, final=$500.0
+12:52:19 [DEBUG] 🔍 Checking liquidity for WLFI-USD SELL: Need $500.00 (Max Slip: 2.0%)
+12:52:19 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 82 Preise
+12:52:19 [DEBUG] X10: Funding Refresh OK, cache=91
+12:52:19 [DEBUG] 📊 Lighter Funding Cache refresh (current=118)
+12:52:19 [DEBUG] 🔍 Orderbook for WLFI-USD: Bids=20, Asks=20
+12:52:19 [INFO] 🚀 Opening WLFI-USD: Size=$500.0 (Min=$15.4)
+12:52:19 [INFO] 🛡️ Registered WLFI-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+12:52:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+12:52:20 [INFO] 🔄 [PARALLEL] WLFI-USD: Lighter POST-ONLY first
+12:52:20 [INFO] 🚀 LIGHTER OPEN WLFI-USD: side=SELL, size_usd=$500.00, price=$0.146500
+12:52:20 [DEBUG] 🔍 DEBUG: WLFI-USD market_id = 72 (raw=72, type=<class 'int'>)
+12:52:20 [DEBUG] QUANTIZE WLFI-USD: USD=500.00, coins=3412.969283, raw=34130, lot_size=250, final=34000
+12:52:20 [INFO] 🔄 [PARALLEL] WLFI-USD: X10 MARKET order
+12:52:20 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":72,"ClientOrderIndex":1765108435056,"BaseAmount":34000,"Price":14562,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767527540259,"ExpiredAt":1765108939259,"Nonce":5020,"Sig":"d2o7aBtL17OI2zZSxsnwn7s+hMrzMabYMhbexicB71vDVkdE+55wSYSKP6GHSMjYtIqW4ZklE8L01IQd7qepOSYQQ8C7uz8Ju1dJl++nK24="}
+12:52:20 [DEBUG] Placing an order: id=1830549666992938507151571951335389070179857428677358151937578465780950725302
+12:52:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:20 [INFO]  X10 Order: 1997635233735032832
+12:52:20 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='92fb8ed88aa1335b9a93540f451b4a4f254ed9a05b536d549b09391ed6085d897342c5b054b50144' predicted_execution_time_ms=1765108328926 additional_properties={}
+12:52:20 [INFO] Lighter Order: 92fb8ed88aa1335b9a93540f451b4a4f254ed9a05b536d549b09391ed6085d897342c5b054b50144
+12:52:20 [INFO] ✅ [PARALLEL] WLFI-USD: Both legs filled in 313ms
+12:52:20 [DEBUG] 📝 Trade added to state: WLFI-USD
+12:52:20 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:20 [INFO] ✅ OPENED WLFI-USD: $500.00 | Entry Fees (est.): $0.1125
+12:52:20 [DEBUG] 🧹 Cleaned task: WLFI-USD
+12:52:20 [DEBUG] 📝 Flushed 1 writes
+12:52:20 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+12:52:20 [DEBUG] ✅ MON-USD: X10=$251,380, Lighter=$229,884,833, Total=$230,136,213
+12:52:20 [DEBUG] Fetching fresh positions (force=False, cache_age=1765108340.6s)
+12:52:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:20 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:20 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:21 [INFO] Lighter: Found 2 open positions
+12:52:21 [INFO] 📊 Positions: X10=1, Lighter=2
+12:52:21 [DEBUG] X10 positions: ['WLFI-USD']
+12:52:21 [DEBUG] Lighter positions: ['DOT-USD', 'WLFI-USD']
+12:52:21 [DEBUG] Check WLFI-USD: Age=0.6s (Limit=14400s)
+12:52:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:21 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:21 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:21 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:21 [DEBUG] Lighter: Loaded 389 funding rates
+12:52:21 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:21 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] Skip CRV-USD: Spread 0.40% too high
+12:52:21 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:21 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] Skip EDEN-USD: Spread 0.31% too high
+12:52:21 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-7.7181 < $0.02 (breakeven: 35.5h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: AERO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.3314 < $0.02 (breakeven: 14.6h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-2.3197 < $0.02 (breakeven: 13.3h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO] 💎 TIA-USD | APY: 82.3%
+12:52:21 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-2.1751 < $0.02 (breakeven: 8.6h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-6.2164 < $0.02 (breakeven: 38.5h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-2.4438 < $0.02 (breakeven: 8.3h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.7303 < $0.02 (breakeven: 5.1h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-1.7574 < $0.02 (breakeven: 11.2h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-1.7272 < $0.02 (breakeven: 11.3h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-5.4786 < $0.02 (breakeven: 28.9h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-1.5016 < $0.02 (breakeven: 10.0h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:21 [INFO]  VOL REGIME: MEGA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] Skip MEGA-USD: Spread 2.23% too high
+12:52:21 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.0128 < $0.02 (breakeven: 26.9h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: S-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:21 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:21 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.5657 < $0.02 (breakeven: 7.8h, hold: 4.0h)
+12:52:21 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+12:52:21 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:21 [INFO] ✅ Found 0 opportunities from 65 valid pairs (farm_mode=True, scanned=70)
+12:52:22 [DEBUG] Using cached positions (age: 1.5s)
+12:52:22 [DEBUG] Check WLFI-USD: Age=1.6s (Limit=14400s)
+12:52:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:22 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:22 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:22 [DEBUG] ✅ CRV-USD: X10=$277,186, Lighter=$1,906,943, Total=$2,184,130
+12:52:22 [DEBUG] Lighter: Loaded 115 prices via REST
+12:52:22 [DEBUG] Lighter: Funding Refresh OK, cache=118
+12:52:22 [DEBUG] 📊 OI→Pred UNI-USD: OI=$537,915, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred KAITO-USD: OI=$2,686,479, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred ETH-USD: OI=$14,566,190, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred AVNT-USD: OI=$2,285,808, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred LDO-USD: OI=$2,146,313, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred MON-USD: OI=$230,136,213, Velocity=0.00, Trend=STABLE
+12:52:22 [DEBUG] 📊 OI→Pred CRV-USD: OI=$2,184,130, Velocity=0.00, Trend=STABLE
+12:52:22 [INFO] 🔍 Running periodic exchange sync check...
+12:52:22 [INFO] 🔍 Starting Exchange Sync Check...
+12:52:22 [INFO] ⏳ Sync check: Found 1 symbols with active executions: {'WLFI-USD'}
+12:52:23 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:23 [INFO] Lighter: Found 2 open positions
+12:52:23 [INFO] 📊 Positions: X10=1, Lighter=2
+12:52:23 [DEBUG] X10 positions: ['WLFI-USD']
+12:52:23 [DEBUG] Lighter positions: ['DOT-USD', 'WLFI-USD']
+12:52:23 [DEBUG] Check WLFI-USD: Age=3.0s (Limit=14400s)
+12:52:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:23 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:23 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:24 [DEBUG] ✅ APT-USD: X10=$163,839, Lighter=$1,859,309, Total=$2,023,148
+12:52:24 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:24 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:24 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:24 [DEBUG] Using cached positions (age: 1.5s)
+12:52:24 [DEBUG] Check WLFI-USD: Age=4.0s (Limit=14400s)
+12:52:24 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:24 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:24 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:24 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:24 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:24 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+12:52:24 [INFO] ✅ Returning 1 ML-ranked opportunities
+12:52:24 [INFO] 🎯 Found 1 opportunities, executing best...
+12:52:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:24 [DEBUG] ✅ WLFI-USD: X10 entry fee = 0.000225 (order: 1997635233735032832)
+12:52:24 [DEBUG] ✅ WLFI-USD: Lighter entry fee = 0.000000 (order: 92fb8ed88aa1335b9a93540f451b4a4f254ed9a05b536d549b09391ed6085d897342c5b054b50144)
+12:52:24 [INFO] 💰 WLFI-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+12:52:24 [DEBUG] 📝 Flushed 1 writes
+12:52:25 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:25 [DEBUG] Lighter Balance: Raw=$270.14, Safe=$256.63
+12:52:25 [INFO] X10: Detected balance = $255.47
+12:52:25 [DEBUG] Fetching fresh positions (force=False, cache_age=2.6s)
+12:52:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:25 [DEBUG] ✅ WIF-USD: X10=$311,662, Lighter=$1,902,204, Total=$2,213,866
+12:52:26 [INFO] Lighter: Found 2 open positions
+12:52:26 [INFO] 📊 Positions: X10=1, Lighter=2
+12:52:26 [DEBUG] X10 positions: ['WLFI-USD']
+12:52:26 [DEBUG] Lighter positions: ['DOT-USD', 'WLFI-USD']
+12:52:26 [DEBUG] Check WLFI-USD: Age=5.5s (Limit=14400s)
+12:52:26 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:26 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:26 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:26 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:26 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:26 [INFO] Lighter: Found 2 open positions
+12:52:26 [INFO] 📊 Positions: X10=1, Lighter=2
+12:52:26 [DEBUG] X10 positions: ['WLFI-USD']
+12:52:26 [DEBUG] Lighter positions: ['DOT-USD', 'WLFI-USD']
+12:52:26 [WARNING] ⚠️ DESYNC: {'DOT-USD'} on exchanges but not in DB
+12:52:26 [INFO] 🚀 Launching 1 trades (Slots available: 3)
+12:52:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:27 [DEBUG] Using cached positions (age: 1.4s)
+12:52:27 [DEBUG] Check WLFI-USD: Age=6.5s (Limit=14400s)
+12:52:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:27 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:27 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:27 [INFO] Lighter: Found 2 open positions
+12:52:27 [INFO] 💰 Balance: X10=$255.5 (free=$132.5), Lit=$256.6 (free=$133.6) | DB_Trades=1, Real_Positions=2, Locked=$120/ex
+12:52:27 [INFO] 🚀 Launching trade for CRV-USD (APY=45.6%)
+12:52:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:27 [DEBUG] ✅ WLFI-USD: X10=$800,111, Lighter=$25,215,444, Total=$26,015,555
+12:52:28 [INFO] ✅ Launched 1 trade tasks this cycle
+12:52:28 [DEBUG] Fetching fresh positions (force=False, cache_age=2.4s)
+12:52:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:28 [INFO] Lighter: Found 2 open positions
+12:52:28 [DEBUG] ✅ CRV-USD verified: No existing positions on exchanges
+12:52:28 [DEBUG] 🧠 CRV-USD: Prediction conf=0.75, delta=0.000014
+12:52:28 [DEBUG] MIN_NOTIONAL CRV-USD: min_base=20.00000000 coins, price=$0.3835, min_qty_usd=$7.67, min_notional_api=$10.00, final=$11.00
+12:52:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:28 [INFO] Lighter: Found 2 open positions
+12:52:28 [INFO] 📊 Positions: X10=1, Lighter=2
+12:52:28 [DEBUG] X10 positions: ['WLFI-USD']
+12:52:28 [DEBUG] Lighter positions: ['DOT-USD', 'WLFI-USD']
+12:52:28 [DEBUG] Check WLFI-USD: Age=8.0s (Limit=14400s)
+12:52:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:28 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:28 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:29 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=26897)
+12:52:29 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=40)
+12:52:29 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=6s ago, msgs=15)
+12:52:29 [DEBUG] Lighter Balance: Raw=$270.11, Safe=$256.60
+12:52:29 [INFO] 🎰 KELLY CRV-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0275, confidence=LOW, samples=0
+12:52:29 [INFO] 📊 KELLY SIZE CRV-USD: base=$500.0, kelly_recommended=$7.0, final=$500.0
+12:52:29 [DEBUG] 🔍 Checking liquidity for CRV-USD BUY: Need $500.00 (Max Slip: 2.0%)
+12:52:29 [DEBUG] Using cached positions (age: 1.5s)
+12:52:29 [DEBUG] Check WLFI-USD: Age=9.0s (Limit=14400s)
+12:52:29 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:29 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:29 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:29 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:29 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:29 [DEBUG] 🔍 Orderbook for CRV-USD: Bids=20, Asks=20
+12:52:29 [INFO] 🚀 Opening CRV-USD: Size=$500.0 (Min=$11.0)
+12:52:29 [INFO] 🛡️ Registered CRV-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+12:52:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+12:52:29 [INFO] 🔄 [PARALLEL] CRV-USD: Lighter POST-ONLY first
+12:52:29 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=BUY, size_usd=$500.00, price=$0.383510
+12:52:29 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+12:52:29 [DEBUG] QUANTIZE CRV-USD: USD=500.00, coins=1303.746969, raw=13037, lot_size=200, final=13000
+12:52:29 [INFO] 🔄 [PARALLEL] CRV-USD: X10 MARKET order
+12:52:29 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1765108381756,"BaseAmount":13000,"Price":38582,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767527549943,"ExpiredAt":1765108948943,"Nonce":5021,"Sig":"IPfPDCxer/DPp0skjPDlwOpI0RArjT0OyBMy9sl7nfDut6HXBjvaPl7IiwARungrm5bFAgwRqWgM0Ch1Nw+UHR4UB+NkXOoPrHTVJKtAYCA="}
+12:52:29 [DEBUG] Placing an order: id=3343915605815158641746491691453321910312678067636078286619569662732403908659
+12:52:29 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:30 [INFO]  X10 Order: 1997635274382467072
+12:52:30 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='9a6c72c29779ad28094a111005f15d66c9f99724ebffe10a3722e2b30c0d2fa289d6ee150e8e6f1d' predicted_execution_time_ms=1765108338614 additional_properties={}
+12:52:30 [INFO] Lighter Order: 9a6c72c29779ad28094a111005f15d66c9f99724ebffe10a3722e2b30c0d2fa289d6ee150e8e6f1d
+12:52:30 [INFO] ✅ [PARALLEL] CRV-USD: Both legs filled in 312ms
+12:52:30 [DEBUG] 📝 Trade added to state: CRV-USD
+12:52:30 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:30 [INFO] ✅ OPENED CRV-USD: $500.00 | Entry Fees (est.): $0.1125
+12:52:30 [DEBUG] 📝 Flushed 1 writes
+12:52:30 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+12:52:30 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:31 [INFO] Lighter: Found 3 open positions
+12:52:31 [INFO] 📊 Positions: X10=2, Lighter=3
+12:52:31 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD']
+12:52:31 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'WLFI-USD']
+12:52:31 [DEBUG] Check WLFI-USD: Age=10.5s (Limit=14400s)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:31 [DEBUG] Check CRV-USD: Age=0.8s (Limit=14400s)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:31 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:31 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:31 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:31 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:31 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:31 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:31 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:31 [INFO] 💎 EDEN-USD | APY: 60.4%
+12:52:31 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-3.6566 < $0.02 (breakeven: 14.6h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-2.4811 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.2551 < $0.02 (breakeven: 14.3h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-2.0286 < $0.02 (breakeven: 12.1h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-2.2191 < $0.02 (breakeven: 8.7h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.5828 < $0.02 (breakeven: 35.0h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.7770 < $0.02 (breakeven: 7.1h, hold: 4.0h)
+12:52:31 [INFO] ✅ ONDO-USD: Expected profit $0.0314 in 4.0h (breakeven: 3.95h, APY: 116.5%)
+12:52:31 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.1128 < $0.02 (breakeven: 13.0h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.9812 < $0.02 (breakeven: 17.6h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-2.5081 < $0.02 (breakeven: 14.0h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:31 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:31 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.0128 < $0.02 (breakeven: 26.9h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:31 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-3.4391 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:31 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:31 [INFO] ✅ Found 1 opportunities from 64 valid pairs (farm_mode=True, scanned=70)
+12:52:31 [INFO] 🎯 Found 1 opportunities, executing best...
+12:52:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:31 [DEBUG] ✅ OP-USD: X10=$269,151, Lighter=$5,189,760, Total=$5,458,911
+12:52:32 [DEBUG] Using cached positions (age: 1.5s)
+12:52:32 [DEBUG] Check WLFI-USD: Age=11.5s (Limit=14400s)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:32 [DEBUG] Check CRV-USD: Age=1.8s (Limit=14400s)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:32 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:32 [DEBUG] Lighter Balance: Raw=$270.02, Safe=$256.52
+12:52:32 [INFO] X10: Detected balance = $255.53
+12:52:32 [DEBUG] Using cached positions (age: 1.9s)
+12:52:32 [WARNING] ⚠️ DESYNC: {'DOT-USD'} on exchanges but not in DB
+12:52:32 [INFO] 🚀 Launching 1 trades (Slots available: 2)
+12:52:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:33 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:33 [INFO] Lighter: Found 3 open positions
+12:52:33 [INFO] 💰 Balance: X10=$255.5 (free=$72.5), Lit=$256.5 (free=$73.5) | DB_Trades=2, Real_Positions=3, Locked=$180/ex
+12:52:33 [INFO] 🚀 Launching trade for ONDO-USD (APY=116.5%)
+12:52:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:33 [DEBUG] ✅ ZRO-USD: X10=$383,998, Lighter=$630,362, Total=$1,014,360
+12:52:33 [WARNING] ⏸️ Sync check: Still 2 active executions after timeout: {'WLFI-USD', 'CRV-USD'}
+12:52:33 [INFO] ⏳ Sync check: Skipping 2 symbols with active executions: {'WLFI-USD', 'CRV-USD'}
+12:52:33 [INFO] 🛡️ RECENTLY_OPENED protection active: ['WLFI-USD(13s)', 'CRV-USD(4s)']
+12:52:33 [DEBUG] 🔒 Skipping sync check for WLFI-USD (recently opened in DB, age=12.9s)
+12:52:33 [DEBUG] 🔒 Skipping sync check for CRV-USD (recently opened in DB, age=3.2s)
+12:52:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:33 [INFO] Lighter: Found 3 open positions
+12:52:33 [INFO] 📊 Positions: X10=2, Lighter=3
+12:52:33 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD']
+12:52:33 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'WLFI-USD']
+12:52:33 [DEBUG] Check WLFI-USD: Age=13.0s (Limit=14400s)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:33 [DEBUG] Check CRV-USD: Age=3.3s (Limit=14400s)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:33 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:33 [INFO] ✅ Launched 1 trade tasks this cycle
+12:52:33 [INFO] Lighter: Found 3 open positions
+12:52:33 [DEBUG] ✅ ONDO-USD verified: No existing positions on exchanges
+12:52:33 [DEBUG] 🧠 ONDO-USD: Prediction conf=0.50, delta=-0.000113
+12:52:33 [DEBUG] MIN_NOTIONAL ONDO-USD: min_base=10.00000000 coins, price=$0.4594, min_qty_usd=$4.59, min_notional_api=$10.00, final=$11.00
+12:52:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:34 [INFO] Lighter: Found 3 open positions
+12:52:34 [ERROR] 🚨 DESYNC DETECTED: Positions only on Lighter: ['DOT-USD']
+12:52:34 [ERROR] ⚠️ These are UNHEDGED and create directional risk!
+12:52:34 [WARNING] 🔻 Closing orphaned Lighter position: DOT-USD
+12:52:34 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=DOT-USD (type=<class 'str'>)
+12:52:34 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+12:52:34 [INFO] 🔍 DEBUG: notional_usd=498.05307999999997 (type=<class 'float'>)
+12:52:34 [INFO] 🎰 KELLY ONDO-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0325, confidence=LOW, samples=0
+12:52:34 [INFO] 📊 KELLY SIZE ONDO-USD: base=$500.0, kelly_recommended=$8.3, final=$500.0
+12:52:34 [DEBUG] 🔍 Checking liquidity for ONDO-USD SELL: Need $500.00 (Max Slip: 2.0%)
+12:52:34 [DEBUG] ✅ CRV-USD: X10 entry fee = 0.000225 (order: 1997635274382467072)
+12:52:34 [DEBUG] ✅ CRV-USD: Lighter entry fee = 0.000000 (order: 9a6c72c29779ad28094a111005f15d66c9f99724ebffe10a3722e2b30c0d2fa289d6ee150e8e6f1d)
+12:52:34 [INFO] 💰 CRV-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+12:52:34 [DEBUG] 📝 Flushed 1 writes
+12:52:34 [DEBUG] Using cached positions (age: 1.5s)
+12:52:34 [DEBUG] Check WLFI-USD: Age=14.0s (Limit=14400s)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:34 [DEBUG] Check CRV-USD: Age=4.3s (Limit=14400s)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:34 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:34 [DEBUG] 🔍 Orderbook for ONDO-USD: Bids=20, Asks=20
+12:52:34 [INFO] 🚀 Opening ONDO-USD: Size=$500.0 (Min=$11.0)
+12:52:34 [INFO] 🛡️ Registered ONDO-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+12:52:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+12:52:34 [INFO] Lighter: Found 3 open positions
+12:52:34 [INFO] 🔻 LIGHTER CLOSE DOT-USD: size=-238.000000 coins, side=BUY, price=$2.0927, notional=$498.05
+12:52:34 [INFO] 🚀 LIGHTER OPEN DOT-USD: side=BUY, size_usd=$498.05, price=$2.092660
+12:52:34 [DEBUG] 🔍 DEBUG: DOT-USD market_id = 11 (raw=11, type=<class 'int'>)
+12:52:34 [DEBUG] QUANTIZE DOT-USD: USD=498.05, coins=238.000000, raw=2380, lot_size=20, final=2380
+12:52:34 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":11,"ClientOrderIndex":1765108440348,"BaseAmount":2380,"Price":210522,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527554679,"ExpiredAt":1765108953679,"Nonce":5022,"Sig":"5+CZ/Nl43Dp83abEnk+VQvk+zbBU8Q+oDj8uyK+TpBvvzjXihPNqKk4p0wInu116BlK4DY0CztdIEWKEXtbY9yNP2VEkSWPSmraHATz+7j4="}
+12:52:34 [INFO] 🔄 [PARALLEL] ONDO-USD: Lighter POST-ONLY first
+12:52:34 [INFO] 🚀 LIGHTER OPEN ONDO-USD: side=SELL, size_usd=$500.00, price=$0.459420
+12:52:34 [DEBUG] 🔍 DEBUG: ONDO-USD market_id = 38 (raw=38, type=<class 'int'>)
+12:52:34 [DEBUG] QUANTIZE ONDO-USD: USD=500.00, coins=1088.328762, raw=10883, lot_size=100, final=10800
+12:52:34 [INFO] 🔄 [PARALLEL] ONDO-USD: X10 MARKET order
+12:52:34 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":38,"ClientOrderIndex":1765108380481,"BaseAmount":10800,"Price":45666,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767527554819,"ExpiredAt":1765108953819,"Nonce":5023,"Sig":"eBfoGUvoGGkGa7CY8EEuMAJ6U1tg5XQiwxJXT2QZ4UVhVZKZ617NDmM4uHmJFamoiKQQYMdgKMbhxqwRbhdVHZkWbjqdcV78hnEr9OANHw4="}
+12:52:34 [DEBUG] Placing an order: id=98542284751297251289615568135228150247630018807854746918947648560796413381
+12:52:34 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:34 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='49e1efdc164c3214739d56a24675adab23d2e3561197b43ce3d41f234b77aee0aedf310ad3b0d4a0' predicted_execution_time_ms=1765108343345 additional_properties={}
+12:52:34 [INFO] Lighter Order: 49e1efdc164c3214739d56a24675adab23d2e3561197b43ce3d41f234b77aee0aedf310ad3b0d4a0
+12:52:34 [INFO] ✅ Lighter close DOT-USD: Erfolgreich ($498.05)
+12:52:34 [INFO] ✅ Closed orphaned Lighter DOT-USD
+12:52:35 [DEBUG] ✅ AERO-USD: X10=$249,900, Lighter=$2,981,798, Total=$3,231,698
+12:52:35 [INFO]  X10 Order: 1997635294815580160
+12:52:35 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='ec3b65b60d35598e606cf49b5570ca27ffafd0dea98180cb13a87304fdff2ed7947f3cfb45ad6595' predicted_execution_time_ms=1765108343486 additional_properties={}
+12:52:35 [INFO] Lighter Order: ec3b65b60d35598e606cf49b5570ca27ffafd0dea98180cb13a87304fdff2ed7947f3cfb45ad6595
+12:52:35 [INFO] ✅ [PARALLEL] ONDO-USD: Both legs filled in 312ms
+12:52:35 [DEBUG] 📝 Trade added to state: ONDO-USD
+12:52:35 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:35 [INFO] ✅ OPENED ONDO-USD: $500.00 | Entry Fees (est.): $0.1125
+12:52:35 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:36 [INFO] Lighter: Found 4 open positions
+12:52:36 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:36 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:36 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:36 [DEBUG] Check WLFI-USD: Age=15.4s (Limit=14400s)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:36 [DEBUG] Check CRV-USD: Age=5.8s (Limit=14400s)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:36 [DEBUG] Check ONDO-USD: Age=0.9s (Limit=14400s)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:36 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:36 [DEBUG] 📝 Flushed 1 writes
+12:52:36 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+12:52:36 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:36 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:36 [DEBUG] ✅ EDEN-USD: X10=$165,519, Lighter=$5,628,075, Total=$5,793,593
+12:52:36 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:37 [DEBUG] Using cached positions (age: 1.5s)
+12:52:37 [DEBUG] Check WLFI-USD: Age=16.4s (Limit=14400s)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:37 [DEBUG] Check CRV-USD: Age=6.8s (Limit=14400s)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:37 [DEBUG] Check ONDO-USD: Age=1.9s (Limit=14400s)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:37 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:37 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:37 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:37 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:37 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-2.4811 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.2551 < $0.02 (breakeven: 14.3h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.8345 < $0.02 (breakeven: 11.3h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-1.1649 < $0.02 (breakeven: 6.5h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.5828 < $0.02 (breakeven: 35.0h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:37 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:37 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.0979 < $0.02 (breakeven: 12.9h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.9812 < $0.02 (breakeven: 17.6h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-2.5081 < $0.02 (breakeven: 14.0h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:37 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:37 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.0128 < $0.02 (breakeven: 26.9h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:37 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-3.4391 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:37 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:37 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:38 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:38 [INFO] Lighter: Found 4 open positions
+12:52:38 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:38 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:38 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:38 [DEBUG] Check WLFI-USD: Age=18.0s (Limit=14400s)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:38 [DEBUG] Check CRV-USD: Age=8.3s (Limit=14400s)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:38 [DEBUG] Check ONDO-USD: Age=3.4s (Limit=14400s)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:38 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:38 [DEBUG] ✅ ADA-USD: X10=$244,749, Lighter=$3,032,898, Total=$3,277,647
+12:52:39 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=2s ago, msgs=47)
+12:52:39 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=36859)
+12:52:39 [DEBUG] ✅ ONDO-USD: X10 entry fee = 0.000225 (order: 1997635294815580160)
+12:52:39 [DEBUG] ✅ ONDO-USD: Lighter entry fee = 0.000000 (order: ec3b65b60d35598e606cf49b5570ca27ffafd0dea98180cb13a87304fdff2ed7947f3cfb45ad6595)
+12:52:39 [INFO] 💰 ONDO-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+12:52:39 [DEBUG] 📝 Flushed 1 writes
+12:52:39 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=3s ago, msgs=27)
+12:52:39 [DEBUG] Using cached positions (age: 1.5s)
+12:52:39 [DEBUG] Check WLFI-USD: Age=19.0s (Limit=14400s)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:39 [DEBUG] Check CRV-USD: Age=9.3s (Limit=14400s)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:39 [DEBUG] Check ONDO-USD: Age=4.4s (Limit=14400s)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:39 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:40 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:40 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:40 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:40 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:40 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:40 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:40 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-2.4811 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.8345 < $0.02 (breakeven: 11.3h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.7256 < $0.02 (breakeven: 5.5h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.5828 < $0.02 (breakeven: 35.0h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:40 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:40 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.0979 < $0.02 (breakeven: 12.9h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.2320 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-2.5081 < $0.02 (breakeven: 14.0h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:40 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:40 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.0128 < $0.02 (breakeven: 26.9h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:40 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-3.4391 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:40 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:40 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:40 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:41 [INFO] Lighter: Found 4 open positions
+12:52:41 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:41 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:41 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:41 [DEBUG] Check WLFI-USD: Age=20.5s (Limit=14400s)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:41 [DEBUG] Check CRV-USD: Age=10.8s (Limit=14400s)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:41 [DEBUG] Check ONDO-USD: Age=5.9s (Limit=14400s)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:41 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:42 [DEBUG] Using cached positions (age: 1.5s)
+12:52:42 [DEBUG] Check WLFI-USD: Age=21.5s (Limit=14400s)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:42 [DEBUG] Check CRV-USD: Age=11.8s (Limit=14400s)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:42 [DEBUG] Check ONDO-USD: Age=6.9s (Limit=14400s)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:42 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:42 [DEBUG] ✅ GRASS-USD: X10=$167,581, Lighter=$1,256,784, Total=$1,424,366
+12:52:43 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:43 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:43 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:43 [INFO] Lighter: Found 4 open positions
+12:52:43 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:43 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:43 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:43 [DEBUG] Check WLFI-USD: Age=23.0s (Limit=14400s)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:43 [DEBUG] Check CRV-USD: Age=13.3s (Limit=14400s)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:43 [DEBUG] Check ONDO-USD: Age=8.4s (Limit=14400s)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:43 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:43 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:43 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:43 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:43 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:43 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.6404 < $0.02 (breakeven: 10.6h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.7256 < $0.02 (breakeven: 5.5h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-3.5239 < $0.02 (breakeven: 23.6h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:43 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:43 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.0979 < $0.02 (breakeven: 12.9h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.2320 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-3.0616 < $0.02 (breakeven: 16.2h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:43 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:43 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-5.0203 < $0.02 (breakeven: 32.7h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:43 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-3.4391 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:43 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:43 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:44 [DEBUG] ✅ APEX-USD: X10=$26,015, Lighter=$777,054, Total=$803,069
+12:52:44 [DEBUG] Using cached positions (age: 1.5s)
+12:52:44 [DEBUG] Check WLFI-USD: Age=24.0s (Limit=14400s)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:44 [DEBUG] Check CRV-USD: Age=14.3s (Limit=14400s)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:44 [DEBUG] Check ONDO-USD: Age=9.4s (Limit=14400s)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:44 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:45 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:45 [DEBUG] ✅ SEI-USD: X10=$231,043, Lighter=$7,119,221, Total=$7,350,264
+12:52:46 [INFO] Lighter: Found 4 open positions
+12:52:46 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:46 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:46 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:46 [DEBUG] Check WLFI-USD: Age=25.4s (Limit=14400s)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:46 [DEBUG] Check CRV-USD: Age=15.8s (Limit=14400s)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:46 [DEBUG] Check ONDO-USD: Age=10.9s (Limit=14400s)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:46 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:46 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:46 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:46 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:47 [DEBUG] Using cached positions (age: 1.5s)
+12:52:47 [DEBUG] Check WLFI-USD: Age=26.5s (Limit=14400s)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:47 [DEBUG] Check CRV-USD: Age=16.8s (Limit=14400s)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:47 [DEBUG] Check ONDO-USD: Age=11.9s (Limit=14400s)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:47 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:47 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:47 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:47 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:47 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.6404 < $0.02 (breakeven: 10.6h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-1.3845 < $0.02 (breakeven: 6.9h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-3.5239 < $0.02 (breakeven: 23.6h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:47 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:47 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-1.4723 < $0.02 (breakeven: 10.0h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.1128 < $0.02 (breakeven: 13.0h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.2320 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-4.8732 < $0.02 (breakeven: 23.5h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:47 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:47 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-5.4976 < $0.02 (breakeven: 35.4h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:47 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-3.4391 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:52:47 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:47 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:47 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.9s
+12:52:47 [DEBUG] 📊 Task health: 7 alive, 0 dead
+12:52:47 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$375,662, Total=$375,662
+12:52:48 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:48 [INFO] Lighter: Found 4 open positions
+12:52:48 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:48 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:48 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:48 [DEBUG] Check WLFI-USD: Age=27.9s (Limit=14400s)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:48 [DEBUG] Check CRV-USD: Age=18.3s (Limit=14400s)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:48 [DEBUG] Check ONDO-USD: Age=13.4s (Limit=14400s)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:48 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:49 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=48308)
+12:52:49 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s ago, msgs=75)
+12:52:49 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=13s ago, msgs=27)
+12:52:49 [DEBUG] Using cached positions (age: 1.5s)
+12:52:49 [DEBUG] Check WLFI-USD: Age=28.9s (Limit=14400s)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:49 [DEBUG] Check CRV-USD: Age=19.3s (Limit=14400s)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:49 [DEBUG] Check ONDO-USD: Age=14.4s (Limit=14400s)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:49 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:49 [DEBUG] ✅ SOL-USD: X10=$4,758,586, Lighter=$422,882, Total=$5,181,467
+12:52:50 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:50 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:50 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:50 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:50 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:50 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:50 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:50 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.6404 < $0.02 (breakeven: 10.6h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.6732 < $0.02 (breakeven: 5.4h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-3.5239 < $0.02 (breakeven: 23.6h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:50 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:50 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-1.4723 < $0.02 (breakeven: 10.0h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.9877 < $0.02 (breakeven: 16.7h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.2320 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-4.6216 < $0.02 (breakeven: 22.5h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:50 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:50 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.6491 < $0.02 (breakeven: 30.6h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip S-USD: Expected profit $-4.2208 < $0.02 (breakeven: 15.7h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:50 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.2535 < $0.02 (breakeven: 7.1h, hold: 4.0h)
+12:52:50 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:50 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:51 [INFO] Lighter: Found 4 open positions
+12:52:51 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:51 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:51 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:51 [DEBUG] Check WLFI-USD: Age=30.4s (Limit=14400s)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:51 [DEBUG] Check CRV-USD: Age=20.8s (Limit=14400s)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:51 [DEBUG] Check ONDO-USD: Age=15.9s (Limit=14400s)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:51 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:51 [INFO] 🛑 Initiating shutdown...
+12:52:51 [INFO] 🔒 SHUTDOWN: Closing all open trades...
+12:52:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:52 [DEBUG] Using cached positions (age: 1.5s)
+12:52:52 [DEBUG] Check WLFI-USD: Age=31.4s (Limit=14400s)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:52 [DEBUG] Check CRV-USD: Age=21.8s (Limit=14400s)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:52 [DEBUG] Check ONDO-USD: Age=16.9s (Limit=14400s)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:52 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:52 [INFO] Lighter: Found 4 open positions
+12:52:52 [INFO] 📊 SHUTDOWN: Found 3 X10 + 4 Lighter positions
+12:52:52 [INFO] 🔻 SHUTDOWN CLOSE X10: WLFI-USD (size=3380.000000)
+12:52:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:52 [INFO] 🔻 X10 CLOSE WLFI-USD: size=3380.000000, side=SELL
+12:52:52 [DEBUG] Placing an order: id=1653902308008322488140838691475498355256473184943730530073493498829938033207
+12:52:52 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:53 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:53 [DEBUG] ✅ JUP-USD: X10=$252,572, Lighter=$3,210,616, Total=$3,463,188
+12:52:53 [INFO] Lighter: Found 4 open positions
+12:52:53 [INFO] 📊 Positions: X10=3, Lighter=4
+12:52:53 [DEBUG] X10 positions: ['WLFI-USD', 'CRV-USD', 'ONDO-USD']
+12:52:53 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:53 [DEBUG] Check WLFI-USD: Age=33.0s (Limit=14400s)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:53 [DEBUG] Check CRV-USD: Age=23.3s (Limit=14400s)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:53 [DEBUG] Check ONDO-USD: Age=18.4s (Limit=14400s)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:53 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:53 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:53 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:53 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:53 [INFO]  X10 Order: 1997635372549623808
+12:52:53 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:53 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:53 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:53 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.6360 < $0.02 (breakeven: 10.5h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-2.1588 < $0.02 (breakeven: 11.4h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.6732 < $0.02 (breakeven: 5.4h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-3.5239 < $0.02 (breakeven: 23.6h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:53 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:53 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-1.4723 < $0.02 (breakeven: 10.0h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-2.9877 < $0.02 (breakeven: 16.7h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-2.2320 < $0.02 (breakeven: 14.1h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-5.0242 < $0.02 (breakeven: 24.1h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:53 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:53 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-4.1188 < $0.02 (breakeven: 27.5h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip S-USD: Expected profit $-3.1578 < $0.02 (breakeven: 12.8h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:53 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.2535 < $0.02 (breakeven: 7.1h, hold: 4.0h)
+12:52:53 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:53 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:54 [DEBUG] Using cached positions (age: 1.5s)
+12:52:54 [DEBUG] Check WLFI-USD: Age=34.0s (Limit=14400s)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:54 [DEBUG] Check CRV-USD: Age=24.3s (Limit=14400s)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:54 [DEBUG] Check ONDO-USD: Age=19.4s (Limit=14400s)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:54 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:55 [DEBUG] ✅ WLD-USD: X10=$147,844, Lighter=$2,062,067, Total=$2,209,911
+12:52:55 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:55 [INFO] ✅ SHUTDOWN: X10 WLFI-USD closed
+12:52:55 [INFO] 🔻 SHUTDOWN CLOSE X10: CRV-USD (size=1311.000000)
+12:52:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:56 [INFO] Lighter: Found 4 open positions
+12:52:56 [INFO] 📊 Positions: X10=2, Lighter=4
+12:52:56 [DEBUG] X10 positions: ['CRV-USD', 'ONDO-USD']
+12:52:56 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:56 [DEBUG] Check WLFI-USD: Age=35.4s (Limit=14400s)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:56 [DEBUG] Check CRV-USD: Age=25.8s (Limit=14400s)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:56 [DEBUG] Check ONDO-USD: Age=20.9s (Limit=14400s)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:56 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:56 [INFO] 🔻 X10 CLOSE CRV-USD: size=1311.000000, side=SELL
+12:52:56 [DEBUG] Placing an order: id=3027515602497702431506967290303037176608589034114306022492655392250566927032
+12:52:56 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:56 [ERROR] Error response from https://api.starknet.extended.exchange/api/v1/user/order: {"status":"ERROR","error":{"code":1138,"message":"Position is same side as reduce-only order"}}
+12:52:56 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:52:56 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:52:56 [DEBUG] ✅ ENA-USD: X10=$383,991, Lighter=$19,267,333, Total=$19,651,324
+12:52:57 [DEBUG] Using cached positions (age: 1.5s)
+12:52:57 [DEBUG] Check WLFI-USD: Age=36.5s (Limit=14400s)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:57 [DEBUG] Check CRV-USD: Age=26.8s (Limit=14400s)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:57 [DEBUG] Check ONDO-USD: Age=21.9s (Limit=14400s)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:57 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:57 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:52:57 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:52:57 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:52:57 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:52:57 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.6360 < $0.02 (breakeven: 10.5h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-1.5399 < $0.02 (breakeven: 9.3h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.6732 < $0.02 (breakeven: 5.4h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.9524 < $0.02 (breakeven: 37.1h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:52:57 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:52:57 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-1.4953 < $0.02 (breakeven: 10.1h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-3.2695 < $0.02 (breakeven: 17.9h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-4.2299 < $0.02 (breakeven: 23.2h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-5.0242 < $0.02 (breakeven: 24.1h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:52:57 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:52:57 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-3.6681 < $0.02 (breakeven: 25.0h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip S-USD: Expected profit $-3.1578 < $0.02 (breakeven: 12.8h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:52:57 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.2535 < $0.02 (breakeven: 7.1h, hold: 4.0h)
+12:52:57 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:52:57 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:52:58 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:52:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:58 [INFO] Lighter: Found 4 open positions
+12:52:58 [INFO] 📊 Positions: X10=2, Lighter=4
+12:52:58 [DEBUG] X10 positions: ['CRV-USD', 'ONDO-USD']
+12:52:58 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:52:58 [DEBUG] Check WLFI-USD: Age=38.0s (Limit=14400s)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:58 [DEBUG] Check CRV-USD: Age=28.3s (Limit=14400s)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:58 [DEBUG] Check ONDO-USD: Age=23.4s (Limit=14400s)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:58 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:58 [INFO] 🚜 Farm Mode ACTIVE
+12:52:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:52:58 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$464,436, Total=$464,436
+12:52:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:52:59 [INFO] 🔻 X10 CLOSE CRV-USD: size=1311.000000, side=SELL
+12:52:59 [DEBUG] Placing an order: id=667438782471843229740960217698476923512232749371385969991987219643545422060
+12:52:59 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:52:59 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=1s ago, msgs=86)
+12:52:59 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s ago, msgs=58223)
+12:52:59 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=5s ago, msgs=32)
+12:52:59 [ERROR] Error response from https://api.starknet.extended.exchange/api/v1/user/order: {"status":"ERROR","error":{"code":1138,"message":"Position is same side as reduce-only order"}}
+12:52:59 [DEBUG] Using cached positions (age: 1.5s)
+12:52:59 [DEBUG] Check WLFI-USD: Age=39.0s (Limit=14400s)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:59 [DEBUG] Check CRV-USD: Age=29.3s (Limit=14400s)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:59 [DEBUG] Check ONDO-USD: Age=24.4s (Limit=14400s)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:52:59 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:52:59 [DEBUG] Lighter Balance: Raw=$270.03, Safe=$256.53
+12:52:59 [INFO] 🚜 Opening FARM: EDEN-USD APY=60.4%
+12:52:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:00 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:53:00 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:53:00 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:53:00 [INFO] Lighter: Found 4 open positions
+12:53:00 [DEBUG] ✅ EDEN-USD verified: No existing positions on exchanges
+12:53:00 [DEBUG] 🧠 EDEN-USD: Prediction conf=0.50, delta=-0.000059
+12:53:00 [DEBUG] MIN_NOTIONAL EDEN-USD: min_base=15.00000000 coins, price=$0.0761, min_qty_usd=$1.14, min_notional_api=$10.00, final=$11.00
+12:53:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:53:00 [DEBUG] ✅ 1000BONK-USD: X10=$72,153, Lighter=$69,615,111, Total=$69,687,264
+12:53:00 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:00 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:53:00 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:53:00 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:53:00 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-1.3574 < $0.02 (breakeven: 7.9h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.9272 < $0.02 (breakeven: 11.7h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-1.5399 < $0.02 (breakeven: 9.3h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.6732 < $0.02 (breakeven: 5.4h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.9524 < $0.02 (breakeven: 37.1h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:53:00 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:53:00 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-3.2843 < $0.02 (breakeven: 18.0h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-4.2299 < $0.02 (breakeven: 23.2h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-6.1293 < $0.02 (breakeven: 28.5h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:53:00 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:53:00 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-3.8802 < $0.02 (breakeven: 26.2h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip S-USD: Expected profit $-3.1578 < $0.02 (breakeven: 12.8h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:53:00 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.2535 < $0.02 (breakeven: 7.1h, hold: 4.0h)
+12:53:00 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:53:00 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=True, scanned=70)
+12:53:00 [INFO] 🎰 KELLY EDEN-USD: win_rate=60.0%, kelly_fraction=0.2000, safe_fraction=0.0300, confidence=LOW, samples=0
+12:53:00 [INFO] 📊 KELLY SIZE EDEN-USD: base=$500.0, kelly_recommended=$7.7, final=$500.0
+12:53:00 [DEBUG] 🔍 Checking liquidity for EDEN-USD SELL: Need $500.00 (Max Slip: 2.0%)
+12:53:01 [INFO] Lighter: Found 4 open positions
+12:53:01 [DEBUG] 🔍 Orderbook for EDEN-USD: Bids=20, Asks=20
+12:53:01 [INFO] 🚀 Opening EDEN-USD: Size=$500.0 (Min=$11.0)
+12:53:01 [INFO] 🛡️ Registered EDEN-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+12:53:01 [INFO] 📊 Positions: X10=2, Lighter=4
+12:53:01 [DEBUG] X10 positions: ['CRV-USD', 'ONDO-USD']
+12:53:01 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:01 [DEBUG] Check WLFI-USD: Age=40.5s (Limit=14400s)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:01 [DEBUG] Check CRV-USD: Age=30.8s (Limit=14400s)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:01 [DEBUG] Check ONDO-USD: Age=25.9s (Limit=14400s)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:01 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+12:53:01 [INFO] 🔄 [PARALLEL] EDEN-USD: Lighter POST-ONLY first
+12:53:01 [INFO] 🚀 LIGHTER OPEN EDEN-USD: side=SELL, size_usd=$500.00, price=$0.076100
+12:53:01 [DEBUG] 🔍 DEBUG: EDEN-USD market_id = 89 (raw=89, type=<class 'int'>)
+12:53:01 [DEBUG] QUANTIZE EDEN-USD: USD=500.00, coins=6570.302234, raw=65703, lot_size=150, final=65700
+12:53:01 [INFO] 🔄 [PARALLEL] EDEN-USD: X10 MARKET order
+12:53:01 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":89,"ClientOrderIndex":1765108411623,"BaseAmount":65700,"Price":7564,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767527581335,"ExpiredAt":1765108980335,"Nonce":5024,"Sig":"FxWnzGQdVV/+0ce/a7YIj4Y41cplHBOvDJeh55FIebG72pT2v3hnG/I2azUeInEa2U4GPWC6NeublJesLpB2uILNDlr1caBcxAhacI1G6nU="}
+12:53:01 [DEBUG] Placing an order: id=2553193174357662242314091224291647235749539593980608190157175810051922026221
+12:53:01 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:53:01 [ERROR] Lighter Order Error: HTTP response body: code=21739 message='not enough margin to create the order' additional_properties={}
+12:53:01 [INFO]  X10 Order: 1997635406100033536
+12:53:01 [ERROR] 🔄 [ROLLBACK] EDEN-USD: Lighter failed, queueing X10 rollback
+12:53:01 [INFO] 📤 [ROLLBACK] EDEN-USD: Queued for background processing
+12:53:01 [WARNING] Circuit Breaker: Trade failed for EDEN-USD. Consecutive failures: 1/5
+12:53:01 [DEBUG] 🧹 Cleaned task: EDEN-USD
+12:53:01 [INFO] 🔄 [ROLLBACK] Processing EDEN-USD...
+12:53:02 [DEBUG] Using cached positions (age: 1.5s)
+12:53:02 [DEBUG] Check WLFI-USD: Age=41.5s (Limit=14400s)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:02 [DEBUG] Check CRV-USD: Age=31.8s (Limit=14400s)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:02 [DEBUG] Check ONDO-USD: Age=27.0s (Limit=14400s)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:02 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:02 [INFO] 🔻 X10 CLOSE CRV-USD: size=1311.000000, side=SELL
+12:53:02 [DEBUG] Placing an order: id=3205370045855787705734653418244908130670500510776087445193360735840110120795
+12:53:02 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:53:03 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:03 [ERROR] Error response from https://api.starknet.extended.exchange/api/v1/user/order: {"status":"ERROR","error":{"code":1138,"message":"Position is same side as reduce-only order"}}
+12:53:03 [INFO] Lighter: Found 4 open positions
+12:53:03 [INFO] 📊 Positions: X10=3, Lighter=4
+12:53:03 [DEBUG] X10 positions: ['EDEN-USD', 'CRV-USD', 'ONDO-USD']
+12:53:03 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:03 [DEBUG] Check WLFI-USD: Age=43.0s (Limit=14400s)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:03 [DEBUG] Check CRV-USD: Age=33.3s (Limit=14400s)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:03 [DEBUG] Check ONDO-USD: Age=28.4s (Limit=14400s)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:03 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:03 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:53:03 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:53:03 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:53:04 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+12:53:04 [DEBUG] 🔄 Skip CRV-USD: Already open (in open_syms)
+12:53:04 [DEBUG] 🔄 Skip WLFI-USD: Already open (in open_syms)
+12:53:04 [DEBUG] ⏰ Skip EDEN-USD: Failed cooldown
+12:53:04 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-1.3352 < $0.02 (breakeven: 9.4h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-2.7126 < $0.02 (breakeven: 16.3h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-1.9272 < $0.02 (breakeven: 11.7h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-1.5399 < $0.02 (breakeven: 9.3h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.6732 < $0.02 (breakeven: 5.4h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-5.9524 < $0.02 (breakeven: 37.1h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-1.8282 < $0.02 (breakeven: 7.2h, hold: 4.0h)
+12:53:04 [DEBUG] 🔄 Skip ONDO-USD: Already open (in open_syms)
+12:53:04 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-2.0655 < $0.02 (breakeven: 12.4h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-3.2843 < $0.02 (breakeven: 18.0h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip POPCAT-USD: Expected profit $-4.2299 < $0.02 (breakeven: 23.2h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-6.7821 < $0.02 (breakeven: 31.1h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+12:53:04 [DEBUG] Skip MEGA-USD: Spread 1.82% too high
+12:53:04 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-3.7211 < $0.02 (breakeven: 25.3h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip S-USD: Expected profit $-3.1578 < $0.02 (breakeven: 12.8h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip XAG-USD: TradFi/FX
+12:53:04 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-1.8780 < $0.02 (breakeven: 8.6h, hold: 4.0h)
+12:53:04 [DEBUG] ⛔ Skip XAU-USD: TradFi/FX
+12:53:04 [INFO] ✅ Found 0 opportunities from 62 valid pairs (farm_mode=True, scanned=70)
+12:53:04 [DEBUG] ✅ AVAX-USD: X10=$681,810, Lighter=$275,313, Total=$957,123
+12:53:04 [DEBUG] Using cached positions (age: 1.5s)
+12:53:04 [DEBUG] Check WLFI-USD: Age=44.0s (Limit=14400s)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:04 [DEBUG] Check CRV-USD: Age=34.3s (Limit=14400s)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:04 [DEBUG] Check ONDO-USD: Age=29.4s (Limit=14400s)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:04 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:04 [INFO] → X10 Rollback EDEN-USD: size=6520.000000, side=BUY
+12:53:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:04 [DEBUG] 📊 OI→Pred UNI-USD: OI=$537,915, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred KAITO-USD: OI=$2,686,479, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred ETH-USD: OI=$14,566,190, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred AVNT-USD: OI=$2,285,808, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred LDO-USD: OI=$2,146,313, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred MON-USD: OI=$230,136,213, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred CRV-USD: OI=$2,184,130, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred APT-USD: OI=$2,023,148, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred WIF-USD: OI=$2,213,866, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred WLFI-USD: OI=$26,015,555, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred OP-USD: OI=$5,458,911, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred ZRO-USD: OI=$1,014,360, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred AERO-USD: OI=$3,231,698, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred EDEN-USD: OI=$5,793,593, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred ADA-USD: OI=$3,277,647, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred GRASS-USD: OI=$1,424,366, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred APEX-USD: OI=$803,069, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred SEI-USD: OI=$7,350,264, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred FIL-USD: OI=$375,662, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred SOL-USD: OI=$5,181,467, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred JUP-USD: OI=$3,463,188, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred WLD-USD: OI=$2,209,911, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred ENA-USD: OI=$19,651,324, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred DOT-USD: OI=$464,436, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred 1000BONK-USD: OI=$69,687,264, Velocity=0.00, Trend=STABLE
+12:53:04 [DEBUG] 📊 OI→Pred AVAX-USD: OI=$957,123, Velocity=0.00, Trend=STABLE
+12:53:05 [INFO] 🔻 X10 CLOSE EDEN-USD: size=6520.000000, side=SELL
+12:53:05 [DEBUG] Placing an order: id=2993043640572847356181746041155639966443009401388969439112096877811720967331
+12:53:05 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:53:05 [INFO]  X10 Order: 1997635422285975552
+12:53:05 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:06 [INFO] Lighter: Found 4 open positions
+12:53:06 [INFO] 📊 Positions: X10=2, Lighter=4
+12:53:06 [DEBUG] X10 positions: ['CRV-USD', 'ONDO-USD']
+12:53:06 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:06 [DEBUG] Check WLFI-USD: Age=45.5s (Limit=14400s)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:06 [DEBUG] Check CRV-USD: Age=35.8s (Limit=14400s)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:06 [DEBUG] Check ONDO-USD: Age=30.9s (Limit=14400s)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:06 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:06 [DEBUG] ✅ STRK-USD: X10=$361,430, Lighter=$5,900,563, Total=$6,261,993
+12:53:07 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:53:07 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:53:07 [DEBUG] Using cached positions (age: 1.5s)
+12:53:07 [DEBUG] Check WLFI-USD: Age=46.5s (Limit=14400s)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:07 [DEBUG] Check CRV-USD: Age=36.8s (Limit=14400s)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:07 [DEBUG] Check ONDO-USD: Age=31.9s (Limit=14400s)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:07 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:07 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:07 [WARNING] ⚠️ LDO-USD: Predicted rate 0.933742 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ AVNT-USD: Predicted rate -0.933939 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ EDEN-USD: Predicted rate 0.933665 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ EDEN-USD: Delta 0.005035 indicates calculation error, capping
+12:53:07 [WARNING] ⚠️ SEI-USD: Predicted rate -0.933813 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ ENA-USD: Predicted rate -0.933920 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ 1000BONK-USD: Predicted rate -0.933816 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ 1000BONK-USD: Delta -0.005009 indicates calculation error, capping
+12:53:07 [WARNING] ⚠️ AVAX-USD: Predicted rate -0.933853 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ TIA-USD: Predicted rate -1.867724 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ XRP-USD: Predicted rate 0.933787 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ XRP-USD: Delta 0.005013 indicates calculation error, capping
+12:53:07 [WARNING] ⚠️ TAO-USD: Predicted rate -0.933834 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ ZORA-USD: Predicted rate 0.933740 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ ZORA-USD: Delta 0.005019 indicates calculation error, capping
+12:53:07 [WARNING] ⚠️ RESOLV-USD: Predicted rate -2.801556 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ XPL-USD: Predicted rate -1.867631 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ 1000SHIB-USD: Predicted rate -1.867584 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ ARB-USD: Predicted rate 4.004599 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ ARB-USD: Delta 0.005010 indicates calculation error, capping
+12:53:07 [WARNING] ⚠️ MEGA-USD: Predicted rate -6.006739 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ TRUMP-USD: Predicted rate -2.002898 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ MNT-USD: Predicted rate -2.002897 clamped to 0.005000
+12:53:07 [WARNING] ⚠️ MNT-USD: Delta -0.005001 indicates calculation error, capping
+12:53:07 [INFO] 🧠 Prediction V2: Found 8 ML-ranked opportunities
+12:53:07 [INFO] ✅ Returning 8 ML-ranked opportunities
+12:53:07 [INFO] 🎯 Found 5 opportunities, executing best...
+12:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:53:07 [WARNING] ⚠️ SHUTDOWN: X10 CRV-USD close failed
+12:53:07 [INFO] 🔻 SHUTDOWN CLOSE X10: ONDO-USD (size=1081.000000)
+12:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:07 [INFO] ✓ X10 rollback EDEN-USD: Success (6520.000000 coins)
+12:53:07 [INFO] ✅ [ROLLBACK] EDEN-USD: Complete (attempt 1)
+12:53:07 [DEBUG] ✅ TIA-USD: X10=$306,314, Lighter=$2,030,158, Total=$2,336,472
+12:53:08 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:08 [INFO] Lighter: Found 4 open positions
+12:53:08 [INFO] 📊 Positions: X10=2, Lighter=4
+12:53:08 [DEBUG] X10 positions: ['CRV-USD', 'ONDO-USD']
+12:53:08 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:08 [DEBUG] Check WLFI-USD: Age=48.0s (Limit=14400s)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:08 [DEBUG] Check CRV-USD: Age=38.3s (Limit=14400s)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:08 [DEBUG] Check ONDO-USD: Age=33.4s (Limit=14400s)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:08 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:08 [DEBUG] Lighter Balance: Raw=$270.14, Safe=$256.64
+12:53:08 [INFO] X10: Detected balance = $255.18
+12:53:08 [DEBUG] Using cached positions (age: 0.5s)
+12:53:08 [WARNING] ⚠️ DESYNC: {'DOT-USD'} on exchanges but not in DB
+12:53:08 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+12:53:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:08 [INFO] 🔻 X10 CLOSE ONDO-USD: size=1081.000000, side=SELL
+12:53:08 [DEBUG] Placing an order: id=1665818815589059608260142199641178418094534390485986674551032505888300395816
+12:53:08 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+12:53:09 [INFO]  X10 Order: 1997635436898525184
+12:53:09 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=0s ago, msgs=118)
+12:53:09 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s ago, msgs=68519)
+12:53:09 [DEBUG] [lighter] Responded to JSON ping with pong
+12:53:09 [INFO] Lighter: Found 4 open positions
+12:53:09 [INFO] 💰 Balance: X10=$255.2 (free=$12.2), Lit=$256.6 (free=$13.6) | DB_Trades=3, Real_Positions=4, Locked=$240/ex
+12:53:09 [DEBUG] Skip MEGA-USD: Insufficient balance (X10=$12.2, Lit=$13.6, Need=$52.5)
+12:53:09 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=5s ago, msgs=91)
+12:53:09 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=0s ago, msgs=47)
+12:53:09 [DEBUG] Using cached positions (age: 1.5s)
+12:53:09 [DEBUG] Check WLFI-USD: Age=49.0s (Limit=14400s)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:09 [DEBUG] Check CRV-USD: Age=39.3s (Limit=14400s)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:09 [DEBUG] Check ONDO-USD: Age=34.4s (Limit=14400s)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:09 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:09 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+12:53:10 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:11 [INFO] Lighter: Found 4 open positions
+12:53:11 [INFO] 📊 Positions: X10=1, Lighter=4
+12:53:11 [DEBUG] X10 positions: ['CRV-USD']
+12:53:11 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:11 [DEBUG] Check WLFI-USD: Age=50.5s (Limit=14400s)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:11 [DEBUG] Check CRV-USD: Age=40.8s (Limit=14400s)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $-0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+12:53:11 [DEBUG] Check ONDO-USD: Age=35.9s (Limit=14400s)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:11 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:11 [INFO] ✅ SHUTDOWN: X10 ONDO-USD closed
+12:53:11 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: DOT-USD (size=-238.000000)
+12:53:11 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=DOT-USD (type=<class 'str'>)
+12:53:11 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+12:53:11 [INFO] 🔍 DEBUG: notional_usd=498.05069999999995 (type=<class 'float'>)
+12:53:11 [DEBUG] ✅ XRP-USD: X10=$685,082, Lighter=$4,767,414, Total=$5,452,496
+12:53:11 [INFO] Lighter: Found 4 open positions
+12:53:11 [INFO] 🔻 LIGHTER CLOSE DOT-USD: size=-238.000000 coins, side=BUY, price=$2.0926, notional=$498.05
+12:53:11 [INFO] 🚀 LIGHTER OPEN DOT-USD: side=BUY, size_usd=$498.05, price=$2.092650
+12:53:11 [DEBUG] 🔍 DEBUG: DOT-USD market_id = 11 (raw=11, type=<class 'int'>)
+12:53:11 [DEBUG] QUANTIZE DOT-USD: USD=498.05, coins=238.000000, raw=2380, lot_size=20, final=2380
+12:53:11 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":11,"ClientOrderIndex":1765108437809,"BaseAmount":2380,"Price":210521,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527591805,"ExpiredAt":1765108990805,"Nonce":5024,"Sig":"DnUGMrYWSpIvzuwsYbTNQ+5V2PeiaK/biAR5TeFODpAECBl5PBUAAUPThlFas8VFrZY75IJUG6uIjTU3a8qYC56sey3mzofSH5FOk+tvAl0="}
+12:53:12 [DEBUG] Using cached positions (age: 1.5s)
+12:53:12 [DEBUG] Check WLFI-USD: Age=51.5s (Limit=14400s)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:12 [DEBUG] Check CRV-USD: Age=41.8s (Limit=14400s)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $-0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+12:53:12 [DEBUG] Check ONDO-USD: Age=36.9s (Limit=14400s)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:12 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:12 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='857f58f0411c2b3eb7abe8e50d8a79fe139366791484669b8bf5dd3de716e4b9032f5367aa5626a0' predicted_execution_time_ms=1765108380479 additional_properties={}
+12:53:12 [INFO] Lighter Order: 857f58f0411c2b3eb7abe8e50d8a79fe139366791484669b8bf5dd3de716e4b9032f5367aa5626a0
+12:53:12 [INFO] ✅ Lighter close DOT-USD: Erfolgreich ($498.05)
+12:53:12 [INFO] ✅ SHUTDOWN: Lighter DOT-USD closed
+12:53:12 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: CRV-USD (size=-1300.000000)
+12:53:12 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=CRV-USD (type=<class 'str'>)
+12:53:12 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+12:53:12 [INFO] 🔍 DEBUG: notional_usd=499.07000000000005 (type=<class 'float'>)
+12:53:12 [DEBUG] Price cache status: X10=82/70, Lighter=115/70
+12:53:12 [DEBUG] 🔍 Scanning 70 pairs. Lighter markets: 119, X10 markets: 91
+12:53:12 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+12:53:12 [INFO] Lighter: Found 4 open positions
+12:53:12 [INFO] 🔻 LIGHTER CLOSE CRV-USD: size=-1300.000000 coins, side=BUY, price=$0.3839, notional=$499.07
+12:53:12 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=BUY, size_usd=$499.07, price=$0.383900
+12:53:12 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+12:53:12 [DEBUG] QUANTIZE CRV-USD: USD=499.07, coins=1300.000000, raw=13000, lot_size=200, final=13000
+12:53:12 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1765108491299,"BaseAmount":13000,"Price":38621,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527592630,"ExpiredAt":1765108991630,"Nonce":5025,"Sig":"VP4dp/ORzhC4iI3zNou844HO/cukqEOxMz4cA91TjZiaT+AAsKEQAvTgePcF/JsQHVEoQVYAq/zw/lTrgPnw2fUZ1FbGeLsRYBJ7uQJzZAQ="}
+12:53:12 [WARNING] ⚠️ ARB-USD: Predicted rate -0.214747 clamped to 0.005000
+12:53:12 [WARNING] ⚠️ MEGA-USD: Predicted rate 0.322281 clamped to 0.005000
+12:53:12 [WARNING] ⚠️ MEGA-USD: Delta 0.005250 indicates calculation error, capping
+12:53:12 [WARNING] ⚠️ TRUMP-USD: Predicted rate 0.107407 clamped to 0.005000
+12:53:12 [WARNING] ⚠️ TRUMP-USD: Delta 0.005040 indicates calculation error, capping
+12:53:12 [WARNING] ⚠️ MNT-USD: Predicted rate 0.107408 clamped to 0.005000
+12:53:12 [INFO] 🧠 Prediction V2: Found 7 ML-ranked opportunities
+12:53:12 [INFO] ✅ Returning 7 ML-ranked opportunities
+12:53:12 [INFO] 🎯 Found 5 opportunities, executing best...
+12:53:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+12:53:12 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='8f034fb2cd93d6fff479bd2f1c11c70bca4b8b1561962229a4a446f789df3b25d802b2a6f213fb9e' predicted_execution_time_ms=1765108381304 additional_properties={}
+12:53:12 [INFO] Lighter Order: 8f034fb2cd93d6fff479bd2f1c11c70bca4b8b1561962229a4a446f789df3b25d802b2a6f213fb9e
+12:53:12 [INFO] ✅ Lighter close CRV-USD: Erfolgreich ($499.07)
+12:53:12 [INFO] ✅ SHUTDOWN: Lighter CRV-USD closed
+12:53:12 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: ONDO-USD (size=-1080.000000)
+12:53:12 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ONDO-USD (type=<class 'str'>)
+12:53:12 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+12:53:12 [INFO] 🔍 DEBUG: notional_usd=496.45439999999996 (type=<class 'float'>)
+12:53:13 [DEBUG] Fetching fresh positions (force=False, cache_age=2.5s)
+12:53:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:13 [INFO] Lighter: Found 4 open positions
+12:53:13 [INFO] 🔻 LIGHTER CLOSE ONDO-USD: size=-1080.000000 coins, side=BUY, price=$0.4597, notional=$496.45
+12:53:13 [INFO] 🚀 LIGHTER OPEN ONDO-USD: side=BUY, size_usd=$496.45, price=$0.459680
+12:53:13 [DEBUG] 🔍 DEBUG: ONDO-USD market_id = 38 (raw=38, type=<class 'int'>)
+12:53:13 [DEBUG] QUANTIZE ONDO-USD: USD=496.45, coins=1080.000000, raw=10800, lot_size=100, final=10800
+12:53:13 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":38,"ClientOrderIndex":1765108461323,"BaseAmount":10800,"Price":46244,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527593490,"ExpiredAt":1765108992490,"Nonce":5026,"Sig":"eBS78fkBvRi/0V8bQ1malHovHTjjfnsrRPATkvlr38ahcTdBoYxrUmhBTIWavUXBMS8YgR5t9auCxdUQ9xcFillK6joa395UsBYwvYrddRk="}
+12:53:13 [INFO] Lighter: Found 4 open positions
+12:53:13 [INFO] 📊 Positions: X10=1, Lighter=4
+12:53:13 [DEBUG] X10 positions: ['CRV-USD']
+12:53:13 [DEBUG] Lighter positions: ['DOT-USD', 'CRV-USD', 'ONDO-USD', 'WLFI-USD']
+12:53:13 [DEBUG] Check WLFI-USD: Age=53.1s (Limit=14400s)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:13 [DEBUG] Check CRV-USD: Age=43.4s (Limit=14400s)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $-0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+12:53:13 [DEBUG] Check ONDO-USD: Age=38.5s (Limit=14400s)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:13 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:13 [DEBUG] Lighter Balance: Raw=$269.87, Safe=$256.38
+12:53:13 [INFO] X10: Detected balance = $254.59
+12:53:13 [DEBUG] Using cached positions (age: 0.7s)
+12:53:13 [WARNING] ⚠️ DESYNC: {'DOT-USD'} on exchanges but not in DB
+12:53:13 [INFO] 🚀 Launching 1 trades (Slots available: 1)
+12:53:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:13 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='cb8a4a6531b8e54871706a29bef93adb85b4360d3e35194e170660747ab4ad3af4a4e4e001beb40d' predicted_execution_time_ms=1765108382162 additional_properties={}
+12:53:13 [INFO] Lighter Order: cb8a4a6531b8e54871706a29bef93adb85b4360d3e35194e170660747ab4ad3af4a4e4e001beb40d
+12:53:13 [INFO] ✅ Lighter close ONDO-USD: Erfolgreich ($496.45)
+12:53:13 [INFO] ✅ SHUTDOWN: Lighter ONDO-USD closed
+12:53:13 [INFO] 🔻 SHUTDOWN CLOSE LIGHTER: WLFI-USD (size=-3400.000000)
+12:53:13 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=WLFI-USD (type=<class 'str'>)
+12:53:13 [INFO] 🔍 DEBUG: original_side=BUY (type=<class 'str'>)
+12:53:13 [INFO] 🔍 DEBUG: notional_usd=499.426 (type=<class 'float'>)
+12:53:14 [INFO] Lighter: Found 3 open positions
+12:53:14 [INFO] 🔻 LIGHTER CLOSE WLFI-USD: size=-3400.000000 coins, side=BUY, price=$0.1469, notional=$499.43
+12:53:14 [INFO] 🚀 LIGHTER OPEN WLFI-USD: side=BUY, size_usd=$499.43, price=$0.146890
+12:53:14 [DEBUG] 🔍 DEBUG: WLFI-USD market_id = 72 (raw=72, type=<class 'int'>)
+12:53:14 [DEBUG] QUANTIZE WLFI-USD: USD=499.43, coins=3400.000000, raw=34000, lot_size=250, final=34000
+12:53:14 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":72,"ClientOrderIndex":1765108431973,"BaseAmount":34000,"Price":14778,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767527594321,"ExpiredAt":1765108993321,"Nonce":5027,"Sig":"+SYgN5YXdgszWNgHBAAofLuO8XAwp7gThGjd5UOqU5Cf2nHzWMY/S9c9Azo3umE5Wzf8ZN65CGznbsu6Irh9X2dphbsYHIcNmqG6wg3d7QQ="}
+12:53:14 [INFO] Lighter: Found 3 open positions
+12:53:14 [INFO] 💰 Balance: X10=$254.6 (free=$71.6), Lit=$256.4 (free=$73.4) | DB_Trades=3, Real_Positions=3, Locked=$180/ex
+12:53:14 [INFO] 🚀 Launching trade for DOT-USD (APY=54.3%)
+12:53:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+12:53:14 [DEBUG] Using cached positions (age: 1.5s)
+12:53:14 [DEBUG] Check WLFI-USD: Age=54.0s (Limit=14400s)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] 💎 [HODL] WLFI-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:14 [DEBUG] Check CRV-USD: Age=44.4s (Limit=14400s)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] 💎 [HODL] CRV-USD: Net PnL $-0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+12:53:14 [DEBUG] Check ONDO-USD: Age=39.5s (Limit=14400s)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] FeeManager: Using X10 schedule fee: 0.000225 (maker=False, source=config)
+12:53:14 [DEBUG] 💎 [HODL] ONDO-USD: Net PnL $0.0000 < $0.02 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+12:53:14 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='da02916655d5fdf357de297d07a627d5c4596d486a3dee497eb1d3438e240c38481abf20d6cf831d' predicted_execution_time_ms=1765108382992 additional_properties={}
+12:53:14 [INFO] Lighter Order: da02916655d5fdf357de297d07a627d5c4596d486a3dee497eb1d3438e240c38481abf20d6cf831d
+12:53:14 [INFO] ✅ Lighter close WLFI-USD: Erfolgreich ($499.43)
+12:53:14 [INFO] ✅ SHUTDOWN: Lighter WLFI-USD closed
+12:53:14 [INFO] 🔒 SHUTDOWN COMPLETE: 6 closed, 1 failed
+12:53:14 [DEBUG] 📝 SHUTDOWN: Marked WLFI-USD as closed in state
+12:53:14 [DEBUG] 📝 SHUTDOWN: Marked DOT-USD as closed in state
+12:53:14 [DEBUG] 📝 SHUTDOWN: Marked ONDO-USD as closed in state
+12:53:14 [DEBUG] 📝 SHUTDOWN: Marked CRV-USD as closed in state
+12:53:14 [DEBUG] Cancelled task: maintenance_loop
+12:53:14 [DEBUG] Cancelled task: cleanup_finished_tasks
+12:53:14 [DEBUG] Cancelled task: health_reporter
+12:53:14 [DEBUG] Cancelled task: farm_loop
+12:53:14 [DEBUG] Cancelled task: logic_loop
+12:53:14 [DEBUG] Cancelled task: trade_management_loop
+12:53:14 [DEBUG] Cancelled task: connection_watchdog
+12:53:14 [INFO] Logic loop cancelled
+12:53:14 [INFO] Connection watchdog cancelled
+12:53:14 [DEBUG] 📝 Flushed 1 writes
+12:53:14 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+12:53:15 [INFO] Lighter: Found 2 open positions
+12:53:15 [WARNING] ⚠️ DOT-USD already open on Lighter - SKIP to prevent duplicate!
+12:53:15 [DEBUG] ✅ ZEC-USD: X10=$1,081,423, Lighter=$23,730, Total=$1,105,153
+12:53:15 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+12:53:16 [DEBUG] 📝 Flushed 2 writes
+12:53:16 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+12:53:17 [DEBUG] ✅ TRX-USD: X10=$444,062, Lighter=$6,505,912, Total=$6,949,974
+12:53:17 [INFO] 🔌 [x10_trades] WebSocket stopped
+12:53:18 [DEBUG] ✅ TAO-USD: X10=$295,564, Lighter=$7,298, Total=$302,862
+12:53:19 [ERROR] WebSocket stop error: 
+12:53:19 [INFO] ✅ ParallelExecutionManager: Stopped
+12:53:19 [INFO] 🛑 Stopping InMemoryStateManager...
+12:53:19 [INFO] 📝 State writer loop stopped
+12:53:19 [INFO] ✅ InMemoryStateManager stopped
+12:53:19 [INFO] ✅ Shutdown complete
+12:53:19 [INFO] 🛑 Shutting down...
+12:53:19 [INFO] 🛑 Shutdown requested...
+12:53:19 [INFO] 🛑 Stopping Dashboard API...
+12:53:19 [INFO] ✅ ParallelExecutionManager: Stopped
+12:53:19 [INFO] 🔌 [x10_trades] WebSocket stopped
+12:53:19 [INFO] 🔌 [lighter] WebSocket stopped
+12:53:19 [INFO] 🔌 [x10_account] WebSocket stopped
+12:53:19 [INFO] 🔌 [x10_funding] WebSocket stopped
+12:53:19 [INFO] ✅ WebSocketManager stopped
+12:53:19 [INFO] ✅ OpenInterestTracker stopped
+12:53:19 [INFO] 🛑 Funding tracker: Cancelled
+12:53:19 [INFO] ✅ Funding Tracker stopped
+12:53:19 [INFO] ✅ FundingTracker stopped
+12:53:19 [INFO] 🛑 Stopping InMemoryStateManager...
+12:53:19 [INFO] ✅ InMemoryStateManager stopped
+12:53:19 [INFO] 🔒 Closing database...
+12:53:19 [INFO] 🖊️ Database write loop stopped
+12:53:19 [INFO] ✅ Database closed
+12:53:19 [INFO] 🛑 FeeManager stopped
+12:53:19 [INFO] ✅ X10 Adapter geschlossen.
+12:53:19 [INFO] ✅ Lighter Adapter closed
+12:53:19 [INFO] ✅ Bot V5 shutdown complete

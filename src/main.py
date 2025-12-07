@@ -51,6 +51,7 @@ from src.database import (
     get_execution_repository,
     close_database
 )
+from src.funding_tracker import create_funding_tracker
 
 # --- Noise Reduction: limit verbose subsystem logs BEFORE setup_logging ---
 logging.getLogger("websockets").setLevel(logging.WARNING)
@@ -458,6 +459,53 @@ async def get_open_trades() -> list:
     trades = await sm.get_all_open_trades()
     # Convert to dict format for backwards compatibility
     return [t.to_dict() for t in trades]
+
+async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: float = 0) -> tuple[bool, float, float]:
+    """
+    Check if total exposure would exceed MAX_TOTAL_EXPOSURE_PCT.
+    
+    Args:
+        x10_adapter: X10 adapter for balance check
+        lighter_adapter: Lighter adapter for balance check  
+        new_trade_size: Size of new trade to add (USD)
+    
+    Returns:
+        (can_trade, current_exposure_pct, max_allowed_pct)
+    """
+    max_exposure_pct = getattr(config, 'MAX_TOTAL_EXPOSURE_PCT', 0.90)
+    
+    try:
+        # Get current open trades
+        open_trades = await get_open_trades()
+        current_exposure = sum(t.get('size_usd', 0) for t in open_trades)
+        
+        # Get total balance (use X10 as primary)
+        x10_balance = await x10_adapter.get_real_available_balance()
+        if x10_balance is None or x10_balance <= 0:
+            # Fallback to Lighter
+            lighter_balance = await lighter_adapter.get_real_available_balance()
+            total_balance = lighter_balance if lighter_balance else 100.0  # Safe default
+        else:
+            total_balance = x10_balance
+        
+        # Calculate exposure with new trade
+        new_total_exposure = current_exposure + new_trade_size
+        exposure_pct = new_total_exposure / total_balance if total_balance > 0 else 1.0
+        
+        can_trade = exposure_pct <= max_exposure_pct
+        
+        if not can_trade:
+            logger.warning(
+                f"⚠️ EXPOSURE LIMIT: {exposure_pct:.1%} would exceed {max_exposure_pct:.0%} max "
+                f"(Current: ${current_exposure:.0f}, New: ${new_trade_size:.0f}, Balance: ${total_balance:.0f})"
+            )
+        
+        return can_trade, exposure_pct, max_exposure_pct
+        
+    except Exception as e:
+        logger.error(f"Exposure check failed: {e}")
+        # Safe default: allow trade but log warning
+        return True, 0.0, max_exposure_pct
 
 async def add_trade_to_state(trade_data: dict) -> str:
     """Add trade to in-memory state (writes to DB in background)"""
@@ -897,17 +945,16 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         # PRE-TRADE PROFITABILITY CHECK
         # ═══════════════════════════════════════════════════════════════
         # Berechne ob der Trade wirklich profitabel sein wird
-        # WICHTIG: Funding wird auf NOTIONAL berechnet, nicht auf Margin!
-        # Bei 10x Hebel: $60 Margin = $600 Notional = Funding auf $600 berechnet
-        margin = getattr(config, 'FARM_POSITION_SIZE_USD', 60)
-        leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 10.0)
-        notional = margin * leverage  # $60 × 10 = $600
+        # WICHTIG: DESIRED_NOTIONAL_USD ist bereits der Notional ($500)!
+        # NICHT nochmal mit Leverage multiplizieren!
+        # FIX 2.3: Vorher war hier ein Bug: $500 × 10 = $5000 (falsch!)
+        notional = getattr(config, 'DESIRED_NOTIONAL_USD', 500)  # Already notional!
         hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
         min_profit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
         max_breakeven = getattr(config, 'MAX_BREAKEVEN_HOURS', 2.0)
         
         expected_profit, hours_to_breakeven = calculate_expected_profit(
-            notional_usd=notional,  # USE LEVERAGED NOTIONAL!
+            notional_usd=notional,  # $500 notional (correct!)
             hourly_funding_rate=abs(net),
             hold_hours=hold_hours,
             spread_pct=spread
@@ -1085,6 +1132,15 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # Volatility check
         vol_monitor = get_volatility_monitor()
         if not vol_monitor.can_enter_trade(symbol):
+            return False
+
+        # ═══════════════════════════════════════════════════════════════
+        # GLOBAL EXPOSURE LIMIT CHECK
+        # ═══════════════════════════════════════════════════════════════
+        trade_size = opp.get('size_usd', getattr(config, 'DESIRED_NOTIONAL_USD', 500))
+        can_trade, exposure_pct, max_pct = await check_total_exposure(x10, lighter, trade_size)
+        if not can_trade:
+            logger.info(f"⛔ {symbol}: Exposure limit reached ({exposure_pct:.1%} > {max_pct:.0%})")
             return False
 
         # ═══════════════════════════════════════════════════════════════
@@ -1485,10 +1541,10 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         except Exception as e:
             logger.debug(f"Failed to schedule exit fee fetch for {symbol}: {e}")
         
-        try:
-            await close_trade_in_state(symbol, pnl=0, funding=0)
-        except Exception:
-            pass
+        # NOTE: Do NOT call close_trade_in_state here!
+        # The caller (manage_open_trades) handles this with the actual PnL value.
+        # Previously this was overwriting PnL with 0, causing 0% win rate in Kelly.
+        
         return True
     else:
         logger.warning(f"⚠️ {symbol} partial: Lighter={lighter_success}, X10={x10_success}")
@@ -3427,6 +3483,20 @@ async def run_bot_v5():
     except Exception as e:
         logger.warning(f"⚠️ Kelly history load failed: {e}")
     
+    # 2.3. INIT FUNDING TRACKER (tracks realized funding payments)
+    funding_tracker = None
+    try:
+        trade_repo = await get_trade_repository()
+        funding_tracker = await create_funding_tracker(
+            x10_adapter=x10,
+            lighter_adapter=lighter,
+            trade_repository=trade_repo,
+            update_interval_hours=1.0  # Update every hour
+        )
+        logger.info(f"✅ FundingTracker started (interval=3600s)")
+    except Exception as e:
+        logger.warning(f"⚠️ FundingTracker init failed: {e}")
+    
     # 3. LOAD MARKET DATA (CRITICAL: Before WS/OI)
     logger.info("📊 Loading Market Data via REST...")
     try:
@@ -3748,6 +3818,14 @@ async def run_bot_v5():
         
     if oi_tracker:
         await oi_tracker.stop()
+    
+    # Stop FundingTracker
+    if funding_tracker:
+        try:
+            await funding_tracker.stop()
+            logger.info("✅ FundingTracker stopped")
+        except Exception as e:
+            logger.debug(f"FundingTracker stop error: {e}")
     
     await close_state_manager()
     
@@ -4136,6 +4214,14 @@ async def main():
             await stop_fee_manager()
         except Exception as e:
             logger.debug(f"FeeManager stop error: {e}")
+        
+        # Stop FundingTracker (if running)
+        try:
+            if 'funding_tracker' in locals() and funding_tracker:
+                await funding_tracker.stop()
+                logger.info("✅ FundingTracker stopped")
+        except Exception as e:
+            logger.debug(f"FundingTracker stop error: {e}")
         
         # Save prediction history before shutdown
         try:
