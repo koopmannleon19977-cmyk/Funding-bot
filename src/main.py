@@ -42,7 +42,6 @@ from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
 from src.prediction_v2 import get_predictor, FundingPredictorV2
-from src.trading.smart_exit import should_hold_for_funding
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
     get_database,
@@ -140,6 +139,57 @@ async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: 
     except Exception as e:
         logger.warning(f"Prediction opportunities failed: {e}")
         return []
+
+# ============================================================
+# PRE-TRADE PROFITABILITY CHECK
+# ============================================================
+def calculate_expected_profit(
+    notional_usd: float,
+    hourly_funding_rate: float,
+    hold_hours: float,
+    spread_pct: float,
+    fee_rate: float = 0.000225  # X10 taker fee (0.0225%)
+) -> tuple:
+    """
+    Calculate expected profit and hours to breakeven for a trade.
+    
+    ⚡ KRITISCH: Verhindert Trades die nie profitabel werden!
+    
+    Args:
+        notional_usd: Trade size in USD
+        hourly_funding_rate: Net funding rate per hour (|lighter_rate - x10_rate|)
+        hold_hours: Expected hold duration in hours
+        spread_pct: Current spread as decimal (e.g., 0.003 for 0.3%)
+        fee_rate: Taker fee rate (default: X10 taker)
+        
+    Returns:
+        (expected_profit_usd, hours_to_breakeven)
+    """
+    # Expected funding income over hold period
+    funding_income = abs(hourly_funding_rate) * hold_hours * notional_usd
+    
+    # Entry + Exit fees on both exchanges
+    # X10: Taker both ways (entry + exit) = fee_rate * 2
+    # Lighter: Maker = 0% (free)
+    total_fees = notional_usd * fee_rate * 2  # Only X10 fees
+    
+    # Spread slippage cost (estimated as half the spread on entry)
+    slippage_cost = notional_usd * spread_pct * 0.5
+    
+    # Total cost
+    total_cost = total_fees + slippage_cost
+    
+    # Expected profit
+    expected_profit = funding_income - total_cost
+    
+    # Hours to breakeven (how long to hold to cover costs)
+    hourly_income = abs(hourly_funding_rate) * notional_usd
+    if hourly_income > 0:
+        hours_to_breakeven = total_cost / hourly_income
+    else:
+        hours_to_breakeven = float('inf')  # Never profitable
+    
+    return expected_profit, hours_to_breakeven
 
 # ============================================================
 # HELPER FUNCTIONS
@@ -846,6 +896,48 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 logger.info(f"💎 {s} | APY: {apy*100:.1f}%")
                 OPPORTUNITY_LOG_CACHE[s] = now_ts
 
+        # ═══════════════════════════════════════════════════════════════
+        # PRE-TRADE PROFITABILITY CHECK
+        # ═══════════════════════════════════════════════════════════════
+        # Berechne ob der Trade wirklich profitabel sein wird
+        # WICHTIG: Funding wird auf NOTIONAL berechnet, nicht auf Margin!
+        # Bei 10x Hebel: $60 Margin = $600 Notional = Funding auf $600 berechnet
+        margin = getattr(config, 'FARM_POSITION_SIZE_USD', 60)
+        leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 10.0)
+        notional = margin * leverage  # $60 × 10 = $600
+        hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
+        min_profit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
+        max_breakeven = getattr(config, 'MAX_BREAKEVEN_HOURS', 2.0)
+        
+        expected_profit, hours_to_breakeven = calculate_expected_profit(
+            notional_usd=notional,  # USE LEVERAGED NOTIONAL!
+            hourly_funding_rate=abs(net),
+            hold_hours=hold_hours,
+            spread_pct=spread
+        )
+        
+        # Skip wenn nicht profitabel genug
+        if expected_profit < min_profit:
+            logger.debug(
+                f"⛔ Skip {s}: Expected profit ${expected_profit:.4f} < ${min_profit:.2f} "
+                f"(breakeven: {hours_to_breakeven:.1f}h, hold: {hold_hours:.1f}h)"
+            )
+            continue
+        
+        # Skip wenn Breakeven zu lange dauert
+        if hours_to_breakeven > max_breakeven:
+            logger.debug(
+                f"⛔ Skip {s}: Breakeven {hours_to_breakeven:.1f}h > max {max_breakeven:.1f}h "
+                f"(expected: ${expected_profit:.4f})"
+            )
+            continue
+        
+        # ✅ Trade ist profitabel!
+        logger.info(
+            f"✅ {s}: Expected profit ${expected_profit:.4f} in {hold_hours:.1f}h "
+            f"(breakeven: {hours_to_breakeven:.2f}h, APY: {apy*100:.1f}%)"
+        )
+
         opps.append({
             'symbol': s,
             'apy': apy * 100,
@@ -856,7 +948,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'spread_pct': spread,
             'price_x10': px_float,
             'price_lighter': pl_float,
-            'is_latency_arb': False  # Mark als normal funding trade
+            'is_latency_arb': False,  # Mark als normal funding trade
+            'expected_profit': expected_profit,  # NEU: Für Logging
+            'hours_to_breakeven': hours_to_breakeven  # NEU: Für Logging
         })
 
     # IMPORTANT: Set farm flag based on config (ensure farm loop state applies)
@@ -1132,19 +1226,20 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 logger.warning(f"🛑 {symbol}: Insufficient Lighter liquidity for ${final_usd:.2f}")
                 return False
 
-            # 5. Final Balance Check
-            required_x10 = final_usd * 1.05
-            required_lit = final_usd * 1.05
-
-            if bal_x10_real < required_x10 or bal_lit_real < required_lit:
-                logger.debug(f"Skip {symbol}: Insufficient balance for ${final_usd:.2f}")
+            # 5. Final Balance Check (With LEVERAGE Support)
+            leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 1.0)
+            required_margin = (final_usd / leverage) * 1.05  # Margin + 5% buffer
+            
+            # For checking: We need MARGIN, not Full Notional
+            if bal_x10_real < required_margin or bal_lit_real < required_margin:
+                logger.debug(f"Skip {symbol}: Insufficient Margin for ${final_usd:.2f} (Req: ${required_margin:.2f} @ {leverage}x)")
                 return False
 
             # 6. Reserve
             async with IN_FLIGHT_LOCK:
-                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + required_x10
-                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + required_lit
-                reserved_amount = final_usd * 1.05 # Track for release
+                IN_FLIGHT_MARGIN['X10'] = IN_FLIGHT_MARGIN.get('X10', 0.0) + required_margin
+                IN_FLIGHT_MARGIN['Lighter'] = IN_FLIGHT_MARGIN.get('Lighter', 0.0) + required_margin
+                reserved_amount = required_margin # Track for release
 
         except Exception as e:
             logger.error(f"Sizing error {symbol}: {e}")
@@ -1419,12 +1514,6 @@ async def get_actual_position_size(adapter, symbol: str) -> Optional[float]:
 async def safe_close_x10_position(x10, symbol, side, notional) -> Optional[str]:
     """Close X10 position using ACTUAL position size. Returns order_id if successful."""
     try:
-        # 0. CANCEL ORDERS FIRST to avoid "reduce-only" conflicts
-        try:
-            await x10.cancel_all_orders(symbol)
-        except Exception as e:
-            logger.warning(f"Failed to cancel orders for {symbol} before close: {e}")
-
         # Wait for settlement
         await asyncio.sleep(3.0)
         
@@ -1691,31 +1780,15 @@ async def manage_open_trades(lighter, x10):
             logger.debug(f"Check {sym}: Age={age_seconds:.1f}s (Limit={config.FARM_HOLD_SECONDS}s)")
             
             # ═══════════════════════════════════════════════════════════════
-            # NOT-AUS: Force Close nach Zeit (Hard Limit 72h)
+            # PROFIT-ONLY EXIT LOGIC (NEVER MAKE A LOSS!)
             # ═══════════════════════════════════════════════════════════════
-            # Hard Limit: Schließe in jedem Fall nach 72h (totes Kapital freigeben)
-            FARM_HARD_LIMIT = 72 * 3600
-            if config.VOLUME_FARM_MODE and t.get('is_farm_trade') and age_seconds > FARM_HARD_LIMIT:
-                 logger.warning(
-                        f"🚜 [FARM] HARD LIMIT: Zwangsschließung für {sym} "
-                        f"(Zeit abgelaufen: {int(age_seconds)}s > {FARM_HARD_LIMIT}s)"
-                    )
-                 if await close_trade(t, lighter, x10):
-                        await close_trade_in_state(sym)
-                        await archive_trade_to_history(t, "FARM_HARD_LIMIT", {
-                            'total_net_pnl': 0.0,
-                            'funding_pnl': 0.0, 
-                            'spread_pnl': 0.0, 
-                            'fees': notional * 0.0005
-                        })
-                        logger.info(f"✅ {sym} zwangsgeschlossen (Hard Limit)")
-                 continue
-
-            # ═══════════════════════════════════════════════════════════════
-            # Standard "Soft" Time Limit Logic verschoben NACH PnL-Berechnung!
-            # ═══════════════════════════════════════════════════════════════
+            # Die alte Zeit-basierte Logik wurde ersetzt mit Profit-Prüfung.
+            # Ein Trade wird NUR geschlossen wenn:
+            # 1. Net PnL (nach allen Fees) >= MIN_PROFIT_EXIT_USD ($0.02)
+            # 2. ODER: MAX_HOLD_HOURS überschritten (24h Sicherheits-Override)
             
-            # ═══════════════════════════════════════════════════════════════
+            # Hole Preise ZUERST für PnL-Berechnung
+
             # Preise holen (für Profit-Check & normale Exits)
             # ═══════════════════════════════════════════════════════════════
             raw_px = x10.fetch_mark_price(sym)
@@ -1838,97 +1911,102 @@ async def manage_open_trades(lighter, x10):
                 total_pnl = gross_pnl - est_fees
 
             # ═══════════════════════════════════════════════════════════════
-            # FARM MODE PROFIT-MITNAHME (Nur wenn Preise verfügbar!)
+            # PROFIT-ONLY EXIT LOGIC (NEVER MAKE A LOSS!)
             # ═══════════════════════════════════════════════════════════════
+            # Config-Werte holen
+            min_profit_exit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
+            max_hold_hours = getattr(config, 'MAX_HOLD_HOURS', 24.0)
+            hold_hours = age_seconds / 3600
+            
             reason = None
+            force_close = False  # Flag für Zwangsschließung (ignoriert Profit-Regel)
             
-            # 1. FARM MODE: Profit Take bei günstigem Spread
             # ═══════════════════════════════════════════════════════════════
-            # FARM MODE: Time Limit Check with PNL Protection
+            # 1. SICHERHEITS-OVERRIDE: MAX_HOLD_HOURS (24h Notaus)
             # ═══════════════════════════════════════════════════════════════
-            if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
-                if age_seconds > config.FARM_HOLD_SECONDS:
-                    # Only close if we are PROFITABLE (or Break-Even)
-                    if total_pnl > -0.01: # Buffer for rounding errors
-                        reason = "FARM_TIME_LIMIT_PROFIT"
-                        logger.info(f"🚜 [FARM] Time Limit Reached & PnL >= 0 (${total_pnl:.2f}) -> CLOSING {sym}")
-                    else:
-                        # Log wait message occasionally
-                        if int(age_seconds) % 300 == 0:
-                            logger.info(f"🚜 [FARM] Holding {sym} past time limit for break-even (PnL: ${total_pnl:.2f})")
+            if hold_hours >= max_hold_hours:
+                reason = "MAX_HOLD_EXPIRED"
+                force_close = True  # Ignoriert Profit-Regel!
+                logger.warning(
+                    f"⚠️ [FORCE CLOSE] {sym}: Max hold time reached "
+                    f"({hold_hours:.1f}h >= {max_hold_hours}h), closing regardless of PnL"
+                )
             
-            # 2. FARM MODE: Quick Profit Take (existing logic)
-            if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
-                should_exit, exit_reason = should_farm_quick_exit(
-                    symbol=sym,
-                    trade=t,
-                    current_spread=current_spread_pct,
-                    gross_pnl=gross_pnl
+            # ═══════════════════════════════════════════════════════════════
+            # 2. PROFIT-PRÜFUNG: Nur Exit wenn Net PnL >= MIN_PROFIT_EXIT_USD
+            # ═══════════════════════════════════════════════════════════════
+            if not force_close:
+                # Check if we have enough profit to close
+                if total_pnl < min_profit_exit:
+                    # NOT PROFITABLE ENOUGH - KEEP HOLDING!
+                    logger.debug(
+                        f"💎 [HODL] {sym}: Net PnL ${total_pnl:.4f} < ${min_profit_exit:.2f} - "
+                        f"Keeping position open (Hold: {hold_hours:.1f}h, Gross: ${gross_pnl:.4f})"
+                    )
+                    continue  # Skip to next trade - DON'T CLOSE!
+                
+                # ═══════════════════════════════════════════════════════════════
+                # Trade ist profitabel genug! Jetzt prüfe Exit-Gründe
+                # ═══════════════════════════════════════════════════════════════
+                logger.info(
+                    f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f} - "
+                    f"Ready to close! Checking exit conditions..."
                 )
                 
-                if should_exit:
-                    # Map exit reason to close reason
-                    if "FARM_PROFIT" in exit_reason:
-                        reason = "FARM_QUICK_PROFIT"
-                    elif "FARM_AGED_OUT" in exit_reason:
-                        reason = "FARM_AGED_OUT"
-                    else:
-                        reason = "FARM_EXIT"
+                # Farm Mode Quick Exit bei gutem Spread
+                if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
+                    should_exit, exit_reason = should_farm_quick_exit(
+                        symbol=sym,
+                        trade=t,
+                        current_spread=current_spread_pct,
+                        gross_pnl=gross_pnl
+                    )
                     
-                    logger.info(f"🚜 [FARM] Quick Exit {sym}: {exit_reason}")
-                # else: Position behalten (debug log bereits in Funktion)
-
-            # 2. Volatility Panic
-            if not reason:
-                try:
-                    vol_mon = get_volatility_monitor()
-                    vol = 0.0
-                    if hasattr(vol_mon, 'get_volatility'):
-                        val = vol_mon.get_volatility(sym)
-                        if val is not None:
-                            vol = float(val)
-                    
-                    if hasattr(vol_mon, 'should_close_due_to'):
-                        if vol_mon.should_close_due_to(vol):
-                            reason = "VOLATILITY_PANIC"
-                except Exception as e:
-                    logger.warning(f"VolCheck Warning {sym}: {e}")
-
-            # 3. Stop Loss / Take Profit
-            if not reason:
-                if notional > 0:
-                    if total_pnl < -notional * 0.005:
-                        reason = "BREAKEVEN_EXIT"
-                    elif total_pnl > notional * 0.05:
+                    if should_exit:
+                        if "FARM_PROFIT" in exit_reason:
+                            reason = "FARM_QUICK_PROFIT"
+                        elif "FARM_AGED_OUT" in exit_reason:
+                            reason = "FARM_AGED_OUT"
+                        else:
+                            reason = "FARM_EXIT"
+                        logger.info(f"🚜 [FARM] Quick Exit {sym}: {exit_reason}")
+                
+                # Take Profit bei hohem Gewinn (>5% des Notional)
+                if not reason and notional > 0:
+                    if total_pnl > notional * 0.05:
                         reason = "TAKE_PROFIT"
                 
-                # Funding Flip Check (Nutze jetzt das sichere init_funding)
-                if init_funding * current_net < 0:
-                    if not t.get('funding_flip_start_time'):
-                        t['funding_flip_start_time'] = datetime.utcnow()
-                        if state_manager:
-                            await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+                # Profitable und Zeit abgelaufen (FARM_HOLD_SECONDS)
+                if not reason and t.get('is_farm_trade') and config.VOLUME_FARM_MODE:
+                    if age_seconds > config.FARM_HOLD_SECONDS:
+                        reason = "FARM_HOLD_COMPLETE"
+                        logger.info(
+                            f"✅ [FARM COMPLETE] {sym}: Hold time reached AND profitable! "
+                            f"(${total_pnl:.4f} profit after {hold_hours:.2f}h)"
+                        )
+                
+                # Funding Flip (aber NUR wenn profitable!)
+                if not reason:
+                    if init_funding * current_net < 0:
+                        if not t.get('funding_flip_start_time'):
+                            t['funding_flip_start_time'] = datetime.utcnow()
+                            if state_manager:
+                                await state_manager.update_trade(sym, {'funding_flip_start_time': datetime.utcnow()})
+                        else:
+                            flip_start = t['funding_flip_start_time']
+                            if isinstance(flip_start, str): 
+                                try: flip_start = datetime.fromisoformat(flip_start)
+                                except: flip_start = datetime.utcnow()
+                            
+                            if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
+                                reason = "FUNDING_FLIP_PROFITABLE"
                     else:
-                        flip_start = t['funding_flip_start_time']
-                        if isinstance(flip_start, str): 
-                            try: flip_start = datetime.fromisoformat(flip_start)
-                            except: flip_start = datetime.utcnow()
-                        
-                        if (datetime.utcnow() - flip_start).total_seconds() / 3600 > config.FUNDING_FLIP_HOURS_THRESHOLD:
-                            reason = "FUNDING_FLIP"
-                else:
-                    if t.get('funding_flip_start_time'):
-                        if state_manager:
-                            await state_manager.update_trade(sym, {'funding_flip_start_time': None})
+                        if t.get('funding_flip_start_time'):
+                            if state_manager:
+                                await state_manager.update_trade(sym, {'funding_flip_start_time': None})
+
 
             if reason:
-                # 🛑 SMART EXIT CHECK 🛑
-                # If we are profitable via funding, and funding is imminent, WAIT.
-                # Do NOT wait if reason is 'VOLATILITY_PANIC' (safety first).
-                if reason != "VOLATILITY_PANIC" and await should_hold_for_funding(t, x10, lighter):
-                     logger.info(f"⏳ [SMART EXIT] Holding {sym} for funding payout (Reason: {reason})")
-                     continue
-
                 # Calculate fees using FeeManager for logging
                 try:
                     fee_manager = get_fee_manager()
@@ -2503,8 +2581,13 @@ async def farm_loop(lighter, x10, parallel_exec):
             bal_x10 = await x10.get_real_available_balance()
             bal_lit = await lighter.get_real_available_balance()
             
-            if bal_x10 < getattr(config, 'FARM_NOTIONAL_USD', 0) or bal_lit < getattr(config, 'FARM_NOTIONAL_USD', 0):
-                logger.debug(f"🚜 Farm paused: Low balance X10=${bal_x10:.0f} Lit=${bal_lit:.0f}")
+            # Calculate required margin based on leverage
+            farm_notional = getattr(config, 'FARM_NOTIONAL_USD', 0)
+            leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 1.0)
+            required_margin_check = (farm_notional / leverage) * 1.05
+
+            if bal_x10 < required_margin_check or bal_lit < required_margin_check:
+                logger.debug(f"🚜 Farm paused: Low balance X10=${bal_x10:.0f} Lit=${bal_lit:.0f} (Need ${required_margin_check:.2f})")
                 await asyncio.sleep(30)
                 continue
 
@@ -3011,7 +3094,8 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         if trade_size is None:
                             trade_size = float(base_default)
                         
-                        required_margin = trade_size * 1.2
+                        leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 1.0)
+                        required_margin = (trade_size / leverage) * 1.05
                         
                         if available_x10 < required_margin or available_lit < required_margin:
                             logger.debug(f"Skip {symbol}: Insufficient balance (X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${required_margin:.1f})")
@@ -3322,13 +3406,6 @@ async def run_bot_v5():
         
     await setup_database()
     await migrate_database()
-
-    # 1.1 INIT PREDICTOR V2 (Load History)
-    try:
-        predictor = get_predictor()
-        await predictor.initialize()
-    except Exception as e:
-        logger.warning(f"⚠️ Predictor init failed: {e}")
     
     # 2. INIT ADAPTERS
     x10 = X10Adapter()
@@ -3654,14 +3731,6 @@ async def run_bot_v5():
     if telegram_bot and telegram_bot.enabled:
         await telegram_bot.stop()
     
-    # Save prediction history
-    try:
-        predictor = get_predictor()
-        await predictor.stop()
-        logger.info("✅ Prediction history saved")
-    except Exception as e:
-        logger.warning(f"Failed to save prediction history: {e}")
-
     await close_database()
     
     # Stop FeeManager
@@ -4046,13 +4115,6 @@ async def main():
                 for p in x10_pos:
                     if abs(safe_float(p.get('size', 0))) > 0:
                         logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
-                        
-                        # Fix: Cancel orders first
-                        try:
-                            await x10.cancel_all_orders(p['symbol'])
-                        except Exception:
-                            pass
-                            
                         price = safe_float(x10.fetch_mark_price(p['symbol']))
                         size = safe_float(p.get('size', 0))
                         if price > 0:
