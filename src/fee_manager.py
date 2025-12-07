@@ -304,65 +304,29 @@ class FeeManager:
         
         return notional_usd * (fee1 + fee2)
     
-    async def fetch_x10_fees_from_api(self, x10_adapter) -> dict:
-        """
-        Fetch real X10 fees from account endpoint. 
-        X10 API: GET /api/v1/user/account returns fee_schedule
-        """
-        try:
-            # X10 account info endpoint
-            client = await x10_adapter._get_trading_client()
-            
-            # Option 1: Wenn SDK Methode existiert
-            if hasattr(client, 'account') and hasattr(client.account, 'get_account_info'):
-                account_info = await client.account.get_account_info()
-                fee_schedule = account_info.get('fee_schedule', {})
-                
-                return {
-                    'maker': float(fee_schedule.get('maker', 0.0)),
-                    'taker': float(fee_schedule.get('taker', 0.000225))
-                }
-            
-            # Option 2: Direkter REST-Call
-            if not x10_adapter.stark_account or not x10_adapter.stark_account.api_key:
-                logger.warning("X10 stark_account or api_key missing, using fallback fees")
-                return {'maker': 0.0, 'taker': 0.000225}
-            
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                headers = {
-                    'X-Api-Key': x10_adapter.stark_account.api_key,
-                    'User-Agent': 'X10PythonTradingClient/0.4.5'
-                }
-                async with session.get(
-                    'https://api.starknet.extended.exchange/api/v1/user/account',
-                    headers=headers
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        fee_schedule = data.get('fee_schedule', {})
-                        return {
-                            'maker': float(fee_schedule.get('maker', 0.0)),
-                            'taker': float(fee_schedule.get('taker', 0.000225))
-                        }
-                        
-        except Exception as e:
-            logger.error(f"Failed to fetch X10 fees: {e}")
-            
-        # Fallback
-        return {'maker': 0.0, 'taker': 0.000225}
-    
     async def init_fees(self, x10_adapter, lighter_adapter):
         """Initialize with real fees from APIs"""
+        # Set adapters first
+        self.set_adapters(x10_adapter, lighter_adapter)
         
-        # X10: Fetch from API
-        x10_fees = await self.fetch_x10_fees_from_api(x10_adapter)
-        self.x10_maker_fee = x10_fees['maker']
-        self.x10_taker_fee = x10_fees['taker']
+        # Refresh all fees using standard method
+        await self.refresh_all_fees()
         
-        # Lighter: Always 0 (confirmed)
-        self.lighter_maker_fee = 0.0
-        self.lighter_taker_fee = 0.0
+        # Update local properties for backward compatibility if needed
+        # (Though get_x10_fees() uses the schedule directly now)
+        if self._x10_schedule:
+            self.x10_maker_fee = self._x10_schedule.maker_fee
+            self.x10_taker_fee = self._x10_schedule.taker_fee
+            
+        if self._lighter_schedule:
+            self.lighter_maker_fee = self._lighter_schedule.maker_fee
+            self.lighter_taker_fee = self._lighter_schedule.taker_fee
+        
+        logger.info(
+            f"💰 FeeManager Initialized: "
+            f"X10(M/T)={self.x10_maker_fee:.4%}/{self.x10_taker_fee:.4%} | "
+            f"Lighter(M/T)={self.lighter_maker_fee:.4%}/{self.lighter_taker_fee:.4%}"
+        )
         
         logger.info(
             f"💰 FeeManager: X10 Maker={self.x10_maker_fee:.4%}, Taker={self.x10_taker_fee:.4%} | "

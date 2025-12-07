@@ -89,9 +89,56 @@ async def should_hold_for_funding(
             )
             return False # CLOSE NOW!
             
-        # Neutral / Insignificant
-        return False
-
     except Exception as e:
         logger.error(f"Error in smart exit check for {trade.get('symbol')}: {e}")
         return False
+
+def should_farm_quick_exit(
+    symbol: str,
+    trade: Dict,
+    current_spread: float,
+    gross_pnl: float
+) -> tuple[bool, str]:
+    """
+    Smart Farm Mode:
+    1. Fast Exit: If profit > min_profit (e.g. $0.05) -> EXIT immediately for volume.
+    2. Funding Hold: If close to funding (< 30m) AND earning funding -> HOLD.
+    3. Aged Exit: If older than FARM_HOLD_SECONDS -> EXIT if PnL >= 0.
+    """
+    try:
+        # Config (Lazy import to avoid circular dependency)
+        import config
+        from datetime import datetime, timezone
+        
+        min_profit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.05)
+        hold_seconds = getattr(config, 'FARM_HOLD_SECONDS', 3600)
+        
+        # Calculate Age
+        entry_time = trade.get('entry_time')
+        if isinstance(entry_time, str):
+            try: entry_time = datetime.fromisoformat(entry_time.replace('Z', '+00:00'))
+            except: entry_time = datetime.now(timezone.utc)
+        elif isinstance(entry_time, (int, float)):
+             entry_time = datetime.fromtimestamp(entry_time, tz=timezone.utc)
+             
+        if not entry_time.tzinfo:
+            entry_time = entry_time.replace(tzinfo=timezone.utc)
+            
+        age_seconds = (datetime.now(timezone.utc) - entry_time).total_seconds()
+        
+        # 1. Check Fast Profit (Churn)
+        if gross_pnl > min_profit:
+            return True, f"FARM_PROFIT (PnL ${gross_pnl:.4f} > ${min_profit:.2f})"
+            
+        # 2. Check Age
+        if age_seconds > hold_seconds:
+            if gross_pnl >= 0:
+                return True, f"FARM_AGED_OUT (Age {age_seconds/60:.1f}m > {hold_seconds/60:.0f}m)"
+                
+        return False, ""
+        
+    except Exception as e:
+        logger.error(f"Error in farm quick exit: {e}")
+        return False, ""
+
+        return False, ""

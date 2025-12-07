@@ -138,60 +138,82 @@ class X10Adapter(BaseAdapter):
 
     async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
         """
-        Fetch fee schedule from X10 API (/api/v1/info/fees)
+        Fetch fee schedule from X10 API via Account Info (Authenticated)
+        FALLBACK: /api/v1/user/account
         
         Returns:
             Tuple[maker_fee, taker_fee] or None if failed
         """
         try:
+            # 1. Try via Trading Client SDK (Authenticated)
+            try:
+                client = await self._get_trading_client()
+                if hasattr(client, 'account') and hasattr(client.account, 'get_account_info'):
+                    await self.rate_limiter.acquire()
+                    resp = await client.account.get_account_info()
+                    self.rate_limiter.on_success()
+                    
+                    if resp and getattr(resp, 'data', None):
+                        # SDK often wraps response in .data
+                        info = resp.data
+                    else:
+                        info = resp
+
+                    if info:
+                        # Direct attribute access or dict access
+                        # info might be AccountInfo object or dict
+                        fee_schedule = None
+                        if hasattr(info, 'fee_schedule'):
+                            fee_schedule = info.fee_schedule
+                        elif isinstance(info, dict):
+                            fee_schedule = info.get('fee_schedule')
+                        
+                        if fee_schedule:
+                            maker = safe_float(getattr(fee_schedule, 'maker', None) or fee_schedule.get('maker'), config.MAKER_FEE_X10)
+                            taker = safe_float(getattr(fee_schedule, 'taker', None) or fee_schedule.get('taker'), config.TAKER_FEE_X10)
+                            logger.info(f"✅ X10 Fee Schedule (SDK): Maker={maker:.6f}, Taker={taker:.6f}")
+                            return (maker, taker)
+            except Exception as e:
+                logger.debug(f"X10 SDK Fee fetch failed: {e}")
+
+            # 2. Fallback: Direct Authenticated REST Call to /api/v1/user/account
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
-            url = f"{base_url}/api/v1/info/fees"
+            url = f"{base_url}/api/v1/user/account"
             
+            if not self.stark_account or not self.stark_account.api_key:
+                logger.warning("X10 Fee Fetch: No API Key available for fallback")
+                return None
+
+            headers = {
+                'X-Api-Key': self.stark_account.api_key,
+                'User-Agent': 'X10PythonTradingClient/0.4.5',
+                'Accept': 'application/json'
+            }
+
             await self.rate_limiter.acquire()
-            
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         self.rate_limiter.on_success()
                         
-                        # Parse fee schedule from response
-                        # Structure may vary, try common patterns
-                        fees_data = data.get('data') or data.get('fees') or data
+                        # data structure: {"status": "OK", "data": {"fee_schedule": {...}}}
+                        inner = data.get('data') or data
+                        fee_sched = inner.get('fee_schedule', {})
                         
-                        maker_fee = safe_float(
-                            fees_data.get('maker_fee') or 
-                            fees_data.get('maker') or 
-                            fees_data.get('makerFee') or 
-                            config.MAKER_FEE_X10,
-                            config.MAKER_FEE_X10
-                        )
+                        maker = safe_float(fee_sched.get('maker'), config.MAKER_FEE_X10)
+                        taker = safe_float(fee_sched.get('taker'), config.TAKER_FEE_X10)
                         
-                        taker_fee = safe_float(
-                            fees_data.get('taker_fee') or 
-                            fees_data.get('taker') or 
-                            fees_data.get('takerFee') or 
-                            config.TAKER_FEE_X10,
-                            config.TAKER_FEE_X10
-                        )
-                        
-                        # Validate fees are reasonable (0-1%)
-                        if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
-                            logger.debug(f"X10 Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
-                            return (maker_fee, taker_fee)
-                        else:
-                            logger.warning(f"X10 Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
-                            return None
+                        logger.info(f"✅ X10 Fee Schedule (REST): Maker={maker:.6f}, Taker={taker:.6f}")
+                        return (maker, taker)
                     else:
                         if resp.status == 429:
                             self.rate_limiter.penalize_429()
-                        else:
-                            self.rate_limiter.on_success()
-                        logger.debug(f"X10 Fee Schedule API returned {resp.status}")
+                        logger.warning(f"X10 REST Fee fetch failed: HTTP {resp.status}")
                         return None
-                        
+                    
         except Exception as e:
-            logger.debug(f"X10 Fee Schedule fetch error: {e}")
+            logger.error(f"X10 Fee Schedule fetch error: {e}")
             return None
 
     async def start_websocket(self):
@@ -737,6 +759,13 @@ class X10Adapter(BaseAdapter):
         original_side: str,
         notional_usd: float
     ) -> Tuple[bool, Optional[str]]:
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Cancel all open orders first to prevent "ReduceOnly" conflict
+        # ═══════════════════════════════════════════════════════════════
+        await self.cancel_all_orders(symbol)
+        await asyncio.sleep(0.5)
+
         max_retries = 3
         for attempt in range(max_retries):
             try:
@@ -982,3 +1011,7 @@ class X10Adapter(BaseAdapter):
             logger.error(f"Fehler beim Abrufen der X10 Balance: {e}")
             # Im Fehlerfall 0 zurückgeben, um Trades zu verhindern
             return 0.0
+
+    async def get_free_balance(self) -> float:
+        """Alias for get_collateral_balance to satisfy interface."""
+        return await self.get_collateral_balance()

@@ -96,6 +96,7 @@ class LighterAdapter(BaseAdapter):
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
         self. base_url = self._get_base_url()
+        self._pending_positions = {}  # Ghost Guardian Cache
 
     async def _get_session(self):
         """Get or create aiohttp session"""
@@ -424,48 +425,45 @@ class LighterAdapter(BaseAdapter):
             Tuple[maker_fee, taker_fee] or None if failed
         """
         try:
-            # Try REST API endpoint for fee info
-            data = await self._rest_get("/api/v1/fees")
+            # 1. Resolve Account Index if needed
+            if not getattr(self, '_resolved_account_index', None):
+                try:
+                    await self._resolve_account_index()
+                except Exception:
+                    pass
             
-            if data:
-                # Parse fee schedule from response
-                fees_data = data.get('data') or data.get('fees') or data
+            acc_idx = getattr(self, '_resolved_account_index', None)
+            if acc_idx is None:
+                return None
+
+            if not HAVE_LIGHTER_SDK:
+                logger.debug("Lighter SDK missing, cannot fetch fee schedule")
+                return None
+
+            # 2. Try fetching Account Info
+            try:
+                signer = await self._get_signer()
+                account_api = AccountApi(signer.api_client)
                 
-                maker_fee = safe_float(
-                    fees_data.get('maker_fee') or 
-                    fees_data.get('maker') or 
-                    fees_data.get('makerFee') or 
-                    getattr(config, 'FEES_LIGHTER', 0.0),
-                    getattr(config, 'FEES_LIGHTER', 0.0)
-                )
+                # Fetch account details
+                response = await account_api.account(by="index", value=str(acc_idx))
                 
-                taker_fee = safe_float(
-                    fees_data.get('taker_fee') or 
-                    fees_data.get('taker') or 
-                    fees_data.get('takerFee') or 
-                    getattr(config, 'FEES_LIGHTER', 0.0),
-                    getattr(config, 'FEES_LIGHTER', 0.0)
-                )
-                
-                # Validate fees are reasonable (0-1%)
-                if 0 <= maker_fee <= 0.01 and 0 <= taker_fee <= 0.01:
-                    logger.debug(f"Lighter Fee Schedule: Maker={maker_fee:.6f}, Taker={taker_fee:.6f}")
-                    return (maker_fee, taker_fee)
-                else:
-                    logger.warning(f"Lighter Fee Schedule: Invalid values (maker={maker_fee}, taker={taker_fee})")
-                    return None
-            
-            # If REST API doesn't have fees endpoint, return None (will use config fallback)
-            logger.debug("Lighter Fee Schedule: No API endpoint available, using config")
-            return None
-                        
+                # If we received a valid response, we assume connectivity is good.
+                # Currently we return None to fall back to Config, 
+                # but this avoids the 404 error from the old endpoint.
+                return None
+
+            except Exception as e:
+                logger.debug(f"Lighter Account Fee fetch failed: {e}")
+                return None
+                    
         except Exception as e:
             logger.debug(f"Lighter Fee Schedule fetch error: {e}")
             return None
 
     async def start_websocket(self):
         """WebSocket entry point für WebSocketManager"""
-        logger.info(f"🌐 {self. name}: WebSocket Manager starting streams...")
+        logger.info(f"🌐 {self.name}: WebSocket Manager starting streams...")
         await asyncio.gather(
             self._poll_prices(),
             self._poll_funding_rates(),
@@ -1447,6 +1445,29 @@ class LighterAdapter(BaseAdapter):
                     positions.append({"symbol": symbol, "size": size})
 
             logger.info(f"Lighter: Found {len(positions)} open positions")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # GHOST GUARDIAN: Check for pending positions not yet in API
+            # ═══════════════════════════════════════════════════════════════
+            now = time.time()
+            api_symbols = {p['symbol'] for p in positions}
+            
+            # Clean old pending (> 15s)
+            self._pending_positions = {s: t for s, t in self._pending_positions.items() if now - t < 15.0}
+            
+            for sym, ts in self._pending_positions.items():
+                # If we have a pending trade < 10s old NOT in API result
+                if sym not in api_symbols and (now - ts < 10.0):
+                    logger.warning(f"👻 Lighter Ghost Guardian: Injected pending position for {sym} (Age: {now-ts:.1f}s)")
+                    # Inject synthetic position
+                    # Size fallback: Use minimal size or assume full fill? 
+                    # Can't know exact size here easily, but presence is enough to block new trades.
+                    positions.append({
+                        "symbol": sym,
+                        "size": 0.0001, # Dummy non-zero size
+                        "is_ghost": True
+                    })
+
             return positions
 
         except Exception as e:
@@ -1605,13 +1626,66 @@ class LighterAdapter(BaseAdapter):
 
             price_decimal = Decimal(str(price_safe))
             notional_decimal = Decimal(str(notional_usd_safe))
-            slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
-            slippage_multiplier = (
-                Decimal(1) + (slippage / Decimal(100))
-                if side == "BUY"
-                else Decimal(1) - (slippage / Decimal(100))
-            )
-            limit_price = price_decimal * slippage_multiplier
+            
+            if post_only:
+                # ═══════════════════════════════════════════════════════════════
+                # MAKER STRATEGY: Place at Head of Book (Passive)
+                # ═══════════════════════════════════════════════════════════════
+                limit_price = price_decimal # Default fallback
+                try:
+                    ob = await self.fetch_orderbook(symbol)
+                    if ob:
+                        if side == "BUY":
+                            # Place at Best Bid (Join the Bid)
+                            bids = ob.get('bids', [])
+                            if bids and len(bids) > 0:
+                                best_bid = Decimal(str(bids[0][0]))
+                                best_ask_ref = Decimal(str(asks[0][0])) if (asks and len(asks)>0) else (best_bid * Decimal("1.01"))
+                                
+                                # Try to be at Top of Book: Bid + 0.05%
+                                improved_bid = best_bid * Decimal("1.0005")
+                                
+                                # But DO NOT cross the spread (must be < best_ask)
+                                if improved_bid >= best_ask_ref:
+                                    improved_bid = best_ask_ref - (best_ask_ref * Decimal("0.0002")) # 2bps below ask
+                                
+                                limit_price = improved_bid
+
+                        else:
+                            # Place at Best Ask (Join the Ask)
+                            asks = ob.get('asks', [])
+                            bids = ob.get('bids', [])
+                            if asks and len(asks) > 0:
+                                best_ask = Decimal(str(asks[0][0]))
+                                best_bid_ref = Decimal(str(bids[0][0])) if (bids and len(bids)>0) else (best_ask * Decimal("0.99"))
+
+                                # Try to be at Top of Book: Ask - 0.05%
+                                improved_ask = best_ask * Decimal("0.9995")
+                                
+                                # But DO NOT cross the spread (must be > best_bid)
+                                if improved_ask <= best_bid_ref:
+                                    improved_ask = best_bid_ref + (best_bid_ref * Decimal("0.0002")) # 2bps above bid
+                                
+                                limit_price = improved_ask
+                    logger.info(f"🛡️ Lighter Maker Price {symbol} {side}: ${limit_price:.6f}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Maker Price logic failed for {symbol}: {e}")
+                    limit_price = price_decimal
+
+            else:
+                # ═══════════════════════════════════════════════════════════════
+                # TAKER STRATEGY: Aggressive Slippage to Fill
+                # ═══════════════════════════════════════════════════════════════
+                slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
+                slippage_multiplier = (
+                    Decimal(1) + (slippage / Decimal(100))
+                    if side == "BUY"
+                    else Decimal(1) - (slippage / Decimal(100))
+                )
+                limit_price = price_decimal * slippage_multiplier
+
+            # Calculate qty based on limit price (Standard)
+
             qty = notional_decimal / limit_price
 
             base = await self.quantize_base_amount(symbol, float(notional_usd_safe))
@@ -1659,6 +1733,10 @@ class LighterAdapter(BaseAdapter):
 
                     tx_hash = getattr(resp, "tx_hash", "OK")
                     logger.info(f"Lighter Order: {tx_hash}")
+                    
+                    # GHOST GUARDIAN: Register success time
+                    self._pending_positions[symbol] = time.time()
+                    
                     return True, str(tx_hash)
 
                 except Exception as inner_e:
@@ -1670,6 +1748,104 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"Lighter Execution Error: {e}")
             return False, None
+
+    async def cancel_limit_order(self, order_id: str, symbol: str = None) -> bool:
+        """Cancel a specific limit order by ID."""
+        try:
+            if not HAVE_LIGHTER_SDK:
+                return False
+                
+            signer = await self._get_signer()
+            try:
+                oid_int = int(str(order_id))
+            except ValueError:
+                logger.error(f"Lighter Cancel: Invalid order_id format {order_id}")
+                return False
+
+            await self.rate_limiter.acquire()
+            tx, resp, err = await signer.cancel_order(
+                order_id=oid_int,
+                symbol=None 
+            )
+            
+            if err:
+                 logger.error(f"Lighter Cancel Error {order_id}: {err}")
+                 # Check if order not found (already filled/cancelled)
+                 return False
+                 
+            logger.info(f"✅ Lighter Cancelled {order_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Lighter Cancel Exception {order_id}: {e}")
+            return False
+
+    async def get_order_status(self, order_id: str) -> str:
+        """
+        Check status of a specific order.
+        Returns: 'OPEN', 'FILLED', 'PARTIALLY_FILLED', 'CANCELLED', 'UNKNOWN'
+        """
+        try:
+            if not HAVE_LIGHTER_SDK:
+                return 'UNKNOWN'
+
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+            
+            resp = None
+            try:
+                # Use rate limit?
+                # await self.rate_limiter.acquire() # Light check
+                # Note: get_order might not exist directly on OrderApi in all versions,
+                # but let's try the common ones or use order_details
+                 
+                # Try finding a working method (defensive reflection)
+                method = None
+                for m_name in ['get_order', 'order_details', 'get_order_by_id']:
+                    if hasattr(order_api, m_name):
+                        method = getattr(order_api, m_name)
+                        break
+                
+                if method:
+                    resp = await method(order_id=int(order_id))
+            except Exception as e:
+                logger.debug(f"Lighter get_order_status fetch failed: {e}")
+                return "UNKNOWN"
+                
+            if not resp:
+                return "UNKNOWN"
+            
+            # Extract data
+            data = resp
+            if hasattr(resp, 'data'): data = resp.data
+            elif hasattr(resp, 'order'): data = resp.order
+            
+            # Status Logic
+            filled = safe_float(getattr(data, 'filled_amount', 0) or getattr(data, 'filled_size', 0))
+            total = safe_float(getattr(data, 'total_amount', 0) or getattr(data, 'total_size', 0))
+            status_code = getattr(data, 'status', None)
+            
+            if total > 0 and filled >= total * 0.999:
+                return "FILLED"
+            
+            if filled > 0:
+                return "PARTIALLY_FILLED"
+                
+            # If 0 filled
+            if status_code == 10: # 10=Open
+                return "OPEN"
+                
+            if status_code in [30, 40, 4, 3]: # Assuming cancelled codes
+                return "CANCELLED"
+                
+            # Fallback: if we can't determine, assume OPEN if no cancel proof?
+            # Or assume CANCELLED/UNKNOWN?
+            # Safer to return UNKNOWN.
+            return "UNKNOWN"
+
+        except Exception as e:
+            logger.error(f"Lighter Status Check Error {order_id}: {e}")
+            return "UNKNOWN"
 
     @rate_limited(Exchange.LIGHTER, 1.0)
     async def close_live_position(

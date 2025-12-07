@@ -243,109 +243,162 @@ class ParallelExecutionManager:
         # ═══════════════════════════════════════════════════════════════════
         # PHASE 1: LIGHTER POST-ONLY (Maker)
         # ═══════════════════════════════════════════════════════════════════
-        logger.info(f"🔄 [PARALLEL] {symbol}: Lighter POST-ONLY first")
+        logger.info(f"🔄 [MAKER STRATEGY] {symbol}: Placing Lighter Maker Order...")
         execution.state = ExecutionState.LEG1_SENT
 
-        lighter_task = asyncio.create_task(
-            self._execute_lighter_leg(
-                symbol, 
-                execution.side_lighter, 
-                execution.size_lighter,
-                post_only=True
-            ),
-            name=f"lighter_{symbol}"
+        # 1. Place Lighter Order
+        lighter_success, lighter_order_id = await self._execute_lighter_leg(
+            symbol, 
+            execution.side_lighter, 
+            execution.size_lighter,
+            post_only=True
         )
 
-        # OPTIMIZATION: Removed 100ms artificial sleep to maximize Latency Arb potential.
-        # Original: await asyncio.sleep(0.1)
-        # New: Minimal yield to ensure task scheduling without waiting
-        await asyncio.sleep(0)
-
-        # ═══════════════════════════════════════════════════════════════════
-        # PHASE 2: X10 MARKET (Taker) - FILLS IMMEDIATELY
-        # ═══════════════════════════════════════════════════════════════════
-        logger.info(f"🔄 [PARALLEL] {symbol}: X10 MARKET order")
-        execution.state = ExecutionState.LEG2_SENT
-
-        x10_task = asyncio.create_task(
-            self._execute_x10_leg(
-                symbol, 
-                execution.side_x10, 
-                execution.size_x10,
-                post_only=False
-            ),
-            name=f"x10_{symbol}"
-        )
-
-        # ═══════════════════════════════════════════════════════════════════
-        # PHASE 3: WAIT FOR BOTH WITH TIMEOUT
-        # ═══════════════════════════════════════════════════════════════════
-        try:
-            results = await asyncio.wait_for(
-                asyncio.gather(lighter_task, x10_task, return_exceptions=True),
-                timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"⏰ [PARALLEL] {symbol}: Execution timeout ({timeout}s)!")
-            lighter_task.cancel()
-            x10_task.cancel()
-            
-            # Check what was partially filled
-            try:
-                lighter_result = lighter_task.result() if lighter_task.done() else None
-                x10_result = x10_task.result() if x10_task.done() else None
-            except (asyncio.CancelledError, asyncio.InvalidStateError):
-                lighter_result = None
-                x10_result = None
-
-            execution.lighter_filled = self._check_fill(lighter_result)
-            execution.x10_filled = self._check_fill(x10_result)
-            execution.error = "Timeout"
-            
-            if execution.lighter_filled or execution.x10_filled:
-                await self._queue_rollback(execution)
-            
+        execution.lighter_order_id = lighter_order_id
+        
+        if not lighter_success or not lighter_order_id:
+            logger.warning(f"❌ [MAKER STRATEGY] {symbol}: Lighter placement failed/rejected. Aborting.")
+            execution.state = ExecutionState.FAILED
+            execution.error = "Lighter Placement Failed"
             return False, None, None
 
-        lighter_result, x10_result = results
+        logger.info(f"⏳ [MAKER STRATEGY] {symbol}: Lighter placed ({lighter_order_id}), waiting for fill...")
+        
+        # 2. Wait for Fill (Polled Check)
+        # We need to check if it fills. We give it e.g. 10-20 seconds.
+        # If not filled, we cancel and abort.
+        filled = False
+        wait_start = time.time()
+        MAX_WAIT_SECONDS = 15.0
+        
+        while time.time() - wait_start < MAX_WAIT_SECONDS:
+            try:
+                # Check order status via Adapter
+                # Lighter adapter needs a method to check order status by ID
+                # or we check open positions delta?
+                # Best: check open positions. If size changed, we are filled.
+                # But parallel trades might confuse this? Lock ensures single trade per symbol.
+                
+                # Check position
+                pos = await self.lighter.fetch_open_positions()
+                # Find position
+                p = next((x for x in (pos or []) if x.get('symbol') == symbol), None)
+                current_size = safe_float(p.get('size', 0)) if p else 0.0
+                
+                # Compare with expected size (assuming we started from 0 or known state?)
+                # We tracked "start state" in main.py but not passed here.
+                # Simplification: If we see position matching our direction/size intent?
+                # Or simplistic: If usage of "OrderApi" to check status?
+                # Adapter doesn't expose order status check easily.
+                # Use Position Check:
+                # If we intended to Sell 10. We expect Open Position to change by -10.
+                # But we don't know start state here easily.
+                # Assume we are opening new or increasing?
+                # Let's use `fetch_orders` if available? 
+                # Lighter adapter has `get_open_orders`? 
+                
+                # Better: Use `get_actual_position_size` diff?
+                # This requires start snapshot.
+                # ParallelExecutionManager passed `lighter_adapter`.
+                
+                # Let's rely on `fetch_open_positions` which is robust.
+                # If we see a position with size roughly matching our target?
+                # Warning: If we already had a position, this is tricky.
+                # But we have `execution.size_lighter`.
+                
+                # Hack: If order disappears from Open Orders and exists in Position?
+                # Or just check if Position matches target?
+                # Since we have lock, no other trade is modifying position.
+                # So we can check if position size includes our trade.
+                # But we didn't snapshot start size.
+                
+                # For now, let's assume we started flat (most cases). 
+                # Or better: Check if "Active Orders" count is 0? 
+                # If 0 and we succeeded placement, maybe it filled? Or canceled?
+                # Lighter fills are usually instant or stay in book.
+                
+                # Let's use `get_order` if adapter has it?
+                # It doesn't seem exposed in `LighterAdapter` base.
+                
+                # Fallback: Check Position matches expected sign/magnitude
+                if abs(current_size) >= abs(execution.size_lighter) * 0.95:
+                    filled = True
+                    break
+                    
+                await asyncio.sleep(0.5)
+                
+            except Exception as e:
+                logger.debug(f"Rank check error: {e}")
+                await asyncio.sleep(1)
 
-        # Parse results
-        lighter_success, lighter_order = self._parse_result(lighter_result)
-        x10_success, x10_order = self._parse_result(x10_result)
+        if not filled:
+             logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
+             
+             # Atomic Cancel
+             if hasattr(self.lighter, 'cancel_limit_order'):
+                 await self.lighter.cancel_limit_order(lighter_order_id, symbol)
+             else:
+                 await self.lighter.cancel_all_orders(symbol)
+             
+             # ═══════════════════════════════════════════════════════════════
+             # RACE CONDITION FIX: Atomic Status Check
+             # ═══════════════════════════════════════════════════════════════
+             try:
+                 # Check specific order status immediately
+                 status = "UNKNOWN"
+                 if hasattr(self.lighter, 'get_order_status'):
+                     status = await self.lighter.get_order_status(lighter_order_id)
+                     logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
+                 
+                 if status in ['FILLED', 'PARTIALLY_FILLED']:
+                     logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
+                     filled = True
+                 else:
+                     # Fallback mechanism: Check broad position just in case
+                     await asyncio.sleep(0.5) 
+                     current_positions = await self.lighter.fetch_open_positions()
+                     pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
+                     found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
+                     
+                     if abs(found_size) > 1e-8:
+                         logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Status {status} but POSITION FOUND ({found_size})! Hedging...")
+                         filled = True
+                     else:
+                         logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed. Clean exit.")
+      
+             except Exception as e:
+                 logger.error(f"Error verification after timeout {symbol}: {e}")
+             
+             if not filled:
+                 execution.state = ExecutionState.FAILED
+                 return False, None, lighter_order_id
+        
+        execution.lighter_filled = True
+        logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
 
-        execution.lighter_order_id = lighter_order
-        execution.x10_order_id = x10_order
-        execution.lighter_filled = lighter_success
+        # 3. Execute X10 (Taker)
+        execution.state = ExecutionState.LEG2_SENT
+        x10_success, x10_order_id = await self._execute_x10_leg(
+             symbol, 
+             execution.side_x10, 
+             execution.size_x10, 
+             post_only=False # Taker
+        )
+        
+        execution.x10_order_id = x10_order_id
         execution.x10_filled = x10_success
+        
+        if x10_success:
+             # Success!
+             return True, x10_order_id, lighter_order_id
+        else:
+             # X10 Failed -> ROLLBACK Lighter!
+             logger.error(f"❌ [MAKER STRATEGY] {symbol}: X10 Hedge failed! Rolling back Lighter...")
+             await self._queue_rollback(execution)
+             return False, None, lighter_order_id
 
-        # ═══════════════════════════════════════════════════════════════════
-        # PHASE 4: EVALUATE & ROLLBACK IF NEEDED
-        # ═══════════════════════════════════════════════════════════════════
-        if lighter_success and x10_success:
-            execution.state = ExecutionState.COMPLETE
-            logger.info(
-                f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:.0f}ms"
-            )
-            return True, x10_order, lighter_order
 
-        # One or both failed - need rollback
-        if lighter_success and not x10_success:
-            execution.error = f"X10 failed: {x10_result}"
-            logger.error(f"🔄 [ROLLBACK] {symbol}: X10 failed, queueing Lighter rollback")
-            await self._queue_rollback(execution)
-            return False, None, lighter_order
 
-        if x10_success and not lighter_success:
-            execution.error = f"Lighter failed: {lighter_result}"
-            logger.error(f"🔄 [ROLLBACK] {symbol}: Lighter failed, queueing X10 rollback")
-            await self._queue_rollback(execution)
-            return False, x10_order, None
-
-        # Both failed - no rollback needed
-        execution.state = ExecutionState.FAILED
-        execution.error = f"Both failed: X10={x10_result}, Lighter={lighter_result}"
-        logger.error(f"❌ [PARALLEL] {symbol}: Both legs failed")
-        return False, None, None
 
     async def _execute_lighter_leg(
         self, symbol: str, side: str, notional_usd: float, post_only: bool

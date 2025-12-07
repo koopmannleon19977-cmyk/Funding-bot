@@ -781,10 +781,13 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     except:
         pass
     
+    # Dynamic confidence based on mode
+    dynamic_min_conf = 0.3 if getattr(config, 'VOLUME_FARM_MODE', False) else 0.6
+
     predictions = await get_best_opportunities(
         symbols=available_symbols,
         min_apy=getattr(config, 'MIN_APY_FILTER', 0.15) * 100,  # 0.15 -> 15.0%
-        min_confidence=0.6,  # 0.5 → 0.6 für bessere Trade-Qualität
+        min_confidence=dynamic_min_conf,  # Dynamic: 0.3 (Farm) vs 0.6 (Normal)
         limit=20,
         lighter_adapter=lighter,
         x10_adapter=x10,
@@ -961,17 +964,24 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         )
         
         # Skip wenn nicht profitabel genug
-        if expected_profit < min_profit:
+        # FARM MODE: Allow break-even trades (profit >= 0) if explicit volume farming
+        farm_mode = getattr(config, 'VOLUME_FARM_MODE', False)
+        min_threshold = 0.0 if farm_mode else min_profit
+        
+        if expected_profit < min_threshold:
             logger.debug(
-                f"⛔ Skip {s}: Expected profit ${expected_profit:.4f} < ${min_profit:.2f} "
+                f"⛔ Skip {s}: Expected profit ${expected_profit:.4f} < ${min_threshold:.2f} "
                 f"(breakeven: {hours_to_breakeven:.1f}h, hold: {hold_hours:.1f}h)"
             )
             continue
         
         # Skip wenn Breakeven zu lange dauert
-        if hours_to_breakeven > max_breakeven:
+        # FARM MODE: Relax breakeven time to hold time
+        max_be = hold_hours if farm_mode else max_breakeven
+        
+        if hours_to_breakeven > max_be:
             logger.debug(
-                f"⛔ Skip {s}: Breakeven {hours_to_breakeven:.1f}h > max {max_breakeven:.1f}h "
+                f"⛔ Skip {s}: Breakeven {hours_to_breakeven:.1f}h > max {max_be:.1f}h "
                 f"(expected: ${expected_profit:.4f})"
             )
             continue
@@ -3062,13 +3072,17 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 # 2. Sortieren: Die besten Opportunities zuerst (höchste APY)
                 opportunities.sort(key=lambda x: x.get('apy', 0), reverse=True)
 
-                # 3. Kandidaten auswählen (Limitiert auf slots_available)
+                # 3. Kandidaten auswählen (Limitiert auf slots_available und Burst Limit)
                 trades_to_launch = []
                 existing_symbols = {t.get('symbol') if isinstance(t, dict) else t for t in open_trades_refreshed}
 
+                # Apply burst limit (default 3) to prevent margin issues during aggressive ramp-up
+                burst_limit = getattr(config, 'FARM_MAX_CONCURRENT_ORDERS', 3)
+                launch_limit = min(slots_available, burst_limit)
+
                 for opp in opportunities:
                     # Wenn wir voll sind, brechen wir die Schleife sofort ab
-                    if len(trades_to_launch) >= slots_available:
+                    if len(trades_to_launch) >= launch_limit:
                         break
                     
                     symbol = opp.get('symbol') if isinstance(opp, dict) else getattr(opp, 'symbol', None)

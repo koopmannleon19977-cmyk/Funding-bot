@@ -21,39 +21,39 @@ load_dotenv()
 # Faustregel: (Position Size * Max Trades) / Dein Kapital = Benötigter Hebel
 # $500 * 5 Trades = $2500 Total Exposure. Bei $270 Kapital -> 9.25x Hebel (OK)
 # $1000 * 5 Trades = $5000 Total Exposure. Bei $500 Kapital -> 10x Hebel (OK)
-DESIRED_NOTIONAL_USD = 500.0      # Dein Ziel: $500 pro Trade (oder $1000 etc.)
-MAX_OPEN_TRADES = 5               # Wie viele Trades gleichzeitig?
-
-# ⚠️ Hebel-Einstellung (Muss zur Positionsgröße passen!)
-# Wenn du $1000 Trades willst und $500 auf dem Konto hast:
-# Leverage = $1000 Notional / ($500 Balance / 5 Trades) = 10x
-LEVERAGE_MULTIPLIER = 10.0
+DESIRED_NOTIONAL_USD = 60.0       # Reduced to $60 to allow 4-5 concurrent trades with $270 capital
+MAX_OPEN_TRADES = 5               # 5 * 60 = $300 (fits with minimal leverage)
+LEVERAGE_MULTIPLIER = 5.0         # Reduced to 5x (plenty for low leverage alts)
+# Burs Limit (New)
+FARM_MAX_CONCURRENT_ORDERS = 3    # Limit concurrent launches to 3
 
 # 🔴 CIRCUIT BREAKER (NOT-AUS)
 # ------------------------------------------------------------------------------
 # Schaltet den Bot ab, wenn zu viele Fehler passieren oder zu viel Geld verloren geht.
 CB_MAX_CONSECUTIVE_FAILURES = 5     # Nach 5 fehlgeschlagenen Trades in Folge -> STOP
-CB_MAX_DRAWDOWN_PCT = 0.15          # Nach 15% Equity-Verlust in 1 Stunde -> STOP
+CB_MAX_DRAWDOWN_PCT = 0.20          # Relaxed to 20% for aggressive mode
 CB_ENABLE_KILL_SWITCH = True        # Soll der Bot sich beenden? (Ja/Nein)
 CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 
 # 2. STRATEGIE & PROFIT
 # ------------------------------------------------------------------------------
-MIN_APY_FILTER = 0.30       # 30% APY Minimum (0.30 = 30%)
-MIN_APY_FALLBACK = 0.30     # Absolutes Minimum (nicht unterschreiten)
-MIN_PROFIT_EXIT_USD = 0.02  # Schließen ab $0.02 Profit (nach Gebühren)
+MIN_APY_FILTER = 0.05       # 5% APY Minimum (Aggressive Volume)
+MIN_APY_FALLBACK = 0.05     # Absolutes Minimum
+MIN_PROFIT_EXIT_USD = 0.05  # Fast Churn: Exit as soon as $0.05 profit
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
 MAX_SPREAD_FILTER_PERCENT = 0.003  # Max 0.3% Spread erlaubt
 MAX_BREAKEVEN_HOURS = 4.0          # Trade muss in 4h profitabel sein
 BALANCE_RESERVE_PCT = 0.03         # 3% des Kapitals immer frei lassen
-MAX_TOTAL_EXPOSURE_PCT = 0.90      # Max 90% des Kapitals darf in Trades sein
+MAX_TOTAL_EXPOSURE_PCT = 18.0      # Max 1800% exposure (18x Real Leverage)
 
 # Blacklist (Coins die NIE getradet werden sollen)
 BLACKLIST_SYMBOLS = {
+    "XAU-USD", "XAG-USD", "USDJPY-USD", # Invalid Margin Mode on Lighter
+    "MEGA-USD", # Ghost Position / Excessive Lag
+    "S-USD", # Frequent failures seen
     # "AERO-USD", 
-    # "MEGA-USD",
 }
 
 # ==============================================================================
@@ -69,7 +69,7 @@ EMERGENCY_CLOSE_ON_START = False  # Set True to panic close everything
 # --- Fees (DO NOT CHANGE unless exchange fees change) ---
 TAKER_FEE_X10 = 0.000225  # 0.0225%
 MAKER_FEE_X10 = 0.0000    # 0.00%
-FEES_LIGHTER = 0.00000    # 0.00%
+FEES_LIGHTER = 0.00000    # 0.00% (Maker & Taker)
 # Legacy Fee variables for compatibility
 TAKER_FEE = TAKER_FEE_X10
 MAKER_FEE = MAKER_FEE_X10
@@ -93,7 +93,6 @@ FARM_MAX_SPREAD_PCT = MAX_SPREAD_FILTER_PERCENT
 FARM_MAX_VOLATILITY_24H = 15.0
 FARM_MIN_INTERVAL_SECONDS = 15
 FARM_BURST_LIMIT = 10
-FARM_MAX_CONCURRENT_ORDERS = 5
 
 # --- Dynamic & Adaptive Settings ---
 DYNAMIC_MIN_APY_ENABLED = True

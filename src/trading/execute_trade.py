@@ -16,21 +16,42 @@ async def execute_trade(
     Ensures both Lighter and X10 prices are valid (> 0) BEFORE any order.
     Skips entire trade if either price invalid to avoid unhedged positions.
     """
-    # Fetch prices from adapters
-    lighter_price = lighter_adapter.get_price(symbol)
-    try:
-        x10_price = x10_adapter.get_price(symbol)
-    except AttributeError:
-        # Fallback if x10_adapter uses async fetcher
-        x10_price = None
-        if hasattr(x10_adapter, "fetch_mark_price"):
+    # Fetch prices with freshness verification
+    import time
+    
+    # 1. Fetch Fresh Prices & Timestamps
+    lighter_price_val = lighter_adapter.get_price(symbol)
+    lighter_ts = getattr(lighter_adapter, 'price_cache_time', {}).get(symbol, 0)
+    
+    # Lighter Stale Check (Max 10s)
+    if time.time() - lighter_ts > 10:
+        if hasattr(lighter_adapter, 'fetch_mark_price'):
             try:
-                x10_price = await x10_adapter.fetch_mark_price(symbol)
+                # Force refresh via API (might be sync or async depending on adapter implementation)
+                # lighter_adapter.fetch_mark_price is sync in some versions, async in others?
+                # Based on analysis, it looks sync (returns float) or async.
+                # Use getattr safe call or just trust get_price if fetch fails
+                p = lighter_adapter.fetch_mark_price(symbol)
+                if p: lighter_price_val = p
             except Exception:
-                x10_price = None
+                pass
 
-    lp = float(lighter_price) if lighter_price is not None else 0.0
-    xp = float(x10_price) if x10_price is not None else 0.0
+    # X10: Try to get fresh price
+    x10_price_val = None
+    try:
+        # Check cache age first
+        x10_ts = getattr(x10_adapter, 'price_cache_time', {}).get(symbol, 0)
+        if time.time() - x10_ts < 10:
+             x10_price_val = x10_adapter.get_price(symbol)
+        else:
+             # Too old, force fetch
+             if hasattr(x10_adapter, "fetch_mark_price"):
+                 x10_price_val = x10_adapter.fetch_mark_price(symbol)
+    except Exception:
+        pass
+
+    lp = float(lighter_price_val) if lighter_price_val is not None else 0.0
+    xp = float(x10_price_val) if x10_price_val is not None else 0.0
 
     if lp <= 0 or xp <= 0:
         logger.error(f"❌ Skipping {symbol}: Invalid prices (L={lp}, X={xp})")
