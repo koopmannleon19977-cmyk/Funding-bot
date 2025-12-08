@@ -21,7 +21,7 @@ load_dotenv()
 # Faustregel: (Position Size * Max Trades) / Dein Kapital = Benötigter Hebel
 # $500 * 5 Trades = $2500 Total Exposure. Bei $270 Kapital -> 9.25x Hebel (OK)
 # $1000 * 5 Trades = $5000 Total Exposure. Bei $500 Kapital -> 10x Hebel (OK)
-DESIRED_NOTIONAL_USD = 100.0       # Increased to $100 for higher volume
+DESIRED_NOTIONAL_USD = 50.0       # Increased to $100 for higher volume
 MAX_OPEN_TRADES = 3               # 5 * 60 = $300 (fits with minimal leverage)
 LEVERAGE_MULTIPLIER = 5.0         # Reduced to 5x (plenty for low leverage alts)
 # Burs Limit (New)

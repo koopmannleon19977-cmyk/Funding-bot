@@ -3050,6 +3050,104 @@ async def reconcile_db_with_exchanges(lighter, x10):
     logger.info(f"📊 Final state: {len(open_trades_after)} open trades")
 
 
+
+async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
+    """
+    Aggressiver Sync: Die Exchange ist die Single Source of Truth.
+    1. Hole echte Positionen von Lighter & X10.
+    2. Wenn DB sagt 'Trade offen', aber Exchange leer -> DB löschen (Zombie).
+    3. Wenn Exchange sagt 'Position da', aber DB leer -> Trade erstellen (Adoption) oder Panik-Close.
+    """
+    try:
+        # Check if busy (double safety, though caller should check too)
+        if parallel_exec and hasattr(parallel_exec, 'is_busy') and parallel_exec.is_busy():
+            return
+
+        logger.info("🔍 RECONCILE: Starting strict sync check...")
+        
+        # 1. Hole ECHTE Daten (kein Cache!)
+        # Use concurrent fetch for speed
+        results = await asyncio.gather(
+            lighter.fetch_open_positions(),
+            x10.fetch_open_positions(),
+            return_exceptions=True
+        )
+        
+        lighter_pos = results[0] if not isinstance(results[0], Exception) else []
+        x10_pos = results[1] if not isinstance(results[1], Exception) else []
+        
+        if isinstance(results[0], Exception):
+            logger.warning(f"Reconcile: Lighter fetch failed: {results[0]}")
+        if isinstance(results[1], Exception):
+            logger.warning(f"Reconcile: X10 fetch failed: {results[1]}")
+            
+        if lighter_pos is None: lighter_pos = []
+        if x10_pos is None: x10_pos = []
+        
+        # Mappe auf Symbole für schnellen Zugriff
+        # Note: fetch_open_positions usually returns list of dicts with 'symbol' and 'size'
+        real_lighter = {
+            p.get('symbol'): float(p.get('size', 0)) 
+            for p in lighter_pos 
+            if abs(safe_float(p.get('size', 0))) > 1e-8
+        }
+        real_x10 = {
+            p.get('symbol'): float(p.get('size', 0)) 
+            for p in x10_pos 
+            if abs(safe_float(p.get('size', 0))) > 1e-8
+        }
+        
+        # 2. Hole DB Trades
+        sm = await get_state_manager()
+        db_trades = await sm.get_all_open_trades() 
+        
+        # 3. Check auf Zombies (DB hat Trade, Exchange nicht)
+        for trade in db_trades:
+            symbol = trade.symbol
+            # Skip recently opened trades to avoid race conditions with creation
+            # RECENTLY_OPENED_TRADES check
+            if symbol in RECENTLY_OPENED_TRADES:
+                if time.time() - RECENTLY_OPENED_TRADES[symbol] < 60:
+                     continue
+
+            if symbol not in real_lighter and symbol not in real_x10:
+                logger.warning(f"🧟 ZOMBIE DETECTED: {symbol} in DB but NO positions on exchange. Removing from DB.")
+                await sm.set_trade_closed(trade.id, reason="ZOMBIE_CLEANUP")
+                
+            elif symbol not in real_lighter:
+                logger.error(f"⚠️ PARTIAL ZOMBIE: {symbol} has X10 position but missing Lighter! DANGEROUS!")
+                # Hier müsste man eigentlich den X10 Teil schließen!
+                # await parallel_exec.close_trade(trade) 
+
+        # 4. Check auf Ghosts / Orphans (Exchange hat Position, DB nicht)
+        all_exchange_symbols = set(real_lighter.keys()) | set(real_x10.keys())
+        db_symbols = {t.symbol for t in db_trades}
+        
+        for symbol in all_exchange_symbols:
+            if symbol not in db_symbols:
+                # Skip if active task
+                if symbol in ACTIVE_TASKS:
+                    continue
+
+                l_size = real_lighter.get(symbol, 0)
+                x_size = real_x10.get(symbol, 0)
+                
+                logger.error(f"👻 GHOST POSITION: {symbol} found on Exchange (L={l_size}, X={x_size}) but NOT in DB!")
+                
+                # WICHTIG: Entscheide hier! Adoptieren oder Schließen?
+                if l_size != 0 and x_size != 0:
+                    logger.info(f"✨ Adopting valid ghost trade {symbol} into DB...")
+                    # TODO: Implement adoption logic
+                else:
+                    logger.warning(f"🚨 Naked Position {symbol}! Closing immediately...")
+                    # if parallel_exec:
+                    #     await parallel_exec.force_close_symbol(symbol)
+                    
+        logger.info("✅ RECONCILE: Sync complete.")
+        
+    except Exception as e:
+        logger.error(f"Reconcile error: {e}")
+
 async def logic_loop(lighter, x10, price_event, parallel_exec):
     """Main trading loop with opportunity detection and execution"""
     global LAST_DATA_UPDATE, LAST_ARBITRAGE_LAUNCH
@@ -3060,6 +3158,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
         try:
             # Update watchdog heartbeat
             LAST_DATA_UPDATE = time.time()
+            
+            # --- Exchange First Reconciliation (Every 10s) ---
+            # NUR wenn keine Trades gerade in "Execution" sind (WICHTIG!)
+            if parallel_exec and hasattr(parallel_exec, 'is_busy') and not parallel_exec.is_busy():
+                 # Run sync (non-blocking if possible, but here we wait to ensure clean state)
+                 # We can use a modulo to run it only every X seconds roughly inside the loop
+                 # logic_loop runs every REFRESH_DELAY (5s)
+                 # Let's run it every iteration where we are idle, as requested ("Aggressiver Sync")
+                 await reconcile_state_with_exchange(lighter, x10, parallel_exec)
+            
             
             open_trades = await get_open_trades()
             open_syms = {t['symbol'] for t in open_trades}

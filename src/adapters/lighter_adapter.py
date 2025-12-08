@@ -354,6 +354,30 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Lighter get_open_orders error: {e}")
             return []
 
+
+    async def fetch_my_trades(self, symbol: str, limit: int = 20):
+        """Hole Trade History um Fills zu verifizieren"""
+        try:
+            # Lighter API Endpoint für Trades (Beispiel - API Doku prüfen!)
+            # Oft: /api/v1/trades?symbol=...&accountIndex=...
+            
+            # Wenn dein Client eine Methode dafür hat, nutze sie.
+            # Sonst REST Call:
+            
+            # Resolve Account Index if needed
+            if not getattr(self, '_resolved_account_index', None):
+                 await self._resolve_account_index()
+            
+            params = {
+                "symbol": symbol, 
+                "limit": limit, 
+                "account_index": self._resolved_account_index
+            }
+            return await self._rest_get("/api/v1/trades", params=params)
+        except Exception as e:
+            logger.error(f"Failed to fetch trades: {e}")
+            return []
+
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
         await self.load_market_cache(force=True)

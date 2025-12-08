@@ -21,6 +21,30 @@ logger = logging.getLogger(__name__)
 
 import config
 from src.utils import safe_float
+import math
+
+def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
+    """
+    Berechnet die exakte Anzahl Coins, die auf BEIDEN Börsen handelbar ist.
+    """
+    # 1. Berechne theoretische Anzahl Coins
+    if price <= 0: return 0.0
+    raw_coins = amount_usd / price
+    
+    # 2. Finde den größeren Schritt (Step Size) der beiden Börsen
+    # Wir müssen uns nach dem "gröberen" Raster richten.
+    # Wenn X10=1 und Lighter=10, müssen wir in 10er Schritten handeln.
+    # Wir nutzen eine kleine Toleranz (epsilon), da Floats ungenau sind.
+    max_step = max(x10_step, lighter_step)
+    
+    if max_step <= 0: return raw_coins
+    
+    # 3. Runde AB auf das nächste Vielfache des größten Schritts
+    # Beispiel: 256 Coins, Schritt 10 -> 250 Coins.
+    epsilon = 1e-9
+    coins = math.floor((raw_coins + epsilon) / max_step) * max_step
+    
+    return coins
 
 
 class ExecutionState(Enum):
@@ -182,6 +206,56 @@ class ParallelExecutionManager:
                 logger.warning(f"🛡️ Trade blocked by Compliance Check for {symbol}")
                 return False, None, None
 
+            # ═══════════════════════════════════════════════════════════════
+            # SIZE ALIGNMENT (Common Denominator)
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                # 1. Get Reference Price (Lighter Maker)
+                maker_price_val = float(price_lighter) if price_lighter else None
+                if not maker_price_val or maker_price_val <= 0:
+                    maker_price_val = self.lighter.fetch_mark_price(symbol)
+                
+                if maker_price_val and maker_price_val > 0:
+                    # 2. Get Step Sizes
+                    # X10
+                    x10_step = 0.001
+                    x10_m = self.x10.market_info.get(symbol)
+                    if x10_m:
+                        if hasattr(x10_m, 'trading_config'): # Object from SDK
+                            x10_step = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                        elif isinstance(x10_m, dict):
+                            x10_step = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
+                            
+                    # Lighter
+                    lighter_step = 0.01
+                    lig_m = self.lighter.get_market_info(symbol) if hasattr(self.lighter, 'get_market_info') else None
+                    if lig_m:
+                        # Prioritize 'lot_size', then 'min_quantity', then 'size_increment'
+                        lighter_step = float(lig_m.get('lot_size', lig_m.get('size_increment', lig_m.get('min_quantity', 0.01))))
+                    
+                    # 3. Calculate aligned size
+                    target_size_usd = float(size_lighter)
+                    safe_coins = calculate_common_quantity(
+                        target_size_usd,
+                        maker_price_val,
+                        x10_step,
+                        lighter_step
+                    )
+                    
+                    if safe_coins > 0:
+                        final_usd_size = safe_coins * maker_price_val
+                        logger.info(f"⚖️ Size Alignment {symbol}: {target_size_usd:.2f}$ -> {final_usd_size:.2f}$ ({safe_coins:.6f} Coins) to match both exchanges (X10 Step: {x10_step}, Lighter Step: {lighter_step})")
+                        
+                        # Update sizes
+                        size_lighter = Decimal(str(final_usd_size))
+                        # Match X10 to new aligned size
+                        size_x10 = size_lighter 
+                    else:
+                        logger.warning(f"⚠️ Size Alignment {symbol}: Calculated 0 coins? Keeping original.")
+
+            except Exception as e:
+                logger.error(f"⚠️ Size Alignment Error: {e}", exc_info=True)
+
             # Create execution tracker
             execution = TradeExecution(
                 symbol=symbol,
@@ -241,21 +315,76 @@ class ParallelExecutionManager:
         # ═══════════════════════════════════════════════════════════════
         # RACE CONDITION FIX: Atomic Status Check with RETRY LOOP ("Paranoid Mode")
         # ═══════════════════════════════════════════════════════════════
+        # -----------------------------------------------------------------------
+        # FIX: 404 Handling & Trade History Check
+        # -----------------------------------------------------------------------
         filled = False
+        check_history = False
+
         try:
-            # Check specific order status immediately if supported
-            status = "UNKNOWN"
-            if hasattr(self.lighter, 'get_order_status'):
-                try:
-                    status = await self.lighter.get_order_status(lighter_order_id)
-                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
-                except Exception:
-                    pass 
+            # 1. Versuche Order-Status zu holen
+            order_info = await self.lighter.get_order(lighter_order_id)
             
-            if status in ['FILLED', 'PARTIALLY_FILLED']:
-                logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
-                filled = True
+            if order_info:
+                status = order_info.get('status', '').upper()
+                filled_amount = float(order_info.get('filledAmount', 0) or order_info.get('executedQty', 0))
+                
+                if status in ['FILLED', 'PARTIALLY_FILLED'] or filled_amount > 0:
+                    logger.warning(f"⚠️ [MAKER STRATEGY] Order {lighter_order_id} found as {status} (Size: {filled_amount})")
+                    filled = True
+                elif status == 'CANCELED':
+                    logger.info(f"✓ Order confirmed CANCELED via API.")
+                    filled = False
             else:
+                # API liefert None zurück -> Behandle wie 404
+                check_history = True
+
+        except Exception as e:
+            # 2. Fehlerbehandlung (z.B. 404 Not Found)
+            err_str = str(e).lower()
+            if "404" in err_str or "not found" in err_str:
+                logger.warning(f"❓ Order {lighter_order_id} returned 404. Status unklar. Checking Fills...")
+                check_history = True
+            else:
+                logger.error(f"Error checking status: {e}")
+                # Im Zweifel gehen wir vom schlimmsten aus und prüfen Positionen
+                check_history = True
+
+        # 3. Wenn Status unklar (404), prüfe Trade History (Fills)
+        if check_history and not filled:
+            try:
+                # Hole die letzten 10 Trades für dieses Symbol
+                # WICHTIG: Deine Adapter-Methode muss 'fetch_my_trades' unterstützen!
+                recent_trades = await self.lighter.fetch_my_trades(symbol, limit=10)
+                
+                # Suche nach Trades, die zu unserer Order ID gehören
+                # (Achte darauf, dass IDs Strings oder Ints sein können, daher str())
+                my_fills = [
+                    t for t in recent_trades 
+                    if str(t.get('orderId', '')) == str(lighter_order_id) or 
+                       str(t.get('order_id', '')) == str(lighter_order_id)
+                ]
+
+                if my_fills:
+                    fill_sum = sum(float(t.get('amount', 0) or t.get('qty', 0)) for t in my_fills)
+                    logger.warning(f"🚨 404 TRAP: Order returned 404 but found {len(my_fills)} FILLS in history! Sum: {fill_sum}")
+                    filled = True
+                else:
+                    logger.info(f"✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.")
+                    filled = False
+                    
+            except Exception as hist_e:
+                logger.error(f"Could not verify trade history: {hist_e}. Fallback to Position Check.")
+                # Fallback: Wenn wir History nicht lesen können, verlassen wir uns auf den 
+                # "Paranoid Check" (Position Check), der gleich danach kommt.
+        
+        # -----------------------------------------------------------------------
+        # Ende des Fixes
+        # -----------------------------------------------------------------------
+
+        if filled:
+             logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
+        else:
                 # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
                 logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
                 
@@ -284,8 +413,7 @@ class ParallelExecutionManager:
                     except Exception as e:
                         logger.debug(f"Check error: {e}")
         
-        except Exception as e:
-            logger.error(f"Error verification after timeout {symbol}: {e}")
+
 
         if filled:
             logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
@@ -363,14 +491,46 @@ class ParallelExecutionManager:
                  return False, None, lighter_order_id
         
         execution.lighter_filled = True
-        logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # PHASE 2: QUANTITY-BASED HEDGING (Match Coins, not USD)
+        # ═══════════════════════════════════════════════════════════════════
+        # PROBLEM: Different prices on Lighter/X10 mean $100 on Lighter != $100 on X10 in Coins.
+        # FIX: We fetch the EXACT filled coin amount from Lighter and replicate it on X10.
+        
+        filled_size_coins = 0.0
+        try:
+            positions = await self.lighter.fetch_open_positions()
+            # Find position for this symbol
+            pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+            if pos:
+                filled_size_coins = abs(safe_float(pos.get('size', 0)))
+        except Exception as e:
+            logger.warning(f"⚠️ {symbol}: Failed to fetch Lighter position size: {e}")
+
+        # Fallback if position fetch failed or returned 0 (e.g. if it was a closing trade? but here we open)
+        if filled_size_coins == 0:
+            logger.error(f"❌ {symbol}: Lighter filled but size is 0? Using planned USD size as fallback.")
+            # Fallback: Convert planned USD size to coins using current X10 price
+            price = self.x10.fetch_mark_price(symbol)
+            if price and price > 0:
+                filled_size_coins = execution.size_lighter / price
+            else:
+                 # Last resort: just rely on USD (logic inside _execute_x10_leg handles USD if we passed it, but we want coins)
+                 # We will pass what we have; if price is 0, we have a bigger problem.
+                 filled_size_coins = 0.0
+
+        logger.info(f"⚖️ HEDGING {symbol}: Lighter filled {filled_size_coins:.6f} coins. Matching on X10...")
 
         # 3. Execute X10 (Taker)
         execution.state = ExecutionState.LEG2_SENT
+        
+        # We use the NEW signature of _execute_x10_leg that accepts specific coin quantity
         x10_success, x10_order_id = await self._execute_x10_leg(
              symbol, 
              execution.side_x10, 
-             execution.size_x10, 
+             size_type="COINS",
+             size_value=filled_size_coins,
              post_only=False # Taker
         )
         
@@ -402,12 +562,40 @@ class ParallelExecutionManager:
             return False, None
 
     async def _execute_x10_leg(
-        self, symbol: str, side: str, notional_usd: float, post_only: bool
+        self, 
+        symbol: str, 
+        side: str, 
+        size_type: str,   # "USD" or "COINS"
+        size_value: float, 
+        post_only: bool
     ) -> Tuple[bool, Optional[str]]:
         """Execute X10 leg with error handling"""
         try:
+            qty_coins = 0.0
+            notional_usd = 0.0
+            amount_arg = None
+
+            # Preis holen für Logging / Fallback
+            price = self.x10.fetch_mark_price(symbol)
+            
+            if size_type == "COINS":
+                qty_coins = size_value
+                amount_arg = qty_coins
+                # Logging
+                logger.info(f"🚀 X10 EXECUTE {symbol} {side}: {qty_coins:.6f} Coins (Basis: {size_type}={size_value})")
+            else:
+                # USD Mode
+                notional_usd = size_value
+                if price and price > 0:
+                    est_coins = size_value / price
+                    logger.info(f"🚀 X10 EXECUTE {symbol} {side}: ~{est_coins:.6f} Coins (Basis: {size_type}={size_value})")
+                else:
+                    logger.info(f"🚀 X10 EXECUTE {symbol} {side}: ${size_value:.2f} (Basis: USD)")
+
+            # IMPORTANT: We pass 'amount' if we have coins, otherwise 'notional_usd'
+            # open_live_position logic: if amount provided, uses it. else divides notional_usd by price.
             return await self.x10.open_live_position(
-                symbol, side, notional_usd, post_only=post_only
+                symbol, side, notional_usd=notional_usd, post_only=post_only, amount=amount_arg
             )
         except Exception as e:
             logger.error(f"X10 leg error {symbol}: {e}")
@@ -642,3 +830,7 @@ class ParallelExecutionManager:
             logger.error(f"Compliance Check Failed: {e}")
             # Fail safe: Allow trading if check errors locally
             return True
+
+    def is_busy(self) -> bool:
+        """Check if any executions or rollbacks are in progress"""
+        return len(self.active_executions) > 0 or not self._rollback_queue.empty()
