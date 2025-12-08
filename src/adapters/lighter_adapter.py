@@ -282,23 +282,45 @@ class LighterAdapter(BaseAdapter):
             # FIX: 'tick_size' verwenden, da 'price_increment' in market_info keys oft anders heißt
             price_tick = float(market.get('tick_size', market.get('price_increment', 0.0001))) if market else 0.0001
 
-            # Strategie: Penny-Jumping (Ganz leicht vor die Konkurrenz setzen)
-            if side == 'BUY':
-                # Wir wollen kaufen -> Bid + 1 Tick (aber unter Ask)
-                price = best_bid + price_tick
-                if price >= best_ask:
-                    price = best_bid # Fallback wenn Spread zu eng
-            else:
-                # Wir wollen verkaufen -> Ask - 1 Tick (aber über Bid)
-                price = best_ask - price_tick
-                if price <= best_bid:
-                    price = best_ask # Fallback
-
-            # WICHTIG: Endgültigen Preis runden!
-            final_price = quantize_value(price, price_tick)
+            # ═══════════════════════════════════════════════════════════════
+            # DYNAMIC TICK SIZE LOGIC (Penny Jumping)
+            # ═══════════════════════════════════════════════════════════════
+            # Ziel: Exakt 1 Tick vor der Konkurrenz, ohne den Spread zu kreuzen.
             
-            logger.info(f"🛡️ Lighter Maker Price {symbol} {side}: ${final_price:.6f}")
-            return final_price
+            if side == 'BUY':
+                # Wir wollen KAUFEN -> Best Bid + 1 Tick
+                target_price = best_bid + price_tick
+                
+                # Check: Dürfen nicht Ask erreichen/kreuzen (Taker-Gefahr)
+                # Wenn Spread = 1 Tick, dann target_price == best_ask.
+                # In dem Fall müssen wir uns hinten anstellen (Best Bid).
+                if target_price >= best_ask:
+                    final_price = best_bid
+                    strategy = "Join Bid (Spread Tight)"
+                else:
+                    final_price = target_price
+                    strategy = "Penny Jump Bid"
+                    
+            else: # SELL
+                # Wir wollen VERKAUFEN -> Best Ask - 1 Tick
+                target_price = best_ask - price_tick
+                
+                # Check: Dürfen nicht Bid erreichen/kreuzen
+                if target_price <= best_bid:
+                    final_price = best_ask
+                    strategy = "Join Ask (Spread Tight)"
+                else:
+                    final_price = target_price
+                    strategy = "Penny Jump Ask"
+
+            # WICHTIG: Endgültigen Preis runden (HALF_UP um Float-Fehler zu vermeiden)
+            quantized_price = quantize_value(final_price, price_tick, rounding=ROUND_HALF_UP)
+            
+            logger.info(
+                f"🛡️ Maker Price {symbol} {side}: ${quantized_price:.6f} "
+                f"({strategy} | Bid=${best_bid}, Ask=${best_ask}, Tick={price_tick})"
+            )
+            return quantized_price
 
         except Exception as e:
             logger.error(f"⚠️ Maker Price logic failed for {symbol}: {e}")

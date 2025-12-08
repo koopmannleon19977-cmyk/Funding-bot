@@ -3486,7 +3486,7 @@ from src.websocket_manager import init_websocket_manager, get_websocket_manager
 # MAIN BOT RUNNER V5 (Task Supervised & Component Wired)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-async def run_bot_v5():
+async def run_bot_v5(bot_instance=None):
     """
     Main bot entry point with full task supervision and component wiring.
     
@@ -3515,6 +3515,10 @@ async def run_bot_v5():
     # 2. INIT ADAPTERS
     x10 = X10Adapter()
     lighter = LighterAdapter()
+    
+    if bot_instance:
+        bot_instance.x10 = x10
+        bot_instance.lighter = lighter
     
     price_event = asyncio.Event()
     x10.price_update_event = price_event
@@ -4392,11 +4396,145 @@ async def main():
         logger.info("✅ Bot V5 shutdown complete")
 
 
+
+class FundingBot:
+    def __init__(self):
+        self.x10 = None
+        self.lighter = None
+        self.config = config # Helper alias for user snippet compatibility
+
+    async def run(self):
+        """Run the main bot logic."""
+        await run_bot_v5(self)
+
+    async def graceful_shutdown(self):
+        """
+        Wird bei Ctrl+C aufgerufen. Schließt ALLES aggressiv via Taker-Orders.
+        """
+        if not config.CLOSE_ALL_ON_SHUTDOWN:
+            logger.info("Shutdown configured to KEEP positions open.")
+            return
+
+        logger.warning("🚨 EMERGENCY SHUTDOWN: Closing ALL positions (Taker Mode)...")
+
+        try:
+            # 1. Cancel alle offenen Orders (damit keine neuen Fills kommen)
+            await self.cancel_all_open_orders()
+
+            # 2. Hole ECHTE Positionen direkt von der API (nicht DB vertrauen)
+            x10_positions = await self.x10.fetch_open_positions() if self.x10 else []
+            lighter_positions = await self.lighter.fetch_open_positions() if self.lighter else []
+
+            # 3. Schließe X10
+            for pos in x10_positions:
+                size = safe_float(pos.get('size', 0))
+                if size != 0:
+                    symbol = pos.get('symbol')
+                    logger.info(f"🛑 Closing X10 Position: {symbol} Size: {size}")
+                    # X10 Adapter's close_live_position usually handles taking
+                    # Pass "BUY" if size > 0 (LONG) because internally it usually expects 'position side' or 'original side'
+                    # Referencing strict shutdown logic:
+                    side = "BUY" if size > 0 else "SELL" # Position side
+                    await self.x10.close_live_position(symbol, side, abs(size))
+
+            # 4. Schließe Lighter
+            for pos in lighter_positions:
+                size = safe_float(pos.get('size', 0))
+                if size != 0:
+                    symbol = pos.get('symbol')
+                    # WICHTIG: Auf Lighter musst du eine IOC (Immediate-or-Cancel) Order 
+                    # gegen das Orderbuch senden, keine Maker Order!
+                    # side = SELL wenn du LONG bist, BUY wenn du SHORT bist.
+                    close_side = "SELL" if size > 0 else "BUY"
+                    # Lighter SDK specific call or use open_live_position with taker params
+                    logger.info(f"🛑 Closing Lighter Position: {symbol} Size: {size}")
+                    
+                    # Estimate value for notional check logic, though we just want to close
+                    # We use open_live_position with Taker Mode (post_only=False) and reduce_only=True
+                    # Ideally we pass amount directly if supported, or calculate notional
+                    price = self.lighter.fetch_mark_price(symbol)
+                    if price:
+                         notional = abs(size) * float(price)
+                         await self.lighter.open_live_position(
+                            symbol, 
+                            close_side, 
+                            notional, 
+                            price=price, 
+                            post_only=False, # TAKER!
+                            reduce_only=True,
+                            amount=abs(size)
+                        )
+
+        except Exception as e:
+            logger.error(f"Error during graceful_shutdown: {e}")
+
+        logger.info("✅ All positions closed. Bye!")
+
+    async def cancel_all_open_orders(self):
+        """Helper to cancel all orders on both exchanges."""
+        if self.lighter:
+            # Lighter cancel logic per symbol or global? 
+            # Adapter expects symbol. We iterate known markets.
+            for sym in self.lighter.market_info:
+                 await self.lighter.cancel_all_orders(sym)
+        if self.x10:
+             # X10 logic
+             await self.x10.cancel_all_orders()
+
+
+async def shutdown(sig, loop, bot_instance=None):
+    """Cleanup logic when Ctrl+C is pressed."""
+    # Only print, do not use logger which might be partially closed?
+    print(f"\n[STOP] Received exit signal {sig.name}...")
+    
+    if bot_instance:
+        print("[STOP] Initiating Graceful Shutdown (Closing Positions)...")
+        # Hier rufen wir die Schließ-Logik auf
+        try:
+            await bot_instance.graceful_shutdown()
+        except Exception as e:
+            print(f"[STOP] Error in graceful_shutdown: {e}")
+    
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    print(f"[STOP] Cancelling {len(tasks)} outstanding tasks...")
+    [task.cancel() for task in tasks]
+    
+    await asyncio.gather(*tasks, return_exceptions=True)
+    loop.stop()
+
+
 if __name__ == "__main__":
     if sys.platform == 'win32':
+        # Need SelectorEventLoop for basic compatibility, but signal handlers might still be an issue
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
+    # 1. Bot Instanz erstellen
+    bot = FundingBot() 
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    # 2. Signale registrieren (Ctrl+C und Kill)
+    # WARNING: On Windows, add_signal_handler works for SIGINT only if using SelectorEventLoop
+    # AND running in main thread. If it fails, we assume KeyboardInterrupt catch is fallback.
     try:
-        # SWITCHOVER TO V5 RUNNER
-        asyncio.run(run_bot_v5())
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(shutdown(sig, loop, bot)))
+    except NotImplementedError:
+        print("WARNING: Signal handlers not fully supported on this platform (likely Windows). Using KeyboardInterrupt fallback.")
+
+    try:
+        # 3. Bot starten
+        loop.create_task(bot.run())
+        loop.run_forever()
     except KeyboardInterrupt:
-        pass
+        # Fallback for Windows if signal handler didn't catch it
+        print("\n[STOP] KeyboardInterrupt detected (Windows fallback)...")
+        # Manually trigger shutdown logic
+        loop.run_until_complete(shutdown(signal.SIGINT, loop, bot))
+    finally:
+        try:
+            loop.close()
+        except:
+            pass
+        print("[STOP] Bot successfully shut down.")
