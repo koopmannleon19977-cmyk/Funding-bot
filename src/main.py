@@ -42,7 +42,7 @@ from src.fee_manager import get_fee_manager, init_fee_manager, stop_fee_manager
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from src.prediction_v2 import get_predictor, FundingPredictorV2
+
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
     get_database,
@@ -99,54 +99,6 @@ RECENTLY_OPENED_PROTECTION_SECONDS = 60.0  # Protect trades for 60s after open a
 # Define in-flight reservation globals (used when reserving trade notional)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
-# ============================================================
-# PREDICTION SYSTEM - ACTIVE INTEGRATION
-# ============================================================
-async def update_funding_data(symbol: str, rate_x10: float, rate_lighter: float, 
-                               mark_price: float, open_interest: float):
-    """Feed data to prediction system for ML analysis (V2)"""
-    try:
-        predictor = get_predictor()
-        if predictor and hasattr(predictor, 'add_observation'):
-            await predictor.add_observation(
-                symbol=symbol,
-                rate_x10=rate_x10,
-                rate_lighter=rate_lighter,
-                mark_price=mark_price,
-                open_interest=open_interest
-            )
-    except AttributeError as e:
-        logger.debug(f"Predictor doesn't support add_observation: {e}")
-    except Exception as e:
-        logger.debug(f"Prediction update failed for {symbol}: {e}")
-
-async def get_best_opportunities(symbols: list, min_apy: float, min_confidence: float, limit: int,
-                                 lighter_adapter=None, x10_adapter=None, btc_price: float = 0.0):
-    """Get ML-ranked trading opportunities (V2)"""
-    try:
-        predictor = get_predictor()
-        if predictor and hasattr(predictor, 'get_top_opportunities'):
-            results = await predictor.get_top_opportunities(
-                symbols=symbols,
-                min_apy=min_apy,
-                min_confidence=min_confidence,
-                limit=limit,
-                lighter_adapter=lighter_adapter,
-                x10_adapter=x10_adapter,
-                btc_price=btc_price
-            )
-            return results
-        else:
-            logger.debug("Predictor doesn't support get_top_opportunities")
-            return []
-    except Exception as e:
-        logger.warning(f"Prediction opportunities failed: {e}")
-        return []
-
-# ============================================================
-# PRE-TRADE PROFITABILITY CHECK (Using Decimal for precision)
-# ============================================================
-from src.utils import safe_decimal, quantize_usd, USD_PRECISION, RATE_PRECISION
 
 def calculate_expected_profit(
     notional_usd: float,
@@ -209,7 +161,7 @@ def calculate_expected_profit(
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-from src.utils import safe_float
+from src.utils import safe_float, safe_decimal, quantize_usd
 
 
 
@@ -770,99 +722,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             return latency_opportunities[:1]  # Only best one for speed
 
     # ═══════════════════════════════════════════════════════════════
-    # PREDICTION V2 INTEGRATION (war vorher auskommentiert/stub)
+    # STANDARD ARBITRAGE LOGIC (Math-Based)
     # ═══════════════════════════════════════════════════════════════
-    
-    # Feed current data to predictor
-    for s, lr, xr, px, pl in clean_results:
-        if lr is not None and xr is not None:
-            await update_funding_data(
-                symbol=s,
-                rate_x10=float(xr),
-                rate_lighter=float(lr),
-                mark_price=float(px) if px else 0.0,
-                open_interest=0.0  # Will be filled by OI tracker
-            )
-    
-    # Get ML-ranked opportunities
-    available_symbols = [s for s, _, _, _, _ in clean_results if s not in open_syms]
-    
-    # Get BTC price for prediction
-    btc_price = 0.0
-    try:
-        btc_price = float(x10.fetch_mark_price("BTC-USD") or 0.0)
-    except:
-        pass
-    
-    # Dynamic confidence based on mode
-    dynamic_min_conf = 0.3 if getattr(config, 'VOLUME_FARM_MODE', False) else 0.6
 
-    predictions = await get_best_opportunities(
-        symbols=available_symbols,
-        min_apy=getattr(config, 'MIN_APY_FILTER', 0.15) * 100,  # 0.15 -> 15.0%
-        min_confidence=dynamic_min_conf,  # Dynamic: 0.3 (Farm) vs 0.6 (Normal)
-        limit=20,
-        lighter_adapter=lighter,
-        x10_adapter=x10,
-        btc_price=btc_price
-    )
-    
-    # Convert predictions to opportunity format
-    if predictions:
-        logger.info(f"🧠 Prediction V2: Found {len(predictions)} ML-ranked opportunities")
-        
-        for pred in predictions:
-            # FIX: pred ist ein Dictionary, nicht ein Objekt
-            if not pred.get('should_trade', False):
-                continue
-            
-            # Get rates from clean_results
-            symbol_data = next((r for r in clean_results if r[0] == pred.get('symbol')), None)
-            if not symbol_data:
-                continue
-            
-            s, rl, rx, px, pl = symbol_data
-            
-            # STRICT FILTER: Check CURRENT APY
-            current_net = abs((rl or 0) - (rx or 0))
-            current_apy = current_net * 24 * 365
-            min_required = getattr(config, 'MIN_APY_FILTER', 0.15)
-            
-            if current_apy < min_required:
-                logger.debug(f"📉 Prediction {s} skipped: Current APY {current_apy*100:.1f}% < Min {min_required*100:.1f}%")
-                continue
-            
-            opp = {
-                'symbol': pred.get('symbol'),
-                'apy': pred.get('apy', pred.get('predicted_apy', 0)),  # Use current APY (fallback to predicted if not available)
-                'spread': pred.get('current_spread', 0),
-                'confidence': pred.get('confidence', 0.5),
-                'predicted_direction': pred.get('predicted_direction', 'long_lighter'),
-                'size_multiplier': pred.get('recommended_size_multiplier', 1.0),
-                'regime': pred.get('regime', 'UNKNOWN'),
-                'signals': pred.get('signals', {}),
-                'rate_x10': rx or 0,
-                'rate_lighter': rl or 0,
-                'is_farm_trade': is_farm_mode or False,
-                'net_funding_hourly': (rl or 0) - (rx or 0),
-                'leg1_exchange': 'Lighter' if pred.get('predicted_direction', 'long_lighter') == "long_lighter" else 'X10',
-                'leg1_side': 'SELL' if (rl or 0) > (rx or 0) else 'BUY',
-                'price_x10': safe_float(px),
-                'price_lighter': safe_float(pl),
-                'is_latency_arb': False,
-                'is_prediction_trade': True  # NEU: Markiert als Prediction-Trade
-            }
-            
-            opps.append(opp)
-        
-        # Wenn wir Predictions haben, diese priorisieren
-        if opps:
-            opps.sort(key=lambda x: x['apy'] * x.get('confidence', 1.0), reverse=True)
-            logger.info(f"✅ Returning {len(opps)} ML-ranked opportunities")
-            return opps[:config.MAX_OPEN_TRADES]
-    
-    # Fallback: Alte Logik wenn keine Predictions
-    logger.info("⚠️ No prediction opportunities, using fallback logic...")
 
     # Update threshold manager (old code kept for fallback)
     current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
@@ -947,8 +809,23 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             continue
         
         # Spread check
-        if spread > config.MAX_SPREAD_FILTER_PERCENT:
-            logger.debug(f"Skip {s}: Spread {spread*100:.2f}% too high")
+        # ---------------------------------------------------------
+        # DYNAMIC SPREAD CHECK
+        # ---------------------------------------------------------
+        # Allow spread > MAX_SPREAD_FILTER_PERCENT if funding is high enough to cover it quickly.
+        # We allow spread up to 12 hours of projected funding income.
+        
+        base_spread_limit = config.MAX_SPREAD_FILTER_PERCENT
+        funding_boosted_limit = abs(net) * 12.0  # Funding for 12 hours
+        
+        # Cap at 3.0% to prevent extreme wicks/illiquidity
+        final_spread_limit = min(max(base_spread_limit, funding_boosted_limit), 0.03)
+        
+        if spread > final_spread_limit:
+            logger.debug(
+                f"Skip {s}: Spread {spread*100:.2f}% > Limit {final_spread_limit*100:.2f}% "
+                f"(Base: {base_spread_limit*100:.2f}%, 12h_Fund: {funding_boosted_limit*100:.2f}%)"
+            )
             continue
 
         # Log high APY opportunities
@@ -965,9 +842,20 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         # NICHT nochmal mit Leverage multiplizieren!
         # FIX 2.3: Vorher war hier ein Bug: $500 × 10 = $5000 (falsch!)
         notional = getattr(config, 'DESIRED_NOTIONAL_USD', 500)  # Already notional!
-        hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
+        
+        # FIX: Align fallback logic with general arbitrage (not just farming)
+        # Previously, disabling ML forced all trades into strict "farm-like" filters (4h hold, 2h be).
+        # We now distinguish between "Farm Mode" (quick scalps) and "Standard Arb" (hold ~24h).
+        farm_mode = getattr(config, 'VOLUME_FARM_MODE', False)
+        
+        if farm_mode:
+            hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
+            max_breakeven = getattr(config, 'MAX_BREAKEVEN_HOURS', 2.0)
+        else:
+            hold_hours = 24.0  # Standard 1-day view for general arbitrage profitability
+            max_breakeven = 48.0  # Allow longer breakeven for structural arbitrage (up to 2 days)
+
         min_profit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
-        max_breakeven = getattr(config, 'MAX_BREAKEVEN_HOURS', 2.0)
         
         expected_profit, hours_to_breakeven = calculate_expected_profit(
             notional_usd=notional,  # $500 notional (correct!)
@@ -978,7 +866,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         
         # Skip wenn nicht profitabel genug
         # FARM MODE: Allow break-even trades (profit >= 0) if explicit volume farming
-        farm_mode = getattr(config, 'VOLUME_FARM_MODE', False)
         min_threshold = 0.0 if farm_mode else min_profit
         
         if expected_profit < min_threshold:
@@ -1167,49 +1054,10 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             return False
 
         # ═══════════════════════════════════════════════════════════════
-        # PREDICTION MIT EXCEPTION HANDLING
+        # PREDICTION DISABLED (Code Cleanup)
         # ═══════════════════════════════════════════════════════════════
-        predictor = get_predictor()
-        current_rate_lit = lighter.fetch_funding_rate(symbol) or 0.0
-        current_rate_x10 = x10.fetch_funding_rate(symbol) or 0.0
-        net_rate = current_rate_lit - current_rate_x10
-        
-        pred_rate, delta, conf = 0.0, 0.0, 0.5  # Defaults
-        
-        try:
-            if predictor and hasattr(predictor, 'predict_next_funding_rate'):
-                btc_price = 0.0
-                try:
-                    btc_price = float(x10.fetch_mark_price("BTC-USD") or 0.0)
-                except:
-                    pass
-                
-                pred_rate, delta, conf = await predictor.predict_next_funding_rate(
-                    symbol=symbol,
-                    current_lighter_rate=current_rate_lit,
-                    current_x10_rate=current_rate_x10,
-                    lighter_adapter=lighter,
-                    x10_adapter=x10,
-                    btc_price=btc_price
-                )
-                logger.debug(f"🧠 {symbol}: Prediction conf={conf:.2f}, delta={delta:.6f}")
-        except AttributeError as e:
-            logger.warning(f"⚠️ {symbol}: Predictor method missing: {e}")
-        except Exception as e:
-            logger.warning(f"⚠️ {symbol}: Prediction failed: {e}")
+        # Predictor logic removed to reduce complexity as requested.
 
-        # Predictor Filter (CONFIGURABLE via config.py)
-        use_predictor = getattr(config, 'USE_PREDICTOR', True)
-        skip_on_negative = getattr(config, 'PREDICTOR_SKIP_ON_NEGATIVE', False)
-        min_conf_threshold = getattr(config, 'PREDICTOR_MIN_CONFIDENCE', 0.5)
-        
-        if use_predictor and not opp.get('is_farm_trade'):
-            # Only skip if PREDICTOR_SKIP_ON_NEGATIVE is True AND predictor predicts negative
-            if skip_on_negative and conf > min_conf_threshold and delta < -0.00001:
-                logger.info(f"Skipping {symbol}: predictor negative (delta={delta:.6f}, conf={conf:.2f})")
-                return False
-            elif conf < 0.3 and abs(net_rate) < 0.0001:
-                return False
 
         # ═══════════════════════════════════════════════════════════════
         # SIZING & VALIDATION MIT KELLY CRITERION
@@ -3543,69 +3391,10 @@ async def maintenance_loop(lighter, x10, parallel_exec=None):
                 except Exception as e:
                     logger.warning(f"Lighter Funding Refresh failed: {e}")
             
-            # --- Update predictor with fresh funding/OB/OI data ---
-            try:
-                predictor = get_predictor()
-                common = set(getattr(lighter, 'market_info', {}).keys()) & set(getattr(x10, 'market_info', {}).keys())
-                
-                for symbol in list(common)[:50]:  # Limit to 50 symbols per cycle
-                    try:
-                        r_l = lighter.fetch_funding_rate(symbol) or 0.0
-                        r_x = x10.fetch_funding_rate(symbol) or 0.0
-                        current_rate = (float(r_l) + float(r_x)) / 2.0
+            # ═══════════════════════════════════════════════════════════════
+            # PREDICTION DATA FEED DISABLED (Code Cleanup)
+            # ═══════════════════════════════════════════════════════════════
 
-                        predictor._update_history(predictor.rate_history, symbol, float(current_rate), now)
-                        
-                    except Exception:
-                        continue
-            except Exception:
-                pass
-            
-            # ═══════════════════════════════════════════════════════════════
-            # NEU: OI → PREDICTION PIPELINE
-            # ═══════════════════════════════════════════════════════════════
-            try:
-                from src.open_interest_tracker import get_oi_tracker
-                
-                oi_tracker = get_oi_tracker()
-                predictor = get_predictor()
-                
-                if not predictor:
-                    logger.debug("Predictor not available for OI updates")
-                    return
-                
-                # Feed OI data to predictor
-                for symbol in list(oi_tracker._tracked_symbols)[:50]:  # Limit per cycle
-                    try:
-                        oi_data = oi_tracker.get_oi_data_for_prediction(symbol)
-                        
-                        if oi_data and oi_data.get('oi', 0) > 0:
-                            # Update predictor with OI velocity
-                            if hasattr(predictor, 'update_oi_velocity'):
-                                predictor.update_oi_velocity(symbol, oi_data['oi'])
-                            else:
-                                logger.debug(f"Predictor doesn't support OI velocity updates")
-                            
-                            # Update orderbook imbalance if available
-                            imbalance = oi_data.get('oi_imbalance', 0)
-                            if abs(imbalance) > 0.01:
-                                if hasattr(predictor, 'update_orderbook_imbalance'):
-                                    predictor.update_orderbook_imbalance(symbol, imbalance)
-                            
-                            logger.debug(
-                                f"📊 OI→Pred {symbol}: OI=${oi_data['oi']:,.0f}, "
-                                f"Velocity={oi_data.get('oi_velocity', 0):.2f}, "
-                                f"Trend={oi_data.get('oi_trend', 'N/A')}"
-                            )
-                    except AttributeError as e:
-                        logger.debug(f"OI update skipped - method not available: {e}")
-                    except Exception as e:
-                        logger.debug(f"OI→Pred update failed for {symbol}: {e}")
-                
-            except ImportError:
-                logger.debug("OI tracker not available")
-            except Exception as e:
-                logger.debug(f"OI→Prediction pipeline error: {e}")
             
             # ============================================================
             # Exchange Sync Check (every 5 minutes)
@@ -3691,7 +3480,7 @@ async def migrate_database():
 from src.event_loop import BotEventLoop, TaskPriority, get_event_loop
 from src.open_interest_tracker import init_oi_tracker, get_oi_tracker
 from src.websocket_manager import init_websocket_manager, get_websocket_manager
-# get_predictor already imported from src.prediction at top of file
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN BOT RUNNER V5 (Task Supervised & Component Wired)
@@ -3830,9 +3619,7 @@ async def run_bot_v5():
     # 5. INIT COMPONENTS & WIRING (Das fehlte vorher!)
     # ---------------------------------------------------
     
-    # A) Prediction Engine holen
-    predictor = get_predictor()
-    # Note: FundingPredictorV2 is ready to use immediately (no start() needed)
+    # A) Prediction Engine REMOVED (Predictor Disabled)
     
     # B) Open Interest Tracker starten
     # Sammelt OI Daten via REST und bereitet WS Updates vor
@@ -3858,7 +3645,7 @@ async def run_bot_v5():
     # D) WIRING: WebSocket -> OI Tracker & Predictor
     # Damit fließen Echtzeit-Daten in die Prediction Logik
     ws_manager.set_oi_tracker(oi_tracker)
-    ws_manager.set_predictor(predictor)
+    # ws_manager.set_predictor(predictor) - REMOVED
     
     logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
 
@@ -4152,23 +3939,14 @@ async def health_reporter(event_loop: BotEventLoop, parallel_exec):
             task_status = event_loop.get_task_status()
             exec_stats = parallel_exec.get_execution_stats()
             
-            # Get prediction stats
-            predictor = get_predictor()
-            pred_stats = predictor.get_stats()
-            
-            # Log health
-            running = sum(1 for t in task_status.values() if t["status"] == "running")
+            # Count running tasks
+            running = sum(1 for t in task_status.values() if isinstance(t, dict) and t.get("status") == "running")
             total = len(task_status)
             
             logger.info(
                 f"📊 Health: {running}/{total} tasks running, "
                 f"{exec_stats.get('total_executions', 0)} trades, "
                 f"{exec_stats.get('pending_rollbacks', 0)} pending rollbacks"
-            )
-            
-            logger.info(
-                f"📊 Prediction: {pred_stats['predictions_made']} predictions, "
-                f"avg confidence: {pred_stats['avg_confidence']:.2f}"
             )
             
             # Fee Stats
@@ -4489,28 +4267,90 @@ async def main():
             try:
                 lit_pos = await lighter.fetch_open_positions()
                 for p in lit_pos:
-                    if abs(safe_float(p.get('size', 0))) > 0:
-                        logger.warning(f"⚠️ Orphaned Lighter position found: {p['symbol']}. Closing...")
-                        price = safe_float(lighter.fetch_mark_price(p['symbol']))
-                        size = safe_float(p.get('size', 0))
+                    size = safe_float(p.get('size', 0))
+                    if abs(size) > 0:
+                        symbol = p['symbol']
+                        logger.warning(f"⚠️ Orphaned Lighter position found: {symbol}. Closing...")
+                        price = safe_float(lighter.fetch_mark_price(symbol))
+                        
                         if price > 0:
+                            # ═══════════════════════════════════════════════════════════════
+                            # DUST SWEEPER LOGIC (Auto-Bump & Close)
+                            # ═══════════════════════════════════════════════════════════════
                             try:
-                                await lighter.close_live_position(p['symbol'], "BUY", abs(size) * price)
+                                min_notional = float(lighter.min_notional_usd(symbol))
+                                current_val = abs(size) * price
+                                
+                                # Check if position is "dust" (< MinNotional)
+                                if current_val < min_notional:
+                                    logger.warning(f"🧹 DUST SWEEPER {symbol}: Size ${current_val:.2f} < Min ${min_notional:.2f}")
+                                    
+                                    # Calculate top-up needed (Reach MinNotional + $2.0 Buffer)
+                                    target_add_usd = (min_notional - current_val) + 2.0 
+                                    
+                                    # Limit top-up to avoid excessive risk (e.g. max 5x current dust or $20 cap)
+                                    # If dust is $0.1 and min is $5, adding $6.9 is fine.
+                                    # If dust is $1 and min is $1000 (anomaly), we shouldn't do it.
+                                    if min_notional > 50.0:
+                                         logger.warning(f"⚠️ Dust sweeper skipped: MinNotional ${min_notional:.2f} too high risk.")
+                                    else:
+                                        # Determine side to ADD (Same direction)
+                                        # If Long (size > 0) -> Buy more
+                                        # If Short (size < 0) -> Sell more
+                                        add_side = "BUY" if size > 0 else "SELL"
+                                        
+                                        logger.info(f"   -> Bumping dust by ${target_add_usd:.2f} ({add_side}) to enable closure...")
+                                        
+                                        # Execute Top-Up (Taker)
+                                        await lighter.open_live_position(symbol, add_side, target_add_usd, price=price)
+                                        await asyncio.sleep(2.0) # Wait for fill
+                                        
+                                        # Refresh size
+                                        new_pos = await lighter.fetch_open_positions()
+                                        p_match = next((x for x in (new_pos or []) if x['symbol'] == symbol), None)
+                                        if p_match:
+                                            size = safe_float(p_match.get('size', 0))
+                                            logger.info(f"   -> New size after bump: {size:.4f} coins")
+                            
+                            except Exception as e:
+                                logger.error(f"❌ Dust sweeper error for {symbol}: {e}")
+
+                            # Standard Close (Corrected Side Logic)
+                            try:
+                                # Fix: size > 0 (Long) -> SELL to close
+                                # Fix: size < 0 (Short) -> BUY to close
+                                close_side_lit = "SELL" if size > 0 else "BUY"
+                                close_size_usd = abs(size) * price
+                                
+                                await lighter.close_live_position(symbol, close_side_lit, close_size_usd)
                             except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing Lighter {p['symbol']} on shutdown: {te}")
+                                logger.critical(f"🚨 TypeError closing Lighter {symbol} on shutdown: {te}")
                 
                 x10_pos = await x10.fetch_open_positions()
                 for p in x10_pos:
-                    if abs(safe_float(p.get('size', 0))) > 0:
-                        logger.warning(f"⚠️ Orphaned X10 position found: {p['symbol']}. Closing...")
-                        price = safe_float(x10.fetch_mark_price(p['symbol']))
-                        size = safe_float(p.get('size', 0))
+                    size = safe_float(p.get('size', 0))
+                    if abs(size) > 0:
+                        symbol = p['symbol']
+                        logger.warning(f"⚠️ Orphaned X10 position found: {symbol}. Closing...")
+                        price = safe_float(x10.fetch_mark_price(symbol))
+                        
                         if price > 0:
-                            close_side = "BUY" if size > 0 else "SELL"
+                            # FIX SIDE LOGIC: size > 0 (LONG) -> SELL to close
+                            # Note: x10_adapter.close_live_position expects the ORIGINAL side usually?
+                            # Let's check Main.safe_close_x10_position logic:
+                            # if actual_size > 0: original_side = "BUY"
+                            # await x10.close_live_position(..., original_side, ...)
+                            # So X10 adapter expects original side (BUY to close BUY/Long).
+                            # Wait, checking x10 adapter code...
+                            # Actually safe_close_x10_position passes "BUY" for Long.
+                            # So X10 adapter likely handles inversion or takes "Position Side".
+                            # Let's align with safe_close_x10_position: Pass position side ("BUY" for Long)
+                            
+                            pos_side = "BUY" if size > 0 else "SELL"
                             try:
-                                await x10.close_live_position(p['symbol'], close_side, abs(size) * price)
+                                await x10.close_live_position(symbol, pos_side, abs(size) * price)
                             except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing X10 {p['symbol']} on shutdown: {te}")
+                                logger.critical(f"🚨 TypeError closing X10 {symbol} on shutdown: {te}")
             except Exception as e:
                 logger.error(f"CRITICAL ERROR during shutdown close: {e}")
         except (Exception, asyncio.CancelledError) as e:
@@ -4537,13 +4377,8 @@ async def main():
         except Exception as e:
             logger.debug(f"FundingTracker stop error: {e}")
         
-        # Save prediction history before shutdown
-        try:
-            predictor = get_predictor()
-            await predictor.stop()  # This saves history AND stops auto-save
-            logger.info("✅ Prediction history saved")
-        except Exception as e:
-            logger.warning(f"Failed to save prediction history: {e}")
+        # Prediction history save removed (Predictor Disabled)
+
         
         # Close Adapters
         logger.info("🔌 Closing adapters...")

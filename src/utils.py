@@ -198,3 +198,14 @@ def safe_float(val: Any, default: float = 0.0, raise_on_error: bool = False) -> 
             raise e
         logger.warning(f"⚠️ safe_float failed for value '{val}' (type: {type(val)}). Returning default {default}")
         return default
+
+def safe_int(val: Any, default: int = 0) -> int:
+    """Safely convert value to int."""
+    if val is None:
+        return default
+    try:
+        if isinstance(val, (int, float, Decimal)):
+            return int(val)
+        return int(float(str(val)))
+    except (ValueError, TypeError):
+        return default

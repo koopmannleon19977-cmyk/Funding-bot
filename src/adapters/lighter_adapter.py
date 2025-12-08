@@ -49,7 +49,7 @@ MARKET_OVERRIDES = {
 # GLOBAL TYPE-SAFETY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from src.utils import safe_float
+from src.utils import safe_float, safe_int
 
 
 def quantize_value(value, step_size, rounding=ROUND_FLOOR):
@@ -1733,6 +1733,7 @@ class LighterAdapter(BaseAdapter):
         price: Optional[float] = None,
         reduce_only: bool = False,
         post_only: bool = False,
+        amount: Optional[float] = None,
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
@@ -1740,10 +1741,24 @@ class LighterAdapter(BaseAdapter):
         # CRITICAL: Safe-cast notional_usd FIRST (could be string from caller)
         # ═══════════════════════════════════════════════════════════════
         notional_usd_safe = safe_float(notional_usd, 0.0)
-        if notional_usd_safe <= 0:
+        # Allow 0 notional IF amount is provided
+        if notional_usd_safe <= 0 and (amount is None or amount <= 0):
             logger.error(f"❌ Invalid notional_usd for {symbol}: {notional_usd}")
             return False, None
         
+        # Only validate notional if we rely on it. If amount is passed, we might skip strict notional checks 
+        # or we should recalculate notional from amount for validation? 
+        # For now, we trust the caller if amount is passed, or loose check.
+        # But generally validate_order_params checks min notional.
+        
+        # Calculate approximate notional if amount is given, for validation
+        if amount and amount > 0:
+            est_price = price if price else self.get_price(symbol)
+            if est_price:
+                 est_notional = amount * safe_float(est_price, 0)
+                 if est_notional > 0:
+                     notional_usd_safe = est_notional
+
         is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
         if not is_valid:
             logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
@@ -1758,7 +1773,7 @@ class LighterAdapter(BaseAdapter):
         if price_safe <= 0:
             raise ValueError(f"No valid price available for {symbol}: {price}")
 
-        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, price=${price_safe:.6f}")
+        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, amount={amount}, price=${price_safe:.6f}")
 
         try:
             # ═══════════════════════════════════════════════════════════════
@@ -1796,6 +1811,23 @@ class LighterAdapter(BaseAdapter):
                 )
                 limit_price = price_decimal * slippage_multiplier
 
+            # -------------------------------------------------------
+            # FAT FINGER PROTECTION: Clamp Price to Mark Price +/- 25%
+            # -------------------------------------------------------
+            # Prevents "order price flagged as an accidental price" error 21733
+            mark_p = self.fetch_mark_price(symbol)
+            if mark_p and mark_p > 0:
+                mark_decimal = Decimal(str(mark_p))
+                min_allowed = mark_decimal * Decimal("0.75")
+                max_allowed = mark_decimal * Decimal("1.25")
+                
+                if limit_price < min_allowed:
+                    logger.warning(f"⚠️ {symbol}: Price {limit_price} too low vs Mark {mark_p}. Clamping to {min_allowed}")
+                    limit_price = min_allowed
+                elif limit_price > max_allowed:
+                    logger.warning(f"⚠️ {symbol}: Price {limit_price} too high vs Mark {mark_p}. Clamping to {max_allowed}")
+                    limit_price = max_allowed
+
             # ═══════════════════════════════════════════════════════════════
             # FIX: Strikte Quantisierung der Menge & Preis
             # ═══════════════════════════════════════════════════════════════
@@ -1805,7 +1837,10 @@ class LighterAdapter(BaseAdapter):
             price_inc = float(market_info.get('tick_size', 0.01))
             
             # Berechne Menge in Coins (Raw)
-            raw_amount = float(notional_usd_safe) / float(limit_price)
+            if amount is not None and amount > 0:
+                raw_amount = float(amount)
+            else:
+                raw_amount = float(notional_usd_safe) / float(limit_price)
             
             # Menge runden (Abrunden bei Sell, um "Insufficient Balance" zu vermeiden)
             quantized_size = quantize_value(raw_amount, size_inc, rounding=ROUND_FLOOR)

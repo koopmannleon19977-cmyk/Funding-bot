@@ -80,6 +80,7 @@ class TradeExecution:
     side_lighter: str = ""
     size_x10: float = 0.0
     size_lighter: float = 0.0
+    quantity_coins: float = 0.0
 
     @property
     def elapsed_ms(self) -> float:
@@ -209,6 +210,7 @@ class ParallelExecutionManager:
             # ═══════════════════════════════════════════════════════════════
             # SIZE ALIGNMENT (Common Denominator)
             # ═══════════════════════════════════════════════════════════════
+            safe_coins = 0.0
             try:
                 # 1. Get Reference Price (Lighter Maker)
                 maker_price_val = float(price_lighter) if price_lighter else None
@@ -263,6 +265,7 @@ class ParallelExecutionManager:
                 side_lighter=side_lighter,
                 size_x10=float(size_x10),
                 size_lighter=float(size_lighter),
+                quantity_coins=float(safe_coins)
             )
             self.active_executions[symbol] = execution
             self._stats["total_executions"] += 1
@@ -304,13 +307,19 @@ class ParallelExecutionManager:
         logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
 
         # 1. Cancel Order
+        cancel_returned_404 = False
         try:
             if hasattr(self.lighter, 'cancel_limit_order'):
                 await self.lighter.cancel_limit_order(lighter_order_id, symbol)
             else:
                 await self.lighter.cancel_all_orders(symbol)
         except Exception as e:
-            logger.error(f"Cancel failed for {symbol}: {e}")
+            err_str = str(e).lower()
+            if "404" in err_str or "not found" in err_str:
+                cancel_returned_404 = True
+                logger.warning(f"⚠️ Cancel {symbol}: Order Not Found (404). Flagging for Trade History check.")
+            else:
+                logger.error(f"Cancel failed for {symbol}: {e}")
 
         # ═══════════════════════════════════════════════════════════════
         # RACE CONDITION FIX: Atomic Status Check with RETRY LOOP ("Paranoid Mode")
@@ -350,8 +359,8 @@ class ParallelExecutionManager:
                 # Im Zweifel gehen wir vom schlimmsten aus und prüfen Positionen
                 check_history = True
 
-        # 3. Wenn Status unklar (404), prüfe Trade History (Fills)
-        if check_history and not filled:
+        # 3. Wenn Status unklar (404) ODER Cancel 404 gab, prüfe Trade History (Fills)
+        if (check_history or cancel_returned_404) and not filled:
             try:
                 # Hole die letzten 10 Trades für dieses Symbol
                 # WICHTIG: Deine Adapter-Methode muss 'fetch_my_trades' unterstützen!
@@ -441,7 +450,8 @@ class ParallelExecutionManager:
             symbol, 
             execution.side_lighter, 
             execution.size_lighter,
-            post_only=True
+            post_only=True,
+            amount_coins=execution.quantity_coins
         )
 
         execution.lighter_order_id = lighter_order_id
@@ -459,7 +469,8 @@ class ParallelExecutionManager:
         # If not filled, we cancel and abort.
         filled = False
         wait_start = time.time()
-        MAX_WAIT_SECONDS = 15.0
+        # FIX: User requested 30-60s timeout for Maker strategies
+        MAX_WAIT_SECONDS = float(getattr(config, 'LIGHTER_ORDER_TIMEOUT_SECONDS', 60.0))
         
         while time.time() - wait_start < MAX_WAIT_SECONDS:
             try:
@@ -472,7 +483,7 @@ class ParallelExecutionManager:
                 # Check if position size is significant (indicates fill)
                 # Note: This checks for *any* position, but given we protect symbols with locks,
                 # this is a reasonable proxy for "our order filled".
-                if abs(current_size) >= abs(execution.size_lighter) * 0.95:
+                if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
                     filled = True
                     break
                     
@@ -498,29 +509,8 @@ class ParallelExecutionManager:
         # PROBLEM: Different prices on Lighter/X10 mean $100 on Lighter != $100 on X10 in Coins.
         # FIX: We fetch the EXACT filled coin amount from Lighter and replicate it on X10.
         
-        filled_size_coins = 0.0
-        try:
-            positions = await self.lighter.fetch_open_positions()
-            # Find position for this symbol
-            pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-            if pos:
-                filled_size_coins = abs(safe_float(pos.get('size', 0)))
-        except Exception as e:
-            logger.warning(f"⚠️ {symbol}: Failed to fetch Lighter position size: {e}")
-
-        # Fallback if position fetch failed or returned 0 (e.g. if it was a closing trade? but here we open)
-        if filled_size_coins == 0:
-            logger.error(f"❌ {symbol}: Lighter filled but size is 0? Using planned USD size as fallback.")
-            # Fallback: Convert planned USD size to coins using current X10 price
-            price = self.x10.fetch_mark_price(symbol)
-            if price and price > 0:
-                filled_size_coins = execution.size_lighter / price
-            else:
-                 # Last resort: just rely on USD (logic inside _execute_x10_leg handles USD if we passed it, but we want coins)
-                 # We will pass what we have; if price is 0, we have a bigger problem.
-                 filled_size_coins = 0.0
-
-        logger.info(f"⚖️ HEDGING {symbol}: Lighter filled {filled_size_coins:.6f} coins. Matching on X10...")
+        filled_size_coins = execution.quantity_coins
+        logger.info(f"⚖️ HEDGING {symbol}: Matching calculated amount on X10: {filled_size_coins:.6f} coins")
 
         # 3. Execute X10 (Taker)
         execution.state = ExecutionState.LEG2_SENT
@@ -550,12 +540,12 @@ class ParallelExecutionManager:
 
 
     async def _execute_lighter_leg(
-        self, symbol: str, side: str, notional_usd: float, post_only: bool
+        self, symbol: str, side: str, notional_usd: float, post_only: bool, amount_coins: Optional[float] = None
     ) -> Tuple[bool, Optional[str]]:
         """Execute Lighter leg with error handling"""
         try:
             return await self.lighter.open_live_position(
-                symbol, side, notional_usd, post_only=post_only
+                symbol, side, notional_usd, post_only=post_only, amount=amount_coins
             )
         except Exception as e:
             logger.error(f"Lighter leg error {symbol}: {e}")
