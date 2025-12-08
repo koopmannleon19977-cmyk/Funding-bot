@@ -962,9 +962,30 @@ class LighterAdapter(BaseAdapter):
                         "min_base_amount": to_float(m.get("min_base_amount", 0.01), 0.01),
                         "min_quantity": to_float(m.get("min_base_amount", 0.01), 0.01),  # alias
                         "min_quote": to_float(m.get("min_quote_amount", 0.01), 0.01),
-                        "tick_size": to_float(m.get("tick_size", 0.01), 0.01),
+                        "tick_size": to_float(m.get("tick_size"), 0.0), # Will be fixed below if 0
                         "lot_size": to_float(m.get("lot_size", 0.0001), 0.0001),
+                        "supported_size_decimals": m.get("supported_size_decimals"),
+                        "supported_price_decimals": m.get("supported_price_decimals"),
                     }
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Derive tick_size from decimals if missing
+                    # ═══════════════════════════════════════════════════════════════
+                    if self.market_info[symbol]["tick_size"] <= 0:
+                        s_pd = self.market_info[symbol].get("supported_price_decimals")
+                        pd = m.get("price_decimals")
+                        
+                        decimals = None
+                        if s_pd is not None:
+                            decimals = to_int(s_pd)
+                        elif pd is not None:
+                            decimals = to_int(pd)
+                            
+                        if decimals is not None:
+                            self.market_info[symbol]["tick_size"] = float(pow(10, -decimals))
+                        else:
+                             # Default fallback
+                            self.market_info[symbol]["tick_size"] = 0.01
                     
                     market_id_to_symbol[real_id] = symbol
 
@@ -1012,7 +1033,39 @@ class LighterAdapter(BaseAdapter):
                             # Get other values with safe casting
                             min_quote = safe_float(getattr(detail, 'min_quote_amount', None), 
                                                   safe_float(self.market_info[symbol].get('min_quote', 0.01), 0.01))
+                                                  
+                            # ═══════════════════════════════════════════════════════════════
+                            # AGGRESSIVE TICK SIZE DISCOVERY
+                            # ═══════════════════════════════════════════════════════════════
+                            # 1. Try explicit fields
                             api_tick = getattr(detail, 'tick_size', None)
+                            if api_tick is None:
+                                api_tick = getattr(detail, 'tickSize', None)
+                            if api_tick is None:
+                                api_tick = getattr(detail, 'price_increment', None)
+                            if api_tick is None:
+                                api_tick = getattr(detail, 'min_price_increment', None)
+                                
+                            # 2. Try to derive from supported_price_decimals
+                            if api_tick is None:
+                                s_pd_val = getattr(detail, 'supported_price_decimals', None)
+                                if s_pd_val is not None:
+                                    try:
+                                        api_tick = float(pow(10, -int(s_pd_val)))
+                                        # logger.debug(f"Derived tick_size {api_tick} from supported_price_decimals={s_pd_val}")
+                                    except:
+                                        pass
+                                        
+                            # 3. Try to derive from regular price_decimals
+                            if api_tick is None:
+                                pd_val = getattr(detail, 'price_decimals', None)
+                                if pd_val is not None:
+                                    try:
+                                        api_tick = float(pow(10, -int(pd_val)))
+                                    except:
+                                        pass
+
+                            # 4. Last Resort: Guess from price string (Ghost in the shell style)
                             if api_tick is None:
                                 # Versuche, es aus dem Preis zu erraten (Notlösung)
                                 price_val = getattr(detail, 'last_trade_price', "0")
@@ -1023,7 +1076,7 @@ class LighterAdapter(BaseAdapter):
                                 else:
                                     default_tick = 0.0001 # Sicherer Default als 0.01
                             else:
-                                default_tick = 0.0001
+                                default_tick = 0.0001 # Ignored if api_tick is set
 
                             tick_size = safe_float(api_tick, 
                                 safe_float(self.market_info[symbol].get('tick_size', default_tick), default_tick)
