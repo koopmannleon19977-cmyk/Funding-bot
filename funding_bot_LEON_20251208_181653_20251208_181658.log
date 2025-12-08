@@ -1,0 +1,1341 @@
+18:16:58 [INFO] CONFIG VALIDATION COMPLETED.
+18:16:58 [INFO] 🔥 BOT V5 (Architected) STARTING...
+18:16:58 [INFO] 🚀 Starting InMemoryStateManager...
+18:16:58 [INFO] 📂 Initializing database: data/trades.db
+18:16:58 [INFO] ✅ Read pool created: 5 connections
+18:16:58 [INFO] ✅ WAL mode enabled
+18:16:58 [INFO] 🔄 Running database migrations...
+18:16:58 [INFO] ✅ Migrations complete (14 statements)
+18:16:58 [INFO] ✅ Database initialized
+18:16:58 [INFO] 🖊️ Database write loop started
+18:16:58 [DEBUG] Maintenance not due (Last: 4h ago)
+18:16:58 [INFO] 📂 Loaded 3 trades from database
+18:16:58 [INFO] ✅ InMemoryStateManager started (loaded 3 trades)
+18:16:58 [INFO] ✅ State Manager started
+18:16:58 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+18:16:58 [INFO] ✅ Async database initialized
+18:16:58 [INFO] 📝 State writer loop started
+18:16:58 [DEBUG] ✅ Database schema up to date
+18:16:58 [INFO] Initialisiere X10 Adapter...
+18:16:58 [INFO]  X10 Account initialisiert.
+18:16:58 [INFO] Initialisiere Lighter Adapter...
+18:16:58 [INFO] ✅ Applied Monkey-Patch for SignerClient.switch_api_key
+18:16:58 [INFO] 💰 Checking exchange balances at startup...
+18:16:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:16:59 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:16:59 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+18:17:00 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+18:17:02 [DEBUG] Lighter Balance: Raw=$260.98, Safe=$247.93
+18:17:02 [INFO] 💰 STARTUP BALANCE CHECK: X10=$242.43, Lighter=$247.93
+18:17:02 [INFO] ✅ Exchange balances OK - Bot can trade!
+18:17:02 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+18:17:02 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+18:17:02 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+18:17:02 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+18:17:03 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+18:17:03 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+18:17:03 [INFO] ✅ FeeManager started with periodic refresh
+18:17:03 [INFO] ✅ FeeManager started
+18:17:03 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+18:17:03 [WARNING] ⚠️ Kelly: All 15 trades had $0.00 PnL - check PnL recording in close_trade!
+18:17:03 [INFO] ✅ Funding Tracker started (updates every 3600s)
+18:17:03 [INFO] ✅ FundingTracker started (interval=3600s)
+18:17:03 [INFO] 📊 Loading Market Data via REST...
+18:17:03 [INFO] 🔄 Funding tracking loop started...
+18:17:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:17:03 [INFO] 📊 Updating funding for 3 open trades...
+18:17:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:04 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+18:17:04 [INFO] Lighter: Found 0 open positions
+18:17:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:05 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+18:17:05 [INFO] Lighter: Found 0 open positions
+18:17:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:06 [INFO] Lighter: Found 0 open positions
+18:17:06 [INFO] ✅ Funding update complete: 0/3 trades updated, $0.00 collected this cycle ($0.00 lifetime) in 3.0s
+18:17:06 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+18:17:06 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+18:17:06 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+18:17:06 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+18:17:06 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+18:17:06 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+18:17:06 [INFO] 📈 Pre-loading Lighter prices...
+18:17:06 [DEBUG] Lighter: Loaded 380 funding rates
+18:17:07 [DEBUG] Lighter: Loaded 115 prices via REST
+18:17:07 [INFO] ✅ Lighter prices loaded: 115 symbols
+18:17:07 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+18:17:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:17:09 [INFO] ✅ Execution clients warmed up & NETWORK READY
+18:17:09 [INFO] 启动 OI Tracker für 65 Symbole...
+18:17:09 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+18:17:09 [INFO] 🌐 Starting WebSocket Manager...
+18:17:09 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+18:17:09 [INFO] 🔌 [lighter] WebSocket manager started
+18:17:09 [INFO] 🔌 [x10_account] WebSocket manager started
+18:17:09 [INFO] 🔌 [x10_trades] WebSocket manager started
+18:17:09 [INFO] 🔌 [x10_funding] WebSocket manager started
+18:17:09 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+18:17:09 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:17:09 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:17:09 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:17:09 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+18:17:10 [DEBUG] ✅ AAVE-USD: X10=$451,367, Lighter=$46,237, Total=$497,604
+18:17:10 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+18:17:10 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+18:17:10 [INFO] [lighter] Resubscribing to 75 channels (paced)...
+18:17:10 [INFO] [lighter] Receive loop started (async iterator)
+18:17:10 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/32
+18:17:10 [DEBUG] [lighter] Subscribed to trade/32
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/6
+18:17:10 [DEBUG] [lighter] Subscribed to trade/6
+18:17:10 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+18:17:10 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:17:10 [INFO] [x10_funding] Receive loop started (async iterator)
+18:17:10 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+18:17:10 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+18:17:10 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:17:10 [INFO] [x10_account] Receive loop started (async iterator)
+18:17:10 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+18:17:10 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+18:17:10 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:17:10 [INFO] [x10_trades] Receive loop started (async iterator)
+18:17:10 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/37
+18:17:10 [DEBUG] [lighter] Subscribed to trade/37
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/35
+18:17:10 [DEBUG] [lighter] Subscribed to trade/35
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/5
+18:17:10 [DEBUG] [lighter] Subscribed to trade/5
+18:17:10 [DEBUG] [lighter] Resubscribed 10/75 channels
+18:17:10 [DEBUG] [lighter] Subscribed to order_book/21
+18:17:10 [DEBUG] [lighter] Subscribed to trade/21
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/13
+18:17:11 [DEBUG] [lighter] Subscribed to trade/13
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/18
+18:17:11 [DEBUG] [lighter] Subscribed to trade/18
+18:17:11 [DEBUG] [lighter] Resubscribed 20/75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/67
+18:17:11 [DEBUG] [lighter] Subscribed to trade/67
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/53
+18:17:11 [DEBUG] [lighter] Subscribed to trade/53
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/51
+18:17:11 [DEBUG] [lighter] Subscribed to trade/51
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/3
+18:17:11 [DEBUG] [lighter] Subscribed to trade/3
+18:17:11 [DEBUG] [lighter] Resubscribed 30/75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/24
+18:17:11 [DEBUG] [lighter] Subscribed to trade/24
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/45
+18:17:11 [DEBUG] [lighter] Subscribed to trade/45
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/42
+18:17:11 [DEBUG] [lighter] Subscribed to trade/42
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/25
+18:17:11 [DEBUG] [lighter] Subscribed to trade/25
+18:17:11 [DEBUG] [lighter] Resubscribed 40/75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/49
+18:17:11 [DEBUG] [lighter] Subscribed to trade/49
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/15
+18:17:11 [DEBUG] [lighter] Subscribed to trade/15
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/82
+18:17:11 [DEBUG] [lighter] Subscribed to trade/82
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/33
+18:17:11 [DEBUG] [lighter] Subscribed to trade/33
+18:17:11 [DEBUG] [lighter] Resubscribed 50/75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/16
+18:17:11 [DEBUG] [lighter] Subscribed to trade/16
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/89
+18:17:11 [DEBUG] [lighter] Subscribed to trade/89
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/17
+18:17:11 [DEBUG] [lighter] Subscribed to trade/17
+18:17:11 [DEBUG] [lighter] Resubscribed 60/75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/50
+18:17:11 [DEBUG] [lighter] Subscribed to trade/50
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/58
+18:17:11 [DEBUG] [lighter] Subscribed to trade/58
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/10
+18:17:11 [DEBUG] [lighter] Subscribed to trade/10
+18:17:11 [DEBUG] [lighter] Resubscribed 70/75 channels
+18:17:11 [INFO] [lighter] Resubscribed to 75 channels
+18:17:11 [DEBUG] [lighter] Subscribed to order_book/4
+18:17:11 [DEBUG] [lighter] Subscribed to trade/4
+18:17:11 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+18:17:11 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+18:17:11 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+18:17:11 [INFO] 🔍 DB meldet 3 offene Trades. Prüfe Exchange...
+18:17:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:12 [DEBUG] ✅ ONDO-USD: X10=$172,403, Lighter=$1,768,586, Total=$1,940,990
+18:17:12 [INFO] Lighter: Found 0 open positions
+18:17:12 [INFO] 🌍 Echte Positionen auf Exchanges: []
+18:17:12 [WARNING] ⚠️  ZOMBIE GEFUNDEN: TRUMP-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+18:17:12 [INFO] ✅ Trade TRUMP-USD closed (PnL: $0.00)
+18:17:12 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ZEC-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+18:17:12 [INFO] ✅ Trade ZEC-USD closed (PnL: $0.00)
+18:17:12 [WARNING] ⚠️  ZOMBIE GEFUNDEN: FARTCOIN-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+18:17:12 [INFO] ✅ Trade FARTCOIN-USD closed (PnL: $0.00)
+18:17:12 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+18:17:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:12 [DEBUG] 📝 Flushed 1 writes
+18:17:12 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+18:17:13 [INFO] Lighter: Found 0 open positions
+18:17:13 [INFO] ✅ No orphaned positions found
+18:17:13 [INFO] ✅ ParallelExecutionManager started
+18:17:13 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+18:17:13 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+18:17:13 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+18:17:13 [INFO] 🔄 Rollback processor running...
+18:17:13 [DEBUG] Registered task: logic_loop (priority=HIGH)
+18:17:13 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+18:17:13 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+18:17:13 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+18:17:13 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+18:17:13 [DEBUG] Registered task: health_reporter (priority=LOW)
+18:17:13 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+18:17:13 [INFO] ═══════════════════════════════════════════════════════════
+18:17:13 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+18:17:13 [INFO] ═══════════════════════════════════════════════════════════
+18:17:13 [INFO] 🚀 BotEventLoop starting...
+18:17:13 [INFO] ▶️ Started task: connection_watchdog
+18:17:13 [INFO] ▶️ Started task: logic_loop
+18:17:13 [INFO] ▶️ Started task: trade_management_loop
+18:17:13 [INFO] ▶️ Started task: farm_loop
+18:17:13 [INFO] ▶️ Started task: maintenance_loop
+18:17:13 [INFO] ▶️ Started task: cleanup_finished_tasks
+18:17:13 [INFO] ▶️ Started task: health_reporter
+18:17:13 [INFO] ✅ Started 7 tasks
+18:17:13 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+18:17:13 [INFO] Logic Loop gestartet – REFRESH alle 3s
+18:17:13 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:13 [INFO] 🛡️ Trade Management Loop gestartet
+18:17:13 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+18:17:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:17:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:13 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:17:13 [INFO] Lighter: Found 0 open positions
+18:17:13 [INFO] ✅ RECONCILE: Sync complete.
+18:17:13 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+18:17:13 [DEBUG] Price cache status: X10=78/65, Lighter=115/65
+18:17:13 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+18:17:13 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+18:17:13 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+18:17:13 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 141.7h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip ADA-USD: Expected profit $0.0000 < $0.05 (breakeven: 23.0h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip APT-USD: Expected profit $0.0300 < $0.05 (breakeven: 11.5h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.1h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0300 < $0.05 (breakeven: 70.3h, hold: 24.0h)
+18:17:13 [DEBUG] Skip MON-USD: Spread 0.38% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.17%)
+18:17:13 [INFO] 💎 ZEC-USD | APY: 99.0%
+18:17:13 [INFO] ✅ ZEC-USD: Expected profit $0.0500 in 24.0h (breakeven: 15.89h, APY: 99.0%)
+18:17:13 [INFO] 💎 BERA-USD | APY: 69.2%
+18:17:13 [INFO] ✅ BERA-USD: Expected profit $0.0700 in 24.0h (breakeven: 6.60h, APY: 69.2%)
+18:17:13 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0300 < $0.05 (breakeven: 13.6h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip BTC-USD: Expected profit $-0.0200 < $0.05 (breakeven: 72.4h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 87.3h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0300 < $0.05 (breakeven: 72.1h, hold: 24.0h)
+18:17:13 [INFO] 💎 AVAX-USD | APY: 59.6%
+18:17:13 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $0.0300 < $0.05 (breakeven: 14.9h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip XRP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 65.7h, hold: 24.0h)
+18:17:13 [DEBUG] Skip STRK-USD: Spread 0.35% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+18:17:13 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.4h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 84.3h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip UNI-USD: Expected profit $-0.0600 < $0.05 (breakeven: 99.8h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip TON-USD: Expected profit $-0.0500 < $0.05 (breakeven: 102.0h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip WLD-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.6h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 48.4h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip WIF-USD: Expected profit $-0.0400 < $0.05 (breakeven: 57.1h, hold: 24.0h)
+18:17:13 [INFO] 💎 FARTCOIN-USD | APY: 61.3%
+18:17:13 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $0.0100 < $0.05 (breakeven: 20.2h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip TAO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.5h, hold: 24.0h)
+18:17:13 [DEBUG] Skip ZORA-USD: Spread 0.74% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.02%)
+18:17:13 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0400 < $0.05 (breakeven: 48.1h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0000 < $0.05 (breakeven: 29.0h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+18:17:13 [INFO] 💎 TRUMP-USD | APY: 65.7%
+18:17:13 [INFO] ✅ TRUMP-USD: Expected profit $0.0600 in 24.0h (breakeven: 7.03h, APY: 65.7%)
+18:17:13 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0300 < $0.05 (breakeven: 119.8h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 73.9h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0500 < $0.05 (breakeven: 137.9h, hold: 24.0h)
+18:17:13 [DEBUG] Skip EDEN-USD: Spread 0.41% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.03%)
+18:17:13 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 64.8h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 49.8h, hold: 24.0h)
+18:17:13 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.1h, hold: 24.0h)
+18:17:13 [INFO] ✅ Found 3 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+18:17:13 [INFO] 🎯 Found 3 opportunities, executing best...
+18:17:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:13 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+18:17:13 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+18:17:14 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+18:17:14 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:14 [DEBUG] 📝 Flushed 2 writes
+18:17:14 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:17:14 [DEBUG] Lighter Balance: Raw=$260.98, Safe=$247.93
+18:17:14 [INFO] X10: Detected balance = $242.43
+18:17:14 [DEBUG] Fetching fresh positions (force=False, cache_age=1765214234.9s)
+18:17:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:15 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+18:17:15 [DEBUG] X10: Funding Refresh OK, cache=91
+18:17:15 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+18:17:15 [INFO] Lighter: Found 0 open positions
+18:17:15 [INFO] 📊 Positions: X10=0, Lighter=0
+18:17:15 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+18:17:15 [INFO] 🚀 Launching 3 trades (Slots available: 3, Reserved: 3)
+18:17:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:15 [DEBUG] Lighter: Loaded 380 funding rates
+18:17:15 [DEBUG] ✅ ETH-USD: X10=$13,012,362, Lighter=$0, Total=$13,012,362
+18:17:16 [INFO] Lighter: Found 0 open positions
+18:17:16 [INFO] 💰 Balance: X10=$242.4 (free=$239.4), Lit=$247.9 (free=$244.9) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+18:17:16 [INFO] 🚀 Launching trade for ZEC-USD (APY=99.0%)
+18:17:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:16 [DEBUG] Lighter: Loaded 115 prices via REST
+18:17:16 [DEBUG] Lighter: Funding Refresh OK, cache=113
+18:17:16 [INFO] 🔍 Running periodic exchange sync check...
+18:17:16 [INFO] 🔍 Starting Exchange Sync Check...
+18:17:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:16 [INFO] 🚀 Launching trade for BERA-USD (APY=69.2%)
+18:17:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:16 [INFO] Lighter: Found 0 open positions
+18:17:16 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+18:17:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:17 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:17 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$420.7810, min_qty_usd=$42.08, min_notional_api=$10.00, final=$46.29
+18:17:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:17 [INFO] 🚀 Launching trade for TRUMP-USD (APY=65.7%)
+18:17:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:17 [INFO] Lighter: Found 0 open positions
+18:17:17 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+18:17:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:17 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:17 [DEBUG] ✅ MNT-USD: X10=$116,659, Lighter=$3,143,552, Total=$3,260,211
+18:17:17 [INFO] ✅ Launched 3 trade tasks this cycle
+18:17:17 [INFO] Lighter: Found 0 open positions
+18:17:17 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+18:17:17 [INFO] Lighter: Found 0 open positions
+18:17:17 [DEBUG] ✅ TRUMP-USD verified: No existing positions on exchanges
+18:17:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:18 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:18 [DEBUG] MIN_NOTIONAL TRUMP-USD: min_base=0.20000000 coins, price=$5.7222, min_qty_usd=$1.14, min_notional_api=$10.00, final=$11.00
+18:17:18 [DEBUG] Lighter Balance: Raw=$260.98, Safe=$247.93
+18:17:18 [INFO] 🎰 KELLY ZEC-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+18:17:18 [INFO] 📊 KELLY SIZE ZEC-USD: $50.0 (kelly-optimized)
+18:17:18 [DEBUG] 🔍 Checking liquidity for ZEC-USD SELL: Need $50.00 (Max Slip: 2.0%)
+18:17:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:18 [DEBUG] 🔍 Orderbook for ZEC-USD: Bids=20, Asks=20
+18:17:18 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:18 [INFO] 🎰 KELLY TRUMP-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+18:17:18 [INFO] 📊 KELLY SIZE TRUMP-USD: $50.0 (kelly-optimized)
+18:17:18 [DEBUG] 🔍 Checking liquidity for TRUMP-USD SELL: Need $50.00 (Max Slip: 2.0%)
+18:17:18 [INFO] 🚀 Opening ZEC-USD: Size=$50.0 (Min=$46.3)
+18:17:18 [INFO] 🛡️ Registered ZEC-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+18:17:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:17:18 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:18 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.8385, min_qty_usd=$2.52, min_notional_api=$10.00, final=$11.00
+18:17:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:18 [INFO] ⚖️ Size Alignment ZEC-USD: 50.00$ -> 42.08$ (0.100000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+18:17:18 [INFO] 🔄 [MAKER STRATEGY] ZEC-USD: Placing Lighter Maker Order...
+18:17:18 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=SELL, size_usd=$42.08, amount=0.1, price=$420.819000
+18:17:18 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+18:17:18 [INFO] 🛡️ Lighter Maker Price ZEC-USD SELL: $420.920000
+18:17:18 [DEBUG] QUANTIZE ZEC-USD: Notional=$42.081900000000005 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+18:17:18 [DEBUG] 🔍 Orderbook for TRUMP-USD: Bids=20, Asks=20
+18:17:18 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:18 [INFO] 🎰 KELLY BERA-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+18:17:18 [INFO] 📊 KELLY SIZE BERA-USD: $50.0 (kelly-optimized)
+18:17:18 [DEBUG] 🔍 Checking liquidity for BERA-USD SELL: Need $50.00 (Max Slip: 2.0%)
+18:17:18 [INFO] 🚀 Opening TRUMP-USD: Size=$50.0 (Min=$11.0)
+18:17:18 [INFO] 🛡️ Registered TRUMP-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+18:17:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:17:18 [INFO] 🔒 Locked execution for ZEC-USD SELL (Nonce: 5405)...
+18:17:18 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765214280357,"BaseAmount":100,"Price":420920,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767633438903,"ExpiredAt":1765214837903,"Nonce":5405,"Sig":"4pyxg9dzb+M7ajKGEbS6ZJmq9JWga3adHAyTkjg5SN6R1YUlIX/WZ9fvCxcxo2ExS7fOk+5HQ62mXwMk/6rNfO39XRVpH3INJlbKL1T19Sc="}
+18:17:18 [DEBUG] 🔍 Orderbook for BERA-USD: Bids=20, Asks=20
+18:17:18 [INFO] 🚀 Opening BERA-USD: Size=$50.0 (Min=$11.0)
+18:17:18 [INFO] 🛡️ Registered BERA-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+18:17:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:17:18 [INFO] ⚖️ Size Alignment TRUMP-USD: 50.00$ -> 45.78$ (8.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:17:18 [INFO] 🔄 [MAKER STRATEGY] TRUMP-USD: Placing Lighter Maker Order...
+18:17:18 [INFO] 🚀 LIGHTER OPEN TRUMP-USD: side=SELL, size_usd=$45.78, amount=8.0, price=$5.722200
+18:17:18 [DEBUG] 🔍 DEBUG: TRUMP-USD market_id = 15 (raw=15, type=<class 'int'>)
+18:17:18 [INFO] 🛡️ Lighter Maker Price TRUMP-USD SELL: $5.720000
+18:17:18 [DEBUG] QUANTIZE TRUMP-USD: Notional=$45.7776 -> RawAmt=8.000000 -> QuantAmt=8.000000 (x0.0001) -> BaseInt=800
+18:17:19 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='433549e0d3eb42b59475c35635bd428e9a0caaae913455b917372a9ef3cea6c2f44d9f82b720f624' predicted_execution_time_ms=1765214226038 additional_properties={}
+18:17:19 [INFO] ✅ Lighter Order Sent: 433549e0d3eb42b59475c35635bd428e9a0caaae913455b917372a9ef3cea6c2f44d9f82b720f624
+18:17:19 [INFO] ⏳ [MAKER STRATEGY] ZEC-USD: Lighter placed (433549e0d3eb42b59475c35635bd428e9a0caaae913455b917372a9ef3cea6c2f44d9f82b720f624), waiting for fill...
+18:17:19 [INFO] ⚖️ Size Alignment BERA-USD: 50.00$ -> 49.47$ (59.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:17:19 [INFO] 🔄 [MAKER STRATEGY] BERA-USD: Placing Lighter Maker Order...
+18:17:19 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$49.47, amount=59.0, price=$0.838540
+18:17:19 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+18:17:19 [INFO] 🛡️ Lighter Maker Price BERA-USD SELL: $0.830000
+18:17:19 [WARNING] ⚠️ BERA-USD: Price 0.83 too low vs Mark 0.83854. Clamping to 0.8301546
+18:17:19 [DEBUG] QUANTIZE BERA-USD: Notional=$49.473859999999995 -> RawAmt=59.000000 -> QuantAmt=59.000000 (x0.0001) -> BaseInt=590
+18:17:19 [INFO] 🔒 Locked execution for TRUMP-USD SELL (Nonce: 5406)...
+18:17:19 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":15,"ClientOrderIndex":1765214290883,"BaseAmount":800,"Price":57200,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767633439449,"ExpiredAt":1765214838449,"Nonce":5406,"Sig":"qzTY7cFi3ZczNcp6AClD12Yr9TB25GtHl7kvpGx+/LnV2z3BJZFNKBwb2secrJJJ751BedGnbaA+YzmQbi5NNCSfuAsuMKRoUHnLknaQAyI="}
+18:17:19 [INFO] Lighter: Found 0 open positions
+18:17:19 [DEBUG] 👻 Ghost pending: ZEC-USD (0.5s)
+18:17:19 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='00c350a1f9c6d999cd58d7f074d663cffe9fb25cb752433f59d897c7372121b39d66aab9ffb67164' predicted_execution_time_ms=1765214226581 additional_properties={}
+18:17:19 [INFO] ✅ Lighter Order Sent: 00c350a1f9c6d999cd58d7f074d663cffe9fb25cb752433f59d897c7372121b39d66aab9ffb67164
+18:17:19 [INFO] ⏳ [MAKER STRATEGY] TRUMP-USD: Lighter placed (00c350a1f9c6d999cd58d7f074d663cffe9fb25cb752433f59d897c7372121b39d66aab9ffb67164), waiting for fill...
+18:17:19 [INFO] 🔒 Locked execution for BERA-USD SELL (Nonce: 5407)...
+18:17:19 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1765214315453,"BaseAmount":590,"Price":83000,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767633439979,"ExpiredAt":1765214838979,"Nonce":5407,"Sig":"7LMuBIQLIkUnlDc8IrxjhynHOIfuy2tIwzsAXBC5gLsNrxGBCp4aXp6gxyzfiP4cHQfszF+haUd2qtOEwUTzjsYIX/Ic039pNQMqcjdukUw="}
+18:17:20 [INFO] Lighter: Found 1 open positions
+18:17:20 [DEBUG] 👻 Ghost pending: ZEC-USD (1.0s)
+18:17:20 [INFO] ⚖️ HEDGING TRUMP-USD: Matching calculated amount on X10: 8.000000 coins
+18:17:20 [INFO] 🚀 X10 EXECUTE TRUMP-USD BUY: 8.000000 Coins (Basis: COINS=8.0)
+18:17:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:17:20 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b49a19a3cdc961772df30cef9917a4b167ef6c0407160bd8bd0c22d673076490e160e2efb0cdb2f3' predicted_execution_time_ms=1765214227111 additional_properties={}
+18:17:20 [INFO] ✅ Lighter Order Sent: b49a19a3cdc961772df30cef9917a4b167ef6c0407160bd8bd0c22d673076490e160e2efb0cdb2f3
+18:17:20 [INFO] ⏳ [MAKER STRATEGY] BERA-USD: Lighter placed (b49a19a3cdc961772df30cef9917a4b167ef6c0407160bd8bd0c22d673076490e160e2efb0cdb2f3), waiting for fill...
+18:17:20 [INFO] Lighter: Found 1 open positions
+18:17:20 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZEC-USD (Age: 1.4s)
+18:17:20 [DEBUG] 👻 Ghost pending: BERA-USD (0.3s)
+18:17:20 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+18:17:20 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+18:17:20 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+18:17:20 [INFO] Lighter: Found 2 open positions
+18:17:20 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZEC-USD (Age: 1.5s)
+18:17:20 [INFO] ⚖️ HEDGING BERA-USD: Matching calculated amount on X10: 59.000000 coins
+18:17:20 [INFO] 🚀 X10 EXECUTE BERA-USD BUY: 59.000000 Coins (Basis: COINS=59.0)
+18:17:20 [DEBUG] Placing an order: id=3000504188729576723024307819715453015941830649899793973419618989837884036288
+18:17:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:17:20 [DEBUG] Placing an order: id=1995301225817437477998568408036165230501703009067814103282858351036240527325
+18:17:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:17:20 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=10949)
+18:17:20 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+18:17:20 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=1s ago, msgs=28)
+18:17:20 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.01%)
+18:17:20 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 76.0h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip ADA-USD: Expected profit $0.0400 < $0.05 (breakeven: 9.6h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: AERO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip APT-USD: Expected profit $0.0300 < $0.05 (breakeven: 11.5h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0100 < $0.05 (breakeven: 36.2h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.05%)
+18:17:20 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 47.0h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO] 💎 MON-USD | APY: 121.8%
+18:17:20 [INFO] ✅ MON-USD: Expected profit $0.0900 in 24.0h (breakeven: 10.38h, APY: 121.8%)
+18:17:20 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO] ✅ ZEC-USD: Expected profit $0.1000 in 24.0h (breakeven: 7.15h, APY: 99.0%)
+18:17:20 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] Skip APEX-USD: Spread 0.35% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+18:17:20 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 8.16h, APY: 70.1%)
+18:17:20 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0200 < $0.05 (breakeven: 15.5h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip BTC-USD: Expected profit $-0.0200 < $0.05 (breakeven: 65.6h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0400 < $0.05 (breakeven: 138.1h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.1h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO] ✅ AVAX-USD: Expected profit $0.0500 in 24.0h (breakeven: 9.59h, APY: 59.6%)
+18:17:20 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip XRP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 69.6h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 70.6h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0000 < $0.05 (breakeven: 25.3h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 113.9h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip UNI-USD: Expected profit $-0.0300 < $0.05 (breakeven: 59.5h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip TON-USD: Expected profit $-0.0200 < $0.05 (breakeven: 63.2h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip WLD-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.6h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.2h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip WIF-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.4h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $0.0400 < $0.05 (breakeven: 13.7h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip TAO-USD: Expected profit $-0.0200 < $0.05 (breakeven: 40.7h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 32.9h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $0.0000 < $0.05 (breakeven: 21.7h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0100 < $0.05 (breakeven: 36.3h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+18:17:20 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO] ✅ TRUMP-USD: Expected profit $0.0600 in 24.0h (breakeven: 8.90h, APY: 64.8%)
+18:17:20 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 88.7h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.01%)
+18:17:20 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0200 < $0.05 (breakeven: 66.9h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-0.0400 < $0.05 (breakeven: 61.3h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 72.9h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0100 < $0.05 (breakeven: 46.3h, hold: 24.0h)
+18:17:20 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+18:17:20 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0300 < $0.05 (breakeven: 59.5h, hold: 24.0h)
+18:17:20 [INFO] ✅ Found 5 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+18:17:20 [INFO] 🎯 Found 3 opportunities, executing best...
+18:17:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:17:21 [DEBUG] ✅ IP-USD: X10=$223,141, Lighter=$366,364, Total=$589,505
+18:17:21 [INFO] 💰 X10 verfügbare Balance: $242.43 USDC
+18:17:21 [INFO] Lighter: Found 2 open positions
+18:17:21 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZEC-USD (Age: 2.3s)
+18:17:21 [INFO]  X10 Order: 1998079409327915008
+18:17:21 [DEBUG] 📝 Trade added to state: TRUMP-USD
+18:17:21 [INFO] ✅ OPENED TRUMP-USD: $50.00 | Entry Fees (est.): $0.0500
+18:17:21 [DEBUG] 📝 Flushed 1 writes
+18:17:21 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:17:21 [INFO]  X10 Order: 1998079409357922304
+18:17:21 [DEBUG] 📝 Trade added to state: BERA-USD
+18:17:21 [INFO] ✅ OPENED BERA-USD: $50.00 | Entry Fees (est.): $0.0500
+18:17:22 [DEBUG] Lighter Balance: Raw=$260.96, Safe=$247.91
+18:17:22 [INFO] X10: Detected balance = $242.43
+18:17:22 [DEBUG] Fetching fresh positions (force=False, cache_age=7.1s)
+18:17:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:22 [DEBUG] Fetching fresh positions (force=False, cache_age=7.2s)
+18:17:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:22 [INFO] Lighter: Found 3 open positions
+18:17:22 [INFO] ⚖️ HEDGING ZEC-USD: Matching calculated amount on X10: 0.100000 coins
+18:17:22 [INFO] 🚀 X10 EXECUTE ZEC-USD BUY: 0.100000 Coins (Basis: COINS=0.1)
+18:17:22 [INFO] Lighter: Found 3 open positions
+18:17:22 [INFO] 📊 Positions: X10=2, Lighter=3
+18:17:22 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD']
+18:17:22 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:22 [WARNING] ⚠️ DESYNC: {'ZEC-USD'} on exchanges but not in DB
+18:17:22 [DEBUG] SYNC STATUS: DB=2, Executing=1, RealExchange=3, TotalActive=3
+18:17:22 [DEBUG] ⛔ Max trades reached (3/3). Waiting...
+18:17:22 [DEBUG] Placing an order: id=3143242202945086020759468095217576161124692388878206869306153193231868650064
+18:17:22 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:17:22 [DEBUG] 📝 Flushed 1 writes
+18:17:22 [INFO]  X10 Order: 1998079413557202944
+18:17:22 [DEBUG] 📝 Trade added to state: ZEC-USD
+18:17:22 [INFO] ✅ OPENED ZEC-USD: $50.00 | Entry Fees (est.): $0.0500
+18:17:22 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:17:22 [DEBUG] ✅ ASTER-USD: X10=$319,932, Lighter=$14,226,900, Total=$14,546,832
+18:17:23 [INFO] Lighter: Found 3 open positions
+18:17:23 [INFO] 📊 Positions: X10=2, Lighter=3
+18:17:23 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD']
+18:17:23 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:23 [DEBUG] Check TRUMP-USD: Age=1.9s (Limit=14400s)
+18:17:23 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:23 [DEBUG] Check BERA-USD: Age=1.9s (Limit=14400s)
+18:17:23 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:23 [DEBUG] 📝 Flushed 1 writes
+18:17:23 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:17:24 [DEBUG] ✅ ADA-USD: X10=$247,829, Lighter=$2,945,631, Total=$3,193,460
+18:17:24 [DEBUG] Using cached positions (age: 2.5s)
+18:17:24 [DEBUG] Check TRUMP-USD: Age=2.8s (Limit=14400s)
+18:17:24 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:24 [DEBUG] Check ZEC-USD: Age=1.8s (Limit=14400s)
+18:17:24 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:24 [DEBUG] Check BERA-USD: Age=2.8s (Limit=14400s)
+18:17:24 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:25 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:25 [DEBUG] Using cached positions (age: 3.5s)
+18:17:25 [DEBUG] Check TRUMP-USD: Age=3.8s (Limit=14400s)
+18:17:25 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:25 [DEBUG] Check ZEC-USD: Age=2.8s (Limit=14400s)
+18:17:25 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:25 [DEBUG] Check BERA-USD: Age=3.8s (Limit=14400s)
+18:17:25 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:25 [DEBUG] ✅ TRUMP-USD: X10 entry fee = 0.000225 (order: 1998079409327915008)
+18:17:25 [DEBUG] ✅ TRUMP-USD: Lighter entry fee = 0.000000 (order: 00c350a1f9c6d999cd58d7f074d663cffe9fb25cb752433f59d897c7372121b39d66aab9ffb67164)
+18:17:25 [INFO] 💰 TRUMP-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+18:17:25 [DEBUG] 📝 Flushed 1 writes
+18:17:25 [DEBUG] ✅ BERA-USD: X10 entry fee = 0.000225 (order: 1998079409357922304)
+18:17:25 [DEBUG] ✅ BERA-USD: Lighter entry fee = 0.000000 (order: b49a19a3cdc961772df30cef9917a4b167ef6c0407160bd8bd0c22d673076490e160e2efb0cdb2f3)
+18:17:25 [INFO] 💰 BERA-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+18:17:25 [INFO] Lighter: Found 3 open positions
+18:17:25 [INFO] ✅ RECONCILE: Sync complete.
+18:17:25 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:26 [DEBUG] ✅ AERO-USD: X10=$186,341, Lighter=$2,946,243, Total=$3,132,584
+18:17:26 [DEBUG] Using cached positions (age: 4.5s)
+18:17:26 [DEBUG] Check TRUMP-USD: Age=4.8s (Limit=14400s)
+18:17:26 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:26 [DEBUG] Check ZEC-USD: Age=3.8s (Limit=14400s)
+18:17:26 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:26 [DEBUG] Check BERA-USD: Age=4.8s (Limit=14400s)
+18:17:26 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:26 [DEBUG] 📝 Flushed 1 writes
+18:17:26 [DEBUG] ✅ ZEC-USD: X10 entry fee = 0.000225 (order: 1998079413557202944)
+18:17:26 [DEBUG] ✅ ZEC-USD: Lighter entry fee = 0.000000 (order: 433549e0d3eb42b59475c35635bd428e9a0caaae913455b917372a9ef3cea6c2f44d9f82b720f624)
+18:17:26 [INFO] 💰 ZEC-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+18:17:27 [DEBUG] Using cached positions (age: 5.5s)
+18:17:27 [DEBUG] Check TRUMP-USD: Age=5.8s (Limit=14400s)
+18:17:27 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:27 [DEBUG] Check ZEC-USD: Age=4.8s (Limit=14400s)
+18:17:27 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:27 [DEBUG] Check BERA-USD: Age=5.8s (Limit=14400s)
+18:17:27 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:27 [DEBUG] 📝 Flushed 1 writes
+18:17:28 [DEBUG] ✅ APT-USD: X10=$152,340, Lighter=$1,725,104, Total=$1,877,444
+18:17:28 [DEBUG] Using cached positions (age: 6.5s)
+18:17:28 [DEBUG] Check TRUMP-USD: Age=6.8s (Limit=14400s)
+18:17:28 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:28 [DEBUG] Check ZEC-USD: Age=5.8s (Limit=14400s)
+18:17:28 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:28 [DEBUG] Check BERA-USD: Age=6.8s (Limit=14400s)
+18:17:28 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:28 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:29 [INFO] Lighter: Found 3 open positions
+18:17:29 [INFO] ✅ RECONCILE: Sync complete.
+18:17:29 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:29 [DEBUG] Using cached positions (age: 7.6s)
+18:17:29 [DEBUG] Check TRUMP-USD: Age=7.9s (Limit=14400s)
+18:17:29 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:29 [DEBUG] Check ZEC-USD: Age=6.9s (Limit=14400s)
+18:17:29 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:29 [DEBUG] Check BERA-USD: Age=7.9s (Limit=14400s)
+18:17:29 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:30 [DEBUG] Using cached positions (age: 8.6s)
+18:17:30 [DEBUG] Check TRUMP-USD: Age=8.9s (Limit=14400s)
+18:17:30 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:30 [DEBUG] Check ZEC-USD: Age=7.9s (Limit=14400s)
+18:17:30 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:30 [DEBUG] Check BERA-USD: Age=8.9s (Limit=14400s)
+18:17:30 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:30 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=22597)
+18:17:30 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=57)
+18:17:30 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=1s ago, msgs=20)
+18:17:31 [DEBUG] Using cached positions (age: 9.6s)
+18:17:31 [DEBUG] Check TRUMP-USD: Age=9.9s (Limit=14400s)
+18:17:31 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:31 [DEBUG] Check ZEC-USD: Age=8.9s (Limit=14400s)
+18:17:31 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:31 [DEBUG] Check BERA-USD: Age=9.9s (Limit=14400s)
+18:17:31 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:31 [DEBUG] ✅ LINK-USD: X10=$249,779, Lighter=$202,068, Total=$451,848
+18:17:32 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:32 [DEBUG] Fetching fresh positions (force=False, cache_age=10.6s)
+18:17:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:32 [INFO] Lighter: Found 3 open positions
+18:17:32 [INFO] ✅ RECONCILE: Sync complete.
+18:17:32 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:33 [INFO] Lighter: Found 3 open positions
+18:17:33 [INFO] 📊 Positions: X10=3, Lighter=3
+18:17:33 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:33 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:33 [DEBUG] Check TRUMP-USD: Age=11.3s (Limit=14400s)
+18:17:33 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:33 [DEBUG] Check ZEC-USD: Age=10.3s (Limit=14400s)
+18:17:33 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:33 [DEBUG] Check BERA-USD: Age=11.3s (Limit=14400s)
+18:17:33 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:33 [DEBUG] ✅ VIRTUAL-USD: X10=$86,672, Lighter=$702,024, Total=$788,696
+18:17:34 [DEBUG] Using cached positions (age: 1.5s)
+18:17:34 [DEBUG] Check TRUMP-USD: Age=12.3s (Limit=14400s)
+18:17:34 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:34 [DEBUG] Check ZEC-USD: Age=11.3s (Limit=14400s)
+18:17:34 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:34 [DEBUG] Check BERA-USD: Age=12.3s (Limit=14400s)
+18:17:34 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:35 [DEBUG] Using cached positions (age: 2.4s)
+18:17:35 [DEBUG] Check TRUMP-USD: Age=13.3s (Limit=14400s)
+18:17:35 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:35 [DEBUG] Check ZEC-USD: Age=12.3s (Limit=14400s)
+18:17:35 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:35 [DEBUG] Check BERA-USD: Age=13.3s (Limit=14400s)
+18:17:35 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:35 [DEBUG] ✅ PENGU-USD: X10=$76,193, Lighter=$70,342,396, Total=$70,418,589
+18:17:35 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:36 [DEBUG] Using cached positions (age: 3.5s)
+18:17:36 [DEBUG] Check TRUMP-USD: Age=14.3s (Limit=14400s)
+18:17:36 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:36 [DEBUG] Check ZEC-USD: Age=13.3s (Limit=14400s)
+18:17:36 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:36 [DEBUG] Check BERA-USD: Age=14.3s (Limit=14400s)
+18:17:36 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:36 [INFO] Lighter: Found 3 open positions
+18:17:36 [INFO] ✅ RECONCILE: Sync complete.
+18:17:36 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:37 [DEBUG] ✅ SOL-USD: X10=$5,202,337, Lighter=$349,488, Total=$5,551,826
+18:17:37 [DEBUG] Using cached positions (age: 4.5s)
+18:17:37 [DEBUG] Check TRUMP-USD: Age=15.4s (Limit=14400s)
+18:17:37 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:37 [DEBUG] Check ZEC-USD: Age=14.3s (Limit=14400s)
+18:17:37 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:37 [DEBUG] Check BERA-USD: Age=15.3s (Limit=14400s)
+18:17:37 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:38 [DEBUG] Using cached positions (age: 5.5s)
+18:17:38 [DEBUG] Check TRUMP-USD: Age=16.4s (Limit=14400s)
+18:17:38 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:38 [DEBUG] Check ZEC-USD: Age=15.4s (Limit=14400s)
+18:17:38 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:38 [DEBUG] Check BERA-USD: Age=16.4s (Limit=14400s)
+18:17:38 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:38 [DEBUG] ✅ MON-USD: X10=$256,030, Lighter=$220,244,044, Total=$220,500,074
+18:17:39 [DEBUG] Using cached positions (age: 6.5s)
+18:17:39 [DEBUG] Check TRUMP-USD: Age=17.4s (Limit=14400s)
+18:17:39 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:39 [DEBUG] Check ZEC-USD: Age=16.3s (Limit=14400s)
+18:17:39 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:39 [DEBUG] Check BERA-USD: Age=17.4s (Limit=14400s)
+18:17:39 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:39 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:39 [INFO] Lighter: Found 3 open positions
+18:17:39 [INFO] ✅ RECONCILE: Sync complete.
+18:17:39 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:40 [DEBUG] Using cached positions (age: 7.5s)
+18:17:40 [DEBUG] Check TRUMP-USD: Age=18.3s (Limit=14400s)
+18:17:40 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:40 [DEBUG] Check ZEC-USD: Age=17.3s (Limit=14400s)
+18:17:40 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:40 [DEBUG] Check BERA-USD: Age=18.3s (Limit=14400s)
+18:17:40 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:40 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=35700)
+18:17:40 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=82)
+18:17:40 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=3s ago, msgs=22)
+18:17:41 [DEBUG] Using cached positions (age: 8.5s)
+18:17:41 [DEBUG] Check TRUMP-USD: Age=19.4s (Limit=14400s)
+18:17:41 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:41 [DEBUG] Check ZEC-USD: Age=18.3s (Limit=14400s)
+18:17:41 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:41 [DEBUG] Check BERA-USD: Age=19.3s (Limit=14400s)
+18:17:41 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:42 [DEBUG] Using cached positions (age: 9.5s)
+18:17:42 [DEBUG] Check TRUMP-USD: Age=20.3s (Limit=14400s)
+18:17:42 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:42 [DEBUG] Check ZEC-USD: Age=19.3s (Limit=14400s)
+18:17:42 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:42 [DEBUG] Check BERA-USD: Age=20.3s (Limit=14400s)
+18:17:42 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:42 [DEBUG] ✅ ZEC-USD: X10=$1,318,460, Lighter=$32,925, Total=$1,351,385
+18:17:42 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:43 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.3s
+18:17:43 [DEBUG] 📊 Task health: 7 alive, 0 dead
+18:17:43 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+18:17:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:43 [INFO] Lighter: Found 3 open positions
+18:17:43 [INFO] ✅ RECONCILE: Sync complete.
+18:17:43 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:43 [INFO] Lighter: Found 3 open positions
+18:17:43 [INFO] 📊 Positions: X10=3, Lighter=3
+18:17:43 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:43 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:43 [DEBUG] Check TRUMP-USD: Age=21.8s (Limit=14400s)
+18:17:43 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:43 [DEBUG] Check ZEC-USD: Age=20.8s (Limit=14400s)
+18:17:43 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:43 [DEBUG] Check BERA-USD: Age=21.8s (Limit=14400s)
+18:17:43 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:44 [DEBUG] ✅ TRX-USD: X10=$346,647, Lighter=$6,379,391, Total=$6,726,037
+18:17:44 [DEBUG] Using cached positions (age: 1.5s)
+18:17:44 [DEBUG] Check TRUMP-USD: Age=22.8s (Limit=14400s)
+18:17:44 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:44 [DEBUG] Check ZEC-USD: Age=21.8s (Limit=14400s)
+18:17:44 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:44 [DEBUG] Check BERA-USD: Age=22.8s (Limit=14400s)
+18:17:44 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:45 [DEBUG] Using cached positions (age: 2.5s)
+18:17:45 [DEBUG] Check TRUMP-USD: Age=23.8s (Limit=14400s)
+18:17:45 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:45 [DEBUG] Check ZEC-USD: Age=22.8s (Limit=14400s)
+18:17:45 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:45 [DEBUG] Check BERA-USD: Age=23.8s (Limit=14400s)
+18:17:45 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:46 [DEBUG] ✅ ZRO-USD: X10=$126,995, Lighter=$613,969, Total=$740,963
+18:17:46 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:46 [DEBUG] Using cached positions (age: 3.5s)
+18:17:46 [DEBUG] Check TRUMP-USD: Age=24.8s (Limit=14400s)
+18:17:46 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:46 [DEBUG] Check ZEC-USD: Age=23.8s (Limit=14400s)
+18:17:46 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:46 [DEBUG] Check BERA-USD: Age=24.8s (Limit=14400s)
+18:17:46 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:46 [INFO] Lighter: Found 3 open positions
+18:17:46 [INFO] ✅ RECONCILE: Sync complete.
+18:17:46 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:47 [DEBUG] Using cached positions (age: 4.5s)
+18:17:47 [DEBUG] Check TRUMP-USD: Age=25.8s (Limit=14400s)
+18:17:47 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:47 [DEBUG] Check ZEC-USD: Age=24.8s (Limit=14400s)
+18:17:47 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:47 [DEBUG] Check BERA-USD: Age=25.8s (Limit=14400s)
+18:17:47 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:47 [DEBUG] ✅ APEX-USD: X10=$30,800, Lighter=$884,721, Total=$915,521
+18:17:48 [DEBUG] Using cached positions (age: 5.5s)
+18:17:48 [DEBUG] Check TRUMP-USD: Age=26.8s (Limit=14400s)
+18:17:48 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:48 [DEBUG] Check ZEC-USD: Age=25.8s (Limit=14400s)
+18:17:48 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:48 [DEBUG] Check BERA-USD: Age=26.8s (Limit=14400s)
+18:17:48 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:49 [DEBUG] Using cached positions (age: 6.5s)
+18:17:49 [DEBUG] Check TRUMP-USD: Age=27.8s (Limit=14400s)
+18:17:49 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:49 [DEBUG] Check ZEC-USD: Age=26.8s (Limit=14400s)
+18:17:49 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:49 [DEBUG] Check BERA-USD: Age=27.8s (Limit=14400s)
+18:17:49 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:49 [DEBUG] ✅ XPL-USD: X10=$314,531, Lighter=$15,757,822, Total=$16,072,353
+18:17:49 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:50 [INFO] Lighter: Found 3 open positions
+18:17:50 [INFO] ✅ RECONCILE: Sync complete.
+18:17:50 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:50 [DEBUG] Using cached positions (age: 7.5s)
+18:17:50 [DEBUG] Check TRUMP-USD: Age=28.8s (Limit=14400s)
+18:17:50 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:50 [DEBUG] Check ZEC-USD: Age=27.8s (Limit=14400s)
+18:17:50 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:50 [DEBUG] Check BERA-USD: Age=28.8s (Limit=14400s)
+18:17:50 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:50 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=47271)
+18:17:50 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=13s ago, msgs=22)
+18:17:50 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=1s ago, msgs=103)
+18:17:51 [DEBUG] Using cached positions (age: 8.5s)
+18:17:51 [DEBUG] Check TRUMP-USD: Age=29.8s (Limit=14400s)
+18:17:51 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:51 [DEBUG] Check ZEC-USD: Age=28.8s (Limit=14400s)
+18:17:51 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:51 [DEBUG] Check BERA-USD: Age=29.8s (Limit=14400s)
+18:17:51 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:52 [DEBUG] Using cached positions (age: 9.5s)
+18:17:52 [DEBUG] Check TRUMP-USD: Age=30.8s (Limit=14400s)
+18:17:52 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:52 [DEBUG] Check ZEC-USD: Age=29.8s (Limit=14400s)
+18:17:52 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:52 [DEBUG] Check BERA-USD: Age=30.8s (Limit=14400s)
+18:17:52 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:53 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:53 [DEBUG] ✅ BERA-USD: X10=$201,495, Lighter=$1,028,978, Total=$1,230,473
+18:17:53 [INFO] Lighter: Found 3 open positions
+18:17:53 [INFO] ✅ RECONCILE: Sync complete.
+18:17:53 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:53 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+18:17:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:54 [INFO] Lighter: Found 3 open positions
+18:17:54 [INFO] 📊 Positions: X10=3, Lighter=3
+18:17:54 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:54 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:17:54 [DEBUG] Check TRUMP-USD: Age=32.3s (Limit=14400s)
+18:17:54 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:54 [DEBUG] Check ZEC-USD: Age=31.3s (Limit=14400s)
+18:17:54 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:54 [DEBUG] Check BERA-USD: Age=32.3s (Limit=14400s)
+18:17:54 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:55 [DEBUG] Using cached positions (age: 1.5s)
+18:17:55 [DEBUG] Check TRUMP-USD: Age=33.3s (Limit=14400s)
+18:17:55 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:55 [DEBUG] Check ZEC-USD: Age=32.3s (Limit=14400s)
+18:17:55 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:55 [DEBUG] Check BERA-USD: Age=33.3s (Limit=14400s)
+18:17:55 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:55 [DEBUG] ✅ WLFI-USD: X10=$769,630, Lighter=$24,744,681, Total=$25,514,311
+18:17:56 [DEBUG] Using cached positions (age: 2.5s)
+18:17:56 [DEBUG] Check TRUMP-USD: Age=34.3s (Limit=14400s)
+18:17:56 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:56 [DEBUG] Check ZEC-USD: Age=33.3s (Limit=14400s)
+18:17:56 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:56 [DEBUG] Check BERA-USD: Age=34.3s (Limit=14400s)
+18:17:56 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:56 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:17:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:17:56 [DEBUG] ✅ LDO-USD: X10=$127,501, Lighter=$1,872,337, Total=$1,999,838
+18:17:57 [INFO] Lighter: Found 3 open positions
+18:17:57 [INFO] ✅ RECONCILE: Sync complete.
+18:17:57 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:17:57 [DEBUG] Using cached positions (age: 3.5s)
+18:17:57 [DEBUG] Check TRUMP-USD: Age=35.3s (Limit=14400s)
+18:17:57 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:57 [DEBUG] Check ZEC-USD: Age=34.3s (Limit=14400s)
+18:17:57 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:57 [DEBUG] Check BERA-USD: Age=35.3s (Limit=14400s)
+18:17:57 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:58 [DEBUG] Using cached positions (age: 4.5s)
+18:17:58 [DEBUG] Check TRUMP-USD: Age=36.3s (Limit=14400s)
+18:17:58 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:58 [DEBUG] Check ZEC-USD: Age=35.3s (Limit=14400s)
+18:17:58 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:58 [DEBUG] Check BERA-USD: Age=36.3s (Limit=14400s)
+18:17:58 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:58 [DEBUG] ✅ BTC-USD: X10=$22,859,020, Lighter=$2,838, Total=$22,861,857
+18:17:59 [DEBUG] Using cached positions (age: 5.5s)
+18:17:59 [DEBUG] Check TRUMP-USD: Age=37.3s (Limit=14400s)
+18:17:59 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:17:59 [DEBUG] Check ZEC-USD: Age=36.3s (Limit=14400s)
+18:17:59 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:17:59 [DEBUG] Check BERA-USD: Age=37.3s (Limit=14400s)
+18:17:59 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:00 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:00 [DEBUG] Using cached positions (age: 6.5s)
+18:18:00 [DEBUG] Check TRUMP-USD: Age=38.3s (Limit=14400s)
+18:18:00 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:00 [DEBUG] Check ZEC-USD: Age=37.3s (Limit=14400s)
+18:18:00 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:00 [DEBUG] Check BERA-USD: Age=38.3s (Limit=14400s)
+18:18:00 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:00 [DEBUG] ✅ GRASS-USD: X10=$70,189, Lighter=$1,242,084, Total=$1,312,272
+18:18:00 [INFO] Lighter: Found 3 open positions
+18:18:00 [INFO] ✅ RECONCILE: Sync complete.
+18:18:00 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:00 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s ago, msgs=59649)
+18:18:00 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=23s ago, msgs=22)
+18:18:00 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago, msgs=123)
+18:18:01 [DEBUG] Using cached positions (age: 7.5s)
+18:18:01 [DEBUG] Check TRUMP-USD: Age=39.3s (Limit=14400s)
+18:18:01 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:01 [DEBUG] Check ZEC-USD: Age=38.3s (Limit=14400s)
+18:18:01 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:01 [DEBUG] Check BERA-USD: Age=39.3s (Limit=14400s)
+18:18:01 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:02 [DEBUG] Using cached positions (age: 8.5s)
+18:18:02 [DEBUG] Check TRUMP-USD: Age=40.3s (Limit=14400s)
+18:18:02 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:02 [DEBUG] Check ZEC-USD: Age=39.3s (Limit=14400s)
+18:18:02 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:02 [DEBUG] Check BERA-USD: Age=40.3s (Limit=14400s)
+18:18:02 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:03 [DEBUG] Using cached positions (age: 9.5s)
+18:18:03 [DEBUG] Check TRUMP-USD: Age=41.3s (Limit=14400s)
+18:18:03 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:03 [DEBUG] Check ZEC-USD: Age=40.3s (Limit=14400s)
+18:18:03 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:03 [DEBUG] Check BERA-USD: Age=41.3s (Limit=14400s)
+18:18:03 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:03 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:03 [INFO] Lighter: Found 3 open positions
+18:18:03 [INFO] ✅ RECONCILE: Sync complete.
+18:18:03 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:04 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+18:18:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:04 [DEBUG] ✅ ENA-USD: X10=$224,880, Lighter=$20,180,880, Total=$20,405,760
+18:18:04 [INFO] Lighter: Found 3 open positions
+18:18:04 [INFO] 📊 Positions: X10=3, Lighter=3
+18:18:04 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:04 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:04 [DEBUG] Check TRUMP-USD: Age=42.8s (Limit=14400s)
+18:18:04 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:04 [DEBUG] Check ZEC-USD: Age=41.7s (Limit=14400s)
+18:18:04 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:04 [DEBUG] Check BERA-USD: Age=42.7s (Limit=14400s)
+18:18:04 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:05 [DEBUG] Using cached positions (age: 1.5s)
+18:18:05 [DEBUG] Check TRUMP-USD: Age=43.8s (Limit=14400s)
+18:18:05 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:05 [DEBUG] Check ZEC-USD: Age=42.8s (Limit=14400s)
+18:18:05 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:05 [DEBUG] Check BERA-USD: Age=43.8s (Limit=14400s)
+18:18:05 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:05 [DEBUG] ✅ LINEA-USD: X10=$148,045, Lighter=$99,290,633, Total=$99,438,678
+18:18:06 [DEBUG] Using cached positions (age: 2.5s)
+18:18:06 [DEBUG] Check TRUMP-USD: Age=44.8s (Limit=14400s)
+18:18:06 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:06 [DEBUG] Check ZEC-USD: Age=43.7s (Limit=14400s)
+18:18:06 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:06 [DEBUG] Check BERA-USD: Age=44.7s (Limit=14400s)
+18:18:06 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:06 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:07 [INFO] Lighter: Found 3 open positions
+18:18:07 [INFO] ✅ RECONCILE: Sync complete.
+18:18:07 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:07 [DEBUG] Using cached positions (age: 3.5s)
+18:18:07 [DEBUG] Check TRUMP-USD: Age=45.8s (Limit=14400s)
+18:18:07 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:07 [DEBUG] Check ZEC-USD: Age=44.7s (Limit=14400s)
+18:18:07 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:07 [DEBUG] Check BERA-USD: Age=45.7s (Limit=14400s)
+18:18:07 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:07 [DEBUG] ✅ AVAX-USD: X10=$568,874, Lighter=$266,369, Total=$835,243
+18:18:08 [DEBUG] Using cached positions (age: 4.5s)
+18:18:08 [DEBUG] Check TRUMP-USD: Age=46.8s (Limit=14400s)
+18:18:08 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:08 [DEBUG] Check ZEC-USD: Age=45.7s (Limit=14400s)
+18:18:08 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:08 [DEBUG] Check BERA-USD: Age=46.7s (Limit=14400s)
+18:18:08 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:09 [DEBUG] ✅ XRP-USD: X10=$608,109, Lighter=$4,390,353, Total=$4,998,462
+18:18:09 [DEBUG] Using cached positions (age: 5.5s)
+18:18:09 [DEBUG] Check TRUMP-USD: Age=47.8s (Limit=14400s)
+18:18:09 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:09 [DEBUG] Check ZEC-USD: Age=46.7s (Limit=14400s)
+18:18:09 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:09 [DEBUG] Check BERA-USD: Age=47.7s (Limit=14400s)
+18:18:09 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:10 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:10 [DEBUG] Using cached positions (age: 6.5s)
+18:18:10 [DEBUG] Check TRUMP-USD: Age=48.8s (Limit=14400s)
+18:18:10 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:10 [DEBUG] Check ZEC-USD: Age=47.8s (Limit=14400s)
+18:18:10 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:10 [DEBUG] Check BERA-USD: Age=48.8s (Limit=14400s)
+18:18:10 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:10 [INFO] Lighter: Found 3 open positions
+18:18:10 [INFO] ✅ RECONCILE: Sync complete.
+18:18:10 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:10 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s ago, msgs=70884)
+18:18:10 [DEBUG] [lighter] Responded to JSON ping with pong
+18:18:10 [DEBUG] ⚠️ [x10_account] No messages for 33s (expected every 30s)
+18:18:10 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=33s ago, msgs=22)
+18:18:10 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=5s ago, msgs=91)
+18:18:10 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=1s ago, msgs=142)
+18:18:11 [DEBUG] ✅ POPCAT-USD: X10=$94,168, Lighter=$5,935,589, Total=$6,029,757
+18:18:11 [DEBUG] Using cached positions (age: 7.5s)
+18:18:11 [DEBUG] Check TRUMP-USD: Age=49.8s (Limit=14400s)
+18:18:11 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:11 [DEBUG] Check ZEC-USD: Age=48.7s (Limit=14400s)
+18:18:11 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:11 [DEBUG] Check BERA-USD: Age=49.7s (Limit=14400s)
+18:18:11 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:12 [DEBUG] Using cached positions (age: 8.5s)
+18:18:12 [DEBUG] Check TRUMP-USD: Age=50.8s (Limit=14400s)
+18:18:12 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:12 [DEBUG] Check ZEC-USD: Age=49.7s (Limit=14400s)
+18:18:12 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:12 [DEBUG] Check BERA-USD: Age=50.8s (Limit=14400s)
+18:18:12 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:13 [DEBUG] 🐕 Watchdog OK: Daten-Alter 2.7s
+18:18:13 [DEBUG] 📊 Task health: 7 alive, 0 dead
+18:18:13 [DEBUG] Using cached positions (age: 9.5s)
+18:18:13 [DEBUG] Check TRUMP-USD: Age=51.8s (Limit=14400s)
+18:18:13 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:13 [DEBUG] Check ZEC-USD: Age=50.8s (Limit=14400s)
+18:18:13 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:13 [DEBUG] Check BERA-USD: Age=51.8s (Limit=14400s)
+18:18:13 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:13 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:14 [INFO] Lighter: Found 3 open positions
+18:18:14 [INFO] ✅ RECONCILE: Sync complete.
+18:18:14 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:14 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+18:18:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:14 [DEBUG] ✅ STRK-USD: X10=$338,730, Lighter=$6,573,780, Total=$6,912,510
+18:18:15 [INFO] Lighter: Found 3 open positions
+18:18:15 [INFO] 📊 Positions: X10=3, Lighter=3
+18:18:15 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:15 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:15 [DEBUG] Check TRUMP-USD: Age=53.2s (Limit=14400s)
+18:18:15 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:15 [DEBUG] Check ZEC-USD: Age=52.2s (Limit=14400s)
+18:18:15 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:15 [DEBUG] Check BERA-USD: Age=53.2s (Limit=14400s)
+18:18:15 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:16 [DEBUG] Using cached positions (age: 1.5s)
+18:18:16 [DEBUG] Check TRUMP-USD: Age=54.2s (Limit=14400s)
+18:18:16 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:16 [DEBUG] Check ZEC-USD: Age=53.2s (Limit=14400s)
+18:18:16 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:16 [DEBUG] Check BERA-USD: Age=54.2s (Limit=14400s)
+18:18:16 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:16 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$413,912, Total=$413,912
+18:18:17 [DEBUG] Using cached positions (age: 2.5s)
+18:18:17 [DEBUG] Check TRUMP-USD: Age=55.3s (Limit=14400s)
+18:18:17 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:17 [DEBUG] Check ZEC-USD: Age=54.2s (Limit=14400s)
+18:18:17 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:17 [DEBUG] Check BERA-USD: Age=55.2s (Limit=14400s)
+18:18:17 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:17 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:17 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+18:18:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:18:17 [INFO] Lighter: Found 3 open positions
+18:18:17 [INFO] ✅ RECONCILE: Sync complete.
+18:18:17 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:18 [DEBUG] Using cached positions (age: 3.5s)
+18:18:18 [DEBUG] Check TRUMP-USD: Age=56.3s (Limit=14400s)
+18:18:18 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:18 [DEBUG] Check ZEC-USD: Age=55.2s (Limit=14400s)
+18:18:18 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:18 [DEBUG] Check BERA-USD: Age=56.2s (Limit=14400s)
+18:18:18 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:18 [DEBUG] ✅ JUP-USD: X10=$270,723, Lighter=$3,170,938, Total=$3,441,662
+18:18:19 [DEBUG] Using cached positions (age: 4.5s)
+18:18:19 [DEBUG] Check TRUMP-USD: Age=57.3s (Limit=14400s)
+18:18:19 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:19 [DEBUG] Check ZEC-USD: Age=56.2s (Limit=14400s)
+18:18:19 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:19 [DEBUG] Check BERA-USD: Age=57.2s (Limit=14400s)
+18:18:19 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:19 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+18:18:19 [DEBUG] X10: Funding Refresh OK, cache=91
+18:18:19 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+18:18:20 [DEBUG] Using cached positions (age: 5.5s)
+18:18:20 [DEBUG] Check TRUMP-USD: Age=58.3s (Limit=14400s)
+18:18:20 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:20 [DEBUG] Check ZEC-USD: Age=57.3s (Limit=14400s)
+18:18:20 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:20 [DEBUG] Check BERA-USD: Age=58.3s (Limit=14400s)
+18:18:20 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:20 [DEBUG] Lighter: Loaded 380 funding rates
+18:18:20 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$350,193, Total=$350,193
+18:18:20 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:20 [DEBUG] 💓 [lighter] Alive (uptime=70s, last_msg=0s ago, msgs=82814)
+18:18:20 [DEBUG] Lighter: Loaded 115 prices via REST
+18:18:20 [DEBUG] Lighter: Funding Refresh OK, cache=113
+18:18:20 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=15s ago, msgs=91)
+18:18:20 [DEBUG] ⚠️ [x10_account] No messages for 43s (expected every 30s)
+18:18:20 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=43s ago, msgs=22)
+18:18:20 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=0s ago, msgs=179)
+18:18:21 [DEBUG] Using cached positions (age: 6.5s)
+18:18:21 [DEBUG] Check TRUMP-USD: Age=59.3s (Limit=14400s)
+18:18:21 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:21 [DEBUG] Check ZEC-USD: Age=58.3s (Limit=14400s)
+18:18:21 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:21 [DEBUG] Check BERA-USD: Age=59.3s (Limit=14400s)
+18:18:21 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:21 [INFO] Lighter: Found 3 open positions
+18:18:21 [INFO] ✅ RECONCILE: Sync complete.
+18:18:21 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:21 [DEBUG] ✅ OP-USD: X10=$191,799, Lighter=$4,669,528, Total=$4,861,327
+18:18:22 [DEBUG] Using cached positions (age: 7.5s)
+18:18:22 [DEBUG] Check TRUMP-USD: Age=60.3s (Limit=14400s)
+18:18:22 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:22 [DEBUG] Check ZEC-USD: Age=59.3s (Limit=14400s)
+18:18:22 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:22 [DEBUG] Check BERA-USD: Age=60.3s (Limit=14400s)
+18:18:22 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:23 [DEBUG] Using cached positions (age: 8.5s)
+18:18:23 [DEBUG] Check TRUMP-USD: Age=61.3s (Limit=14400s)
+18:18:23 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:23 [DEBUG] Check ZEC-USD: Age=60.2s (Limit=14400s)
+18:18:23 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:23 [DEBUG] Check BERA-USD: Age=61.3s (Limit=14400s)
+18:18:23 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:24 [DEBUG] Using cached positions (age: 9.5s)
+18:18:24 [DEBUG] Check TRUMP-USD: Age=62.3s (Limit=14400s)
+18:18:24 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:24 [DEBUG] Check ZEC-USD: Age=61.3s (Limit=14400s)
+18:18:24 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:24 [DEBUG] Check BERA-USD: Age=62.3s (Limit=14400s)
+18:18:24 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:24 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:24 [INFO] Lighter: Found 3 open positions
+18:18:24 [INFO] ✅ RECONCILE: Sync complete.
+18:18:24 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:25 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+18:18:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:25 [INFO] Lighter: Found 3 open positions
+18:18:25 [INFO] 📊 Positions: X10=3, Lighter=3
+18:18:25 [DEBUG] X10 positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:25 [DEBUG] Lighter positions: ['TRUMP-USD', 'BERA-USD', 'ZEC-USD']
+18:18:25 [DEBUG] Check TRUMP-USD: Age=63.7s (Limit=14400s)
+18:18:25 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:25 [DEBUG] Check ZEC-USD: Age=62.7s (Limit=14400s)
+18:18:25 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:25 [DEBUG] Check BERA-USD: Age=63.7s (Limit=14400s)
+18:18:25 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:25 [DEBUG] ✅ UNI-USD: X10=$160,298, Lighter=$319,645, Total=$479,943
+18:18:26 [DEBUG] Using cached positions (age: 1.5s)
+18:18:26 [DEBUG] Check TRUMP-USD: Age=64.7s (Limit=14400s)
+18:18:26 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:26 [DEBUG] Check ZEC-USD: Age=63.7s (Limit=14400s)
+18:18:26 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:26 [DEBUG] Check BERA-USD: Age=64.7s (Limit=14400s)
+18:18:26 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:27 [DEBUG] ✅ TON-USD: X10=$124,137, Lighter=$543,639, Total=$667,777
+18:18:27 [DEBUG] Using cached positions (age: 2.5s)
+18:18:27 [DEBUG] Check TRUMP-USD: Age=65.7s (Limit=14400s)
+18:18:27 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:27 [DEBUG] Check ZEC-USD: Age=64.7s (Limit=14400s)
+18:18:27 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:27 [DEBUG] Check BERA-USD: Age=65.7s (Limit=14400s)
+18:18:27 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:27 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:28 [INFO] Lighter: Found 3 open positions
+18:18:28 [INFO] ✅ RECONCILE: Sync complete.
+18:18:28 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:28 [DEBUG] Using cached positions (age: 3.4s)
+18:18:28 [DEBUG] Check TRUMP-USD: Age=66.7s (Limit=14400s)
+18:18:28 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:28 [DEBUG] Check ZEC-USD: Age=65.7s (Limit=14400s)
+18:18:28 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:28 [DEBUG] Check BERA-USD: Age=66.7s (Limit=14400s)
+18:18:28 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:29 [INFO] 🛑 Initiating shutdown...
+18:18:29 [INFO] 🔒 SHUTDOWN: Closing all open trades... (Please wait!)
+18:18:29 [DEBUG] ✅ SEI-USD: X10=$153,876, Lighter=$7,474,124, Total=$7,627,999
+18:18:29 [DEBUG] Using cached positions (age: 4.5s)
+18:18:29 [DEBUG] Check TRUMP-USD: Age=67.7s (Limit=14400s)
+18:18:29 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:29 [DEBUG] Check ZEC-USD: Age=66.7s (Limit=14400s)
+18:18:29 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:29 [DEBUG] Check BERA-USD: Age=67.7s (Limit=14400s)
+18:18:29 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:29 [INFO] Lighter: Found 3 open positions
+18:18:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing Lighter TRUMP-USD (-8.0)...
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing Lighter BERA-USD (-59.0)...
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing Lighter ZEC-USD (-0.1)...
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing X10 TRUMP-USD (8.0)...
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing X10 BERA-USD (59.0)...
+18:18:30 [INFO] 🛑 SHUTDOWN: Closing X10 ZEC-USD (0.1)...
+18:18:30 [INFO] ⏳ Waiting up to 30.0s for 6 close orders...
+18:18:30 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=TRUMP-USD (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: notional_usd=45.792 (type=<class 'float'>)
+18:18:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:18:30 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=BERA-USD (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: notional_usd=49.474450000000004 (type=<class 'float'>)
+18:18:30 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ZEC-USD (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+18:18:30 [INFO] 🔍 DEBUG: notional_usd=41.958200000000005 (type=<class 'float'>)
+18:18:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:18:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:18:30 [DEBUG] Using cached positions (age: 5.4s)
+18:18:30 [DEBUG] Check TRUMP-USD: Age=68.7s (Limit=14400s)
+18:18:30 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:30 [DEBUG] Check ZEC-USD: Age=67.7s (Limit=14400s)
+18:18:30 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:30 [DEBUG] Check BERA-USD: Age=68.7s (Limit=14400s)
+18:18:30 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:30 [DEBUG] 💓 [lighter] Alive (uptime=80s, last_msg=0s ago, msgs=95469)
+18:18:30 [DEBUG] ✅ WLD-USD: X10=$143,499, Lighter=$2,109,168, Total=$2,252,667
+18:18:30 [DEBUG] ⚠️ [x10_account] No messages for 53s (expected every 30s)
+18:18:30 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=53s ago, msgs=22)
+18:18:30 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=1s ago, msgs=201)
+18:18:30 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=25s ago, msgs=91)
+18:18:30 [INFO] Lighter: Found 3 open positions
+18:18:30 [DEBUG] MIN_NOTIONAL TRUMP-USD: min_base=0.20000000 coins, price=$5.7240, min_qty_usd=$1.14, min_notional_api=$10.00, final=$11.00
+18:18:30 [INFO] 🔻 LIGHTER CLOSE TRUMP-USD: size=-8.000000 coins, side=BUY, price=$5.7240, notional=$45.79
+18:18:30 [INFO] 🚀 LIGHTER OPEN TRUMP-USD: side=BUY, size_usd=$45.79, amount=None, price=$5.724000
+18:18:30 [DEBUG] 🔍 DEBUG: TRUMP-USD market_id = 15 (raw=15, type=<class 'int'>)
+18:18:30 [DEBUG] QUANTIZE TRUMP-USD: Notional=$45.792 -> RawAmt=7.952286 -> QuantAmt=7.952200 (x0.0001) -> BaseInt=795
+18:18:31 [INFO] 🔻 X10 CLOSE TRUMP-USD: size=8.000000, side=SELL
+18:18:31 [INFO] Lighter: Found 3 open positions
+18:18:31 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.8386, min_qty_usd=$2.52, min_notional_api=$10.00, final=$11.00
+18:18:31 [INFO] 🔻 LIGHTER CLOSE BERA-USD: size=-59.000000 coins, side=BUY, price=$0.8386, notional=$49.47
+18:18:31 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=BUY, size_usd=$49.47, amount=None, price=$0.838550
+18:18:31 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+18:18:31 [DEBUG] QUANTIZE BERA-USD: Notional=$49.474450000000004 -> RawAmt=58.648111 -> QuantAmt=58.648100 (x0.0001) -> BaseInt=586
+18:18:31 [DEBUG] Placing an order: id=2348103069074265674138054764777756303937958743006187463515396957685886409185
+18:18:31 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:18:31 [INFO] 🔻 X10 CLOSE BERA-USD: size=59.000000, side=SELL
+18:18:31 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:18:31 [DEBUG] Placing an order: id=212318395425776850157431828052114491897904033231851511659704092006766657157
+18:18:31 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:18:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:31 [DEBUG] Using cached positions (age: 6.5s)
+18:18:31 [DEBUG] Check TRUMP-USD: Age=69.7s (Limit=14400s)
+18:18:31 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:31 [DEBUG] Check ZEC-USD: Age=68.7s (Limit=14400s)
+18:18:31 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:31 [DEBUG] Check BERA-USD: Age=69.7s (Limit=14400s)
+18:18:31 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:31 [INFO] Lighter: Found 3 open positions
+18:18:31 [INFO] ✅ RECONCILE: Sync complete.
+18:18:31 [DEBUG] MAX_OPEN_TRADES (3) reached, waiting...
+18:18:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:31 [ERROR] ❌ X10 ZEC-USD: Value too low to close: $42.12 < $44.22
+18:18:32 [INFO] 🔒 Locked execution for TRUMP-USD BUY (Nonce: 5408)...
+18:18:32 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":15,"ClientOrderIndex":1765214358394,"BaseAmount":795,"Price":57500,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767633512036,"ExpiredAt":1765214911036,"Nonce":5408,"Sig":"kDyMFOixAg98HMUz20tULkW5fWiU9NSt3Xp9kkCjm81XDJNSvTc7b5fAEnfELyHyRdNQxAcpdJnGgEv5giU3zCHxxFARj/uKeCfykvXRNCs="}
+18:18:32 [INFO]  X10 Order: 1998079704179712000
+18:18:32 [INFO] Lighter: Found 3 open positions
+18:18:32 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$419.6140, min_qty_usd=$41.96, min_notional_api=$10.00, final=$46.16
+18:18:32 [ERROR] ❌ Cannot close ZEC-USD: Notional $41.96 < Min $46.16
+18:18:32 [INFO]  X10 Order: 1998079704510656512
+18:18:32 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='fdf96673a4725232f093d2054614d2a4fd41a8a8a2b8ca2237dcabb496c6671c69e8dd58c631e691' predicted_execution_time_ms=1765214299167 additional_properties={}
+18:18:32 [INFO] ✅ Lighter Order Sent: fdf96673a4725232f093d2054614d2a4fd41a8a8a2b8ca2237dcabb496c6671c69e8dd58c631e691
+18:18:32 [INFO] ✅ Lighter close TRUMP-USD: Erfolgreich ($45.79)
+18:18:32 [DEBUG] Using cached positions (age: 7.4s)
+18:18:32 [DEBUG] Check TRUMP-USD: Age=70.7s (Limit=14400s)
+18:18:32 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:32 [DEBUG] Check ZEC-USD: Age=69.7s (Limit=14400s)
+18:18:32 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:32 [DEBUG] Check BERA-USD: Age=70.7s (Limit=14400s)
+18:18:32 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:32 [INFO] 🔒 Locked execution for BERA-USD BUY (Nonce: 5409)...
+18:18:32 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1765214316600,"BaseAmount":586,"Price":84000,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767633512561,"ExpiredAt":1765214911561,"Nonce":5409,"Sig":"ju/fLX72a8TskTv+mrGwFzamDeoG8RWn9/bMFKmSJjiaKTB99sgHB+t4aCHrikLWl2iObMO8CCZfNl9zYdEVbm5K6ktZbMqfZKhwd1oJljE="}
+18:18:32 [DEBUG] ✅ PENDLE-USD: X10=$137,772, Lighter=$1,114,894, Total=$1,252,667
+18:18:32 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='466c504bc1599ab627ac93cbe3486749e5a6e3254189aebb3d7ddedb5f51b8a0b57b452278d673ce' predicted_execution_time_ms=1765214299690 additional_properties={}
+18:18:32 [INFO] ✅ Lighter Order Sent: 466c504bc1599ab627ac93cbe3486749e5a6e3254189aebb3d7ddedb5f51b8a0b57b452278d673ce
+18:18:32 [INFO] ✅ Lighter close BERA-USD: Erfolgreich ($49.47)
+18:18:33 [DEBUG] Using cached positions (age: 8.5s)
+18:18:33 [DEBUG] Check TRUMP-USD: Age=71.7s (Limit=14400s)
+18:18:33 [DEBUG] 💎 [HODL] TRUMP-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:33 [DEBUG] Check ZEC-USD: Age=70.7s (Limit=14400s)
+18:18:33 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+18:18:33 [DEBUG] Check BERA-USD: Age=71.7s (Limit=14400s)
+18:18:33 [DEBUG] 💎 [HODL] BERA-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+18:18:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:18:34 [INFO] ✅ Position closed (Task 0).
+18:18:34 [INFO] ✅ Position closed (Task 1).
+18:18:34 [INFO] ✅ Position closed (Task 2).
+18:18:34 [INFO] ✅ Position closed (Task 3).
+18:18:34 [INFO] ✅ Position closed (Task 4).
+18:18:34 [INFO] ✅ Position closed (Task 5).
+18:18:34 [DEBUG] Cancelled task: maintenance_loop
+18:18:34 [DEBUG] Cancelled task: cleanup_finished_tasks
+18:18:34 [DEBUG] Cancelled task: health_reporter
+18:18:34 [DEBUG] Cancelled task: farm_loop
+18:18:34 [DEBUG] Cancelled task: logic_loop
+18:18:34 [DEBUG] Cancelled task: trade_management_loop
+18:18:34 [DEBUG] Cancelled task: connection_watchdog
+18:18:34 [INFO] Logic loop cancelled
+18:18:34 [INFO] Connection watchdog cancelled
+18:18:35 [INFO] 🔌 [x10_trades] WebSocket stopped
+18:18:36 [DEBUG] ✅ LTC-USD: X10=$145,356, Lighter=$17,078, Total=$162,434
+18:18:36 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+18:18:36 [INFO] 🔌 [x10_funding] WebSocket stopped
+18:18:36 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+18:18:36 [INFO] 🔌 [x10_account] WebSocket stopped
+18:18:36 [DEBUG] [lighter] WebSocket connection closed forcefully (Timeout).
+18:18:36 [INFO] 🔌 [lighter] WebSocket stopped
+18:18:36 [INFO] ✅ WebSocketManager stopped
+18:18:36 [INFO] ✅ ParallelExecutionManager: Stopped
+18:18:36 [INFO] 🛑 Stopping InMemoryStateManager...
+18:18:36 [INFO] 📝 State writer loop stopped
+18:18:36 [INFO] ✅ InMemoryStateManager stopped
+18:18:36 [INFO] ✅ Shutdown complete
+18:18:36 [INFO] 🛑 Shutting down...
+18:18:36 [INFO] 🛑 Shutdown requested...
+18:18:36 [INFO] 🛑 Stopping Dashboard API...
+18:18:36 [INFO] ✅ ParallelExecutionManager: Stopped
+18:18:36 [INFO] ✅ WebSocketManager stopped
+18:18:36 [INFO] ✅ OpenInterestTracker stopped
+18:18:36 [INFO] 🛑 Funding tracker: Cancelled
+18:18:36 [INFO] ✅ Funding Tracker stopped
+18:18:36 [INFO] ✅ FundingTracker stopped
+18:18:36 [INFO] 🛑 Stopping InMemoryStateManager...
+18:18:36 [INFO] ✅ InMemoryStateManager stopped
+18:18:36 [INFO] 🔒 Closing database...
+18:18:36 [INFO] 🖊️ Database write loop stopped
+18:18:36 [INFO] ✅ Database closed
+18:18:36 [INFO] 🛑 FeeManager stopped
+18:18:36 [INFO] ✅ X10 Adapter geschlossen.
+18:18:36 [INFO] ✅ Lighter Adapter closed
+18:18:36 [INFO] ✅ Bot V5 shutdown complete

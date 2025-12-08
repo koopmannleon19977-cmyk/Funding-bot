@@ -1812,14 +1812,15 @@ class LighterAdapter(BaseAdapter):
                 limit_price = price_decimal * slippage_multiplier
 
             # -------------------------------------------------------
-            # FAT FINGER PROTECTION: Clamp Price to Mark Price +/- 25%
+            # FAT FINGER PROTECTION: Clamp Price to Mark Price +/- Epsilon
             # -------------------------------------------------------
             # Prevents "order price flagged as an accidental price" error 21733
             mark_p = self.fetch_mark_price(symbol)
             if mark_p and mark_p > 0:
+                epsilon = Decimal(str(getattr(config, "LIGHTER_PRICE_EPSILON_PCT", 0.01)))
                 mark_decimal = Decimal(str(mark_p))
-                min_allowed = mark_decimal * Decimal("0.75")
-                max_allowed = mark_decimal * Decimal("1.25")
+                min_allowed = mark_decimal * (Decimal("1") - epsilon)
+                max_allowed = mark_decimal * (Decimal("1") + epsilon)
                 
                 if limit_price < min_allowed:
                     logger.warning(f"⚠️ {symbol}: Price {limit_price} too low vs Mark {mark_p}. Clamping to {min_allowed}")
