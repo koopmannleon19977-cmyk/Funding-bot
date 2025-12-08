@@ -1198,10 +1198,15 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         except Exception as e:
             logger.warning(f"⚠️ {symbol}: Prediction failed: {e}")
 
-        # Predictor Filter
-        if not opp.get('is_farm_trade'):
-            if conf > 0.7 and delta < -0.00001:
-                logger.info(f"Skipping {symbol}: predictor negative (delta={delta:.6f})")
+        # Predictor Filter (CONFIGURABLE via config.py)
+        use_predictor = getattr(config, 'USE_PREDICTOR', True)
+        skip_on_negative = getattr(config, 'PREDICTOR_SKIP_ON_NEGATIVE', False)
+        min_conf_threshold = getattr(config, 'PREDICTOR_MIN_CONFIDENCE', 0.5)
+        
+        if use_predictor and not opp.get('is_farm_trade'):
+            # Only skip if PREDICTOR_SKIP_ON_NEGATIVE is True AND predictor predicts negative
+            if skip_on_negative and conf > min_conf_threshold and delta < -0.00001:
+                logger.info(f"Skipping {symbol}: predictor negative (delta={delta:.6f}, conf={conf:.2f})")
                 return False
             elif conf < 0.3 and abs(net_rate) < 0.0001:
                 return False
@@ -2386,7 +2391,7 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
 
             if real_orphans:
                 logger.error(f"🚨 DESYNC DETECTED: Positions only on Lighter: {real_orphans}")
-                logger.error(f"⚠️ These are UNHEDGED - attempting X10 hedge recovery...")
+                logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
                 
                 # Optional: Send Telegram alert
                 try:
@@ -2395,72 +2400,29 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                         await telegram.send_error(
                             f"🚨 EXCHANGE DESYNC!\n"
                             f"Orphaned Lighter positions: {real_orphans}\n"
-                            f"Attempting X10 hedge recovery..."
+                            f"Closing to prevent directional risk..."
                         )
                 except Exception:
                     pass
                 
                 for sym in real_orphans:
                     try:
-                        logger.warning(f"🔧 Hedging orphaned Lighter position on X10: {sym}")
+                        logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
                         pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
                         if pos:
                             size = safe_float(pos.get('size', 0))
-                            # Lighter position side: positive = LONG, negative = SHORT
-                            # X10 hedge side: OPPOSITE (if Lighter is LONG, X10 should be SHORT)
-                            lighter_side = "BUY" if size > 0 else "SELL"
-                            x10_hedge_side = "SELL" if size > 0 else "BUY"  # Opposite side for hedge
-                            
-                            px = safe_float(x10.fetch_mark_price(sym))
+                            original_side = "BUY" if size > 0 else "SELL"
+                            px = safe_float(lighter.fetch_mark_price(sym))
                             if px > 0:
                                 notional = abs(size) * px
-                                
-                                # Attempt X10 hedge with market order
-                                logger.info(f"📤 X10 HEDGE: {sym} {x10_hedge_side} ${notional:.2f} (to hedge Lighter {lighter_side})")
+                                # CRITICAL: Robust try-except for TypeError
                                 try:
-                                    success, order_id = await x10.open_live_position(sym, x10_hedge_side, notional)
-                                    
-                                    if success:
-                                        logger.info(f"✅ Successfully hedged orphan {sym} on X10! Order: {order_id}")
-                                        
-                                        # Register in state manager as recovery trade
-                                        try:
-                                            from src.state_manager import get_state_manager, TradeState, TradeStatus
-                                            sm = await get_state_manager()
-                                            
-                                            entry_price_x10 = px
-                                            entry_price_lit = safe_float(pos.get('entry_price') or pos.get('mark_price') or px)
-                                            
-                                            trade = TradeState(
-                                                symbol=sym,
-                                                side_x10=x10_hedge_side,
-                                                side_lighter=lighter_side,
-                                                size_usd=notional,
-                                                entry_price_x10=entry_price_x10,
-                                                entry_price_lighter=entry_price_lit,
-                                                status=TradeStatus.OPEN,
-                                                is_farm_trade=False,
-                                                created_at=int(time.time() * 1000),
-                                                pnl=0.0,
-                                                funding_collected=0.0,
-                                                account_label="OrphanRecovery",
-                                                x10_order_id=str(order_id) if order_id else f"RECOVERY_{int(time.time())}",
-                                                lighter_order_id=f"ORPHAN_{int(time.time())}"
-                                            )
-                                            await sm.add_trade(trade)
-                                            logger.info(f"✅ Registered recovered trade {sym} in state manager")
-                                        except Exception as reg_err:
-                                            logger.warning(f"⚠️ Could not register recovery trade {sym}: {reg_err}")
-                                    else:
-                                        logger.error(f"❌ X10 hedge failed for orphan {sym}! Falling back to close...")
-                                        # Fallback: Close Lighter position
-                                        await lighter.close_live_position(sym, lighter_side, notional)
-                                        logger.info(f"✅ Closed orphaned Lighter {sym} (hedge fallback)")
-                                        
+                                    await lighter.close_live_position(sym, original_side, notional)
+                                    logger.info(f"✅ Closed orphaned Lighter {sym}")
                                 except TypeError as type_err:
-                                    logger.critical(f"🚨 TypeError hedging orphan {sym}: {type_err}")
+                                    logger.critical(f"🚨 TypeError closing Lighter orphan {sym}: {type_err}")
                     except Exception as e:
-                        logger.error(f"Failed to hedge Lighter orphan {sym}: {e}")
+                        logger.error(f"Failed to close Lighter orphan {sym}: {e}")
         
         # ═══════════════════════════════════════════════════════════════
         # SUCCESS: Exchanges are in sync

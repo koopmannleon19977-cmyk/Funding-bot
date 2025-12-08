@@ -85,7 +85,7 @@ MAX_TRADE_SIZE_USD = MAX_NOTIONAL_USD
 MIN_SAFE_THRESHOLD = 0.03
 
 # --- Farm Mode Settings ---
-VOLUME_FARM_MODE = True
+VOLUME_FARM_MODE = False
 FARM_POSITION_SIZE_USD = DESIRED_NOTIONAL_USD
 FARM_NOTIONAL_USD = DESIRED_NOTIONAL_USD
 FARM_RANDOM_SIZE_PCT = 0.05
@@ -210,6 +210,11 @@ PRED_CONF_WEIGHT_DIVERGENCE = 0.30
 PRED_CONF_WEIGHT_IMBALANCE = 0.25
 PRED_CONF_WEIGHT_OI = 0.20
 PRED_CONF_WEIGHT_TREND = 0.15
+
+# Predictor Control (NEW)
+USE_PREDICTOR = True                  # Master switch: False = completely disable predictor
+PREDICTOR_SKIP_ON_NEGATIVE = False    # True = skip trades where predictor predicts negative (blocker)
+PREDICTOR_MIN_CONFIDENCE = 0.5        # Minimum confidence threshold (was 0.7 hardcoded)
 
 # Monitoring Intervals
 ZOMBIE_CHECK_INTERVAL = 300     # Check for zombie trades every 5 minutes
