@@ -212,7 +212,7 @@ PRED_CONF_WEIGHT_OI = 0.20
 PRED_CONF_WEIGHT_TREND = 0.15
 
 # Predictor Control (NEW)
-USE_PREDICTOR = True                  # Master switch: False = completely disable predictor
+USE_PREDICTOR = False                  # Master switch: False = completely disable predictor
 PREDICTOR_SKIP_ON_NEGATIVE = False    # True = skip trades where predictor predicts negative (blocker)
 PREDICTOR_MIN_CONFIDENCE = 0.5        # Minimum confidence threshold (was 0.7 hardcoded)
 
