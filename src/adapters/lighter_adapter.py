@@ -7,7 +7,7 @@ import time
 import random
 import websockets
 from typing import Dict, Tuple, Optional, List, Any
-from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP
+from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
 
 print("DEBUG: lighter_adapter.py module loading...")
 
@@ -50,6 +50,15 @@ MARKET_OVERRIDES = {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 from src.utils import safe_float
+
+
+def quantize_value(value, step_size, rounding=ROUND_FLOOR):
+    """Strikte Rundung für Exchange-Konformität"""
+    if not value or not step_size:
+        return value
+    d_value = Decimal(str(value))
+    d_step = Decimal(str(step_size))
+    return float(d_value.quantize(d_step, rounding=rounding))
 
 
 def safe_int(val, default=0):
@@ -95,8 +104,11 @@ class LighterAdapter(BaseAdapter):
         self._last_market_cache_at = None
         self._balance_cache = 0.0
         self._last_balance_update = 0.0
-        self. base_url = self._get_base_url()
+        self.base_url = self._get_base_url()
         self._pending_positions = {}  # Ghost Guardian Cache
+        
+        # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
+        self.order_lock = asyncio.Lock()
 
     async def _get_session(self):
         """Get or create aiohttp session"""
@@ -187,6 +199,63 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Error refreshing market limits for {symbol}: {e}")
         
         return self.market_info. get(symbol, {})
+
+    async def get_maker_price(self, symbol: str, side: str) -> Optional[float]:
+        """
+        Ermittelt einen Maker-Preis basierend auf dem Orderbook.
+        FIX: Verhindert UnboundLocalError und leere Orderbooks.
+        """
+        # 1. Variablen VORHER initialisieren (Fix für UnboundLocalError)
+        bids = []
+        asks = []
+        
+        try:
+            # Orderbook holen
+            orderbook = await self.fetch_orderbook(symbol)
+            if not orderbook:
+                return None
+                
+            bids = orderbook.get('bids', [])
+            asks = orderbook.get('asks', [])
+            
+            if not bids or not asks:
+                logger.warning(f"⚠️ Maker Price {symbol}: Orderbook leer (bids={len(bids)}, asks={len(asks)})")
+                # Fallback auf letzten Preis wenn OB leer
+                last_price = self.get_price(symbol)
+                if last_price:
+                    return float(last_price)
+                return None
+
+            # Bestehende Preise
+            best_bid = float(bids[0][0])
+            best_ask = float(asks[0][0])
+            
+            # Markt-Daten für Tick-Size holen
+            market = self.get_market_info(symbol)
+            # FIX: 'tick_size' verwenden, da 'price_increment' in market_info keys oft anders heißt
+            price_tick = float(market.get('tick_size', market.get('price_increment', 0.0001))) if market else 0.0001
+
+            # Strategie: Penny-Jumping (Ganz leicht vor die Konkurrenz setzen)
+            if side == 'BUY':
+                # Wir wollen kaufen -> Bid + 1 Tick (aber unter Ask)
+                price = best_bid + price_tick
+                if price >= best_ask:
+                    price = best_bid # Fallback wenn Spread zu eng
+            else:
+                # Wir wollen verkaufen -> Ask - 1 Tick (aber über Bid)
+                price = best_ask - price_tick
+                if price <= best_bid:
+                    price = best_ask # Fallback
+
+            # WICHTIG: Endgültigen Preis runden!
+            final_price = quantize_value(price, price_tick)
+            
+            logger.info(f"🛡️ Lighter Maker Price {symbol} {side}: ${final_price:.6f}")
+            return final_price
+
+        except Exception as e:
+            logger.error(f"⚠️ Maker Price logic failed for {symbol}: {e}")
+            return None
 
     async def validate_order_params(self, symbol: str, notional_usd: float) -> Tuple[bool, str]:
         try:
@@ -1637,49 +1706,13 @@ class LighterAdapter(BaseAdapter):
             
             if post_only:
                 # ═══════════════════════════════════════════════════════════════
-                # MAKER STRATEGY: Place at Head of Book (Passive)
+                # MAKER STRATEGY: Place at Head of Book (Fixed Logic)
                 # ═══════════════════════════════════════════════════════════════
-                limit_price = price_decimal # Default fallback
-                try:
-                    ob = await self.fetch_orderbook(symbol)
-                    if ob:
-                        if side == "BUY":
-                            # Place at Best Bid (Join the Bid)
-                            bids = ob.get('bids', [])
-                            if bids and len(bids) > 0:
-                                best_bid = Decimal(str(bids[0][0]))
-                                best_ask_ref = Decimal(str(asks[0][0])) if (asks and len(asks)>0) else (best_bid * Decimal("1.01"))
-                                
-                                # Try to be at Top of Book: Bid + 0.05%
-                                improved_bid = best_bid * Decimal("1.0005")
-                                
-                                # But DO NOT cross the spread (must be < best_ask)
-                                if improved_bid >= best_ask_ref:
-                                    improved_bid = best_ask_ref - (best_ask_ref * Decimal("0.0002")) # 2bps below ask
-                                
-                                limit_price = improved_bid
-
-                        else:
-                            # Place at Best Ask (Join the Ask)
-                            asks = ob.get('asks', [])
-                            bids = ob.get('bids', [])
-                            if asks and len(asks) > 0:
-                                best_ask = Decimal(str(asks[0][0]))
-                                best_bid_ref = Decimal(str(bids[0][0])) if (bids and len(bids)>0) else (best_ask * Decimal("0.99"))
-
-                                # Try to be at Top of Book: Ask - 0.05%
-                                improved_ask = best_ask * Decimal("0.9995")
-                                
-                                # But DO NOT cross the spread (must be > best_bid)
-                                if improved_ask <= best_bid_ref:
-                                    improved_ask = best_bid_ref + (best_bid_ref * Decimal("0.0002")) # 2bps above bid
-                                
-                                limit_price = improved_ask
-                    logger.info(f"🛡️ Lighter Maker Price {symbol} {side}: ${limit_price:.6f}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Maker Price logic failed for {symbol}: {e}")
-                    limit_price = price_decimal
-
+                maker_p = await self.get_maker_price(symbol, side)
+                if maker_p:
+                    limit_price = Decimal(str(maker_p))
+                else:
+                    limit_price = price_decimal # Fallback
             else:
                 # ═══════════════════════════════════════════════════════════════
                 # TAKER STRATEGY: Aggressive Slippage to Fill
@@ -1692,16 +1725,41 @@ class LighterAdapter(BaseAdapter):
                 )
                 limit_price = price_decimal * slippage_multiplier
 
-            # Calculate qty based on limit price (Standard)
-
-            qty = notional_decimal / limit_price
-
-            base = await self.quantize_base_amount(symbol, float(notional_usd_safe))
-            _, price_int = self._scale_amounts(symbol, qty, limit_price, side)
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Strikte Quantisierung der Menge & Preis
+            # ═══════════════════════════════════════════════════════════════
+            market_info = self.market_info.get(symbol, {})
+            # Lot Size / Tick Size holen (Floats)
+            size_inc = float(market_info.get('lot_size', market_info.get('min_base_amount', 0.0001)))
+            price_inc = float(market_info.get('tick_size', 0.01))
             
-            # SAFE comparison: base is already int from quantize_base_amount
+            # Berechne Menge in Coins (Raw)
+            raw_amount = float(notional_usd_safe) / float(limit_price)
+            
+            # Menge runden (Abrunden bei Sell, um "Insufficient Balance" zu vermeiden)
+            quantized_size = quantize_value(raw_amount, size_inc, rounding=ROUND_FLOOR)
+            
+            # Preis runden
+            quantized_price = quantize_value(float(limit_price), price_inc)
+            
+            # Konvertierung zu Scaled Integers für Lighter API
+            # Basis: amount * 10^size_decimals, price * 10^price_decimals
+            size_decimals = int(market_info.get('sd', 8))
+            price_decimals = int(market_info.get('pd', 6))
+            
+            scale_base = 10 ** size_decimals
+            scale_price = 10 ** price_decimals
+            
+            base = int(round(quantized_size * scale_base))
+            price_int = int(round(quantized_price * scale_price))
+
+            logger.debug(
+                f"QUANTIZE {symbol}: Notional=${notional_usd_safe} -> RawAmt={raw_amount:.6f} "
+                f"-> QuantAmt={quantized_size:.6f} (x{size_inc}) -> BaseInt={base}"
+            )
+            
             if base <= 0:
-                logger.error(f"❌ {symbol}: base amount is 0 after quantization")
+                logger.error(f"❌ {symbol}: base amount is 0 after quantization (raw_amount={raw_amount})")
                 return False, None
 
             signer = await self._get_signer()
@@ -1731,18 +1789,22 @@ class LighterAdapter(BaseAdapter):
                             expiry = 0
                             logger.debug(f"Lighter: Using IOC with expiry=0 for close order {symbol}")
 
-                    tx, resp, err = await signer.create_order(
-                        market_index=int(market_id),  # Ensure int type
-                        client_order_index=client_oid,
-                        base_amount=base,
-                        price=price_int,
-                        is_ask=(side == "SELL"),
-                        order_type=SignerClient.ORDER_TYPE_LIMIT,
-                        time_in_force=tif,
-                        reduce_only=reduce_only,
-                        trigger_price=SignerClient.NIL_TRIGGER_PRICE,
-                        order_expiry=expiry,
-                    )
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: NONCE LOCKING (Verhindert Race Conditions bei Nonces)
+                    # ═══════════════════════════════════════════════════════════════
+                    async with self.order_lock:
+                        tx, resp, err = await signer.create_order(
+                            market_index=int(market_id),  # Ensure int type
+                            client_order_index=client_oid,
+                            base_amount=base,
+                            price=price_int,
+                            is_ask=(side == "SELL"),
+                            order_type=SignerClient.ORDER_TYPE_LIMIT,
+                            time_in_force=tif,
+                            reduce_only=reduce_only,
+                            trigger_price=SignerClient.NIL_TRIGGER_PRICE,
+                            order_expiry=expiry,
+                        )
 
                     if err:
                         err_str = str(err). lower()
@@ -1943,11 +2005,18 @@ class LighterAdapter(BaseAdapter):
         logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
         logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
         
+
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Close {symbol} simuliert.")
             return True, "DRY_RUN_CLOSE_456"
 
         try:
+            # ═══════════════════════════════════════════════════════════════
+            # SCHRITT 0: ERST ALLES LÖSCHEN (Fix für "same side as reduce-only")
+            # ═══════════════════════════════════════════════════════════════
+            await self.cancel_all_orders(symbol)
+            await asyncio.sleep(0.5) # Kurz warten bis Lighter das verarbeitet hat
+
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 1: Hole aktuelle Positionen
             # ═══════════════════════════════════════════════════════════════

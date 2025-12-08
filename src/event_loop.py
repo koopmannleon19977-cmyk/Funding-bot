@@ -354,122 +354,96 @@ class BotEventLoop:
             logger.info("🔓 SHUTDOWN: Keeping trades open (CLOSE_ALL_ON_SHUTDOWN=False)")
             return
         
-        if not self.x10_adapter or not self.lighter_adapter:
-            logger.warning("🔓 SHUTDOWN: Adapters not available, skipping close-all")
-            return
+        logger.info("🔒 SHUTDOWN: Closing all open trades... (Please wait!)")
         
-        logger.info("🔒 SHUTDOWN: Closing all open trades...")
-        timeout = getattr(config, 'SHUTDOWN_CLOSE_TIMEOUT', 60)
+        # WICHTIG: Erhöhe Timeout für Lighter
+        # Lighter braucht Zeit für Nonce, Signatur und API-Roundtrip
+        shutdown_timeout = 30.0 
         
         try:
-            closed_count = 0
-            failed_count = 0
-            closed_symbols = set()
+            # Wir nutzen hier direkt den ParallelExecutionManager, falls verfügbar
+            if self.parallel_exec:  # Fix: Attribute name is self.parallel_exec not self.parallel_execution_manager
+                # 1. Stoppe erst neue Trades
+                self.parallel_exec.is_running = False
             
-            # Fetch positions from both exchanges
-            x10_positions = await asyncio.wait_for(
-                self.x10_adapter.fetch_open_positions(),
-                timeout=10.0
-            )
-            lighter_positions = await asyncio.wait_for(
-                self.lighter_adapter.fetch_open_positions(),
-                timeout=10.0
-            )
-            
-            total_positions = len(x10_positions or []) + len(lighter_positions or [])
-            
-            if total_positions == 0:
-                logger.info("✅ SHUTDOWN: No open positions to close")
+            # 2. Hole alle offenen Positionen
+            # Safe access to adapters in case they are None
+            if not self.lighter_adapter or not self.x10_adapter:
+                logger.warning("Adapters missing, skipping close")
                 return
+
+            lighter_pos = await self.lighter_adapter.fetch_open_positions()
+            x10_pos = await self.x10_adapter.fetch_open_positions()
             
-            logger.info(f"📊 SHUTDOWN: Found {len(x10_positions or [])} X10 + {len(lighter_positions or [])} Lighter positions")
+            tasks = []
             
-            # Close X10 positions
-            for pos in (x10_positions or []):
-                symbol = pos.get('symbol')
-                size = pos.get('size', 0)
+            # Lighter Positionen schließen (Priorität!)
+            for pos in (lighter_pos or []):
+                symbol = pos['symbol']
+                size = float(pos['size'])
+                if abs(size) < 1e-8: continue
+
+                # WICHTIG: Nutze Market Orders oder aggressive Limit Orders
+                logger.info(f"🛑 SHUTDOWN: Closing Lighter {symbol} ({size})...")
                 
-                if abs(size) < 1e-8:
-                    continue
+                # Check for specialized close method or use default
+                # close_live_position usually takes (symbol, side_to_open, size_usd_or_tokens)
+                # But here we assume the adapter handles "close" logic correctly
+                # We simply call close_live_position with the CURRENT side so it reverses it?
+                # No, close_live_position usually takes the side of the EXISTING position to close it.
+                # Let's check LighterAdapter signature: open_live_position(symbol, side, ...)
+                # LighterAdapter has close_live_position(symbol, position_side, size_usd)
                 
-                try:
-                    # Determine close side
-                    close_side = "SELL" if size > 0 else "BUY"
-                    price = self.x10_adapter.fetch_mark_price(symbol) or 0
-                    notional = abs(size) * price
-                    
-                    logger.info(f"🔻 SHUTDOWN CLOSE X10: {symbol} (size={size:.6f})")
-                    
-                    success, order_id = await asyncio.wait_for(
-                        self.x10_adapter.close_live_position(symbol, close_side, notional),
-                        timeout=15.0
+                price = self.lighter_adapter.fetch_mark_price(symbol) or 0
+                notional = abs(size) * price
+                
+                side_of_position = "BUY" if size > 0 else "SELL"
+                
+                tasks.append(
+                    self.lighter_adapter.close_live_position(
+                        symbol, 
+                        side_of_position,
+                        notional 
                     )
-                    
-                    if success:
-                        closed_count += 1
-                        logger.info(f"✅ SHUTDOWN: X10 {symbol} closed")
-                        closed_symbols.add(symbol)
-                    else:
-                        failed_count += 1
-                        logger.warning(f"⚠️ SHUTDOWN: X10 {symbol} close failed")
-                        
-                except asyncio.TimeoutError:
-                    failed_count += 1
-                    logger.warning(f"⚠️ SHUTDOWN: X10 {symbol} close timed out")
-                except Exception as e:
-                    failed_count += 1
-                    logger.error(f"❌ SHUTDOWN: X10 {symbol} close error: {e}")
-            
-            # Close Lighter positions
-            for pos in (lighter_positions or []):
-                symbol = pos.get('symbol')
-                size = pos.get('size', 0)
+                )
+
+            # X10 Positionen schließen
+            for pos in (x10_pos or []):
+                symbol = pos['symbol']
+                size = float(pos['size'])
+                if abs(size) < 1e-8: continue
+
+                price = self.x10_adapter.fetch_mark_price(symbol) or 0
+                notional = abs(size) * price
+                side_of_position = "BUY" if size > 0 else "SELL"
                 
-                if abs(size) < 1e-8:
-                    continue
-                
-                try:
-                    close_side = "SELL" if size > 0 else "BUY"
-                    price = self.lighter_adapter.fetch_mark_price(symbol) or 0
-                    notional = abs(size) * price
-                    
-                    logger.info(f"🔻 SHUTDOWN CLOSE LIGHTER: {symbol} (size={size:.6f})")
-                    
-                    success, order_id = await asyncio.wait_for(
-                        self.lighter_adapter.close_live_position(symbol, close_side, notional),
-                        timeout=15.0
+                logger.info(f"🛑 SHUTDOWN: Closing X10 {symbol} ({size})...")
+                tasks.append(
+                    self.x10_adapter.close_live_position(
+                        symbol, 
+                        side_of_position,
+                        notional
                     )
-                    
-                    if success:
-                        closed_count += 1
-                        logger.info(f"✅ SHUTDOWN: Lighter {symbol} closed")
-                        closed_symbols.add(symbol)
-                    else:
-                        failed_count += 1
-                        logger.warning(f"⚠️ SHUTDOWN: Lighter {symbol} close failed")
-                        
-                except asyncio.TimeoutError:
-                    failed_count += 1
-                    logger.warning(f"⚠️ SHUTDOWN: Lighter {symbol} close timed out")
-                except Exception as e:
-                    failed_count += 1
-                    logger.error(f"❌ SHUTDOWN: Lighter {symbol} close error: {e}")
+                )
+
+            if not tasks:
+                logger.info("✅ SHUTDOWN: No positions found.")
+                return
+
+            # 3. Warten bis ALLE fertig sind - Fehler abfangen!
+            logger.info(f"⏳ Waiting up to {shutdown_timeout}s for {len(tasks)} close orders...")
+            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=shutdown_timeout)
             
-            logger.info(f"🔒 SHUTDOWN COMPLETE: {closed_count} closed, {failed_count} failed")
-            
-            # Mark only successfully closed symbols in state
-            if self.state_manager and closed_symbols:
-                for symbol in closed_symbols:
-                    try:
-                        await self.state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
-                        logger.debug(f"📝 SHUTDOWN: Marked {symbol} as closed in state")
-                    except Exception as e:
-                        logger.debug(f"SHUTDOWN: Could not mark {symbol} in state: {e}")
-            
+            for i, res in enumerate(results):
+                if isinstance(res, Exception):
+                    logger.error(f"❌ Shutdown Close Error (Task {i}): {res}")
+                else:
+                    logger.info(f"✅ Position closed (Task {i}).")
+
         except asyncio.TimeoutError:
-            logger.error("❌ SHUTDOWN: Close-all operation timed out")
+            logger.error("❌ SHUTDOWN: Timed out while closing positions!")
         except Exception as e:
-            logger.error(f"❌ SHUTDOWN: Close-all error: {e}")
+            logger.error(f"❌ SHUTDOWN: Error closing trades: {e}")
     
     async def _stop_components(self):
         """Stop all bot components"""

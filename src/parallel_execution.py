@@ -225,6 +225,75 @@ class ParallelExecutionManager:
                 # This ensures failed/completed trades don't block the slot
                 self.active_executions.pop(symbol, None)
 
+    async def _handle_maker_timeout(self, execution, lighter_order_id) -> bool:
+        symbol = execution.symbol
+        logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
+
+        # 1. Cancel Order
+        try:
+            if hasattr(self.lighter, 'cancel_limit_order'):
+                await self.lighter.cancel_limit_order(lighter_order_id, symbol)
+            else:
+                await self.lighter.cancel_all_orders(symbol)
+        except Exception as e:
+            logger.error(f"Cancel failed for {symbol}: {e}")
+
+        # ═══════════════════════════════════════════════════════════════
+        # RACE CONDITION FIX: Atomic Status Check with RETRY LOOP ("Paranoid Mode")
+        # ═══════════════════════════════════════════════════════════════
+        filled = False
+        try:
+            # Check specific order status immediately if supported
+            status = "UNKNOWN"
+            if hasattr(self.lighter, 'get_order_status'):
+                try:
+                    status = await self.lighter.get_order_status(lighter_order_id)
+                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
+                except Exception:
+                    pass 
+            
+            if status in ['FILLED', 'PARTIALLY_FILLED']:
+                logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
+                filled = True
+            else:
+                # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
+                logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
+                
+                # Erhöht von 10 auf 30 Versuche mit ansteigendem Delay (insg. ~60 Sekunden Abdeckung)
+                for i in range(30): 
+                    # Backoff: Wartet 1s, 1.2s, 1.4s ... bis max 3s
+                    wait_time = min(1.0 + (i * 0.2), 3.0)
+                    await asyncio.sleep(wait_time)
+                    
+                    try:
+                        positions = await self.lighter.fetch_open_positions()
+                        
+                        # Suche nach Position in diesem Symbol
+                        pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                        size = safe_float(pos.get('size', 0)) if pos else 0.0
+                        
+                        if abs(size) > 1e-8:
+                            logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={size}. HEDGING NOW!")
+                            filled = True
+                            break
+                        
+                        # Logge nur alle 5 Versuche, um Spam zu vermeiden
+                        if i % 5 == 0:
+                            logger.debug(f"🔍 {symbol} check {i+1}/30 clean...")
+                            
+                    except Exception as e:
+                        logger.debug(f"Check error: {e}")
+        
+        except Exception as e:
+            logger.error(f"Error verification after timeout {symbol}: {e}")
+
+        if filled:
+            logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
+            return True
+        else:
+            logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified after 60s).")
+            return False
+
     async def _execute_parallel_internal(
         self, 
         execution: TradeExecution,
@@ -286,64 +355,8 @@ class ParallelExecutionManager:
                 await asyncio.sleep(1)
 
         if not filled:
-             logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
-             
-             # Atomic Cancel
-             try:
-                 if hasattr(self.lighter, 'cancel_limit_order'):
-                     await self.lighter.cancel_limit_order(lighter_order_id, symbol)
-                 else:
-                     await self.lighter.cancel_all_orders(symbol)
-             except Exception as e:
-                 logger.error(f"Cancel failed for {symbol}: {e}")
-             
-             # ═══════════════════════════════════════════════════════════════
-             # RACE CONDITION FIX: Atomic Status Check with RETRY LOOP ("Paranoid Mode")
-             # ═══════════════════════════════════════════════════════════════
-             try:
-                 # Check specific order status immediately if supported
-                 status = "UNKNOWN"
-                 if hasattr(self.lighter, 'get_order_status'):
-                     try:
-                         status = await self.lighter.get_order_status(lighter_order_id)
-                         logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
-                     except Exception:
-                         pass # Warning: 404/Error handled by position check
-                 
-                 if status in ['FILLED', 'PARTIALLY_FILLED']:
-                     logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
-                     filled = True
-                 else:
-                    # Fallback mechanism: Check broad position with RETRY LOOP
-                    # API latency can hide the position for seconds (Ghost Trades)
-                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (Paranoid Check)...")
-                    
-                    # FIX: Increased from 10 to 30 attempts (covering ~60 seconds)
-                    # Lighter API can lag significantly, causing "Clean Exit" false positives
-                    for i in range(30): 
-                        # Slower backoff: starts at 1.0s, caps at 3.0s
-                        wait_time = min(1.0 + (i * 0.2), 3.0) 
-                        await asyncio.sleep(wait_time)
-                        
-                        try:
-                            current_positions = await self.lighter.fetch_open_positions()
-                            pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
-                            found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
-                            
-                            if abs(found_size) > 1e-8:
-                                logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={found_size}. HEDGING NOW!")
-                                filled = True
-                                break
-                            elif i % 5 == 0: # Reduce log noise, log every 5th attempt
-                                logger.debug(f"🔍 {symbol} check {i+1}/30 clean...")
-                        except Exception as e:
-                            logger.debug(f"Paranoid check {i} failed: {e}")
-                    
-                    if not filled:
-                        logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified).")
-      
-             except Exception as e:
-                 logger.error(f"Error verification after timeout {symbol}: {e}")
+             # Delegate to separate handler
+             filled = await self._handle_maker_timeout(execution, lighter_order_id)
              
              if not filled:
                  execution.state = ExecutionState.FAILED

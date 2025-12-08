@@ -1217,8 +1217,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         global IN_FLIGHT_MARGIN, IN_FLIGHT_LOCK
 
         # 1. Determine Minimum Requirement
-        min_req_x10 = x10.min_notional_usd(symbol)
-        min_req_lit = lighter.min_notional_usd(symbol)
+        min_req_x10 = float(x10.min_notional_usd(symbol))
+        min_req_lit = float(lighter.min_notional_usd(symbol))
         min_req = max(min_req_x10, min_req_lit)
 
         # 2. Check Global Max Constraints
@@ -1265,7 +1265,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 if kelly_result.safe_fraction > 0.02:
                     # Kelly empfiehlt größere Position
                     kelly_adjusted = min(
-                        kelly_result.recommended_size_usd,
+                        float(kelly_result.recommended_size_usd),
                         target_farm * 1.5  # Max 50% über Basis
                     )
                     final_usd = max(target_farm, kelly_adjusted, min_req)
@@ -1280,7 +1280,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 )
             else:
                 # Non-Farm: Nutze Kelly direkt
-                final_usd = kelly_result.recommended_size_usd
+                final_usd = float(kelly_result.recommended_size_usd)
                 
                 if final_usd < min_req:
                     # Upgrade to min_req if within limits AND we have enough balance

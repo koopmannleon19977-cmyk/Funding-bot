@@ -296,107 +296,22 @@ class KellyPositionSizer:
         """
         Berechnet die optimale Position Size für ein Symbol.
         
-        Args:
-            symbol: Trading Pair (z.B. "BTC-USD")
-            available_capital: Verfügbares Kapital in USD
-            current_apy: Aktueller APY der Opportunity
-            use_symbol_stats: True = Symbol-spezifische Stats, False = Globale Stats
-        
-        Returns:
-            KellyResult mit empfohlener Position Size (Decimal)
+        HACK: Kelly Logic bypassed! Returns fixed size from config.DESIRED_NOTIONAL_USD.
         """
-        # Convert capital to Decimal
-        capital_decimal = safe_decimal(available_capital)
+        # HACK: Immer die Config-Größe nehmen
+        fixed_val = getattr(config, 'DESIRED_NOTIONAL_USD', 60.0)
+        fixed_size = safe_decimal(fixed_val)
         
-        cache_key = symbol if use_symbol_stats else "__global__"
-        
-        # Check Cache
-        if cache_key in self._stats_cache:
-            cached_time, cached_result = self._stats_cache[cache_key]
-            if time.time() - cached_time < self._cache_ttl:
-                # Update nur die Size basierend auf aktuellem Kapital
-                new_size = Decimal(str(cached_result.safe_fraction)) * capital_decimal
-                new_size = quantize_usd(new_size)
-                return KellyResult(
-                    kelly_fraction=cached_result.kelly_fraction,
-                    safe_fraction=cached_result.safe_fraction,
-                    recommended_size_usd=new_size,
-                    win_rate=cached_result.win_rate,
-                    avg_win=cached_result.avg_win,
-                    avg_loss=cached_result.avg_loss,
-                    sample_size=cached_result.sample_size,
-                    confidence=cached_result.confidence
-                )
-        
-        # Hole relevante Trades
-        if use_symbol_stats and symbol in self._symbol_history:
-            trades = list(self._symbol_history[symbol])
-        else:
-            trades = list(self._trade_history)
-        
-        sample_size = len(trades)
-        
-        # Berechne Statistiken (now returns Decimal for avg_win/avg_loss)
-        win_rate, avg_win, avg_loss = self._calculate_stats(trades)
-        
-        # Calculate win_loss_ratio as float for Kelly formula
-        win_loss_ratio = float(avg_win / avg_loss) if avg_loss > Decimal('0') else self.DEFAULT_WIN_LOSS_RATIO
-        
-        # Kelly Fraction berechnen
-        kelly_fraction = self._kelly_formula(win_rate, win_loss_ratio)
-        
-        # Safety Factor anwenden (Quarter Kelly)
-        safe_fraction = kelly_fraction * self.SAFETY_FACTOR
-        
-        # ═══════════════════════════════════════════════════════════════
-        # NEU: GRADUELLES RAMP-UP
-        # ═══════════════════════════════════════════════════════════════
-        if sample_size < self.MIN_SAMPLE_SIZE:
-            # Sehr konservativ bei wenig Daten
-            confidence = "LOW"
-            # Nutze nur 50% des berechneten Kelly
-            kelly_discount = 0.5
-        elif sample_size < self.RAMP_UP_PERIOD:
-            # Graduell hochfahren
-            confidence = "MEDIUM"
-            # Linear von 50% zu 100% über RAMP_UP_PERIOD
-            ramp_factor = (sample_size - self.MIN_SAMPLE_SIZE) / (self.RAMP_UP_PERIOD - self.MIN_SAMPLE_SIZE)
-            kelly_discount = 0.5 + (0.5 * ramp_factor)
-        else:
-            confidence = "HIGH"
-            kelly_discount = 1.0
-        
-        # Apply discount
-        safe_fraction = safe_fraction * kelly_discount
-        
-        # APY-basierter Bonus/Malus
-        # Höherer APY = mehr Konfidenz = leicht größere Position
-        apy_multiplier = self._apy_confidence_multiplier(current_apy)
-        safe_fraction *= apy_multiplier
-        
-        # Grenzen anwenden
-        safe_fraction = max(self.MIN_POSITION_FRACTION, 
-                          min(self.MAX_POSITION_FRACTION, safe_fraction))
-        
-        # Finale Position Size (Decimal)
-        recommended_size = Decimal(str(safe_fraction)) * capital_decimal
-        recommended_size = quantize_usd(recommended_size)
-        
-        result = KellyResult(
-            kelly_fraction=kelly_fraction,
-            safe_fraction=safe_fraction,
-            recommended_size_usd=recommended_size,
-            win_rate=win_rate,
-            avg_win=avg_win,
-            avg_loss=avg_loss,
-            sample_size=sample_size,
-            confidence=confidence
+        return KellyResult(
+            kelly_fraction=1.0,
+            safe_fraction=1.0,
+            recommended_size_usd=fixed_size,
+            win_rate=0.5, # Dummy
+            avg_win=Decimal('1'),
+            avg_loss=Decimal('1'),
+            sample_size=0,
+            confidence="FIXED_HACK"
         )
-        
-        # Cache speichern
-        self._stats_cache[cache_key] = (time.time(), result)
-        
-        return result
     
     def _apy_confidence_multiplier(self, apy: float) -> float:
         """
