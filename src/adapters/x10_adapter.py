@@ -828,13 +828,22 @@ class X10Adapter(BaseAdapter):
                 actual_notional = actual_size_abs * price
 
                 # FIX: Minimum Notional Check für X10 Shutdown
-                min_notional = self.min_notional_usd(symbol)
-                if actual_notional < min_notional:
+                # Wir holen das Minimum OHNE Puffer für den Close-Check
+                # min_notional_usd() enthält standardmäßig 5% Puffer, das blockiert uns bei Min-Size-Positionen.
+                
+                # Berechne das "echte" harte Minimum der API zurück (Buffer rausrechnen oder neu holen)
+                buffered_min = self.min_notional_usd(symbol)
+                # Entferne den 1.05 Buffer, um das echte Limit zu haben
+                hard_min = buffered_min / 1.05
+                
+                # Toleranz: Wir erlauben das Schließen, solange wir nicht unter 99% des echten Minimums sind
+                # Das erlaubt Rundungsfehler, aber blockiert echten Dust.
+                if actual_notional < (hard_min * 0.99):
                     if actual_notional < 1.0: # Dust tolerance
                         logger.warning(f"⚠️ X10 {symbol}: Skipping dust position (${actual_notional:.2f}). Treating as closed.")
                         return True, "DUST_SKIPPED"
                     
-                    logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < ${min_notional:.2f}")
+                    logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < Limit ${hard_min:.2f} (Buffered: ${buffered_min:.2f})")
                     return False, None
 
                 logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
