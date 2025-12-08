@@ -1814,41 +1814,88 @@ class LighterAdapter(BaseAdapter):
                             logger.debug(f"Lighter: Using IOC with expiry=0 for close order {symbol}")
 
                     # ═══════════════════════════════════════════════════════════════
-                    # FIX: NONCE LOCKING (Verhindert Race Conditions bei Nonces)
+                    # FIX: NONCE LOCKING + MANUAL FETCHING (Fixes 'int has no decode')
                     # ═══════════════════════════════════════════════════════════════
                     async with self.order_lock:
-                        tx, resp, err = await signer.create_order(
-                            market_index=int(market_id),  # Ensure int type
-                            client_order_index=client_oid,
-                            base_amount=base,
-                            price=price_int,
-                            is_ask=(side == "SELL"),
-                            order_type=SignerClient.ORDER_TYPE_LIMIT,
-                            time_in_force=tif,
-                            reduce_only=reduce_only,
-                            trigger_price=SignerClient.NIL_TRIGGER_PRICE,
-                            order_expiry=expiry,
-                        )
+                        try:
+                            # 1. Nonce manuell holen (Sicherer Bypass für den Library-Fehler)
+                            # Wir nutzen den REST Endpoint direkt, da wir im Lock sind
+                            
+                            # Ensure indices are resolved (should be, but safe check)
+                            if self._resolved_account_index is None:
+                                await self._resolve_account_index()
+                                
+                            nonce_params = {
+                                "account_index": self._resolved_account_index,
+                                "api_key_index": self._resolved_api_key_index
+                            }
+                            
+                            # Fetch Nonce
+                            nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
+                            
+                            # Parsing: Die API gibt oft nur eine Zahl als Body zurück (via json())
+                            # Wir stellen sicher, dass es ein sauberer INT ist
+                            if nonce_resp is None:
+                                logger.error(f"❌ Failed to fetch nonce for {symbol}")
+                                return False, None
+                                
+                            current_nonce = int(str(nonce_resp).strip())
+                            
+                            logger.info(f"🔒 Locked execution for {symbol} {side} (Nonce: {current_nonce})...")
 
-                    if err:
-                        err_str = str(err). lower()
-                        if "nonce" in err_str or "429" in err_str or "too many requests" in err_str:
-                            if attempt < max_retries:
-                                continue
-                        logger.error(f"Lighter Order Error: {err}")
-                        return False, None
+                            # 2. Client Order ID generieren (Wichtig für Lighter)
+                            # Re-generate to be fresh inside lock
+                            client_oid_final = int(time.time() * 1000) + random.randint(0, 99999)
 
-                    tx_hash = getattr(resp, "tx_hash", "OK")
-                    logger.info(f"Lighter Order: {tx_hash}")
-                    
-                    # GHOST GUARDIAN: Register success time
-                    self._pending_positions[symbol] = time.time()
-                    
-                    return True, str(tx_hash)
+                            # 3. Order erstellen mit EXPLIZITEN Typen
+                            # Wir casten alles hart auf int(), damit die Library nicht meckert
+                            tx, resp, err = await signer.create_order(
+                                market_index=int(market_id),         # Force int
+                                client_order_index=int(client_oid_final),
+                                base_amount=int(base),               # Force int
+                                price=int(price_int),                # Force int
+                                is_ask=bool(side == "SELL"),         # Force bool
+                                order_type=int(getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)),
+                                time_in_force=int(tif),
+                                reduce_only=bool(reduce_only),
+                                trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
+                                order_expiry=int(expiry),
+                                nonce=int(current_nonce)             # 🔥 Explizite Nonce (kein None!)
+                            )
 
-                except Exception as inner_e:
-                    logger.error(f"Lighter Inner Error: {inner_e}")
-                    return False, None
+                            if err:
+                                err_str = str(err).lower()
+                                logger.error(f"❌ Lighter Order Failed: {err}")
+                                if "nonce" in err_str or "429" in err_str or "too many requests" in err_str:
+                                    # If it's a nonce error despite our lock, maybe retry? 
+                                    # But for now, we just log and return fail to let outer loop handle or bubble up
+                                    pass
+                                return False, None
+                            
+                            tx_hash = getattr(resp, "tx_hash", tx) # tx usually contains hash string in some versions, or resp does
+                            # In existing code: tx, resp, err. 'tx' was used, but log said 'tx_hash = getattr(resp, "tx_hash", "OK")'
+                            # Let's try to get hash robustly
+                            tx_hash_final = str(tx) if tx else "OK"
+                            if hasattr(resp, "tx_hash") and resp.tx_hash:
+                                tx_hash_final = str(resp.tx_hash)
+
+                            logger.info(f"✅ Lighter Order Sent: {tx_hash_final}")
+                            
+                            # GHOST GUARDIAN: Register success time
+                            self._pending_positions[symbol] = time.time()
+                            
+                            return True, tx_hash_final
+
+                        except Exception as inner_e:
+                            import traceback
+                            logger.error(f"❌ Lighter Inner Error: {inner_e}")
+                            logger.debug(traceback.format_exc())
+                            return False, None
+
+                except Exception as inner_e_loop:
+                     # Fallback for outer loop if connection fails etc
+                     logger.error(f"Lighter Loop Error: {inner_e_loop}")
+                     continue
 
             return False, None
 
@@ -1922,10 +1969,13 @@ class LighterAdapter(BaseAdapter):
 
             # Execute Cancel with the Clean Integer ID
             await self.rate_limiter.acquire()
-            tx, resp, err = await signer.cancel_order(
-                order_id=oid_int,
-                symbol=None 
-            )
+            
+            # 🔥 FIX: Lock execution to prevent Invalid Nonce errors
+            async with self.order_lock:
+                tx, resp, err = await signer.cancel_order(
+                    order_id=oid_int,
+                    symbol=None 
+                )
         
             if err:
                  # Ignore errors if order is already gone
@@ -2358,7 +2408,8 @@ class LighterAdapter(BaseAdapter):
                         if hasattr(signer, "cancel_order"):
                             try:
                                 await self.rate_limiter.acquire()
-                                await signer. cancel_order(oid)
+                                async with self.order_lock:
+                                    await signer. cancel_order(oid)
                                 await asyncio.sleep(0.1)
                             except TypeError:
                                 await self.rate_limiter.acquire()
