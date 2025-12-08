@@ -1617,13 +1617,13 @@ class LighterAdapter(BaseAdapter):
             now = time.time()
             api_symbols = {p['symbol'] for p in positions}
             
-            # Clean old pending (> 15s -> 5s)
-            self._pending_positions = {s: t for s, t in self._pending_positions.items() if now - t < 5.0}
+            # Clean old pending (> 15s -> 15s KEEP)
+            self._pending_positions = {s: t for s, t in self._pending_positions.items() if now - t < 15.0}
             
             for sym, ts in self._pending_positions.items():
-                # FIX: "Pending" Positionen nur für max 3 Sekunden injizieren (statt 10s)
-                # Wenn sie nach 3s nicht da sind, ist die Order wahrscheinlich fehlgeschlagen oder API hat sie.
-                if sym not in api_symbols and (now - ts < 3.0):
+                # FIX: "Pending" Positionen für bis zu 15 Sekunden injizieren
+                # API kann sehr laggy sein beim Shutdown
+                if sym not in api_symbols and (now - ts < 15.0):
                     age = now - ts
                     # Nur warnen, wenn es ungewöhnlich lange dauert (> 1s)
                     if age > 1.0:
@@ -1637,6 +1637,7 @@ class LighterAdapter(BaseAdapter):
                         "size": 0.0001, # Dummy non-zero size
                         "is_ghost": True
                     })
+                    api_symbols.add(sym) # Prevent duplicates if multiple pending
 
             return positions
 

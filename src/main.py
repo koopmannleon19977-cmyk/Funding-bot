@@ -4414,6 +4414,7 @@ class FundingBot:
         self.x10 = None
         self.lighter = None
         self.config = config # Helper alias for user snippet compatibility
+        self._shutdown_complete = False
 
     async def run(self):
         """Run the main bot logic."""
@@ -4423,6 +4424,11 @@ class FundingBot:
         """
         Wird bei Ctrl+C aufgerufen. Schließt ALLES aggressiv via Taker-Orders.
         """
+        # Double-Shutdown Protection
+        if self._shutdown_complete:
+            return
+        self._shutdown_complete = True
+        
         logger.warning("🚨 GRACEFUL SHUTDOWN: Closing ALL positions...")
         
         # 1. Setze Flag, damit keine NEUEN Trades geöffnet werden
@@ -4464,15 +4470,29 @@ class FundingBot:
                 logger.info(f"🔻 Closing Lighter {symbol}: {close_side} {close_size}")
                 
                 # WICHTIG: Auf Lighter musst du eine Taker-Order senden um sofort zu schließen!
-                # open_live_position mit post_only=False (Taker)
-                await self.lighter.open_live_position(
-                    symbol=symbol,
-                    side=close_side,
-                    notional_usd=0, # Wird ignoriert wenn amount gesetzt ist
-                    amount=close_size,
-                    post_only=False, # TAKER!
-                    reduce_only=True # Nur schließen!
-                )
+                # Wir setzen einen aggressiven Preis, um sicher zu fillen (+/- 5%)
+                try:
+                    price = self.lighter.get_price(symbol)
+                    if price:
+                        # Aggressive Slippage (5%)
+                        if close_side == "BUY":
+                            agg_price = price * 1.05
+                        else:
+                            agg_price = price * 0.95
+                    else:
+                        agg_price = None # Fallback to default logic
+                        
+                    await self.lighter.open_live_position(
+                        symbol=symbol,
+                        side=close_side,
+                        notional_usd=0, # Wird ignoriert wenn amount gesetzt ist
+                        amount=close_size,
+                        price=agg_price, # Expliziter aggressiver Preis
+                        post_only=False, # TAKER!
+                        reduce_only=True # Nur schließen!
+                    )
+                except Exception as e:
+                     logger.error(f"Failed to close Lighter {symbol}: {e}")
 
         except Exception as e:
             logger.error(f"Error during graceful_shutdown: {e}")
@@ -4481,18 +4501,17 @@ class FundingBot:
 
     async def cancel_all_open_orders(self):
         """Helper to cancel all orders on both exchanges."""
+        tasks = []
+
         # 1. Lighter Cancel
         if self.lighter and hasattr(self.lighter, 'market_info'):
-            logger.info("   -> Cancelling Lighter orders...")
+            logger.info("   -> Cancelling Lighter orders (Parallel)...")
             for sym in list(self.lighter.market_info.keys()):
-                 try:
-                     await self.lighter.cancel_all_orders(sym)
-                 except Exception:
-                     pass
+                 tasks.append(self.lighter.cancel_all_orders(sym))
 
-        # 2. X10 Cancel (FIX: Iteration über Symbole hinzufügen)
+        # 2. X10 Cancel
         if self.x10 and hasattr(self.x10, 'market_info'):
-             logger.info("   -> Cancelling X10 orders...")
+             logger.info("   -> Cancelling X10 orders (Parallel)...")
              # Falls market_info leer ist, lade es kurz (Backup)
              if not self.x10.market_info:
                  try:
@@ -4501,10 +4520,11 @@ class FundingBot:
                      pass
              
              for sym in list(self.x10.market_info.keys()):
-                 try:
-                     await self.x10.cancel_all_orders(sym)
-                 except Exception:
-                     pass
+                 tasks.append(self.x10.cancel_all_orders(sym))
+        
+        if tasks:
+            logger.info(f"   -> Executing {len(tasks)} cancellation tasks...")
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
 
