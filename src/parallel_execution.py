@@ -314,29 +314,33 @@ class ParallelExecutionManager:
                      logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
                      filled = True
                  else:
-                     # Fallback mechanism: Check broad position with RETRY LOOP
-                     # API latency can hide the position for seconds (Ghost Trades)
-                     logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (Paranoid Check)...")
-                     
-                     for i in range(10): # 10 attempts over ~15-20 seconds to catch late fills
-                         await asyncio.sleep(1.5 + (i * 0.3)) # Backoff: 1.5s, 1.8s, 2.1s...
-                         
-                         try:
-                             current_positions = await self.lighter.fetch_open_positions()
-                             pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
-                             found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
-                             
-                             if abs(found_size) > 1e-8:
-                                 logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={found_size}. HEDGING NOW!")
-                                 filled = True
-                                 break
-                             elif i == 0:
-                                 logger.debug(f"🔍 {symbol} check 1/10 clean...")
-                         except Exception as e:
-                             logger.debug(f"Paranoid check {i} failed: {e}")
-                     
-                     if not filled:
-                         logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified).")
+                    # Fallback mechanism: Check broad position with RETRY LOOP
+                    # API latency can hide the position for seconds (Ghost Trades)
+                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (Paranoid Check)...")
+                    
+                    # FIX: Increased from 10 to 30 attempts (covering ~60 seconds)
+                    # Lighter API can lag significantly, causing "Clean Exit" false positives
+                    for i in range(30): 
+                        # Slower backoff: starts at 1.0s, caps at 3.0s
+                        wait_time = min(1.0 + (i * 0.2), 3.0) 
+                        await asyncio.sleep(wait_time)
+                        
+                        try:
+                            current_positions = await self.lighter.fetch_open_positions()
+                            pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
+                            found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
+                            
+                            if abs(found_size) > 1e-8:
+                                logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={found_size}. HEDGING NOW!")
+                                filled = True
+                                break
+                            elif i % 5 == 0: # Reduce log noise, log every 5th attempt
+                                logger.debug(f"🔍 {symbol} check {i+1}/30 clean...")
+                        except Exception as e:
+                            logger.debug(f"Paranoid check {i} failed: {e}")
+                    
+                    if not filled:
+                        logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified).")
       
              except Exception as e:
                  logger.error(f"Error verification after timeout {symbol}: {e}")
