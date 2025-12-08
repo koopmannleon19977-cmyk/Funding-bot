@@ -31,6 +31,25 @@ async def force_close_lighter_positions():
     lighter = LighterAdapter()
     await lighter.load_market_cache(force=True)
     
+    # 0. Cancel any open Limit Orders first (Important!)
+    logger.info("1️⃣  Cancelling ALL open orders on Lighter first...")
+    try:
+        # We iterate known symbols or cached markets
+        cancel_tasks = []
+        if lighter.market_info:
+            for symbol in lighter.market_info.keys():
+                # We use the updated robust cancel_all_orders method from the adapter
+                cancel_tasks.append(lighter.cancel_all_orders(symbol))
+        
+        if cancel_tasks:
+            await asyncio.gather(*cancel_tasks, return_exceptions=True)
+            logger.info("✅ Bulk cancel signals sent.")
+        
+        # Give it a second to propagate
+        await asyncio.sleep(2.0)
+    except Exception as e:
+        logger.error(f"⚠️ Error during pre-cleanup order cancellation: {e}")
+
     logger.info("🔍 Fetching open positions from Lighter...")
     positions = await lighter.fetch_open_positions()
     

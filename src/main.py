@@ -4442,57 +4442,115 @@ class FundingBot:
             # 2. Cancel alle offenen Orders (damit keine neuen Fills kommen)
             logger.info("1️⃣  Cancelling open orders...")
             await self.cancel_all_open_orders()
+            
+            # 2b. Verifikation: Sind wirklich alle Orders weg?
+            if self.lighter:
+                try:
+                    logger.info("   -> Verifying Lighter Orderbook cleanup...")
+                    # Hole alle offenen Orders der relevanten Märkte
+                    # Da es keinen globalen "get_all_open_orders" gibt, iterieren wir über aktive Märkte
+                    # oder nutzen eine Liste bekannter Symbole.
+                    # Besser: Wir prüfen zumindest die Symbole, wo wir Positionen vermuten.
+                    
+                    found_orders = False
+                    retry_symbols = set()
+                    
+                    # Schneller Check über Symbole im Cache oder bekannte
+                    check_symbols = list(self.lighter.market_info.keys())
+                    
+                    for sym in check_symbols:
+                        orders = await self.lighter.get_open_orders(sym)
+                        if orders:
+                            logger.warning(f"⚠️ Found persistent orders for {sym} after cancel_all: {len(orders)}")
+                            found_orders = True
+                            retry_symbols.add(sym)
+                            
+                    if found_orders:
+                        logger.warning("   -> Retrying FORCE CANCEL for persistent orders...")
+                        # 2nd Pass: Force Cancel individually if needed or retry cancel_all
+                        for sym in retry_symbols:
+                            logger.info(f"      Force cancelling {sym}...")
+                            await self.lighter.cancel_all_orders(sym)
+                            
+                        # Wait a bit
+                        await asyncio.sleep(1.0)
+                        
+                except Exception as e:
+                    logger.error(f"Error checking remaining orders: {e}")
+
 
             # 3. Hole ECHTE Positionen direkt von der API (nicht DB vertrauen)
-            logger.info("2️⃣  Fetching open positions from exchanges...")
-            x10_positions = await self.x10.fetch_open_positions() if self.x10 else []
-            lighter_positions = await self.lighter.fetch_open_positions() if self.lighter else []
+            # 3. Robust Close Loop (Retry up to 3 times)
+            max_retries = 3
+            for attempt in range(max_retries):
+                logger.info(f"2️⃣  Fetching open positions (Attempt {attempt+1}/{max_retries})...")
+                
+                x10_positions = await self.x10.fetch_open_positions() if self.x10 else []
+                lighter_positions = await self.lighter.fetch_open_positions() if self.lighter else []
 
-            # 4. Schließe X10
-            for pos in x10_positions:
-                size = safe_float(pos.get('size', 0))
-                if size != 0:
+                if not x10_positions and not lighter_positions:
+                    logger.info("✅ No open positions remaining. Clean shutdown possible.")
+                    break
+
+                # 4. Schließe X10
+                for pos in x10_positions:
+                    size = safe_float(pos.get('size', 0))
+                    if size != 0:
+                        symbol = pos.get('symbol')
+                        logger.info(f"🛑 Closing X10 Position: {symbol} Size: {size}")
+                        side = "BUY" if size > 0 else "SELL"
+                        try:
+                            await self.x10.close_live_position(symbol, side, abs(size))
+                        except Exception as e:
+                            logger.error(f"Failed to close X10 {symbol}: {e}")
+
+                # 5. Schließe Lighter (Market Close / Taker / IOC)
+                lighter_close_tasks = []
+                for pos in lighter_positions:
                     symbol = pos.get('symbol')
-                    logger.info(f"🛑 Closing X10 Position: {symbol} Size: {size}")
-                    side = "BUY" if size > 0 else "SELL" # Position side
-                    await self.x10.close_live_position(symbol, side, abs(size))
-
-            # 5. Schließe Lighter (Market Close / Taker)
-            for pos in lighter_positions:
-                symbol = pos.get('symbol')
-                size = safe_float(pos.get('size', 0))
-                if size == 0: continue
-                
-                # side = SELL wenn du LONG bist, BUY wenn du SHORT bist.
-                close_side = "SELL" if size > 0 else "BUY"
-                close_size = abs(size)
-                
-                logger.info(f"🔻 Closing Lighter {symbol}: {close_side} {close_size}")
-                
-                # WICHTIG: Auf Lighter musst du eine Taker-Order senden um sofort zu schließen!
-                # Wir setzen einen aggressiven Preis, um sicher zu fillen (+/- 5%)
-                try:
-                    price = self.lighter.get_price(symbol)
-                    if price:
-                        # Aggressive Slippage (5%)
-                        if close_side == "BUY":
-                            agg_price = price * 1.05
-                        else:
-                            agg_price = price * 0.95
-                    else:
-                        agg_price = None # Fallback to default logic
+                    size = safe_float(pos.get('size', 0))
+                    if size == 0: continue
+                    
+                    close_side = "SELL" if size > 0 else "BUY"
+                    close_size = abs(size)
+                    
+                    logger.info(f"🔻 Closing Lighter {symbol}: {close_side} {close_size} (Attempt {attempt+1})")
+                    
+                    try:
+                        # Escalating Aggressiveness: 5%, 10%, 15%
+                        base_slip = 0.05
+                        escalation = 0.05 * attempt
+                        target_slip = base_slip + escalation
                         
-                    await self.lighter.open_live_position(
-                        symbol=symbol,
-                        side=close_side,
-                        notional_usd=0, # Wird ignoriert wenn amount gesetzt ist
-                        amount=close_size,
-                        price=agg_price, # Expliziter aggressiver Preis
-                        post_only=False, # TAKER!
-                        reduce_only=True # Nur schließen!
-                    )
-                except Exception as e:
-                     logger.error(f"Failed to close Lighter {symbol}: {e}")
+                        price = self.lighter.get_price(symbol)
+                        agg_price = None
+                        if price:
+                            if close_side == "BUY":
+                                agg_price = price * (1 + target_slip)
+                            else:
+                                agg_price = price * (1 - target_slip)
+                        
+                        task = self.lighter.open_live_position(
+                            symbol=symbol,
+                            side=close_side,
+                            notional_usd=0,
+                            amount=close_size,
+                            price=agg_price, # Expliziter aggressiver Preis
+                            post_only=False, # TAKER!
+                            reduce_only=True, # Nur schließen!
+                            time_in_force="IOC" # FIX: Sofort oder garnicht!
+                        )
+                        lighter_close_tasks.append(task)
+                    except Exception as e:
+                        logger.error(f"Error preparing close for Lighter {symbol}: {e}")
+                
+                if lighter_close_tasks:
+                    logger.info(f"   -> Firing {len(lighter_close_tasks)} IOC close orders...")
+                    await asyncio.gather(*lighter_close_tasks, return_exceptions=True)
+
+                if attempt < max_retries - 1:
+                    logger.info("⏳ Waiting 2s for fills/verification...")
+                    await asyncio.sleep(2.0)
 
         except Exception as e:
             logger.error(f"Error during graceful_shutdown: {e}")

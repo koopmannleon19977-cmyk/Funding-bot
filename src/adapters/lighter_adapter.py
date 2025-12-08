@@ -1757,6 +1757,7 @@ class LighterAdapter(BaseAdapter):
         reduce_only: bool = False,
         post_only: bool = False,
         amount: Optional[float] = None,
+        time_in_force: Optional[str] = None,
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Open a position on Lighter exchange."""
@@ -1796,7 +1797,7 @@ class LighterAdapter(BaseAdapter):
         if price_safe <= 0:
             raise ValueError(f"No valid price available for {symbol}: {price}")
 
-        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, amount={amount}, price=${price_safe:.6f}")
+        logger.info(f"🚀 LIGHTER OPEN {symbol}: side={side}, size_usd=${notional_usd_safe:.2f}, amount={amount}, price=${price_safe:.6f}, TIF={time_in_force}")
 
         try:
             # ═══════════════════════════════════════════════════════════════
@@ -1910,14 +1911,25 @@ class LighterAdapter(BaseAdapter):
                     # Use IOC for straight closes (reduce_only + Taker) to prevent ghost orders on the book.
                     # Use GTT for Open positions or Maker orders.
                     tif = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+                    # Default expiry for GTT or IOC (script proves default works for IOC too)
                     expiry = SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
 
-                    if reduce_only and not post_only:
+                    # LOGIC: Resolve TIF from Arguments or Auto-Detection
+                    if time_in_force and isinstance(time_in_force, str):
+                        key = time_in_force.upper()
+                        if key == "IOC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
+                            tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
+                        elif key == "FOK" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_FOK'):
+                            tif = SignerClient.ORDER_TIME_IN_FORCE_FOK
+                        elif key == "GTC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC'):
+                            tif = SignerClient.ORDER_TIME_IN_FORCE_GTC
+                    elif reduce_only and not post_only:
                         if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
-                            # IOC orders typically require 0 expiry or specific handling to avoid "Invalid Expiry" errors
-                            expiry = 0
-                            logger.debug(f"Lighter: Using IOC with expiry=0 for close order {symbol}")
+                            # REMOVED: expiry = 0 override (match successful scripts/full_cleanup.py behavior)
+                    
+                    if tif == getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', -999):
+                         logger.debug(f"Lighter: Executing IOC order for {symbol}")
 
                     # ═══════════════════════════════════════════════════════════════
                     # FIX: NONCE LOCKING + MANUAL FETCHING (Fixes 'int has no decode')
@@ -2477,11 +2489,17 @@ class LighterAdapter(BaseAdapter):
                 orders_list = orders_resp
 
             if not orders_list:
+                # Fallback: Vielleicht gab es keine Orders oder die Methode war falsch.
+                # Wir machen einen expliziten Check via get_open_orders wenn wir unsicher sind.
+                # Aber hier nehmen wir an, es ist leer.
                 return True
 
             cancel_candidates = [
                 "cancel_order", "cancel", "cancel_order_by_id", "delete_order",
             ]
+            
+            cleaned_orders_count = 0
+            
             for order in orders_list:
                 if isinstance(order, dict):
                     oid = (
@@ -2502,10 +2520,11 @@ class LighterAdapter(BaseAdapter):
                 if not oid:
                     continue
 
-                if status and status not in ["PENDING", "OPEN"]:
+                if status and status not in ["PENDING", "OPEN", 10, 0]:
                     continue
 
                 cancelled = False
+                # 1. Try API methods
                 for cancel_name in cancel_candidates:
                     if hasattr(order_api, cancel_name):
                         cancel_method = getattr(order_api, cancel_name)
@@ -2521,25 +2540,51 @@ class LighterAdapter(BaseAdapter):
                                     await self.rate_limiter.acquire()
                                     await cancel_method(oid)
                             cancelled = True
-                            await asyncio.sleep(0.1)
+                            await asyncio.sleep(0.05) # Small delay for rate limits
                             break
                         except Exception as e:
                             logger.debug(f"Cancel order {oid} via {cancel_name} failed: {e}")
                             continue
 
+                # 2. Hard Fallback: Signer direct
                 if not cancelled:
                     try:
                         if hasattr(signer, "cancel_order"):
                             try:
                                 await self.rate_limiter.acquire()
                                 async with self.order_lock:
-                                    await signer. cancel_order(oid)
-                                await asyncio.sleep(0.1)
+                                    # Try both int and str for ID
+                                    try:
+                                        await signer.cancel_order(int(oid))
+                                    except ValueError:
+                                         await signer.cancel_order(oid)
+                                await asyncio.sleep(0.05)
+                                cancelled = True
                             except TypeError:
+                                # Fallback args
                                 await self.rate_limiter.acquire()
                                 await signer.cancel_order(order_id=oid)
+                                cancelled = True
                     except Exception as e:
                         logger. debug(f"Signer cancel order {oid} failed: {e}")
+                
+                if cancelled:
+                    cleaned_orders_count += 1
+
+            # 3. FINAL HARD CHECK: Fetch open orders explicitly (Force-Verify)
+            # This handles cases where 'list_orders' didn't return everything or cancellation failed silently.
+            # Only do this if we had orders or suspect issues.
+            try:
+                verified_open = await self.get_open_orders(symbol)
+                if verified_open:
+                    logger.warning(f"⚠️ {symbol}: {len(verified_open)} orders remained after bulk cancel. Force cancelling individually...")
+                    for o in verified_open:
+                        oid = o['id']
+                        logger.info(f"   🔪 Force cancelling {oid}...")
+                        await self.cancel_limit_order(oid, symbol)
+                        cleaned_orders_count += 1
+            except Exception as e:
+                logger.error(f"Error in final cancel verification for {symbol}: {e}")
 
             return True
         except Exception as e:
