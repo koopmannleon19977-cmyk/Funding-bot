@@ -297,7 +297,10 @@ def setup_logging(per_run: bool = False, run_id: str | None = None, timestamp_fo
     # Create the sensitive data filter
     sensitive_filter = SensitiveDataFilter()
     
-    if per_run:
+    env_log_file = os.getenv("BOT_LOG_FILE")
+    if env_log_file:
+        log_file = env_log_file
+    elif per_run:
         ts = datetime.now().strftime(timestamp_format)
         log_file = f"funding_bot_{run_id}_{ts}.log" if run_id else f"funding_bot_{ts}.log"
     else:

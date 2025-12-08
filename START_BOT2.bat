@@ -91,9 +91,8 @@ if errorlevel 1 (
 echo Adding logs to Git staging area... 
 
 REM WICHTIG: Beide Pfade hinzufügen! 
+REM Logs nur aus dem logs Ordner hinzufügen
 git add -f logs 2>NUL
-git add -f funding_bot_*.log 2>NUL
-git add -f *.log 2>NUL
 
 REM Zeige was staged wurde
 echo.
