@@ -280,7 +280,7 @@ class LighterAdapter(BaseAdapter):
             # Markt-Daten für Tick-Size holen
             market = self.get_market_info(symbol)
             # FIX: 'tick_size' verwenden, da 'price_increment' in market_info keys oft anders heißt
-            price_tick = float(market.get('tick_size', market.get('price_increment', 0.0001))) if market else 0.0001
+            price_tick = safe_float(market.get('tick_size', market.get('price_increment', 0.0001))) if market else 0.0001
 
             # ═══════════════════════════════════════════════════════════════
             # DYNAMIC TICK SIZE LOGIC (Penny Jumping)
@@ -1012,8 +1012,28 @@ class LighterAdapter(BaseAdapter):
                             # Get other values with safe casting
                             min_quote = safe_float(getattr(detail, 'min_quote_amount', None), 
                                                   safe_float(self.market_info[symbol].get('min_quote', 0.01), 0.01))
-                            tick_size = safe_float(getattr(detail, 'tick_size', None),
-                                                  safe_float(self.market_info[symbol].get('tick_size', 0.01), 0.01))
+                            api_tick = getattr(detail, 'tick_size', None)
+                            if api_tick is None:
+                                # Versuche, es aus dem Preis zu erraten (Notlösung)
+                                price_val = getattr(detail, 'last_trade_price', "0")
+                                if "0.000" in str(price_val): 
+                                    default_tick = 0.0001
+                                elif "0.00" in str(price_val):
+                                    default_tick = 0.001
+                                else:
+                                    default_tick = 0.0001 # Sicherer Default als 0.01
+                            else:
+                                default_tick = 0.0001
+
+                            tick_size = safe_float(api_tick, 
+                                safe_float(self.market_info[symbol].get('tick_size', default_tick), default_tick)
+                            )
+                            
+                            # Logging Warnung, wenn Tick Size verdächtig groß ist für kleinen Preis
+                            mark_price_check = safe_float(getattr(detail, 'last_trade_price', 0))
+                            if mark_price_check > 0 and mark_price_check < 1.0 and tick_size >= 0.01:
+                                logger.warning(f"⚠️ CRITICAL: {symbol} Tick Size {tick_size} seems huge for price {mark_price_check}. Forcing 0.0001")
+                                tick_size = 0.0001 # Force override
                             lot_size = safe_float(getattr(detail, 'lot_size', None),
                                                  safe_float(self.market_info[symbol].get('lot_size', 0.0001), 0.0001))
                             
@@ -2018,7 +2038,9 @@ class LighterAdapter(BaseAdapter):
                             logger.info(f"✅ Lighter Order Sent: {tx_hash_final}")
                             
                             # GHOST GUARDIAN: Register success time
-                            self._pending_positions[symbol] = time.time()
+                            if not post_only:
+                                # Nur bei Taker-Orders (sofortiger Fill erwartet) injizieren wir eine Pending Position
+                                self._pending_positions[symbol] = time.time()
                             
                             return True, tx_hash_final
 

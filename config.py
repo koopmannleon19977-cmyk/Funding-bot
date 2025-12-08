@@ -39,11 +39,11 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # ------------------------------------------------------------------------------
 MIN_APY_FILTER = 0.05       # 5% APY Minimum (Aggressive Volume)
 MIN_APY_FALLBACK = 0.05     # Absolutes Minimum
-MIN_PROFIT_EXIT_USD = 0.05  # Fast Churn: Exit as soon as $0.05 profit
+MIN_PROFIT_EXIT_USD = 0.01  # Relaxed to $0.01 for small position sizes
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.003  # Max 0.3% Spread erlaubt
+MAX_SPREAD_FILTER_PERCENT = 0.006  # Relaxed to 0.6% Spread allowed
 MAX_BREAKEVEN_HOURS = 4.0          # Trade muss in 4h profitabel sein
 BALANCE_RESERVE_PCT = 0.03         # 3% des Kapitals immer frei lassen
 MAX_TOTAL_EXPOSURE_PCT = 18.0      # Max 1800% exposure (18x Real Leverage)
@@ -149,7 +149,7 @@ PARALLEL_EXECUTION_TIMEOUT = 15.0   # Timeout for parallel execution logic
 X10_MAX_SLIPPAGE_PCT = 0.6
 X10_PRICE_EPSILON_PCT = 0.15
 LIGHTER_MAX_SLIPPAGE_PCT = 0.6
-LIGHTER_PRICE_EPSILON_PCT = 0.01
+LIGHTER_PRICE_EPSILON_PCT = 0.10  # Relaxed to 10% to allow "Top of Book" logic (best_bid + tick) without clamping
 LIGHTER_ORDER_TIMEOUT_SECONDS = 60
 
 # API Keys

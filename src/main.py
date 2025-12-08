@@ -2322,8 +2322,13 @@ async def cleanup_zombie_positions(lighter, x10):
 
                         size_usd = abs(position_size) * safe_float(x10.fetch_mark_price(sym))
 
-                        if size_usd < 1.0:
-                            logger.warning(f"⚠️ X10 zombie {sym} too small (${size_usd:.2f}), skipping")
+                        # Min-Notional Check
+                        min_x10 = 5.0
+                        if hasattr(x10, 'min_notional_usd'):
+                            min_x10 = x10.min_notional_usd(sym)
+
+                        if size_usd < min_x10:
+                            logger.warning(f"⚠️ X10 zombie {sym} too small (${size_usd:.2f} < ${min_x10:.2f}), skipping")
                             continue
 
                         logger.info(f"🔻 Closing X10 zombie {sym}: pos_size={position_size:.6f}, close={close_side}, ${size_usd:.1f}")
@@ -2359,8 +2364,13 @@ async def cleanup_zombie_positions(lighter, x10):
 
                         size_usd = abs(position_size) * safe_float(lighter.fetch_mark_price(sym))
 
-                        if size_usd < 1.0:
-                            logger.warning(f"⚠️ Lighter zombie {sym} too small (${size_usd:.2f}), skipping")
+                        # Min-Notional Check
+                        min_lighter = 5.0
+                        if hasattr(lighter, 'min_notional_usd'):
+                            min_lighter = lighter.min_notional_usd(sym)
+
+                        if size_usd < min_lighter:
+                            logger.warning(f"⚠️ Lighter zombie {sym} too small (${size_usd:.2f} < ${min_lighter:.2f}), skipping")
                             continue
 
                         logger.info(f"🔻 Closing Lighter zombie {sym}: pos_size={position_size:.6f}, close={close_side}, ${size_usd:.1f}")
@@ -4497,6 +4507,18 @@ class FundingBot:
                     size = safe_float(pos.get('size', 0))
                     if size != 0:
                         symbol = pos.get('symbol')
+                        
+                        # Min-Notional Check X10
+                        price = self.x10.fetch_mark_price(symbol)
+                        val = abs(size) * (price if price else 0)
+                        min_x10 = 5.0
+                        if hasattr(self.x10, 'min_notional_usd'):
+                            min_x10 = self.x10.min_notional_usd(symbol)
+                        
+                        if val < min_x10:
+                            logger.warning(f"⚠️ Skip X10 Close {symbol}: ${val:.2f} < Min ${min_x10:.2f} (Dust)")
+                            continue
+
                         logger.info(f"🛑 Closing X10 Position: {symbol} Size: {size}")
                         side = "BUY" if size > 0 else "SELL"
                         try:
@@ -4525,6 +4547,19 @@ class FundingBot:
                         price = self.lighter.get_price(symbol)
                         agg_price = None
                         if price:
+                            # Min-Notional Check Lighter (Verhindert API Fehler)
+                            remaining_val = close_size * price
+                            min_notional = 5.0
+                            if hasattr(self.lighter, 'min_notional_usd'):
+                                min_notional = self.lighter.min_notional_usd(symbol)
+                            
+                            if remaining_val < min_notional:
+                                if remaining_val < 1.0:
+                                    logger.warning(f"⚠️ {symbol}: Ignoring DUST position (${remaining_val:.2f}) during shutdown.")
+                                else:
+                                    logger.warning(f"⚠️ {symbol}: Cannot close position (${remaining_val:.2f} < Min ${min_notional:.2f}). Skipping.")
+                                continue
+
                             if close_side == "BUY":
                                 agg_price = price * (1 + target_slip)
                             else:
