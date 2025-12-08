@@ -892,9 +892,13 @@ class X10Adapter(BaseAdapter):
 
         return False, None
     
-    async def cancel_all_orders(self, symbol: str) -> bool:
+    async def cancel_all_orders(self, symbol: str = None) -> bool:
         try:
             if not self.stark_account:
+                return False
+            
+            # Fallback: Wenn kein Symbol, breche ab oder iteriere (hier Abbruch um Seiteneffekte zu vermeiden)
+            if not symbol:
                 return False
             
             client = await self._get_auth_client()

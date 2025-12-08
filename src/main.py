@@ -4481,14 +4481,30 @@ class FundingBot:
 
     async def cancel_all_open_orders(self):
         """Helper to cancel all orders on both exchanges."""
-        if self.lighter:
-            # Lighter cancel logic per symbol or global? 
-            # Adapter expects symbol. We iterate known markets.
-            for sym in self.lighter.market_info:
-                 await self.lighter.cancel_all_orders(sym)
-        if self.x10:
-             # X10 logic
-             await self.x10.cancel_all_orders()
+        # 1. Lighter Cancel
+        if self.lighter and hasattr(self.lighter, 'market_info'):
+            logger.info("   -> Cancelling Lighter orders...")
+            for sym in list(self.lighter.market_info.keys()):
+                 try:
+                     await self.lighter.cancel_all_orders(sym)
+                 except Exception:
+                     pass
+
+        # 2. X10 Cancel (FIX: Iteration über Symbole hinzufügen)
+        if self.x10 and hasattr(self.x10, 'market_info'):
+             logger.info("   -> Cancelling X10 orders...")
+             # Falls market_info leer ist, lade es kurz (Backup)
+             if not self.x10.market_info:
+                 try:
+                     await self.x10.load_market_cache()
+                 except: 
+                     pass
+             
+             for sym in list(self.x10.market_info.keys()):
+                 try:
+                     await self.x10.cancel_all_orders(sym)
+                 except Exception:
+                     pass
 
 
 

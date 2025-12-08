@@ -1,0 +1,1294 @@
+19:29:29 [INFO] CONFIG VALIDATION COMPLETED.
+19:29:29 [INFO] 🔥 BOT V5 (Architected) STARTING...
+19:29:29 [INFO] 🚀 Starting InMemoryStateManager...
+19:29:29 [INFO] 📂 Initializing database: data/trades.db
+19:29:29 [INFO] ✅ Read pool created: 5 connections
+19:29:29 [INFO] ✅ WAL mode enabled
+19:29:29 [INFO] 🔄 Running database migrations...
+19:29:29 [INFO] ✅ Migrations complete (14 statements)
+19:29:29 [INFO] ✅ Database initialized
+19:29:29 [INFO] 🖊️ Database write loop started
+19:29:29 [DEBUG] Maintenance not due (Last: 6h ago)
+19:29:29 [INFO] 📂 Loaded 2 trades from database
+19:29:29 [INFO] ✅ InMemoryStateManager started (loaded 2 trades)
+19:29:29 [INFO] ✅ State Manager started
+19:29:29 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+19:29:29 [INFO] ✅ Async database initialized
+19:29:29 [INFO] 📝 State writer loop started
+19:29:29 [DEBUG] ✅ Database schema up to date
+19:29:29 [INFO] Initialisiere X10 Adapter...
+19:29:29 [INFO]  X10 Account initialisiert.
+19:29:29 [INFO] Initialisiere Lighter Adapter...
+19:29:29 [INFO] ✅ Applied Monkey-Patch for SignerClient.switch_api_key
+19:29:29 [INFO] 💰 Checking exchange balances at startup...
+19:29:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:30 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:30 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+19:29:31 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+19:29:33 [DEBUG] Lighter Balance: Raw=$260.32, Safe=$247.31
+19:29:33 [INFO] 💰 STARTUP BALANCE CHECK: X10=$241.87, Lighter=$247.31
+19:29:33 [INFO] ✅ Exchange balances OK - Bot can trade!
+19:29:33 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+19:29:33 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+19:29:33 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+19:29:33 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+19:29:34 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+19:29:34 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+19:29:34 [INFO] ✅ FeeManager started with periodic refresh
+19:29:34 [INFO] ✅ FeeManager started
+19:29:34 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+19:29:34 [WARNING] ⚠️ Kelly: All 16 trades had $0.00 PnL - check PnL recording in close_trade!
+19:29:34 [INFO] ✅ Funding Tracker started (updates every 3600s)
+19:29:34 [INFO] ✅ FundingTracker started (interval=3600s)
+19:29:34 [INFO] 📊 Loading Market Data via REST...
+19:29:34 [INFO] 🔄 Funding tracking loop started...
+19:29:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:29:34 [INFO] 📊 Updating funding for 2 open trades...
+19:29:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:36 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+19:29:36 [INFO] Lighter: Found 0 open positions
+19:29:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:36 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+19:29:36 [INFO] Lighter: Found 0 open positions
+19:29:36 [INFO] ✅ Funding update complete: 0/2 trades updated, $0.00 collected this cycle ($0.00 lifetime) in 2.3s
+19:29:37 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+19:29:37 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+19:29:37 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+19:29:37 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+19:29:37 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+19:29:37 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+19:29:37 [INFO] 📈 Pre-loading Lighter prices...
+19:29:38 [DEBUG] Lighter: Loaded 380 funding rates
+19:29:38 [DEBUG] Lighter: Loaded 115 prices via REST
+19:29:38 [INFO] ✅ Lighter prices loaded: 115 symbols
+19:29:38 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+19:29:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:29:41 [INFO] ✅ Execution clients warmed up & NETWORK READY
+19:29:41 [INFO] 启动 OI Tracker für 65 Symbole...
+19:29:41 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+19:29:41 [INFO] 🌐 Starting WebSocket Manager...
+19:29:41 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+19:29:41 [INFO] 🔌 [lighter] WebSocket manager started
+19:29:41 [INFO] 🔌 [x10_account] WebSocket manager started
+19:29:41 [INFO] 🔌 [x10_trades] WebSocket manager started
+19:29:41 [INFO] 🔌 [x10_funding] WebSocket manager started
+19:29:41 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:29:41 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:29:41 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:29:41 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:29:41 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+19:29:41 [DEBUG] ✅ JUP-USD: X10=$265,736, Lighter=$3,210,499, Total=$3,476,235
+19:29:42 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+19:29:42 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+19:29:42 [INFO] [lighter] Resubscribing to 75 channels (paced)...
+19:29:42 [INFO] [lighter] Receive loop started (async iterator)
+19:29:42 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/10
+19:29:42 [DEBUG] [lighter] Subscribed to trade/10
+19:29:42 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+19:29:42 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:29:42 [INFO] [x10_trades] Receive loop started (async iterator)
+19:29:42 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+19:29:42 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+19:29:42 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:29:42 [INFO] [x10_account] Receive loop started (async iterator)
+19:29:42 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/11
+19:29:42 [DEBUG] [lighter] Subscribed to trade/11
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/51
+19:29:42 [DEBUG] [lighter] Subscribed to trade/51
+19:29:42 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+19:29:42 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:29:42 [INFO] [x10_funding] Receive loop started (async iterator)
+19:29:42 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/1
+19:29:42 [DEBUG] [lighter] Subscribed to trade/1
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/72
+19:29:42 [DEBUG] [lighter] Subscribed to trade/72
+19:29:42 [DEBUG] [lighter] Resubscribed 10/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/83
+19:29:42 [DEBUG] [lighter] Subscribed to trade/83
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/65
+19:29:42 [DEBUG] [lighter] Subscribed to trade/65
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/31
+19:29:42 [DEBUG] [lighter] Subscribed to trade/31
+19:29:42 [DEBUG] [lighter] Resubscribed 20/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/24
+19:29:42 [DEBUG] [lighter] Subscribed to trade/24
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/8
+19:29:42 [DEBUG] [lighter] Subscribed to trade/8
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/38
+19:29:42 [DEBUG] [lighter] Subscribed to trade/38
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/7
+19:29:42 [DEBUG] [lighter] Subscribed to trade/7
+19:29:42 [DEBUG] [lighter] Resubscribed 30/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/67
+19:29:42 [DEBUG] [lighter] Subscribed to trade/67
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/47
+19:29:42 [DEBUG] [lighter] Subscribed to trade/47
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/76
+19:29:42 [DEBUG] [lighter] Subscribed to trade/76
+19:29:42 [DEBUG] [lighter] Resubscribed 40/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/23
+19:29:42 [DEBUG] [lighter] Subscribed to trade/23
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/43
+19:29:42 [DEBUG] [lighter] Subscribed to trade/43
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/63
+19:29:42 [DEBUG] [lighter] Subscribed to trade/63
+19:29:42 [DEBUG] [lighter] Resubscribed 50/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/82
+19:29:42 [DEBUG] [lighter] Subscribed to trade/82
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/28
+19:29:42 [DEBUG] [lighter] Subscribed to trade/28
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/86
+19:29:42 [DEBUG] [lighter] Subscribed to trade/86
+19:29:42 [DEBUG] [lighter] Resubscribed 60/75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/20
+19:29:42 [DEBUG] [lighter] Subscribed to trade/20
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/17
+19:29:42 [DEBUG] [lighter] Subscribed to trade/17
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/53
+19:29:42 [DEBUG] [lighter] Subscribed to trade/53
+19:29:42 [DEBUG] [lighter] Resubscribed 70/75 channels
+19:29:42 [INFO] [lighter] Resubscribed to 75 channels
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/50
+19:29:42 [DEBUG] [lighter] Subscribed to trade/50
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/34
+19:29:42 [DEBUG] [lighter] Subscribed to trade/34
+19:29:42 [DEBUG] [lighter] Subscribed to order_book/3
+19:29:42 [DEBUG] [lighter] Subscribed to trade/3
+19:29:42 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+19:29:42 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+19:29:42 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+19:29:42 [INFO] 🔍 DB meldet 2 offene Trades. Prüfe Exchange...
+19:29:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:43 [DEBUG] ✅ GRASS-USD: X10=$70,150, Lighter=$1,256,637, Total=$1,326,786
+19:29:43 [INFO] Lighter: Found 0 open positions
+19:29:43 [INFO] 🌍 Echte Positionen auf Exchanges: []
+19:29:43 [WARNING] ⚠️  ZOMBIE GEFUNDEN: TRUMP-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+19:29:43 [INFO] ✅ Trade TRUMP-USD closed (PnL: $0.00)
+19:29:43 [WARNING] ⚠️  ZOMBIE GEFUNDEN: ZEC-USD ist in DB offen, aber nicht auf Exchange. Schließe ihn...
+19:29:43 [INFO] ✅ Trade ZEC-USD closed (PnL: $0.00)
+19:29:43 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+19:29:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:43 [DEBUG] 📝 Flushed 1 writes
+19:29:43 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+19:29:44 [INFO] Lighter: Found 0 open positions
+19:29:44 [INFO] ✅ No orphaned positions found
+19:29:44 [INFO] ✅ ParallelExecutionManager started
+19:29:44 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+19:29:44 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+19:29:44 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+19:29:44 [INFO] 🔄 Rollback processor running...
+19:29:44 [DEBUG] Registered task: logic_loop (priority=HIGH)
+19:29:44 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+19:29:44 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+19:29:44 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+19:29:44 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+19:29:44 [DEBUG] Registered task: health_reporter (priority=LOW)
+19:29:44 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+19:29:44 [INFO] ═══════════════════════════════════════════════════════════
+19:29:44 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+19:29:44 [INFO] ═══════════════════════════════════════════════════════════
+19:29:44 [INFO] 🚀 BotEventLoop starting...
+19:29:44 [INFO] ▶️ Started task: connection_watchdog
+19:29:44 [INFO] ▶️ Started task: logic_loop
+19:29:44 [INFO] ▶️ Started task: trade_management_loop
+19:29:44 [INFO] ▶️ Started task: farm_loop
+19:29:44 [INFO] ▶️ Started task: maintenance_loop
+19:29:44 [INFO] ▶️ Started task: cleanup_finished_tasks
+19:29:44 [INFO] ▶️ Started task: health_reporter
+19:29:44 [INFO] ✅ Started 7 tasks
+19:29:44 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+19:29:44 [INFO] Logic Loop gestartet – REFRESH alle 3s
+19:29:44 [INFO] 🔍 RECONCILE: Starting strict sync check...
+19:29:44 [INFO] 🛡️ Trade Management Loop gestartet
+19:29:44 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+19:29:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:29:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:44 [INFO] Lighter: Found 0 open positions
+19:29:44 [INFO] ✅ RECONCILE: Sync complete.
+19:29:44 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+19:29:44 [DEBUG] Price cache status: X10=78/65, Lighter=115/65
+19:29:44 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:29:45 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+19:29:45 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:29:45 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+19:29:45 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+19:29:45 [DEBUG] Skip JUP-USD: Spread 0.47% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.03%)
+19:29:45 [DEBUG] Skip GRASS-USD: Spread 0.41% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] Skip ADA-USD: Spread 0.32% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.06%)
+19:29:45 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 138.5h, hold: 24.0h)
+19:29:45 [INFO] 💎 TRUMP-USD | APY: 53.4%
+19:29:45 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 30.7h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 171.6h, hold: 24.0h)
+19:29:45 [DEBUG] Skip ZEC-USD: Spread 0.33% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.14%)
+19:29:45 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 71.4h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip SUI-USD: Expected profit $0.0000 < $0.05 (breakeven: 21.4h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.8h, hold: 24.0h)
+19:29:45 [DEBUG] Skip WLD-USD: Spread 0.86% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.04%)
+19:29:45 [INFO] 💎 MON-USD | APY: 53.4%
+19:29:45 [DEBUG] ⛔ Skip MON-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.9h, hold: 24.0h)
+19:29:45 [DEBUG] Skip LTC-USD: Spread 0.42% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] Skip KAITO-USD: Spread 0.63% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.04%)
+19:29:45 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 41.1h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:29:45 [DEBUG] Skip EIGEN-USD: Spread 0.43% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] Skip 1000PEPE-USD: Spread 0.95% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 43.1h, hold: 24.0h)
+19:29:45 [DEBUG] Skip NEAR-USD: Spread 0.61% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.03%)
+19:29:45 [DEBUG] Skip WLFI-USD: Spread 0.65% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:29:45 [DEBUG] Skip AERO-USD: Spread 0.84% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.5h, hold: 24.0h)
+19:29:45 [DEBUG] Skip LINK-USD: Spread 0.41% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.02%)
+19:29:45 [DEBUG] Skip ONDO-USD: Spread 0.54% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:29:45 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0500 < $0.05 (breakeven: 92.8h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 64.1h, hold: 24.0h)
+19:29:45 [DEBUG] Skip AVNT-USD: Spread 0.81% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.03%)
+19:29:45 [DEBUG] Skip APEX-USD: Spread 0.36% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:29:45 [INFO] 💎 BERA-USD | APY: 72.7%
+19:29:45 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 10.19h, APY: 72.7%)
+19:29:45 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 46.1h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 88.5h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0300 < $0.05 (breakeven: 108.9h, hold: 24.0h)
+19:29:45 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.6h, hold: 24.0h)
+19:29:45 [INFO] ✅ Found 1 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:29:45 [INFO] 🎯 Found 1 opportunities, executing best...
+19:29:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:45 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$4,454, Total=$4,454
+19:29:45 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:45 [DEBUG] 📝 Flushed 1 writes
+19:29:45 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+19:29:46 [DEBUG] Lighter Balance: Raw=$260.32, Safe=$247.31
+19:29:46 [INFO] X10: Detected balance = $241.87
+19:29:46 [DEBUG] Fetching fresh positions (force=False, cache_age=1765218586.3s)
+19:29:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:46 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+19:29:46 [DEBUG] X10: Funding Refresh OK, cache=91
+19:29:46 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+19:29:46 [INFO] Lighter: Found 0 open positions
+19:29:46 [INFO] 📊 Positions: X10=0, Lighter=0
+19:29:46 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+19:29:46 [INFO] 🚀 Launching 1 trades (Slots available: 3, Reserved: 1)
+19:29:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:46 [DEBUG] Lighter: Loaded 380 funding rates
+19:29:47 [DEBUG] ✅ ADA-USD: X10=$251,491, Lighter=$2,846,812, Total=$3,098,304
+19:29:47 [INFO] Lighter: Found 0 open positions
+19:29:47 [INFO] 💰 Balance: X10=$241.9 (free=$238.9), Lit=$247.3 (free=$244.3) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:29:47 [INFO] 🚀 Launching trade for BERA-USD (APY=72.7%)
+19:29:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:47 [DEBUG] Lighter: Loaded 115 prices via REST
+19:29:47 [DEBUG] Lighter: Funding Refresh OK, cache=113
+19:29:47 [INFO] 🔍 Running periodic exchange sync check...
+19:29:47 [INFO] 🔍 Starting Exchange Sync Check...
+19:29:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:47 [INFO] ✅ Launched 1 trade tasks this cycle
+19:29:48 [INFO] Lighter: Found 0 open positions
+19:29:48 [DEBUG] ✅ BERA-USD verified: No existing positions on exchanges
+19:29:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:48 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:48 [DEBUG] MIN_NOTIONAL BERA-USD: min_base=3.00000000 coins, price=$0.8362, min_qty_usd=$2.51, min_notional_api=$10.00, final=$11.00
+19:29:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:48 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:48 [DEBUG] ✅ OP-USD: X10=$189,486, Lighter=$4,755,571, Total=$4,945,058
+19:29:49 [INFO] Lighter: Found 0 open positions
+19:29:49 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+19:29:49 [DEBUG] Lighter Balance: Raw=$260.32, Safe=$247.31
+19:29:49 [INFO] 🎰 KELLY BERA-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:29:49 [INFO] 📊 KELLY SIZE BERA-USD: $50.0 (kelly-optimized)
+19:29:49 [DEBUG] 🔍 Checking liquidity for BERA-USD SELL: Need $50.00 (Max Slip: 2.0%)
+19:29:49 [DEBUG] 🔍 Orderbook for BERA-USD: Bids=20, Asks=20
+19:29:49 [INFO] 🚀 Opening BERA-USD: Size=$50.0 (Min=$11.0)
+19:29:49 [INFO] 🛡️ Registered BERA-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:29:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:29:49 [INFO] ⚖️ Size Alignment BERA-USD: 50.00$ -> 49.33$ (59.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+19:29:49 [INFO] 🔄 [MAKER STRATEGY] BERA-USD: Placing Lighter Maker Order...
+19:29:49 [INFO] 🚀 LIGHTER OPEN BERA-USD: side=SELL, size_usd=$49.33, amount=59.0, price=$0.836170
+19:29:49 [DEBUG] 🔍 DEBUG: BERA-USD market_id = 20 (raw=20, type=<class 'int'>)
+19:29:49 [INFO] 🛡️ Maker Price BERA-USD SELL: $0.840000 (Join Ask (Spread Tight) | Bid=$0.83572, Ask=$0.83612, Tick=0.01)
+19:29:49 [DEBUG] QUANTIZE BERA-USD: Notional=$49.33403 -> RawAmt=59.000000 -> QuantAmt=59.000000 (x0.0001) -> BaseInt=590
+19:29:50 [INFO] 🔒 Locked execution for BERA-USD SELL (Nonce: 5440)...
+19:29:50 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":20,"ClientOrderIndex":1765218662972,"BaseAmount":590,"Price":84000,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767637790258,"ExpiredAt":1765219189258,"Nonce":5440,"Sig":"d2x05rZzPwg6/3bCbmSpCJt8OZ8NlpvHQ70rr2GDt9TzLhueks67Bi6NS3Ic9BMSdAp+7ShInsYjBMJwARi9KuDerpE88+tdHuDfxkYdSlw="}
+19:29:50 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b' predicted_execution_time_ms=1765218577346 additional_properties={}
+19:29:50 [INFO] ✅ Lighter Order Sent: 4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b
+19:29:50 [INFO] ⏳ [MAKER STRATEGY] BERA-USD: Lighter placed (4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b), waiting for fill...
+19:29:50 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:29:50 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:29:51 [INFO] Lighter: Found 0 open positions
+19:29:51 [DEBUG] 👻 Ghost pending: BERA-USD (0.5s)
+19:29:51 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:29:51 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip JUP-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.5h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip ADA-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 138.5h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0400 < $0.05 (breakeven: 10.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 46.3h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] Skip ZEC-USD: Spread 0.74% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.14%)
+19:29:51 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.07%)
+19:29:51 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 85.6h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.05%)
+19:29:51 [DEBUG] ⛔ Skip SUI-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0400 < $0.05 (breakeven: 56.5h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip WLD-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip MON-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.9h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 115.6h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $0.0200 < $0.05 (breakeven: 14.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0200 < $0.05 (breakeven: 53.3h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:29:51 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 63.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0400 < $0.05 (breakeven: 112.1h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 43.1h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.7h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:29:51 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO] 💎 WLFI-USD | APY: 50.8%
+19:29:51 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0400 < $0.05 (breakeven: 10.7h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: AERO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.08%)
+19:29:51 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 49.4h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.8h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 50.6h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.2h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.5h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] Skip APEX-USD: Spread 0.36% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:29:51 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 10.19h, APY: 72.7%)
+19:29:51 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0100 < $0.05 (breakeven: 33.6h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 88.5h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0100 < $0.05 (breakeven: 65.0h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.6h, hold: 24.0h)
+19:29:51 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:29:51 [INFO] ✅ Found 1 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:29:51 [INFO] 🎯 Found 1 opportunities, executing best...
+19:29:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:51 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:51 [INFO] Lighter: Found 0 open positions
+19:29:51 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for BERA-USD (Age: 1.4s)
+19:29:52 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=10393)
+19:29:52 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s ago, msgs=74)
+19:29:52 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+19:29:52 [DEBUG] Lighter Balance: Raw=$260.32, Safe=$247.31
+19:29:52 [INFO] X10: Detected balance = $241.87
+19:29:52 [DEBUG] Fetching fresh positions (force=False, cache_age=6.1s)
+19:29:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:52 [DEBUG] ✅ AAVE-USD: X10=$448,093, Lighter=$46,759, Total=$494,852
+19:29:52 [INFO] Lighter: Found 0 open positions
+19:29:52 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for BERA-USD (Age: 2.3s)
+19:29:52 [INFO] 📊 Positions: X10=0, Lighter=1
+19:29:52 [DEBUG] Lighter positions: ['BERA-USD']
+19:29:52 [WARNING] ⚠️ DESYNC: {'BERA-USD'} on exchanges but not in DB
+19:29:52 [DEBUG] SYNC STATUS: DB=0, Executing=1, RealExchange=1, TotalActive=1
+19:29:54 [INFO] Lighter: Found 0 open positions
+19:29:54 [DEBUG] ✅ EDEN-USD: X10=$113,621, Lighter=$5,633,558, Total=$5,747,179
+19:29:54 [INFO] Lighter: Found 0 open positions
+19:29:55 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:29:55 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:29:55 [INFO] Lighter: Found 0 open positions
+19:29:56 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:29:56 [DEBUG] ⛔ Skip JUP-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.5h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip ADA-USD: Expected profit $0.0400 < $0.05 (breakeven: 10.0h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0700 < $0.05 (breakeven: 269.2h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0400 < $0.05 (breakeven: 109.0h, hold: 24.0h)
+19:29:56 [INFO] 💎 ZEC-USD | APY: 105.1%
+19:29:56 [INFO] ✅ ZEC-USD: Expected profit $0.1100 in 24.0h (breakeven: 5.36h, APY: 105.1%)
+19:29:56 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 73.7h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0100 < $0.05 (breakeven: 32.1h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0100 < $0.05 (breakeven: 36.5h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip WLD-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.0h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0200 < $0.05 (breakeven: 30.4h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0200 < $0.05 (breakeven: 84.0h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 28.5h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 36.0h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:29:56 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0500 < $0.05 (breakeven: 107.2h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0400 < $0.05 (breakeven: 112.1h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 66.9h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 17.4h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0400 < $0.05 (breakeven: 10.7h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 43.2h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.8h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 50.6h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.2h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.5h, hold: 24.0h)
+19:29:56 [DEBUG] Skip APEX-USD: Spread 0.36% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:29:56 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 10.19h, APY: 72.7%)
+19:29:56 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0100 < $0.05 (breakeven: 33.6h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 78.2h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0400 < $0.05 (breakeven: 135.9h, hold: 24.0h)
+19:29:56 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 56.5h, hold: 24.0h)
+19:29:56 [INFO] ✅ Found 2 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:29:56 [INFO] 🎯 Found 2 opportunities, executing best...
+19:29:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:56 [DEBUG] ✅ TRUMP-USD: X10=$212,675, Lighter=$263,722, Total=$476,397
+19:29:56 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:56 [INFO] Lighter: Found 0 open positions
+19:29:57 [DEBUG] Lighter Balance: Raw=$260.32, Safe=$247.31
+19:29:57 [INFO] X10: Detected balance = $241.87
+19:29:57 [DEBUG] Using cached positions (age: 4.8s)
+19:29:57 [WARNING] ⚠️ DESYNC: {'BERA-USD'} on exchanges but not in DB
+19:29:57 [DEBUG] SYNC STATUS: DB=0, Executing=1, RealExchange=1, TotalActive=1
+19:29:57 [INFO] 🚀 Launching 1 trades (Slots available: 2, Reserved: 1)
+19:29:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:57 [INFO] Lighter: Found 0 open positions
+19:29:57 [INFO] Lighter: Found 0 open positions
+19:29:57 [INFO] 💰 Balance: X10=$241.9 (free=$228.4), Lit=$247.3 (free=$233.8) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:29:57 [INFO] 🚀 Launching trade for ZEC-USD (APY=105.1%)
+19:29:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:29:57 [DEBUG] ✅ ENA-USD: X10=$224,297, Lighter=$20,548,069, Total=$20,772,365
+19:29:58 [INFO] ✅ Launched 1 trade tasks this cycle
+19:29:58 [INFO] Lighter: Found 0 open positions
+19:29:58 [DEBUG] ✅ ZEC-USD verified: No existing positions on exchanges
+19:29:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:58 [INFO] Lighter: Found 0 open positions
+19:29:58 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:58 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$406.0450, min_qty_usd=$40.60, min_notional_api=$10.00, final=$44.66
+19:29:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:29:59 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:29:59 [INFO] 🎰 KELLY ZEC-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:29:59 [INFO] 📊 KELLY SIZE ZEC-USD: $50.0 (kelly-optimized)
+19:29:59 [DEBUG] 🔍 Checking liquidity for ZEC-USD SELL: Need $50.00 (Max Slip: 2.0%)
+19:29:59 [DEBUG] 🔍 Orderbook for ZEC-USD: Bids=20, Asks=20
+19:29:59 [INFO] 🚀 Opening ZEC-USD: Size=$50.0 (Min=$44.7)
+19:29:59 [INFO] 🛡️ Registered ZEC-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:29:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:29:59 [INFO] ⚖️ Size Alignment ZEC-USD: 50.00$ -> 40.58$ (0.100000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+19:29:59 [INFO] 🔄 [MAKER STRATEGY] ZEC-USD: Placing Lighter Maker Order...
+19:29:59 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=SELL, size_usd=$40.58, amount=0.1, price=$405.834000
+19:29:59 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+19:29:59 [INFO] 🛡️ Maker Price ZEC-USD SELL: $405.840000 (Penny Jump Ask | Bid=$405.657, Ask=$405.854, Tick=0.01)
+19:29:59 [DEBUG] QUANTIZE ZEC-USD: Notional=$40.583400000000005 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+19:29:59 [DEBUG] ✅ VIRTUAL-USD: X10=$86,124, Lighter=$718,940, Total=$805,063
+19:29:59 [INFO] Lighter: Found 0 open positions
+19:29:59 [INFO] 🔒 Locked execution for ZEC-USD SELL (Nonce: 5441)...
+19:29:59 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765218636497,"BaseAmount":100,"Price":405840,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767637799915,"ExpiredAt":1765219198915,"Nonce":5441,"Sig":"jO2CRoEUsmBnPbKlUR4dHXOqUZol9bugENJIWiQ5iGm/K9CLWrlHW4oMTcVlC4YqKj99abUVikvmB9UNq+K/9BRRRU1v+0POyux1EhGSvDM="}
+19:30:00 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='92da2dbd0731562603b6c1d897d3e70a9bc367502f33235887f028b59392a59774402bc03302563e' predicted_execution_time_ms=1765218586993 additional_properties={}
+19:30:00 [INFO] ✅ Lighter Order Sent: 92da2dbd0731562603b6c1d897d3e70a9bc367502f33235887f028b59392a59774402bc03302563e
+19:30:00 [INFO] ⏳ [MAKER STRATEGY] ZEC-USD: Lighter placed (92da2dbd0731562603b6c1d897d3e70a9bc367502f33235887f028b59392a59774402bc03302563e), waiting for fill...
+19:30:00 [INFO] Lighter: Found 1 open positions
+19:30:00 [INFO] ⚖️ HEDGING ZEC-USD: Matching calculated amount on X10: 0.100000 coins
+19:30:00 [INFO] 🚀 X10 EXECUTE ZEC-USD BUY: 0.100000 Coins (Basis: COINS=0.1)
+19:30:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:30:00 [INFO] Lighter: Found 1 open positions
+19:30:01 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:01 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:01 [INFO] Lighter: Found 1 open positions
+19:30:01 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:01 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 49.9h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.4h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0700 < $0.05 (breakeven: 248.3h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0600 < $0.05 (breakeven: 147.2h, hold: 24.0h)
+19:30:01 [INFO] ✅ ZEC-USD: Expected profit $0.1100 in 24.0h (breakeven: 5.69h, APY: 105.1%)
+19:30:01 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 79.2h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip SUI-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.8h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0400 < $0.05 (breakeven: 61.2h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0100 < $0.05 (breakeven: 32.3h, hold: 24.0h)
+19:30:01 [DEBUG] Skip MON-USD: Spread 0.32% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:01 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 124.8h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 28.5h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0200 < $0.05 (breakeven: 45.7h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:01 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0700 < $0.05 (breakeven: 148.5h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0600 < $0.05 (breakeven: 164.0h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 66.9h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 20.4h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0400 < $0.05 (breakeven: 10.7h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0100 < $0.05 (breakeven: 37.1h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 95.9h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 130.2h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.2h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.5h, hold: 24.0h)
+19:30:01 [DEBUG] Skip APEX-USD: Spread 0.75% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:01 [INFO] ✅ BERA-USD: Expected profit $0.0800 in 24.0h (breakeven: 5.70h, APY: 72.7%)
+19:30:01 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 50.0h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 78.2h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0500 < $0.05 (breakeven: 166.3h, hold: 24.0h)
+19:30:01 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 68.2h, hold: 24.0h)
+19:30:01 [INFO] ✅ Found 2 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:30:01 [INFO] 🎯 Found 2 opportunities, executing best...
+19:30:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:02 [INFO] 💰 X10 verfügbare Balance: $241.87 USDC
+19:30:02 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=21945)
+19:30:02 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=154)
+19:30:02 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+19:30:02 [INFO] Lighter: Found 1 open positions
+19:30:02 [DEBUG] Placing an order: id=2646062411196509276198385542652130381799271675127182431030802006136387439239
+19:30:02 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+19:30:02 [DEBUG] Lighter Balance: Raw=$260.34, Safe=$247.32
+19:30:02 [INFO] X10: Detected balance = $241.87
+19:30:02 [DEBUG] Fetching fresh positions (force=False, cache_age=10.4s)
+19:30:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:03 [INFO] Lighter: Found 1 open positions
+19:30:03 [INFO] 📊 Positions: X10=0, Lighter=1
+19:30:03 [DEBUG] Lighter positions: ['ZEC-USD']
+19:30:03 [WARNING] ⚠️ DESYNC: {'ZEC-USD'} on exchanges but not in DB
+19:30:03 [DEBUG] SYNC STATUS: DB=0, Executing=2, RealExchange=1, TotalActive=2
+19:30:03 [DEBUG] ✅ ZEC-USD: X10=$1,333,265, Lighter=$35,096, Total=$1,368,361
+19:30:03 [INFO] Lighter: Found 1 open positions
+19:30:03 [INFO]  X10 Order: 1998097704764895232
+19:30:03 [DEBUG] 📝 Trade added to state: ZEC-USD
+19:30:03 [INFO] ✅ OPENED ZEC-USD: $50.00 | Entry Fees (est.): $0.0500
+19:30:03 [DEBUG] 📝 Flushed 1 writes
+19:30:03 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+19:30:04 [DEBUG] Using cached positions (age: 1.7s)
+19:30:04 [DEBUG] Check ZEC-USD: Age=0.7s (Limit=14400s)
+19:30:04 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:04 [INFO] Lighter: Found 1 open positions
+19:30:05 [DEBUG] ✅ 1000BONK-USD: X10=$48,984, Lighter=$72,440,156, Total=$72,489,140
+19:30:05 [DEBUG] Using cached positions (age: 2.7s)
+19:30:05 [DEBUG] Check ZEC-USD: Age=1.7s (Limit=14400s)
+19:30:05 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:05 [INFO] Lighter: Found 1 open positions
+19:30:06 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:06 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:06 [INFO] Lighter: Found 1 open positions
+19:30:06 [DEBUG] Using cached positions (age: 3.7s)
+19:30:06 [DEBUG] Check ZEC-USD: Age=2.7s (Limit=14400s)
+19:30:06 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:06 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:06 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 48.2h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.7h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0700 < $0.05 (breakeven: 248.3h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0600 < $0.05 (breakeven: 143.5h, hold: 24.0h)
+19:30:06 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:06 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0400 < $0.05 (breakeven: 141.2h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip SUI-USD: Expected profit $0.0000 < $0.05 (breakeven: 22.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0400 < $0.05 (breakeven: 64.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:06 [DEBUG] Skip MON-USD: Spread 0.35% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:06 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 124.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.3h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 34.1h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:06 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0500 < $0.05 (breakeven: 125.1h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0500 < $0.05 (breakeven: 145.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 72.5h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 19.7h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0100 < $0.05 (breakeven: 39.7h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 100.0h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 106.5h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 54.4h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $0.0000 < $0.05 (breakeven: 21.7h, hold: 24.0h)
+19:30:06 [DEBUG] Skip APEX-USD: Spread 0.75% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:06 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 9.57h, APY: 73.6%)
+19:30:06 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 50.0h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.3h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0600 < $0.05 (breakeven: 200.1h, hold: 24.0h)
+19:30:06 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 63.4h, hold: 24.0h)
+19:30:06 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:06 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:06 [INFO] 💰 X10 verfügbare Balance: $238.09 USDC
+19:30:06 [DEBUG] ✅ TON-USD: X10=$123,045, Lighter=$561,326, Total=$684,372
+19:30:07 [INFO] Lighter: Found 1 open positions
+19:30:07 [DEBUG] Using cached positions (age: 4.7s)
+19:30:07 [DEBUG] Check ZEC-USD: Age=3.6s (Limit=14400s)
+19:30:07 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:07 [DEBUG] Lighter Balance: Raw=$260.42, Safe=$247.40
+19:30:07 [INFO] X10: Detected balance = $238.09
+19:30:07 [DEBUG] Using cached positions (age: 4.8s)
+19:30:07 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:07 [DEBUG] ✅ ZEC-USD: X10 entry fee = 0.000225 (order: 1998097704764895232)
+19:30:07 [DEBUG] ✅ ZEC-USD: Lighter entry fee = 0.000000 (order: 92da2dbd0731562603b6c1d897d3e70a9bc367502f33235887f028b59392a59774402bc03302563e)
+19:30:07 [INFO] 💰 ZEC-USD: Entry fees updated - X10=0.000225, Lighter=0.000000, Total=$0.0002
+19:30:07 [DEBUG] 📝 Flushed 1 writes
+19:30:08 [INFO] Lighter: Found 1 open positions
+19:30:08 [DEBUG] Using cached positions (age: 5.7s)
+19:30:08 [DEBUG] Check ZEC-USD: Age=4.7s (Limit=14400s)
+19:30:08 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:08 [DEBUG] ✅ AVAX-USD: X10=$504,835, Lighter=$263,815, Total=$768,651
+19:30:09 [INFO] Lighter: Found 1 open positions
+19:30:09 [DEBUG] Using cached positions (age: 6.7s)
+19:30:09 [DEBUG] Check ZEC-USD: Age=5.7s (Limit=14400s)
+19:30:09 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:10 [INFO] Lighter: Found 1 open positions
+19:30:10 [DEBUG] Using cached positions (age: 7.7s)
+19:30:10 [DEBUG] Check ZEC-USD: Age=6.7s (Limit=14400s)
+19:30:10 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:10 [DEBUG] ✅ PUMP-USD: X10=$651,488, Lighter=$2,028,367,455, Total=$2,029,018,943
+19:30:10 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:10 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:10 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:10 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 48.2h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.7h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0700 < $0.05 (breakeven: 248.3h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0600 < $0.05 (breakeven: 143.5h, hold: 24.0h)
+19:30:10 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:10 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0300 < $0.05 (breakeven: 117.9h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 43.3h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0100 < $0.05 (breakeven: 27.1h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 112.8h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.3h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0000 < $0.05 (breakeven: 28.2h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:10 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0300 < $0.05 (breakeven: 91.0h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0500 < $0.05 (breakeven: 145.8h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 72.5h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 16.0h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0100 < $0.05 (breakeven: 39.7h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 100.0h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 106.5h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 54.4h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:10 [DEBUG] Skip APEX-USD: Spread 0.75% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:10 [INFO] ✅ BERA-USD: Expected profit $0.0600 in 24.0h (breakeven: 9.57h, APY: 73.6%)
+19:30:10 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 50.0h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.3h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0600 < $0.05 (breakeven: 193.4h, hold: 24.0h)
+19:30:10 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 63.4h, hold: 24.0h)
+19:30:10 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:10 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:11 [INFO] 💰 X10 verfügbare Balance: $237.72 USDC
+19:30:11 [INFO] Lighter: Found 1 open positions
+19:30:11 [DEBUG] Using cached positions (age: 8.7s)
+19:30:11 [DEBUG] Check ZEC-USD: Age=7.7s (Limit=14400s)
+19:30:11 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:11 [DEBUG] Lighter Balance: Raw=$260.41, Safe=$247.39
+19:30:11 [INFO] X10: Detected balance = $237.72
+19:30:11 [DEBUG] Using cached positions (age: 9.2s)
+19:30:11 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:12 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=214)
+19:30:12 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=35709)
+19:30:12 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=5s ago, msgs=10)
+19:30:12 [INFO] Lighter: Found 1 open positions
+19:30:12 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=6s ago, msgs=91)
+19:30:12 [DEBUG] Using cached positions (age: 9.7s)
+19:30:12 [DEBUG] Check ZEC-USD: Age=8.7s (Limit=14400s)
+19:30:12 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:13 [INFO] Lighter: Found 1 open positions
+19:30:13 [DEBUG] Fetching fresh positions (force=False, cache_age=10.7s)
+19:30:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:13 [INFO] Lighter: Found 1 open positions
+19:30:13 [INFO] 📊 Positions: X10=1, Lighter=1
+19:30:13 [DEBUG] X10 positions: ['ZEC-USD']
+19:30:13 [DEBUG] Lighter positions: ['ZEC-USD']
+19:30:13 [DEBUG] Check ZEC-USD: Age=10.1s (Limit=14400s)
+19:30:13 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:14 [INFO] Lighter: Found 1 open positions
+19:30:14 [DEBUG] ✅ SUI-USD: X10=$576,359, Lighter=$2,070,044, Total=$2,646,402
+19:30:14 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.8s
+19:30:14 [DEBUG] 📊 Task health: 7 alive, 0 dead
+19:30:14 [DEBUG] Using cached positions (age: 1.5s)
+19:30:14 [DEBUG] Check ZEC-USD: Age=11.1s (Limit=14400s)
+19:30:14 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:14 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:14 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:15 [INFO] Lighter: Found 1 open positions
+19:30:15 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:15 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 48.2h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.7h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0500 < $0.05 (breakeven: 203.9h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0600 < $0.05 (breakeven: 141.7h, hold: 24.0h)
+19:30:15 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:15 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 101.3h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0100 < $0.05 (breakeven: 31.9h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.1h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0200 < $0.05 (breakeven: 29.9h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0300 < $0.05 (breakeven: 124.8h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 32.0h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 36.7h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:15 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0300 < $0.05 (breakeven: 91.0h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0500 < $0.05 (breakeven: 145.8h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 72.5h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 16.0h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $0.0200 < $0.05 (breakeven: 15.9h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0300 < $0.05 (breakeven: 61.4h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0300 < $0.05 (breakeven: 63.4h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 106.5h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 54.4h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 58.3h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:15 [DEBUG] Skip APEX-USD: Spread 0.75% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:15 [INFO] ✅ BERA-USD: Expected profit $0.0700 in 24.0h (breakeven: 6.37h, APY: 73.6%)
+19:30:15 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0100 < $0.05 (breakeven: 38.2h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.3h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0400 < $0.05 (breakeven: 142.7h, hold: 24.0h)
+19:30:15 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0400 < $0.05 (breakeven: 63.4h, hold: 24.0h)
+19:30:15 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:15 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:15 [INFO] 💰 X10 verfügbare Balance: $237.72 USDC
+19:30:15 [DEBUG] Using cached positions (age: 2.5s)
+19:30:15 [DEBUG] Check ZEC-USD: Age=12.1s (Limit=14400s)
+19:30:15 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:16 [DEBUG] ✅ LDO-USD: X10=$126,672, Lighter=$1,868,794, Total=$1,995,466
+19:30:16 [INFO] Lighter: Found 1 open positions
+19:30:16 [DEBUG] Lighter Balance: Raw=$260.44, Safe=$247.42
+19:30:16 [INFO] X10: Detected balance = $237.72
+19:30:16 [DEBUG] Using cached positions (age: 2.9s)
+19:30:16 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:16 [DEBUG] Using cached positions (age: 3.5s)
+19:30:16 [DEBUG] Check ZEC-USD: Age=13.1s (Limit=14400s)
+19:30:16 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:17 [INFO] Lighter: Found 1 open positions
+19:30:17 [DEBUG] ✅ FARTCOIN-USD: X10=$400,868, Lighter=$12,910,617, Total=$13,311,485
+19:30:17 [DEBUG] Using cached positions (age: 4.5s)
+19:30:17 [DEBUG] Check ZEC-USD: Age=14.1s (Limit=14400s)
+19:30:17 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:18 [INFO] Lighter: Found 1 open positions
+19:30:18 [DEBUG] Using cached positions (age: 5.5s)
+19:30:18 [DEBUG] Check ZEC-USD: Age=15.1s (Limit=14400s)
+19:30:18 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:19 [INFO] Lighter: Found 1 open positions
+19:30:19 [DEBUG] ✅ ETH-USD: X10=$12,918,509, Lighter=$0, Total=$12,918,509
+19:30:19 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:19 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:19 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:19 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 47.4h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0200 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 27.2h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0600 < $0.05 (breakeven: 227.4h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0200 < $0.05 (breakeven: 18.8h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 161.7h, hold: 24.0h)
+19:30:19 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:19 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.6h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0100 < $0.05 (breakeven: 30.1h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0300 < $0.05 (breakeven: 55.9h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0200 < $0.05 (breakeven: 29.9h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0400 < $0.05 (breakeven: 148.7h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0200 < $0.05 (breakeven: 37.7h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0000 < $0.05 (breakeven: 29.7h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:19 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0300 < $0.05 (breakeven: 91.0h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0500 < $0.05 (breakeven: 134.2h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 40.7h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0100 < $0.05 (breakeven: 19.7h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.5h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0300 < $0.05 (breakeven: 87.1h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 46.2h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0300 < $0.05 (breakeven: 63.4h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 106.5h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 54.4h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 58.3h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:19 [DEBUG] Skip APEX-USD: Spread 0.81% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:19 [INFO] ✅ BERA-USD: Expected profit $0.0700 in 24.0h (breakeven: 6.37h, APY: 73.6%)
+19:30:19 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0300 < $0.05 (breakeven: 57.9h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.3h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0500 < $0.05 (breakeven: 179.9h, hold: 24.0h)
+19:30:19 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0600 < $0.05 (breakeven: 86.8h, hold: 24.0h)
+19:30:19 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:19 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:19 [DEBUG] Using cached positions (age: 6.5s)
+19:30:19 [DEBUG] Check ZEC-USD: Age=16.1s (Limit=14400s)
+19:30:19 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:19 [INFO] Lighter: Found 1 open positions
+19:30:20 [INFO] 💰 X10 verfügbare Balance: $237.72 USDC
+19:30:20 [DEBUG] Lighter Balance: Raw=$260.49, Safe=$247.46
+19:30:20 [INFO] X10: Detected balance = $237.72
+19:30:20 [DEBUG] Using cached positions (age: 7.3s)
+19:30:20 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:20 [DEBUG] Using cached positions (age: 7.5s)
+19:30:20 [DEBUG] Check ZEC-USD: Age=17.1s (Limit=14400s)
+19:30:20 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:20 [INFO] Lighter: Found 1 open positions
+19:30:21 [DEBUG] ✅ WLD-USD: X10=$141,372, Lighter=$2,047,989, Total=$2,189,361
+19:30:21 [DEBUG] Using cached positions (age: 8.5s)
+19:30:21 [DEBUG] Check ZEC-USD: Age=18.1s (Limit=14400s)
+19:30:21 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:21 [INFO] Lighter: Found 1 open positions
+19:30:22 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s ago, msgs=271)
+19:30:22 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=44430)
+19:30:22 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=15s ago, msgs=10)
+19:30:22 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=16s ago, msgs=91)
+19:30:22 [INFO] Lighter: Found 1 open positions
+19:30:22 [DEBUG] Using cached positions (age: 9.5s)
+19:30:22 [DEBUG] Check ZEC-USD: Age=19.1s (Limit=14400s)
+19:30:22 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $-0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $-0.0000)
+19:30:23 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:23 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:23 [INFO] Lighter: Found 1 open positions
+19:30:23 [DEBUG] Fetching fresh positions (force=False, cache_age=10.5s)
+19:30:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:24 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:24 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 47.4h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0800 < $0.05 (breakeven: 178.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 31.8h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0600 < $0.05 (breakeven: 227.4h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $0.0000 < $0.05 (breakeven: 23.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 161.7h, hold: 24.0h)
+19:30:24 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:24 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 98.9h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip SUI-USD: Expected profit $0.0000 < $0.05 (breakeven: 23.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 45.9h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0200 < $0.05 (breakeven: 29.9h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0500 < $0.05 (breakeven: 197.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0200 < $0.05 (breakeven: 37.7h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0200 < $0.05 (breakeven: 44.6h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:24 [DEBUG] Skip EIGEN-USD: Spread 0.32% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:30:24 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0600 < $0.05 (breakeven: 157.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 40.7h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0000 < $0.05 (breakeven: 23.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0400 < $0.05 (breakeven: 117.5h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0300 < $0.05 (breakeven: 58.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 90.8h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0600 < $0.05 (breakeven: 132.4h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 127.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:24 [DEBUG] Skip APEX-USD: Spread 0.81% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:24 [INFO] ✅ BERA-USD: Expected profit $0.0800 in 24.0h (breakeven: 5.49h, APY: 73.6%)
+19:30:24 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 53.9h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0200 < $0.05 (breakeven: 91.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0700 < $0.05 (breakeven: 210.3h, hold: 24.0h)
+19:30:24 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0600 < $0.05 (breakeven: 86.8h, hold: 24.0h)
+19:30:24 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:24 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:24 [INFO] Lighter: Found 1 open positions
+19:30:24 [INFO] 📊 Positions: X10=1, Lighter=1
+19:30:24 [DEBUG] X10 positions: ['ZEC-USD']
+19:30:24 [DEBUG] Lighter positions: ['ZEC-USD']
+19:30:24 [DEBUG] Check ZEC-USD: Age=20.6s (Limit=14400s)
+19:30:24 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:24 [INFO] 💰 X10 verfügbare Balance: $237.72 USDC
+19:30:24 [DEBUG] ✅ UNI-USD: X10=$159,554, Lighter=$318,774, Total=$478,328
+19:30:24 [INFO] Lighter: Found 1 open positions
+19:30:25 [DEBUG] Lighter Balance: Raw=$260.57, Safe=$247.54
+19:30:25 [INFO] X10: Detected balance = $237.72
+19:30:25 [DEBUG] Using cached positions (age: 1.3s)
+19:30:25 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:25 [DEBUG] Using cached positions (age: 1.5s)
+19:30:25 [DEBUG] Check ZEC-USD: Age=21.6s (Limit=14400s)
+19:30:25 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:25 [INFO] Lighter: Found 1 open positions
+19:30:26 [DEBUG] Using cached positions (age: 2.5s)
+19:30:26 [DEBUG] Check ZEC-USD: Age=22.6s (Limit=14400s)
+19:30:26 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:26 [DEBUG] ✅ MON-USD: X10=$258,657, Lighter=$217,136,903, Total=$217,395,560
+19:30:26 [INFO] Lighter: Found 1 open positions
+19:30:27 [DEBUG] Using cached positions (age: 3.5s)
+19:30:27 [DEBUG] Check ZEC-USD: Age=23.6s (Limit=14400s)
+19:30:27 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:27 [INFO] Lighter: Found 1 open positions
+19:30:28 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:30:28 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:30:28 [DEBUG] ✅ BNB-USD: X10=$1,516,016, Lighter=$15,596, Total=$1,531,612
+19:30:28 [DEBUG] Using cached positions (age: 4.5s)
+19:30:28 [DEBUG] Check ZEC-USD: Age=24.6s (Limit=14400s)
+19:30:28 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:28 [INFO] 🛑 Initiating shutdown...
+19:30:28 [INFO] 🔒 SHUTDOWN: Closing all open trades... (Please wait!)
+19:30:28 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:30:28 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0300 < $0.05 (breakeven: 47.4h, hold: 24.0h)
+19:30:28 [DEBUG] Skip GRASS-USD: Spread 0.31% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.01%)
+19:30:28 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 29.0h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0800 < $0.05 (breakeven: 300.5h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $-0.0000 < $0.05 (breakeven: 25.6h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0800 < $0.05 (breakeven: 188.9h, hold: 24.0h)
+19:30:28 [DEBUG] 🔄 Skip ZEC-USD: Already open (in open_syms)
+19:30:28 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0200 < $0.05 (breakeven: 98.9h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip SUI-USD: Expected profit $-0.0200 < $0.05 (breakeven: 41.9h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0600 < $0.05 (breakeven: 85.0h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0300 < $0.05 (breakeven: 41.5h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0100 < $0.05 (breakeven: 27.1h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip LTC-USD: Expected profit $-0.0600 < $0.05 (breakeven: 222.4h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0200 < $0.05 (breakeven: 37.7h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0100 < $0.05 (breakeven: 31.7h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:30:28 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0700 < $0.05 (breakeven: 167.5h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 61.6h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.05 (breakeven: 40.7h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0000 < $0.05 (breakeven: 23.3h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0200 < $0.05 (breakeven: 75.4h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-0.0000 < $0.05 (breakeven: 24.5h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0100 < $0.05 (breakeven: 57.3h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip HYPE-USD: Expected profit $-0.0400 < $0.05 (breakeven: 69.7h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0500 < $0.05 (breakeven: 90.8h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0600 < $0.05 (breakeven: 132.4h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 127.3h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 56.3h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0000 < $0.05 (breakeven: 26.2h, hold: 24.0h)
+19:30:28 [DEBUG] Skip APEX-USD: Spread 0.99% > Limit 0.30% (Base: 0.30%, 12h_Fund: 0.07%)
+19:30:28 [INFO] ✅ BERA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.97h, APY: 73.6%)
+19:30:28 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0200 < $0.05 (breakeven: 50.0h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0300 < $0.05 (breakeven: 135.7h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip ARB-USD: Expected profit $-0.0700 < $0.05 (breakeven: 210.3h, hold: 24.0h)
+19:30:28 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0600 < $0.05 (breakeven: 86.8h, hold: 24.0h)
+19:30:28 [INFO] ✅ Found 1 opportunities from 62 valid pairs (farm_mode=False, scanned=65)
+19:30:28 [INFO] 🎯 Found 1 opportunities, executing best...
+19:30:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:30:28 [INFO] Lighter: Found 1 open positions
+19:30:28 [INFO] 💰 X10 verfügbare Balance: $237.72 USDC
+19:30:28 [INFO] Lighter: Found 1 open positions
+19:30:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:29 [INFO] 🛑 SHUTDOWN: Closing Lighter ZEC-USD (-0.1)...
+19:30:29 [INFO] 🛑 SHUTDOWN: Closing X10 ZEC-USD (0.1)...
+19:30:29 [INFO] ⏳ Waiting up to 30.0s for 2 close orders...
+19:30:29 [INFO] 🔍 DEBUG close_live_position ENTRY: symbol=ZEC-USD (type=<class 'str'>)
+19:30:29 [INFO] 🔍 DEBUG: original_side=SELL (type=<class 'str'>)
+19:30:29 [INFO] 🔍 DEBUG: notional_usd=40.414 (type=<class 'float'>)
+19:30:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:29 [DEBUG] Using cached positions (age: 5.5s)
+19:30:29 [DEBUG] Check ZEC-USD: Age=25.6s (Limit=14400s)
+19:30:29 [DEBUG] 💎 [HODL] ZEC-USD: Net PnL $0.0000 < $0.05 - Keeping position open (Hold: 0.0h, Gross: $0.0000)
+19:30:29 [DEBUG] Lighter Balance: Raw=$260.51, Safe=$247.48
+19:30:29 [INFO] X10: Detected balance = $237.72
+19:30:29 [DEBUG] Using cached positions (age: 5.6s)
+19:30:29 [DEBUG] SYNC STATUS: DB=1, Executing=1, RealExchange=1, TotalActive=2
+19:30:29 [INFO] Lighter: Found 1 open positions
+19:30:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:30 [DEBUG] ✅ LTC-USD: X10=$143,670, Lighter=$16,789, Total=$160,460
+19:30:30 [INFO] Lighter: Found 1 open positions
+19:30:30 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$404.3030, min_qty_usd=$40.43, min_notional_api=$10.00, final=$44.47
+19:30:30 [ERROR] ❌ Cannot close ZEC-USD: Notional $40.43 < Min $44.47
+19:30:30 [ERROR] ❌ X10 ZEC-USD: Value too low to close: $40.46 < $42.48
+19:30:30 [INFO] ✅ Position closed (Task 0).
+19:30:30 [INFO] ✅ Position closed (Task 1).
+19:30:30 [DEBUG] Cancelled task: maintenance_loop
+19:30:30 [DEBUG] Cancelled task: cleanup_finished_tasks
+19:30:30 [DEBUG] Cancelled task: health_reporter
+19:30:30 [DEBUG] Cancelled task: farm_loop
+19:30:30 [DEBUG] Cancelled task: logic_loop
+19:30:30 [DEBUG] Cancelled task: trade_management_loop
+19:30:30 [DEBUG] Cancelled task: connection_watchdog
+19:30:30 [INFO] Logic loop cancelled
+19:30:30 [INFO] Connection watchdog cancelled
+19:30:30 [INFO] Lighter: Found 1 open positions
+19:30:31 [INFO] 🔌 [x10_trades] WebSocket stopped
+19:30:31 [INFO] Lighter: Found 1 open positions
+19:30:31 [DEBUG] ✅ XPL-USD: X10=$274,148, Lighter=$15,753,114, Total=$16,027,263
+19:30:32 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+19:30:32 [INFO] 🔌 [x10_funding] WebSocket stopped
+19:30:32 [DEBUG] [lighter] WebSocket connection closed forcefully (Timeout).
+19:30:32 [INFO] 🔌 [lighter] WebSocket stopped
+19:30:32 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+19:30:32 [INFO] 🔌 [x10_account] WebSocket stopped
+19:30:32 [INFO] ✅ WebSocketManager stopped
+19:30:32 [INFO] ✅ ParallelExecutionManager: Stopped
+19:30:32 [INFO] 🛑 Stopping InMemoryStateManager...
+19:30:32 [INFO] 📝 State writer loop stopped
+19:30:32 [INFO] ✅ InMemoryStateManager stopped
+19:30:32 [INFO] ✅ Shutdown complete
+19:30:32 [INFO] 🛑 Shutting down...
+19:30:32 [INFO] 🛑 Shutdown requested...
+19:30:32 [INFO] 🛑 Stopping Dashboard API...
+19:30:32 [INFO] ✅ ParallelExecutionManager: Stopped
+19:30:32 [INFO] ✅ WebSocketManager stopped
+19:30:32 [INFO] ✅ OpenInterestTracker stopped
+19:30:32 [INFO] 🛑 Funding tracker: Cancelled
+19:30:32 [INFO] ✅ Funding Tracker stopped
+19:30:32 [INFO] ✅ FundingTracker stopped
+19:30:32 [INFO] 🛑 Stopping InMemoryStateManager...
+19:30:32 [INFO] ✅ InMemoryStateManager stopped
+19:30:32 [INFO] 🔒 Closing database...
+19:30:32 [INFO] 🖊️ Database write loop stopped
+19:30:32 [INFO] ✅ Database closed
+19:30:32 [INFO] 🛑 FeeManager stopped
+19:30:32 [INFO] 🔌 Closing adapters...
+19:30:32 [INFO] 🚨 Executing Internal Graceful Shutdown (pre-adapter-close)...
+19:30:32 [WARNING] 🚨 GRACEFUL SHUTDOWN: Closing ALL positions...
+19:30:32 [INFO] 1️⃣  Cancelling open orders...
+19:30:32 [INFO]    -> Cancelling Lighter orders...
+19:30:32 [INFO] Lighter: Found 1 open positions
+19:30:33 [INFO] Lighter: Found 1 open positions
+19:30:34 [INFO] Lighter: Found 1 open positions
+19:30:35 [INFO]    -> Cancelling X10 orders...
+19:30:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:35 [INFO] Lighter: Found 1 open positions
+19:30:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:36 [INFO] Lighter: Found 1 open positions
+19:30:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:37 [INFO] Lighter: Found 1 open positions
+19:30:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:38 [INFO] Lighter: Found 1 open positions
+19:30:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:39 [INFO] Lighter: Found 1 open positions
+19:30:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:40 [INFO] Lighter: Found 1 open positions
+19:30:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:41 [INFO] Lighter: Found 1 open positions
+19:30:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:42 [INFO] Lighter: Found 1 open positions
+19:30:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:43 [INFO] Lighter: Found 1 open positions
+19:30:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:44 [INFO] Lighter: Found 1 open positions
+19:30:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:45 [INFO] Lighter: Found 1 open positions
+19:30:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:46 [INFO] Lighter: Found 1 open positions
+19:30:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:47 [INFO] Lighter: Found 1 open positions
+19:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:48 [INFO] Lighter: Found 1 open positions
+19:30:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:49 [INFO] Lighter: Found 1 open positions
+19:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:50 [INFO] Lighter: Found 1 open positions
+19:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:50 [WARNING] ⏰ [MAKER STRATEGY] BERA-USD: Wait timeout! Cancelling Lighter order 4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b...
+19:30:50 [INFO] 🔍 Lighter: Attempting to resolve Hash 4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b to Order ID for BERA-USD...
+19:30:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:52 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+19:30:52 [WARNING] ⚠️ Lighter Cancel: Could not find open order matching hash 4e0a3e2a98c674ff2b240c0d0ac0c75c78f3f8d3e7a41c5515e0c1db8c4b5c58839cd33e2991477b. Assuming already closed.
+19:30:52 [ERROR] Error checking status: 'LighterAdapter' object has no attribute 'get_order'
+19:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:52 [DEBUG] Lighter REST GET /api/v1/trades returned 400
+19:30:52 [ERROR] Could not verify trade history: 'NoneType' object is not iterable. Fallback to Position Check.
+19:30:52 [INFO] 🔍 [MAKER STRATEGY] BERA-USD: Checking for Ghost Fills (EXTENDED CHECK)...
+19:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:52 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:53 [INFO] Lighter: Found 1 open positions
+19:30:53 [DEBUG] 🔍 BERA-USD check 1/30 clean...
+19:30:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:55 [INFO] Lighter: Found 1 open positions
+19:30:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:57 [INFO] Lighter: Found 1 open positions
+19:30:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:30:58 [INFO] 2️⃣  Fetching open positions from exchanges...
+19:30:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:30:59 [INFO] Lighter: Found 1 open positions
+19:30:59 [INFO] Lighter: Found 1 open positions
+19:30:59 [INFO] 🛑 Closing X10 Position: ZEC-USD Size: 0.1
+19:30:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:31:00 [ERROR] ❌ X10 ZEC-USD: Value too low to close: $40.46 < $42.48
+19:31:00 [INFO] 🔻 Closing Lighter ZEC-USD: BUY 0.1
+19:31:00 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=BUY, size_usd=$40.43, amount=0.1, price=$404.303000
+19:31:00 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+19:31:00 [DEBUG] QUANTIZE ZEC-USD: Notional=$40.4303 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+19:31:00 [INFO] 🔒 Locked execution for ZEC-USD BUY (Nonce: 5442)...
+19:31:00 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765218748328,"BaseAmount":100,"Price":406720,"IsAsk":0,"Type":0,"TimeInForce":1,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":1767637860795,"ExpiredAt":1765219259795,"Nonce":5442,"Sig":"Xq1upoVwx4yM/136/aBYZBa8JE+1yPu8V0073/VI8LBlWGhvELK+Qt7IEX0C6vkPWzyovEN0NRNb9CmH01mj+NHr7E5fVo/pTqklF90oqjA="}
+19:31:01 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='0fe7ace65e5a62489030581d7895f8666746ae439c32519523f9b96a87297fc14745383f5c7fc170' predicted_execution_time_ms=1765218647872 additional_properties={}
+19:31:01 [INFO] ✅ Lighter Order Sent: 0fe7ace65e5a62489030581d7895f8666746ae439c32519523f9b96a87297fc14745383f5c7fc170
+19:31:01 [INFO] ✅ All positions closed. Bye!
+19:31:01 [INFO] ✅ X10 Adapter geschlossen.
+19:31:01 [INFO] ✅ Lighter Adapter closed
+19:31:01 [INFO] ✅ Bot V5 shutdown complete
+19:31:01 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+19:31:01 [WARNING] 🚨 GRACEFUL SHUTDOWN: Closing ALL positions...
+19:31:01 [INFO] 1️⃣  Cancelling open orders...
+19:31:01 [INFO]    -> Cancelling Lighter orders...
+19:31:01 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+19:31:02 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+19:31:03 [INFO] Lighter: Found 0 open positions
+19:31:03 [WARNING] 👻 Lighter Ghost Guardian: Injected pending position for ZEC-USD (Age: 2.7s)
+19:31:05 [INFO]    -> Cancelling X10 orders...
+19:31:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:06 [INFO] Lighter: Found 0 open positions
+19:31:06 [DEBUG] 🔍 BERA-USD check 6/30 clean...
+19:31:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:08 [INFO] Lighter: Found 0 open positions
+19:31:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:11 [INFO] Lighter: Found 0 open positions
+19:31:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:14 [INFO] Lighter: Found 0 open positions
+19:31:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:18 [INFO] Lighter: Found 0 open positions
+19:31:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:21 [INFO] Lighter: Found 0 open positions
+19:31:21 [DEBUG] 🔍 BERA-USD check 11/30 clean...
+19:31:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:31:22 [DEBUG] Task BERA-USD cancelled
