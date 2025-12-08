@@ -3512,7 +3512,45 @@ async def run_bot_v5(bot_instance=None):
     await setup_database()
     await migrate_database()
     
-    # 2. INIT ADAPTERS
+    # ═══════════════════════════════════════════════════════════════
+    # SIGNAL HANDLER (USER REQUESTED IMPLEMENTATION)
+    # ═══════════════════════════════════════════════════════════════
+    async def shutdown_sequence(sm, bot_target=None):
+        """Schließt alle Trades sauber, bevor der Bot ausgeht."""
+        logger.info("🔄 Graceful Shutdown initiated (Signal Handler)...")
+        config.IS_SHUTTING_DOWN = True
+        
+        if config.CLOSE_ALL_ON_SHUTDOWN and bot_target:
+            logger.info(f"🔻 Configuring Shutdown Close...")
+            try:
+                # Reuse the robust graceful_shutdown we defined on the class
+                # if available, or fall back to manual close
+                 if hasattr(bot_target, 'graceful_shutdown'):
+                    await bot_target.graceful_shutdown()
+                 else:
+                    logger.warning("Bot instance not available for smart shutdown, checking state...")
+                    # Fallback logic if needed, but bot_instance should be passed
+            except Exception as e:
+                logger.error(f"Shutdown sequence error: {e}")
+                
+        logger.info("✅ Shutdown sequence complete.")
+        # Don't sys.exit(0) here, le it bubble up to main loop
+
+    try:
+        loop = asyncio.get_running_loop()
+        def handle_exit():
+            logger.info("🛑 SHUTDOWN SIGNAL RECEIVED (Ctrl+C)! Closing all positions...")
+            config.IS_SHUTTING_DOWN = True
+            asyncio.create_task(shutdown_sequence(state_manager, bot_instance))
+        
+        # Try registering handlers (works on Linux/Mac, or Windows SelectorLoop)
+        loop.add_signal_handler(signal.SIGINT, handle_exit)
+        loop.add_signal_handler(signal.SIGTERM, handle_exit)
+        logger.info("✅ Signal handlers registered successfully.")
+    except NotImplementedError:
+        logger.warning("⚠️ Signal handlers not supported on this event loop (Windows Proactor?). Ctrl+C might be abrupt.")
+        # Fallback is the try/except KeyboardInterrupt in __main__
+
     x10 = X10Adapter()
     lighter = LighterAdapter()
     
