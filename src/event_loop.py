@@ -159,19 +159,9 @@ class BotEventLoop:
         self._shutdown_event. set()
     
     def _setup_signal_handlers(self):
-        """Setup OS signal handlers"""
-        loop = asyncio.get_running_loop()
-        
-        for sig in (signal. SIGINT, signal.SIGTERM):
-            try:
-                loop. add_signal_handler(
-                    sig,
-                    self. request_shutdown
-                )
-                logger.debug(f"Registered handler for {sig. name}")
-            except NotImplementedError:
-                # Windows doesn't support add_signal_handler
-                signal.signal(sig, lambda s, f: self.request_shutdown())
+        """Setup OS signal handlers - Disabled for Windows compatibility"""
+        # We rely on the Main Loop to catch KeyboardInterrupt
+        pass
     
     async def _start_task(self, managed_task: ManagedTask):
         """Start a single managed task"""
