@@ -221,16 +221,9 @@ class ParallelExecutionManager:
                 return False, None, None
             
             finally:
-                # Schedule cleanup after 60s
-                try:
-                    loop = asyncio.get_running_loop()
-                    loop.call_later(
-                        60.0, 
-                        lambda s=symbol: self.active_executions.pop(s, None)
-                    )
-                except RuntimeError:
-                    # Fallback if no running loop
-                    pass
+                # Immediately cleanup execution from active list
+                # This ensures failed/completed trades don't block the slot
+                self.active_executions.pop(symbol, None)
 
     async def _execute_parallel_internal(
         self, 
@@ -273,54 +266,15 @@ class ParallelExecutionManager:
         
         while time.time() - wait_start < MAX_WAIT_SECONDS:
             try:
-                # Check order status via Adapter
-                # Lighter adapter needs a method to check order status by ID
-                # or we check open positions delta?
-                # Best: check open positions. If size changed, we are filled.
-                # But parallel trades might confuse this? Lock ensures single trade per symbol.
-                
                 # Check position
                 pos = await self.lighter.fetch_open_positions()
                 # Find position
                 p = next((x for x in (pos or []) if x.get('symbol') == symbol), None)
                 current_size = safe_float(p.get('size', 0)) if p else 0.0
                 
-                # Compare with expected size (assuming we started from 0 or known state?)
-                # We tracked "start state" in main.py but not passed here.
-                # Simplification: If we see position matching our direction/size intent?
-                # Or simplistic: If usage of "OrderApi" to check status?
-                # Adapter doesn't expose order status check easily.
-                # Use Position Check:
-                # If we intended to Sell 10. We expect Open Position to change by -10.
-                # But we don't know start state here easily.
-                # Assume we are opening new or increasing?
-                # Let's use `fetch_orders` if available? 
-                # Lighter adapter has `get_open_orders`? 
-                
-                # Better: Use `get_actual_position_size` diff?
-                # This requires start snapshot.
-                # ParallelExecutionManager passed `lighter_adapter`.
-                
-                # Let's rely on `fetch_open_positions` which is robust.
-                # If we see a position with size roughly matching our target?
-                # Warning: If we already had a position, this is tricky.
-                # But we have `execution.size_lighter`.
-                
-                # Hack: If order disappears from Open Orders and exists in Position?
-                # Or just check if Position matches target?
-                # Since we have lock, no other trade is modifying position.
-                # So we can check if position size includes our trade.
-                # But we didn't snapshot start size.
-                
-                # For now, let's assume we started flat (most cases). 
-                # Or better: Check if "Active Orders" count is 0? 
-                # If 0 and we succeeded placement, maybe it filled? Or canceled?
-                # Lighter fills are usually instant or stay in book.
-                
-                # Let's use `get_order` if adapter has it?
-                # It doesn't seem exposed in `LighterAdapter` base.
-                
-                # Fallback: Check Position matches expected sign/magnitude
+                # Check if position size is significant (indicates fill)
+                # Note: This checks for *any* position, but given we protect symbols with locks,
+                # this is a reasonable proxy for "our order filled".
                 if abs(current_size) >= abs(execution.size_lighter) * 0.95:
                     filled = True
                     break
@@ -335,36 +289,54 @@ class ParallelExecutionManager:
              logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
              
              # Atomic Cancel
-             if hasattr(self.lighter, 'cancel_limit_order'):
-                 await self.lighter.cancel_limit_order(lighter_order_id, symbol)
-             else:
-                 await self.lighter.cancel_all_orders(symbol)
+             try:
+                 if hasattr(self.lighter, 'cancel_limit_order'):
+                     await self.lighter.cancel_limit_order(lighter_order_id, symbol)
+                 else:
+                     await self.lighter.cancel_all_orders(symbol)
+             except Exception as e:
+                 logger.error(f"Cancel failed for {symbol}: {e}")
              
              # ═══════════════════════════════════════════════════════════════
-             # RACE CONDITION FIX: Atomic Status Check
+             # RACE CONDITION FIX: Atomic Status Check with RETRY LOOP ("Paranoid Mode")
              # ═══════════════════════════════════════════════════════════════
              try:
-                 # Check specific order status immediately
+                 # Check specific order status immediately if supported
                  status = "UNKNOWN"
                  if hasattr(self.lighter, 'get_order_status'):
-                     status = await self.lighter.get_order_status(lighter_order_id)
-                     logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
+                     try:
+                         status = await self.lighter.get_order_status(lighter_order_id)
+                         logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Order status post-cancel: {status}")
+                     except Exception:
+                         pass # Warning: 404/Error handled by position check
                  
                  if status in ['FILLED', 'PARTIALLY_FILLED']:
                      logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
                      filled = True
                  else:
-                     # Fallback mechanism: Check broad position just in case
-                     await asyncio.sleep(0.5) 
-                     current_positions = await self.lighter.fetch_open_positions()
-                     pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
-                     found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
+                     # Fallback mechanism: Check broad position with RETRY LOOP
+                     # API latency can hide the position for seconds (Ghost Trades)
+                     logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (Paranoid Check)...")
                      
-                     if abs(found_size) > 1e-8:
-                         logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Status {status} but POSITION FOUND ({found_size})! Hedging...")
-                         filled = True
-                     else:
-                         logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed. Clean exit.")
+                     for i in range(10): # 10 attempts over ~15-20 seconds to catch late fills
+                         await asyncio.sleep(1.5 + (i * 0.3)) # Backoff: 1.5s, 1.8s, 2.1s...
+                         
+                         try:
+                             current_positions = await self.lighter.fetch_open_positions()
+                             pos_check = next((p for p in (current_positions or []) if p.get('symbol') == symbol), None)
+                             found_size = safe_float(pos_check.get('size', 0)) if pos_check else 0.0
+                             
+                             if abs(found_size) > 1e-8:
+                                 logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={found_size}. HEDGING NOW!")
+                                 filled = True
+                                 break
+                             elif i == 0:
+                                 logger.debug(f"🔍 {symbol} check 1/10 clean...")
+                         except Exception as e:
+                             logger.debug(f"Paranoid check {i} failed: {e}")
+                     
+                     if not filled:
+                         logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified).")
       
              except Exception as e:
                  logger.error(f"Error verification after timeout {symbol}: {e}")

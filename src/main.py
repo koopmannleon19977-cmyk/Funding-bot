@@ -2386,7 +2386,7 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
 
             if real_orphans:
                 logger.error(f"🚨 DESYNC DETECTED: Positions only on Lighter: {real_orphans}")
-                logger.error(f"⚠️ These are UNHEDGED and create directional risk!")
+                logger.error(f"⚠️ These are UNHEDGED - attempting X10 hedge recovery...")
                 
                 # Optional: Send Telegram alert
                 try:
@@ -2395,29 +2395,72 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                         await telegram.send_error(
                             f"🚨 EXCHANGE DESYNC!\n"
                             f"Orphaned Lighter positions: {real_orphans}\n"
-                            f"Closing to prevent directional risk..."
+                            f"Attempting X10 hedge recovery..."
                         )
                 except Exception:
                     pass
                 
                 for sym in real_orphans:
                     try:
-                        logger.warning(f"🔻 Closing orphaned Lighter position: {sym}")
+                        logger.warning(f"🔧 Hedging orphaned Lighter position on X10: {sym}")
                         pos = next((p for p in lighter_positions if p.get('symbol') == sym), None)
                         if pos:
                             size = safe_float(pos.get('size', 0))
-                            original_side = "BUY" if size > 0 else "SELL"
-                            px = safe_float(lighter.fetch_mark_price(sym))
+                            # Lighter position side: positive = LONG, negative = SHORT
+                            # X10 hedge side: OPPOSITE (if Lighter is LONG, X10 should be SHORT)
+                            lighter_side = "BUY" if size > 0 else "SELL"
+                            x10_hedge_side = "SELL" if size > 0 else "BUY"  # Opposite side for hedge
+                            
+                            px = safe_float(x10.fetch_mark_price(sym))
                             if px > 0:
                                 notional = abs(size) * px
-                                # CRITICAL: Robust try-except for TypeError
+                                
+                                # Attempt X10 hedge with market order
+                                logger.info(f"📤 X10 HEDGE: {sym} {x10_hedge_side} ${notional:.2f} (to hedge Lighter {lighter_side})")
                                 try:
-                                    await lighter.close_live_position(sym, original_side, notional)
-                                    logger.info(f"✅ Closed orphaned Lighter {sym}")
+                                    success, order_id = await x10.open_live_position(sym, x10_hedge_side, notional)
+                                    
+                                    if success:
+                                        logger.info(f"✅ Successfully hedged orphan {sym} on X10! Order: {order_id}")
+                                        
+                                        # Register in state manager as recovery trade
+                                        try:
+                                            from src.state_manager import get_state_manager, TradeState, TradeStatus
+                                            sm = await get_state_manager()
+                                            
+                                            entry_price_x10 = px
+                                            entry_price_lit = safe_float(pos.get('entry_price') or pos.get('mark_price') or px)
+                                            
+                                            trade = TradeState(
+                                                symbol=sym,
+                                                side_x10=x10_hedge_side,
+                                                side_lighter=lighter_side,
+                                                size_usd=notional,
+                                                entry_price_x10=entry_price_x10,
+                                                entry_price_lighter=entry_price_lit,
+                                                status=TradeStatus.OPEN,
+                                                is_farm_trade=False,
+                                                created_at=int(time.time() * 1000),
+                                                pnl=0.0,
+                                                funding_collected=0.0,
+                                                account_label="OrphanRecovery",
+                                                x10_order_id=str(order_id) if order_id else f"RECOVERY_{int(time.time())}",
+                                                lighter_order_id=f"ORPHAN_{int(time.time())}"
+                                            )
+                                            await sm.add_trade(trade)
+                                            logger.info(f"✅ Registered recovered trade {sym} in state manager")
+                                        except Exception as reg_err:
+                                            logger.warning(f"⚠️ Could not register recovery trade {sym}: {reg_err}")
+                                    else:
+                                        logger.error(f"❌ X10 hedge failed for orphan {sym}! Falling back to close...")
+                                        # Fallback: Close Lighter position
+                                        await lighter.close_live_position(sym, lighter_side, notional)
+                                        logger.info(f"✅ Closed orphaned Lighter {sym} (hedge fallback)")
+                                        
                                 except TypeError as type_err:
-                                    logger.critical(f"🚨 TypeError closing Lighter orphan {sym}: {type_err}")
+                                    logger.critical(f"🚨 TypeError hedging orphan {sym}: {type_err}")
                     except Exception as e:
-                        logger.error(f"Failed to close Lighter orphan {sym}: {e}")
+                        logger.error(f"Failed to hedge Lighter orphan {sym}: {e}")
         
         # ═══════════════════════════════════════════════════════════════
         # SUCCESS: Exchanges are in sync
@@ -2636,20 +2679,37 @@ async def farm_loop(lighter, x10, parallel_exec):
             trades = await get_open_trades()
             farm_count = sum(1 for t in trades if t.get('is_farm_trade'))
 
-            # FIX: Deduplizierung von DB-Trades und aktiven Tasks
+            # FIX: Deduplizierung von DB-Trades und aktiven Tasks UND echten Positionen
             open_symbols_db = {t['symbol'] for t in trades}
             
             async with TASKS_LOCK:
                 executing_symbols = set(ACTIVE_TASKS.keys())
             
+            # CRITICAL: Also fetch REAL exchange positions to prevent over-trading
+            try:
+                x10_pos, lighter_pos = await get_cached_positions(lighter, x10, force=False)
+                real_x10_symbols = {
+                    p.get('symbol') for p in (x10_pos or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                }
+                real_lighter_symbols = {
+                    p.get('symbol') for p in (lighter_pos or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                }
+                real_exchange_symbols = real_x10_symbols | real_lighter_symbols
+            except Exception as e:
+                logger.debug(f"🚜 Farm: Failed to fetch real positions: {e}")
+                real_exchange_symbols = set()
+            
             # Bilde die Vereinigungsmenge (Union) -> Jedes Symbol zählt nur 1x
-            all_active_symbols = open_symbols_db | executing_symbols
+            all_active_symbols = open_symbols_db | executing_symbols | real_exchange_symbols
             current_total_count = len(all_active_symbols)
             
             # Globales Limit prüfen
             total_limit = getattr(config, 'MAX_OPEN_TRADES', 3)
             
             if current_total_count >= total_limit:
+                logger.debug(f"🚜 Farm: Slots full ({current_total_count}/{total_limit}), waiting...")
                 await asyncio.sleep(5)
                 continue
 
@@ -2721,11 +2781,41 @@ async def farm_loop(lighter, x10, parallel_exec):
                     'spread_pct': spread
                 }
                 
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: Atomically reserve slot BEFORE launching task
+                # This prevents race conditions with logic_loop
+                # ═══════════════════════════════════════════════════════════════
+                async with TASKS_LOCK:
+                    # Re-check slot availability under lock (could have changed)
+                    # CRITICAL FIX: Include DB trades in count!
+                    current_active_count = len(open_symbols_db | set(ACTIVE_TASKS.keys()))
+                    
+                    if current_active_count >= total_limit:
+                        logger.debug(f"🚜 Farm: Slots full ({current_active_count}/{total_limit}), skipping {sym}")
+                        continue
+                    
+                    if sym in ACTIVE_TASKS:
+                        logger.debug(f"🚜 Farm: {sym} already has active task, skipping")
+                        continue
+                    
+                    # Reserve the slot with placeholder
+                    ACTIVE_TASKS[sym] = "RESERVED"
+                
                 logger.info(f"🚜 Opening FARM: {sym} APY={apy*100:.1f}%")
                 
-                ACTIVE_TASKS[sym] = asyncio.create_task(
+                # Create task and replace placeholder
+                task = asyncio.create_task(
                     execute_trade_task(opp, lighter, x10, parallel_exec)
                 )
+                
+                async with TASKS_LOCK:
+                    if ACTIVE_TASKS.get(sym) == "RESERVED":
+                        ACTIVE_TASKS[sym] = task
+                    else:
+                        # Slot was stolen (shouldn't happen), cancel task
+                        task.cancel()
+                        logger.warning(f"🚜 Farm: {sym} slot was stolen, task cancelled")
+                        continue
                 
                 # Record this trade attempt in local rate limiter
                 last_trades.append(now)
@@ -2829,7 +2919,11 @@ async def cleanup_finished_tasks():
     while not SHUTDOWN_FLAG:
         try:
             async with TASKS_LOCK:
-                finished = [sym for sym, task in ACTIVE_TASKS.items() if task.done()]
+                # Find finished tasks - only check actual Task objects, not RESERVED placeholders
+                finished = [
+                    sym for sym, task in ACTIVE_TASKS.items() 
+                    if isinstance(task, asyncio.Task) and task.done()
+                ]
                 for sym in finished:
                     try:
                         del ACTIVE_TASKS[sym]
@@ -3140,8 +3234,42 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                 # 4. Kontrollierter Start der Trades
                 if trades_to_launch:
                     global LAST_ARBITRAGE_LAUNCH
-                    LAST_ARBITRAGE_LAUNCH = time.time()  # <--- NEU: Setze Zeitstempel
-                    logger.info(f"🚀 Launching {len(trades_to_launch)} trades (Slots available: {slots_available})")
+                    LAST_ARBITRAGE_LAUNCH = time.time()
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # CRITICAL FIX: Atomically reserve ALL slots BEFORE launching
+                    # This prevents race conditions where the next logic_loop iteration
+                    # could start additional trades before these are registered.
+                    # ═══════════════════════════════════════════════════════════════
+                    reserved_symbols = []
+                    async with TASKS_LOCK:
+                        # Re-calculate available slots UNDER THE LOCK to prevent race with farm_loop
+                        # CRITICAL FIX: Include DB trades in count!
+                        current_executing_count = len(ACTIVE_TASKS)
+                        total_active_count = len(open_symbols_db | set(ACTIVE_TASKS.keys()))
+                        
+                        actual_slots_available = max(0, max_trades - total_active_count)
+                        
+                        if actual_slots_available == 0:
+                            logger.debug(f"⛔ Slots exhausted under lock ({total_active_count}/{max_trades})")
+                        
+                        for opp in trades_to_launch:
+                            # Stop if we've used all available slots
+                            if len(reserved_symbols) >= actual_slots_available:
+                                break
+                            
+                            sym = opp.get('symbol') if isinstance(opp, dict) else getattr(opp, 'symbol', None)
+                            if sym and sym not in ACTIVE_TASKS:
+                                # Reserve with a placeholder (will be replaced with actual task)
+                                ACTIVE_TASKS[sym] = "RESERVED"
+                                reserved_symbols.append(sym)
+                    
+                    logger.info(f"🚀 Launching {len(reserved_symbols)} trades (Slots available: {slots_available}, Reserved: {len(reserved_symbols)})")
+                    
+                    if not reserved_symbols:
+                        logger.debug("No symbols reserved, skipping launch")
+                        await asyncio.sleep(REFRESH_DELAY)
+                        continue
                     
                     # Balance check for batch
                     avg_trade_size = getattr(config, 'DESIRED_NOTIONAL_USD', 12)
@@ -3177,11 +3305,11 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         f"Locked=${locked_per_exchange:.0f}/ex"
                     )
                     
-                    # Launch trades with proper locking
+                    # Launch trades - only for reserved symbols
                     launched_count = 0
                     for opp in trades_to_launch:
                         symbol = opp.get('symbol') if isinstance(opp, dict) else getattr(opp, 'symbol', None)
-                        if not symbol:
+                        if not symbol or symbol not in reserved_symbols:
                             continue
                         
                         # Check balance for this trade
@@ -3202,6 +3330,10 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         
                         if available_x10 < required_margin or available_lit < required_margin:
                             logger.debug(f"Skip {symbol}: Insufficient balance (X10=${available_x10:.1f}, Lit=${available_lit:.1f}, Need=${required_margin:.1f})")
+                            # Release reservation
+                            async with TASKS_LOCK:
+                                if ACTIVE_TASKS.get(symbol) == "RESERVED":
+                                    del ACTIVE_TASKS[symbol]
                             continue
                         
                         # Deduct from available balance
@@ -3210,47 +3342,58 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         
                         logger.info(f"🚀 Launching trade for {symbol} (APY={opp.get('apy', 0):.1f}%)")
                         
-                        # Symbol-Level Lock
-                        async with TASKS_LOCK:
-                            if symbol in ACTIVE_TASKS:
-                                logger.debug(f"⏸️  {symbol} already has active task, skipping")
-                                continue
-                        
                         lock = get_symbol_lock(symbol)
                         
-                        async def _handle_with_lock():
-                            async with lock:
-                                try:
-                                    await execute_trade_parallel(opp, lighter, x10, parallel_exec)
-                                except asyncio.CancelledError:
-                                    logger.debug(f"Task {symbol} cancelled")
-                                    raise
-                                except Exception as e:
-                                    logger.error(
-                                        f"❌ Task {symbol} failed: {e}",
-                                        exc_info=True
-                                    )
-                                    # Mark as failed for cooldown
-                                    FAILED_COINS[symbol] = time.time()
-                                finally:
-                                    async with TASKS_LOCK:
-                                        ACTIVE_TASKS.pop(symbol, None)
+                        # Capture symbol in closure properly
+                        def make_handler(sym, opportunity):
+                            async def _handle_with_lock():
+                                async with get_symbol_lock(sym):
+                                    try:
+                                        await execute_trade_parallel(opportunity, lighter, x10, parallel_exec)
+                                    except asyncio.CancelledError:
+                                        logger.debug(f"Task {sym} cancelled")
+                                        raise
+                                    except Exception as e:
+                                        logger.error(
+                                            f"❌ Task {sym} failed: {e}",
+                                            exc_info=True
+                                        )
+                                        # Mark as failed for cooldown
+                                        FAILED_COINS[sym] = time.time()
+                                    finally:
+                                        async with TASKS_LOCK:
+                                            ACTIVE_TASKS.pop(sym, None)
+                            return _handle_with_lock
                         
                         # CRITICAL: Don't start new tasks during shutdown
                         if SHUTDOWN_FLAG:
-                            logger.debug(f"Shutdown active, skipping task for {symbol}")
+                            logger.debug(f"Shutdown active, releasing reservation for {symbol}")
+                            async with TASKS_LOCK:
+                                if ACTIVE_TASKS.get(symbol) == "RESERVED":
+                                    del ACTIVE_TASKS[symbol]
                             break
                         
-                        task = asyncio.create_task(_handle_with_lock())
+                        handler = make_handler(symbol, opp)
+                        task = asyncio.create_task(handler())
+                        
+                        # Replace RESERVED placeholder with actual task
                         async with TASKS_LOCK:
                             if SHUTDOWN_FLAG:
                                 task.cancel()
+                                ACTIVE_TASKS.pop(symbol, None)
                                 break
                             ACTIVE_TASKS[symbol] = task
                         
                         LAST_ARBITRAGE_LAUNCH = time.time()
                         launched_count += 1
                         await asyncio.sleep(0.5)
+                    
+                    # Clean up any remaining RESERVED placeholders (edge case: balance-skipped)
+                    async with TASKS_LOCK:
+                        for sym in list(ACTIVE_TASKS.keys()):
+                            if ACTIVE_TASKS.get(sym) == "RESERVED":
+                                del ACTIVE_TASKS[sym]
+                                logger.debug(f"🧹 Cleaned up unreleased reservation for {sym}")
                     
                     if launched_count > 0:
                         logger.info(f"✅ Launched {launched_count} trade tasks this cycle")
@@ -4227,6 +4370,28 @@ async def main():
         # Warten bis Tasks beendet sind
         await asyncio.sleep(1.0)
 
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: "Cancel All" before closing positions
+        # Prevents "ghost orders" from being filled after bot stops.
+        # ═══════════════════════════════════════════════════════════════
+        logger.info("🗑️ SHUTDOWN: Cancelling all pending Limit Orders on Lighter...")
+        try:
+            # We use cached markets to avoid unnecessary API calls
+            if lighter:
+                # Create tasks for all markets in parallel
+                cancel_tasks = []
+                # Use market_info to get all symbols we might have orders on
+                if hasattr(lighter, 'market_info') and lighter.market_info:
+                    for symbol in lighter.market_info.keys():
+                        cancel_tasks.append(lighter.cancel_all_orders(symbol))
+                
+                # Execute all cancellations in parallel with timeout
+                if cancel_tasks:
+                    await asyncio.wait_for(asyncio.gather(*cancel_tasks, return_exceptions=True), timeout=5.0)
+                    logger.info("✅ All Lighter orders cancellation tasks completed.")
+        except Exception as e:
+            logger.error(f"⚠️ Error cancelling orders during shutdown: {e}")
+        
         # ═══════════════════════════════════════════════════════════════
         # FIX: Close All Positions on Shutdown
         # ═══════════════════════════════════════════════════════════════

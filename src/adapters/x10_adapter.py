@@ -176,7 +176,7 @@ class X10Adapter(BaseAdapter):
             # FIX: Try multiple endpoints since /user/account often 404s
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
             
-            endpoints = ["/api/v1/user/profile", "/api/v1/user", "/api/v1/user/account"]
+            endpoints = ["/api/v1/user/fees", "/api/v1/user/profile", "/api/v1/user", "/api/v1/user/account"]
             
             if not self.stark_account or not self.stark_account.api_key:
                 return None
@@ -198,14 +198,41 @@ class X10Adapter(BaseAdapter):
                                 self.rate_limiter.on_success()
                             
                                 inner = data.get('data') or data
-                                fee_sched = inner.get('fee_schedule', {})
                                 
-                                # Falls fee_schedule gefunden, parse es
-                                if fee_sched:
-                                    maker = safe_float(fee_sched.get('maker'), config.MAKER_FEE_X10)
-                                    taker = safe_float(fee_sched.get('taker'), config.TAKER_FEE_X10)
-                                    logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker:.6f}, Taker={taker:.6f}")
-                                    return (maker, taker)
+                                # Strategy 0: Handles /api/v1/user/fees (Returned a list of per-market fees)
+                                if isinstance(inner, list) and len(inner) > 0:
+                                    first_market = inner[0]
+                                    # Fields are makerFeeRate / takerFeeRate
+                                    maker = first_market.get('makerFeeRate')
+                                    taker = first_market.get('takerFeeRate')
+                                    
+                                    if maker is not None and taker is not None:
+                                        maker_val = safe_float(maker, config.MAKER_FEE_X10)
+                                        taker_val = safe_float(taker, config.TAKER_FEE_X10)
+                                        logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
+                                        return (maker_val, taker_val)
+
+                                # Strategy 1: Nested fee_schedule object (common in other endpoints)
+                                elif isinstance(inner, dict):
+                                    fee_schedule = inner.get('fee_schedule', {})
+                                    maker = None
+                                    taker = None
+
+                                    if fee_schedule:
+                                        maker = fee_schedule.get('maker')
+                                        taker = fee_schedule.get('taker')
+                                
+                                    # Strategy 2: Direct keys
+                                    if maker is None and taker is None:
+                                        maker = inner.get('maker_fee') or inner.get('maker')
+                                        taker = inner.get('taker_fee') or inner.get('taker')
+                                    
+                                    if maker is not None and taker is not None:
+                                        maker_val = safe_float(maker, config.MAKER_FEE_X10)
+                                        taker_val = safe_float(taker, config.TAKER_FEE_X10)
+                                        logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
+                                        return (maker_val, taker_val)
+
                             elif resp.status == 404:
                                 continue # Try next endpoint
                             else:
