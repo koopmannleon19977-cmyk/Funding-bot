@@ -1,0 +1,1215 @@
+15:55:11 [INFO] CONFIG VALIDATION COMPLETED.
+15:55:11 [INFO] 🔥 BOT V5 (Architected) STARTING...
+15:55:11 [INFO] 🚀 Starting InMemoryStateManager...
+15:55:11 [INFO] 📂 Initializing database: data/trades.db
+15:55:11 [INFO] ✅ Read pool created: 5 connections
+15:55:11 [INFO] ✅ WAL mode enabled
+15:55:11 [INFO] 🔄 Running database migrations...
+15:55:11 [INFO] ✅ Migrations complete (14 statements)
+15:55:11 [INFO] ✅ Database initialized
+15:55:11 [INFO] 🖊️ Database write loop started
+15:55:11 [DEBUG] Maintenance not due (Last: 2h ago)
+15:55:11 [INFO] 📂 Loaded 0 trades from database
+15:55:11 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+15:55:11 [INFO] ✅ State Manager started
+15:55:11 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+15:55:11 [INFO] ✅ Async database initialized
+15:55:11 [INFO] 📝 State writer loop started
+15:55:11 [DEBUG] ✅ Database schema up to date
+15:55:11 [INFO] Initialisiere X10 Adapter...
+15:55:11 [INFO]  X10 Account initialisiert.
+15:55:11 [INFO] Initialisiere Lighter Adapter...
+15:55:11 [INFO] ✅ Applied Monkey-Patch for SignerClient.switch_api_key
+15:55:11 [INFO] 💰 Checking exchange balances at startup...
+15:55:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:13 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:13 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+15:55:16 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+15:55:18 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:55:18 [INFO] 💰 STARTUP BALANCE CHECK: X10=$243.31, Lighter=$248.23
+15:55:18 [INFO] ✅ Exchange balances OK - Bot can trade!
+15:55:18 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+15:55:18 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+15:55:18 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+15:55:18 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+15:55:19 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+15:55:19 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+15:55:19 [INFO] ✅ FeeManager started with periodic refresh
+15:55:19 [INFO] ✅ FeeManager started
+15:55:19 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+15:55:19 [WARNING] ⚠️ Kelly: All 11 trades had $0.00 PnL - check PnL recording in close_trade!
+15:55:19 [INFO] ✅ Funding Tracker started (updates every 3600s)
+15:55:19 [INFO] ✅ FundingTracker started (interval=3600s)
+15:55:19 [INFO] 📊 Loading Market Data via REST...
+15:55:19 [INFO] 🔄 Funding tracking loop started...
+15:55:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+15:55:19 [INFO] 📊 No open trades to track
+15:55:21 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+15:55:21 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+15:55:21 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+15:55:21 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+15:55:21 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+15:55:21 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+15:55:26 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+15:55:26 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+15:55:26 [INFO] 📈 Pre-loading Lighter prices...
+15:55:27 [DEBUG] Lighter: Loaded 380 funding rates
+15:55:28 [DEBUG] Lighter: Loaded 115 prices via REST
+15:55:28 [INFO] ✅ Lighter prices loaded: 115 symbols
+15:55:28 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+15:55:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+15:55:31 [INFO] ✅ Execution clients warmed up & NETWORK READY
+15:55:31 [INFO] FundingPredictorV2 initialized with BTC Correlation
+15:55:31 [INFO] 启动 OI Tracker für 65 Symbole...
+15:55:31 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+15:55:31 [INFO] 🌐 Starting WebSocket Manager...
+15:55:31 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+15:55:31 [INFO] 🔌 [lighter] WebSocket manager started
+15:55:31 [INFO] 🔌 [x10_account] WebSocket manager started
+15:55:31 [INFO] 🔌 [x10_trades] WebSocket manager started
+15:55:31 [INFO] 🔌 [x10_funding] WebSocket manager started
+15:55:31 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+15:55:31 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:55:31 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:55:31 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+15:55:31 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+15:55:32 [DEBUG] ✅ LTC-USD: X10=$144,422, Lighter=$16,584, Total=$161,006
+15:55:32 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+15:55:32 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+15:55:32 [INFO] [lighter] Resubscribing to 85 channels (paced)...
+15:55:32 [INFO] [lighter] Receive loop started (async iterator)
+15:55:32 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/38
+15:55:32 [DEBUG] [lighter] Subscribed to trade/38
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/41
+15:55:32 [DEBUG] [lighter] Subscribed to trade/41
+15:55:32 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+15:55:32 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:55:32 [INFO] [x10_trades] Receive loop started (async iterator)
+15:55:32 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/33
+15:55:32 [DEBUG] [lighter] Subscribed to trade/33
+15:55:32 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+15:55:32 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:55:32 [INFO] [x10_account] Receive loop started (async iterator)
+15:55:32 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+15:55:32 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+15:55:32 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+15:55:32 [INFO] [x10_funding] Receive loop started (async iterator)
+15:55:32 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/50
+15:55:32 [DEBUG] [lighter] Subscribed to trade/50
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/90
+15:55:32 [DEBUG] [lighter] Subscribed to trade/90
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/17
+15:55:32 [DEBUG] [lighter] Subscribed to trade/17
+15:55:32 [DEBUG] [lighter] Resubscribed 10/85 channels
+15:55:32 [DEBUG] [lighter] Subscribed to order_book/13
+15:55:32 [DEBUG] [lighter] Subscribed to trade/13
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/53
+15:55:33 [DEBUG] [lighter] Subscribed to trade/53
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/2
+15:55:33 [DEBUG] [lighter] Subscribed to trade/2
+15:55:33 [DEBUG] [lighter] Resubscribed 20/85 channels
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/11
+15:55:33 [DEBUG] [lighter] Subscribed to trade/11
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/8
+15:55:33 [DEBUG] [lighter] Subscribed to trade/8
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/9
+15:55:33 [DEBUG] [lighter] Subscribed to trade/9
+15:55:33 [DEBUG] [lighter] Resubscribed 30/85 channels
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/67
+15:55:33 [DEBUG] [lighter] Subscribed to trade/67
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/10
+15:55:33 [DEBUG] [lighter] Subscribed to trade/10
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/60
+15:55:33 [DEBUG] [lighter] Subscribed to trade/60
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/31
+15:55:33 [DEBUG] [lighter] Subscribed to trade/31
+15:55:33 [DEBUG] [lighter] Resubscribed 40/85 channels
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/3
+15:55:33 [DEBUG] [lighter] Subscribed to trade/3
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/46
+15:55:33 [DEBUG] [lighter] Subscribed to trade/46
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/83
+15:55:33 [DEBUG] [lighter] Subscribed to trade/83
+15:55:33 [DEBUG] [lighter] Resubscribed 50/85 channels
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/49
+15:55:33 [DEBUG] [lighter] Subscribed to trade/49
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/4
+15:55:33 [DEBUG] [lighter] Subscribed to trade/4
+15:55:33 [DEBUG] [lighter] Subscribed to order_book/71
+15:55:33 [DEBUG] [lighter] Subscribed to trade/71
+15:55:33 [DEBUG] [lighter] Resubscribed 60/85 channels
+15:55:33 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+15:55:33 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+15:55:33 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+15:55:33 [INFO] ✅ DB ist sauber (keine offenen Trades).
+15:55:33 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+15:55:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:33 [DEBUG] [lighter] Resubscribed 70/85 channels
+15:55:33 [DEBUG] [lighter] Resubscribed 80/85 channels
+15:55:33 [INFO] [lighter] Resubscribed to 85 channels
+15:55:34 [DEBUG] ✅ SEI-USD: X10=$151,005, Lighter=$7,759,642, Total=$7,910,646
+15:55:35 [INFO] Lighter: Found 0 open positions
+15:55:35 [INFO] ✅ No orphaned positions found
+15:55:35 [INFO] ✅ ParallelExecutionManager started
+15:55:35 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+15:55:35 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+15:55:35 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+15:55:35 [INFO] 🔄 Rollback processor running...
+15:55:35 [DEBUG] Registered task: logic_loop (priority=HIGH)
+15:55:35 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+15:55:35 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+15:55:35 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+15:55:35 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+15:55:35 [DEBUG] Registered task: health_reporter (priority=LOW)
+15:55:35 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+15:55:35 [INFO] ═══════════════════════════════════════════════════════════
+15:55:35 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+15:55:35 [INFO] ═══════════════════════════════════════════════════════════
+15:55:35 [INFO] 🚀 BotEventLoop starting...
+15:55:35 [INFO] ▶️ Started task: connection_watchdog
+15:55:35 [INFO] ▶️ Started task: logic_loop
+15:55:35 [INFO] ▶️ Started task: trade_management_loop
+15:55:35 [INFO] ▶️ Started task: farm_loop
+15:55:35 [INFO] ▶️ Started task: maintenance_loop
+15:55:35 [INFO] ▶️ Started task: cleanup_finished_tasks
+15:55:35 [INFO] ▶️ Started task: health_reporter
+15:55:35 [INFO] ✅ Started 7 tasks
+15:55:35 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+15:55:35 [INFO] Logic Loop gestartet – REFRESH alle 3s
+15:55:35 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:55:35 [INFO] 🛡️ Trade Management Loop gestartet
+15:55:35 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+15:55:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+15:55:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:35 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+15:55:35 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+15:55:35 [INFO] Lighter: Found 0 open positions
+15:55:35 [INFO] ✅ RECONCILE: Sync complete.
+15:55:35 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+15:55:35 [DEBUG] Price cache status: X10=78/65, Lighter=115/65
+15:55:35 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:55:36 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:55:36 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+15:55:36 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+15:55:36 [INFO] 💎 MON-USD | APY: 68.3%
+15:55:36 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0400 < $0.05 (breakeven: 13.2h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip BTC-USD: Expected profit $-0.0200 < $0.05 (breakeven: 71.9h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip APEX-USD: Expected profit $-0.0500 < $0.05 (breakeven: 39.9h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 12.2h, hold: 4.0h)
+15:55:36 [DEBUG] Skip STRK-USD: Spread 1.21% too high
+15:55:36 [INFO] 💎 ADA-USD | APY: 52.6%
+15:55:36 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 8.3h, hold: 4.0h)
+15:55:36 [INFO] 💎 WLFI-USD | APY: 52.6%
+15:55:36 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-0.0400 < $0.05 (breakeven: 15.8h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+15:55:36 [INFO] 💎 TRUMP-USD | APY: 62.2%
+15:55:36 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $-0.0100 < $0.05 (breakeven: 6.6h, hold: 4.0h)
+15:55:36 [INFO] 💎 EDEN-USD | APY: 78.0%
+15:55:36 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-0.0500 < $0.05 (breakeven: 15.7h, hold: 4.0h)
+15:55:36 [INFO] 💎 BERA-USD | APY: 92.0%
+15:55:36 [DEBUG] ⛔ Skip BERA-USD: Expected profit $-0.0400 < $0.05 (breakeven: 12.1h, hold: 4.0h)
+15:55:36 [DEBUG] Skip JUP-USD: Spread 0.72% too high
+15:55:36 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0400 < $0.05 (breakeven: 69.9h, hold: 4.0h)
+15:55:36 [INFO] 💎 RESOLV-USD | APY: 114.8%
+15:55:36 [DEBUG] ⛔ Skip RESOLV-USD: Expected profit $-0.0300 < $0.05 (breakeven: 9.2h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0500 < $0.05 (breakeven: 93.0h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0700 < $0.05 (breakeven: 33.6h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 117.4h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip ZORA-USD: Expected profit $-0.0300 < $0.05 (breakeven: 30.6h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0300 < $0.05 (breakeven: 65.7h, hold: 4.0h)
+15:55:36 [INFO] 💎 AVAX-USD | APY: 76.2%
+15:55:36 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 6.9h, hold: 4.0h)
+15:55:36 [INFO] 💎 TIA-USD | APY: 132.3%
+15:55:36 [DEBUG] ⛔ Skip TIA-USD: Expected profit $-0.0100 < $0.05 (breakeven: 4.8h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0400 < $0.05 (breakeven: 25.5h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 24.7h, hold: 4.0h)
+15:55:36 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-0.0600 < $0.05 (breakeven: 205.5h, hold: 4.0h)
+15:55:36 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+15:55:37 [DEBUG] ✅ TON-USD: X10=$125,804, Lighter=$560,390, Total=$686,194
+15:55:39 [DEBUG] ✅ XPL-USD: X10=$253,720, Lighter=$15,416,059, Total=$15,669,778
+15:55:39 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+15:55:39 [DEBUG] X10: Funding Refresh OK, cache=91
+15:55:39 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+15:55:39 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:55:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:39 [DEBUG] Lighter: Loaded 380 funding rates
+15:55:39 [INFO] Lighter: Found 0 open positions
+15:55:39 [INFO] ✅ RECONCILE: Sync complete.
+15:55:39 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:55:39 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:55:40 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:55:40 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:55:40 [INFO] ⚠️ No prediction opportunities, using fallback logic...
+15:55:40 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip MON-USD: Expected profit $-0.0100 < $0.05 (breakeven: 7.6h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.01%)
+15:55:40 [DEBUG] ⛔ Skip BTC-USD: Expected profit $-0.0200 < $0.05 (breakeven: 65.0h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip APEX-USD: Expected profit $-0.0900 < $0.05 (breakeven: 67.0h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip FARTCOIN-USD: Expected profit $-0.0200 < $0.05 (breakeven: 13.4h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip STRK-USD: Spread 1.21% too high
+15:55:40 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip ADA-USD: Expected profit $-0.0700 < $0.05 (breakeven: 25.8h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip WLFI-USD: Spread 0.95% too high
+15:55:40 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+15:55:40 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $-0.0200 < $0.05 (breakeven: 9.1h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip EDEN-USD: Expected profit $-0.0500 < $0.05 (breakeven: 15.7h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.03%)
+15:55:40 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip BERA-USD: Expected profit $-0.0400 < $0.05 (breakeven: 12.1h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip JUP-USD: Spread 0.72% too high
+15:55:40 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip LINEA-USD: Spread 0.45% too high
+15:55:40 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip RESOLV-USD: Spread 0.44% too high
+15:55:40 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0500 < $0.05 (breakeven: 93.0h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: AERO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $-0.0700 < $0.05 (breakeven: 33.6h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip KAITO-USD: Expected profit $-0.0500 < $0.05 (breakeven: 117.4h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.01%)
+15:55:40 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip ZORA-USD: Spread 0.60% too high
+15:55:40 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip SOL-USD: Expected profit $-0.0200 < $0.05 (breakeven: 47.9h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip AVAX-USD: Expected profit $-0.0100 < $0.05 (breakeven: 7.2h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] Skip TIA-USD: Spread 0.42% too high
+15:55:40 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0400 < $0.05 (breakeven: 27.2h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip 1000PEPE-USD: Expected profit $-0.0200 < $0.05 (breakeven: 24.7h, hold: 4.0h)
+15:55:40 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+15:55:40 [DEBUG] ⛔ Skip XPL-USD: Expected profit $-0.0600 < $0.05 (breakeven: 205.5h, hold: 4.0h)
+15:55:40 [INFO] ✅ Found 0 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+15:55:40 [DEBUG] ✅ OP-USD: X10=$205,096, Lighter=$4,555,194, Total=$4,760,290
+15:55:41 [DEBUG] Lighter: Loaded 115 prices via REST
+15:55:41 [DEBUG] Lighter: Funding Refresh OK, cache=113
+15:55:41 [DEBUG] 📊 OI→Pred LTC-USD: OI=$161,006, Velocity=0.00, Trend=STABLE
+15:55:41 [DEBUG] 📊 OI→Pred SEI-USD: OI=$7,910,646, Velocity=0.00, Trend=STABLE
+15:55:41 [DEBUG] 📊 OI→Pred TON-USD: OI=$686,194, Velocity=0.00, Trend=STABLE
+15:55:41 [DEBUG] 📊 OI→Pred XPL-USD: OI=$15,669,778, Velocity=0.00, Trend=STABLE
+15:55:41 [DEBUG] 📊 OI→Pred OP-USD: OI=$4,760,290, Velocity=0.00, Trend=STABLE
+15:55:41 [INFO] 🔍 Running periodic exchange sync check...
+15:55:41 [INFO] 🔍 Starting Exchange Sync Check...
+15:55:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:42 [INFO] Lighter: Found 0 open positions
+15:55:42 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+15:55:42 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=9766)
+15:55:42 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s ago, msgs=26)
+15:55:42 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+15:55:43 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:55:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:43 [INFO] Lighter: Found 0 open positions
+15:55:43 [INFO] ✅ RECONCILE: Sync complete.
+15:55:43 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:55:43 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:55:44 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:55:44 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:55:44 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+15:55:44 [INFO] ✅ Returning 1 ML-ranked opportunities
+15:55:44 [INFO] 🎯 Found 1 opportunities, executing best...
+15:55:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:44 [DEBUG] ✅ MON-USD: X10=$262,047, Lighter=$222,310,019, Total=$222,572,066
+15:55:45 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:46 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:55:46 [INFO] X10: Detected balance = $243.31
+15:55:46 [DEBUG] Fetching fresh positions (force=False, cache_age=1765205746.3s)
+15:55:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:46 [DEBUG] ✅ BNB-USD: X10=$1,672,747, Lighter=$16,313, Total=$1,689,060
+15:55:46 [INFO] Lighter: Found 0 open positions
+15:55:46 [INFO] 📊 Positions: X10=0, Lighter=0
+15:55:46 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:55:46 [INFO] 🚀 Launching 1 trades (Slots available: 3, Reserved: 1)
+15:55:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:47 [INFO] Lighter: Found 0 open positions
+15:55:47 [INFO] 💰 Balance: X10=$243.3 (free=$240.3), Lit=$248.2 (free=$245.2) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+15:55:47 [INFO] 🚀 Launching trade for XPL-USD (APY=5.3%)
+15:55:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:48 [INFO] ✅ Launched 1 trade tasks this cycle
+15:55:48 [DEBUG] ✅ BTC-USD: X10=$25,066,953, Lighter=$2,926, Total=$25,069,879
+15:55:48 [INFO] Lighter: Found 0 open positions
+15:55:48 [DEBUG] ✅ XPL-USD verified: No existing positions on exchanges
+15:55:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:48 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:48 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:55:48 [DEBUG] 🧠 XPL-USD: Prediction conf=0.60, delta=-0.000035
+15:55:48 [DEBUG] MIN_NOTIONAL XPL-USD: min_base=10.00000000 coins, price=$0.1686, min_qty_usd=$1.69, min_notional_api=$10.00, final=$11.00
+15:55:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:49 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:49 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:55:49 [INFO] 🎰 KELLY XPL-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+15:55:49 [INFO] 📊 KELLY SIZE XPL-USD: $50.0 (kelly-optimized)
+15:55:49 [DEBUG] 🔍 Checking liquidity for XPL-USD SELL: Need $50.00 (Max Slip: 2.0%)
+15:55:50 [DEBUG] ✅ APEX-USD: X10=$27,605, Lighter=$830,378, Total=$857,983
+15:55:50 [DEBUG] 🔍 Orderbook for XPL-USD: Bids=20, Asks=20
+15:55:50 [INFO] 🚀 Opening XPL-USD: Size=$50.0 (Min=$11.0)
+15:55:50 [INFO] 🛡️ Registered XPL-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+15:55:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+15:55:50 [INFO] ⚖️ Size Alignment XPL-USD: 50.00$ -> 48.91$ (290.000000 Coins) to match both exchanges (X10 Step: 10.0, Lighter Step: 0.0001)
+15:55:50 [INFO] 🔄 [MAKER STRATEGY] XPL-USD: Placing Lighter Maker Order...
+15:55:50 [INFO] 🚀 LIGHTER OPEN XPL-USD: side=SELL, size_usd=$48.91, price=$0.168640
+15:55:50 [DEBUG] 🔍 DEBUG: XPL-USD market_id = 71 (raw=71, type=<class 'int'>)
+15:55:50 [INFO] 🛡️ Lighter Maker Price XPL-USD SELL: $0.160000
+15:55:50 [DEBUG] QUANTIZE XPL-USD: Notional=$48.90560000000001 -> RawAmt=305.660000 -> QuantAmt=305.660000 (x0.0001) -> BaseInt=3057
+15:55:51 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:55:51 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:55:51 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:55:51 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:55:51 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+15:55:51 [INFO] ✅ Returning 1 ML-ranked opportunities
+15:55:51 [INFO] 🎯 Found 1 opportunities, executing best...
+15:55:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:51 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:51 [INFO] X10: Detected balance = $243.31
+15:55:51 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+15:55:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:51 [DEBUG] ✅ FARTCOIN-USD: X10=$405,220, Lighter=$13,366,160, Total=$13,771,380
+15:55:51 [INFO] 🔒 Locked execution for XPL-USD SELL (Nonce: 5369)...
+15:55:51 [ERROR] ❌ Lighter Inner Error: -1
+15:55:51 [DEBUG] Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 1916, in open_live_position
+    tx, resp, err = await signer.create_order(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 112, in wrapper
+    self.nonce_manager.acknowledge_failure(api_key_index)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\nonce_manager.py", line 79, in acknowledge_failure
+    self.nonce[api_key_index] -= 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: -1
+
+15:55:51 [WARNING] ❌ [MAKER STRATEGY] XPL-USD: Lighter placement failed/rejected. Aborting.
+15:55:51 [WARNING] Circuit Breaker: Trade failed for XPL-USD. Consecutive failures: 1/5
+15:55:52 [INFO] Lighter: Found 0 open positions
+15:55:52 [INFO] 📊 Positions: X10=0, Lighter=0
+15:55:52 [DEBUG] SYNC STATUS: DB=0, Executing=1, RealExchange=0, TotalActive=1
+15:55:52 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=21068)
+15:55:52 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=2s ago, msgs=60)
+15:55:52 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+15:55:55 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:55:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:55 [DEBUG] ✅ STRK-USD: X10=$286,110, Lighter=$6,374,499, Total=$6,660,609
+15:55:55 [INFO] Lighter: Found 0 open positions
+15:55:55 [INFO] ✅ RECONCILE: Sync complete.
+15:55:55 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:55:55 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:55:56 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:55:56 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:55:56 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+15:55:56 [INFO] ✅ Returning 1 ML-ranked opportunities
+15:55:56 [INFO] 🎯 Found 1 opportunities, executing best...
+15:55:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:55:56 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:55:57 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:55:57 [INFO] X10: Detected balance = $243.31
+15:55:57 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+15:55:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:55:57 [DEBUG] ✅ ADA-USD: X10=$247,184, Lighter=$2,906,016, Total=$3,153,200
+15:55:57 [INFO] Lighter: Found 0 open positions
+15:55:57 [INFO] 📊 Positions: X10=0, Lighter=0
+15:55:57 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:55:59 [DEBUG] ✅ PENGU-USD: X10=$57,602, Lighter=$88,399,178, Total=$88,456,780
+15:56:00 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:56:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:01 [DEBUG] ✅ 1000PEPE-USD: X10=$176,269, Lighter=$167,585,542, Total=$167,761,811
+15:56:01 [INFO] Lighter: Found 0 open positions
+15:56:01 [INFO] ✅ RECONCILE: Sync complete.
+15:56:01 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:56:01 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:56:01 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:56:01 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:56:01 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+15:56:01 [INFO] ✅ Returning 1 ML-ranked opportunities
+15:56:01 [INFO] 🎯 Found 1 opportunities, executing best...
+15:56:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:02 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:02 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=33721)
+15:56:02 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:02 [INFO] X10: Detected balance = $243.31
+15:56:02 [DEBUG] Fetching fresh positions (force=False, cache_age=5.5s)
+15:56:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:02 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s ago, msgs=3)
+15:56:02 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=1s ago, msgs=72)
+15:56:02 [DEBUG] ✅ SUI-USD: X10=$605,146, Lighter=$2,037,643, Total=$2,642,790
+15:56:03 [INFO] Lighter: Found 0 open positions
+15:56:03 [INFO] 📊 Positions: X10=0, Lighter=0
+15:56:03 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:56:05 [DEBUG] 🐕 Watchdog OK: Daten-Alter 4.5s
+15:56:05 [DEBUG] 📊 Task health: 7 alive, 0 dead
+15:56:06 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:56:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:06 [DEBUG] ✅ WLFI-USD: X10=$762,613, Lighter=$24,845,125, Total=$25,607,738
+15:56:06 [INFO] Lighter: Found 0 open positions
+15:56:06 [INFO] ✅ RECONCILE: Sync complete.
+15:56:06 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:56:06 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:56:07 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:56:07 [INFO] 🧠 Prediction V2: Found 1 ML-ranked opportunities
+15:56:07 [INFO] ✅ Returning 1 ML-ranked opportunities
+15:56:07 [INFO] 🎯 Found 1 opportunities, executing best...
+15:56:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:07 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:08 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:08 [INFO] X10: Detected balance = $243.31
+15:56:08 [DEBUG] Fetching fresh positions (force=False, cache_age=5.6s)
+15:56:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:08 [DEBUG] ✅ MNT-USD: X10=$96,750, Lighter=$3,143,806, Total=$3,240,556
+15:56:08 [INFO] Lighter: Found 0 open positions
+15:56:08 [INFO] 📊 Positions: X10=0, Lighter=0
+15:56:08 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:56:10 [DEBUG] ✅ IP-USD: X10=$226,845, Lighter=$363,693, Total=$590,538
+15:56:11 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:56:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:12 [DEBUG] ✅ SPX-USD: X10=$89,059, Lighter=$3,980,917, Total=$4,069,976
+15:56:12 [DEBUG] 📊 OI→Pred LTC-USD: OI=$161,006, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred SEI-USD: OI=$7,910,646, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred TON-USD: OI=$686,194, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred XPL-USD: OI=$15,669,778, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred OP-USD: OI=$4,760,290, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred MON-USD: OI=$222,572,066, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred BNB-USD: OI=$1,689,060, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred BTC-USD: OI=$25,069,879, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred APEX-USD: OI=$857,983, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred FARTCOIN-USD: OI=$13,771,380, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred STRK-USD: OI=$6,660,609, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred ADA-USD: OI=$3,153,200, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred PENGU-USD: OI=$88,456,780, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred 1000PEPE-USD: OI=$167,761,811, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred SUI-USD: OI=$2,642,790, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred WLFI-USD: OI=$25,607,738, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred MNT-USD: OI=$3,240,556, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred IP-USD: OI=$590,538, Velocity=0.00, Trend=STABLE
+15:56:12 [DEBUG] 📊 OI→Pred SPX-USD: OI=$4,069,976, Velocity=0.00, Trend=STABLE
+15:56:12 [INFO] Lighter: Found 0 open positions
+15:56:12 [INFO] ✅ RECONCILE: Sync complete.
+15:56:12 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:56:12 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:56:12 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:56:12 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s ago, msgs=44626)
+15:56:12 [INFO] 🧠 Prediction V2: Found 10 ML-ranked opportunities
+15:56:12 [INFO] ✅ Returning 10 ML-ranked opportunities
+15:56:12 [INFO] 🎯 Found 3 opportunities, executing best...
+15:56:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:12 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=1s ago, msgs=108)
+15:56:12 [DEBUG] ⚠️ [x10_account] No messages for 40s (expected every 30s)
+15:56:12 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=40s ago, msgs=3)
+15:56:12 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=7s ago, msgs=91)
+15:56:13 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:13 [DEBUG] ✅ PUMP-USD: X10=$500,945, Lighter=$1,968,670,042, Total=$1,969,170,987
+15:56:14 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:14 [INFO] X10: Detected balance = $243.31
+15:56:14 [DEBUG] Fetching fresh positions (force=False, cache_age=5.6s)
+15:56:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:14 [INFO] Lighter: Found 0 open positions
+15:56:14 [INFO] 📊 Positions: X10=0, Lighter=0
+15:56:14 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:56:14 [INFO] 🚀 Launching 3 trades (Slots available: 3, Reserved: 3)
+15:56:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:15 [INFO] Lighter: Found 0 open positions
+15:56:15 [INFO] 💰 Balance: X10=$243.3 (free=$240.3), Lit=$248.2 (free=$245.2) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+15:56:15 [INFO] 🚀 Launching trade for MON-USD (APY=68.3%)
+15:56:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:15 [INFO] 🚀 Launching trade for WLFI-USD (APY=54.3%)
+15:56:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:16 [INFO] Lighter: Found 0 open positions
+15:56:16 [DEBUG] ✅ MON-USD verified: No existing positions on exchanges
+15:56:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:16 [INFO] 🚀 Launching trade for ADA-USD (APY=52.6%)
+15:56:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:16 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:16 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:56:16 [DEBUG] 🧠 MON-USD: Prediction conf=0.60, delta=0.000031
+15:56:16 [DEBUG] MIN_NOTIONAL MON-USD: min_base=50.00000000 coins, price=$0.0276, min_qty_usd=$1.38, min_notional_api=$10.00, final=$11.00
+15:56:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:16 [INFO] Lighter: Found 0 open positions
+15:56:16 [DEBUG] ✅ WLFI-USD verified: No existing positions on exchanges
+15:56:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:16 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:16 [INFO] ✅ Launched 3 trade tasks this cycle
+15:56:17 [INFO] Lighter: Found 0 open positions
+15:56:17 [DEBUG] ✅ ADA-USD verified: No existing positions on exchanges
+15:56:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:17 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:17 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:56:17 [DEBUG] 🧠 ADA-USD: Prediction conf=0.60, delta=-0.000081
+15:56:17 [DEBUG] MIN_NOTIONAL ADA-USD: min_base=10.00000000 coins, price=$0.4371, min_qty_usd=$4.37, min_notional_api=$10.00, final=$11.00
+15:56:17 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:17 [INFO] 🎰 KELLY MON-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+15:56:17 [INFO] 📊 KELLY SIZE MON-USD: $50.0 (kelly-optimized)
+15:56:17 [DEBUG] 🔍 Checking liquidity for MON-USD BUY: Need $50.00 (Max Slip: 2.0%)
+15:56:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:17 [DEBUG] ✅ TRUMP-USD: X10=$228,131, Lighter=$265,155, Total=$493,286
+15:56:17 [DEBUG] 🔍 Orderbook for MON-USD: Bids=20, Asks=20
+15:56:17 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:17 [INFO] 🎰 KELLY ADA-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+15:56:17 [INFO] 📊 KELLY SIZE ADA-USD: $50.0 (kelly-optimized)
+15:56:17 [DEBUG] 🔍 Checking liquidity for ADA-USD SELL: Need $50.00 (Max Slip: 2.0%)
+15:56:17 [INFO] 🚀 Opening MON-USD: Size=$50.0 (Min=$11.0)
+15:56:17 [INFO] 🛡️ Registered MON-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+15:56:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+15:56:18 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:18 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:56:18 [DEBUG] 🧠 WLFI-USD: Prediction conf=0.60, delta=0.000023
+15:56:18 [DEBUG] MIN_NOTIONAL WLFI-USD: min_base=25.00000000 coins, price=$0.1547, min_qty_usd=$3.87, min_notional_api=$10.00, final=$11.00
+15:56:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:18 [DEBUG] 🔍 Orderbook for ADA-USD: Bids=20, Asks=20
+15:56:18 [INFO] ⚖️ Size Alignment MON-USD: 50.00$ -> 49.97$ (1810.000000 Coins) to match both exchanges (X10 Step: 10.0, Lighter Step: 0.0001)
+15:56:18 [INFO] 🔄 [MAKER STRATEGY] MON-USD: Placing Lighter Maker Order...
+15:56:18 [INFO] 🚀 LIGHTER OPEN MON-USD: side=BUY, size_usd=$49.97, price=$0.027610
+15:56:18 [DEBUG] 🔍 DEBUG: MON-USD market_id = 91 (raw=91, type=<class 'int'>)
+15:56:18 [INFO] 🛡️ Lighter Maker Price MON-USD BUY: $0.020000
+15:56:18 [DEBUG] QUANTIZE MON-USD: Notional=$49.9741 -> RawAmt=2498.705000 -> QuantAmt=2498.705000 (x0.0001) -> BaseInt=24987
+15:56:18 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:18 [INFO] 🎰 KELLY WLFI-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+15:56:18 [INFO] 📊 KELLY SIZE WLFI-USD: $50.0 (kelly-optimized)
+15:56:18 [DEBUG] 🔍 Checking liquidity for WLFI-USD BUY: Need $50.00 (Max Slip: 2.0%)
+15:56:18 [INFO] 🚀 Opening ADA-USD: Size=$50.0 (Min=$11.0)
+15:56:18 [INFO] 🛡️ Registered ADA-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+15:56:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+15:56:18 [DEBUG] 🔍 Orderbook for WLFI-USD: Bids=20, Asks=20
+15:56:18 [INFO] 🚀 Opening WLFI-USD: Size=$50.0 (Min=$16.3)
+15:56:18 [INFO] 🛡️ Registered WLFI-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+15:56:18 [INFO] ⚖️ Size Alignment ADA-USD: 50.00$ -> 49.83$ (114.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+15:56:18 [INFO] 🔄 [MAKER STRATEGY] ADA-USD: Placing Lighter Maker Order...
+15:56:18 [INFO] 🚀 LIGHTER OPEN ADA-USD: side=SELL, size_usd=$49.83, price=$0.437080
+15:56:18 [DEBUG] 🔍 DEBUG: ADA-USD market_id = 39 (raw=39, type=<class 'int'>)
+15:56:18 [INFO] 🛡️ Lighter Maker Price ADA-USD SELL: $0.430000
+15:56:18 [DEBUG] QUANTIZE ADA-USD: Notional=$49.82712 -> RawAmt=115.877023 -> QuantAmt=115.877000 (x0.0001) -> BaseInt=1159
+15:56:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+15:56:18 [INFO] ⚖️ Size Alignment WLFI-USD: 50.00$ -> 49.41$ (320.000000 Coins) to match both exchanges (X10 Step: 10.0, Lighter Step: 0.0001)
+15:56:18 [INFO] 🔄 [MAKER STRATEGY] WLFI-USD: Placing Lighter Maker Order...
+15:56:18 [INFO] 🚀 LIGHTER OPEN WLFI-USD: side=BUY, size_usd=$49.41, price=$0.154400
+15:56:18 [DEBUG] 🔍 DEBUG: WLFI-USD market_id = 72 (raw=72, type=<class 'int'>)
+15:56:18 [INFO] 🛡️ Lighter Maker Price WLFI-USD BUY: $0.150000
+15:56:18 [DEBUG] QUANTIZE WLFI-USD: Notional=$49.408 -> RawAmt=329.386667 -> QuantAmt=329.386600 (x0.0001) -> BaseInt=3294
+15:56:19 [DEBUG] ✅ XRP-USD: X10=$535,522, Lighter=$4,694,548, Total=$5,230,070
+15:56:19 [INFO] 🔒 Locked execution for MON-USD BUY (Nonce: 5369)...
+15:56:19 [ERROR] ❌ Lighter Inner Error: -1
+15:56:19 [DEBUG] Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 1916, in open_live_position
+    tx, resp, err = await signer.create_order(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 112, in wrapper
+    self.nonce_manager.acknowledge_failure(api_key_index)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\nonce_manager.py", line 79, in acknowledge_failure
+    self.nonce[api_key_index] -= 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: -1
+
+15:56:19 [WARNING] ❌ [MAKER STRATEGY] MON-USD: Lighter placement failed/rejected. Aborting.
+15:56:19 [WARNING] Circuit Breaker: Trade failed for MON-USD. Consecutive failures: 2/5
+15:56:19 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:56:19 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:56:20 [INFO] 🔒 Locked execution for ADA-USD SELL (Nonce: 5369)...
+15:56:20 [ERROR] ❌ Lighter Inner Error: -1
+15:56:20 [DEBUG] Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 1916, in open_live_position
+    tx, resp, err = await signer.create_order(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 112, in wrapper
+    self.nonce_manager.acknowledge_failure(api_key_index)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\nonce_manager.py", line 79, in acknowledge_failure
+    self.nonce[api_key_index] -= 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: -1
+
+15:56:20 [WARNING] ❌ [MAKER STRATEGY] ADA-USD: Lighter placement failed/rejected. Aborting.
+15:56:20 [WARNING] Circuit Breaker: Trade failed for ADA-USD. Consecutive failures: 3/5
+15:56:20 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:56:20 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:56:20 [INFO] 🧠 Prediction V2: Found 10 ML-ranked opportunities
+15:56:20 [INFO] ✅ Returning 10 ML-ranked opportunities
+15:56:20 [INFO] 🎯 Found 3 opportunities, executing best...
+15:56:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:20 [INFO] 🔒 Locked execution for WLFI-USD BUY (Nonce: 5369)...
+15:56:20 [ERROR] ❌ Lighter Inner Error: -1
+15:56:20 [DEBUG] Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 1916, in open_live_position
+    tx, resp, err = await signer.create_order(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 112, in wrapper
+    self.nonce_manager.acknowledge_failure(api_key_index)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\nonce_manager.py", line 79, in acknowledge_failure
+    self.nonce[api_key_index] -= 1
+    ~~~~~~~~~~^^^^^^^^^^^^^^^
+KeyError: -1
+
+15:56:20 [WARNING] ❌ [MAKER STRATEGY] WLFI-USD: Lighter placement failed/rejected. Aborting.
+15:56:20 [WARNING] Circuit Breaker: Trade failed for WLFI-USD. Consecutive failures: 4/5
+15:56:20 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:21 [DEBUG] ✅ EDEN-USD: X10=$116,711, Lighter=$5,597,835, Total=$5,714,546
+15:56:21 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:21 [INFO] X10: Detected balance = $243.31
+15:56:21 [DEBUG] Fetching fresh positions (force=False, cache_age=7.4s)
+15:56:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:21 [INFO] Lighter: Found 0 open positions
+15:56:21 [INFO] 📊 Positions: X10=0, Lighter=0
+15:56:21 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:56:22 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s ago, msgs=53928)
+15:56:22 [DEBUG] ⚠️ [x10_account] No messages for 50s (expected every 30s)
+15:56:22 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=50s ago, msgs=3)
+15:56:22 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=17s ago, msgs=91)
+15:56:22 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago, msgs=208)
+15:56:23 [DEBUG] ✅ CRV-USD: X10=$120,441, Lighter=$1,714,487, Total=$1,834,928
+15:56:24 [DEBUG] ✅ PENDLE-USD: X10=$231,609, Lighter=$1,115,713, Total=$1,347,322
+15:56:24 [INFO] 🔍 RECONCILE: Starting strict sync check...
+15:56:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:25 [INFO] Lighter: Found 0 open positions
+15:56:25 [INFO] ✅ RECONCILE: Sync complete.
+15:56:25 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+15:56:25 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+15:56:25 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LTC-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SEI-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TON-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BCH-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for OP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MON-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BNB-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BTC-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APEX-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FARTCOIN-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for STRK-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ADA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENGU-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLFI-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SUI-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SPX-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for IP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MNT-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PUMP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRUMP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XRP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EDEN-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for CRV-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for PENDLE-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ETH-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for UNI-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ENA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AAVE-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for BERA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for JUP-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for GRASS-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINEA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000BONK-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for RESOLV-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WLD-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for POPCAT-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for FIL-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AERO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVNT-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for MKR-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TRX-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for HYPE-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for WIF-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ONDO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for VIRTUAL-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for KAITO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ARB-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZEC-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000SHIB-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TAO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZORA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for SOL-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOT-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LINK-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for AVAX-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for TIA-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for NEAR-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ZRO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for APT-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for DOGE-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for LDO-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for ASTER-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for EIGEN-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for 1000PEPE-USD by factor 0.5
+15:56:25 [DEBUG] ⚠️ BTC DUMP: Reduced prediction for XPL-USD by factor 0.5
+15:56:25 [INFO] 🧠 Prediction V2: Found 10 ML-ranked opportunities
+15:56:25 [INFO] ✅ Returning 10 ML-ranked opportunities
+15:56:25 [INFO] 🎯 Found 3 opportunities, executing best...
+15:56:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+15:56:26 [INFO] 💰 X10 verfügbare Balance: $243.31 USDC
+15:56:27 [DEBUG] Lighter Balance: Raw=$261.29, Safe=$248.23
+15:56:27 [INFO] X10: Detected balance = $243.31
+15:56:27 [DEBUG] Fetching fresh positions (force=False, cache_age=5.6s)
+15:56:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:27 [INFO] Lighter: Found 0 open positions
+15:56:27 [INFO] 📊 Positions: X10=0, Lighter=0
+15:56:27 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+15:56:28 [INFO] 🛑 Initiating shutdown...
+15:56:28 [INFO] 🔒 SHUTDOWN: Closing all open trades... (Please wait!)
+15:56:28 [DEBUG] ✅ ETH-USD: X10=$12,720,486, Lighter=$0, Total=$12,720,486
+15:56:28 [INFO] Lighter: Found 0 open positions
+15:56:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+15:56:29 [INFO] ✅ SHUTDOWN: No positions found.
+15:56:29 [DEBUG] Cancelled task: maintenance_loop
+15:56:29 [DEBUG] Cancelled task: cleanup_finished_tasks
+15:56:29 [DEBUG] Cancelled task: health_reporter
+15:56:29 [DEBUG] Cancelled task: farm_loop
+15:56:29 [DEBUG] Cancelled task: logic_loop
+15:56:29 [DEBUG] Cancelled task: trade_management_loop
+15:56:29 [DEBUG] Cancelled task: connection_watchdog
+15:56:29 [INFO] Logic loop cancelled
+15:56:29 [INFO] Connection watchdog cancelled
+15:56:29 [INFO] 🔌 [x10_trades] WebSocket stopped
+15:56:30 [DEBUG] ✅ UNI-USD: X10=$155,989, Lighter=$326,427, Total=$482,416
+15:56:31 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+15:56:31 [INFO] 🔌 [x10_account] WebSocket stopped
+15:56:31 [DEBUG] [lighter] WebSocket connection closed forcefully (Timeout).
+15:56:31 [INFO] 🔌 [lighter] WebSocket stopped
+15:56:31 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+15:56:31 [INFO] 🔌 [x10_funding] WebSocket stopped
+15:56:31 [INFO] ✅ WebSocketManager stopped
+15:56:31 [INFO] ✅ ParallelExecutionManager: Stopped
+15:56:31 [INFO] 🛑 Stopping InMemoryStateManager...
+15:56:31 [INFO] 📝 State writer loop stopped
+15:56:31 [INFO] ✅ InMemoryStateManager stopped
+15:56:31 [INFO] ✅ Shutdown complete
+15:56:31 [INFO] 🛑 Shutting down...
+15:56:31 [INFO] 🛑 Shutdown requested...
+15:56:31 [INFO] 🛑 Stopping Dashboard API...
+15:56:31 [INFO] ✅ ParallelExecutionManager: Stopped
+15:56:31 [INFO] ✅ WebSocketManager stopped
+15:56:31 [INFO] ✅ OpenInterestTracker stopped
+15:56:31 [INFO] 🛑 Funding tracker: Cancelled
+15:56:31 [INFO] ✅ Funding Tracker stopped
+15:56:31 [INFO] ✅ FundingTracker stopped
+15:56:31 [INFO] 🛑 Stopping InMemoryStateManager...
+15:56:31 [INFO] ✅ InMemoryStateManager stopped
+15:56:31 [INFO] 🔒 Closing database...
+15:56:31 [INFO] 🖊️ Database write loop stopped
+15:56:31 [INFO] ✅ Database closed
+15:56:31 [INFO] 🛑 FeeManager stopped
+15:56:31 [INFO] ✅ X10 Adapter geschlossen.
+15:56:31 [INFO] ✅ Lighter Adapter closed
+15:56:31 [INFO] ✅ Bot V5 shutdown complete

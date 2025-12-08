@@ -114,7 +114,8 @@ class LighterAdapter(BaseAdapter):
                     except AttributeError as ae:
                         if "'int' object has no attribute 'decode'" in str(ae):
                             # This means success! The int was returned (e.g. transaction receipt or 0)
-                            return "PatchedSuccess"
+                            # FIX: Return None instead of string, otherwise SDK treats it as an error message!
+                            return None 
                         raise ae
                 except Exception as e:
                     logger.warning(f"⚠️ Patched switch_api_key warning: {e}")
@@ -1923,7 +1924,8 @@ class LighterAdapter(BaseAdapter):
                                 reduce_only=bool(reduce_only),
                                 trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
                                 order_expiry=int(expiry),
-                                nonce=int(current_nonce)             # 🔥 Explizite Nonce (kein None!)
+                                nonce=int(current_nonce),            # 🔥 Explizite Nonce (kein None!)
+                                api_key_index=int(self._resolved_api_key_index) # 🔥 FIX: Explicit api_key_index to avoid SDK auto-retry bug
                             )
 
                             if err:
