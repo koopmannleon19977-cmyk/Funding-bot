@@ -8,7 +8,7 @@ import aiohttp
 import time
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional, List, Any
 
 from src.rate_limiter import X10_RATE_LIMITER, get_rate_limiter, Exchange
 import config
@@ -421,6 +421,14 @@ class X10Adapter(BaseAdapter):
                 'timestamp': int
             }
         """
+        # 1. Prioritize WebSocket Cache if fresh
+        if symbol in self.orderbook_cache:
+            cache = self.orderbook_cache[symbol]
+            ts = cache.get("timestamp", 0)
+            # Use 2s TTL for orderbook to prefer WS but allow fast fallback
+            if (time.time() * 1000) - ts < 2000:
+                 return cache
+
         try:
             # Rate limit
             await self.rate_limiter.acquire()
@@ -474,8 +482,143 @@ class X10Adapter(BaseAdapter):
         except Exception as e:
             logger.debug(f"X10 orderbook {symbol}: {e}")
         
-        # Return cached or empty
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
+
+    def handle_orderbook_snapshot(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
+        """
+        Process incoming orderbook snapshot from X10 WebSocket.
+        Updates local cache used by fetch_orderbook.
+        """
+        try:
+            # Safe parsing - handle both list [price, size] and dict {'p': price, 'q': size}
+            clean_bids = []
+            for b in bids:
+                try:
+                    if isinstance(b, dict):
+                        price = float(b.get('p', 0))
+                        size = float(b.get('q', 0)) # X10 uses 'q' for quantity
+                    else:
+                        price = float(b[0])
+                        size = float(b[1])
+                        
+                    if price > 0 and size > 0:
+                        clean_bids.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            clean_asks = []
+            for a in asks:
+                try:
+                    if isinstance(a, dict):
+                        price = float(a.get('p', 0))
+                        size = float(a.get('q', 0)) # X10 uses 'q' for quantity
+                    else:
+                        price = float(a[0])
+                        size = float(a[1])
+
+                    if price > 0 and size > 0:
+                        clean_asks.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            clean_bids.sort(key=lambda x: x[0], reverse=True)
+            clean_asks.sort(key=lambda x: x[0])
+            
+            # Timestamp in milliseconds
+            ts = int(time.time() * 1000)
+            
+            cache_entry = {
+                "bids": clean_bids,
+                "asks": clean_asks,
+                "timestamp": ts,
+                "symbol": symbol
+            }
+            
+            # Update cache
+            self.orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache_time[symbol] = time.time()
+            
+            # Log occasional update
+            if random.random() < 0.005:
+                logger.debug(f"X10 WS OB Snapshot {symbol}: {len(clean_bids)}b/{len(clean_asks)}a")
+                
+        except Exception as e:
+            logger.error(f"X10 WS OB Snapshot Error {symbol}: {e}")
+
+    def handle_orderbook_update(self, symbol: str, bids: List[Any], asks: List[Any]):
+        """
+        Process incremental orderbook update (DELTA) from X10 WebSocket.
+        """
+        try:
+            # 1. Get current state
+            current = self.orderbook_cache.get(symbol)
+            if not current:
+                return # Can't update what we don't have
+            
+            # Convert to dictionary for easy O(1) updates: {price: size}
+            # Note: stored keys are floats, precise match required
+            current_bids = {b[0]: b[1] for b in current['bids']}
+            current_asks = {a[0]: a[1] for a in current['asks']}
+            
+            # 2. Apply Bid Updates
+            for b in bids:
+                try:
+                    if isinstance(b, dict):
+                        price = float(b.get('p', 0))
+                        size = float(b.get('q', 0))
+                    else:
+                        price = float(b[0])
+                        size = float(b[1])
+                    
+                    if size <= 0:
+                        current_bids.pop(price, None)
+                    else:
+                        current_bids[price] = size
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            # 3. Apply Ask Updates
+            for a in asks:
+                try:
+                    if isinstance(a, dict):
+                        price = float(a.get('p', 0))
+                        size = float(a.get('q', 0))
+                    else:
+                        price = float(a[0])
+                        size = float(a[1])
+                        
+                    if size <= 0:
+                        current_asks.pop(price, None)
+                    else:
+                        current_asks[price] = size
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            # 4. Reconstruct and Sort Lists
+            # Bids: Descending
+            new_bids = [[p, s] for p, s in current_bids.items()]
+            new_bids.sort(key=lambda x: x[0], reverse=True)
+            
+            # Asks: Ascending
+            new_asks = [[p, s] for p, s in current_asks.items()]
+            new_asks.sort(key=lambda x: x[0])
+            
+            # 5. Update Cache
+            ts = int(time.time() * 1000)
+            cache_entry = {
+                "bids": new_bids,
+                "asks": new_asks,
+                "timestamp": ts,
+                "symbol": symbol
+            }
+            
+            self.orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache_time[symbol] = time.time()
+            
+        except Exception as e:
+            logger.error(f"X10 WS OB Delta Error {symbol}: {e}")
 
     async def fetch_open_interest(self, symbol: str) -> float:
         if not hasattr(self, '_oi_cache'):

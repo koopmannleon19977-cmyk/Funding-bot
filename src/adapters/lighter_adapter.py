@@ -1411,7 +1411,105 @@ class LighterAdapter(BaseAdapter):
 
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
-    async def check_liquidity(self, symbol: str, side: str, quantity_usd: float, max_slippage_pct: float = 0.02) -> bool:
+    def handle_orderbook_snapshot(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
+        """
+        Process incoming orderbook snapshot from WebSocket.
+        Updates the local cache used by fetch_orderbook.
+        
+        Args:
+            symbol: Trading symbol (e.g. 'ETH-USD')
+            bids: List of [price, size]
+            asks: List of [price, size]
+        """
+        try:
+            # Debug log to see structure on error (only first time or error)
+            # Safe parsing
+            clean_bids = []
+            if bids:
+                # Inspect first item to adapt parsing
+                first = bids[0]
+                if isinstance(first, dict):
+                    # Dict format: {'p': '...', 's': '...'} or {'price': ..., 'size': ...}
+                    for b in bids:
+                        try:
+                            price = float(b.get('p') or b.get('price'))
+                            size = float(b.get('s') or b.get('size') or b.get('remaining_base_amount'))
+                            if price > 0 and size > 0:
+                                clean_bids.append([price, size])
+                        except (ValueError, TypeError):
+                            continue
+                else:
+                    # List format: [price, size, ...]
+                    for b in bids:
+                        try:
+                            # Ensure we don't index out of bounds if list is like [price] only
+                            if len(b) >= 2:
+                                price = float(b[0])
+                                size = float(b[1])
+                                if price > 0 and size > 0:
+                                    clean_bids.append([price, size])
+                        except (ValueError, IndexError):
+                            continue
+            
+            clean_asks = []
+            if asks:
+                first = asks[0]
+                if isinstance(first, dict):
+                    for a in asks:
+                        try:
+                            price = float(a.get('p') or a.get('price'))
+                            size = float(a.get('s') or a.get('size') or a.get('remaining_base_amount'))
+                            if price > 0 and size > 0:
+                                clean_asks.append([price, size])
+                        except (ValueError, TypeError):
+                            continue
+                else:
+                    for a in asks:
+                        try:
+                            if len(a) >= 2:
+                                price = float(a[0])
+                                size = float(a[1])
+                                if price > 0 and size > 0:
+                                    clean_asks.append([price, size])
+                        except (ValueError, IndexError):
+                            continue
+            
+            clean_bids.sort(key=lambda x: x[0], reverse=True)
+            clean_asks.sort(key=lambda x: x[0])
+            
+            # Store in cache with MILLISECOND timestamp (compatible with fetch_orderbook)
+            ts = int(time.time() * 1000)
+            
+            cache_entry = {
+                "bids": clean_bids,
+                "asks": clean_asks,
+                "timestamp": ts,
+                "symbol": symbol
+            }
+            
+            # Update both caches to be safe
+            self.orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache[symbol] = cache_entry
+            self._orderbook_cache_time[symbol] = time.time()
+            
+            # Log only occasionally to avoid spam
+            if random.random() < 0.005:
+                logger.debug(f"WS OB Update {symbol}: {len(clean_bids)} bids, {len(clean_asks)} asks")
+                
+        except Exception as e:
+            # Log the DATA that caused the crash to understand structure
+            logger.error(f"Error handling OB snapshot for {symbol}: {e} | Bids Type: {type(bids)} | First Bid: {bids[0] if bids else 'Empty'}")
+
+    def handle_orderbook_update(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
+        """
+        Process incoming orderbook update (delta) from WebSocket.
+        Currently treats updates as snapshots since Lighter WS often sends full book or we lack delta logic.
+        """
+        # For now, treat updates as snapshots since we don't have delta merge logic
+        # and Lighter often sends full snapshots on the 'order_book' channel anyway.
+        self.handle_orderbook_snapshot(symbol, bids, asks)
+
+    async def check_liquidity(self, symbol: str, side: str, quantity_usd: float, max_slippage_pct: float = 0.02, is_maker: bool = False) -> bool:
         """
         Check if there is sufficient liquidity to execute a trade without excessive slippage.
         
@@ -1420,10 +1518,17 @@ class LighterAdapter(BaseAdapter):
             side: 'BUY' or 'SELL'
             quantity_usd: Size of the trade in USD
             max_slippage_pct: Maximum allowed slippage (default 2%)
+            is_maker: If True, we are providing liquidity (Maker), so we don't need counter-liquidity.
             
         Returns:
             bool: True if liquidity is sufficient, False otherwise
         """
+        if is_maker:
+            # For Maker orders, we don't consume the orderbook, we add to it.
+            # So we don't need to check depth.
+            logger.debug(f"🔍 Liquidity Check: Skipping depth check for {symbol} (Maker Order)")
+            return True
+
         try:
             logger.debug(f"🔍 Checking liquidity for {symbol} {side}: Need ${quantity_usd:.2f} (Max Slip: {max_slippage_pct:.1%})")
             ob = await self.fetch_orderbook(symbol, limit=20)
@@ -1752,24 +1857,26 @@ class LighterAdapter(BaseAdapter):
             # Clean old pending (> 15s -> 15s KEEP)
             self._pending_positions = {s: t for s, t in self._pending_positions.items() if now - t < 15.0}
             
-            for sym, ts in self._pending_positions.items():
-                # FIX: "Pending" Positionen für bis zu 15 Sekunden injizieren
-                # API kann sehr laggy sein beim Shutdown
-                if sym not in api_symbols and (now - ts < 15.0):
-                    age = now - ts
-                    # Nur warnen, wenn es ungewöhnlich lange dauert (> 1s)
-                    if age > 1.0:
-                        logger.warning(f"👻 Lighter Ghost Guardian: Injected pending position for {sym} (Age: {age:.1f}s)")
-                    else:
-                        logger.debug(f"👻 Ghost pending: {sym} ({age:.1f}s)")
-                    
-                    # Inject synthetic position
-                    positions.append({
-                        "symbol": sym,
-                        "size": 0.0001, # Dummy non-zero size
-                        "is_ghost": True
-                    })
-                    api_symbols.add(sym) # Prevent duplicates if multiple pending
+            # FIX: Disable Ghost Guardian during shutdown to prevent spam
+            if not getattr(config, 'IS_SHUTTING_DOWN', False):
+                for sym, ts in self._pending_positions.items():
+                    # FIX: "Pending" Positionen für bis zu 15 Sekunden injizieren
+                    # API kann sehr laggy sein beim Shutdown
+                    if sym not in api_symbols and (now - ts < 15.0):
+                        age = now - ts
+                        # Nur warnen, wenn es ungewöhnlich lange dauert (> 1s)
+                        if age > 1.0:
+                            logger.warning(f"👻 Lighter Ghost Guardian: Injected pending position for {sym} (Age: {age:.1f}s)")
+                        else:
+                            logger.debug(f"👻 Ghost pending: {sym} ({age:.1f}s)")
+                        
+                        # Inject synthetic position
+                        positions.append({
+                            "symbol": sym,
+                            "size": 0.0001, # Dummy non-zero size
+                            "is_ghost": True
+                        })
+                        api_symbols.add(sym) # Prevent duplicates if multiple pending
 
             # Cache for deduplication
             self._positions_cache = positions

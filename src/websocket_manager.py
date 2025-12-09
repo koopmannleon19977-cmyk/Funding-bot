@@ -804,6 +804,21 @@ class WebSocketManager:
             x10_funding_config,
             self._handle_message
         )
+
+        # 5. X10 ORDERBOOK Connection (Public, Delta Updates)
+        # Correct URL: plural 'orderbooks'
+        x10_orderbook_config = WSConfig(
+            url="wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks",
+            name="x10_orderbooks", 
+            ping_interval=15.0,
+            ping_timeout=None,
+            headers=x10_headers,
+        )
+        self._connections["x10_orderbooks"] = ManagedWebSocket(
+            x10_orderbook_config,
+            self._handle_message
+        )
+
         
         # Start all connections
         await asyncio.gather(*[
@@ -998,12 +1013,17 @@ class WebSocketManager:
                 bids = data.get("bids", [])
                 asks = data.get("asks", [])
                 
-                if bids:
-                    self.lighter_adapter._orderbook_cache[symbol] = {
-                        'bids': bids,
-                        'asks': asks,
-                        'timestamp': time.time()
-                    }
+                if bids or asks:
+                    # Use the new handler method!
+                    if hasattr(self.lighter_adapter, 'handle_orderbook_snapshot'):
+                        self.lighter_adapter.handle_orderbook_snapshot(symbol, bids, asks)
+                    else:
+                        # Fallback (should not happen after fix)
+                        self.lighter_adapter._orderbook_cache[symbol] = {
+                            'bids': bids,
+                            'asks': asks,
+                            'timestamp': time.time()
+                        }
     
     async def _handle_lighter_trade(self, msg: dict):
         """Process Lighter trade"""
@@ -1078,21 +1098,32 @@ class WebSocketManager:
                 self.x10_adapter._funding_cache_time[symbol] = time.time()
     
     async def _handle_x10_orderbook(self, msg: dict):
-        """Process X10 orderbook"""
+        """Process X10 orderbook update"""
         data = msg.get("data", {})
-        market = data.get("m", data.get("market", ""))
+        if not data:
+            return
+
+        # Market ID/Symbol
+        market = data.get("m") or data.get("market") or msg.get("market")
+        if not market:
+            return
+
+        symbol = market.replace("/", "-")
         
-        if market:
-            symbol = market.replace("/", "-")
-            bids = data.get("b", data.get("bid", []))
-            asks = data.get("a", data. get("ask", []))
+        # Bids/Asks
+        bids = data.get("b") or data.get("bids") or []
+        asks = data.get("a") or data.get("asks") or []
+
+        if self.x10_adapter:
+            msg_type = msg.get("type", "SNAPSHOT") # Default to snapshot if missing
             
-            if self.x10_adapter and (bids or asks):
-                self.x10_adapter._orderbook_cache[symbol] = {
-                    'bids': bids,
-                    'asks': asks,
-                    'timestamp': time.time()
-                }
+            if msg_type == "SNAPSHOT":
+                if hasattr(self.x10_adapter, 'handle_orderbook_snapshot'):
+                    self.x10_adapter.handle_orderbook_snapshot(symbol, bids, asks)
+            elif msg_type == "DELTA":
+                if hasattr(self.x10_adapter, 'handle_orderbook_update'):
+                    self.x10_adapter.handle_orderbook_update(symbol, bids, asks)
+        
     
     async def _handle_x10_open_interest(self, msg: dict):
         """Process X10 open interest"""

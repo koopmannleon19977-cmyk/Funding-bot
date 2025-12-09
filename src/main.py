@@ -1155,7 +1155,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             l_side = opp.get('leg1_side', 'BUY')
             lit_side_check = l_side if l_ex == 'Lighter' else ("SELL" if l_side == "BUY" else "BUY")
             
-            if not await lighter.check_liquidity(symbol, lit_side_check, final_usd):
+            if not await lighter.check_liquidity(symbol, lit_side_check, final_usd, is_maker=True):
                 logger.warning(f"🛑 {symbol}: Insufficient Lighter liquidity for ${final_usd:.2f}")
                 return False
 
@@ -2912,6 +2912,12 @@ async def reconcile_db_with_exchanges(lighter, x10):
     logger.info(f"📊 Final state: {len(open_trades_after)} open trades")
 
 
+def safe_float(val: Any) -> float:
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return 0.0
+
 
 async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
     """
@@ -2967,19 +2973,23 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         for trade in db_trades:
             symbol = trade.symbol
             # Skip recently opened trades to avoid race conditions with creation
-            # RECENTLY_OPENED_TRADES check
             if symbol in RECENTLY_OPENED_TRADES:
                 if time.time() - RECENTLY_OPENED_TRADES[symbol] < 60:
                      continue
+            
+            # Helper to check if position exists
+            has_lighter = symbol in real_lighter and abs(real_lighter[symbol]) > 0
+            has_x10 = symbol in real_x10 and abs(real_x10[symbol]) > 0
 
-            if symbol not in real_lighter and symbol not in real_x10:
-                logger.warning(f"🧟 ZOMBIE DETECTED: {symbol} in DB but NO positions on exchange. Removing from DB.")
-                await sm.set_trade_closed(trade.id, reason="ZOMBIE_CLEANUP")
+            if not has_lighter and not has_x10:
+                logger.warning(f"⚠️  ZOMBIE GEFUNDEN: {symbol} ist in DB offen, aber nicht auf Exchange. Schließe ihn...")
+                # Close in DB locally (update status to CLOSED)
+                await sm.close_trade(symbol, 0.0, 0.0) 
                 
-            elif symbol not in real_lighter:
-                logger.error(f"⚠️ PARTIAL ZOMBIE: {symbol} has X10 position but missing Lighter! DANGEROUS!")
-                # Hier müsste man eigentlich den X10 Teil schließen!
-                # await parallel_exec.close_trade(trade) 
+            elif not has_lighter or not has_x10:
+                logger.error(f"⚠️  TEIL-ZOMBIE {symbol}: Lighter={has_lighter}, X10={has_x10}. Schließe verbleibende Positionen...")
+                # Close remaining legs on exchange
+                await parallel_exec.close_trade(trade)
 
         # 4. Check auf Ghosts / Orphans (Exchange hat Position, DB nicht)
         all_exchange_symbols = set(real_lighter.keys()) | set(real_x10.keys())
@@ -2987,23 +2997,20 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         
         for symbol in all_exchange_symbols:
             if symbol not in db_symbols:
-                # Skip if active task
-                if symbol in ACTIVE_TASKS:
-                    continue
-
+                # Skip if recently opened (race condition protection)
+                if symbol in RECENTLY_OPENED_TRADES:
+                    if time.time() - RECENTLY_OPENED_TRADES[symbol] < 60:
+                        continue
+                        
                 l_size = real_lighter.get(symbol, 0)
                 x_size = real_x10.get(symbol, 0)
                 
-                logger.error(f"👻 GHOST POSITION: {symbol} found on Exchange (L={l_size}, X={x_size}) but NOT in DB!")
+                logger.error(f"👻 ORPHAN POSITION: {symbol} gefunden (L={l_size}, X={x_size}) aber NICHT in DB!")
                 
-                # WICHTIG: Entscheide hier! Adoptieren oder Schließen?
-                if l_size != 0 and x_size != 0:
-                    logger.info(f"✨ Adopting valid ghost trade {symbol} into DB...")
-                    # TODO: Implement adoption logic
-                else:
-                    logger.warning(f"🚨 Naked Position {symbol}! Closing immediately...")
-                    # if parallel_exec:
-                    #     await parallel_exec.force_close_symbol(symbol)
+                # Sicheheitshalber schließen ("Naked Position Protection")
+                if parallel_exec:
+                    logger.warning(f"🚨 Schließe Orphan-Position {symbol} sofort...")
+                    await parallel_exec.force_close_symbol(symbol)
                     
         logger.info("✅ RECONCILE: Sync complete.")
         

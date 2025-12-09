@@ -180,8 +180,9 @@ class KellyPositionSizer:
             else:
                 if skipped_zero > 0:
                     logger.warning(
-                        f"⚠️ Kelly: All {skipped_zero} trades had $0.00 PnL - "
-                        f"check PnL recording in close_trade!"
+                        f"⚠️ Kelly: All {skipped_zero} trades had $0.00 PnL. "
+                        f"This is expected for new deployments or if PnL tracking was recently enabled. "
+                        f"Proceeding with defaults."
                     )
                 else:
                     logger.info("📂 Kelly: No historical trades found in DB")
