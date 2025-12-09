@@ -1680,7 +1680,22 @@ class LighterAdapter(BaseAdapter):
 
                 if abs(size) > 1e-8:
                     symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
-                    positions.append({"symbol": symbol, "size": size})
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FILTER MINI POSITIONS ("DUST")
+                    # ═══════════════════════════════════════════════════════════════
+                    # Only calculate price if needed to save API calls, but we likely have it buffered
+                    price = self.get_price(symbol)
+                    if not price:
+                        # Fallback if no price: trust the size, but require slightly more size
+                        logger.debug(f"{symbol} has no price, keeping position (size={size})")
+                        positions.append({"symbol": symbol, "size": size})
+                    else:
+                        notional_est = abs(size) * price
+                        if notional_est > 1.0: # Filter < $1 Dust
+                            positions.append({"symbol": symbol, "size": size})
+                        else:
+                            logger.debug(f"🧹 Filtered dust position {symbol}: ${notional_est:.4f} (< $1.0)")
 
             logger.info(f"Lighter: Found {len(positions)} open positions")
             
