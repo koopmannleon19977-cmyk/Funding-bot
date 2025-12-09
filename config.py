@@ -178,6 +178,12 @@ ENABLE_LATENCY_ARB = False
 CLOSE_ALL_ON_SHUTDOWN = True
 SHUTDOWN_CLOSE_TIMEOUT = 60
 
+# ═══════════════════════════════════════════════════════════════
+# DUST HANDLING
+# ═══════════════════════════════════════════════════════════════
+DUST_THRESHOLD_MULTIPLIER = 1.1  # 10% over Min-Notional as safety buffer
+DUST_ALERT_ENABLED = True        # Send Telegram alerts for dust positions
+
 # Kelly Sizing (Advanced)
 POSITION_SIZE_MULTIPLIERS = {"high": 2.0, "medium": 1.5, "normal": 1.2, "low": 0.8}
 MAX_POSITION_SIZE_PCT = 2.0

@@ -1,6 +1,6 @@
 import logging
 from typing import Any, Union, Optional, Dict
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR, InvalidOperation
 
 logger = logging.getLogger(__name__)
 
@@ -209,3 +209,30 @@ def safe_int(val: Any, default: int = 0) -> int:
         return int(float(str(val)))
     except (ValueError, TypeError):
         return default
+
+def quantize_value(value: Any, step_size: Any, rounding: str = ROUND_FLOOR) -> float:
+    """
+    Quantize value to a specific step size using Decimal arithmetic.
+    
+    Args:
+        value: The value to quantize
+        step_size: The step size (e.g. 0.01, 10, 0.0001)
+        rounding: Rounding mode (default: ROUND_FLOOR)
+        
+    Returns:
+        float: The quantized value
+    """
+    if value is None or step_size is None:
+        return 0.0
+        
+    try:
+        d_val = safe_decimal(value)
+        d_step = safe_decimal(step_size)
+        
+        if d_step == 0:
+            return float(d_val)
+            
+        quantized = d_val.quantize(d_step, rounding=rounding)
+        return float(quantized)
+    except Exception:
+        return 0.0

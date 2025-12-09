@@ -418,12 +418,18 @@ class InMemoryStateManager:
         pnl_value = float(safe_decimal(pnl))
         funding_value = float(safe_decimal(funding))
         
-        return await self.update_trade(symbol, {
+        # ✅ FIX: Enhanced logging to verify PnL values are being queued correctly
+        logger.info(f"📝 StateManager.close_trade({symbol}): PnL=${pnl_value:.4f}, Funding=${funding_value:.4f}")
+        
+        result = await self.update_trade(symbol, {
             'status': TradeStatus.CLOSED,
             'closed_at': int(time.time() * 1000),
             'pnl': pnl_value,
             'funding_collected': funding_value,
         })
+        
+        logger.debug(f"📝 StateManager.close_trade({symbol}): update_trade returned {result}")
+        return result
 
     async def remove_trade(self, symbol: str) -> bool:
         """Remove a trade from state"""

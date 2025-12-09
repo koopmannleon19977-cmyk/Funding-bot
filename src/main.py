@@ -524,8 +524,12 @@ async def _fetch_exit_fees_after_delay(
 async def close_trade_in_state(symbol: str, pnl: float = 0, funding: float = 0):
     """Close trade in state (writes to DB in background)"""
     sm = await get_state_manager()
+    
+    # ✅ FIX: Enhanced logging to verify PnL is being passed correctly
+    logger.info(f"📝 close_trade_in_state({symbol}): PnL=${pnl:.4f}, Funding=${funding:.4f}")
+    
     await sm.close_trade(symbol, pnl, funding)
-    logger.info(f"✅ Trade {symbol} closed (PnL: ${pnl:.2f})")
+    logger.info(f"✅ Trade {symbol} closed in state (PnL: ${pnl:.4f}, Funding: ${funding:.4f})")
 
 async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data: Dict):
     try:
@@ -4527,11 +4531,66 @@ class FundingBot:
                             logger.error(f"Failed to close X10 {symbol}: {e}")
 
                 # 5. Schließe Lighter (Market Close / Taker / IOC)
-                lighter_close_tasks = []
+                # ═══════════════════════════════════════════════════════════════
+                # DUST-AWARE POSITION CATEGORIZATION
+                # ═══════════════════════════════════════════════════════════════
+                dust_positions = []
+                closeable_positions = []
+                
                 for pos in lighter_positions:
                     symbol = pos.get('symbol')
                     size = safe_float(pos.get('size', 0))
-                    if size == 0: continue
+                    if size == 0:
+                        continue
+                    
+                    price = self.lighter.get_price(symbol) or 0
+                    value = abs(size) * price
+                    
+                    # Get min notional
+                    min_notional = 5.0
+                    if hasattr(self.lighter, 'min_notional_usd'):
+                        min_notional = self.lighter.min_notional_usd(symbol)
+                    
+                    if value < min_notional:
+                        dust_positions.append({
+                            'symbol': symbol,
+                            'size': size,
+                            'value': value,
+                            'min_required': min_notional
+                        })
+                    else:
+                        closeable_positions.append(pos)
+                
+                # Report dust positions (only on first attempt)
+                if dust_positions and attempt == 0:
+                    dust_report = "\n".join([
+                        f"  - {d['symbol']}: ${d['value']:.2f} (min: ${d['min_required']:.2f})"
+                        for d in dust_positions
+                    ])
+                    logger.warning(
+                        f"⚠️ DUST POSITIONS (cannot close automatically):\n{dust_report}"
+                    )
+                    
+                    # Telegram Alert
+                    if getattr(config, 'DUST_ALERT_ENABLED', True):
+                        try:
+                            from src.telegram_bot import get_telegram_bot
+                            telegram = get_telegram_bot()
+                            if telegram and telegram.enabled:
+                                total_dust = sum(d['value'] for d in dust_positions)
+                                await telegram.send_message(
+                                    f"⚠️ **SHUTDOWN DUST REPORT**\n"
+                                    f"```\n{dust_report}\n```\n"
+                                    f"Total dust value: ${total_dust:.2f}"
+                                )
+                        except Exception as e:
+                            logger.debug(f"Could not send dust report: {e}")
+                
+                # Process only closeable positions
+                lighter_close_tasks = []
+                for pos in closeable_positions:
+                    symbol = pos.get('symbol')
+                    size = safe_float(pos.get('size', 0))
                     
                     close_side = "SELL" if size > 0 else "BUY"
                     close_size = abs(size)
@@ -4547,19 +4606,6 @@ class FundingBot:
                         price = self.lighter.get_price(symbol)
                         agg_price = None
                         if price:
-                            # Min-Notional Check Lighter (Verhindert API Fehler)
-                            remaining_val = close_size * price
-                            min_notional = 5.0
-                            if hasattr(self.lighter, 'min_notional_usd'):
-                                min_notional = self.lighter.min_notional_usd(symbol)
-                            
-                            if remaining_val < min_notional:
-                                if remaining_val < 1.0:
-                                    logger.warning(f"⚠️ {symbol}: Ignoring DUST position (${remaining_val:.2f}) during shutdown.")
-                                else:
-                                    logger.warning(f"⚠️ {symbol}: Cannot close position (${remaining_val:.2f} < Min ${min_notional:.2f}). Skipping.")
-                                continue
-
                             if close_side == "BUY":
                                 agg_price = price * (1 + target_slip)
                             else:

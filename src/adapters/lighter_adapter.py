@@ -35,6 +35,7 @@ except ImportError as e:
 
 from .base_adapter import BaseAdapter
 from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
+from src.adapters.lighter_client_fix import SaferSignerClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,16 +50,7 @@ MARKET_OVERRIDES = {
 # GLOBAL TYPE-SAFETY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from src.utils import safe_float, safe_int
-
-
-def quantize_value(value, step_size, rounding=ROUND_FLOOR):
-    """Strikte Rundung für Exchange-Konformität"""
-    if not value or not step_size:
-        return value
-    d_value = Decimal(str(value))
-    d_step = Decimal(str(step_size))
-    return float(d_value.quantize(d_step, rounding=rounding))
+from src.utils import safe_float, safe_int, quantize_value
 
 
 def safe_int(val, default=0):
@@ -78,51 +70,8 @@ class LighterAdapter(BaseAdapter):
         print(f"DEBUG: LighterAdapter.__init__ called at {time.time()}")
         super().__init__("Lighter")
 
-        # ═══════════════════════════════════════════════════════════════
-        # 🔥 MONKEY PATCH: Fix SignerClient.switch_api_key crash
-        # The library tries to .decode() an int return value. We fix it here.
-        # ═══════════════════════════════════════════════════════════════
-        if HAVE_LIGHTER_SDK and SignerClient:
-            original_switch = SignerClient.switch_api_key
-            
-            def patched_switch_api_key(signer_self, api_key_index: int):
-                # Call original method but don't crash if it returns int
-                # We re-implement the logic or wrap safely?
-                # Actually, we can't easily call 'original_switch' if it crashes internally.
-                # But wait, the crash is in the RETURN statement of the function.
-                # Since we can't edit the function body, we have to REPLACE it.
-                # The logic seems simple: send a request to switch key.
-                
-                # Logic reverse-engineered from traceback/context:
-                # It calls a contract/method. 
-                # Let's try to just return None if it fails, or string "OK".
-                
-                try:
-                    # Try calling the underlying method that switch_api_key uses, avoiding the decode
-                    # SignerClient.switch_api_key usually assumes:
-                    # result = self.api_client.some_call(...)
-                    # return result.decode() 
-                    
-                    # Since we can't access 'original_switch' safely due to the crash,
-                    # we must override it completely.
-                    # Assuming it just sets state on the lighter-chain side?
-                    # Or maybe we can just bypass it if we only have one key?
-                    
-                    # Safer: Wrap it in try/except and ignore Attribute Error
-                    try:
-                        return original_switch(signer_self, int(api_key_index))
-                    except AttributeError as ae:
-                        if "'int' object has no attribute 'decode'" in str(ae):
-                            # This means success! The int was returned (e.g. transaction receipt or 0)
-                            # FIX: Return None instead of string, otherwise SDK treats it as an error message!
-                            return None 
-                        raise ae
-                except Exception as e:
-                    logger.warning(f"⚠️ Patched switch_api_key warning: {e}")
-                    return None
-
-            SignerClient.switch_api_key = patched_switch_api_key
-            logger.info("✅ Applied Monkey-Patch for SignerClient.switch_api_key")
+        if HAVE_LIGHTER_SDK:
+            logger.info("✅ Using SaferSignerClient subclass instead of Monkey-Patch")
 
         self.market_info = {}
         print(f"DEBUG: market_info initialized: {hasattr(self, 'market_info')}")
@@ -423,6 +372,88 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Lighter get_open_orders error: {e}")
             return []
 
+    async def get_order(self, order_id: str, symbol: Optional[str] = None) -> Optional[dict]:
+        """
+        Fetch a single order by ID.
+        Since Lighter might not have a direct endpoint for single order lookup without market context,
+        we try to query /api/v1/orders with order_id if supported, or filter from open orders if necessary.
+        """
+        try:
+            # Resolve indices if needed
+            if not getattr(self, '_resolved_account_index', None):
+                 await self._resolve_account_index()
+            
+            acc_idx = getattr(self, '_resolved_account_index', None)
+            
+            # Param construct
+            params = {
+                "account_index": acc_idx,
+            }
+            if symbol and symbol in self.market_info:
+                 m_idx = self.market_info[symbol].get('market_index')
+                 if m_idx is not None:
+                     params['market_index'] = m_idx
+
+            # Try to pass order_id directly
+            params['order_id'] = order_id
+            
+            # API Call
+            resp = await self._rest_get("/api/v1/orders", params=params)
+             
+            if not resp:
+                return None
+
+            orders = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+            
+            target_order = None
+            for o in orders:
+                # Compare ID (string comparison for safety)
+                if str(o.get('id', '')) == str(order_id):
+                    target_order = o
+                    break
+            
+            if target_order:
+                # Normalize response for caller
+                # Caller expects: status, filledAmount (or executedQty)
+                
+                # Map status if needed (assuming 10=OPEN, 20=FILLED, 30=CANCELLED etc if using codes)
+                # But parallel_execution checks string 'FILLED', 'CANCELED' 
+                # OR it checks validation of codes?
+                # Actually parallel_execution checks: status.upper() in ['FILLED', 'PARTIALLY_FILLED']
+                
+                # If Lighter returns int status, we might need to map it.
+                # 10: Open, 20: Filled? We need to be careful.
+                # Let's inspect what get_open_orders does: it just passes 'status' but parallel_execution logic handles it?
+                # No, parallel_execution logic seems to expect strings like 'FILLED'.
+                
+                s_raw = target_order.get('status')
+                status_str = "UNKNOWN"
+                
+                if isinstance(s_raw, int):
+                    # Mapping based on common Lighter headers or observation
+                    # 10: Open, 30: Filled, 40: Cancelled ??
+                    # Safest: Use filled_amount to detect fill.
+                    if s_raw == 10: status_str = "OPEN"
+                    elif s_raw == 30: status_str = "FILLED" 
+                    elif s_raw == 40: status_str = "CANCELED"
+                else:
+                    status_str = str(s_raw).upper()
+                    
+                return {
+                    "id": str(target_order.get('id', '')),
+                    "status": status_str,
+                    "filledAmount": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
+                    "executedQty": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
+                    "remaining_size": safe_float(target_order.get('remaining_size', 0)),
+                    "price": safe_float(target_order.get('price', 0))
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"get_order failed for {order_id}: {e}")
+            return None
+
 
     async def fetch_my_trades(self, symbol: str, limit: int = 20):
         """Hole Trade History um Fills zu verifizieren"""
@@ -442,7 +473,10 @@ class LighterAdapter(BaseAdapter):
                 "limit": limit, 
                 "account_index": self._resolved_account_index
             }
-            return await self._rest_get("/api/v1/trades", params=params)
+            resp = await self._rest_get("/api/v1/trades", params=params)
+            if resp is None:
+                return []
+            return resp
         except Exception as e:
             logger.error(f"Failed to fetch trades: {e}")
             return []
@@ -768,7 +802,7 @@ class LighterAdapter(BaseAdapter):
                     self._resolved_api_key_index,
                 ) = await self._auto_resolve_indices()
             priv_key = str(getattr(config, "LIGHTER_API_PRIVATE_KEY", ""))
-            self._signer = SignerClient(
+            self._signer = SaferSignerClient(
                 url=self._get_base_url(),
                 private_key=priv_key,
                 api_key_index=self._resolved_api_key_index,
@@ -1645,6 +1679,15 @@ class LighterAdapter(BaseAdapter):
         if not HAVE_LIGHTER_SDK:
             return []
 
+        # ═══════════════════════════════════════════════════════════════
+        # DEDUPLICATION: Prevent API storms during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if self.rate_limiter.is_duplicate("LIGHTER:fetch_open_positions"):
+            # Return cached positions if available
+            if hasattr(self, '_positions_cache') and self._positions_cache is not None:
+                return self._positions_cache
+            # If no cache, allow the request through
+
         try:
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
@@ -1657,6 +1700,7 @@ class LighterAdapter(BaseAdapter):
             )
 
             if not response or not response.accounts or not response.accounts[0]:
+                self._positions_cache = []
                 return []
 
             account = response.accounts[0]
@@ -1727,11 +1771,13 @@ class LighterAdapter(BaseAdapter):
                     })
                     api_symbols.add(sym) # Prevent duplicates if multiple pending
 
+            # Cache for deduplication
+            self._positions_cache = positions
             return positions
 
         except Exception as e:
             logger. error(f"Lighter Positions Error: {e}")
-            return []
+            return getattr(self, '_positions_cache', [])
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
         """Scale amounts - BULLETPROOF VERSION with safe type conversion."""
@@ -2385,17 +2431,37 @@ class LighterAdapter(BaseAdapter):
 
             # FIX: Wenn Notional zu klein ist (Dust), nicht versuchen zu schließen
             if close_notional_usd < min_required:
-                # Wenn es extrem wenig ist (< $1), ist es wahrscheinlich Dust, den wir ignorieren können
-                if close_notional_usd < 1.0:
-                    logger.warning(
-                        f"⚠️ Skipping close for {symbol}: Dust value ${close_notional_usd:.2f} < ${min_required:.2f}. Treating as closed."
-                    )
-                    return True, "DUST_IGNORED"
-                
-                logger.error(
-                    f"❌ Cannot close {symbol}: Notional ${close_notional_usd:.2f} < Min ${min_required:.2f}"
+                logger.warning(
+                    f"⚠️ DUST POSITION {symbol}: ${close_notional_usd:.2f} < Min ${min_required:.2f}"
                 )
-                return False, None
+                
+                # Send Telegram Alert if enabled
+                if getattr(config, 'DUST_ALERT_ENABLED', True):
+                    try:
+                        from src.telegram_bot import get_telegram_bot
+                        telegram = get_telegram_bot()
+                        if telegram and telegram.enabled:
+                            await telegram.send_message(
+                                f"⚠️ **DUST POSITION DETECTED**\n"
+                                f"Symbol: {symbol}\n"
+                                f"Value: ${close_notional_usd:.2f}\n"
+                                f"Min Required: ${min_required:.2f}\n"
+                                f"Action: Manual intervention needed"
+                            )
+                    except Exception as e:
+                        logger.debug(f"Could not send dust alert: {e}")
+                
+                # Mark in State Manager as dust (if available)
+                try:
+                    from src.state_manager import get_state_manager
+                    sm = await get_state_manager()
+                    if sm:
+                        await sm.update_trade(symbol, {'status': 'dust', 'dust_reason': 'below_min_notional'})
+                except Exception as e:
+                    logger.debug(f"Could not mark as dust in state: {e}")
+                
+                # Return True to avoid infinite retry loops
+                return True, "DUST_SKIPPED"
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 5: Bestimme Close-Seite (Gegenteil der Position)

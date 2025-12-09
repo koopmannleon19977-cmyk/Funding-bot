@@ -36,6 +36,7 @@ class TokenBucketRateLimiter:
     - Automatic penalty on 429 response
     - Exponential backoff on repeated 429s
     - Per-exchange isolation
+    - Request deduplication (prevents API storms)
     """
     
     def __init__(self, config: Optional[RateLimiterConfig] = None, name: str = "default"):
@@ -51,10 +52,19 @@ class TokenBucketRateLimiter:
         
         self._lock = asyncio.Lock()
         
+        # ═══════════════════════════════════════════════════════════════
+        # REQUEST DEDUPLICATION (Prevents API storms during shutdown)
+        # ═══════════════════════════════════════════════════════════════
+        self._recent_requests: Dict[str, float] = {}
+        self._dedup_window = 0.5  # 500ms - skip duplicate requests within this window
+        self._dedup_cleanup_interval = 60.0  # Cleanup old entries every 60s
+        self._last_dedup_cleanup = time.monotonic()
+        
         # Stats
         self._requests_total = 0
         self._requests_throttled = 0
         self._penalties_applied = 0
+        self._requests_deduplicated = 0
     
     def _refill_tokens(self):
         """Refill tokens based on elapsed time"""
@@ -136,6 +146,37 @@ class TokenBucketRateLimiter:
             self._consecutive_429s = 0
             self._current_penalty = self.config.penalty_429_seconds
     
+    def _cleanup_old_requests(self):
+        """Remove old entries from dedup cache to prevent memory growth"""
+        now = time.monotonic()
+        if now - self._last_dedup_cleanup > self._dedup_cleanup_interval:
+            cutoff = now - self._dedup_window
+            self._recent_requests = {k: v for k, v in self._recent_requests.items() if v > cutoff}
+            self._last_dedup_cleanup = now
+    
+    def is_duplicate(self, request_key: str) -> bool:
+        """
+        Check if a request should be skipped due to deduplication.
+        
+        Args:
+            request_key: Unique key for request (e.g., "GET:/user/orders:BTC-USD")
+        
+        Returns:
+            True if request is duplicate and should be skipped
+        """
+        now = time.monotonic()
+        self._cleanup_old_requests()
+        
+        last_request_time = self._recent_requests.get(request_key, 0)
+        if now - last_request_time < self._dedup_window:
+            self._requests_deduplicated += 1
+            logger.debug(f"[{self.name}] 🔄 Deduplicated: {request_key}")
+            return True
+        
+        # Record this request
+        self._recent_requests[request_key] = now
+        return False
+    
     def get_stats(self) -> Dict:
         """Get rate limiter statistics"""
         return {
@@ -143,6 +184,7 @@ class TokenBucketRateLimiter:
             "tokens_available": self._tokens,
             "requests_total": self._requests_total,
             "requests_throttled": self._requests_throttled,
+            "requests_deduplicated": self._requests_deduplicated,
             "penalties_applied": self._penalties_applied,
             "consecutive_429s": self._consecutive_429s,
             "penalty_active": time.monotonic() < self._penalty_until

@@ -652,20 +652,25 @@ class TradeRepository:
         pnl: float = 0, 
         funding_collected: float = 0
     ):
-        """Mark a trade as closed"""
+        """Mark a trade as closed with PnL values"""
+        # ✅ FIX: Enhanced logging to verify PnL values reach the database
+        logger.info(f"📝 DB close_trade({symbol}): PnL=${pnl:.4f}, Funding=${funding_collected:.4f}")
+        
         sql = """
             UPDATE trades 
             SET status = 'closed', 
                 closed_at = ?, 
                 pnl = ?,
                 funding_collected = ?
-            WHERE symbol = ?  AND status = 'open'
+            WHERE symbol = ? AND status = 'open'
         """
-        await self.db.execute(
+        result = await self.db.execute(
             sql, 
             (int(time.time() * 1000), pnl, funding_collected, symbol),
             wait=True
         )
+        
+        logger.debug(f"📝 DB close_trade({symbol}): Execute returned {result}")
 
     async def update_trade_funding(self, symbol: str, funding_amount: float):
         """Update funding collected for a trade"""

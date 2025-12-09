@@ -27,7 +27,7 @@ from .base_adapter import BaseAdapter
 logger = logging.getLogger(__name__)
 
 
-from src.utils import safe_float
+from src.utils import safe_float, safe_decimal, quantize_value
 
 
 class X10Adapter(BaseAdapter):
@@ -526,12 +526,13 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
         try:
-            price = safe_float(self.fetch_mark_price(symbol))
+            price = safe_decimal(self.fetch_mark_price(symbol))
             if price <= 0:
                 return HARD_MIN_USD
             
-            min_size = Decimal(getattr(m.trading_config, "min_order_size", "0"))
-            api_min_usd = float(min_size * Decimal(str(price)))
+            min_size = safe_decimal(getattr(m.trading_config, "min_order_size", "0"))
+            # Calc in Decimal then convert to float for return
+            api_min_usd = float(min_size * price)
             safe_min = api_min_usd * SAFETY_BUFFER
             # Entferne das harte Oberlimit, nutze echte API-Grenzen + Sicherheitsaufschlag
             return max(HARD_MIN_USD, safe_min)
@@ -543,12 +544,22 @@ class X10Adapter(BaseAdapter):
             logger.warning("X10: No stark_account configured")
             return []
 
+        # ═══════════════════════════════════════════════════════════════
+        # DEDUPLICATION: Prevent API storms during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if self.rate_limiter.is_duplicate("X10:fetch_open_positions"):
+            # Return cached positions if available
+            if hasattr(self, '_positions_cache') and self._positions_cache:
+                return self._positions_cache
+            # If no cache, allow the request through
+
         try:
             client = await self._get_auth_client()
             await self.rate_limiter.acquire()
             resp = await client.account.get_positions()
 
             if not resp or not resp.data:
+                self._positions_cache = []
                 return []
 
             positions = []
@@ -564,13 +575,16 @@ class X10Adapter(BaseAdapter):
                         "size": size,
                         "entry_price": entry_price
                     })
+            
+            # Cache for deduplication
+            self._positions_cache = positions
             return positions
 
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
             logger.error(f"X10 Positions Error: {e}")
-            return []
+            return getattr(self, '_positions_cache', [])
 
     async def get_open_orders(self, symbol: str) -> List[dict]:
         """SAFE open orders fetch for compliance check"""
@@ -697,11 +711,12 @@ class X10Adapter(BaseAdapter):
         if not market:
             return False, None
 
-        price = Decimal(str(safe_float(self.fetch_mark_price(symbol))))
+        # FIX: Use safe_decimal for precision
+        price = safe_decimal(self.fetch_mark_price(symbol))
         if price <= 0:
             return False, None
 
-        slippage = Decimal(str(config.X10_MAX_SLIPPAGE_PCT)) / 100
+        slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
         raw_price = price * (
             Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
         )
@@ -716,18 +731,20 @@ class X10Adapter(BaseAdapter):
                     rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
                 )
         else:
-            tick_size = Decimal(getattr(cfg, "min_price_change", "0.01"))
+            tick_size = safe_decimal(getattr(cfg, "min_price_change", "0.01"))
             if side == "BUY":
                 limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
             else:
                 limit_price = (raw_price // tick_size) * tick_size
 
         if amount is not None and amount > 0:
-            qty = Decimal(str(amount))
+            qty = safe_decimal(amount)
         else:
-            qty = Decimal(str(notional_usd)) / limit_price
-        step = Decimal(getattr(cfg, "min_order_size_change", "0"))
-        min_size = Decimal(getattr(cfg, "min_order_size", "0"))
+            # safe_decimal handles notional
+            qty = safe_decimal(notional_usd) / limit_price
+            
+        step = safe_decimal(getattr(cfg, "min_order_size_change", "0"))
+        min_size = safe_decimal(getattr(cfg, "min_order_size", "0"))
         
         if step > 0:
             qty = (qty // step) * step

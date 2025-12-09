@@ -20,31 +20,39 @@ logger = logging.getLogger(__name__)
 
 
 import config
-from src.utils import safe_float
+from src.utils import safe_float, safe_decimal
 import math
 
 def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
     """
     Berechnet die exakte Anzahl Coins, die auf BEIDEN Börsen handelbar ist.
+    FIX: Nutzt Decimal für Präzision, um Float-Fehler (0.1+0.2!=0.3) zu vermeiden.
     """
-    # 1. Berechne theoretische Anzahl Coins
-    if price <= 0: return 0.0
-    raw_coins = amount_usd / price
+    # 1. Inputs sicher zu Decimal konvertieren
+    d_amount = safe_decimal(amount_usd)
+    d_price = safe_decimal(price)
+    d_x10_step = safe_decimal(x10_step)
+    d_lighter_step = safe_decimal(lighter_step)
     
-    # 2. Finde den größeren Schritt (Step Size) der beiden Börsen
-    # Wir müssen uns nach dem "gröberen" Raster richten.
-    # Wenn X10=1 und Lighter=10, müssen wir in 10er Schritten handeln.
-    # Wir nutzen eine kleine Toleranz (epsilon), da Floats ungenau sind.
-    max_step = max(x10_step, lighter_step)
+    if d_price <= 0: return 0.0
     
-    if max_step <= 0: return raw_coins
+    # 2. Berechne theoretische Anzahl Coins
+    raw_coins = d_amount / d_price
     
-    # 3. Runde AB auf das nächste Vielfache des größten Schritts
-    # Beispiel: 256 Coins, Schritt 10 -> 250 Coins.
-    epsilon = 1e-9
-    coins = math.floor((raw_coins + epsilon) / max_step) * max_step
+    # 3. Finde den größeren Schritt (Step Size)
+    max_step = max(d_x10_step, d_lighter_step)
     
-    return coins
+    if max_step <= 0: return float(raw_coins)
+    
+    # 4. Runde AB auf das nächste Vielfache
+    # Decimal Quantize Verhalten bei 'ROUND_FLOOR' ist nicht exakt modulo-basiert für steps != 10^-N
+    # Besser: (raw // step) * step
+    
+    steps = raw_coins // max_step # Ganzzahlige Anzahl Schritte
+    coins = steps * max_step
+    
+    # Return as float for API compatibility
+    return float(coins)
 
 
 class ExecutionState(Enum):
@@ -332,7 +340,7 @@ class ParallelExecutionManager:
 
         try:
             # 1. Versuche Order-Status zu holen
-            order_info = await self.lighter.get_order(lighter_order_id)
+            order_info = await self.lighter.get_order(lighter_order_id, symbol)
             
             if order_info:
                 status = order_info.get('status', '').upper()
