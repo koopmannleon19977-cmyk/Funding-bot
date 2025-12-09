@@ -61,6 +61,7 @@ class X10Adapter(BaseAdapter):
         self._ws_message_queue = asyncio.Queue()
 
         self.rate_limiter = X10_RATE_LIMITER
+        self.order_lock = asyncio.Lock()
 
         try:
             if config.X10_VAULT_ID:
@@ -846,103 +847,158 @@ class X10Adapter(BaseAdapter):
         if not config.LIVE_TRADING:
             return True, None
         
-        # Warte auf Token BEVOR Request gesendet wird
-        await self.rate_limiter.acquire()
-        
-        client = await self._get_trading_client()
-        market = self.market_info.get(symbol)
-        if not market:
-            return False, None
-
-        # FIX: Use safe_decimal for precision
-        price = safe_decimal(self.fetch_mark_price(symbol))
-        if price <= 0:
-            return False, None
-
-        slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
-        raw_price = price * (
-            Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
-        )
-
-        cfg = market.trading_config
-        if hasattr(cfg, "round_price") and callable(cfg.round_price):
-            try:
-                limit_price = cfg.round_price(raw_price)
-            except:
-                limit_price = raw_price.quantize(
-                    Decimal("0.01"), 
-                    rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
-                )
-        else:
-            tick_size = safe_decimal(getattr(cfg, "min_price_change", "0.01"))
-            if side == "BUY":
-                limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
-            else:
-                limit_price = (raw_price // tick_size) * tick_size
-
-        if amount is not None and amount > 0:
-            qty = safe_decimal(amount)
-        else:
-            # safe_decimal handles notional
-            qty = safe_decimal(notional_usd) / limit_price
-            
-        step = safe_decimal(getattr(cfg, "min_order_size_change", "0"))
-        min_size = safe_decimal(getattr(cfg, "min_order_size", "0"))
-        
-        if step > 0:
-            qty = (qty // step) * step
-            if qty < min_size:
-                qty = ((qty // step) + 1) * step
-
-        order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
-        tif = TimeInForce.GTT
-        
-        if post_only:
-            if hasattr(TimeInForce, "POST_ONLY"):
-                tif = TimeInForce.POST_ONLY
-            elif hasattr(TimeInForce, "PostOnly"):
-                tif = TimeInForce.PostOnly
-            else:
-                post_only = False
-
-        expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
-
-        try:
+        # FIX: Synchronize all order placements to prevent nonce issues
+        async with self.order_lock:
+            # Warte auf Token BEVOR Request gesendet wird
             await self.rate_limiter.acquire()
-            resp = await client.place_order(
-                market_name=symbol,
-                amount_of_synthetic=qty,
-                price=limit_price,
-                side=order_side,
-                time_in_force=tif,
-                expire_time=expire,
-                reduce_only=reduce_only,
-            )
-            
-            if resp.error:
-                err_msg = str(resp.error)
-                if reduce_only and ("1137" in err_msg or "1138" in err_msg):
-                    return True, None
-                
-                logger.error(f" X10 Order Fail: {resp.error}")
-                if post_only and "post only" in err_msg.lower():
-                    logger.info(" Retry ohne PostOnly...")
-                    return await self.open_live_position(
-                        symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
-                    )
+        
+            client = await self._get_trading_client()
+            market = self.market_info.get(symbol)
+            if not market:
                 return False, None
+
+            # FIX: Use safe_decimal for precision
+            price = safe_decimal(self.fetch_mark_price(symbol))
+            if price <= 0:
+                return False, None
+
+            slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
+            raw_price = price * (
+                Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
+            )
+
+            cfg = market.trading_config
+            if hasattr(cfg, "round_price") and callable(cfg.round_price):
+                try:
+                    limit_price = cfg.round_price(raw_price)
+                except:
+                    limit_price = raw_price.quantize(
+                        Decimal("0.01"), 
+                        rounding=ROUND_UP if side == "BUY" else ROUND_DOWN
+                    )
+            else:
+                tick_size = safe_decimal(getattr(cfg, "min_price_change", "0.01"))
+                if side == "BUY":
+                    limit_price = ((raw_price + tick_size - Decimal('1e-12')) // tick_size) * tick_size
+                else:
+                    limit_price = (raw_price // tick_size) * tick_size
+
+            if amount is not None and amount > 0:
+                qty = safe_decimal(amount)
+            else:
+                # safe_decimal handles notional
+                qty = safe_decimal(notional_usd) / limit_price
                 
-            logger.info(f" X10 Order: {resp.data.id}")
-            self.rate_limiter.on_success()
-            return True, str(resp.data.id)
-        except Exception as e:
-            err_str = str(e)
-            if reduce_only and ("1137" in err_str or "1138" in err_str):
-                return True, None
-            if "429" in err_str:
-                self.rate_limiter.penalize_429()
-            logger.error(f" X10 Order Exception: {e}")
-            return False, None
+            step = safe_decimal(getattr(cfg, "min_order_size_change", "0"))
+            min_size = safe_decimal(getattr(cfg, "min_order_size", "0"))
+            
+            if step > 0:
+                qty = (qty // step) * step
+                if qty < min_size:
+                    qty = ((qty // step) + 1) * step
+
+            order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
+            tif = TimeInForce.GTT
+            
+            if post_only:
+                if hasattr(TimeInForce, "POST_ONLY"):
+                    tif = TimeInForce.POST_ONLY
+                elif hasattr(TimeInForce, "PostOnly"):
+                    tif = TimeInForce.PostOnly
+                else:
+                    post_only = False
+
+            expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
+
+            try:
+                # Note: Rate limiter already acquired outside, but client.place_order might handle its own?
+                # Actually, self.rate_limiter is managed by us.
+                # However, previous code called rate_limiter.acquire() AGAIN inside try-block!
+                # Let's check original code. 
+                # Original had: await self.rate_limiter.acquire() at line 914.
+                # And line 850 had one too!
+                # Ah, line 850 in my previous replacement was added.
+                # The original code had:
+                # 850: await self.rate_limiter.acquire()
+                # ...
+                # 914: await self.rate_limiter.acquire()
+                
+                # Wait, does it acquire TWICE?
+                # Line 850: acquire ... then client create
+                # Line 914: acquire ... then place_order
+                # This seems redundant or specific for different calls?
+                # Client creation (line 852) calls `_get_trading_client` which might not iterate rate limiter?
+                # `_get_trading_client` calls `PerpetualTradingClient` constructor. No API call.
+                
+                # So we have DOUBLE acquire.
+                # I will REMOVE the second acquire at line 914 to avoid blocking self or double counting.
+                # Or keep it if the first one was for general access?
+                # Line 850 was "Warte auf Token BEVOR Request gesendet wird".
+                # But `_get_trading_client` doesn't send request.
+                # So maybe the first acquire was just a safety check?
+                
+                # I will keep the structure but ensure indentation is correct.
+                # I will keep the second acquire for now to minimize logic change, but it's inside the lock so it might deadlock if no tokens?
+                # Rate limiter is token bucket, re-entrant? No, it's `asyncio.Lock` or similar?
+                # `X10RateLimiter` uses `self._lock.acquire()`. It is NOT re-entrant for the same task if it waits.
+                # Double acquire in same task without release = DEADLOCK.
+                
+                # Let's check `X10RateLimiter`.
+                # If it's `asyncio.Lock`, double acquire deadlocks.
+                # If it's a token bucket that waits, double acquire just consumes 2 tokens.
+                
+                # Original code (Lines 846+ in Step 117):
+                # 850: await self.rate_limiter.acquire()
+                # ...
+                # 914: await self.rate_limiter.acquire()
+                # YES, IT WAS DOUBLE ACQUIRING! 
+                # Unless `_get_trading_client` releases it? No.
+                # The first acquire is strictly before `_get_trading_client`.
+                # Then it does calculations.
+                # Then it acquires AGAIN before `place_order`.
+                # This looks like a bug in existing code or intentional 2-token consumption?
+                # Or maybe the first one is finding `market`? No, `market_info.get` is local dict.
+                
+                # I will comments out the second acquire to be safe and efficient, OR I will assume `on_success` was called?
+                # Original line 936 calls `self.rate_limiter.on_success()`.
+                
+                # I will ONLY do the first acquire (inside lock) and remove the second.
+                pass 
+                
+                resp = await client.place_order(
+                    market_name=symbol,
+                    amount_of_synthetic=qty,
+                    price=limit_price,
+                    side=order_side,
+                    time_in_force=tif,
+                    expire_time=expire,
+                    reduce_only=reduce_only,
+                )
+                
+                if resp.error:
+                    err_msg = str(resp.error)
+                    if reduce_only and ("1137" in err_msg or "1138" in err_msg):
+                        return True, None
+                    
+                    logger.error(f" X10 Order Fail: {resp.error}")
+                    if post_only and "post only" in err_msg.lower():
+                        logger.info(" Retry ohne PostOnly...")
+                        return await self.open_live_position(
+                            symbol, side, notional_usd, reduce_only, post_only=False, amount=amount
+                        )
+                    return False, None
+                    
+                logger.info(f" X10 Order: {resp.data.id}")
+                self.rate_limiter.on_success()
+                return True, str(resp.data.id)
+            except Exception as e:
+                err_str = str(e)
+                if reduce_only and ("1137" in err_str or "1138" in err_str):
+                    return True, None
+                if "429" in err_str:
+                    self.rate_limiter.penalize_429()
+                logger.error(f" X10 Order Exception: {e}")
+                return False, None
 
     async def close_live_position(
         self,

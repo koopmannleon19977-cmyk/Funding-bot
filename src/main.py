@@ -42,6 +42,7 @@ from src.fee_manager import get_fee_manager, init_fee_manager, stop_fee_manager
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
+from utils.startup_sync import synchronize_state
 
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
@@ -2858,14 +2859,16 @@ def get_symbol_lock(symbol: str) -> asyncio.Lock:
 async def reconcile_db_with_exchanges(lighter, x10):
     """
     CRITICAL: Reconcile database state with actual exchange positions.
-    Closes DB entries for trades that don't exist on exchanges.
+    Delegates to utils.startup_sync for centralized reconciliation logic.
     """
-    logger.info("🔍 STATE RECONCILIATION: Checking DB vs Exchange...")
-    
-    # Get DB trades
-    open_trades = await get_open_trades()
-    if not open_trades:
-        logger.info("✓ No DB trades to reconcile")
+    try:
+        trade_repo = get_trade_repository()
+        db = get_database()
+        stats = await synchronize_state(x10, lighter, trade_repo, db)
+        logger.info(f"State Reconciliation Result: {stats}")
+        return # STOP execution of old logic
+    except Exception as e:
+        logger.error(f"Reconciliation delegation failed: {e}")
         return
     
     # Get actual exchange positions

@@ -340,8 +340,8 @@ async def _reconcile_sizes(symbol: str, trade: Dict, positions: Dict, db, stats:
         lighter_notional = positions.get('lighter', {}).get('notional_usd', 0)
         actual_size = (x10_notional + lighter_notional) / 2  # Average
         
-        # Check for mismatch (>10% difference)
-        if abs(db_size - actual_size) > (db_size * 0.1):
+        # Check for mismatch (>2% difference)
+        if abs(db_size - actual_size) > (db_size * 0.02):
             logger.warning(
                 f"⚠️ {symbol}: Size mismatch - DB: ${db_size:.2f}, "
                 f"Exchange: ${actual_size:.2f} (diff: {abs(db_size - actual_size):.2f})"
