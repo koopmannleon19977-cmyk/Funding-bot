@@ -437,8 +437,6 @@ async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: flo
     Returns:
         (can_trade, current_exposure_pct, max_allowed_pct)
     """
-    max_exposure_pct = getattr(config, 'MAX_TOTAL_EXPOSURE_PCT', 0.90)
-    
     try:
         # Get current open trades
         open_trades = await get_open_trades()
@@ -455,22 +453,30 @@ async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: flo
         
         # Calculate exposure with new trade
         new_total_exposure = current_exposure + new_trade_size
-        exposure_pct = new_total_exposure / total_balance if total_balance > 0 else 1.0
         
-        can_trade = exposure_pct <= max_exposure_pct
+        # CALCULATE LEVERAGE
+        # leverage = Total Position Size / Equity
+        current_leverage = new_total_exposure / total_balance if total_balance > 0 else 999.0
+        
+        # Use Safe Leverage Limit from Config
+        max_leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 5.0)
+        
+        can_trade = current_leverage <= max_leverage
         
         if not can_trade:
             logger.warning(
-                f"⚠️ EXPOSURE LIMIT: {exposure_pct:.1%} would exceed {max_exposure_pct:.0%} max "
-                f"(Current: ${current_exposure:.0f}, New: ${new_trade_size:.0f}, Balance: ${total_balance:.0f})"
+                f"⚠️ EXPOSURE LIMIT: Leverage {current_leverage:.2f}x > Max {max_leverage:.1f}x "
+                f"(Exp: ${new_total_exposure:.0f}, Bal: ${total_balance:.0f})"
             )
-        
-        return can_trade, exposure_pct, max_exposure_pct
+        else:
+            logger.debug(f"✅ Exposure Check: {current_leverage:.2f}x <= {max_leverage:.1f}x")
+
+        return can_trade, current_leverage, max_leverage
         
     except Exception as e:
         logger.error(f"Exposure check failed: {e}")
-        # Safe default: allow trade but log warning
-        return True, 0.0, max_exposure_pct
+        # Safe default: BLOCK trade on error
+        return False, 999.0, 5.0
 
 async def add_trade_to_state(trade_data: dict) -> str:
     """Add trade to in-memory state (writes to DB in background)"""
@@ -4467,12 +4473,13 @@ class FundingBot:
                 
                 # Report dust positions (only on first attempt)
                 if dust_positions and attempt == 0:
-                    dust_report = "\\n".join([
+                    dust_report = "\n".join([
                         f"  - {d['symbol']}: ${d['value']:.2f} (min: ${d['min_required']:.2f})"
                         for d in dust_positions
                     ])
-                    logger.warning(
-                        f"⚠️ DUST POSITIONS (cannot close automatically):\\n{dust_report}"
+                    # Downgrade to INFO (User Request)
+                    logger.info(
+                        f"ℹ️  Ignoring Dust Positions (Too small to close):\n{dust_report}"
                     )
                     
                     # Telegram Alert

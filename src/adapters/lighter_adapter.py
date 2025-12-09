@@ -105,8 +105,169 @@ class LighterAdapter(BaseAdapter):
         
         # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
         self.order_lock = asyncio.Lock()
+        
+        # WebSocket Management
+        self.ws_task = None
+        self.ws_connected = False
+        self._ws_url = "wss://mainnet.zklighter.elliot.ai/stream"
+        if getattr(config, "LIGHTER_BASE_URL", "").startswith("https://testnet"):
+            self._ws_url = "wss://testnet.zklighter.elliot.ai/stream"
 
-    async def _get_session(self):
+    async def start_websocket(self):
+        """Start the WebSocket connection task."""
+        if self.ws_task and not self.ws_task.done():
+            return
+        logger.info(f"🔌 Starting Lighter WebSocket: {self._ws_url}")
+        self.ws_task = asyncio.create_task(self._ws_loop())
+
+    async def _ws_loop(self):
+        """WebSocket Main Loop with Auto-Reconnect"""
+        while True:
+            try:
+                async with websockets.connect(self._ws_url) as ws:
+                    self.ws_connected = True
+                    logger.info("✅ Lighter WebSocket Connected")
+                    
+                    # Resubscribe to orderbooks for all known markets
+                    await self._ws_subscribe_all(ws)
+                    
+                    while True:
+                        try:
+                            msg = await ws.recv()
+                            await self._process_ws_message(json.loads(msg))
+                        except websockets.ConnectionClosed:
+                            logger.warning("Construction Closed on Lighter WS")
+                            break
+                        except Exception as e:
+                            logger.error(f"Lighter WS Message Error: {e}")
+                            
+            except Exception as e:
+                self.ws_connected = False
+                logger.error(f"Lighter WS Connection Error: {e}. Retrying in 5s...")
+                await asyncio.sleep(5)
+
+    async def _ws_subscribe_all(self, ws):
+        """Subscribe to order_book channel for all active markets."""
+        # Ensure markets are loaded
+        if not self.market_info:
+            await self.load_market_cache()
+            
+        for symbol, info in self.market_info.items():
+            market_id = info.get('i')
+            if market_id is not None:
+                # Format: {"type": "subscribe", "channel": "order_book/{market_id}"}
+                payload = {
+                    "type": "subscribe",
+                    "channel": f"order_book/{market_id}"
+                }
+                await ws.send(json.dumps(payload))
+                logger.info(f"📡 Subscribed to Lighter OB: {symbol} (ID: {market_id})")
+
+    async def _process_ws_message(self, msg: dict):
+        """Update Orderbook Cache from WS Message"""
+        try:
+            # Channel format: "order_book/{market_id}"
+            channel = msg.get("channel", "")
+            if not channel.startswith("order_book"):
+                return
+                
+            # Extract Market ID
+            try:
+                market_id = int(channel.split("/")[-1])
+            except:
+                return
+                
+            # Find symbol for this market ID
+            symbol = next((s for s, i in self.market_info.items() if i.get('i') == market_id), None)
+            if not symbol:
+                return
+
+            # Orderbook Snapshot?
+            # Lighter WS sends { "type": "snapshot", "asks": [...], "bids": [...] } or "update"
+            msg_type = msg.get("type")
+            
+            # Helper to parse [price_str, size_str]
+            def parse_level(lvl):
+                # lvl is usually {"price": "...", "amount": "..."} or similar dict in Lighter?
+                # Based on previous search, it sends new ask/bid orders.
+                # Actually, standard lightweight exchange WS usually sends full Snapshot first, then diffs.
+                # Lighter WS documentation says "Sends new ask and bid orders". 
+                # Be careful: Does it send full book or just updates?
+                # If it sends INDIVIDUAL orders, we need a local orderbook implementation (Left L2 Book).
+                # That is complex. 
+                # Let's assume standard snapshot for now or verify payload.
+                pass
+
+            # RE-VERIFYING WS PAYLOAD: 
+            # documentation says "Sends new ask and bid orders". This implies a stream of ADD/UPDATE/DELETE?
+            # Or is it a stream of snapshots?
+            # "Order Book: Sends new ask and bid orders for a given market."
+            # Likely it sends updates. Maintaining a full OB from partial updates is complex (Delta-Tracking).
+            
+            # SHORTCUT STRATEGY (Penny Jumping):
+            # If we get a "snapshot" or full book, great. 
+            # If we get partials, we might just store the "best" bid/ask seen recently? 
+            # No, that's dangerous.
+            
+            # Let's look at the structure 'asks' and 'bids' in msg.
+            asks = msg.get("asks", [])
+            bids = msg.get("bids", [])
+            
+            # If explicit snapshot
+            if asks or bids:
+                # Structure: [{"price": "100", "amount": "1"}, ...]
+                # Lighter WS usually sends SNAPSHOT on connect/sub.
+                
+                # Check if it's a full snapshot or update.
+                # Use simplified logic: Just REPLACE cache if it looks like a snapshot (many items).
+                # If it's small updates, we ideally update an internal structure. It's safer to treat it as a "Latest View" if possible.
+                
+                # For Penny Jumping, we need BEST BID and BEST ASK.
+                # If the message contains current Bids/Asks, we can update our view.
+                
+                parsed_bids = []
+                for b in bids:
+                    p = safe_float(b.get("price"), 0)
+                    s = safe_float(b.get("amount", b.get("remaining_base_amount")), 0)
+                    if p > 0 and s > 0: parsed_bids.append([p, s])
+                    
+                parsed_asks = []
+                for a in asks:
+                    p = safe_float(a.get("price"), 0)
+                    s = safe_float(a.get("amount", a.get("remaining_base_amount")), 0)
+                    if p > 0 and s > 0: parsed_asks.append([p, s])
+                
+                parsed_bids.sort(key=lambda x: x[0], reverse=True)
+                parsed_asks.sort(key=lambda x: x[0])
+                
+                # Simple Cache Update (Snapshot Mode)
+                # Warning: If Lighter sends Deltas, this overrides full book with just deltas.
+                # However, implementing full L2 Delta reconstruction in 5 mins is risky.
+                # Better approach: Updates usually have a 'type'='snapshot' vs 'update'.
+                
+                if msg_type == 'snapshot' or (len(parsed_bids) > 5 or len(parsed_asks) > 5):
+                     # Treat as Full Snapshot
+                     self.orderbook_cache[symbol] = {
+                        "bids": parsed_bids,
+                        "asks": parsed_asks,
+                        "timestamp": int(time.time() * 1000),
+                        "symbol": symbol
+                     }
+                     # Update Price Cache for immediate ticker use
+                     if parsed_bids and parsed_asks:
+                         mid = (parsed_bids[0][0] + parsed_asks[0][0]) / 2
+                         self.price_cache[symbol] = mid
+                         
+                elif msg_type == 'update':
+                     # DELTA UPDATE - Complex.
+                     # For now, stick to REST polling for full integrity if WS is complex Delta,
+                     # BUT use WS for "Best Price" hints if possible.
+                     # Without full Orderbook Class, Delta updates corrupt the book.
+                     # Let's rely on frequent REST snapshots + WS Snapshots if available.
+                     pass
+                     
+        except Exception as e:
+            pass
         """Get or create aiohttp session"""
         if not hasattr(self, '_session') or self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()

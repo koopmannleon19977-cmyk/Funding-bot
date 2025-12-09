@@ -7,6 +7,7 @@ from typing import Optional, Dict, Callable, Any
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
+import config
 
 logger = logging.getLogger(__name__)
 
@@ -203,20 +204,36 @@ X10_RATE_LIMITER = TokenBucketRateLimiter(
         tokens_per_second=15.0,
         max_tokens=50.0,
         min_request_interval=0.06,
-        penalty_429_seconds=10.0  # Reduced from 30s
+        penalty_429_seconds=10.0
     ),
     name="X10"
 )
 
-# Lighter: Premium = 24000/minute = 400/second, Standard = 60/minute = 1/second
-# Using conservative Premium settings
-LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(
-    config=RateLimiterConfig(
+# Lighter Rate Limits
+# Standard: 60 req/min = 1 req/s
+# Premium: 24000 req/min = 400 req/s (We use 50 safe limit)
+
+lighter_tier = getattr(config, 'LIGHTER_ACCOUNT_TIER', 'STANDARD').upper()
+logger.info(f"🛡️ Lighter Rate Limiter Tier: {lighter_tier}")
+
+if lighter_tier == 'PREMIUM':
+    lighter_config = RateLimiterConfig(
         tokens_per_second=50.0,
         max_tokens=100.0,
         min_request_interval=0.02,
-        penalty_429_seconds=10.0  # Reduced from 30s for smoother shutdown
-    ),
+        penalty_429_seconds=10.0
+    )
+else:
+    # STANDARD (Default)
+    lighter_config = RateLimiterConfig(
+        tokens_per_second=1.0,   # 1 request per second
+        max_tokens=5.0,          # Burst up to 5
+        min_request_interval=1.0, # Strict 1s interval
+        penalty_429_seconds=30.0 # Stricter penalty for Standard
+    )
+
+LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(
+    config=lighter_config,
     name="LIGHTER"
 )
 

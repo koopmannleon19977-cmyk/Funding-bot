@@ -656,7 +656,11 @@ class ParallelExecutionManager:
             except Exception as e:
                 logger.error(f"❌ [ROLLBACK] {symbol}: Attempt {attempt + 1} error: {e}")
 
-        logger.error(f"❌ [ROLLBACK] {symbol}: All {self.MAX_ROLLBACK_ATTEMPTS} attempts failed!")
+        if self.circuit_breaker:
+            self.circuit_breaker.trigger_emergency_stop(
+                reason=f"CRITICAL: Rollback failed for {symbol} after {self.MAX_ROLLBACK_ATTEMPTS} attempts! Risk of NAKED LEG!"
+            )
+        logger.error(f"❌ [ROLLBACK] {symbol}: All {self.MAX_ROLLBACK_ATTEMPTS} attempts failed! TRIGGERING KILL SWITCH!")
         return False
 
     async def _rollback_x10(self, execution: TradeExecution) -> bool:

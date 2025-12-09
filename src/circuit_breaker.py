@@ -83,3 +83,7 @@ class CircuitBreaker:
             logger.critical("🛑 KILL SWITCH ENABLED: Initiating Emergency Shutdown Sequence...")
             # We don't exit here directly, we just set the flag. 
             # The main loop checks this flag and handles the Panic Close + Exit.
+
+    def trigger_emergency_stop(self, reason: str):
+        """Public method to manually trigger the circuit breaker."""
+        self._trigger(reason)
