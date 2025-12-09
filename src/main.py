@@ -2989,7 +2989,25 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
             elif not has_lighter or not has_x10:
                 logger.error(f"⚠️  TEIL-ZOMBIE {symbol}: Lighter={has_lighter}, X10={has_x10}. Schließe verbleibende Positionen...")
                 # Close remaining legs on exchange
-                await parallel_exec.close_trade(trade)
+                # Close remaining legs on exchange
+                if has_x10:
+                    try:
+                        size = real_x10[symbol]
+                        side = "BUY" if size < 0 else "SELL"
+                        await x10.close_live_position(symbol, side, abs(size) * x10.fetch_mark_price(symbol))
+                    except Exception as e:
+                        logger.error(f"Failed to close X10 part of Zombie {symbol}: {e}")
+
+                if has_lighter:
+                    try:
+                        size = real_lighter[symbol]
+                        side = "BUY" if size < 0 else "SELL"
+                        await lighter.close_live_position(symbol, side, abs(size) * (lighter.get_price(symbol) or 0))
+                    except Exception as e:
+                        logger.error(f"Failed to close Lighter part of Zombie {symbol}: {e}")
+                
+                # Finally close in DB
+                await sm.close_trade(symbol, 0.0, 0.0)
 
         # 4. Check auf Ghosts / Orphans (Exchange hat Position, DB nicht)
         all_exchange_symbols = set(real_lighter.keys()) | set(real_x10.keys())
@@ -4244,7 +4262,7 @@ async def main():
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Shutdown angefordert – beende sauber...")
     finally:
-        logger.info("🛑 Initiating graceful shutdown...")
+        logger.info("🛑 Delegating shutdown to Bot Instance...")
         
         # Stop tasks
         SHUTDOWN_FLAG = True
@@ -4255,178 +4273,12 @@ async def main():
         # Warten bis Tasks beendet sind
         await asyncio.sleep(1.0)
 
-        # ═══════════════════════════════════════════════════════════════
-        # FIX: "Cancel All" before closing positions
-        # Prevents "ghost orders" from being filled after bot stops.
-        # ═══════════════════════════════════════════════════════════════
-        logger.info("🗑️ SHUTDOWN: Cancelling all pending Limit Orders on Lighter...")
-        try:
-            # We use cached markets to avoid unnecessary API calls
-            if lighter:
-                # Create tasks for all markets in parallel
-                cancel_tasks = []
-                # Use market_info to get all symbols we might have orders on
-                if hasattr(lighter, 'market_info') and lighter.market_info:
-                    for symbol in lighter.market_info.keys():
-                        cancel_tasks.append(lighter.cancel_all_orders(symbol))
-                
-                # Execute all cancellations in parallel with timeout
-                if cancel_tasks:
-                    await asyncio.wait_for(asyncio.gather(*cancel_tasks, return_exceptions=True), timeout=5.0)
-                    logger.info("✅ All Lighter orders cancellation tasks completed.")
-        except Exception as e:
-            logger.error(f"⚠️ Error cancelling orders during shutdown: {e}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # FIX: Close All Positions on Shutdown
-        # ═══════════════════════════════════════════════════════════════
-        logger.info("🚨 Closing all open positions before final shutdown...")
-        try:
-            # Wir holen alle offenen Trades direkt aus dem State Manager
-            open_trades = await state_manager.get_active_trades()
-            
-            if open_trades:
-                logger.info(f"🚨 Found {len(open_trades)} open trades to close...")
-                close_tasks = []
-                for trade in open_trades:
-                    # Nutze die existierende close_trade Funktion aus diesem Script
-                    logger.info(f"   -> Scheduling close for {trade['symbol']}")
-                    close_tasks.append(close_trade(trade, lighter, x10))
-                
-                if close_tasks:
-                    results = await asyncio.gather(*close_tasks, return_exceptions=True)
-                    logger.info(f"   -> Shutdown Close Results: {results}")
-            else:
-                logger.info("✅ No open trades found in State Manager.")
+        # UNIFIED SHUTDOWN: Call the bot instance's method
+        if bot_instance:
+             await bot_instance.graceful_shutdown()
+        else:
+             logger.error("❌ CRITICAL: No bot_instance found for graceful_shutdown!")
 
-            # ZUSÄTZLICHE SICHERHEIT: Exchange-Scan auf verwaiste Positionen
-            logger.info("🔍 Scanning exchanges for orphaned positions...")
-            try:
-                lit_pos = await lighter.fetch_open_positions()
-                for p in lit_pos:
-                    size = safe_float(p.get('size', 0))
-                    if abs(size) > 0:
-                        symbol = p['symbol']
-                        logger.warning(f"⚠️ Orphaned Lighter position found: {symbol}. Closing...")
-                        price = safe_float(lighter.fetch_mark_price(symbol))
-                        
-                        if price > 0:
-                            # ═══════════════════════════════════════════════════════════════
-                            # DUST SWEEPER LOGIC (Auto-Bump & Close)
-                            # ═══════════════════════════════════════════════════════════════
-                            try:
-                                min_notional = float(lighter.min_notional_usd(symbol))
-                                current_val = abs(size) * price
-                                
-                                # Check if position is "dust" (< MinNotional)
-                                if current_val < min_notional:
-                                    logger.warning(f"🧹 DUST SWEEPER {symbol}: Size ${current_val:.2f} < Min ${min_notional:.2f}")
-                                    
-                                    # Calculate top-up needed (Reach MinNotional + $2.0 Buffer)
-                                    target_add_usd = (min_notional - current_val) + 2.0 
-                                    
-                                    # Limit top-up to avoid excessive risk (e.g. max 5x current dust or $20 cap)
-                                    # If dust is $0.1 and min is $5, adding $6.9 is fine.
-                                    # If dust is $1 and min is $1000 (anomaly), we shouldn't do it.
-                                    if min_notional > 50.0:
-                                         logger.warning(f"⚠️ Dust sweeper skipped: MinNotional ${min_notional:.2f} too high risk.")
-                                    else:
-                                        # Determine side to ADD (Same direction)
-                                        # If Long (size > 0) -> Buy more
-                                        # If Short (size < 0) -> Sell more
-                                        add_side = "BUY" if size > 0 else "SELL"
-                                        
-                                        logger.info(f"   -> Bumping dust by ${target_add_usd:.2f} ({add_side}) to enable closure...")
-                                        
-                                        # Execute Top-Up (Taker)
-                                        await lighter.open_live_position(symbol, add_side, target_add_usd, price=price)
-                                        await asyncio.sleep(2.0) # Wait for fill
-                                        
-                                        # Refresh size
-                                        new_pos = await lighter.fetch_open_positions()
-                                        p_match = next((x for x in (new_pos or []) if x['symbol'] == symbol), None)
-                                        if p_match:
-                                            size = safe_float(p_match.get('size', 0))
-                                            logger.info(f"   -> New size after bump: {size:.4f} coins")
-                            
-                            except Exception as e:
-                                logger.error(f"❌ Dust sweeper error for {symbol}: {e}")
-
-                            # Standard Close (Corrected Side Logic)
-                            try:
-                                # Fix: size > 0 (Long) -> SELL to close
-                                # Fix: size < 0 (Short) -> BUY to close
-                                close_side_lit = "SELL" if size > 0 else "BUY"
-                                close_size_usd = abs(size) * price
-                                
-                                await lighter.close_live_position(symbol, close_side_lit, close_size_usd)
-                            except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing Lighter {symbol} on shutdown: {te}")
-                
-                x10_pos = await x10.fetch_open_positions()
-                for p in x10_pos:
-                    size = safe_float(p.get('size', 0))
-                    if abs(size) > 0:
-                        symbol = p['symbol']
-                        logger.warning(f"⚠️ Orphaned X10 position found: {symbol}. Closing...")
-                        price = safe_float(x10.fetch_mark_price(symbol))
-                        
-                        if price > 0:
-                            # FIX SIDE LOGIC: size > 0 (LONG) -> SELL to close
-                            # Note: x10_adapter.close_live_position expects the ORIGINAL side usually?
-                            # Let's check Main.safe_close_x10_position logic:
-                            # if actual_size > 0: original_side = "BUY"
-                            # await x10.close_live_position(..., original_side, ...)
-                            # So X10 adapter expects original side (BUY to close BUY/Long).
-                            # Wait, checking x10 adapter code...
-                            # Actually safe_close_x10_position passes "BUY" for Long.
-                            # So X10 adapter likely handles inversion or takes "Position Side".
-                            # Let's align with safe_close_x10_position: Pass position side ("BUY" for Long)
-                            
-                            pos_side = "BUY" if size > 0 else "SELL"
-                            try:
-                                await x10.close_live_position(symbol, pos_side, abs(size) * price)
-                            except TypeError as te:
-                                logger.critical(f"🚨 TypeError closing X10 {symbol} on shutdown: {te}")
-            except Exception as e:
-                logger.error(f"CRITICAL ERROR during shutdown close: {e}")
-        except (Exception, asyncio.CancelledError) as e:
-            logger.error(f"FATAL ERROR in shutdown sequence: {e}")
-        # ═══════════════════════════════════════════════════════════════
-
-        logger.info("🛑 Stopping InMemoryStateManager...")
-        await state_manager.stop()
-        
-        logger.info("🔒 Closing database...")
-        await close_database()
-        
-        # Stop FeeManager
-        try:
-            await stop_fee_manager()
-        except Exception as e:
-            logger.debug(f"FeeManager stop error: {e}")
-        
-        # Stop FundingTracker (if running)
-        try:
-            if 'funding_tracker' in locals() and funding_tracker:
-                await funding_tracker.stop()
-                logger.info("✅ FundingTracker stopped")
-        except Exception as e:
-            logger.debug(f"FundingTracker stop error: {e}")
-        
-        # Prediction history save removed (Predictor Disabled)
-
-        
-        # Close Adapters
-        logger.info("🔌 Closing adapters...")
-        try:
-            if x10: await x10.aclose()
-        except: pass
-        try:
-            if lighter: await lighter.aclose()
-        except: pass
-        
-        logger.info("✅ Bot V5 shutdown complete")
 
 
 
@@ -4444,6 +4296,7 @@ class FundingBot:
     async def graceful_shutdown(self):
         """
         Wird bei Ctrl+C aufgerufen. Schließt ALLES aggressiv via Taker-Orders.
+        Unified Logic: Calculates PnL, updates State, and closes positions.
         """
         # Double-Shutdown Protection
         if self._shutdown_complete:
@@ -4468,16 +4321,11 @@ class FundingBot:
             if self.lighter:
                 try:
                     logger.info("   -> Verifying Lighter Orderbook cleanup...")
-                    # Hole alle offenen Orders der relevanten Märkte
-                    # Da es keinen globalen "get_all_open_orders" gibt, iterieren wir über aktive Märkte
-                    # oder nutzen eine Liste bekannter Symbole.
-                    # Besser: Wir prüfen zumindest die Symbole, wo wir Positionen vermuten.
-                    
                     found_orders = False
                     retry_symbols = set()
                     
                     # Schneller Check über Symbole im Cache oder bekannte
-                    check_symbols = list(self.lighter.market_info.keys())
+                    check_symbols = list(self.lighter.market_info.keys()) if hasattr(self.lighter, 'market_info') else []
                     
                     for sym in check_symbols:
                         orders = await self.lighter.get_open_orders(sym)
@@ -4488,23 +4336,72 @@ class FundingBot:
                             
                     if found_orders:
                         logger.warning("   -> Retrying FORCE CANCEL for persistent orders...")
-                        # 2nd Pass: Force Cancel individually if needed or retry cancel_all
                         for sym in retry_symbols:
-                            logger.info(f"      Force cancelling {sym}...")
                             await self.lighter.cancel_all_orders(sym)
-                            
-                        # Wait a bit
                         await asyncio.sleep(1.0)
                         
                 except Exception as e:
                     logger.error(f"Error checking remaining orders: {e}")
 
+            # 3. STATE-AWARE CLOSE (Prioritize Known Trades to Record PnL)
+            # -------------------------------------------------------------
+            # FIX: We iterate over State FIRST to ensure PnL is recorded.
+            logger.info("2️⃣  Closing State-Tracked Trades (PnL Recording)...")
+            
+            open_trades = await state_manager.get_all_open_trades()
+            if open_trades:
+                logger.info(f"   -> Found {len(open_trades)} active trades in State.")
+                
+                # Fetch fresh prices for PnL calculation
+                await self.x10.refresh_missing_prices()
+                
+                close_tasks = []
+                for trade in open_trades:
+                    try:
+                        symbol = trade.symbol
+                        entry_x10 = trade.entry_price_x10 or 0.0
+                        entry_lit = trade.entry_price_lighter or 0.0
+                        size_usd = trade.size_usd or 0.0
+                        
+                        # Get Mark Price
+                        mark_price = safe_float(self.x10.fetch_mark_price(symbol)) or 0
+                        if mark_price == 0:
+                             mark_price = safe_float(self.lighter.get_price(symbol)) or 0
+                        
+                        estimated_pnl = 0.0
+                        # Calculate PnL if we have valid prices
+                        if mark_price > 0 and size_usd > 0:
+                            # X10 Leg PnL
+                            if entry_x10 > 0:
+                                # Assume size_usd is the nominal size per leg (approx)
+                                amount = size_usd / entry_x10
+                                if trade.side_x10 == "BUY":
+                                    estimated_pnl += (mark_price - entry_x10) * amount
+                                else:
+                                    estimated_pnl += (entry_x10 - mark_price) * amount
+                            
+                            # Lighter Leg PnL
+                            if entry_lit > 0:
+                                amount = size_usd / entry_lit
+                                if trade.side_lighter == "BUY":
+                                    estimated_pnl += (mark_price - entry_lit) * amount
+                                else:
+                                    estimated_pnl += (entry_lit - mark_price) * amount
 
-            # 3. Hole ECHTE Positionen direkt von der API (nicht DB vertrauen)
+                        logger.info(f"   -> Closing {symbol} in State (Est. PnL: ${estimated_pnl:.2f})")
+                        await state_manager.close_trade(symbol, pnl=estimated_pnl, funding=0.0)
+                        
+                    except Exception as e:
+                        logger.error(f"Error updating state for {trade.symbol}: {e}")
+
+            # 4. Exchange-Scan Cleanup (Orphans / Dust)
+            # -------------------------------------------------------------
+            logger.info("3️⃣  Scanning Exchanges for Residual Positions...")
+            
             # 3. Robust Close Loop (Retry up to 3 times)
             max_retries = 3
             for attempt in range(max_retries):
-                logger.info(f"2️⃣  Fetching open positions (Attempt {attempt+1}/{max_retries})...")
+                logger.info(f"    -> Scan Attempt {attempt+1}/{max_retries}...")
                 
                 x10_positions = await self.x10.fetch_open_positions() if self.x10 else []
                 lighter_positions = await self.lighter.fetch_open_positions() if self.lighter else []
@@ -4570,12 +4467,12 @@ class FundingBot:
                 
                 # Report dust positions (only on first attempt)
                 if dust_positions and attempt == 0:
-                    dust_report = "\n".join([
+                    dust_report = "\\n".join([
                         f"  - {d['symbol']}: ${d['value']:.2f} (min: ${d['min_required']:.2f})"
                         for d in dust_positions
                     ])
                     logger.warning(
-                        f"⚠️ DUST POSITIONS (cannot close automatically):\n{dust_report}"
+                        f"⚠️ DUST POSITIONS (cannot close automatically):\\n{dust_report}"
                     )
                     
                     # Telegram Alert
@@ -4586,8 +4483,8 @@ class FundingBot:
                             if telegram and telegram.enabled:
                                 total_dust = sum(d['value'] for d in dust_positions)
                                 await telegram.send_message(
-                                    f"⚠️ **SHUTDOWN DUST REPORT**\n"
-                                    f"```\n{dust_report}\n```\n"
+                                    f"⚠️ **SHUTDOWN DUST REPORT**\\n"
+                                    f"```\\n{dust_report}\\n```\\n"
                                     f"Total dust value: ${total_dust:.2f}"
                                 )
                         except Exception as e:
@@ -4651,9 +4548,11 @@ class FundingBot:
 
         # 1. Lighter Cancel
         if self.lighter and hasattr(self.lighter, 'market_info'):
-            logger.info("   -> Cancelling Lighter orders (Parallel)...")
-            for sym in list(self.lighter.market_info.keys()):
-                 tasks.append(self.lighter.cancel_all_orders(sym))
+            # Check if market_info is not empty
+            if self.lighter.market_info:
+                logger.info("   -> Cancelling Lighter orders (Parallel)...")
+                for sym in list(self.lighter.market_info.keys()):
+                     tasks.append(self.lighter.cancel_all_orders(sym))
 
         # 2. X10 Cancel
         if self.x10 and hasattr(self.x10, 'market_info'):
@@ -4665,8 +4564,9 @@ class FundingBot:
                  except: 
                      pass
              
-             for sym in list(self.x10.market_info.keys()):
-                 tasks.append(self.x10.cancel_all_orders(sym))
+             if self.x10.market_info:
+                 for sym in list(self.x10.market_info.keys()):
+                     tasks.append(self.x10.cancel_all_orders(sym))
         
         if tasks:
             logger.info(f"   -> Executing {len(tasks)} cancellation tasks...")
@@ -4696,6 +4596,22 @@ async def main_entry():
         else:
              logger.warning("Bot lacks graceful_shutdown method.")
 
+        # FINAL CLEANUP (Infrastructure)
+        # ---------------------------
+        logger.info("🛑 Stopping Infrastructure...")
+        try:
+            if state_manager: await state_manager.stop()
+            await close_database()
+            from src.fee_manager import stop_fee_manager
+            await stop_fee_manager()
+            
+            # Close Adapters explicitly if not done by bot (Redundant safety)
+            if bot and bot.x10: await bot.x10.aclose()
+            if bot and bot.lighter: await bot.lighter.aclose()
+            
+        except Exception as e:
+            logger.debug(f"Infrastructure cleanup error: {e}")
+
 if __name__ == "__main__":
     # Windows-Fix für Event Loop
     if sys.platform == 'win32':
@@ -4706,7 +4622,7 @@ if __name__ == "__main__":
         asyncio.run(main_entry())
     except KeyboardInterrupt:
         # Fängt Strg+C auf Windows ab
-        print("\n\n🚨 STRG+C erkannt! Fahre herunter (bitte warten)...")
+        print("\\n\\n🚨 STRG+C erkannt! Fahre herunter (bitte warten)...")
         # Da asyncio.run() beendet wird, ist der Cleanup im finally Block von main_entry bereits durch
         # oder wird durch die Cancellation Exception getriggert.
         pass
