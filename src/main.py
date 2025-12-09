@@ -42,7 +42,7 @@ from src.fee_manager import get_fee_manager, init_fee_manager, stop_fee_manager
 from src.parallel_execution import ParallelExecutionManager
 from src.account_manager import get_account_manager
 from src.websocket_manager import WebSocketManager
-from utils.startup_sync import synchronize_state
+from src.reconciliation import synchronize_state
 
 from src.kelly_sizing import get_kelly_sizer, calculate_smart_size, KellyResult
 from src.database import (
