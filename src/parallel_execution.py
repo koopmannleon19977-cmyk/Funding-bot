@@ -140,8 +140,15 @@ class ParallelExecutionManager:
         logger.info("✅ ParallelExecutionManager: Rollback processor started")
 
     async def stop(self):
-        """Stop background tasks gracefully"""
+        """Stop background tasks gracefully and abort all active executions"""
         self._shutdown_event.set()
+        self.is_running = False  # Block new executions
+        
+        # FAST SHUTDOWN: Clear active executions immediately to unblock shutdown
+        if self.active_executions:
+            logger.warning(f"⚡ ParallelExec: Aborting {len(self.active_executions)} active executions for fast shutdown!")
+            self.active_executions.clear()
+        
         if self._rollback_task:
             self._rollback_task.cancel()
             try:
@@ -402,33 +409,46 @@ class ParallelExecutionManager:
         if filled:
              logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: Order FILLED during cancel race! Proceeding to Hedge.")
         else:
-                # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
-                logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
-                
-                # Erhöht von 10 auf 30 Versuche mit ansteigendem Delay (insg. ~60 Sekunden Abdeckung)
-                for i in range(30): 
-                    # Backoff: Wartet 1s, 1.2s, 1.4s ... bis max 3s
-                    wait_time = min(1.0 + (i * 0.2), 3.0)
-                    await asyncio.sleep(wait_time)
+                # FAST SHUTDOWN: Skip extended checks during shutdown
+                is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+                if is_shutting_down:
+                    logger.warning(f"⚡ [MAKER STRATEGY] {symbol}: SHUTDOWN - skipping extended ghost fill checks!")
+                else:
+                    # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
+                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
                     
-                    try:
-                        positions = await self.lighter.fetch_open_positions()
-                        
-                        # Suche nach Position in diesem Symbol
-                        pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-                        size = safe_float(pos.get('size', 0)) if pos else 0.0
-                        
-                        if abs(size) > 1e-8:
-                            logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={size}. HEDGING NOW!")
-                            filled = True
+                    # Erhöht von 10 auf 30 Versuche mit ansteigendem Delay (insg. ~60 Sekunden Abdeckung)
+                    # OPTIMIZED: During shutdown, only do 3 quick checks
+                    max_checks = 3 if getattr(config, 'IS_SHUTTING_DOWN', False) else 30
+                    for i in range(max_checks): 
+                        # FAST SHUTDOWN: Abort immediately if shutdown detected mid-loop
+                        if getattr(config, 'IS_SHUTTING_DOWN', False):
+                            logger.warning(f"⚡ {symbol}: SHUTDOWN detected during ghost check - aborting!")
                             break
-                        
-                        # Logge nur alle 5 Versuche, um Spam zu vermeiden
-                        if i % 5 == 0:
-                            logger.debug(f"🔍 {symbol} check {i+1}/30 clean...")
                             
-                    except Exception as e:
-                        logger.debug(f"Check error: {e}")
+                        # Backoff: Wartet 1s, 1.2s, 1.4s ... bis max 3s
+                        # OPTIMIZED: Only 0.3s during shutdown
+                        wait_time = 0.3 if getattr(config, 'IS_SHUTTING_DOWN', False) else min(1.0 + (i * 0.2), 3.0)
+                        await asyncio.sleep(wait_time)
+                        
+                        try:
+                            positions = await self.lighter.fetch_open_positions()
+                            
+                            # Suche nach Position in diesem Symbol
+                            pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                            size = safe_float(pos.get('size', 0)) if pos else 0.0
+                            
+                            if abs(size) > 1e-8:
+                                logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={size}. HEDGING NOW!")
+                                filled = True
+                                break
+                            
+                            # Logge nur alle 5 Versuche, um Spam zu vermeiden
+                            if i % 5 == 0:
+                                logger.debug(f"🔍 {symbol} check {i+1}/{max_checks} clean...")
+                                
+                        except Exception as e:
+                            logger.debug(f"Check error: {e}")
         
 
 
@@ -478,9 +498,16 @@ class ParallelExecutionManager:
         filled = False
         wait_start = time.time()
         # FIX: User requested 30-60s timeout for Maker strategies
-        MAX_WAIT_SECONDS = float(getattr(config, 'LIGHTER_ORDER_TIMEOUT_SECONDS', 60.0))
+        # OPTIMIZED: During shutdown, use only 2 seconds to abort quickly
+        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+        MAX_WAIT_SECONDS = 2.0 if is_shutting_down else float(getattr(config, 'LIGHTER_ORDER_TIMEOUT_SECONDS', 60.0))
         
         while time.time() - wait_start < MAX_WAIT_SECONDS:
+            # FAST SHUTDOWN: Abort immediately if shutdown detected
+            if getattr(config, 'IS_SHUTTING_DOWN', False):
+                logger.warning(f"⚡ [MAKER STRATEGY] {symbol}: SHUTDOWN detected - aborting wait!")
+                break
+                
             try:
                 # Check position
                 pos = await self.lighter.fetch_open_positions()

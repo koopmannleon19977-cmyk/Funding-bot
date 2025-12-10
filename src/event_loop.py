@@ -51,7 +51,7 @@ class BotEventLoop:
         self._tasks: Dict[str, ManagedTask] = {}
         self._running = False
         self._shutdown_event = asyncio.Event()
-        self._shutdown_timeout = 30.0
+        self._shutdown_timeout = 5.0  # OPTIMIZED: Reduced from 30s to 5s for fast shutdown
         
         # Components
         self. x10_adapter = None
@@ -289,15 +289,22 @@ class BotEventLoop:
                 logger.warning("⚠️ WebSocket connections unhealthy")
     
     async def _shutdown(self):
-        """Graceful shutdown procedure"""
+        """Graceful shutdown procedure - OPTIMIZED for fast shutdown"""
         logger.info("🛑 Initiating shutdown...")
         self._running = False
-        # Set global shutdown latch to block new orders
+        # Set global shutdown latch to block new orders IMMEDIATELY
         try:
             import config
             setattr(config, "IS_SHUTTING_DOWN", True)
         except Exception:
             pass
+
+        # FAST SHUTDOWN: Stop ParallelExec immediately to abort pending maker orders
+        if self.parallel_exec and hasattr(self.parallel_exec, 'stop'):
+            try:
+                await asyncio.wait_for(self.parallel_exec.stop(), timeout=1.0)
+            except Exception as e:
+                logger.debug(f"ParallelExec stop: {e}")
 
         # Cancel all tasks in reverse priority order to stop new activity
         sorted_tasks = sorted(

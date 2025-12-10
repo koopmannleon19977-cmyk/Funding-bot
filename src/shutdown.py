@@ -28,10 +28,10 @@ class ShutdownOrchestrator:
 
     def __init__(
         self,
-        global_timeout: float = 120.0,
-        verify_retries: int = 5,
-        verify_delay: float = 2.0,
-        base_slippage: float = 0.02,
+        global_timeout: float = 60.0,  # FIXED: Need 60s for sequential Lighter orders (1-2s per order * 5 positions * 2 attempts)
+        verify_retries: int = 2,  # OPTIMIZED: 2 retries for faster shutdown
+        verify_delay: float = 0.2,  # OPTIMIZED: Reduced from 0.5s to 0.2s
+        base_slippage: float = 0.05,  # OPTIMIZED: Increased from 0.02 to 0.05 for faster fills
     ):
         self.global_timeout = global_timeout
         self.verify_retries = verify_retries
@@ -142,7 +142,7 @@ class ShutdownOrchestrator:
 
         logger.info(f"🛑 Cancelling open orders for {len(symbols)} symbols...")
         try:
-            async with asyncio.timeout(10.0):
+            async with asyncio.timeout(5.0):  # OPTIMIZED: Reduced from 10s to 5s for fast shutdown
                 await asyncio.gather(*tasks, return_exceptions=True)
         except asyncio.TimeoutError:
             errors.append("cancel_orders_timeout")
@@ -187,7 +187,7 @@ class ShutdownOrchestrator:
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"x10_close_prepare:{symbol}:{e}")
 
-            # Close Lighter positions with escalating slippage
+            # Close Lighter positions with escalating slippage (price from WS cache first)
             lighter_tasks = []
             for pos in positions["lighter"]:
                 size = self._safe_float(pos.get("size", 0))
@@ -197,22 +197,15 @@ class ShutdownOrchestrator:
                 if not symbol:
                     continue
                 close_side = "SELL" if size > 0 else "BUY"
-                price = None
-                try:
-                    price = lighter.get_price(symbol)
-                except Exception:
-                    price = None
+                price = self._get_cached_price(symbol)
 
-                # Escalating but capped slippage; final attempt uses market (agg_price=None)
-                slip = min(self.base_slippage + (0.02 * attempt), 0.08)
-                agg_price = None
-                if attempt < self.verify_retries - 1 and price:
-                    agg_price = price * (1 + slip) if close_side == "BUY" else price * (1 - slip)
-
+                # FIXED: Let the adapter handle slippage to avoid "accidental price" error 21733
+                # The adapter has its own fat-finger protection that clamps to ~3% from mark
+                # We pass the raw price and let the adapter apply LIGHTER_MAX_SLIPPAGE_PCT
                 try:
                     logger.info(
                         f"🛑 Closing Lighter {symbol}: {close_side} {abs(size)} "
-                        f"(IOC reduce_only, slip~{slip:.0%}, agg_price={agg_price})"
+                        f"(IOC reduce_only, price={price})"
                     )
                     lighter_tasks.append(
                         lighter.open_live_position(
@@ -220,7 +213,7 @@ class ShutdownOrchestrator:
                             side=close_side,
                             notional_usd=0,
                             amount=abs(size),
-                            price=agg_price,
+                            price=price,  # Raw price - adapter applies slippage
                             post_only=False,
                             reduce_only=True,
                             time_in_force="IOC",
@@ -237,7 +230,9 @@ class ShutdownOrchestrator:
 
             if close_tasks:
                 try:
-                    async with asyncio.timeout(25.0):
+                    # FIXED: Need more time for sequential order sending (1-2s per order due to nonce)
+                    # With 5 positions = 5-10 seconds just for order creation
+                    async with asyncio.timeout(20.0):
                         await asyncio.gather(*close_tasks, return_exceptions=True)
                 except asyncio.TimeoutError:
                     errors.append("close_positions_timeout")
@@ -361,24 +356,33 @@ class ShutdownOrchestrator:
         return list(symbols)
 
     async def _fetch_positions(self) -> Dict[str, List[Dict[str, Any]]]:
-        """Fetch positions from both exchanges with safety."""
+        """Fetch positions from both exchanges with safety - OPTIMIZED for fast shutdown."""
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
         positions = {"lighter": [], "x10": []}
 
-        if lighter and hasattr(lighter, "fetch_open_positions"):
-            try:
-                async with asyncio.timeout(5.0):
-                    positions["lighter"] = await lighter.fetch_open_positions() or []
-            except Exception:
-                positions["lighter"] = []
+        # OPTIMIZED: Fetch both in parallel for faster shutdown
+        async def fetch_lighter():
+            if lighter and hasattr(lighter, "fetch_open_positions"):
+                try:
+                    async with asyncio.timeout(3.0):  # OPTIMIZED: Reduced from 5s to 3s
+                        return await lighter.fetch_open_positions() or []
+                except Exception:
+                    return []
+            return []
 
-        if x10 and hasattr(x10, "fetch_open_positions"):
-            try:
-                async with asyncio.timeout(5.0):
-                    positions["x10"] = await x10.fetch_open_positions() or []
-            except Exception:
-                positions["x10"] = []
+        async def fetch_x10():
+            if x10 and hasattr(x10, "fetch_open_positions"):
+                try:
+                    async with asyncio.timeout(3.0):  # OPTIMIZED: Reduced from 5s to 3s
+                        return await x10.fetch_open_positions() or []
+                except Exception:
+                    return []
+            return []
+
+        lighter_pos, x10_pos = await asyncio.gather(fetch_lighter(), fetch_x10())
+        positions["lighter"] = lighter_pos
+        positions["x10"] = x10_pos
 
         return positions
 
@@ -395,6 +399,17 @@ class ShutdownOrchestrator:
             return float(val)
         except Exception:
             return 0.0
+
+    def _get_cached_price(self, symbol: str) -> Optional[float]:
+        """Prefer WebSocket/cache price; do not call REST to avoid delays/rate limits."""
+        lighter = self._components.get("lighter")
+        if not lighter:
+            return None
+        try:
+            price = lighter.get_price(symbol)
+            return float(price) if price else None
+        except Exception:
+            return None
 
 
 _SHUTDOWN_SINGLETON: Optional[ShutdownOrchestrator] = None

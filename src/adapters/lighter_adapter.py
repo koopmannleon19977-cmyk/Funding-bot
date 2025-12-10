@@ -106,6 +106,9 @@ class LighterAdapter(BaseAdapter):
         # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
         self.order_lock = asyncio.Lock()
         
+        # Shutdown state
+        self._shutdown_cancel_done = False
+
         # WebSocket Management
         self.ws_task = None
         self.ws_connected = False
@@ -2280,7 +2283,13 @@ class LighterAdapter(BaseAdapter):
                 # ═══════════════════════════════════════════════════════════════
                 # TAKER STRATEGY: Aggressive Slippage to Fill
                 # ═══════════════════════════════════════════════════════════════
-                slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
+                # FIXED: During shutdown, use higher slippage (2.5%) to ensure IOC fills
+                # Normal operation uses config value (default 0.6%)
+                # Note: Lighter's "accidental price" protection is ~3%, so 2.5% is safe
+                if getattr(config, 'IS_SHUTTING_DOWN', False):
+                    slippage = Decimal("2.5")  # Higher slippage during shutdown for guaranteed fill
+                else:
+                    slippage = Decimal(str(getattr(config, "LIGHTER_MAX_SLIPPAGE_PCT", 0.6)))
                 slippage_multiplier = (
                     Decimal(1) + (slippage / Decimal(100))
                     if side == "BUY"
@@ -2292,19 +2301,13 @@ class LighterAdapter(BaseAdapter):
             # FAT FINGER PROTECTION: Clamp Price to Mark Price +/- Epsilon
             # -------------------------------------------------------
             # Prevents "order price flagged as an accidental price" error 21733
-            # CRITICAL FIX: During shutdown, the caller already fetched a fresh price via REST
-            # and calculated the order price. We should use that price as reference to avoid
-            # race conditions between two REST calls.
+            # CRITICAL FIX: During shutdown, use the original passed price as mark reference
+            # since WS cache might be stale. The caller passes raw cached price.
             if getattr(config, 'IS_SHUTTING_DOWN', False):
-                # During shutdown, trust the caller's price calculation
-                # The price parameter was already calculated with fresh data from REST
-                # Use the original price (before slippage) as mark_p
-                # Since our slippage is 2%, we can derive mark from the submitted price
-                if side.upper() == "BUY":
-                    mark_p = float(limit_price) / 1.02  # Reverse the slippage
-                else:
-                    mark_p = float(limit_price) / 0.98
-                logger.debug(f"🔄 {symbol}: Shutdown detected - using caller's price as reference (mark=${mark_p:.6f})")
+                # During shutdown, the caller passes raw price from WS cache
+                # Use that directly as mark_p (before our slippage was applied)
+                mark_p = price_safe  # The original price before adapter's slippage
+                logger.debug(f"🔄 {symbol}: Shutdown detected - using passed price as mark (mark=${mark_p:.6f})")
             else:
                 mark_p = self.fetch_mark_price(symbol)
                 
@@ -2456,21 +2459,46 @@ class LighterAdapter(BaseAdapter):
                             client_oid_final = int(time.time() * 1000) + random.randint(0, 99999)
 
                             # 3. Order erstellen mit EXPLIZITEN Typen
-                            # Wir casten alles hart auf int(), damit die Library nicht meckert
-                            tx, resp, err = await signer.create_order(
-                                market_index=int(market_id),         # Force int
-                                client_order_index=int(client_oid_final),
-                                base_amount=int(base),               # Force int
-                                price=int(price_int),                # Force int
-                                is_ask=bool(side == "SELL"),         # Force bool
-                                order_type=int(getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)),
-                                time_in_force=int(tif),
-                                reduce_only=bool(reduce_only),
-                                trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
-                                order_expiry=int(expiry),
-                                nonce=int(current_nonce),            # 🔥 Explizite Nonce (kein None!)
-                                api_key_index=int(self._resolved_api_key_index) # 🔥 FIX: Explicit api_key_index to avoid SDK auto-retry bug
-                            )
+                            # OPTIMIZED: Use MARKET orders during shutdown for guaranteed fills
+                            is_shutdown = getattr(config, 'IS_SHUTTING_DOWN', False)
+                            use_market_order = is_shutdown and reduce_only and not post_only
+                            
+                            if use_market_order:
+                                # FAST SHUTDOWN: Use create_market_order for immediate fills
+                                # avg_execution_price acts as slippage protection (max price for BUY, min for SELL)
+                                slippage_pct = Decimal("0.03")  # 3% slippage protection
+                                if side == "BUY":
+                                    avg_exec_price = int(price_int * (1 + float(slippage_pct)))
+                                else:
+                                    avg_exec_price = int(price_int * (1 - float(slippage_pct)))
+                                
+                                logger.info(f"⚡ MARKET ORDER {symbol}: {side} {base} @ avg_price={avg_exec_price} (shutdown fast-close)")
+                                tx, resp, err = await signer.create_market_order(
+                                    market_index=int(market_id),
+                                    client_order_index=int(client_oid_final),
+                                    base_amount=int(base),
+                                    avg_execution_price=int(avg_exec_price),
+                                    is_ask=bool(side == "SELL"),
+                                    reduce_only=bool(reduce_only),
+                                    nonce=int(current_nonce),
+                                    api_key_index=int(self._resolved_api_key_index)
+                                )
+                            else:
+                                # Normal LIMIT order
+                                tx, resp, err = await signer.create_order(
+                                    market_index=int(market_id),         # Force int
+                                    client_order_index=int(client_oid_final),
+                                    base_amount=int(base),               # Force int
+                                    price=int(price_int),                # Force int
+                                    is_ask=bool(side == "SELL"),         # Force bool
+                                    order_type=int(getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)),
+                                    time_in_force=int(tif),
+                                    reduce_only=bool(reduce_only),
+                                    trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
+                                    order_expiry=int(expiry),
+                                    nonce=int(current_nonce),            # 🔥 Explizite Nonce (kein None!)
+                                    api_key_index=int(self._resolved_api_key_index) # 🔥 FIX: Explicit api_key_index to avoid SDK auto-retry bug
+                                )
 
                             if err:
                                 err_str = str(err).lower()
@@ -2924,12 +2952,93 @@ class LighterAdapter(BaseAdapter):
         logger.info("✅ Lighter Adapter closed")
 
     async def cancel_all_orders(self, symbol: str) -> bool:
-        """Cancel all open orders for a symbol"""
+        """Cancel all open orders for a symbol.
+        
+        OPTIMIZED: During shutdown, use native batch cancel (ImmediateCancelAll) for speed.
+        Normal operation uses per-order cancellation for precision.
+        """
         if not HAVE_LIGHTER_SDK:
             return False
 
         try:
             signer = await self._get_signer()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FAST SHUTDOWN: Use native cancel_all_orders (ImmediateCancelAll)
+            # This cancels ALL orders in one transaction - much faster!
+            # ═══════════════════════════════════════════════════════════════
+            if getattr(config, 'IS_SHUTTING_DOWN', False):
+                try:
+                    await self.rate_limiter.acquire()
+                    async with self.order_lock:
+                        # Prevent duplicate global cancels
+                        if self._shutdown_cancel_done:
+                            logger.info("✅ Lighter: ImmediateCancelAll already executed (deduplicated)")
+                            return True
+
+                        # Get fresh nonce - same method as open_live_position
+                        if self._resolved_account_index is None:
+                            await self._resolve_account_index()
+                            
+                        nonce_params = {
+                            "account_index": self._resolved_account_index,
+                            "api_key_index": self._resolved_api_key_index
+                        }
+                        
+                        nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
+                        
+                        if nonce_resp is None:
+                            logger.warning(f"⚠️ Failed to fetch nonce for cancel_all")
+                            raise ValueError("Nonce fetch failed")
+                        
+                        # Parse nonce response
+                        current_nonce = 0
+                        if isinstance(nonce_resp, dict):
+                            val = nonce_resp.get('nonce')
+                            if val is not None:
+                                current_nonce = int(val)
+                            else:
+                                raise ValueError(f"Invalid nonce response: {nonce_resp}")
+                        else:
+                            current_nonce = int(str(nonce_resp).strip())
+                        
+                        # ImmediateCancelAll - cancels ALL open orders at once
+                        # time_in_force=IOC triggers immediate cancel
+                        tif_ioc = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 
+                                         getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 1))
+                        
+                        # time parameter is usually a future timestamp for scheduled cancel,
+                        # but for IOC (ImmediateCancelAll) it MUST be 0 to avoid "CancelAllTime should be nil" error
+                        cancel_time = 0
+                        
+                        logger.info(f"⚡ Executing ImmediateCancelAll (nonce={current_nonce})...")
+                        
+                        tx, resp, err = await signer.cancel_all_orders(
+                            time_in_force=int(tif_ioc),
+                            time=cancel_time,
+                            nonce=int(current_nonce),
+                            api_key_index=int(self._resolved_api_key_index)
+                        )
+                        
+                        if err:
+                            err_str = str(err).lower()
+                            # Ignore "no orders" errors
+                            if "no" in err_str and "order" in err_str:
+                                logger.info(f"✅ Lighter: No open orders to cancel")
+                                self._shutdown_cancel_done = True
+                                return True
+                            logger.warning(f"⚠️ Lighter cancel_all_orders error: {err}")
+                        else:
+                            logger.info(f"✅ Lighter: ImmediateCancelAll executed (tx={tx})")
+                            self._shutdown_cancel_done = True
+                            return True
+                except Exception as e:
+                    logger.warning(f"⚠️ Lighter ImmediateCancelAll failed: {e}, falling back to per-order cancel")
+                    # Fall through to per-order cancellation
+            
+            # ═══════════════════════════════════════════════════════════════
+            # NORMAL OPERATION: Per-order cancellation (symbol-filtered)
+            # ═══════════════════════════════════════════════════════════════
             order_api = OrderApi(signer. api_client)
 
             market_data = self.market_info. get(symbol)
