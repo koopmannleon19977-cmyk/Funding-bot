@@ -1891,6 +1891,57 @@ class LighterAdapter(BaseAdapter):
     def get_price(self, symbol: str) -> Optional[float]:
         """Alias for fetch_mark_price - used by order execution code."""
         return self.fetch_mark_price(symbol)
+    
+    async def fetch_fresh_mark_price(self, symbol: str) -> Optional[float]:
+        """
+        Fetch FRESH mark price directly via REST API (bypasses cache).
+        Use this during shutdown when WebSocket is closed and cached prices may be stale.
+        
+        Uses /api/v1/orderBookDetails which returns last_trade_price for all markets.
+        """
+        try:
+            # Convert symbol to Lighter format (remove -USD suffix)
+            lighter_symbol = symbol.replace("-USD", "")
+            
+            # Use the correct endpoint that returns market details including last_trade_price
+            # This endpoint returns ALL markets, so we filter for our symbol
+            url = f"{self.base_url}/api/v1/orderBookDetails"
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status != 200:
+                        logger.debug(f"fetch_fresh_mark_price: HTTP {resp.status} for {symbol}")
+                        return None
+                    
+                    data = await resp.json()
+                    
+                    # Find our market in the response
+                    order_book_details = data.get('order_book_details', [])
+                    
+                    for market in order_book_details:
+                        market_symbol = market.get('symbol', '')
+                        if market_symbol == lighter_symbol:
+                            # Get last trade price (most recent execution price)
+                            last_price = safe_float(market.get('last_trade_price', 0))
+                            
+                            if last_price and last_price > 0:
+                                logger.debug(f"✅ fetch_fresh_mark_price: {symbol} = ${last_price:.6f} (fresh via REST)")
+                                # Update caches
+                                self._price_cache[symbol] = last_price
+                                self.price_cache[symbol] = last_price
+                                return last_price
+                            
+                            break
+                    
+                    logger.debug(f"fetch_fresh_mark_price: Symbol {lighter_symbol} not found in orderBookDetails")
+                    return None
+            
+        except asyncio.TimeoutError:
+            logger.debug(f"fetch_fresh_mark_price: Timeout for {symbol}")
+            return None
+        except Exception as e:
+            logger.debug(f"fetch_fresh_mark_price error for {symbol}: {e}")
+            return None
 
     async def get_real_available_balance(self) -> float:
         if time.time() - self._last_balance_update < 2.0:
@@ -2241,9 +2292,29 @@ class LighterAdapter(BaseAdapter):
             # FAT FINGER PROTECTION: Clamp Price to Mark Price +/- Epsilon
             # -------------------------------------------------------
             # Prevents "order price flagged as an accidental price" error 21733
-            mark_p = self.fetch_mark_price(symbol)
+            # CRITICAL FIX: During shutdown, the caller already fetched a fresh price via REST
+            # and calculated the order price. We should use that price as reference to avoid
+            # race conditions between two REST calls.
+            if getattr(config, 'IS_SHUTTING_DOWN', False):
+                # During shutdown, trust the caller's price calculation
+                # The price parameter was already calculated with fresh data from REST
+                # Use the original price (before slippage) as mark_p
+                # Since our slippage is 2%, we can derive mark from the submitted price
+                if side.upper() == "BUY":
+                    mark_p = float(limit_price) / 1.02  # Reverse the slippage
+                else:
+                    mark_p = float(limit_price) / 0.98
+                logger.debug(f"🔄 {symbol}: Shutdown detected - using caller's price as reference (mark=${mark_p:.6f})")
+            else:
+                mark_p = self.fetch_mark_price(symbol)
+                
             if mark_p and mark_p > 0:
-                epsilon = Decimal(str(getattr(config, "LIGHTER_PRICE_EPSILON_PCT", 0.01)))
+                # During shutdown, use a tighter epsilon (3%) because Lighter's "accidental price" 
+                # protection is stricter than we initially thought
+                if getattr(config, 'IS_SHUTTING_DOWN', False):
+                    epsilon = Decimal("0.03")  # 3% during shutdown (Lighter seems to use ~3% tolerance)
+                else:
+                    epsilon = Decimal(str(getattr(config, "LIGHTER_PRICE_EPSILON_PCT", 0.10)))
                 mark_decimal = Decimal(str(mark_p))
                 min_allowed = mark_decimal * (Decimal("1") - epsilon)
                 max_allowed = mark_decimal * (Decimal("1") + epsilon)

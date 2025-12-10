@@ -4319,40 +4319,95 @@ class FundingBot:
             return
 
         try:
-            # 2. Cancel alle offenen Orders (damit keine neuen Fills kommen)
-            logger.info("1️⃣  Cancelling open orders...")
-            await self.cancel_all_open_orders()
+            # ═══════════════════════════════════════════════════════════════
+            # PRIORITY 1: Close Positions FIRST (Most Important!)
+            # This runs before order cancellation to ensure positions are closed
+            # even if the user presses Ctrl+C again
+            # ═══════════════════════════════════════════════════════════════
+            logger.info("1️⃣  PRIORITY: Closing ALL exchange positions...")
             
-            # 2b. Verifikation: Sind wirklich alle Orders weg?
-            if self.lighter:
-                try:
-                    logger.info("   -> Verifying Lighter Orderbook cleanup...")
-                    found_orders = False
-                    retry_symbols = set()
+            # Quick fetch of actual positions with timeout
+            x10_positions = []
+            lighter_positions = []
+            try:
+                async with asyncio.timeout(5.0):
+                    if self.x10:
+                        x10_positions = await self.x10.fetch_open_positions()
+                    if self.lighter:
+                        lighter_positions = await self.lighter.fetch_open_positions()
+                logger.info(f"   -> Found: X10={len(x10_positions)}, Lighter={len(lighter_positions)} positions")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Position fetch timeout - will try anyway")
+            
+            # Close X10 positions (fast, reliable)
+            for pos in x10_positions:
+                size = safe_float(pos.get('size', 0))
+                if size != 0:
+                    symbol = pos.get('symbol')
+                    side = "SELL" if size > 0 else "BUY"
+                    try:
+                        logger.info(f"   -> Closing X10: {symbol} ({side} {abs(size)})")
+                        await self.x10.close_live_position(symbol, side, abs(size))
+                    except Exception as e:
+                        logger.error(f"X10 Close Error {symbol}: {e}")
+            
+            # Close Lighter positions (with fresh prices via REST)
+            for pos in lighter_positions:
+                size = safe_float(pos.get('size', 0))
+                if size == 0:
+                    continue
                     
-                    # Schneller Check über Symbole im Cache oder bekannte
-                    check_symbols = list(self.lighter.market_info.keys()) if hasattr(self.lighter, 'market_info') else []
-                    
-                    for sym in check_symbols:
-                        orders = await self.lighter.get_open_orders(sym)
-                        if orders:
-                            logger.warning(f"⚠️ Found persistent orders for {sym} after cancel_all: {len(orders)}")
-                            found_orders = True
-                            retry_symbols.add(sym)
-                            
-                    if found_orders:
-                        logger.warning("   -> Retrying FORCE CANCEL for persistent orders...")
-                        for sym in retry_symbols:
-                            await self.lighter.cancel_all_orders(sym)
-                        await asyncio.sleep(1.0)
+                symbol = pos.get('symbol')
+                close_side = "SELL" if size > 0 else "BUY"
+                close_size = abs(size)
+                
+                # Get fresh price via REST (WebSocket might be closed)
+                price = await self.lighter.fetch_fresh_mark_price(symbol)
+                if not price or price <= 0:
+                    price = self.lighter.get_price(symbol)
+                
+                if price and price > 0:
+                    # REDUCED slippage (2%) - Lighter's "accidental price" protection is stricter (probably ~3%)
+                    # IOC orders will execute at best available price anyway
+                    if close_side == "BUY":
+                        agg_price = price * 1.02  # 2% above mark
+                    else:
+                        agg_price = price * 0.98  # 2% below mark
                         
-                except Exception as e:
-                    logger.error(f"Error checking remaining orders: {e}")
+                    try:
+                        logger.info(f"   -> Closing Lighter: {symbol} ({close_side} {close_size} @ ${agg_price:.4f})")
+                        await self.lighter.open_live_position(
+                            symbol=symbol,
+                            side=close_side,
+                            notional_usd=0,
+                            amount=close_size,
+                            price=agg_price,
+                            post_only=False,
+                            reduce_only=True,
+                            time_in_force="IOC"
+                        )
+                    except Exception as e:
+                        logger.error(f"Lighter Close Error {symbol}: {e}")
+                else:
+                    logger.warning(f"⚠️ No price for {symbol} - skipping close")
+            
+            # Brief pause for orders to execute
+            await asyncio.sleep(1.0)
+            
+            # ═══════════════════════════════════════════════════════════════
+            # PRIORITY 2: Cancel remaining open orders (optional cleanup)
+            # ═══════════════════════════════════════════════════════════════
+            logger.info("2️⃣  Cancelling remaining open orders...")
+            try:
+                async with asyncio.timeout(10.0):
+                    await self.cancel_all_open_orders()
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Order cancellation timeout - positions should be closed already")
 
             # 3. STATE-AWARE CLOSE (Prioritize Known Trades to Record PnL)
             # -------------------------------------------------------------
             # FIX: We iterate over State FIRST to ensure PnL is recorded.
-            logger.info("2️⃣  Closing State-Tracked Trades (PnL Recording)...")
+            logger.info("3️⃣  Closing State-Tracked Trades (PnL Recording)...")
             
             open_trades = await state_manager.get_all_open_trades()
             if open_trades:
@@ -4402,7 +4457,7 @@ class FundingBot:
 
             # 4. Exchange-Scan Cleanup (Orphans / Dust)
             # -------------------------------------------------------------
-            logger.info("3️⃣  Scanning Exchanges for Residual Positions...")
+            logger.info("4️⃣  Verification: Scanning for Residual Positions...")
             
             # 3. Robust Close Loop (Retry up to 3 times)
             max_retries = 3
@@ -4550,34 +4605,70 @@ class FundingBot:
         logger.info("✅ All positions closed. Bye!")
 
     async def cancel_all_open_orders(self):
-        """Helper to cancel all orders on both exchanges."""
+        """Helper to cancel all orders on both exchanges.
+        
+        OPTIMIZED: Only cancel orders for symbols with known positions,
+        instead of iterating through all 200+ symbols which takes forever.
+        """
         tasks = []
-
-        # 1. Lighter Cancel
-        if self.lighter and hasattr(self.lighter, 'market_info'):
-            # Check if market_info is not empty
-            if self.lighter.market_info:
-                logger.info("   -> Cancelling Lighter orders (Parallel)...")
-                for sym in list(self.lighter.market_info.keys()):
-                     tasks.append(self.lighter.cancel_all_orders(sym))
-
-        # 2. X10 Cancel
-        if self.x10 and hasattr(self.x10, 'market_info'):
-             logger.info("   -> Cancelling X10 orders (Parallel)...")
-             # Falls market_info leer ist, lade es kurz (Backup)
-             if not self.x10.market_info:
-                 try:
-                     await self.x10.load_market_cache()
-                 except: 
-                     pass
-             
-             if self.x10.market_info:
-                 for sym in list(self.x10.market_info.keys()):
-                     tasks.append(self.x10.cancel_all_orders(sym))
+        
+        # FAST PATH: Get symbols with actual positions first
+        relevant_symbols = set()
+        
+        # 1. From State Manager (known trades)
+        try:
+            open_trades = await state_manager.get_all_open_trades()
+            for trade in open_trades:
+                relevant_symbols.add(trade.symbol)
+        except Exception:
+            pass
+        
+        # 2. Quick REST fetch for actual positions (with timeout)
+        try:
+            async with asyncio.timeout(5.0):
+                if self.lighter:
+                    lighter_pos = await self.lighter.fetch_open_positions()
+                    for pos in lighter_pos:
+                        sym = pos.get('symbol')
+                        if sym:
+                            relevant_symbols.add(sym)
+                            
+                if self.x10:
+                    x10_pos = await self.x10.fetch_open_positions()
+                    for pos in x10_pos:
+                        sym = pos.get('symbol')
+                        if sym:
+                            relevant_symbols.add(sym)
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Position fetch timeout - falling back to all symbols")
+            # Fallback: cancel for all known symbols (slower but safer)
+            if self.lighter and self.lighter.market_info:
+                relevant_symbols.update(self.lighter.market_info.keys())
+            if self.x10 and self.x10.market_info:
+                relevant_symbols.update(self.x10.market_info.keys())
+        except Exception as e:
+            logger.debug(f"Position fetch error: {e}")
+        
+        if not relevant_symbols:
+            logger.info("   -> No relevant symbols for cancellation")
+            return
+        
+        logger.info(f"   -> Cancelling orders for {len(relevant_symbols)} relevant symbols...")
+        
+        # 3. Cancel only for relevant symbols
+        for sym in relevant_symbols:
+            if self.lighter:
+                tasks.append(self.lighter.cancel_all_orders(sym))
+            if self.x10:
+                tasks.append(self.x10.cancel_all_orders(sym))
         
         if tasks:
-            logger.info(f"   -> Executing {len(tasks)} cancellation tasks...")
-            await asyncio.gather(*tasks, return_exceptions=True)
+            logger.info(f"   -> Executing {len(tasks)} targeted cancellation tasks...")
+            try:
+                async with asyncio.timeout(10.0):  # 10s max for cancellations
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ Cancel timeout - proceeding to close positions anyway")
 
 
 

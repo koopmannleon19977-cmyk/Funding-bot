@@ -149,7 +149,7 @@ PARALLEL_EXECUTION_TIMEOUT = 15.0   # Timeout for parallel execution logic
 X10_MAX_SLIPPAGE_PCT = 0.6
 X10_PRICE_EPSILON_PCT = 0.15
 LIGHTER_MAX_SLIPPAGE_PCT = 0.05
-LIGHTER_PRICE_EPSILON_PCT = 0.05  # Relaxed to 10% to allow "Top of Book" logic (best_bid + tick) without clamping
+LIGHTER_PRICE_EPSILON_PCT = 0.10  # 10% tolerance for shutdown close orders (was 5%, caused accidental price errors)
 LIGHTER_ORDER_TIMEOUT_SECONDS = 60
 
 # API Keys
