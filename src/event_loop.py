@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 import time
 
+from src.shutdown import get_shutdown_orchestrator
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,6 +71,12 @@ class BotEventLoop:
         for name, component in components.items():
             if hasattr(self, name):
                 setattr(self, name, component)
+        
+        # Keep centralized shutdown orchestrator in sync
+        try:
+            get_shutdown_orchestrator().configure(**components)
+        except Exception:
+            pass
     
     def register_task(
         self,
@@ -282,7 +290,7 @@ class BotEventLoop:
     
     async def _shutdown(self):
         """Graceful shutdown procedure"""
-        logger. info("🛑 Initiating shutdown...")
+        logger.info("🛑 Initiating shutdown...")
         self._running = False
         # Set global shutdown latch to block new orders
         try:
@@ -290,47 +298,53 @@ class BotEventLoop:
             setattr(config, "IS_SHUTTING_DOWN", True)
         except Exception:
             pass
-        
-        # FIRST: Close all trades if enabled
-        await self._close_all_trades_on_shutdown()
-        
-        # Run shutdown callbacks
-        for callback in self._on_shutdown_callbacks:
-            try:
-                result = callback()
-                if asyncio. iscoroutine(result):
-                    await asyncio.wait_for(result, timeout=5.0)
-            except Exception as e:
-                logger.error(f"Shutdown callback error: {e}")
-        
-        # Cancel all tasks in reverse priority order
+
+        # Cancel all tasks in reverse priority order to stop new activity
         sorted_tasks = sorted(
-            self._tasks. values(),
+            self._tasks.values(),
             key=lambda t: t.priority.value,
             reverse=True
         )
-        
+
         for managed_task in sorted_tasks:
-            if managed_task.task and not managed_task. task.done():
-                managed_task. task.cancel()
+            if managed_task.task and not managed_task.task.done():
+                managed_task.task.cancel()
                 logger.debug(f"Cancelled task: {managed_task.name}")
-        
+
         # Wait for tasks to complete
         tasks = [mt.task for mt in self._tasks.values() if mt.task]
         if tasks:
-            done, pending = await asyncio. wait(
+            done, pending = await asyncio.wait(
                 tasks,
                 timeout=self._shutdown_timeout
             )
-            
+
             if pending:
                 logger.warning(f"Force-killing {len(pending)} tasks")
                 for task in pending:
                     task.cancel()
-        
-        # Stop components
-        await self._stop_components()
-        
+
+        # Run shutdown callbacks
+        for callback in self._on_shutdown_callbacks:
+            try:
+                result = callback()
+                if asyncio.iscoroutine(result):
+                    await asyncio.wait_for(result, timeout=5.0)
+            except Exception as e:
+                logger.error(f"Shutdown callback error: {e}")
+
+        # Delegate to centralized orchestrator
+        shutdown = get_shutdown_orchestrator()
+        shutdown.configure(
+            ws_manager=self.ws_manager,
+            state_manager=self.state_manager,
+            parallel_exec=self.parallel_exec,
+            telegram_bot=self.telegram_bot,
+            lighter=self.lighter_adapter,
+            x10=self.x10_adapter,
+        )
+        await asyncio.shield(shutdown.shutdown(reason="bot_event_loop"))
+
         logger.info("✅ Shutdown complete")
     
     async def _close_all_trades_on_shutdown(self):

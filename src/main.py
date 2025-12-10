@@ -3525,6 +3525,7 @@ async def migrate_database():
 from src.event_loop import BotEventLoop, TaskPriority, get_event_loop
 from src.open_interest_tracker import init_oi_tracker, get_oi_tracker
 from src.websocket_manager import init_websocket_manager, get_websocket_manager
+from src.shutdown import get_shutdown_orchestrator
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3860,6 +3861,19 @@ async def run_bot_v5(bot_instance=None):
     event_loop.ws_manager = ws_manager
     event_loop.state_manager = state_manager
     event_loop.telegram_bot = telegram_bot
+
+    # Wire centralized shutdown orchestrator
+    shutdown = get_shutdown_orchestrator()
+    shutdown.configure(
+        x10=x10,
+        lighter=lighter,
+        ws_manager=ws_manager,
+        parallel_exec=parallel_exec,
+        state_manager=state_manager,
+        telegram_bot=telegram_bot,
+        close_database_fn=close_database,
+        stop_fee_manager_fn=stop_fee_manager,
+    )
     
     # Register tasks with priorities
     event_loop.register_task(
@@ -4308,301 +4322,37 @@ class FundingBot:
         if self._shutdown_complete:
             return
         self._shutdown_complete = True
-        
-        logger.warning("🚨 GRACEFUL SHUTDOWN: Closing ALL positions...")
-        
-        # 1. Setze Flag, damit keine NEUEN Trades geöffnet werden
-        config.IS_SHUTTING_DOWN = True
-        
-        if not config.CLOSE_ALL_ON_SHUTDOWN:
-            logger.info("Shutdown configured to KEEP positions open.")
-            return
 
+        logger.warning("🚨 GRACEFUL SHUTDOWN: Delegating to centralized orchestrator...")
+        
+        shutdown = get_shutdown_orchestrator()
+        ws_mgr = None
         try:
-            # ═══════════════════════════════════════════════════════════════
-            # PRIORITY 1: Close Positions FIRST (Most Important!)
-            # This runs before order cancellation to ensure positions are closed
-            # even if the user presses Ctrl+C again
-            # ═══════════════════════════════════════════════════════════════
-            logger.info("1️⃣  PRIORITY: Closing ALL exchange positions...")
-            
-            # Quick fetch of actual positions with timeout
-            x10_positions = []
-            lighter_positions = []
-            try:
-                async with asyncio.timeout(5.0):
-                    if self.x10:
-                        x10_positions = await self.x10.fetch_open_positions()
-                    if self.lighter:
-                        lighter_positions = await self.lighter.fetch_open_positions()
-                logger.info(f"   -> Found: X10={len(x10_positions)}, Lighter={len(lighter_positions)} positions")
-            except asyncio.TimeoutError:
-                logger.warning("⚠️ Position fetch timeout - will try anyway")
-            
-            # Close X10 positions (fast, reliable)
-            for pos in x10_positions:
-                size = safe_float(pos.get('size', 0))
-                if size != 0:
-                    symbol = pos.get('symbol')
-                    side = "SELL" if size > 0 else "BUY"
-                    try:
-                        logger.info(f"   -> Closing X10: {symbol} ({side} {abs(size)})")
-                        await self.x10.close_live_position(symbol, side, abs(size))
-                    except Exception as e:
-                        logger.error(f"X10 Close Error {symbol}: {e}")
-            
-            # Close Lighter positions (with fresh prices via REST)
-            for pos in lighter_positions:
-                size = safe_float(pos.get('size', 0))
-                if size == 0:
-                    continue
-                    
-                symbol = pos.get('symbol')
-                close_side = "SELL" if size > 0 else "BUY"
-                close_size = abs(size)
-                
-                # Get fresh price via REST (WebSocket might be closed)
-                price = await self.lighter.fetch_fresh_mark_price(symbol)
-                if not price or price <= 0:
-                    price = self.lighter.get_price(symbol)
-                
-                if price and price > 0:
-                    # REDUCED slippage (2%) - Lighter's "accidental price" protection is stricter (probably ~3%)
-                    # IOC orders will execute at best available price anyway
-                    if close_side == "BUY":
-                        agg_price = price * 1.02  # 2% above mark
-                    else:
-                        agg_price = price * 0.98  # 2% below mark
-                        
-                    try:
-                        logger.info(f"   -> Closing Lighter: {symbol} ({close_side} {close_size} @ ${agg_price:.4f})")
-                        await self.lighter.open_live_position(
-                            symbol=symbol,
-                            side=close_side,
-                            notional_usd=0,
-                            amount=close_size,
-                            price=agg_price,
-                            post_only=False,
-                            reduce_only=True,
-                            time_in_force="IOC"
-                        )
-                    except Exception as e:
-                        logger.error(f"Lighter Close Error {symbol}: {e}")
-                else:
-                    logger.warning(f"⚠️ No price for {symbol} - skipping close")
-            
-            # Brief pause for orders to execute
-            await asyncio.sleep(1.0)
-            
-            # ═══════════════════════════════════════════════════════════════
-            # PRIORITY 2: Cancel remaining open orders (optional cleanup)
-            # ═══════════════════════════════════════════════════════════════
-            logger.info("2️⃣  Cancelling remaining open orders...")
-            try:
-                async with asyncio.timeout(10.0):
-                    await self.cancel_all_open_orders()
-            except asyncio.TimeoutError:
-                logger.warning("⚠️ Order cancellation timeout - positions should be closed already")
+            ws_mgr = get_websocket_manager()
+        except Exception:
+            ws_mgr = None
+        par_exec = None
+        try:
+            ev = get_event_loop()
+            par_exec = getattr(ev, "parallel_exec", None)
+        except Exception:
+            par_exec = None
+        shutdown.configure(
+            x10=self.x10,
+            lighter=self.lighter,
+            state_manager=state_manager,
+            telegram_bot=telegram_bot,
+            ws_manager=ws_mgr,
+            parallel_exec=par_exec,
+            close_database_fn=close_database,
+            stop_fee_manager_fn=stop_fee_manager,
+        )
 
-            # 3. STATE-AWARE CLOSE (Prioritize Known Trades to Record PnL)
-            # -------------------------------------------------------------
-            # FIX: We iterate over State FIRST to ensure PnL is recorded.
-            logger.info("3️⃣  Closing State-Tracked Trades (PnL Recording)...")
-            
-            open_trades = await state_manager.get_all_open_trades()
-            if open_trades:
-                logger.info(f"   -> Found {len(open_trades)} active trades in State.")
-                
-                # Fetch fresh prices for PnL calculation
-                await self.x10.refresh_missing_prices()
-                
-                close_tasks = []
-                for trade in open_trades:
-                    try:
-                        symbol = trade.symbol
-                        entry_x10 = trade.entry_price_x10 or 0.0
-                        entry_lit = trade.entry_price_lighter or 0.0
-                        size_usd = trade.size_usd or 0.0
-                        
-                        # Get Mark Price
-                        mark_price = safe_float(self.x10.fetch_mark_price(symbol)) or 0
-                        if mark_price == 0:
-                             mark_price = safe_float(self.lighter.get_price(symbol)) or 0
-                        
-                        estimated_pnl = 0.0
-                        # Calculate PnL if we have valid prices
-                        if mark_price > 0 and size_usd > 0:
-                            # X10 Leg PnL
-                            if entry_x10 > 0:
-                                # Assume size_usd is the nominal size per leg (approx)
-                                amount = size_usd / entry_x10
-                                if trade.side_x10 == "BUY":
-                                    estimated_pnl += (mark_price - entry_x10) * amount
-                                else:
-                                    estimated_pnl += (entry_x10 - mark_price) * amount
-                            
-                            # Lighter Leg PnL
-                            if entry_lit > 0:
-                                amount = size_usd / entry_lit
-                                if trade.side_lighter == "BUY":
-                                    estimated_pnl += (mark_price - entry_lit) * amount
-                                else:
-                                    estimated_pnl += (entry_lit - mark_price) * amount
-
-                        logger.info(f"   -> Closing {symbol} in State (Est. PnL: ${estimated_pnl:.2f})")
-                        await state_manager.close_trade(symbol, pnl=estimated_pnl, funding=0.0)
-                        
-                    except Exception as e:
-                        logger.error(f"Error updating state for {trade.symbol}: {e}")
-
-            # 4. Exchange-Scan Cleanup (Orphans / Dust)
-            # -------------------------------------------------------------
-            logger.info("4️⃣  Verification: Scanning for Residual Positions...")
-            
-            # 3. Robust Close Loop (Retry up to 3 times)
-            max_retries = 3
-            for attempt in range(max_retries):
-                logger.info(f"    -> Scan Attempt {attempt+1}/{max_retries}...")
-                
-                x10_positions = await self.x10.fetch_open_positions() if self.x10 else []
-                lighter_positions = await self.lighter.fetch_open_positions() if self.lighter else []
-
-                if not x10_positions and not lighter_positions:
-                    logger.info("✅ No open positions remaining. Clean shutdown possible.")
-                    break
-
-                # 4. Schließe X10
-                for pos in x10_positions:
-                    size = safe_float(pos.get('size', 0))
-                    if size != 0:
-                        symbol = pos.get('symbol')
-                        
-                        # Min-Notional Check X10
-                        price = self.x10.fetch_mark_price(symbol)
-                        val = abs(size) * (price if price else 0)
-                        min_x10 = 5.0
-                        if hasattr(self.x10, 'min_notional_usd'):
-                            min_x10 = self.x10.min_notional_usd(symbol)
-                        
-                        if val < min_x10:
-                            logger.warning(f"⚠️ Skip X10 Close {symbol}: ${val:.2f} < Min ${min_x10:.2f} (Dust)")
-                            continue
-
-                        logger.info(f"🛑 Closing X10 Position: {symbol} Size: {size}")
-                        side = "BUY" if size > 0 else "SELL"
-                        try:
-                            await self.x10.close_live_position(symbol, side, abs(size))
-                        except Exception as e:
-                            logger.error(f"Failed to close X10 {symbol}: {e}")
-
-                # 5. Schließe Lighter (Market Close / Taker / IOC)
-                # ═══════════════════════════════════════════════════════════════
-                # DUST-AWARE POSITION CATEGORIZATION
-                # ═══════════════════════════════════════════════════════════════
-                dust_positions = []
-                closeable_positions = []
-                
-                for pos in lighter_positions:
-                    symbol = pos.get('symbol')
-                    size = safe_float(pos.get('size', 0))
-                    if size == 0:
-                        continue
-                    
-                    price = self.lighter.get_price(symbol) or 0
-                    value = abs(size) * price
-                    
-                    # Get min notional
-                    min_notional = 5.0
-                    if hasattr(self.lighter, 'min_notional_usd'):
-                        min_notional = self.lighter.min_notional_usd(symbol)
-                    
-                    if value < min_notional:
-                        dust_positions.append({
-                            'symbol': symbol,
-                            'size': size,
-                            'value': value,
-                            'min_required': min_notional
-                        })
-                    else:
-                        closeable_positions.append(pos)
-                
-                # Report dust positions (only on first attempt)
-                if dust_positions and attempt == 0:
-                    dust_report = "\n".join([
-                        f"  - {d['symbol']}: ${d['value']:.2f} (min: ${d['min_required']:.2f})"
-                        for d in dust_positions
-                    ])
-                    # Downgrade to INFO (User Request)
-                    logger.info(
-                        f"ℹ️  Ignoring Dust Positions (Too small to close):\n{dust_report}"
-                    )
-                    
-                    # Telegram Alert
-                    if getattr(config, 'DUST_ALERT_ENABLED', True):
-                        try:
-                            from src.telegram_bot import get_telegram_bot
-                            telegram = get_telegram_bot()
-                            if telegram and telegram.enabled:
-                                total_dust = sum(d['value'] for d in dust_positions)
-                                await telegram.send_message(
-                                    f"⚠️ **SHUTDOWN DUST REPORT**\\n"
-                                    f"```\\n{dust_report}\\n```\\n"
-                                    f"Total dust value: ${total_dust:.2f}"
-                                )
-                        except Exception as e:
-                            logger.debug(f"Could not send dust report: {e}")
-                
-                # Process only closeable positions
-                lighter_close_tasks = []
-                for pos in closeable_positions:
-                    symbol = pos.get('symbol')
-                    size = safe_float(pos.get('size', 0))
-                    
-                    close_side = "SELL" if size > 0 else "BUY"
-                    close_size = abs(size)
-                    
-                    logger.info(f"🔻 Closing Lighter {symbol}: {close_side} {close_size} (Attempt {attempt+1})")
-                    
-                    try:
-                        # Escalating Aggressiveness: 5%, 10%, 15%
-                        base_slip = 0.05
-                        escalation = 0.05 * attempt
-                        target_slip = base_slip + escalation
-                        
-                        price = self.lighter.get_price(symbol)
-                        agg_price = None
-                        if price:
-                            if close_side == "BUY":
-                                agg_price = price * (1 + target_slip)
-                            else:
-                                agg_price = price * (1 - target_slip)
-                        
-                        task = self.lighter.open_live_position(
-                            symbol=symbol,
-                            side=close_side,
-                            notional_usd=0,
-                            amount=close_size,
-                            price=agg_price, # Expliziter aggressiver Preis
-                            post_only=False, # TAKER!
-                            reduce_only=True, # Nur schließen!
-                            time_in_force="IOC" # FIX: Sofort oder garnicht!
-                        )
-                        lighter_close_tasks.append(task)
-                    except Exception as e:
-                        logger.error(f"Error preparing close for Lighter {symbol}: {e}")
-                
-                if lighter_close_tasks:
-                    logger.info(f"   -> Firing {len(lighter_close_tasks)} IOC close orders...")
-                    await asyncio.gather(*lighter_close_tasks, return_exceptions=True)
-
-                if attempt < max_retries - 1:
-                    logger.info("⏳ Waiting 2s for fills/verification...")
-                    await asyncio.sleep(2.0)
-
-        except Exception as e:
-            logger.error(f"Error during graceful_shutdown: {e}")
-
-        logger.info("✅ All positions closed. Bye!")
+        result = await asyncio.shield(shutdown.shutdown(reason="funding_bot"))
+        if not result.get("success"):
+            logger.warning(f"Shutdown completed with issues: {result}")
+        else:
+            logger.info("✅ All positions closed. Bye!")
 
     async def cancel_all_open_orders(self):
         """Helper to cancel all orders on both exchanges.
