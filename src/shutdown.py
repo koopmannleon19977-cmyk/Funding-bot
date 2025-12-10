@@ -28,10 +28,10 @@ class ShutdownOrchestrator:
 
     def __init__(
         self,
-        global_timeout: float = 60.0,
-        verify_retries: int = 3,
+        global_timeout: float = 120.0,
+        verify_retries: int = 5,
         verify_delay: float = 2.0,
-        base_slippage: float = 0.05,
+        base_slippage: float = 0.02,
     ):
         self.global_timeout = global_timeout
         self.verify_retries = verify_retries
@@ -73,9 +73,13 @@ class ShutdownOrchestrator:
             except Exception:
                 pass
 
+            logger.info(f"🛑 Shutdown orchestrator start (reason={reason})")
+
             async with asyncio.timeout(self.global_timeout):
                 await self._cancel_open_orders(errors)
                 await self._close_and_verify_positions(errors)
+                # Extra safety: re-cancel after close attempts to catch makers
+                await self._cancel_open_orders(errors)
                 await self._persist_state(errors)
                 await self._teardown_components(errors)
 
@@ -89,7 +93,16 @@ class ShutdownOrchestrator:
         finally:
             elapsed = time.monotonic() - start
             remaining = await self._fetch_positions_safely()
-            success = not remaining and not errors
+
+            # If no positions remain, drop close-timeout warning
+            if not remaining.get("lighter") and not remaining.get("x10"):
+                errors = [e for e in errors if e != "close_positions_timeout"]
+
+            success = (
+                not errors and
+                not remaining.get("lighter") and
+                not remaining.get("x10")
+            )
             result: ShutdownResult = {
                 "success": success,
                 "errors": errors,
@@ -147,7 +160,10 @@ class ShutdownOrchestrator:
         for attempt in range(self.verify_retries):
             positions = await self._fetch_positions()
             if not positions["x10"] and not positions["lighter"]:
-                logger.info("✅ No open positions remaining")
+                if attempt == 0:
+                    logger.info("✅ No open positions to close")
+                else:
+                    logger.info("✅ No open positions remaining")
                 return
 
             logger.info(
@@ -166,6 +182,7 @@ class ShutdownOrchestrator:
                 if not symbol or not side:
                     continue
                 try:
+                    logger.info(f"🛑 Closing X10 {symbol} ({side} {abs(size)})")
                     x10_tasks.append(x10.close_live_position(symbol, side, abs(size)))
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"x10_close_prepare:{symbol}:{e}")
@@ -186,12 +203,17 @@ class ShutdownOrchestrator:
                 except Exception:
                     price = None
 
-                slip = self.base_slippage + (0.05 * attempt)
+                # Escalating but capped slippage; final attempt uses market (agg_price=None)
+                slip = min(self.base_slippage + (0.02 * attempt), 0.08)
                 agg_price = None
-                if price:
+                if attempt < self.verify_retries - 1 and price:
                     agg_price = price * (1 + slip) if close_side == "BUY" else price * (1 - slip)
 
                 try:
+                    logger.info(
+                        f"🛑 Closing Lighter {symbol}: {close_side} {abs(size)} "
+                        f"(IOC reduce_only, slip~{slip:.0%}, agg_price={agg_price})"
+                    )
                     lighter_tasks.append(
                         lighter.open_live_position(
                             symbol=symbol,
@@ -215,7 +237,7 @@ class ShutdownOrchestrator:
 
             if close_tasks:
                 try:
-                    async with asyncio.timeout(15.0):
+                    async with asyncio.timeout(25.0):
                         await asyncio.gather(*close_tasks, return_exceptions=True)
                 except asyncio.TimeoutError:
                     errors.append("close_positions_timeout")
@@ -250,6 +272,8 @@ class ShutdownOrchestrator:
                 await asyncio.wait_for(close_database_fn(), timeout=3.0)
             except Exception as e:  # noqa: BLE001
                 errors.append(f"close_database:{e}")
+
+        logger.info("💾 Persist phase complete")
 
     async def _teardown_components(self, errors: List[str]) -> None:
         """Stop WS, execution, telegram, adapters."""
@@ -286,6 +310,8 @@ class ShutdownOrchestrator:
 
         if x10 and hasattr(x10, "aclose"):
             await _safe_call(x10.aclose, "x10_aclose", timeout=3.0)
+
+        logger.info("✅ Teardown complete")
 
     # ----- Helpers ----------------------------------------------------
     async def _collect_relevant_symbols(self) -> List[str]:
