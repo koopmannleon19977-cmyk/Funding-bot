@@ -108,6 +108,7 @@ class LighterAdapter(BaseAdapter):
         
         # Shutdown state
         self._shutdown_cancel_done = False
+        self._shutdown_cancel_failed = False
 
         # WebSocket Management
         self.ws_task = None
@@ -471,7 +472,7 @@ class LighterAdapter(BaseAdapter):
         try:
             # Resolve indices if needed
             if not getattr(self, '_resolved_account_index', None):
-                 await self._resolve_account_index()
+                await self._resolve_account_index()
             
             acc_idx = getattr(self, '_resolved_account_index', None)
             if acc_idx is None:
@@ -481,7 +482,14 @@ class LighterAdapter(BaseAdapter):
             if not market:
                 return []
             
-            market_index = market.get('market_index')
+            # Lighter's market metadata primarily uses "i" as market index, but
+            # depending on source there may also be "market_id" or
+            # "market_index". Use a robust fallback chain.
+            market_index = (
+                market.get('i')
+                or market.get('market_id')
+                or market.get('market_index')
+            )
             if market_index is None:
                 return []
 
@@ -2596,8 +2604,10 @@ class LighterAdapter(BaseAdapter):
                         break
                 
                 if oid_int is None:
-                    logger.warning(f"⚠️ Lighter Cancel: Could not find open order matching hash {order_id}. Assuming already closed.")
-                    return False
+                    # If we can't find the open order by hash, it's effectively closed/gone.
+                    # Returning True here prevents the caller from retrying or thinking it failed.
+                    logger.info(f"ℹ️ Lighter Cancel: Hash {order_id[:10]}... not found in open orders. Assuming closed.")
+                    return True
             else:
                 # Try basic conversion for other cases
                 try:
@@ -2619,7 +2629,9 @@ class LighterAdapter(BaseAdapter):
             if err:
                  # Ignore errors if order is already gone
                  err_str = str(err).lower()
-                 if "found" in err_str or "exist" in err_str:
+                 if "found" in err_str or "exist" in err_str or "could not find open order" in err_str:
+                     # Log as info, not warning, since this is expected during cleanups
+                     logger.info(f"ℹ️ Lighter Cancel: Order {oid_int} already closed/not found.")
                      return True
                  logger.error(f"Lighter Cancel Error {oid_int}: {err}")
                  return False
@@ -2966,6 +2978,21 @@ class LighterAdapter(BaseAdapter):
             # ═══════════════════════════════════════════════════════════════
             # FAST SHUTDOWN: Use native cancel_all_orders (ImmediateCancelAll)
             # This cancels ALL orders in one transaction - much faster!
+            #
+            # IMPORTANT:
+            # - The Lighter Python SDK's cancel_all_orders binding is quite
+            #   picky about argument types. Passing `None` for the time
+            #   parameter causes a low‑level TypeError:
+            #   "argument 2: <class 'TypeError'>: wrong type".
+            # - We therefore:
+            #   * pass an explicit integer (0) for `time` so the FFI layer
+            #     is happy
+            #   * and if the call still raises a TypeError or any other
+            #     exception, we PERMANENTLY mark the global‑cancel path as
+            #     failed for this process and fall back to the per‑order
+            #     logic below.
+            #   This avoids hammering the broken ImmediateCancelAll path
+            #   repeatedly during shutdown.
             # ═══════════════════════════════════════════════════════════════
             if getattr(config, 'IS_SHUTTING_DOWN', False):
                 try:
@@ -2975,64 +3002,84 @@ class LighterAdapter(BaseAdapter):
                         if self._shutdown_cancel_done:
                             logger.info("✅ Lighter: ImmediateCancelAll already executed (deduplicated)")
                             return True
-
-                        # Get fresh nonce - same method as open_live_position
-                        if self._resolved_account_index is None:
-                            await self._resolve_account_index()
-                            
-                        nonce_params = {
-                            "account_index": self._resolved_account_index,
-                            "api_key_index": self._resolved_api_key_index
-                        }
                         
-                        nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
-                        
-                        if nonce_resp is None:
-                            logger.warning(f"⚠️ Failed to fetch nonce for cancel_all")
-                            raise ValueError("Nonce fetch failed")
-                        
-                        # Parse nonce response
-                        current_nonce = 0
-                        if isinstance(nonce_resp, dict):
-                            val = nonce_resp.get('nonce')
-                            if val is not None:
-                                current_nonce = int(val)
-                            else:
-                                raise ValueError(f"Invalid nonce response: {nonce_resp}")
+                        # If global cancel previously failed, skip to per-symbol
+                        if self._shutdown_cancel_failed:
+                            pass  # Fall through to normal operation
                         else:
-                            current_nonce = int(str(nonce_resp).strip())
-                        
-                        # ImmediateCancelAll - cancels ALL open orders at once
-                        # time_in_force=IOC triggers immediate cancel
-                        tif_ioc = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 
-                                         getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 1))
-                        
-                        # time parameter is usually a future timestamp for scheduled cancel,
-                        # but for IOC (ImmediateCancelAll) it MUST be 0 to avoid "CancelAllTime should be nil" error
-                        cancel_time = 0
-                        
-                        logger.info(f"⚡ Executing ImmediateCancelAll (nonce={current_nonce})...")
-                        
-                        tx, resp, err = await signer.cancel_all_orders(
-                            time_in_force=int(tif_ioc),
-                            time=cancel_time,
-                            nonce=int(current_nonce),
-                            api_key_index=int(self._resolved_api_key_index)
-                        )
-                        
-                        if err:
-                            err_str = str(err).lower()
-                            # Ignore "no orders" errors
-                            if "no" in err_str and "order" in err_str:
-                                logger.info(f"✅ Lighter: No open orders to cancel")
+                            # Get fresh nonce - same method as open_live_position
+                            if self._resolved_account_index is None:
+                                await self._resolve_account_index()
+                                
+                            nonce_params = {
+                                "account_index": self._resolved_account_index,
+                                "api_key_index": self._resolved_api_key_index
+                            }
+                            
+                            nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
+                            
+                            if nonce_resp is None:
+                                logger.warning(f"⚠️ Failed to fetch nonce for cancel_all")
+                                raise ValueError("Nonce fetch failed")
+                            
+                            # Parse nonce response
+                            current_nonce = 0
+                            if isinstance(nonce_resp, dict):
+                                val = nonce_resp.get('nonce')
+                                if val is not None:
+                                    current_nonce = int(val)
+                                else:
+                                    raise ValueError(f"Invalid nonce response: {nonce_resp}")
+                            else:
+                                current_nonce = int(str(nonce_resp).strip())
+                            
+                            # ImmediateCancelAll - cancels ALL open orders at once
+                            # time_in_force=IOC triggers immediate cancel
+                            tif_ioc = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 
+                                             getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 1))
+                            
+                            # time parameter is usually a future timestamp for scheduled cancel.
+                            # For ImmediateCancelAll we use 0 as a sentinel "no schedule" value;
+                            # this keeps the FFI happy and lets the server interpret it as "now".
+                            cancel_time = 0
+                            
+                            logger.info(f"⚡ Executing ImmediateCancelAll (nonce={current_nonce})...")
+                            
+                            try:
+                                # SDK signature: cancel_all_orders(time_in_force: int, time: int)
+                                # - time_in_force=0 means IMMEDIATE (cancel now)
+                                # - time=0 means no scheduled time
+                                # Note: nonce and api_key_index are handled internally by SDK
+                                tx, resp, err = await signer.cancel_all_orders(
+                                    int(tif_ioc),      # positional arg 1: time_in_force
+                                    int(cancel_time),  # positional arg 2: time
+                                    nonce=current_nonce,
+                                    api_key_index=self._resolved_api_key_index
+                                )
+                            except TypeError as te:
+                                # Low‑level signature / type issue – don't retry this path again.
+                                logger.warning(f"⚠️ Lighter ImmediateCancelAll TypeError: {te!r} – disabling global cancel path and falling back to per-order cancel")
+                                self._shutdown_cancel_failed = True
+                                raise
+                            
+                            if err:
+                                err_str = str(err).lower()
+                                # Ignore "no orders" errors
+                                if "no" in err_str and "order" in err_str:
+                                    logger.info(f"✅ Lighter: No open orders to cancel")
+                                    self._shutdown_cancel_done = True
+                                    return True
+                                logger.warning(f"⚠️ Lighter cancel_all_orders error: {err}")
+                                self._shutdown_cancel_failed = True
+                            else:
+                                logger.info(f"✅ Lighter: ImmediateCancelAll executed (tx={tx})")
                                 self._shutdown_cancel_done = True
                                 return True
-                            logger.warning(f"⚠️ Lighter cancel_all_orders error: {err}")
-                        else:
-                            logger.info(f"✅ Lighter: ImmediateCancelAll executed (tx={tx})")
-                            self._shutdown_cancel_done = True
-                            return True
                 except Exception as e:
+                    # Mark global cancel as failed so we don't keep retrying
+                    # this path on every subsequent shutdown attempt.
+                    if not self._shutdown_cancel_failed:
+                        self._shutdown_cancel_failed = True
                     logger.warning(f"⚠️ Lighter ImmediateCancelAll failed: {e}, falling back to per-order cancel")
                     # Fall through to per-order cancellation
             
