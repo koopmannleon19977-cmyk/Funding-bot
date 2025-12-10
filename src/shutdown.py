@@ -132,20 +132,23 @@ class ShutdownOrchestrator:
 
         # Phase 1: Try global cancel for Lighter first (if available)
         # This attempts to execute the optimized ImmediateCancelAll once.
+        lighter_global_done = False
         if lighter and hasattr(lighter, "cancel_all_orders") and symbols:
             try:
                 # Use first symbol to trigger global cancel attempt
                 first_sym = symbols[0]
                 logger.info("⚡ Attempting global Lighter cancel...")
                 async with asyncio.timeout(10.0):
-                    await lighter.cancel_all_orders(first_sym)
+                    # Check if it returns True (success/deduplicated)
+                    lighter_global_done = await lighter.cancel_all_orders(first_sym)
             except Exception as e:
                 logger.warning(f"⚠️ Global Lighter cancel attempt failed: {e}")
 
         # Phase 2: Cancel remaining/others with increased timeout
         tasks = []
         for sym in symbols:
-            if lighter and hasattr(lighter, "cancel_all_orders"):
+            # Only add Lighter cancel if global failed
+            if lighter and hasattr(lighter, "cancel_all_orders") and not lighter_global_done:
                 tasks.append(lighter.cancel_all_orders(sym))
             if x10 and hasattr(x10, "cancel_all_orders"):
                 tasks.append(x10.cancel_all_orders(sym))
@@ -153,7 +156,7 @@ class ShutdownOrchestrator:
         if not tasks:
             return
 
-        logger.info(f"🛑 Cancelling open orders for {len(symbols)} symbols...")
+        logger.info(f"🛑 Cancelling open orders for {len(symbols)} symbols (LighterGlobal={lighter_global_done})...")
         try:
             # Increased timeout to 15s to handle fallback loop if global cancel failed
             async with asyncio.timeout(15.0):  
