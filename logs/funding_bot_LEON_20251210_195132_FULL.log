@@ -1,0 +1,917 @@
+19:51:36 [INFO] CONFIG VALIDATION COMPLETED.
+19:51:36 [INFO] 🔥 BOT V5 (Architected) STARTING...
+19:51:36 [INFO] 🚀 Starting InMemoryStateManager...
+19:51:36 [INFO] 📂 Initializing database: data/trades.db
+19:51:36 [INFO] ✅ Read pool created: 5 connections
+19:51:36 [INFO] ✅ WAL mode enabled
+19:51:36 [INFO] 🔄 Running database migrations...
+19:51:36 [INFO] ✅ Migrations complete (14 statements)
+19:51:36 [INFO] ✅ Database initialized
+19:51:36 [INFO] 🖊️ Database write loop started
+19:51:36 [DEBUG] Maintenance not due (Last: 2h ago)
+19:51:36 [INFO] 📂 Loaded 0 trades from database
+19:51:36 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+19:51:36 [INFO] ✅ State Manager started
+19:51:36 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+19:51:36 [INFO] ✅ Async database initialized
+19:51:36 [INFO] 📝 State writer loop started
+19:51:36 [DEBUG] ✅ Database schema up to date
+19:51:36 [INFO] Initialisiere X10 Adapter...
+19:51:36 [INFO]  X10 Account initialisiert.
+19:51:36 [INFO] Initialisiere Lighter Adapter...
+19:51:36 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+19:51:36 [INFO] 💰 Checking exchange balances at startup...
+19:51:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:51:37 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:51:37 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+19:52:42 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+19:52:44 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:52:44 [INFO] 💰 STARTUP BALANCE CHECK: X10=$236.05, Lighter=$247.62
+19:52:44 [INFO] ✅ Exchange balances OK - Bot can trade!
+19:52:44 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+19:52:44 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+19:52:44 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+19:52:44 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+19:52:45 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+19:52:45 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+19:52:45 [INFO] ✅ FeeManager started with periodic refresh
+19:52:45 [INFO] ✅ FeeManager started
+19:52:45 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+19:52:45 [WARNING] ⚠️ Kelly: All 38 trades had $0.00 PnL. This is expected for new deployments or if PnL tracking was recently enabled. Proceeding with defaults.
+19:52:45 [INFO] ✅ Funding Tracker started (updates every 3600s)
+19:52:45 [INFO] ✅ FundingTracker started (interval=3600s)
+19:52:45 [INFO] 📊 Loading Market Data via REST...
+19:52:45 [INFO] 🔄 Funding tracking loop started...
+19:52:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:52:45 [INFO] 📊 No open trades to track
+19:52:47 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+19:52:47 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+19:52:48 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+19:52:48 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+19:52:48 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+19:52:48 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+19:52:48 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+19:52:48 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+19:52:48 [INFO] 📈 Pre-loading Lighter prices...
+19:52:48 [DEBUG] Lighter: Loaded 380 funding rates
+19:52:49 [DEBUG] Lighter: Loaded 115 prices via REST
+19:52:49 [INFO] ✅ Lighter prices loaded: 115 symbols
+19:52:49 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+19:52:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:52:51 [INFO] ✅ Execution clients warmed up & NETWORK READY
+19:52:51 [INFO] 启动 OI Tracker für 65 Symbole...
+19:52:51 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+19:52:51 [INFO] 🌐 Starting WebSocket Manager...
+19:52:51 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+19:52:51 [INFO] 🔌 [lighter] WebSocket manager started
+19:52:51 [INFO] 🔌 [x10_account] WebSocket manager started
+19:52:51 [INFO] 🔌 [x10_trades] WebSocket manager started
+19:52:51 [INFO] 🔌 [x10_funding] WebSocket manager started
+19:52:51 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+19:52:51 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:52:51 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:52:51 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:52:51 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:52:51 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+19:52:51 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)
+19:52:52 [DEBUG] ✅ BNB-USD: X10=$1,752,152, Lighter=$14,362, Total=$1,766,514
+19:52:52 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+19:52:52 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:52:52 [INFO] [x10_account] Receive loop started (async iterator)
+19:52:52 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=180.0s)
+19:52:52 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+19:52:52 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:52:52 [INFO] [x10_funding] Receive loop started (async iterator)
+19:52:52 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+19:52:53 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+19:52:53 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:52:53 [INFO] [x10_trades] Receive loop started (async iterator)
+19:52:53 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+19:52:53 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+19:52:53 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+19:52:53 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+19:52:53 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s)
+19:52:53 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+19:52:53 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+19:52:53 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+19:52:53 [INFO] ✅ DB ist sauber (keine offenen Trades).
+19:52:53 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+19:52:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:52:54 [DEBUG] ✅ TIA-USD: X10=$217,653, Lighter=$2,105,728, Total=$2,323,381
+19:52:55 [INFO] Lighter: Found 0 open positions
+19:52:55 [INFO] ✅ No orphaned positions found
+19:52:55 [INFO] ✅ ParallelExecutionManager started
+19:52:55 [INFO] ✅ ParallelExecutionManager: Rollback processor started
+19:52:55 [INFO] ✅ ParallelExecutionManager started with Circuit Breaker
+19:52:55 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+19:52:55 [INFO] 🔄 Rollback processor running...
+19:52:55 [DEBUG] Registered task: logic_loop (priority=HIGH)
+19:52:55 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+19:52:55 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+19:52:55 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+19:52:55 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+19:52:55 [DEBUG] Registered task: health_reporter (priority=LOW)
+19:52:55 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+19:52:55 [INFO] ═══════════════════════════════════════════════════════════
+19:52:55 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+19:52:55 [INFO] ═══════════════════════════════════════════════════════════
+19:52:55 [INFO] 🚀 BotEventLoop starting...
+19:52:55 [INFO] ▶️ Started task: connection_watchdog
+19:52:55 [INFO] ▶️ Started task: logic_loop
+19:52:55 [INFO] ▶️ Started task: trade_management_loop
+19:52:55 [INFO] ▶️ Started task: farm_loop
+19:52:55 [INFO] ▶️ Started task: maintenance_loop
+19:52:55 [INFO] ▶️ Started task: cleanup_finished_tasks
+19:52:55 [INFO] ▶️ Started task: health_reporter
+19:52:55 [INFO] ✅ Started 7 tasks
+19:52:55 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+19:52:55 [INFO] Logic Loop gestartet – REFRESH alle 3s
+19:52:55 [INFO] 🔍 RECONCILE: Starting strict sync check...
+19:52:55 [INFO] 🛡️ Trade Management Loop gestartet
+19:52:55 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+19:52:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:52:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:52:55 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+19:52:56 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+19:52:56 [INFO] Lighter: Found 0 open positions
+19:52:56 [INFO] ✅ RECONCILE: Sync complete.
+19:52:56 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+19:52:56 [DEBUG] Price cache status: X10=78/65, Lighter=115/65
+19:52:56 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:52:56 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:52:56 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+19:52:56 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.24h, APY: 33.3%)
+19:52:56 [INFO] ✅ BERA-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.10h, APY: 36.8%)
+19:52:56 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.9h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 41.3h, hold: 24.0h)
+19:52:56 [INFO] 💎 VIRTUAL-USD | APY: 86.7%
+19:52:56 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0900 in 24.0h (breakeven: 6.70h, APY: 86.7%)
+19:52:56 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.0100 < $0.01 (breakeven: 28.7h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0100 < $0.01 (breakeven: 29.6h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.5h, hold: 24.0h)
+19:52:56 [INFO] 💎 AERO-USD | APY: 78.8%
+19:52:56 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:52:56 [INFO] ✅ WLD-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.14h, APY: 49.9%)
+19:52:56 [INFO] 💎 AVAX-USD | APY: 80.6%
+19:52:56 [INFO] ✅ AVAX-USD: Expected profit $0.0900 in 24.0h (breakeven: 5.48h, APY: 80.6%)
+19:52:56 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 26.5h, hold: 24.0h)
+19:52:56 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:52:56 [INFO] ✅ ADA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.14h, APY: 34.2%)
+19:52:56 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:52:56 [INFO] 💎 ONDO-USD | APY: 61.3%
+19:52:56 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.62h, APY: 61.3%)
+19:52:56 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:52:56 [INFO] 💎 WIF-USD | APY: 106.0%
+19:52:56 [INFO] ✅ WIF-USD: Expected profit $0.1200 in 24.0h (breakeven: 4.17h, APY: 106.0%)
+19:52:56 [INFO] 💎 LINEA-USD | APY: 51.7%
+19:52:56 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:52:56 [INFO] ✅ LDO-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.58h, APY: 24.5%)
+19:52:56 [INFO] ✅ OP-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.00h, APY: 33.3%)
+19:52:56 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0500 < $0.01 (breakeven: 148.6h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 41.1h, hold: 24.0h)
+19:52:56 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.20h, APY: 35.9%)
+19:52:56 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:52:56 [INFO] ✅ DOGE-USD: Expected profit $0.0400 in 24.0h (breakeven: 10.28h, APY: 48.2%)
+19:52:56 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.20h, APY: 31.5%)
+19:52:56 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:52:56 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0100 < $0.01 (breakeven: 52.2h, hold: 24.0h)
+19:52:56 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:52:56 [INFO] ✅ WLFI-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.73h, APY: 49.9%)
+19:52:56 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:52:56 [INFO] ✅ Found 18 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:52:56 [INFO] 🎯 Found 5 opportunities, executing best...
+19:52:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:52:57 [DEBUG] ✅ BERA-USD: X10=$174,160, Lighter=$963,880, Total=$1,138,040
+19:52:57 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+19:52:57 [DEBUG] X10: Funding Refresh OK, cache=91
+19:52:57 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+19:52:58 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:52:58 [DEBUG] Lighter: Loaded 380 funding rates
+19:52:59 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:52:59 [INFO] X10: Detected balance = $236.05
+19:52:59 [DEBUG] Fetching fresh positions (force=False, cache_age=1765392779.9s)
+19:52:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:00 [DEBUG] ✅ NEAR-USD: X10=$254,450, Lighter=$718,640, Total=$973,090
+19:53:01 [DEBUG] Lighter: Loaded 115 prices via REST
+19:53:01 [DEBUG] Lighter: Funding Refresh OK, cache=113
+19:53:01 [INFO] 🔍 Running periodic exchange sync check...
+19:53:01 [INFO] 🔍 Starting Exchange Sync Check...
+19:53:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:01 [ERROR] [lighter] Connection timeout
+19:53:01 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:53:01 [INFO] 🔄 [lighter] Reconnecting in 1.0s (attempt 1)
+19:53:02 [INFO] Lighter: Found 0 open positions
+19:53:02 [INFO] 📊 Positions: X10=0, Lighter=0
+19:53:02 [DEBUG] SYNC STATUS: DB=0, Executing=0, RealExchange=0, TotalActive=0
+19:53:02 [INFO] 🚀 Launching 5 trades (Slots available: 5, Reserved: 5)
+19:53:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:02 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:53:02 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+19:53:03 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=1s ago, msgs=25)
+19:53:03 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s ago, msgs=5992)
+19:53:03 [INFO] Lighter: Found 0 open positions
+19:53:03 [INFO] ✅ Exchanges are SYNCED: 0 paired positions
+19:53:04 [DEBUG] ✅ UNI-USD: X10=$219,067, Lighter=$340,934, Total=$560,001
+19:53:05 [INFO] Lighter: Found 0 open positions
+19:53:05 [INFO] 💰 Balance: X10=$236.1 (free=$233.1), Lit=$247.6 (free=$244.6) | DB_Trades=0, Real_Positions=0, Locked=$0/ex
+19:53:05 [INFO] 🚀 Launching trade for WIF-USD (APY=106.0%)
+19:53:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:06 [INFO] 🚀 Launching trade for VIRTUAL-USD (APY=86.7%)
+19:53:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:06 [INFO] Lighter: Found 0 open positions
+19:53:06 [DEBUG] ✅ WIF-USD verified: No existing positions on exchanges
+19:53:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:06 [INFO] 🚀 Launching trade for AVAX-USD (APY=80.6%)
+19:53:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:06 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:06 [DEBUG] ✅ Exposure Check: 0.21x <= 5.0x
+19:53:06 [DEBUG] MIN_NOTIONAL WIF-USD: min_base=5.00000000 coins, price=$0.4126, min_qty_usd=$2.06, min_notional_api=$10.00, final=$11.00
+19:53:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:07 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:07 [INFO] 🚀 Launching trade for AERO-USD (APY=78.8%)
+19:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:07 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
+19:53:07 [DEBUG] ✅ AERO-USD verified: No existing positions on exchanges
+19:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:07 [INFO] Lighter: Found 0 open positions
+19:53:07 [DEBUG] ✅ VIRTUAL-USD verified: No existing positions on exchanges
+19:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:07 [INFO] 🚀 Launching trade for ONDO-USD (APY=61.3%)
+19:53:07 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:07 [DEBUG] ✅ Exposure Check: 0.21x <= 5.0x
+19:53:07 [DEBUG] MIN_NOTIONAL AERO-USD: min_base=10.00000000 coins, price=$0.6579, min_qty_usd=$6.58, min_notional_api=$10.00, final=$11.00
+19:53:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:08 [INFO] ✅ Launched 5 trade tasks this cycle
+19:53:08 [INFO] Lighter: Found 0 open positions
+19:53:08 [DEBUG] ✅ AVAX-USD verified: No existing positions on exchanges
+19:53:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:08 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:08 [DEBUG] ✅ Exposure Check: 0.21x <= 5.0x
+19:53:08 [DEBUG] MIN_NOTIONAL VIRTUAL-USD: min_base=5.00000000 coins, price=$0.8677, min_qty_usd=$4.34, min_notional_api=$10.00, final=$11.00
+19:53:08 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:08 [DEBUG] ✅ Exposure Check: 0.21x <= 5.0x
+19:53:08 [DEBUG] MIN_NOTIONAL AVAX-USD: min_base=0.50000000 coins, price=$14.5081, min_qty_usd=$7.25, min_notional_api=$10.00, final=$11.00
+19:53:09 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:53:09 [INFO] 🎰 KELLY WIF-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:53:09 [INFO] 📊 KELLY SIZE WIF-USD: $50.0 (kelly-optimized)
+19:53:09 [DEBUG] 🔍 Liquidity Check: Skipping depth check for WIF-USD (Maker Order)
+19:53:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:10 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:10 [INFO] 🎰 KELLY AERO-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:53:10 [INFO] 📊 KELLY SIZE AERO-USD: $50.0 (kelly-optimized)
+19:53:10 [DEBUG] 🔍 Liquidity Check: Skipping depth check for AERO-USD (Maker Order)
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:10 [DEBUG] ✅ BTC-USD: X10=$29,145,132, Lighter=$2,632, Total=$29,147,764
+19:53:10 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:10 [INFO] 🎰 KELLY VIRTUAL-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:53:10 [INFO] 📊 KELLY SIZE VIRTUAL-USD: $50.0 (kelly-optimized)
+19:53:10 [DEBUG] 🔍 Liquidity Check: Skipping depth check for VIRTUAL-USD (Maker Order)
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:10 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:10 [INFO] 🎰 KELLY AVAX-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:53:10 [INFO] 📊 KELLY SIZE AVAX-USD: $50.0 (kelly-optimized)
+19:53:10 [DEBUG] 🔍 Liquidity Check: Skipping depth check for AVAX-USD (Maker Order)
+19:53:10 [INFO] 🚀 Opening WIF-USD: Size=$50.0 (Min=$11.0)
+19:53:10 [INFO] 🛡️ Registered WIF-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:53:10 [INFO] 🚀 Opening AERO-USD: Size=$50.0 (Min=$11.0)
+19:53:10 [INFO] 🛡️ Registered AERO-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:53:10 [INFO] 🚀 Opening VIRTUAL-USD: Size=$50.0 (Min=$11.0)
+19:53:10 [INFO] 🛡️ Registered VIRTUAL-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:53:10 [INFO] 🚀 Opening AVAX-USD: Size=$50.0 (Min=$15.2)
+19:53:10 [INFO] 🛡️ Registered AVAX-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:53:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:53:10 [INFO] ⚖️ Size Alignment WIF-USD: 50.00$ -> 49.93$ (121.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+19:53:10 [INFO] 🔄 [MAKER STRATEGY] WIF-USD: Placing Lighter Maker Order...
+19:53:11 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:53:11 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:53:11 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:53:11 [INFO]  VOL REGIME: BNB-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:53:11 [INFO]  VOL REGIME: TIA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 35.0%)
+19:53:11 [INFO]  VOL REGIME: BERA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ BERA-USD: Expected profit $0.0200 in 24.0h (breakeven: 15.72h, APY: 37.7%)
+19:53:11 [INFO]  VOL REGIME: NEAR-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.9h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: UNI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: BTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: IP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: STRK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 37.8h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: VIRTUAL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.46h, APY: 86.7%)
+19:53:11 [INFO]  VOL REGIME: EIGEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 28.0%)
+19:53:11 [INFO]  VOL REGIME: AVNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0200 < $0.01 (breakeven: 42.5h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: RESOLV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: FARTCOIN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: ZORA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: TRX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 22.2h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: AERO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:53:11 [INFO]  VOL REGIME: CRV-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: 1000PEPE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: WLD-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.26h, APY: 49.1%)
+19:53:11 [INFO]  VOL REGIME: XPL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: ZEC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: AVAX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ AVAX-USD: Expected profit $0.0900 in 24.0h (breakeven: 5.42h, APY: 81.5%)
+19:53:11 [INFO]  VOL REGIME: SUI-USD UNKNOWN -> LOW (24h Range: 0.04%)
+19:53:11 [INFO]  VOL REGIME: 1000BONK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 25.4h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: PENDLE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:53:11 [INFO]  VOL REGIME: ETH-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:53:11 [INFO]  VOL REGIME: ADA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ ADA-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.08h, APY: 34.2%)
+19:53:11 [INFO]  VOL REGIME: GRASS-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: AAVE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: ONDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.44h, APY: 63.1%)
+19:53:11 [INFO]  VOL REGIME: KAITO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: SOL-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: APEX-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: MNT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: ARB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: WIF-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ WIF-USD: Expected profit $0.1200 in 24.0h (breakeven: 4.21h, APY: 105.1%)
+19:53:11 [INFO]  VOL REGIME: POPCAT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: LINEA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:53:11 [INFO]  VOL REGIME: HYPE-USD UNKNOWN -> LOW (24h Range: 0.01%)
+19:53:11 [INFO]  VOL REGIME: EDEN-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: LDO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0100 < $0.01 (breakeven: 31.1h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: OP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip OP-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.7h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: JUP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.01 (breakeven: 131.1h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: LINK-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 43.2h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: PENGU-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: ENA-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.93h, APY: 35.9%)
+19:53:11 [INFO]  VOL REGIME: SEI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: TON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:53:11 [INFO]  VOL REGIME: DOGE-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ DOGE-USD: Expected profit $0.0400 in 24.0h (breakeven: 11.14h, APY: 48.2%)
+19:53:11 [INFO]  VOL REGIME: TRUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.37h, APY: 31.5%)
+19:53:11 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:53:11 [INFO]  VOL REGIME: MON-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: APT-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0300 < $0.01 (breakeven: 101.7h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: TAO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: 1000SHIB-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: PUMP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: WLFI-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ WLFI-USD: Expected profit $0.0400 in 24.0h (breakeven: 9.03h, APY: 49.9%)
+19:53:11 [INFO]  VOL REGIME: LTC-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: XRP-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO]  VOL REGIME: ASTER-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:53:11 [INFO]  VOL REGIME: ZRO-USD UNKNOWN -> LOW (24h Range: 0.00%)
+19:53:11 [INFO] ✅ Found 17 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:53:11 [INFO] 🎯 Found 5 opportunities, executing best...
+19:53:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:11 [INFO] Lighter: Found 0 open positions
+19:53:11 [DEBUG] ✅ ONDO-USD verified: No existing positions on exchanges
+19:53:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:11 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:11 [INFO] X10: Detected balance = $236.05
+19:53:11 [DEBUG] Fetching fresh positions (force=False, cache_age=11.9s)
+19:53:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:11 [INFO] ⚖️ Size Alignment AERO-USD: 50.00$ -> 50.00$ (76.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+19:53:11 [INFO] 🔄 [MAKER STRATEGY] AERO-USD: Placing Lighter Maker Order...
+19:53:11 [INFO] ⚖️ Size Alignment VIRTUAL-USD: 50.00$ -> 49.46$ (57.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+19:53:11 [INFO] 🔄 [MAKER STRATEGY] VIRTUAL-USD: Placing Lighter Maker Order...
+19:53:11 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:11 [DEBUG] ✅ Exposure Check: 0.21x <= 5.0x
+19:53:11 [DEBUG] MIN_NOTIONAL ONDO-USD: min_base=10.00000000 coins, price=$0.5002, min_qty_usd=$5.00, min_notional_api=$10.00, final=$11.00
+19:53:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:11 [INFO] ⚖️ Size Alignment AVAX-USD: 50.00$ -> 49.33$ (3.400000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+19:53:11 [INFO] 🔄 [MAKER STRATEGY] AVAX-USD: Placing Lighter Maker Order...
+19:53:12 [INFO] 🚀 LIGHTER OPEN WIF-USD: side=SELL, size_usd=$49.93, amount=121.0, price=$0.412610, TIF=None
+19:53:12 [DEBUG] 🔍 DEBUG: WIF-USD market_id = 5 (raw=5, type=<class 'int'>)
+19:53:12 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:12 [ERROR] [lighter] Connection timeout
+19:53:12 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:53:12 [INFO] 🔄 [lighter] Reconnecting in 2.0s (attempt 2)
+19:53:12 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+19:53:12 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, last_msg=9s ago, msgs=91)
+19:53:13 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=1s ago, msgs=51)
+19:53:13 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s ago, msgs=8208)
+19:53:13 [INFO] Lighter: Found 0 open positions
+19:53:13 [INFO] 📊 Positions: X10=0, Lighter=0
+19:53:13 [DEBUG] SYNC STATUS: DB=0, Executing=5, RealExchange=0, TotalActive=5
+19:53:13 [DEBUG] ⛔ Max trades reached (5/5). Waiting...
+19:53:14 [INFO] 🚀 LIGHTER OPEN AERO-USD: side=SELL, size_usd=$50.00, amount=76.0, price=$0.657890, TIF=None
+19:53:14 [DEBUG] 🔍 DEBUG: AERO-USD market_id = 65 (raw=65, type=<class 'int'>)
+19:53:14 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:53:15 [INFO] 🚀 LIGHTER OPEN VIRTUAL-USD: side=SELL, size_usd=$49.46, amount=57.0, price=$0.867740, TIF=None
+19:53:15 [DEBUG] 🔍 DEBUG: VIRTUAL-USD market_id = 41 (raw=41, type=<class 'int'>)
+19:53:16 [DEBUG] ✅ IP-USD: X10=$176,448, Lighter=$358,000, Total=$534,448
+19:53:16 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:53:16 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:53:16 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:53:17 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 35.0%)
+19:53:17 [INFO] ✅ BERA-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.58h, APY: 37.7%)
+19:53:17 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.9h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 37.8h, hold: 24.0h)
+19:53:17 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0500 in 24.0h (breakeven: 14.46h, APY: 86.7%)
+19:53:17 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 28.0%)
+19:53:17 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0200 < $0.01 (breakeven: 42.5h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 22.2h, hold: 24.0h)
+19:53:17 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:53:17 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.26h, APY: 49.1%)
+19:53:17 [INFO] ✅ AVAX-USD: Expected profit $0.0900 in 24.0h (breakeven: 5.42h, APY: 81.5%)
+19:53:17 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 25.4h, hold: 24.0h)
+19:53:17 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:53:17 [INFO] ✅ ADA-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.08h, APY: 34.2%)
+19:53:17 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:53:17 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.44h, APY: 63.1%)
+19:53:17 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:53:17 [INFO] ✅ WIF-USD: Expected profit $0.1200 in 24.0h (breakeven: 4.21h, APY: 105.1%)
+19:53:17 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:53:17 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0300 < $0.01 (breakeven: 42.3h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip OP-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.7h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.01 (breakeven: 131.1h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 43.2h, hold: 24.0h)
+19:53:17 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.93h, APY: 35.9%)
+19:53:17 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:53:17 [INFO] ✅ DOGE-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.84h, APY: 48.2%)
+19:53:17 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.37h, APY: 31.5%)
+19:53:17 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:53:17 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0300 < $0.01 (breakeven: 101.7h, hold: 24.0h)
+19:53:17 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:53:17 [INFO] ✅ WLFI-USD: Expected profit $0.0400 in 24.0h (breakeven: 9.03h, APY: 49.9%)
+19:53:17 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:53:17 [INFO] ✅ Found 17 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:53:17 [INFO] 🎯 Found 5 opportunities, executing best...
+19:53:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:17 [INFO] 🚀 LIGHTER OPEN AVAX-USD: side=SELL, size_usd=$49.33, amount=3.4, price=$14.508100, TIF=None
+19:53:17 [DEBUG] 🔍 DEBUG: AVAX-USD market_id = 9 (raw=9, type=<class 'int'>)
+19:53:17 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:18 [INFO] 🛡️ Maker Price WIF-USD SELL: $0.412750 (Penny Jump Ask | Bid=$0.41226, Ask=$0.41276, Tick=1e-05)
+19:53:18 [DEBUG] QUANTIZE WIF-USD: Notional=$49.92581 -> RawAmt=121.000000 -> QuantAmt=121.000000 (x0.0001) -> BaseInt=1210
+19:53:19 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:53:19 [INFO] 🎰 KELLY ONDO-USD: win_rate=50.0%, kelly_fraction=1.0000, safe_fraction=1.0000, confidence=FIXED_HACK, samples=0
+19:53:19 [INFO] 📊 KELLY SIZE ONDO-USD: $50.0 (kelly-optimized)
+19:53:19 [DEBUG] 🔍 Liquidity Check: Skipping depth check for ONDO-USD (Maker Order)
+19:53:19 [INFO] 🚀 Opening ONDO-USD: Size=$50.0 (Min=$11.0)
+19:53:19 [INFO] 🛡️ Registered ONDO-USD in RECENTLY_OPENED_TRADES for 60.0s protection
+19:53:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+19:53:20 [INFO] ⚖️ Size Alignment ONDO-USD: 50.00$ -> 49.52$ (99.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+19:53:20 [INFO] 🔄 [MAKER STRATEGY] ONDO-USD: Placing Lighter Maker Order...
+19:53:20 [INFO] 🛡️ Maker Price AERO-USD SELL: $0.656710 (Penny Jump Ask | Bid=$0.65603, Ask=$0.65672, Tick=1e-05)
+19:53:20 [DEBUG] QUANTIZE AERO-USD: Notional=$49.99964 -> RawAmt=76.000000 -> QuantAmt=76.000000 (x0.0001) -> BaseInt=760
+19:53:21 [INFO] 🛡️ Maker Price VIRTUAL-USD SELL: $0.867410 (Penny Jump Ask | Bid=$0.86639, Ask=$0.86742, Tick=1e-05)
+19:53:21 [DEBUG] QUANTIZE VIRTUAL-USD: Notional=$49.46118 -> RawAmt=57.000000 -> QuantAmt=57.000000 (x0.0001) -> BaseInt=570
+19:53:22 [INFO] 🛡️ Maker Price AVAX-USD SELL: $14.500400 (Penny Jump Ask | Bid=$14.4938, Ask=$14.5005, Tick=0.0001)
+19:53:22 [DEBUG] QUANTIZE AVAX-USD: Notional=$49.32754 -> RawAmt=3.400000 -> QuantAmt=3.400000 (x0.0001) -> BaseInt=340
+19:53:22 [DEBUG] ⚠️ [x10_account] No messages for 30s (expected every 30s)
+19:53:22 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s ago, msgs=3)
+19:53:22 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=19s ago, msgs=91)
+19:53:23 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=1s ago, msgs=66)
+19:53:23 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s ago, msgs=10465)
+19:53:23 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:53:23 [INFO] X10: Detected balance = $236.05
+19:53:23 [DEBUG] Fetching fresh positions (force=False, cache_age=12.1s)
+19:53:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:24 [DEBUG] ✅ STRK-USD: X10=$376,316, Lighter=$6,418,342, Total=$6,794,657
+19:53:24 [ERROR] [lighter] Connection timeout
+19:53:24 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:53:24 [INFO] 🔄 [lighter] Reconnecting in 4.0s (attempt 3)
+19:53:25 [DEBUG] 🐕 Watchdog OK: Daten-Alter 8.9s
+19:53:25 [DEBUG] 📊 Task health: 7 alive, 0 dead
+19:53:25 [WARNING] ⚠️ WebSocket connections unhealthy
+19:53:26 [INFO] 🚀 LIGHTER OPEN ONDO-USD: side=SELL, size_usd=$49.52, amount=99.0, price=$0.500170, TIF=None
+19:53:26 [DEBUG] 🔍 DEBUG: ONDO-USD market_id = 38 (raw=38, type=<class 'int'>)
+19:53:28 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:53:30 [INFO] Lighter: Found 0 open positions
+19:53:30 [INFO] 📊 Positions: X10=0, Lighter=0
+19:53:30 [DEBUG] SYNC STATUS: DB=0, Executing=5, RealExchange=0, TotalActive=5
+19:53:30 [DEBUG] ⛔ Max trades reached (5/5). Waiting...
+19:53:32 [DEBUG] ✅ VIRTUAL-USD: X10=$128,411, Lighter=$719,273, Total=$847,684
+19:53:32 [INFO] 🔒 Locked execution for WIF-USD SELL (Nonce: 5738)...
+19:53:32 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":5,"ClientOrderIndex":1765392827639,"BaseAmount":1210,"Price":41275,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767812012773,"ExpiredAt":1765393411773,"Nonce":5738,"Sig":"UNfkUTqvmcm+wHDonxackhu4Glx9599pUzsnkgX4HT2lUYZVAPBLfC4C/difw83SdfdyPkPm+0z1G4Bc6/avaeg4q32RU0eBedwzePNcKAo="}
+19:53:32 [DEBUG] ⚠️ [x10_account] No messages for 40s (expected every 30s)
+19:53:32 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=40s ago, msgs=3)
+19:53:32 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=29s ago, msgs=91)
+19:53:33 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s ago, msgs=89)
+19:53:33 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='3df2217cad81587d99990eb6934be6843de1776c1384d02405bc872ca4966ff0e43dd644d6aec406' predicted_execution_time_ms=1765392801491 additional_properties={}
+19:53:33 [INFO] ✅ Lighter Order Sent: 3df2217cad81587d99990eb6934be6843de1776c1384d02405bc872ca4966ff0e43dd644d6aec406
+19:53:33 [INFO] ⏳ [MAKER STRATEGY] WIF-USD: Lighter placed (3df2217cad81587d99990eb6934be6843de1776c1384d02405bc872ca4966ff0e43dd644d6aec406), waiting for fill...
+19:53:33 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s ago, msgs=12715)
+19:53:33 [INFO] 🛡️ Maker Price ONDO-USD SELL: $0.500100 (Penny Jump Ask | Bid=$0.50003, Ask=$0.50011, Tick=1e-05)
+19:53:33 [DEBUG] QUANTIZE ONDO-USD: Notional=$49.51683 -> RawAmt=99.000000 -> QuantAmt=99.000000 (x0.0001) -> BaseInt=990
+19:53:33 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:53:33 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:53:33 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:53:34 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 35.0%)
+19:53:34 [INFO] ✅ BERA-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.58h, APY: 37.7%)
+19:53:34 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $-0.0100 < $0.01 (breakeven: 34.3h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 37.8h, hold: 24.0h)
+19:53:34 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0500 in 24.0h (breakeven: 14.46h, APY: 86.7%)
+19:53:34 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 28.0%)
+19:53:34 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0200 < $0.01 (breakeven: 42.5h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 22.2h, hold: 24.0h)
+19:53:34 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:53:34 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.26h, APY: 49.1%)
+19:53:34 [INFO] ✅ AVAX-USD: Expected profit $0.0900 in 24.0h (breakeven: 5.42h, APY: 81.5%)
+19:53:34 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 25.4h, hold: 24.0h)
+19:53:34 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:53:34 [INFO] ✅ ADA-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.08h, APY: 34.2%)
+19:53:34 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:53:34 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.44h, APY: 63.1%)
+19:53:34 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:53:34 [INFO] ✅ WIF-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.92h, APY: 105.1%)
+19:53:34 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:53:34 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0300 < $0.01 (breakeven: 42.3h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip OP-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.7h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.01 (breakeven: 131.1h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 43.2h, hold: 24.0h)
+19:53:34 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.93h, APY: 35.9%)
+19:53:34 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:53:34 [INFO] ✅ DOGE-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.84h, APY: 48.2%)
+19:53:34 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.37h, APY: 31.5%)
+19:53:34 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:53:34 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0300 < $0.01 (breakeven: 101.7h, hold: 24.0h)
+19:53:34 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:53:34 [INFO] ✅ WLFI-USD: Expected profit $0.0400 in 24.0h (breakeven: 9.03h, APY: 49.9%)
+19:53:34 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:53:34 [INFO] ✅ Found 17 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:53:34 [INFO] 🎯 Found 5 opportunities, executing best...
+19:53:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:34 [INFO] Lighter: Found 0 open positions
+19:53:35 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:35 [INFO] 🔒 Locked execution for AERO-USD SELL (Nonce: 5739)...
+19:53:35 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":65,"ClientOrderIndex":1765392858747,"BaseAmount":760,"Price":65671,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767812015435,"ExpiredAt":1765393414435,"Nonce":5739,"Sig":"+PQejjaX1v6JEzz9TWZ9FTaI8DaKOOlQDmYGJoQ+8olv6GsRjCPdQZuBmt6zBSNOrEatBOBXZ8zxOqFn0vdSj1nNm8LAeScvfu0syHl2oRQ="}
+19:53:35 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='f782303720218d6f049564d78539c452bc547ed1008e58f818600e78ebed56efa4516185d5a4cef0' predicted_execution_time_ms=1765392804140 additional_properties={}
+19:53:35 [INFO] ✅ Lighter Order Sent: f782303720218d6f049564d78539c452bc547ed1008e58f818600e78ebed56efa4516185d5a4cef0
+19:53:35 [INFO] ⏳ [MAKER STRATEGY] AERO-USD: Lighter placed (f782303720218d6f049564d78539c452bc547ed1008e58f818600e78ebed56efa4516185d5a4cef0), waiting for fill...
+19:53:37 [DEBUG] ✅ EIGEN-USD: X10=$68,143, Lighter=$1,565,885, Total=$1,634,029
+19:53:38 [ERROR] [lighter] Connection timeout
+19:53:38 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:53:38 [INFO] 🔄 [lighter] Reconnecting in 8.0s (attempt 4)
+19:53:38 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:53:38 [INFO] X10: Detected balance = $236.05
+19:53:38 [DEBUG] Fetching fresh positions (force=False, cache_age=15.0s)
+19:53:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:39 [INFO] Lighter: Found 0 open positions
+19:53:40 [INFO] Lighter: Found 0 open positions
+19:53:41 [INFO] 🔒 Locked execution for VIRTUAL-USD SELL (Nonce: 5740)...
+19:53:41 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":41,"ClientOrderIndex":1765392892191,"BaseAmount":570,"Price":86741,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767812021448,"ExpiredAt":1765393420448,"Nonce":5740,"Sig":"XKvGximd5mL27vWdGduZwzPtfxJVd4NIJaMCeUjbGOSzVsJJ+9CdMkKF0+rRL1et0fjTHKA3qUaJNj0qsA7eptsWRN0eu6O+269aoE3bpFg="}
+19:53:41 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='12bce37b6824d34df075afbc7923584bf4b250e11d49ad4db22d90aae4a43ea370d36c4db7b220b4' predicted_execution_time_ms=1765392810154 additional_properties={}
+19:53:41 [INFO] ✅ Lighter Order Sent: 12bce37b6824d34df075afbc7923584bf4b250e11d49ad4db22d90aae4a43ea370d36c4db7b220b4
+19:53:41 [INFO] ⏳ [MAKER STRATEGY] VIRTUAL-USD: Lighter placed (12bce37b6824d34df075afbc7923584bf4b250e11d49ad4db22d90aae4a43ea370d36c4db7b220b4), waiting for fill...
+19:53:42 [INFO] Lighter: Found 0 open positions
+19:53:42 [INFO] 📊 Positions: X10=0, Lighter=0
+19:53:42 [DEBUG] SYNC STATUS: DB=0, Executing=5, RealExchange=0, TotalActive=5
+19:53:42 [DEBUG] ⛔ Max trades reached (5/5). Waiting...
+19:53:42 [DEBUG] ⚠️ [x10_account] No messages for 50s (expected every 30s)
+19:53:42 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=50s ago, msgs=3)
+19:53:42 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=39s ago, msgs=91)
+19:53:43 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago, msgs=147)
+19:53:43 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s ago, msgs=15698)
+19:53:43 [INFO] Lighter: Found 0 open positions
+19:53:44 [DEBUG] ✅ AVNT-USD: X10=$210,253, Lighter=$2,067,980, Total=$2,278,233
+19:53:45 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:53:45 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:53:45 [INFO] Lighter: Found 0 open positions
+19:53:45 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:53:46 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 35.0%)
+19:53:46 [DEBUG] ⛔ Skip BERA-USD: Expected profit $-0.0100 < $0.01 (breakeven: 29.4h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.7h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 37.8h, hold: 24.0h)
+19:53:46 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0100 in 24.0h (breakeven: 21.66h, APY: 86.7%)
+19:53:46 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 28.0%)
+19:53:46 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0200 < $0.01 (breakeven: 42.5h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 22.2h, hold: 24.0h)
+19:53:46 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:53:46 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.26h, APY: 49.1%)
+19:53:46 [INFO] ✅ AVAX-USD: Expected profit $0.0200 in 24.0h (breakeven: 18.99h, APY: 81.5%)
+19:53:46 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 25.4h, hold: 24.0h)
+19:53:46 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:53:46 [INFO] ✅ ADA-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.08h, APY: 34.2%)
+19:53:46 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:53:46 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.44h, APY: 63.1%)
+19:53:46 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:53:46 [INFO] ✅ WIF-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.92h, APY: 105.1%)
+19:53:46 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:53:46 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0800 < $0.01 (breakeven: 78.7h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip OP-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.7h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.01 (breakeven: 131.1h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 43.2h, hold: 24.0h)
+19:53:46 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.93h, APY: 35.9%)
+19:53:46 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:53:46 [DEBUG] ⛔ Skip DOGE-USD: Expected profit $-0.0100 < $0.01 (breakeven: 26.6h, hold: 24.0h)
+19:53:46 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.37h, APY: 31.5%)
+19:53:46 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:53:46 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0300 < $0.01 (breakeven: 101.7h, hold: 24.0h)
+19:53:46 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:53:46 [INFO] ✅ WLFI-USD: Expected profit $0.0400 in 24.0h (breakeven: 9.03h, APY: 49.9%)
+19:53:46 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:53:46 [INFO] ✅ Found 15 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:53:46 [INFO] 🎯 Found 5 opportunities, executing best...
+19:53:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:53:46 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:53:46 [INFO] Lighter: Found 0 open positions
+19:53:46 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:53:47 [INFO] 🔒 Locked execution for AVAX-USD SELL (Nonce: 5741)...
+19:53:47 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":9,"ClientOrderIndex":1765392899942,"BaseAmount":340,"Price":145004,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767812027448,"ExpiredAt":1765393426448,"Nonce":5741,"Sig":"RR8ywzHwmhFxxO34fJ1vwr1sBGsKA9XJioVY72Ocd0FOzuIO/AghHT6oGjClurvGBEzqfIaeYfWTvg0s7xAqEZMaJGYfwb6lgqqgMT4gQhg="}
+19:53:47 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='9c641d548534388d6d26b283a173359bb84e4f264e47a1c0e6dec5ccca6d710c1c300499734c7092' predicted_execution_time_ms=1765392816153 additional_properties={}
+19:53:47 [INFO] ✅ Lighter Order Sent: 9c641d548534388d6d26b283a173359bb84e4f264e47a1c0e6dec5ccca6d710c1c300499734c7092
+19:53:47 [INFO] ⏳ [MAKER STRATEGY] AVAX-USD: Lighter placed (9c641d548534388d6d26b283a173359bb84e4f264e47a1c0e6dec5ccca6d710c1c300499734c7092), waiting for fill...
+19:53:47 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
+19:53:48 [INFO] Lighter: Found 0 open positions
+19:53:49 [DEBUG] ✅ RESOLV-USD: X10=$215,237, Lighter=$58,595,717, Total=$58,810,954
+19:53:50 [INFO] Lighter: Found 0 open positions
+19:53:51 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:53:51 [INFO] X10: Detected balance = $236.05
+19:53:51 [DEBUG] Fetching fresh positions (force=False, cache_age=13.0s)
+19:53:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:53:52 [INFO] Lighter: Found 0 open positions
+19:53:52 [DEBUG] ⚠️ [x10_account] No messages for 60s (expected every 30s)
+19:53:52 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=60s ago, msgs=3)
+19:53:53 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=49s ago, msgs=91)
+19:53:53 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=1s ago, msgs=177)
+19:53:53 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=60s, last_msg=0s ago, msgs=18463)
+19:53:53 [INFO] 🔒 Locked execution for ONDO-USD SELL (Nonce: 5742)...
+19:53:53 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":38,"ClientOrderIndex":1765392867098,"BaseAmount":990,"Price":50010,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767812033475,"ExpiredAt":1765393432475,"Nonce":5742,"Sig":"g+LLXEMbOGzvnrwhG/nJ1T2jlshS5axEm7JTR9A5Luc69nUfA4yPaRglbsOB56ofipsAE6cRBDrIo2KGaWQ3oV1hdTPbF5/eICtmpDUKVkM="}
+19:53:53 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='e9ac87869d48d01c7a8d83dc9a475e9dacb52066c9e475e4d2c392f75f42efdbc51facf86e422552' predicted_execution_time_ms=1765392822188 additional_properties={}
+19:53:53 [INFO] ✅ Lighter Order Sent: e9ac87869d48d01c7a8d83dc9a475e9dacb52066c9e475e4d2c392f75f42efdbc51facf86e422552
+19:53:53 [INFO] ⏳ [MAKER STRATEGY] ONDO-USD: Lighter placed (e9ac87869d48d01c7a8d83dc9a475e9dacb52066c9e475e4d2c392f75f42efdbc51facf86e422552), waiting for fill...
+19:53:54 [INFO] Lighter: Found 0 open positions
+19:53:55 [DEBUG] 🐕 Watchdog OK: Daten-Alter 9.9s
+19:53:55 [DEBUG] 📊 Task health: 7 alive, 0 dead
+19:53:55 [WARNING] ⚠️ WebSocket connections unhealthy
+19:53:55 [INFO] Lighter: Found 0 open positions
+19:53:56 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$5,581, Total=$5,581
+19:53:56 [ERROR] [lighter] Connection timeout
+19:53:56 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:53:56 [INFO] 🔄 [lighter] Reconnecting in 16.0s (attempt 5)
+19:53:57 [INFO] Lighter: Found 0 open positions
+19:53:58 [INFO] Lighter: Found 0 open positions
+19:53:58 [INFO] 📊 Positions: X10=0, Lighter=0
+19:53:58 [DEBUG] SYNC STATUS: DB=0, Executing=5, RealExchange=0, TotalActive=5
+19:53:58 [DEBUG] ⛔ Max trades reached (5/5). Waiting...
+19:53:59 [INFO] Lighter: Found 0 open positions
+19:54:00 [INFO] Lighter: Found 0 open positions
+19:54:01 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:54:01 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:54:01 [INFO] Lighter: Found 0 open positions
+19:54:02 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:54:02 [INFO] ✅ TIA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 35.0%)
+19:54:02 [DEBUG] ⛔ Skip BERA-USD: Expected profit $-0.0100 < $0.01 (breakeven: 29.4h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.7h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0200 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 37.8h, hold: 24.0h)
+19:54:02 [INFO] 💎 VIRTUAL-USD | APY: 86.7%
+19:54:02 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0100 in 24.0h (breakeven: 21.66h, APY: 86.7%)
+19:54:02 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 28.0%)
+19:54:02 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.0200 < $0.01 (breakeven: 42.5h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip TRX-USD: Expected profit $0.0000 < $0.01 (breakeven: 22.2h, hold: 24.0h)
+19:54:02 [INFO] 💎 AERO-USD | APY: 78.8%
+19:54:02 [INFO] ✅ AERO-USD: Expected profit $0.0400 in 24.0h (breakeven: 14.15h, APY: 78.8%)
+19:54:02 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.26h, APY: 49.1%)
+19:54:02 [INFO] 💎 AVAX-USD | APY: 81.5%
+19:54:02 [INFO] ✅ AVAX-USD: Expected profit $0.0200 in 24.0h (breakeven: 18.99h, APY: 81.5%)
+19:54:02 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.0000 < $0.01 (breakeven: 25.4h, hold: 24.0h)
+19:54:02 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.24h, APY: 31.5%)
+19:54:02 [INFO] ✅ ADA-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.08h, APY: 34.2%)
+19:54:02 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.0300 < $0.01 (breakeven: 60.9h, hold: 24.0h)
+19:54:02 [INFO] 💎 ONDO-USD | APY: 63.1%
+19:54:02 [INFO] ✅ ONDO-USD: Expected profit $0.0600 in 24.0h (breakeven: 6.44h, APY: 63.1%)
+19:54:02 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0000 < $0.01 (breakeven: 24.6h, hold: 24.0h)
+19:54:02 [INFO] 💎 WIF-USD | APY: 105.1%
+19:54:02 [INFO] ✅ WIF-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.92h, APY: 105.1%)
+19:54:02 [INFO] 💎 LINEA-USD | APY: 51.7%
+19:54:02 [INFO] ✅ LINEA-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.26h, APY: 51.7%)
+19:54:02 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0800 < $0.01 (breakeven: 78.7h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip OP-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.7h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.0400 < $0.01 (breakeven: 131.1h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0200 < $0.01 (breakeven: 43.2h, hold: 24.0h)
+19:54:02 [INFO] ✅ ENA-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.93h, APY: 35.9%)
+19:54:02 [INFO] ✅ TON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.23h, APY: 23.7%)
+19:54:02 [DEBUG] ⛔ Skip DOGE-USD: Expected profit $-0.0100 < $0.01 (breakeven: 27.2h, hold: 24.0h)
+19:54:02 [INFO] ✅ TRUMP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.37h, APY: 31.5%)
+19:54:02 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:54:02 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.0300 < $0.01 (breakeven: 101.7h, hold: 24.0h)
+19:54:02 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.2h, hold: 24.0h)
+19:54:02 [INFO] ✅ WLFI-USD: Expected profit $0.0400 in 24.0h (breakeven: 8.35h, APY: 49.9%)
+19:54:02 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.0100 < $0.01 (breakeven: 50.7h, hold: 24.0h)
+19:54:02 [INFO] ✅ Found 15 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:54:02 [INFO] 🎯 Found 5 opportunities, executing best...
+19:54:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:54:02 [INFO] Lighter: Found 0 open positions
+19:54:02 [DEBUG] ⚠️ [x10_account] No messages for 70s (expected every 30s)
+19:54:02 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=70s ago, msgs=3)
+19:54:02 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=59s ago, msgs=91)
+19:54:03 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=0s ago, msgs=211)
+19:54:03 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:54:03 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=70s, last_msg=0s ago, msgs=20749)
+19:54:03 [DEBUG] ✅ FARTCOIN-USD: X10=$388,398, Lighter=$12,346,775, Total=$12,735,172
+19:54:03 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+19:54:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+19:54:04 [INFO] Lighter: Found 0 open positions
+19:54:05 [INFO] Lighter: Found 0 open positions
+19:54:05 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+19:54:05 [DEBUG] X10: Funding Refresh OK, cache=91
+19:54:05 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+19:54:06 [INFO] Lighter: Found 0 open positions
+19:54:07 [INFO] Lighter: Found 0 open positions
+19:54:08 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:54:08 [INFO] X10: Detected balance = $236.05
+19:54:08 [DEBUG] Fetching fresh positions (force=False, cache_age=17.0s)
+19:54:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:54:09 [INFO] Lighter: Found 0 open positions
+19:54:10 [DEBUG] ✅ ZORA-USD: X10=$90,452, Lighter=$31,387,874, Total=$31,478,326
+19:54:11 [INFO] Lighter: Found 0 open positions
+19:54:12 [DEBUG] Lighter: Loaded 380 funding rates
+19:54:12 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+19:54:12 [DEBUG] ⚠️ [x10_account] No messages for 80s (expected every 30s)
+19:54:12 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=80s ago, msgs=3)
+19:54:13 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=9s ago, msgs=182)
+19:54:13 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=0s ago, msgs=298)
+19:54:13 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=80s, last_msg=0s ago, msgs=24037)
+19:54:13 [INFO] Lighter: Found 0 open positions
+19:54:14 [INFO] Lighter: Found 0 open positions
+19:54:15 [INFO] Lighter: Found 0 open positions
+19:54:16 [INFO] Lighter: Found 0 open positions
+19:54:16 [INFO] 📊 Positions: X10=0, Lighter=0
+19:54:16 [DEBUG] SYNC STATUS: DB=0, Executing=5, RealExchange=0, TotalActive=5
+19:54:16 [DEBUG] ⛔ Max trades reached (5/5). Waiting...
+19:54:17 [INFO] Lighter: Found 0 open positions
+19:54:18 [INFO] Lighter: Found 0 open positions
+19:54:19 [DEBUG] Lighter: Loaded 115 prices via REST
+19:54:19 [DEBUG] Lighter: Funding Refresh OK, cache=113
+19:54:19 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+19:54:19 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+19:54:19 [DEBUG] MKR-USD: Missing prices (X=1663.9, L=None)
+19:54:20 [INFO] ✅ TIA-USD: Expected profit $0.0200 in 24.0h (breakeven: 14.31h, APY: 35.9%)
+19:54:20 [INFO] ✅ BERA-USD: Expected profit $0.0300 in 24.0h (breakeven: 11.88h, APY: 36.8%)
+19:54:20 [DEBUG] ⛔ Skip NEAR-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.9h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip IP-USD: Expected profit $-0.0800 < $0.01 (breakeven: 172.7h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip STRK-USD: Expected profit $-0.0900 < $0.01 (breakeven: 93.9h, hold: 24.0h)
+19:54:20 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0300 in 24.0h (breakeven: 17.96h, APY: 86.7%)
+19:54:20 [DEBUG] ⛔ Skip EIGEN-USD: Expected profit $-0.1200 < $0.01 (breakeven: 100.5h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip AVNT-USD: Expected profit $-0.1000 < $0.01 (breakeven: 110.8h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip TRX-USD: Expected profit $-0.0100 < $0.01 (breakeven: 31.0h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip AERO-USD: Expected profit $-0.0200 < $0.01 (breakeven: 27.7h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip WLD-USD: Expected profit $-0.0500 < $0.01 (breakeven: 41.3h, hold: 24.0h)
+19:54:20 [INFO] ✅ AVAX-USD: Expected profit $0.0300 in 24.0h (breakeven: 16.81h, APY: 82.3%)
+19:54:20 [DEBUG] ⛔ Skip 1000BONK-USD: Expected profit $-0.1100 < $0.01 (breakeven: 117.3h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip PENDLE-USD: Expected profit $-0.0600 < $0.01 (breakeven: 59.2h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip ADA-USD: Expected profit $0.0000 < $0.01 (breakeven: 21.5h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip GRASS-USD: Expected profit $-0.1100 < $0.01 (breakeven: 147.0h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip ONDO-USD: Expected profit $0.0000 < $0.01 (breakeven: 23.0h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip MNT-USD: Expected profit $-0.0100 < $0.01 (breakeven: 36.9h, hold: 24.0h)
+19:54:20 [INFO] ✅ WIF-USD: Expected profit $0.0700 in 24.0h (breakeven: 12.25h, APY: 105.1%)
+19:54:20 [DEBUG] ⛔ Skip LINEA-USD: Expected profit $-0.0500 < $0.01 (breakeven: 40.3h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip LDO-USD: Expected profit $-0.0600 < $0.01 (breakeven: 68.6h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip OP-USD: Expected profit $-0.0700 < $0.01 (breakeven: 56.6h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip JUP-USD: Expected profit $-0.1400 < $0.01 (breakeven: 422.4h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip LINK-USD: Expected profit $-0.0700 < $0.01 (breakeven: 84.3h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip ENA-USD: Expected profit $-0.0800 < $0.01 (breakeven: 64.2h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip TON-USD: Expected profit $-0.0500 < $0.01 (breakeven: 56.3h, hold: 24.0h)
+19:54:20 [INFO] ✅ DOGE-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.82h, APY: 48.2%)
+19:54:20 [DEBUG] ⛔ Skip TRUMP-USD: Expected profit $-0.0700 < $0.01 (breakeven: 63.1h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip SPX-USD: TradFi/FX
+19:54:20 [DEBUG] ⛔ Skip APT-USD: Expected profit $-0.1200 < $0.01 (breakeven: 329.1h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip 1000SHIB-USD: Expected profit $-0.0600 < $0.01 (breakeven: 62.6h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip WLFI-USD: Expected profit $-0.0200 < $0.01 (breakeven: 30.8h, hold: 24.0h)
+19:54:20 [DEBUG] ⛔ Skip ASTER-USD: Expected profit $-0.1000 < $0.01 (breakeven: 235.9h, hold: 24.0h)
+19:54:20 [INFO] ✅ Found 6 opportunities from 63 valid pairs (farm_mode=False, scanned=65)
+19:54:20 [INFO] 🎯 Found 5 opportunities, executing best...
+19:54:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+19:54:20 [DEBUG] ✅ TRX-USD: X10=$207,325, Lighter=$6,704,041, Total=$6,911,365
+19:54:21 [INFO] 💰 X10 verfügbare Balance: $236.05 USDC
+19:54:21 [INFO] Lighter: Found 0 open positions
+19:54:22 [INFO] Lighter: Found 0 open positions
+19:54:22 [DEBUG] ⚠️ [x10_account] No messages for 90s (expected every 30s)
+19:54:22 [DEBUG] 💓 [x10_account] Alive (uptime=90s, last_msg=90s ago, msgs=3)
+19:54:22 [ERROR] [lighter] Connection timeout
+19:54:22 [ERROR] [lighter] Connection error: timed out during opening handshake
+19:54:22 [INFO] 🔄 [lighter] Reconnecting in 32.0s (attempt 6)
+19:54:23 [DEBUG] 💓 [x10_funding] Alive (uptime=90s, last_msg=19s ago, msgs=182)
+19:54:23 [DEBUG] 💓 [x10_trades] Alive (uptime=90s, last_msg=0s ago, msgs=337)
+19:54:23 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=90s, last_msg=0s ago, msgs=26985)
+19:54:23 [INFO] Lighter: Found 0 open positions
+19:54:24 [INFO] Lighter: Found 0 open positions
+19:54:25 [INFO] 🛑 Initiating shutdown...
+19:54:25 [INFO] 🔒 SHUTDOWN: Closing all open trades... (Please wait!)
+19:54:25 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
+19:54:25 [DEBUG] 🐕 Watchdog OK: Daten-Alter 5.9s
+19:54:25 [INFO] Lighter: Found 0 open positions
+19:54:26 [DEBUG] Lighter Balance: Raw=$260.65, Safe=$247.62
+19:54:26 [INFO] X10: Detected balance = $236.05
+19:54:26 [DEBUG] Fetching fresh positions (force=False, cache_age=18.0s)
+19:54:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:54:27 [DEBUG] ✅ AERO-USD: X10=$336,523, Lighter=$3,017,752, Total=$3,354,274
+19:54:28 [INFO] Lighter: Found 0 open positions
+19:54:29 [INFO] Lighter: Found 0 open positions
+19:54:30 [INFO] Lighter: Found 0 open positions
+19:54:31 [INFO] Lighter: Found 0 open positions
+19:54:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+19:54:31 [INFO] ✅ SHUTDOWN: No positions found.
+19:54:31 [DEBUG] Cancelled task: maintenance_loop
+19:54:31 [DEBUG] Cancelled task: cleanup_finished_tasks
+19:54:31 [DEBUG] Cancelled task: health_reporter
+19:54:31 [DEBUG] Cancelled task: farm_loop
+19:54:31 [DEBUG] Cancelled task: logic_loop
+19:54:31 [DEBUG] Cancelled task: trade_management_loop
+19:54:31 [DEBUG] Cancelled task: connection_watchdog
+19:54:31 [INFO] Connection watchdog cancelled
+19:54:31 [INFO] Logic loop cancelled
+19:54:31 [ERROR] _GatheringFuture exception was never retrieved
+future: <_GatheringFuture finished exception=CancelledError()>
+Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 2012, in fetch_open_positions
+    await self.rate_limiter.acquire()
+  File "C:\Users\koopm\funding-bot\src\rate_limiter.py", line 90, in acquire
+    async with self._lock:
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\asyncio\locks.py", line 15, in __aenter__
+    await self.acquire()
+  File "C:\Users\koopm\AppData\Local\Programs\Python\Python311\Lib\asyncio\locks.py", line 114, in acquire
+    await fut
+asyncio.exceptions.CancelledError
+19:54:31 [INFO] 🔌 [lighter] WebSocket stopped
+19:54:32 [INFO] 🔌 [x10_trades] WebSocket stopped
+19:54:32 [INFO] Lighter: Found 0 open positions
+19:54:33 [WARNING] ⏰ [MAKER STRATEGY] WIF-USD: Wait timeout! Cancelling Lighter order 3df2217cad81587d99990eb6934be6843de1776c1384d02405bc872ca4966ff0e43dd644d6aec406...
+19:54:33 [INFO] 🔍 Lighter: Attempting to resolve Hash 3df2217cad81587d99990eb6934be6843de1776c1384d02405bc872ca4966ff0e43dd644d6aec406 to Order ID for WIF-USD...
+19:54:33 [INFO] Lighter: Found 0 open positions
+19:54:33 [DEBUG] [x10_orderbooks] WebSocket connection closed forcefully (Timeout).
+19:54:33 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+19:54:33 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+19:54:33 [INFO] 🔌 [x10_funding] WebSocket stopped
+19:54:33 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+19:54:33 [INFO] 🔌 [x10_account] WebSocket stopped
+19:54:33 [INFO] ✅ WebSocketManager stopped
+19:54:33 [INFO] ✅ ParallelExecutionManager: Stopped
+19:54:33 [INFO] 🛑 Stopping InMemoryStateManager...
+19:54:33 [INFO] 📝 State writer loop stopped
+19:54:33 [INFO] ✅ InMemoryStateManager stopped
+19:54:33 [INFO] ✅ Shutdown complete
+19:54:33 [INFO] 🛑 Shutting down...
+19:54:33 [INFO] 🛑 Shutdown requested...
+19:54:33 [INFO] 🛑 Stopping Dashboard API...
+19:54:33 [INFO] ✅ ParallelExecutionManager: Stopped
+19:54:33 [INFO] ✅ WebSocketManager stopped
+19:54:33 [INFO] ✅ OpenInterestTracker stopped
+19:54:33 [INFO] 🛑 Funding tracker: Cancelled
+19:54:33 [INFO] ✅ Funding Tracker stopped
+19:54:33 [INFO] ✅ FundingTracker stopped
+19:54:33 [INFO] 🛑 Stopping InMemoryStateManager...
+19:54:33 [INFO] ✅ InMemoryStateManager stopped
+19:54:33 [INFO] 🔒 Closing database...
+19:54:33 [INFO] 🖊️ Database write loop stopped
+19:54:33 [INFO] ✅ Database closed
+19:54:33 [INFO] 🛑 FeeManager stopped
+19:54:33 [INFO] 🔌 Closing adapters...
+19:54:33 [INFO] 🚨 Executing Internal Graceful Shutdown (pre-adapter-close)...
+19:54:33 [INFO] 🛑 STARTING CENTRALIZED SHUTDOWN SEQUENCE...
+19:54:33 [INFO] Step 1/6: Setting Shutdown Flag...
+19:54:33 [INFO]    -> Trading stopped.
+19:54:33 [INFO] Step 2/6: Cancelling all open orders...
+19:54:33 [INFO]    -> Cancellation trigger sent.
+19:54:33 [INFO] Step 3/6: Closing Positions...
+19:54:33 [INFO]    -> Found: X10=0, Lighter=0
+19:54:34 [INFO] Lighter: Found 0 open positions
+19:54:35 [INFO] Step 4/6: Verifying Closure (Retries)...
+19:54:35 [INFO]    -> ✅ Verified: All positions closed.
+19:54:35 [INFO] Step 5/6: Persisting State & PnL...
+19:54:35 [INFO] CONFIG VALIDATION COMPLETED.
+19:54:35 [INFO] Step 6/6: Closing Connections...
+19:54:35 [INFO] 🛑 FeeManager stopped
+19:54:35 [INFO] ✅ Shutdown Manager completed.
+19:54:35 [INFO] ✅ X10 Adapter geschlossen.
+19:54:35 [INFO] ✅ Lighter Adapter closed
+19:54:35 [INFO] ✅ Bot V5 shutdown complete
+19:54:35 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+19:54:35 [INFO] 🛑 Stopping Infrastructure...
+19:54:35 [INFO] 🛑 Stopping InMemoryStateManager...
+19:54:35 [INFO] ✅ InMemoryStateManager stopped
+19:54:35 [INFO] 🛑 FeeManager stopped
+19:54:35 [INFO] ✅ X10 Adapter geschlossen.
+19:54:35 [INFO] ✅ Lighter Adapter closed
+19:54:35 [DEBUG] Task ONDO-USD cancelled
+19:54:35 [DEBUG] Task AERO-USD cancelled
+19:54:35 [DEBUG] Task AVAX-USD cancelled
+19:54:35 [DEBUG] Task WIF-USD cancelled
+19:54:35 [DEBUG] Task VIRTUAL-USD cancelled
