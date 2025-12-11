@@ -120,13 +120,24 @@ REFRESH_DELAY_SECONDS = 3
 TRADE_COOLDOWN_SECONDS = 120
 
 # Reconnect / Watchdog (Enhanced for 1006 disconnect handling)
-WS_PING_INTERVAL = 15              # Reduced from 20 to 15 for faster detection
-WS_PING_TIMEOUT = 10               # Increased from 8 to 10 for more tolerance
+WS_PING_INTERVAL = 15              # Default ping interval for X10
+WS_PING_TIMEOUT = 10               # Ping timeout 
 WS_RECONNECT_DELAY_INITIAL = 2     # Reduced from 5 to 2 for faster reconnect
 WS_RECONNECT_DELAY_MAX = 120       # Increased from 60 to 120 for server recovery
 WS_MAX_RECONNECT_ATTEMPTS = 10     # Max attempts before alerting (0 = infinite)
 WS_HEALTH_CHECK_INTERVAL = 30      # Health check every 30 seconds
 WS_1006_EXTENDED_DELAY = 30        # Extended delay after repeated 1006 errors
+
+# Lighter-specific WebSocket settings (more aggressive keepalive for 1006 prevention)
+LIGHTER_WS_PING_INTERVAL = 10      # More aggressive ping (10s instead of 15s)
+LIGHTER_WS_PING_TIMEOUT = 8        # Shorter timeout to detect issues faster
+
+# Lighter WebSocket Subscription Limit (from API docs: https://apidocs.lighter.xyz/docs/rate-limits)
+# Lighter limits: 100 subscriptions per connection, 1000 total, 200 messages/min
+# OPTION 3: We subscribe to order_book only (no trades) + market_stats/all
+# This allows ALL symbols: 65 order_books + 1 market_stats = 66 < 100 ✅
+# Note: market_stats/all provides prices, funding rates, OI for ALL markets
+LIGHTER_WS_MAX_SYMBOLS = 99  # With Option 3, we can track up to 99 symbols (99 + 1 = 100)
 
 # --- Prediction & Confidence ---
 SYMBOL_CONFIDENCE_BOOST = {

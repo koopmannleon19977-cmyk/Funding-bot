@@ -448,13 +448,11 @@ class ManagedWebSocket:
             # - ping_timeout=None damit wir NICHT auf Server-Pongs für Client-Pings warten
             # - Die automatische Pong-Antwort auf Server-Pings funktioniert trotzdem!
             
-            # KRITISCH: ping_interval und ping_timeout EXPLIZIT setzen!
-            # - ping_interval=None: Keine Client-Pings, aber automatische Pongs auf Server-Pings
-            # - ping_timeout=None: Warte nicht auf Server-Pongs (verhindert Timeouts)
-            if self.config.ping_interval is not None:
-                connect_kwargs["ping_interval"] = self.config.ping_interval
-            if self.config.ping_timeout is not None:
-                connect_kwargs["ping_timeout"] = self.config.ping_timeout
+            # KRITISCH: ping_interval und ping_timeout IMMER explizit setzen, auch wenn None.
+            # Sonst greift der Default der websockets-Library (~20s) und sendet Protokoll-Pings,
+            # was bei Lighter zu 1006/1011 führen kann.
+            connect_kwargs["ping_interval"] = self.config.ping_interval  # darf None sein
+            connect_kwargs["ping_timeout"] = self.config.ping_timeout    # darf None sein
             
             # Add headers if configured
             if self.config.headers:
@@ -529,9 +527,12 @@ class ManagedWebSocket:
                         pass
                 
                 # Track pong responses for health monitoring
-                if isinstance(message, str) and '"pong"' in message:
+                # Handles both Lighter {"type": "pong"} and X10 {"pong": value} formats
+                if isinstance(message, str) and ('"pong"' in message or '"type": "pong"' in message.lower()):
                     self._metrics.last_pong_time = time.time()
                     self._metrics.is_healthy = True
+                    if self.config.name == "lighter":
+                        logger.debug(f"💓 [{self.config.name}] Received pong response - connection healthy")
                 
                 # Queue message
                 try:
@@ -700,6 +701,11 @@ class ManagedWebSocket:
             expected_interval = 30.0
         
         check_interval = 10.0
+        # Lighter benötigt explizite JSON-Pings {"type":"ping"}, sonst trennt der
+        # Server nach ~20s ohne Close-Frame (1006). Wir senden daher unabhängig von
+        # eingehenden Nachrichten alle 10s einen JSON-Ping.
+        lighter_json_ping_interval = 10.0 if self.config.name == "lighter" else None
+        last_json_ping = time.time()
         connect_time = time.time()
         
         logger.debug(f"💓 [{self.config.name}] Heartbeat started (stale_threshold={stale_threshold}s)")
@@ -711,8 +717,39 @@ class ManagedWebSocket:
                 now = time.time()
                 uptime = now - connect_time
                 
+                # Fixed JSON heartbeat for Lighter
+                if (
+                    lighter_json_ping_interval
+                    and self._ws
+                    and self.is_connected
+                    and now - last_json_ping >= lighter_json_ping_interval
+                ):
+                    try:
+                        await self._ws.send(json.dumps({"type": "ping"}))
+                        last_json_ping = now
+                        logger.debug(f"💓 [{self.config.name}] Sent scheduled JSON ping")
+                    except Exception as e:
+                        logger.warning(f"[{self.config.name}] Failed to send scheduled JSON ping: {e}")
+                        self._metrics.is_healthy = False
+                        break
+                
                 if self._metrics.last_message_time > 0:
                     silence = now - self._metrics.last_message_time
+                    
+                    # =================================================================
+                    # PROACTIVE JSON PING FOR LIGHTER (Based on SDK documentation)
+                    # The Lighter SDK uses {"type": "ping"} to keep connections alive
+                    # Send proactive ping when no messages for 30+ seconds
+                    # =================================================================
+                    if self.config.name == "lighter" and silence > 30.0 and self._ws and self.is_connected:
+                        try:
+                            await self._ws.send(json.dumps({"type": "ping"}))
+                            logger.debug(f"💓 [{self.config.name}] Sent proactive JSON ping (silence: {silence:.0f}s)")
+                        except Exception as e:
+                            logger.warning(f"[{self.config.name}] Failed to send proactive ping: {e}")
+                            # Connection likely dead, trigger reconnect
+                            self._metrics.is_healthy = False
+                            break
                     
                     # Warning at expected_interval
                     if silence > expected_interval and silence < stale_threshold:
@@ -727,6 +764,7 @@ class ManagedWebSocket:
                         logger.warning(
                             f"🔴 [{self.config.name}] Stream stale ({silence:.0f}s), reconnecting..."
                         )
+                        self._metrics.is_healthy = False
                         break
                     else:
                         logger.debug(
@@ -1103,16 +1141,24 @@ class WebSocketManager:
         
         # 1. Create Lighter connection with enhanced 1006 handling
         # Lighter often disconnects with 1006 (abnormal closure) - needs robust reconnect
+        # NOTE: Lighter erwartet einen JSON-Heartbeat {"type": "ping"}.
+        # Protokoll-Pings der websockets-Library sind hier kontraproduktiv
+        # (Server schickt selbst keine Ping-Frames). Wir deaktivieren daher
+        # ping_interval/ping_timeout und nutzen ausschließlich den eigenen
+        # JSON-Ping aus dem Heartbeat-Loop.
+        lighter_ping_interval = None
+        lighter_ping_timeout = None
+        
         lighter_config = WSConfig(
             url=self.LIGHTER_WS_URL,
             name="lighter",
-            ping_interval=15.0,              # Reduced from 20 for faster detection
-            ping_timeout=10.0,               # Increased for tolerance
-            reconnect_delay_initial=2.0,     # Fast initial reconnect attempt
-            reconnect_delay_max=120.0,       # Allow server time to recover
-            max_consecutive_1006=5,          # Trigger extended delay after 5 consecutive 1006s
-            extended_delay_1006=30.0,        # 30s extended delay for repeated 1006s
-            health_check_interval=30.0,      # Check health every 30s
+            ping_interval=lighter_ping_interval,   # Aggressive 10s ping for keepalive
+            ping_timeout=lighter_ping_timeout,     # Shorter timeout for faster detection
+            reconnect_delay_initial=2.0,           # Fast initial reconnect attempt
+            reconnect_delay_max=120.0,             # Allow server time to recover
+            max_consecutive_1006=5,                # Trigger extended delay after 5 consecutive 1006s
+            extended_delay_1006=30.0,              # 30s extended delay for repeated 1006s
+            health_check_interval=30.0,            # Check health every 30s
         )
         self._connections["lighter"] = ManagedWebSocket(
             lighter_config, 
@@ -1285,21 +1331,50 @@ class WebSocketManager:
             logger.error("❌ X10 Account Connection not found!")
     
     async def subscribe_market_data(self, symbols: List[str]):
-        """Subscribe to market data for given symbols"""
-        # Lighter subscriptions
+        """Subscribe to market data for given symbols
+        
+        OPTION 3 IMPLEMENTATION:
+        - order_book/{market_id} for ALL symbols (real-time orderbook updates)
+        - market_stats/all for prices, funding rates, OI (1 subscription for ALL markets)
+        - NO individual trade/{market_id} subscriptions (saves 50% subscriptions)
+        
+        Lighter WebSocket Limits (https://apidocs.lighter.xyz/docs/rate-limits):
+        - Max 100 subscriptions per connection
+        - Max 1000 total subscriptions per IP
+        
+        With this approach:
+        - 65 order_book subscriptions + 1 market_stats/all = 66 total < 100 ✅
+        """
         lighter_conn = self._connections.get("lighter")
         if lighter_conn:
-            # Subscribe to all markets stats
+            # Subscribe to market_stats/all FIRST (1 subscription)
+            # This provides: last_trade_price, funding_rate, mark_price, index_price, 
+            # open_interest for ALL markets in a single feed
             await lighter_conn.subscribe("market_stats/all")
+            logger.info("📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)")
             
-            # Subscribe to orderbooks and trades for each symbol
+            # Subscribe to orderbooks for ALL symbols (no limit needed with Option 3)
+            # Each order_book subscription = 1 subscription
+            subscribed_count = 0
             for symbol in symbols:
                 market_id = self._get_lighter_market_id(symbol)
                 if market_id is not None:
-                    # Lighter verträgt mehr Subscriptions
                     await lighter_conn.subscribe(f"order_book/{market_id}")
-                    await lighter_conn.subscribe(f"trade/{market_id}")
-                    await asyncio.sleep(0.02)
+                    subscribed_count += 1
+                    # Pace subscriptions to avoid overwhelming the server
+                    if subscribed_count % 10 == 0:
+                        await asyncio.sleep(0.05)
+            
+            total_subs = 1 + subscribed_count  # market_stats/all + order_books
+            logger.info(
+                f"✅ [lighter] Subscribed to {total_subs} channels "
+                f"(1 market_stats/all + {subscribed_count} order_books)"
+            )
+            
+            if total_subs >= 95:
+                logger.warning(
+                    f"⚠️ [lighter] Approaching subscription limit: {total_subs}/100"
+                )
         
         # 2. X10 Subscriptions
         # WICHTIG: Wir müssen NICHTS mehr senden!
