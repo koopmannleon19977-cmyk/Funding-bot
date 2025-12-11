@@ -110,6 +110,13 @@ class LighterAdapter(BaseAdapter):
         self._shutdown_cancel_done = False
         self._shutdown_cancel_failed = False
 
+        # ═══════════════════════════════════════════════════════════════
+        # REQUEST DEDUPLICATION: Prevent API spam during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        self._request_cache: Dict[str, Tuple[float, Any]] = {}
+        self._request_cache_ttl = 2.0  # seconds
+        self._request_lock = asyncio.Lock()
+
         # WebSocket Management
         self.ws_task = None
         self.ws_connected = False
@@ -294,7 +301,11 @@ class LighterAdapter(BaseAdapter):
         return self._session
 
     async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
-        """REST GET with rate limiting and proper cancellation handling"""
+        """REST GET with rate limiting and proper cancellation handling.
+        
+        IMPORTANT: 404 responses are handled specially for certain endpoints
+        because Lighter returns 404 when no data exists (e.g., no open orders).
+        """
         base = getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
         url = f"{base.rstrip('/')}{path}"
 
@@ -305,9 +316,40 @@ class LighterAdapter(BaseAdapter):
                 if resp.status == 429:
                     self.rate_limiter.penalize_429()
                     return None
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Handle 404 as "empty result" for specific endpoints
+                # Lighter returns 404 when no orders/trades exist - this is NOT an error!
+                # ═══════════════════════════════════════════════════════════════
+                if resp.status == 404:
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/accountTrades', '/api/v1/trades']
+                    if any(path.startswith(p) for p in empty_result_paths):
+                        logger.debug(f"{self.name} REST GET {path} returned 404 (no data - OK)")
+                        # Return empty structure that matches expected response format
+                        if 'orders' in path:
+                            return {"orders": [], "code": 200}
+                        elif 'trades' in path or 'Trades' in path:
+                            return {"trades": [], "code": 200}
+                        return {"data": [], "code": 200}
+                    else:
+                        logger.debug(f"{self.name} REST GET {path} returned 404")
+                        return None
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Log 400 errors with response body for debugging
+                # ═══════════════════════════════════════════════════════════════
+                if resp.status == 400:
+                    try:
+                        error_body = await resp.text()
+                        logger.warning(f"{self.name} REST GET {path} returned 400: {error_body[:200]}")
+                    except:
+                        logger.warning(f"{self.name} REST GET {path} returned 400 (Bad Request)")
+                    return None
+                
                 if resp.status >= 400:
                     logger.debug(f"{self.name} REST GET {path} returned {resp.status}")
                     return None
+                    
                 data = await resp.json()
                 self.rate_limiter.on_success()
                 return data
@@ -320,6 +362,39 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.debug(f"{self.name} REST GET {path} error: {e}")
             return None
+
+    async def _cached_rest_get(self, path: str, params: Optional[Dict] = None, cache_key: str = None) -> Optional[Dict]:
+        """
+        REST GET with response caching to prevent duplicate requests.
+        Use this for frequently called endpoints like orders/positions.
+        """
+        # Build cache key from path and params
+        if cache_key is None:
+            param_str = json.dumps(params, sort_keys=True) if params else ""
+            cache_key = f"{path}:{param_str}"
+        
+        now = time.time()
+        
+        # Check cache
+        async with self._request_lock:
+            if cache_key in self._request_cache:
+                cached_time, cached_data = self._request_cache[cache_key]
+                if now - cached_time < self._request_cache_ttl:
+                    logger.debug(f"[LIGHTER] Cache hit for {path}")
+                    return cached_data
+        
+        # Make actual request
+        result = await self._rest_get(path, params)
+        
+        # Cache result
+        async with self._request_lock:
+            self._request_cache[cache_key] = (now, result)
+        
+        return result
+
+    def _clear_request_cache(self):
+        """Clear the request cache (call after state-changing operations)."""
+        self._request_cache.clear()
 
     async def refresh_market_limits(self, symbol: str) -> dict:
         """Fetch fresh market limits from Lighter API."""
@@ -490,7 +565,13 @@ class LighterAdapter(BaseAdapter):
             return True, ""
 
     async def get_open_orders(self, symbol: str) -> List[dict]:
-        """Fetch open orders using Lighter REST API."""
+        """
+        Fetch open orders for a symbol using Lighter REST API.
+        
+        API Reference: https://apidocs.lighter.xyz/docs/get-started-for-programmers-1
+        Endpoint: GET /api/v1/orders
+        Status codes: 0=Open, 1=Filled, 2=Cancelled, 3=Expired
+        """
         try:
             # Resolve indices if needed
             if not getattr(self, '_resolved_account_index', None):
@@ -498,70 +579,96 @@ class LighterAdapter(BaseAdapter):
             
             acc_idx = getattr(self, '_resolved_account_index', None)
             if acc_idx is None:
+                logger.warning(f"Lighter get_open_orders: No account index resolved")
                 return []
                 
             market = self.market_info.get(symbol)
             if not market:
+                logger.debug(f"Lighter get_open_orders: No market info for {symbol}")
                 return []
             
-            # Lighter's market metadata primarily uses "i" as market index, but
-            # depending on source there may also be "market_id" or
-            # "market_index". Use a robust fallback chain.
+            # Get market index with fallback chain
             market_index = (
                 market.get('i')
                 or market.get('market_id')
                 or market.get('market_index')
             )
             if market_index is None:
+                logger.debug(f"Lighter get_open_orders: No market_index for {symbol}")
                 return []
 
-            # GET /api/v1/orders
+            # ═══════════════════════════════════════════════════════════════
+            # CORRECT API CALL per Lighter docs
+            # Status: 0=Open, 1=Filled, 2=Cancelled, 3=Expired
+            # ═══════════════════════════════════════════════════════════════
             params = {
-                "account_index": acc_idx,
-                "market_index": market_index,
-                "status": 10,  # 10 = Open
+                "account_index": int(acc_idx),
+                "market_index": int(market_index),
+                "status": 0,  # 0 = Open orders per Lighter API docs
                 "limit": 50
             }
             
-            # API endpoint guess: /api/v1/orders or similar
-            # Try /api/v1/orders first
             resp = await self._rest_get("/api/v1/orders", params=params)
             
+            # Handle empty/None response (404 is converted to empty dict by _rest_get)
             if not resp:
                 return []
             
-            # If resp is a list directly or in 'data'
+            # Extract orders from response
             orders_data = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+            if not orders_data:
+                return []
             
             open_orders = []
             for o in orders_data:
-                # Filter strictly for OPEN status if API returns mixed
-                # Status 10 usually OPEN
-                status = o.get('status')
-                
-                # Check if truly open (assuming status 10 is OPEN based on common ZK patterns)
-                # If unsure, we include everything that looks open
-                if status in [10, 0, 1]:  # Defensive, check mapping
+                try:
+                    # Parse order data according to Lighter API response format
+                    order_id = o.get('order_index') or o.get('id') or o.get('order_id')
                     price = safe_float(o.get('price', 0))
-                    size = safe_float(o.get('remaining_size', o.get('total_size', 0)))
                     
-                    side_raw = o.get('side', 0)
-                    # Side: 0=Buy, 1=Sell ?? Or "buy"/"sell"?
-                    # Lighter usually uses int: 0/1. 
-                    if isinstance(side_raw, int):
-                         side = "BUY" if side_raw == 0 else "SELL"
+                    # Size can be in different fields
+                    size = safe_float(
+                        o.get('remaining_base_amount')
+                        or o.get('remaining_size')
+                        or o.get('base_amount')
+                        or o.get('size', 0)
+                    )
+                    
+                    # Side: is_ask=True means SELL, is_ask=False means BUY
+                    is_ask = o.get('is_ask', None)
+                    if is_ask is not None:
+                        if isinstance(is_ask, bool):
+                            side = "SELL" if is_ask else "BUY"
+                        elif isinstance(is_ask, int):
+                            side = "SELL" if is_ask == 1 else "BUY"
+                        else:
+                            side = "SELL" if str(is_ask).lower() in ['true', '1'] else "BUY"
                     else:
-                         side = str(side_raw).upper()
+                        # Fallback to side field
+                        side_raw = o.get('side', 0)
+                        if isinstance(side_raw, int):
+                            side = "BUY" if side_raw == 0 else "SELL"
+                        else:
+                            side = str(side_raw).upper()
                     
-                    open_orders.append({
-                        "id": str(o.get('id', '')),
-                        "price": price,
-                        "size": size,
-                        "side": side,
-                        "symbol": symbol
-                    })
+                    if order_id and size > 0:
+                        open_orders.append({
+                            "id": str(order_id),
+                            "price": price,
+                            "size": size,
+                            "side": side,
+                            "symbol": symbol,
+                            "status": "OPEN"
+                        })
+                except Exception as e:
+                    logger.debug(f"Error parsing order: {e}")
+                    continue
+            
+            logger.debug(f"Lighter get_open_orders({symbol}): Found {len(open_orders)} orders")
             return open_orders
             
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
             logger.error(f"Lighter get_open_orders error: {e}")
             return []
@@ -649,30 +756,76 @@ class LighterAdapter(BaseAdapter):
             return None
 
 
-    async def fetch_my_trades(self, symbol: str, limit: int = 20):
-        """Hole Trade History um Fills zu verifizieren"""
+    async def fetch_my_trades(self, symbol: str, limit: int = 20) -> List[dict]:
+        """
+        Fetch account trade history for a symbol (fills).
+        
+        API Reference: https://apidocs.lighter.xyz/docs/get-started-for-programmers-1
+        
+        IMPORTANT: /api/v1/trades is for PUBLIC market trades (requires market_index)
+                   /api/v1/accountTrades is for YOUR account's trades
+        """
         try:
-            # Lighter API Endpoint für Trades (Beispiel - API Doku prüfen!)
-            # Oft: /api/v1/trades?symbol=...&accountIndex=...
-            
-            # Wenn dein Client eine Methode dafür hat, nutze sie.
-            # Sonst REST Call:
-            
             # Resolve Account Index if needed
             if not getattr(self, '_resolved_account_index', None):
-                 await self._resolve_account_index()
+                await self._resolve_account_index()
             
-            params = {
-                "symbol": symbol, 
-                "limit": limit, 
-                "account_index": self._resolved_account_index
-            }
-            resp = await self._rest_get("/api/v1/trades", params=params)
-            if resp is None:
+            acc_idx = getattr(self, '_resolved_account_index', None)
+            if acc_idx is None:
                 return []
-            return resp
+            
+            # Get market index for the symbol (optional filter)
+            market = self.market_info.get(symbol)
+            market_index = None
+            if market:
+                market_index = market.get('i') or market.get('market_id') or market.get('market_index')
+            
+            # ═══════════════════════════════════════════════════════════════
+            # CORRECT ENDPOINT: /api/v1/accountTrades (not /api/v1/trades!)
+            # /api/v1/trades is for PUBLIC market trades and requires market_index
+            # ═══════════════════════════════════════════════════════════════
+            params = {
+                "account_index": int(acc_idx),
+                "limit": limit
+            }
+            
+            # Add market_index if available (optional filter)
+            if market_index is not None:
+                params["market_index"] = int(market_index)
+            
+            resp = await self._rest_get("/api/v1/accountTrades", params=params)
+            
+            if not resp:
+                return []
+            
+            trades = resp.get('trades', resp.get('data', []))
+            
+            # Parse and return normalized trades
+            result = []
+            for t in trades:
+                try:
+                    result.append({
+                        "id": t.get('trade_index') or t.get('id'),
+                        "order_id": t.get('order_index') or t.get('order_id'),
+                        "symbol": symbol,
+                        "side": "SELL" if t.get('is_ask') else "BUY",
+                        "price": safe_float(t.get('price', 0)),
+                        "size": safe_float(t.get('base_amount') or t.get('size', 0)),
+                        "fee": safe_float(t.get('fee', 0)),
+                        "timestamp": t.get('timestamp') or t.get('created_at')
+                    })
+                except Exception:
+                    continue
+            
+            if result:
+                logger.debug(f"Lighter fetch_my_trades({symbol}): Found {len(result)} trades")
+            
+            return result
+            
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to fetch trades: {e}")
+            logger.error(f"Failed to fetch trades for {symbol}: {e}")
             return []
 
     async def load_markets(self):
@@ -2670,11 +2823,16 @@ class LighterAdapter(BaseAdapter):
                  if "found" in err_str or "exist" in err_str or "could not find open order" in err_str:
                      # Log as info, not warning, since this is expected during cleanups
                      logger.info(f"ℹ️ Lighter Cancel: Order {oid_int} already closed/not found.")
+                     self._clear_request_cache()  # Clear cache since state may have changed
                      return True
                  logger.error(f"Lighter Cancel Error {oid_int}: {err}")
                  return False
              
             logger.info(f"✅ Lighter Cancelled Order {oid_int}")
+            
+            # Clear request cache since state changed
+            self._clear_request_cache()
+            
             return True
         
         except Exception as e:
