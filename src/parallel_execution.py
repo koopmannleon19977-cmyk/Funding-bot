@@ -214,11 +214,23 @@ class ParallelExecutionManager:
     async def _stop_rollback_task(self) -> None:
         """Stop the background rollback processor"""
         if self._rollback_task:
-            self._rollback_task.cancel()
-            try:
-                await self._rollback_task
-            except asyncio.CancelledError:
-                pass
+            if self._rollback_task.done():
+                # Task already finished - retrieve exception to prevent "never retrieved" error
+                try:
+                    self._rollback_task.result()
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"Rollback task had exception: {e}")
+            else:
+                # Task still running - cancel it
+                self._rollback_task.cancel()
+                try:
+                    await self._rollback_task
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"Rollback task exception during cancel: {e}")
 
     async def _rollback_incomplete_executions(self, symbols: List[str]) -> None:
         """

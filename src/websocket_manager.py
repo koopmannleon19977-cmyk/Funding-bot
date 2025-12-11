@@ -820,10 +820,10 @@ class WebSocketManager:
         )
 
         
-        # Start all connections
+        # Start all connections (use return_exceptions to prevent "exception was never retrieved")
         await asyncio.gather(*[
             conn.start() for conn in self._connections.values()
-        ])
+        ], return_exceptions=True)
         
         logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)")
     

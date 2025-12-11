@@ -138,8 +138,10 @@ class TokenBucketRateLimiter:
                 
                 return 0.0
         except asyncio.CancelledError:
-            # Re-raise to propagate cancellation properly
-            raise
+            # Return -1.0 to signal cancellation to caller (don't raise!)
+            # This prevents "exception was never retrieved" errors in asyncio.gather()
+            logger.debug(f"[{self.name}] Rate limiter acquire cancelled during shutdown")
+            return -1.0  # Caller should check for negative value
     
     def penalize_429(self):
         """Apply penalty for 429 response"""

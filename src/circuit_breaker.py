@@ -4,6 +4,8 @@ import time
 from typing import List, Tuple, Optional
 from dataclasses import dataclass
 
+import config
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -28,7 +30,22 @@ class CircuitBreaker:
     def record_trade_result(self, success: bool, symbol: str = "UNKNOWN"):
         """
         Register a trade outcome.
+        
+        IMPORTANT: Shutdown cancellations are NOT counted as failures!
+        During shutdown, trades are intentionally cancelled - this is expected
+        behavior, not a failure.
         """
+        # ═══════════════════════════════════════════════════════════════
+        # KEY FIX: Ignore failures during shutdown
+        # Shutdown cancellations are expected, not real failures!
+        # ═══════════════════════════════════════════════════════════════
+        if not success and getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(
+                f"Circuit Breaker: Ignoring {symbol} failure during shutdown "
+                "(shutdown cancellations are expected, not real failures)"
+            )
+            return
+        
         if success:
             if self.failure_count > 0:
                 logger.info(f"Circuit Breaker: Failure count reset (was {self.failure_count}) after success on {symbol}")

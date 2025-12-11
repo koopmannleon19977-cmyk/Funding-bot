@@ -616,11 +616,12 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     
     if x10_prices == 0 and lit_prices == 0:
         logger.warning("⚠️ Price cache completely empty - WebSocket streams may not be working")
-        # Force reload
+        # Force reload (use return_exceptions to prevent "exception was never retrieved")
         await asyncio.gather(
             x10.load_market_cache(force=True),
             lighter.load_market_cache(force=True),
-            lighter.load_funding_rates_and_prices()
+            lighter.load_funding_rates_and_prices(),
+            return_exceptions=True
         )
 
     logger.debug(

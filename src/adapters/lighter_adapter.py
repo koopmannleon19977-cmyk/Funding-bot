@@ -134,11 +134,14 @@ class LighterAdapter(BaseAdapter):
             return False
         
         try:
-            await self.rate_limiter.acquire()
+            result = await self.rate_limiter.acquire()
+            if result < 0:  # -1.0 means cancelled
+                logger.debug(f"{self.name}: Rate limit acquire cancelled")
+                return False
             return True
         except asyncio.CancelledError:
             logger.debug(f"{self.name}: Rate limit acquire cancelled")
-            raise
+            return False  # Return False instead of raising
 
     async def start_websocket(self):
         """Start the WebSocket connection task."""
@@ -355,7 +358,7 @@ class LighterAdapter(BaseAdapter):
                 return data
         except asyncio.CancelledError:
             logger.debug(f"{self.name}: REST GET {path} cancelled during shutdown")
-            raise  # Always re-raise CancelledError
+            return None  # Return None instead of raising to prevent 'exception was never retrieved'
         except asyncio.TimeoutError:
             logger.debug(f"{self.name} REST GET {path} timeout")
             return None
@@ -668,7 +671,8 @@ class LighterAdapter(BaseAdapter):
             return open_orders
             
         except asyncio.CancelledError:
-            raise
+            logger.debug(f"Lighter get_open_orders({symbol}) cancelled")
+            return []  # Return empty list instead of raising
         except Exception as e:
             logger.error(f"Lighter get_open_orders error: {e}")
             return []
@@ -823,7 +827,8 @@ class LighterAdapter(BaseAdapter):
             return result
             
         except asyncio.CancelledError:
-            raise
+            logger.debug(f"Lighter fetch_my_trades({symbol}) cancelled")
+            return []  # Return empty list instead of raising
         except Exception as e:
             logger.error(f"Failed to fetch trades for {symbol}: {e}")
             return []

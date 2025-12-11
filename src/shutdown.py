@@ -552,7 +552,13 @@ class ShutdownOrchestrator:
                     return []
             return []
 
-        lighter_pos, x10_pos = await asyncio.gather(fetch_lighter(), fetch_x10())
+        # Use return_exceptions=True to prevent "exception was never retrieved" errors
+        results = await asyncio.gather(fetch_lighter(), fetch_x10(), return_exceptions=True)
+        
+        # Handle potential exceptions in results
+        lighter_pos = results[0] if not isinstance(results[0], Exception) else []
+        x10_pos = results[1] if not isinstance(results[1], Exception) else []
+        
         positions["lighter"] = lighter_pos
         positions["x10"] = x10_pos
 

@@ -326,10 +326,25 @@ class BotEventLoop:
                 timeout=self._shutdown_timeout
             )
 
+            # CRITICAL: Retrieve exceptions from done tasks to prevent "never retrieved" error
+            for task in done:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    logger.debug(f"Task {task.get_name()} was cancelled (expected)")
+                except Exception as e:
+                    logger.debug(f"Task {task.get_name()} had exception: {e}")
+
             if pending:
                 logger.warning(f"Force-killing {len(pending)} tasks")
                 for task in pending:
                     task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception:
+                        pass
 
         # Run shutdown callbacks
         for callback in self._on_shutdown_callbacks:
