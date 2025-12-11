@@ -1039,19 +1039,52 @@ class WebSocketManager:
                     self. lighter_adapter._price_cache_time[symbol] = time. time()
     
     async def _handle_x10_message(self, msg: dict):
-        """Handle X10 WebSocket messages"""
-        msg_type = msg. get("type", "")
+        """Handle X10 WebSocket messages from account stream.
+        
+        Handles both account-specific messages (ORDER, TRADE, BALANCE, POSITION)
+        and public stream messages routed here.
+        """
+        msg_type = msg.get("type", "")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # ACCOUNT STREAM MESSAGE TYPES (x10_account connection)
+        # These messages come automatically - no subscription needed!
+        # ═══════════════════════════════════════════════════════════════
+        
+        # Order updates (new, filled, cancelled, etc.)
+        if msg_type == "ORDER":
+            await self._handle_x10_order_update(msg)
+            return
+        
+        # Trade/fill notifications (CRITICAL for position tracking!)
+        if msg_type == "TRADE":
+            await self._handle_x10_trade_notification(msg)
+            return
+        
+        # Balance updates
+        if msg_type == "BALANCE":
+            await self._handle_x10_balance_update(msg)
+            return
+        
+        # Position updates
+        if msg_type == "POSITION":
+            await self._handle_x10_position_update(msg)
+            return
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PUBLIC STREAM MESSAGE TYPES (from other connections)
+        # ═══════════════════════════════════════════════════════════════
         
         # Mark price
         if msg_type == "MP":
             await self._handle_x10_mark_price(msg)
         
         # Funding
-        elif "funding" in str(msg. get("channel", "")).lower():
+        elif "funding" in str(msg.get("channel", "")).lower():
             await self._handle_x10_funding(msg)
         
         # Orderbook
-        elif "orderbook" in str(msg.get("channel", "")). lower():
+        elif "orderbook" in str(msg.get("channel", "")).lower():
             await self._handle_x10_orderbook(msg)
         
         # Public Trades
@@ -1059,7 +1092,7 @@ class WebSocketManager:
             await self._handle_x10_trade(msg)
         
         # Open Interest
-        elif msg. get("channel") == "open_interest":
+        elif msg.get("channel") == "open_interest":
             await self._handle_x10_open_interest(msg)
     
     async def _handle_x10_mark_price(self, msg: dict):
@@ -1127,7 +1160,7 @@ class WebSocketManager:
     
     async def _handle_x10_open_interest(self, msg: dict):
         """Process X10 open interest"""
-        market = msg.get("market", ""). replace("/", "-")
+        market = msg.get("market", "").replace("/", "-")
         oi = msg.get("open_interest")
         
         if market and oi:
@@ -1136,6 +1169,154 @@ class WebSocketManager:
             
             if self.predictor:
                 self.predictor.update_oi_velocity(market, float(oi))
+    
+    # ═══════════════════════════════════════════════════════════════
+    # X10 ACCOUNT STREAM HANDLERS (ORDER, TRADE, BALANCE, POSITION)
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def _handle_x10_order_update(self, msg: dict):
+        """Process X10 order update from account stream.
+        
+        Message format:
+        {
+            "type": "ORDER",
+            "data": {
+                "orders": [{
+                    "id": 123,
+                    "market": "BTC-USD",
+                    "status": "NEW" | "PARTIALLY_FILLED" | "FILLED" | "CANCELLED",
+                    "side": "BUY" | "SELL",
+                    "price": "12400.000000",
+                    "qty": "10.000000",
+                    "filledQty": "3.513000",
+                    ...
+                }]
+            },
+            "ts": 1715885884837,
+            "seq": 1
+        }
+        """
+        try:
+            data = msg.get("data", {})
+            orders = data.get("orders", [])
+            
+            for order in orders:
+                market = order.get("market", "")
+                status = order.get("status", "")
+                order_id = order.get("id")
+                side = order.get("side", "")
+                price = order.get("price", "0")
+                qty = order.get("qty", "0")
+                filled_qty = order.get("filledQty", "0")
+                
+                logger.info(
+                    f"📋 [x10_account] ORDER: {market} {side} {status} "
+                    f"qty={qty} filled={filled_qty} @ ${price} (id={order_id})"
+                )
+                
+        except Exception as e:
+            logger.error(f"[x10_account] Order update error: {e}")
+
+    async def _handle_x10_trade_notification(self, msg: dict):
+        """Process X10 trade/fill notification from account stream.
+        
+        CRITICAL: This tells us when orders are filled!
+        
+        Message format:
+        {
+            "type": "TRADE",
+            "data": {
+                "trades": [{
+                    "id": 123,
+                    "market": "BTC-USD",
+                    "orderId": 456,
+                    "side": "BUY",
+                    "price": "58853.40",
+                    "qty": "0.09",
+                    "fee": "0.00",
+                    "isTaker": true,
+                    ...
+                }]
+            }
+        }
+        """
+        try:
+            data = msg.get("data", {})
+            trades = data.get("trades", [])
+            
+            for trade in trades:
+                market = trade.get("market", "")
+                side = trade.get("side", "")
+                price = float(trade.get("price", 0))
+                qty = float(trade.get("qty", 0))
+                fee = float(trade.get("fee", 0))
+                order_id = trade.get("orderId")
+                is_taker = trade.get("isTaker", True)
+                
+                logger.info(
+                    f"📊 [x10_account] FILL: {market} {side} {qty} @ ${price:.4f} "
+                    f"(Order: {order_id}, Fee: ${fee:.4f}, Taker: {is_taker})"
+                )
+                
+                # Notify fill callbacks (for parallel_execution)
+                if hasattr(self, '_fill_callbacks'):
+                    symbol = market.replace("/", "-")
+                    for callback in self._fill_callbacks.get(symbol, []):
+                        try:
+                            await callback(trade)
+                        except Exception as cb_err:
+                            logger.error(f"Fill callback error: {cb_err}")
+                            
+        except Exception as e:
+            logger.error(f"[x10_account] Trade notification error: {e}")
+
+    async def _handle_x10_balance_update(self, msg: dict):
+        """Process X10 balance update from account stream."""
+        try:
+            data = msg.get("data", {})
+            balance = data.get("balance", {})
+            
+            if balance:
+                equity = balance.get("equity", "0")
+                available = balance.get("availableForTrade", "0")
+                unrealized_pnl = balance.get("unrealisedPnl", "0")
+                
+                logger.debug(
+                    f"💰 [x10_account] BALANCE: equity=${equity}, "
+                    f"available=${available}, uPnL=${unrealized_pnl}"
+                )
+                
+        except Exception as e:
+            logger.error(f"[x10_account] Balance update error: {e}")
+
+    async def _handle_x10_position_update(self, msg: dict):
+        """Process X10 position update from account stream."""
+        try:
+            data = msg.get("data", {})
+            positions = data.get("positions", [])
+            
+            for pos in positions:
+                market = pos.get("market", "")
+                side = pos.get("side", "")
+                size = pos.get("size", "0")
+                unrealized_pnl = pos.get("unrealisedPnl", "0")
+                mark_price = pos.get("markPrice", "0")
+                
+                logger.debug(
+                    f"📈 [x10_account] POSITION: {market} {side} size={size} "
+                    f"markPrice=${mark_price} uPnL=${unrealized_pnl}"
+                )
+                
+        except Exception as e:
+            logger.error(f"[x10_account] Position update error: {e}")
+
+    def register_fill_callback(self, symbol: str, callback):
+        """Register callback to be notified of fills for a symbol."""
+        if not hasattr(self, '_fill_callbacks'):
+            self._fill_callbacks: Dict[str, List] = {}
+        if symbol not in self._fill_callbacks:
+            self._fill_callbacks[symbol] = []
+        self._fill_callbacks[symbol].append(callback)
 
     async def _handle_x10_trade(self, msg: dict):
         """Process X10 public trades
