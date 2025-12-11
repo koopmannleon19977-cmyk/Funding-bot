@@ -15,11 +15,189 @@ import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple, Set
 from decimal import Decimal
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 from src.utils import safe_float
 
+
+@dataclass
+class ReconciliationResult:
+    """Result of reconciliation check."""
+    zombies_found: List[str]
+    ghosts_found: List[str]
+    matched: List[str]
+    errors: List[str]
+
+
+async def reconcile_positions_atomic(
+    state_manager,
+    x10_adapter,
+    lighter_adapter,
+    auto_fix: bool = True
+) -> ReconciliationResult:
+    """
+    Atomically reconcile database trades with exchange positions.
+
+    This should be called at startup BEFORE any trading begins.
+    """
+    result = ReconciliationResult(
+        zombies_found=[],
+        ghosts_found=[],
+        matched=[],
+        errors=[],
+    )
+
+    logger.info("🔍 RECONCILE: Starting atomic sync check...")
+
+    try:
+        db_trades = await state_manager.get_all_open_trades()
+        db_symbols: Set[str] = {t.symbol for t in (db_trades or [])}
+
+        exchange_symbols: Set[str] = set()
+
+        try:
+            x10_positions, lighter_positions = await asyncio.gather(
+                x10_adapter.fetch_open_positions(),
+                lighter_adapter.fetch_open_positions(),
+                return_exceptions=True,
+            )
+
+            if isinstance(x10_positions, Exception):
+                result.errors.append(f"x10_fetch_error: {x10_positions}")
+                x10_positions = []
+            if isinstance(lighter_positions, Exception):
+                result.errors.append(f"lighter_fetch_error: {lighter_positions}")
+                lighter_positions = []
+
+            for pos in (x10_positions or []):
+                size = abs(float(pos.get("size", 0) or 0))
+                if size > 1e-8:
+                    symbol = pos.get("symbol", "")
+                    if symbol:
+                        exchange_symbols.add(symbol)
+
+            for pos in (lighter_positions or []):
+                size = abs(float(pos.get("size", 0) or 0))
+                if size > 1e-8:
+                    symbol = pos.get("symbol", "")
+                    if symbol:
+                        exchange_symbols.add(symbol)
+
+        except Exception as e:  # pragma: no cover - defensive
+            result.errors.append(f"position_fetch_error: {e}")
+            logger.error(f"❌ Failed to fetch positions: {e}")
+            return result
+
+        zombies = db_symbols - exchange_symbols
+        ghosts = exchange_symbols - db_symbols
+        matched = db_symbols & exchange_symbols
+
+        result.zombies_found = list(zombies)
+        result.ghosts_found = list(ghosts)
+        result.matched = list(matched)
+
+        logger.info(
+            f"🔍 RECONCILE: DB={len(db_symbols)}, Exchange={len(exchange_symbols)}, "
+            f"Matched={len(matched)}, Zombies={len(zombies)}, Ghosts={len(ghosts)}"
+        )
+
+        if auto_fix and zombies:
+            for symbol in zombies:
+                try:
+                    logger.warning(
+                        f"⚠️ ZOMBIE: {symbol} - closing in DB (no exchange position)..."
+                    )
+
+                    trade = await state_manager.get_trade(symbol)
+                    if trade:
+                        await state_manager.close_trade(
+                            symbol=symbol,
+                            pnl=0.0,
+                            funding=0.0,
+                        )
+                        logger.info(f"✅ ZOMBIE {symbol}: Closed in database")
+                    else:
+                        logger.warning(
+                            f"⚠️ ZOMBIE {symbol}: Trade not found in state manager"
+                        )
+
+                except Exception as e:  # pragma: no cover - defensive
+                    error_msg = f"zombie_close_error:{symbol}:{e}"
+                    result.errors.append(error_msg)
+                    logger.error(f"❌ Failed to close zombie {symbol}: {e}")
+
+        if ghosts:
+            for symbol in ghosts:
+                logger.warning(
+                    f"👻 GHOST: {symbol} - Position exists on exchange but not in DB! "
+                    f"Manual review recommended."
+                )
+
+        logger.info("✅ RECONCILE: Sync complete.")
+        return result
+
+    except Exception as e:
+        result.errors.append(f"reconcile_error: {e}")
+        logger.error(f"❌ Reconciliation failed: {e}", exc_info=True)
+        return result
+
+
+async def verify_trade_closed_on_exchange(
+    symbol: str,
+    x10_adapter,
+    lighter_adapter,
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+) -> Tuple[bool, bool]:
+    """
+    Verify that a trade is actually closed on both exchanges.
+
+    Returns:
+        Tuple of (x10_closed, lighter_closed)
+    """
+    x10_closed = True
+    lighter_closed = True
+
+    for attempt in range(max_retries):
+        try:
+            x10_positions = await x10_adapter.fetch_open_positions()
+            x10_pos = next(
+                (
+                    p
+                    for p in (x10_positions or [])
+                    if p.get("symbol") == symbol
+                    and abs(float(p.get("size", 0) or 0)) > 1e-8
+                ),
+                None,
+            )
+            x10_closed = x10_pos is None
+
+            lighter_positions = await lighter_adapter.fetch_open_positions()
+            lighter_pos = next(
+                (
+                    p
+                    for p in (lighter_positions or [])
+                    if p.get("symbol") == symbol
+                    and abs(float(p.get("size", 0) or 0)) > 1e-8
+                ),
+                None,
+            )
+            lighter_closed = lighter_pos is None
+
+            if x10_closed and lighter_closed:
+                return True, True
+
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+
+        except Exception as e:
+            logger.warning(f"Verify closed check error for {symbol}: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_delay)
+
+    return x10_closed, lighter_closed
 
 
 async def synchronize_state(x10_adapter, lighter_adapter, trade_repository, db) -> Dict[str, int]:

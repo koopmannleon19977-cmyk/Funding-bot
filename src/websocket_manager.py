@@ -38,10 +38,12 @@ class WSConfig:
     ping_timeout: Optional[float] = 20.0   # Library wartet so lange auf Pong
     reconnect_delay_initial: float = 1.0
     reconnect_delay_max: float = 60.0
-    reconnect_delay_multiplier: float = 2.0
+    reconnect_delay_multiplier: float = 1.5  # Changed from 2.0 for smoother backoff
     max_reconnect_attempts: int = 0  # 0 = infinite
     message_queue_size: int = 10000  # Increased from 1000 to handle initial orderbook snapshot bursts
     headers: Optional[Dict[str, str]] = None
+    # Track connection quality for 1006 handling
+    max_consecutive_1006: int = 5  # Trigger extended wait after this many 1006s
 
 
 @dataclass
@@ -192,18 +194,21 @@ class ManagedWebSocket:
             return False
     
     async def _connection_loop(self):
-        """Main connection loop with auto-reconnect"""
+        """Main connection loop with auto-reconnect and improved 1006 handling"""
+        consecutive_1006_errors = 0
+        
         while self._running:
             try:
                 await self._connect()
                 
-                if self. is_connected:
-                    # Reset reconnect delay on successful connection
+                if self.is_connected:
+                    # Reset counters on successful connection
                     self._reconnect_delay = self.config.reconnect_delay_initial
                     self._reconnect_attempts = 0
+                    consecutive_1006_errors = 0  # Reset 1006 counter on successful connection
                     
                     # Start receive and heartbeat tasks
-                    self._receive_task = asyncio. create_task(
+                    self._receive_task = asyncio.create_task(
                         self._receive_loop(),
                         name=f"ws_{self.config.name}_receive"
                     )
@@ -257,22 +262,40 @@ class ManagedWebSocket:
                 self._metrics.last_error = str(e)
                 logger.error(f"[{self.config.name}] Connection error: {e}")
             
-            # Reconnect logic
+            # Reconnect logic with 1006-specific handling
             if self._running:
-                self._state = WSState. RECONNECTING
+                self._state = WSState.RECONNECTING
                 self._metrics.reconnect_count += 1
                 self._reconnect_attempts += 1
                 
-                if (self. config.max_reconnect_attempts > 0 and 
+                # Check if last error was 1006 (abnormal closure - no close frame received)
+                if self._metrics.last_error and "1006" in str(self._metrics.last_error):
+                    consecutive_1006_errors += 1
+                    logger.warning(
+                        f"⚠️ [{self.config.name}] 1006 error #{consecutive_1006_errors} - "
+                        f"connection closed without close frame"
+                    )
+                    
+                    # After multiple 1006 errors, use extended wait to let server recover
+                    if consecutive_1006_errors >= self.config.max_consecutive_1006:
+                        extended_delay = min(30.0, self._reconnect_delay * 3)
+                        logger.warning(
+                            f"🔄 [{self.config.name}] Multiple 1006 errors - extended wait {extended_delay:.1f}s"
+                        )
+                        await asyncio.sleep(extended_delay)
+                        consecutive_1006_errors = 0  # Reset after extended wait
+                        continue
+                
+                if (self.config.max_reconnect_attempts > 0 and 
                     self._reconnect_attempts >= self.config.max_reconnect_attempts):
-                    logger. error(f"[{self.config. name}] Max reconnect attempts reached")
+                    logger.error(f"[{self.config.name}] Max reconnect attempts reached")
                     break
                 
                 logger.info(
                     f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:.1f}s "
                     f"(attempt {self._reconnect_attempts})"
                 )
-                await asyncio. sleep(self._reconnect_delay)
+                await asyncio.sleep(self._reconnect_delay)
                 
                 # Exponential backoff
                 self._reconnect_delay = min(
@@ -283,8 +306,25 @@ class ManagedWebSocket:
         self._state = WSState.STOPPED
     
     async def _connect(self):
-        """Establish WebSocket connection"""
+        """Establish WebSocket connection with pre-cleanup"""
         self._state = WSState.CONNECTING
+        
+        # PRE-CLEANUP: Ensure old connection is fully closed before reconnecting
+        # This prevents resource leaks and stale connection issues (especially for 1006 errors)
+        if self._ws:
+            try:
+                await asyncio.wait_for(self._ws.close(), timeout=2.0)
+            except Exception:
+                pass
+            finally:
+                self._ws = None
+        
+        # Clear message queue to prevent stale data after reconnect
+        while not self._message_queue.empty():
+            try:
+                self._message_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
         
         try:
             connect_kwargs = {
@@ -364,10 +404,12 @@ class ManagedWebSocket:
                 self._metrics.messages_received += 1
                 self._metrics.last_message_time = time.time()
                 
-                # DEBUG logging
-                if self.config.name.startswith("x10"):
-                    preview = str(message)[:100] if message else "empty"
-                    # logger.debug(f"[{self.config.name}] RAW MSG: {preview}")  # Commented out to reduce log noise
+                # DEBUG logging: capture potential ping/pong frames for x10_account only (noise-sensitive)
+                if self.config.name == "x10_account":
+                    preview = str(message)[:300] if message else "empty"
+                    # Log only when ping/pong appears to avoid flooding
+                    if isinstance(message, (str, bytes)) and (b'"ping"' in message if isinstance(message, bytes) else '"ping"' in message or '"pong"' in message):
+                        logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
                 
                 # JSON ping handling (falls vorhanden)
                 if isinstance(message, str) and '"ping"' in message:
@@ -392,10 +434,13 @@ class ManagedWebSocket:
                 await asyncio.sleep(0)  # Yield immediately to event loop
         
         except ConnectionClosed as e:
+            # Capture error code for 1006 detection in reconnect logic
+            self._metrics.last_error = f"ConnectionClosed: {e.code} {e.reason}"
             logger.warning(f"[{self.config.name}] Connection closed: {e.code} {e.reason}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
+            self._metrics.last_error = str(e)
             logger.error(f"[{self.config.name}] Receive error: {e}")
             raise
     
@@ -456,7 +501,7 @@ class ManagedWebSocket:
                 await asyncio.sleep(0.1)
     
     async def _process_single_message(self, message: str):
-        """Process a single message - extracted for batch processing."""
+        """Process a single message - handle X10 ping/pong correctly."""
         try:
             # Handle binary frames (could be ping frames)
             if isinstance(message, bytes):
@@ -466,13 +511,13 @@ class ManagedWebSocket:
             data = json.loads(message)
             
             # =================================================================
-            # X10 APPLICATION-LEVEL PING HANDLING
+            # X10 APPLICATION-LEVEL PING HANDLING (FIXED FORMAT)
             # =================================================================
-            # X10 sends: {"ping": 12345}
-            # We must respond: {"pong": 12345}
+            # X10 server sends: {"ping": 12345678}
+            # We must respond: {"pong": 12345678}
             # This is DIFFERENT from WebSocket protocol pings!
             # =================================================================
-            if "ping" in data:
+            if "ping" in data and isinstance(data.get("ping"), (int, float)):
                 ping_value = data["ping"]
                 if self._ws and self.is_connected:
                     try:
@@ -767,12 +812,13 @@ class WebSocketManager:
                 
                 # Send application-level ping
                 try:
-                    # X10 uses JSON ping format: {"type": "ping"} or {"ping": timestamp}
-                    ping_msg = {"type": "ping", "ts": int(time.time() * 1000)}
+                    # X10 expects JSON ping format: {"ping": timestamp_ms}
+                    timestamp_ms = int(time.time() * 1000)
+                    ping_msg = {"ping": timestamp_ms}
                     success = await conn.send(ping_msg)
                     
                     if success:
-                        logger.debug(f"💓 [x10_account] Sent keepalive ping")
+                        logger.debug(f"💓 [x10_account] Sent keepalive ping: {timestamp_ms}")
                     else:
                         logger.warning(f"⚠️ [x10_account] Failed to send keepalive ping")
                         
@@ -868,14 +914,21 @@ class WebSocketManager:
         """
         Handle pong response from X10 account WebSocket.
         
-        Updates the last pong time to indicate the connection is alive,
-        even if no account events are occurring.
+        X10 pong format: {"pong": timestamp_ms}
+        Also treats any pong-style message as proof of life.
         """
-        msg_type = msg.get("type", "")
-        
-        if msg_type == "pong" or "pong" in msg:
+        # Check for explicit pong payload
+        if "pong" in msg:
             self._x10_account_last_pong_time = time.time()
-            logger.debug(f"💓 [x10_account] Received pong - connection alive")
+            pong_value = msg.get("pong")
+            logger.debug(f"💓 [x10_account] Received pong: {pong_value} - connection alive")
+            return True
+        
+        # Fallback: legacy {"type": "pong"} format
+        msg_type = msg.get("type", "")
+        if msg_type == "pong":
+            self._x10_account_last_pong_time = time.time()
+            logger.debug(f"💓 [x10_account] Received type:pong - connection alive")
             return True
         
         return False

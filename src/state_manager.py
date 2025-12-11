@@ -431,6 +431,51 @@ class InMemoryStateManager:
         logger.debug(f"📝 StateManager.close_trade({symbol}): update_trade returned {result}")
         return result
 
+    async def close_trade_verified(
+        self,
+        symbol: str,
+        pnl: float,
+        funding_earned: float,
+        x10_adapter,
+        lighter_adapter,
+        close_reason: str = "NORMAL",
+    ) -> bool:
+        """
+        Close a trade after verifying both exchanges have no open position.
+
+        Returns True only if exchange state is clean and DB update succeeds.
+        """
+        from src.reconciliation import verify_trade_closed_on_exchange
+
+        x10_closed, lighter_closed = await verify_trade_closed_on_exchange(
+            symbol=symbol,
+            x10_adapter=x10_adapter,
+            lighter_adapter=lighter_adapter,
+            max_retries=3,
+            retry_delay=1.0,
+        )
+
+        if not x10_closed:
+            logger.error(f"❌ Cannot close trade {symbol}: X10 position still exists!")
+            return False
+
+        if not lighter_closed:
+            logger.error(f"❌ Cannot close trade {symbol}: Lighter position still exists!")
+            return False
+
+        try:
+            success = await self.close_trade(
+                symbol=symbol,
+                pnl=pnl,
+                funding=funding_earned,
+            )
+            if success:
+                logger.info(f"✅ Trade {symbol} closed and verified (reason: {close_reason})")
+            return success
+        except Exception as e:
+            logger.error(f"❌ Failed to close trade {symbol} in DB: {e}")
+            return False
+
     async def remove_trade(self, symbol: str) -> bool:
         """Remove a trade from state"""
         async with self._trade_lock:

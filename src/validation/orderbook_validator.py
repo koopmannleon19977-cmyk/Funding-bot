@@ -28,6 +28,7 @@ class OrderbookQuality(Enum):
     MARGINAL = "marginal"       # Minimum requirements met
     INSUFFICIENT = "insufficient"  # Do not trade
     EMPTY = "empty"             # No data available
+    CROSSED = "crossed"         # Ask < bid - invalid book
 
 
 class ExchangeProfile(Enum):
@@ -176,6 +177,41 @@ class OrderbookValidator:
             f"min_depth=${self.min_depth_usd}, min_levels={self.min_bid_levels}/{self.min_ask_levels}, "
             f"max_spread={self.max_spread_percent}%"
         )
+
+    def _calculate_spread_percent(
+        self,
+        best_bid: Optional[Decimal],
+        best_ask: Optional[Decimal],
+    ) -> Tuple[Optional[Decimal], bool]:
+        """
+        Calculate spread percentage and detect crossed books.
+
+        Returns:
+            (spread_percent, is_crossed)
+            - spread_percent is always >= 0 when present
+            - is_crossed is True if best_ask < best_bid
+        """
+        if best_bid is None or best_ask is None:
+            return None, False
+
+        if best_bid <= 0:
+            return None, False
+
+        if best_ask < best_bid:
+            spread = abs(best_bid - best_ask) / best_bid * Decimal("100")
+            logger.warning(
+                f"⚠️ CROSSED BOOK DETECTED: best_ask={best_ask} < best_bid={best_bid}"
+            )
+            return spread, True
+
+        spread = (best_ask - best_bid) / best_bid * Decimal("100")
+        if spread < 0:
+            logger.error(
+                f"❌ LOGIC ERROR: Negative spread computed ({spread}) with ask >= bid"
+            )
+            spread = abs(spread)
+
+        return spread, False
         
     def validate_for_maker_order(
         self,
@@ -235,11 +271,9 @@ class OrderbookValidator:
         # Get best prices
         best_bid = bid_levels[0].price if bid_levels else None
         best_ask = ask_levels[0].price if ask_levels else None
-        
-        # Calculate spread
-        spread_percent = None
-        if best_bid and best_ask and best_bid > 0:
-            spread_percent = ((best_ask - best_bid) / best_bid) * 100
+
+        # Calculate spread with crossed book detection
+        spread_percent, is_crossed = self._calculate_spread_percent(best_bid, best_ask)
             
         # Determine which side we need depth on
         # SELL Maker = we're on ask side, need buyers (bids) to fill us
@@ -263,6 +297,30 @@ class OrderbookValidator:
         is_valid = True
         quality = OrderbookQuality.EXCELLENT
         recommended_action = "proceed"
+
+        # Check 0: Crossed book (invalid regardless of other metrics)
+        if is_crossed:
+            result = OrderbookValidationResult(
+                is_valid=False,
+                quality=OrderbookQuality.CROSSED,
+                reason=f"Crossed book: ask ({best_ask}) < bid ({best_bid})",
+                bid_depth_usd=bid_depth_usd,
+                ask_depth_usd=ask_depth_usd,
+                spread_percent=spread_percent,
+                best_bid=best_bid,
+                best_ask=best_ask,
+                bid_levels=len(bid_levels),
+                ask_levels=len(ask_levels),
+                staleness_seconds=staleness,
+                recommended_action="wait",
+                profile_used=self.profile_name,
+            )
+            self._cache_result(cache_key, result)
+            logger.warning(
+                f"❌ {symbol} Orderbook CROSSED for {side} Maker (profile={self.profile_name}): "
+                f"ask {best_ask} < bid {best_bid}"
+            )
+            return result
         
         # Check 1: Empty orderbook
         if not bid_levels and not ask_levels:
