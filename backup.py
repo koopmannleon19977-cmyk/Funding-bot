@@ -2,7 +2,7 @@
 """
 Robustes Backup-Tool für FundingBot
 Usage: 
-    python backup.py          # Erstellt ein Backup
+    python backup.py          # Erstellt ein Backup (Alles ausser Ignoriertes)
     python backup.py list     # Zeigt alle Backups
     python backup.py restore <timestamp>  # Stellt Backup wieder her
 """
@@ -16,105 +16,81 @@ from pathlib import Path
 # KONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# Ordner die komplett gesichert werden sollen (rekursiv)
-# Format: "Quellordner"
-DIRECTORIES_TO_BACKUP = [
-    "src",
-    "scripts",
-    "tests",
-    "utils",
-    "data",
-    "docs",
-]
+BASE_DIR = Path(__file__).resolve().parent
+BACKUP_DIR = BASE_DIR / "backups"
 
-# Einzelne Dateien im Root-Verzeichnis
-ROOT_FILES = [
-    "config.py",
-    "requirements.txt",
-    "backup.py",
-    "START_BOT2.bat",
-    ".env",
-    "README.md",
-    ".gitignore",
-]
+# Ordner, die NICHT gesichert werden sollen
+EXCLUDE_DIRS = {
+    "backups",       # Sich selbst nicht sichern
+    ".venv",         # Virtual Environment
+    ".git",          # Git History (optional, meist zu groß)
+    ".idea",         # IDE Settings
+    "__pycache__",   # Python Cache
+    ".pytest_cache", # Test Cache
+    ".mypy_cache",   # Type Check Cache
+    "logs",          # Logs nicht ins Backup (optional)
+}
 
-# Muster die ignoriert werden (für shutil.ignore_patterns)
+# Dateimuster, die ignoriert werden solllen
 IGNORE_PATTERNS = [
-    "__pycache__",
     "*.pyc",
     "*.log", 
     "*.db-journal",
     ".DS_Store",
+    "*.tmp",
+    "Thumbs.db"
 ]
 
-BASE_DIR = Path(__file__).resolve().parent
-BACKUP_DIR = Path("backups")
-
 def create_backup():
-    """Erstellt timestamped Backup"""
+    """Erstellt timestamped Backup von ALLEM im Bot-Ordner"""
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_folder = BACKUP_DIR / timestamp
+    dest_folder = BACKUP_DIR / timestamp
     
     print(f"📦 Erstelle Backup: {timestamp}")
-    print(f"   Ziel: {backup_folder}")
+    print(f"   Quelle: {BASE_DIR}")
+    print(f"   Ziel:   {dest_folder}")
     
-    # Erstelle Backup-Root
-    backup_folder.mkdir(parents=True, exist_ok=True)
-    
-    backed_up_count = 0
-    
-    # 1. Sicherere komplette Verzeichnisse
-    for dir_name in DIRECTORIES_TO_BACKUP:
-        source_dir = BASE_DIR / dir_name
-        dest_dir = backup_folder / dir_name
-        
-        if source_dir.exists() and source_dir.is_dir():
-            try:
-                # ignore_patterns factory erstellen mit unseren Mustern
-                shutil.copytree(
-                    source_dir, 
-                    dest_dir, 
-                    ignore=shutil.ignore_patterns(*IGNORE_PATTERNS), 
-                    dirs_exist_ok=True
-                )
-                
-                # Zähle Dateien (nur für Statistik)
-                count = sum(1 for _ in dest_dir.rglob('*') if _.is_file())
-                print(f"✅ Ordner gesichert: {dir_name} ({count} Dateien)")
-                backed_up_count += count
-                
-            except Exception as e:
-                print(f"❌ Fehler beim Sichern von {dir_name}: {e}")
-        else:
-            print(f"⚠️  Ordner nicht gefunden: {dir_name}")
+    # Sicherstellen, dass Backup-Dir existiert
+    if not BACKUP_DIR.exists():
+        BACKUP_DIR.mkdir()
 
-    # 2. Sicherere Root-Dateien
-    print(f"   Sichere Root-Dateien...")
-    for filename in ROOT_FILES:
-        source = BASE_DIR / filename
-        dest = backup_folder / filename
+    try:
+        # Wir kopieren alles von BASE_DIR nach dest_folder
+        # Dabei nutzen wir shutil.copytree mit ignore_function, um Excludes zu filtern
         
-        if source.exists() and source.is_file():
-            shutil.copy2(source, dest)
-            print(f"✅ {filename}")
-            backed_up_count += 1
-        else:
-            # .env ist optional bzgl. Fehlermeldung, aber wir wollens wissen
-            if filename == ".env":
-                 print(f"ℹ️  .env nicht gefunden (optional)")
-            else:
-                 print(f"⚠️  Datei nicht gefunden: {filename}")
+        def _ignore_filter(path, names):
+            ignored = set()
+            path_obj = Path(path)
+            
+            # Check Ordner Excludes (nur auf Top-Level oder rekursiv?)
+            # Hier: Wir prüfen, ob der aktuelle Ordnername in EXCLUDE_DIRS ist.
+            for name in names:
+                if name in EXCLUDE_DIRS:
+                    ignored.add(name)
+            
+            # Check Patterns (Dateien)
+            ignore_patterns = shutil.ignore_patterns(*IGNORE_PATTERNS)(path, names)
+            ignored.update(ignore_patterns)
+            
+            return ignored
 
-    # Info File & Stats
-    total_size = sum(f.stat().st_size for f in backup_folder.rglob('*') if f.is_file())
-    
-    print(f"\n{'─' * 50}")
-    print(f"✅ Backup Erfolgreich Completed!")
-    print(f"   Gesamtdateien: {backed_up_count}")
-    print(f"   Gesamtgröße:   {total_size / 1024 / 1024:.2f} MB")
-    print(f"   Pfad:          {backup_folder.absolute()}")
-    print(f"{'─' * 50}")
+        shutil.copytree(BASE_DIR, dest_folder, ignore=_ignore_filter, dirs_exist_ok=True)
+        
+        # Statistik
+        total_files = sum(1 for f in dest_folder.rglob('*') if f.is_file())
+        total_size = sum(f.stat().st_size for f in dest_folder.rglob('*') if f.is_file())
+        
+        print(f"\n✅ Backup erfolgreich!")
+        print(f"   Dateien: {total_files}")
+        print(f"   Größe:   {total_size / 1024 / 1024:.2f} MB")
+        print(f"   Pfad:    {dest_folder}\n")
+        
+    except Exception as e:
+        print(f"\n❌ FEHLER beim Backup: {e}")
+        # Cleanup bei Fehler
+        if dest_folder.exists():
+            shutil.rmtree(dest_folder)
 
     list_recent_backups()
 
@@ -123,7 +99,7 @@ def list_recent_backups(n=5):
         return
     backups = sorted([d for d in BACKUP_DIR.iterdir() if d.is_dir()], reverse=True)[:n]
     if backups:
-        print(f"\n📚 Letzte Backups:")
+        print(f"📚 Letzte Backups:")
         for i, backup in enumerate(backups, 1):
             try:
                 size_mb = sum(f.stat().st_size for f in backup.rglob('*') if f.is_file()) / 1024 / 1024
@@ -137,13 +113,12 @@ def restore_backup(timestamp: str):
         print(f"❌ Backup {timestamp} nicht gefunden!")
         return
         
-    print(f"⚠️  ACHTUNG: Restore überschreibt aktuelle Dateien!")
-    if input("Wirklich wiederherstellen? (yes/no): ").lower() != "yes":
+    print(f"⚠️  ACHTUNG: Restore überschreibt aktuelle Dateien im Bot-Ordner!")
+    print(f"   Dies wird alle Dateien in {BASE_DIR} mit dem Backup überschreiben.")
+    if input("Wirklich fortfahren? (yes/no): ").lower() != "yes":
         return
         
     print("⏳ Restore läuft...")
-    # Wir nutzen copytree um alles vom Backup zurück ins Base Dir zu kopieren
-    # dirs_exist_ok=True erlaubt überschreiben
     try:
         shutil.copytree(backup_folder, BASE_DIR, dirs_exist_ok=True)
         print("✅ Restore erfolgreich abgeschlossen.")
@@ -153,7 +128,7 @@ def restore_backup(timestamp: str):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "restore":
-        if len(sys.argv) < 3: print("Need timestamp"); exit()
+        if len(sys.argv) < 3: print("Benutzung: python backup.py restore <timestamp_ordner>"); exit()
         restore_backup(sys.argv[2])
     elif len(sys.argv) > 1 and sys.argv[1] == "list":
         list_recent_backups()
