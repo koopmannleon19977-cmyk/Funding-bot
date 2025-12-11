@@ -297,9 +297,10 @@ class KellyPositionSizer:
         """
         Berechnet die optimale Position Size für ein Symbol.
         
-        HACK: Kelly Logic bypassed! Returns fixed size from config.DESIRED_NOTIONAL_USD.
+        NOTE: Kelly-Logik ist deaktiviert. Verwendet feste Positionsgrößen aus config.DESIRED_NOTIONAL_USD.
+        Dies ist beabsichtigt für einfacheres Position-Management.
         """
-        # HACK: Immer die Config-Größe nehmen
+        # Feste Positionsgröße aus Config
         fixed_val = getattr(config, 'DESIRED_NOTIONAL_USD', 60.0)
         fixed_size = safe_decimal(fixed_val)
         
@@ -307,11 +308,11 @@ class KellyPositionSizer:
             kelly_fraction=1.0,
             safe_fraction=1.0,
             recommended_size_usd=fixed_size,
-            win_rate=0.5, # Dummy
+            win_rate=0.5,
             avg_win=Decimal('1'),
             avg_loss=Decimal('1'),
             sample_size=0,
-            confidence="FIXED_HACK"
+            confidence="FIXED"
         )
     
     def _apy_confidence_multiplier(self, apy: float) -> float:

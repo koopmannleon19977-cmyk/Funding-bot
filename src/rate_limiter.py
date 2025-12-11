@@ -327,15 +327,25 @@ if lighter_tier == 'PREMIUM':
         penalty_429_seconds=10.0
     )
 else:
+    # ═══════════════════════════════════════════════════════════════
     # STANDARD (Default) - OPTIMIZED for Order Placement Speed
+    # ═══════════════════════════════════════════════════════════════
     # Lighter allows ~60 req/min = 1 req/s average
-    # But we use token bucket to naturally rate limit over time,
-    # while allowing short bursts for order placement
+    # But order placement requires multiple API calls:
+    #   - Orderbook fetch (~1-2 calls)
+    #   - Nonce fetch (1 call)
+    #   - Order placement (1 call)
+    #   - Fill check (1-3 calls)
+    # = ~5-7 calls per trade
+    #
+    # FIX: Increase rate to allow faster order cycles while staying
+    # within the rate limit over time (token bucket naturally smooths)
+    # ═══════════════════════════════════════════════════════════════
     lighter_config = RateLimiterConfig(
-        tokens_per_second=1.0,    # 1 token per second (= avg 1 req/s)
-        max_tokens=10.0,          # Allow burst of up to 10 requests
-        min_request_interval=0.15, # 150ms min interval (allows 6-7 req/s burst, but token bucket limits avg)
-        penalty_429_seconds=30.0  # Stricter penalty for Standard
+        tokens_per_second=2.5,    # 2.5 tokens/sec (was 1.0) - allows faster order cycles
+        max_tokens=20.0,          # Burst of 20 requests (was 10) - covers 3-4 parallel trades
+        min_request_interval=0.1, # 100ms min interval (was 150ms) - faster bursts
+        penalty_429_seconds=30.0  # Keep strict penalty for Standard
     )
 
 LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(

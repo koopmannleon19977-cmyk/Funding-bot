@@ -325,7 +325,7 @@ class InMemoryStateManager:
             try:
                 await asyncio.wait_for(self._writer_task, timeout=10.0)
             except asyncio.TimeoutError:
-                self._writer_task. cancel()
+                self._writer_task.cancel()
         
         # Cancel other tasks
         for task in [self._sync_task, self._snapshot_task]:

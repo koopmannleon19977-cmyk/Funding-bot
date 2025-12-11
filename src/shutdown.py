@@ -511,6 +511,14 @@ class ShutdownOrchestrator:
         Handles error 1137 "Position is missing for reduce-only order" gracefully
         by marking the position as closed.
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Skip API call if already tracked as closed
+        # Prevents "Position is missing for reduce-only order" ERROR
+        # ═══════════════════════════════════════════════════════════════
+        if symbol in self._closed_positions["x10"]:
+            logger.debug(f"✅ X10 {symbol}: Already tracked as closed, skipping API call")
+            return True, None
+        
         try:
             success, order_id = await x10.close_live_position(symbol, side, size)
             
@@ -556,6 +564,13 @@ class ShutdownOrchestrator:
         """
         Close Lighter position with tracking to prevent duplicate close attempts.
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Skip API call if already tracked as closed
+        # ═══════════════════════════════════════════════════════════════
+        if symbol in self._closed_positions["lighter"]:
+            logger.debug(f"✅ Lighter {symbol}: Already tracked as closed, skipping API call")
+            return True, None
+        
         try:
             success, order_id = await lighter.open_live_position(
                 symbol=symbol,
@@ -616,9 +631,17 @@ class ShutdownOrchestrator:
         if state_manager and hasattr(state_manager, "stop"):
             try:
                 await asyncio.wait_for(state_manager.stop(), timeout=5.0)
+            except asyncio.TimeoutError:
+                errors.append("state_manager_stop:timeout")
+                logger.warning("⚠️ State manager stop timed out (5s)")
+            except asyncio.CancelledError:
+                # Expected during shutdown, not an error
+                logger.debug("State manager stop cancelled (expected)")
             except Exception as e:  # noqa: BLE001
-                errors.append(f"state_manager_stop:{e}")
-                logger.error(f"State manager stop error: {e}")
+                err_msg = str(e) if str(e) else type(e).__name__
+                errors.append(f"state_manager_stop:{err_msg}")
+                if err_msg:
+                    logger.error(f"State manager stop error: {err_msg}")
 
         if stop_fee_manager_fn:
             try:

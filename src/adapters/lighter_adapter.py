@@ -9,7 +9,7 @@ import websockets
 from typing import Dict, Tuple, Optional, List, Any
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
 
-print("DEBUG: lighter_adapter.py module loading...")
+# Module initialization
 
 import config
 
@@ -28,10 +28,9 @@ try:
     from lighter.api.account_api import AccountApi
     from lighter.signer_client import SignerClient
     HAVE_LIGHTER_SDK = True
-    print("✅ Lighter SDK loaded successfully")
 except ImportError as e:
-    print(f"⚠️ WARNING: Lighter SDK not available: {e}")
-    print("   Install with: pip install git+https://github. com/elliottech/lighter-python. git")
+    HAVE_LIGHTER_SDK = False
+    # Logged at runtime when adapter is initialized
 
 from .base_adapter import BaseAdapter
 from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
@@ -67,14 +66,12 @@ def safe_int(val, default=0):
 
 class LighterAdapter(BaseAdapter):
     def __init__(self):
-        print(f"DEBUG: LighterAdapter.__init__ called at {time.time()}")
         super().__init__("Lighter")
 
         if HAVE_LIGHTER_SDK:
             logger.info("✅ Using SaferSignerClient subclass instead of Monkey-Patch")
 
         self.market_info = {}
-        print(f"DEBUG: market_info initialized: {hasattr(self, 'market_info')}")
         self.funding_cache = {}
         self.price_cache = {}
         self.orderbook_cache = {}
@@ -3037,12 +3034,8 @@ class LighterAdapter(BaseAdapter):
         """
         import traceback
         
-        # ═══════════════════════════════════════════════════════════════════════════
-        # DEBUG: Log ALL input types and values at entry point
-        # ═══════════════════════════════════════════════════════════════════════════
-        logger.info(f"🔍 DEBUG close_live_position ENTRY: symbol={symbol} (type={type(symbol)})")
-        logger.info(f"🔍 DEBUG: original_side={original_side} (type={type(original_side)})")
-        logger.info(f"🔍 DEBUG: notional_usd={notional_usd} (type={type(notional_usd)})")
+        # Log input parameters at debug level
+        logger.debug(f"close_live_position: symbol={symbol}, side={original_side}, notional=${notional_usd}")
         
 
         if not getattr(config, "LIVE_TRADING", False):
