@@ -134,7 +134,14 @@ async def connection_watchdog(ws_manager=None, x10=None, lighter=None):
 # TASK CLEANUP
 # ============================================================
 async def cleanup_finished_tasks():
-    """Background task: Remove completed tasks from ACTIVE_TASKS."""
+    """Background task: Remove completed tasks from ACTIVE_TASKS.
+    
+    Note: ACTIVE_TASKS may contain:
+    - asyncio.Task objects (actual running tasks)
+    - "RESERVED" strings (placeholder for slots being prepared)
+    
+    We only clean up actual Task objects that are .done().
+    """
     global SHUTDOWN_FLAG
     
     while not SHUTDOWN_FLAG:
@@ -142,14 +149,15 @@ async def cleanup_finished_tasks():
             await asyncio.sleep(5)
             
             async with TASKS_LOCK:
+                # Find finished tasks - only check actual Task objects, not "RESERVED" placeholders
                 finished = [
                     sym for sym, task in ACTIVE_TASKS.items()
-                    if task.done()
+                    if isinstance(task, asyncio.Task) and task.done()
                 ]
                 for sym in finished:
                     try:
                         task = ACTIVE_TASKS.pop(sym, None)
-                        if task:
+                        if task and isinstance(task, asyncio.Task):
                             # Retrieve exception to prevent "exception never retrieved"
                             try:
                                 task.result()

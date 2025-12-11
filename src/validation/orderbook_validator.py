@@ -1,0 +1,577 @@
+"""
+Orderbook Validation Module for Maker Order Strategy
+
+This module validates orderbook state before placing Maker orders to prevent:
+- Orders placed at bad prices (empty/thin orderbook)
+- Orders that never fill (no liquidity)
+- Unhedged positions (one leg fills, other doesn't)
+
+References:
+- Lighter WebSocket Docs: https://apidocs.lighter.xyz/docs/websocket-reference
+- Lighter OrderApi: https://github.com/elliottech/lighter-python (docs/OrderApi.md)
+"""
+
+from dataclasses import dataclass
+from typing import Optional, Tuple, List, Dict
+from decimal import Decimal
+from enum import Enum
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+
+
+class OrderbookQuality(Enum):
+    """Quality classification for orderbook state"""
+    EXCELLENT = "excellent"      # Full depth, tight spread
+    GOOD = "good"               # Adequate depth, reasonable spread
+    MARGINAL = "marginal"       # Minimum requirements met
+    INSUFFICIENT = "insufficient"  # Do not trade
+    EMPTY = "empty"             # No data available
+
+
+class ExchangeProfile(Enum):
+    """Exchange-specific validation profiles"""
+    LIGHTER = "lighter"
+    X10 = "x10"
+    DEFAULT = "default"
+
+
+@dataclass
+class ValidationProfile:
+    """Exchange-specific validation thresholds"""
+    min_depth_usd: float
+    min_opposite_depth_usd: float
+    min_bid_levels: int
+    min_ask_levels: int
+    max_spread_percent: float
+    warn_spread_percent: float
+    max_staleness_seconds: float
+    warn_staleness_seconds: float
+    excellent_depth_multiple: float
+    good_depth_multiple: float
+    marginal_depth_multiple: float
+
+
+# Predefined profiles for different exchanges
+VALIDATION_PROFILES: Dict[ExchangeProfile, ValidationProfile] = {
+    ExchangeProfile.LIGHTER: ValidationProfile(
+        min_depth_usd=50.0,               # Match trade size - Lighter WS has limited depth
+        min_opposite_depth_usd=0.0,        # Don't require opposite side
+        min_bid_levels=1,                  # Lighter often has only 1 level on WS
+        min_ask_levels=1,                  # Lighter often has only 1 level on WS
+        max_spread_percent=2.0,            # Allow wider spread on Lighter
+        warn_spread_percent=1.0,           # Warning at 1%
+        max_staleness_seconds=10.0,        # Lighter WS can be slower
+        warn_staleness_seconds=5.0,
+        excellent_depth_multiple=5.0,      # 5x trade size = excellent
+        good_depth_multiple=2.0,           # 2x trade size = good
+        marginal_depth_multiple=1.0,       # 1x trade size = marginal (minimum)
+    ),
+    ExchangeProfile.X10: ValidationProfile(
+        min_depth_usd=200.0,
+        min_opposite_depth_usd=100.0,
+        min_bid_levels=2,
+        min_ask_levels=2,
+        max_spread_percent=0.5,
+        warn_spread_percent=0.3,
+        max_staleness_seconds=5.0,
+        warn_staleness_seconds=2.0,
+        excellent_depth_multiple=10.0,
+        good_depth_multiple=5.0,
+        marginal_depth_multiple=2.0,
+    ),
+    ExchangeProfile.DEFAULT: ValidationProfile(
+        min_depth_usd=500.0,
+        min_opposite_depth_usd=200.0,
+        min_bid_levels=3,
+        min_ask_levels=3,
+        max_spread_percent=0.5,
+        warn_spread_percent=0.3,
+        max_staleness_seconds=5.0,
+        warn_staleness_seconds=2.0,
+        excellent_depth_multiple=10.0,
+        good_depth_multiple=5.0,
+        marginal_depth_multiple=2.0,
+    ),
+}
+
+
+@dataclass
+class OrderbookValidationResult:
+    """Result of orderbook validation"""
+    is_valid: bool
+    quality: OrderbookQuality
+    reason: str
+    bid_depth_usd: Decimal
+    ask_depth_usd: Decimal
+    spread_percent: Optional[Decimal]
+    best_bid: Optional[Decimal]
+    best_ask: Optional[Decimal]
+    bid_levels: int
+    ask_levels: int
+    staleness_seconds: float
+    recommended_action: str  # "proceed", "wait", "skip", "use_market_order"
+    profile_used: str = "default"  # Which profile was used for validation
+
+
+@dataclass
+class OrderbookDepthLevel:
+    """Single level in orderbook"""
+    price: Decimal
+    size: Decimal
+    
+    @property
+    def notional(self) -> Decimal:
+        return self.price * self.size
+
+
+class OrderbookValidator:
+    """
+    Validates orderbook state before placing Maker orders.
+    
+    Configuration thresholds based on trade size and market conditions.
+    Supports exchange-specific profiles for different orderbook characteristics.
+    """
+    
+    def __init__(
+        self,
+        profile: ExchangeProfile = ExchangeProfile.DEFAULT,
+        # Individual overrides (take precedence over profile)
+        min_depth_usd: Optional[float] = None,
+        min_opposite_depth_usd: Optional[float] = None,
+        min_bid_levels: Optional[int] = None,
+        min_ask_levels: Optional[int] = None,
+        max_spread_percent: Optional[float] = None,
+        warn_spread_percent: Optional[float] = None,
+        max_staleness_seconds: Optional[float] = None,
+        warn_staleness_seconds: Optional[float] = None,
+        excellent_depth_multiple: Optional[float] = None,
+        good_depth_multiple: Optional[float] = None,
+        marginal_depth_multiple: Optional[float] = None,
+    ):
+        # Get base profile
+        base_profile = VALIDATION_PROFILES[profile]
+        self.profile_name = profile.value
+        
+        # Apply profile values with optional overrides
+        self.min_depth_usd = Decimal(str(min_depth_usd if min_depth_usd is not None else base_profile.min_depth_usd))
+        self.min_opposite_depth_usd = Decimal(str(min_opposite_depth_usd if min_opposite_depth_usd is not None else base_profile.min_opposite_depth_usd))
+        self.min_bid_levels = min_bid_levels if min_bid_levels is not None else base_profile.min_bid_levels
+        self.min_ask_levels = min_ask_levels if min_ask_levels is not None else base_profile.min_ask_levels
+        self.max_spread_percent = Decimal(str(max_spread_percent if max_spread_percent is not None else base_profile.max_spread_percent))
+        self.warn_spread_percent = Decimal(str(warn_spread_percent if warn_spread_percent is not None else base_profile.warn_spread_percent))
+        self.max_staleness_seconds = max_staleness_seconds if max_staleness_seconds is not None else base_profile.max_staleness_seconds
+        self.warn_staleness_seconds = warn_staleness_seconds if warn_staleness_seconds is not None else base_profile.warn_staleness_seconds
+        self.excellent_depth_multiple = Decimal(str(excellent_depth_multiple if excellent_depth_multiple is not None else base_profile.excellent_depth_multiple))
+        self.good_depth_multiple = Decimal(str(good_depth_multiple if good_depth_multiple is not None else base_profile.good_depth_multiple))
+        self.marginal_depth_multiple = Decimal(str(marginal_depth_multiple if marginal_depth_multiple is not None else base_profile.marginal_depth_multiple))
+        
+        # Cache for validation results (avoid spamming logs)
+        self._validation_cache: Dict[str, Tuple[float, OrderbookValidationResult]] = {}
+        self._cache_ttl = 1.0  # 1 second cache
+        
+        logger.debug(
+            f"OrderbookValidator initialized with profile={self.profile_name}: "
+            f"min_depth=${self.min_depth_usd}, min_levels={self.min_bid_levels}/{self.min_ask_levels}, "
+            f"max_spread={self.max_spread_percent}%"
+        )
+        
+    def validate_for_maker_order(
+        self,
+        symbol: str,
+        side: str,  # "BUY" or "SELL"
+        trade_size_usd: Decimal,
+        bids: List[Tuple[Decimal, Decimal]],  # [(price, size), ...]
+        asks: List[Tuple[Decimal, Decimal]],  # [(price, size), ...]
+        orderbook_timestamp: Optional[float] = None,
+    ) -> OrderbookValidationResult:
+        """
+        Validate orderbook for placing a Maker order.
+        
+        For a SELL Maker order (we want to be filled by buyers):
+        - We place on the ASK side
+        - We need BIDS to exist (buyers to fill us)
+        - Depth check focuses on BID side
+        
+        For a BUY Maker order (we want to be filled by sellers):
+        - We place on the BID side
+        - We need ASKS to exist (sellers to fill us)
+        - Depth check focuses on ASK side
+        
+        Args:
+            symbol: Trading pair (e.g., "DOGE-USD")
+            side: Order side - "BUY" or "SELL"
+            trade_size_usd: Intended trade size in USD
+            bids: List of (price, size) tuples, sorted by price descending
+            asks: List of (price, size) tuples, sorted by price ascending
+            orderbook_timestamp: Unix timestamp when orderbook was received
+            
+        Returns:
+            OrderbookValidationResult with validation status and details
+        """
+        
+        # Check cache first
+        cache_key = f"{symbol}:{side}:{self.profile_name}"
+        now = time.time()
+        if cache_key in self._validation_cache:
+            cached_time, cached_result = self._validation_cache[cache_key]
+            if now - cached_time < self._cache_ttl:
+                return cached_result
+        
+        # Calculate staleness
+        staleness = 0.0
+        if orderbook_timestamp:
+            staleness = now - orderbook_timestamp
+            
+        # Parse orderbook levels
+        bid_levels = [OrderbookDepthLevel(Decimal(str(p)), Decimal(str(s))) for p, s in bids]
+        ask_levels = [OrderbookDepthLevel(Decimal(str(p)), Decimal(str(s))) for p, s in asks]
+        
+        # Calculate depths
+        bid_depth_usd = sum(level.notional for level in bid_levels)
+        ask_depth_usd = sum(level.notional for level in ask_levels)
+        
+        # Get best prices
+        best_bid = bid_levels[0].price if bid_levels else None
+        best_ask = ask_levels[0].price if ask_levels else None
+        
+        # Calculate spread
+        spread_percent = None
+        if best_bid and best_ask and best_bid > 0:
+            spread_percent = ((best_ask - best_bid) / best_bid) * 100
+            
+        # Determine which side we need depth on
+        # SELL Maker = we're on ask side, need buyers (bids) to fill us
+        # BUY Maker = we're on bid side, need sellers (asks) to fill us
+        if side.upper() == "SELL":
+            relevant_depth = bid_depth_usd
+            relevant_levels = len(bid_levels)
+            min_relevant_levels = self.min_bid_levels
+            opposite_depth = ask_depth_usd
+            relevant_side_name = "bids"
+        else:  # BUY
+            relevant_depth = ask_depth_usd
+            relevant_levels = len(ask_levels)
+            min_relevant_levels = self.min_ask_levels
+            opposite_depth = bid_depth_usd
+            relevant_side_name = "asks"
+            
+        # === VALIDATION CHECKS ===
+        
+        reasons = []
+        is_valid = True
+        quality = OrderbookQuality.EXCELLENT
+        recommended_action = "proceed"
+        
+        # Check 1: Empty orderbook
+        if not bid_levels and not ask_levels:
+            result = OrderbookValidationResult(
+                is_valid=False,
+                quality=OrderbookQuality.EMPTY,
+                reason="Orderbook is completely empty",
+                bid_depth_usd=Decimal("0"),
+                ask_depth_usd=Decimal("0"),
+                spread_percent=None,
+                best_bid=None,
+                best_ask=None,
+                bid_levels=0,
+                ask_levels=0,
+                staleness_seconds=staleness,
+                recommended_action="skip",
+                profile_used=self.profile_name
+            )
+            self._cache_result(cache_key, result)
+            logger.warning(f"❌ {symbol} Orderbook EMPTY (profile={self.profile_name}) - skipping Maker order")
+            return result
+            
+        # Check 2: Missing relevant side entirely
+        if relevant_levels == 0:
+            result = OrderbookValidationResult(
+                is_valid=False,
+                quality=OrderbookQuality.EMPTY,
+                reason=f"No {relevant_side_name} in orderbook - cannot fill {side} Maker order",
+                bid_depth_usd=bid_depth_usd,
+                ask_depth_usd=ask_depth_usd,
+                spread_percent=spread_percent,
+                best_bid=best_bid,
+                best_ask=best_ask,
+                bid_levels=len(bid_levels),
+                ask_levels=len(ask_levels),
+                staleness_seconds=staleness,
+                recommended_action="skip",
+                profile_used=self.profile_name
+            )
+            self._cache_result(cache_key, result)
+            logger.warning(f"❌ {symbol} No {relevant_side_name} (profile={self.profile_name}) - cannot place {side} Maker order")
+            return result
+            
+        # Check 3: Staleness
+        if staleness > self.max_staleness_seconds:
+            reasons.append(f"Orderbook stale ({staleness:.1f}s > {self.max_staleness_seconds}s)")
+            is_valid = False
+            quality = OrderbookQuality.INSUFFICIENT
+            recommended_action = "wait"
+        elif staleness > self.warn_staleness_seconds:
+            reasons.append(f"Orderbook aging ({staleness:.1f}s)")
+            if quality == OrderbookQuality.EXCELLENT:
+                quality = OrderbookQuality.GOOD
+                
+        # Check 4: Spread (only if we have both sides)
+        if spread_percent is not None:
+            if spread_percent > self.max_spread_percent:
+                reasons.append(f"Spread too wide ({spread_percent:.2f}% > {self.max_spread_percent}%)")
+                is_valid = False
+                quality = OrderbookQuality.INSUFFICIENT
+                recommended_action = "wait"
+            elif spread_percent > self.warn_spread_percent:
+                reasons.append(f"Spread elevated ({spread_percent:.2f}%)")
+                if quality in [OrderbookQuality.EXCELLENT, OrderbookQuality.GOOD]:
+                    quality = OrderbookQuality.MARGINAL
+                    
+        # Check 5: Minimum levels on relevant side
+        if relevant_levels < min_relevant_levels:
+            reasons.append(f"Insufficient {relevant_side_name} levels ({relevant_levels} < {min_relevant_levels})")
+            is_valid = False
+            quality = OrderbookQuality.INSUFFICIENT
+            recommended_action = "wait"
+            
+        # Check 6: Minimum depth on relevant side
+        if relevant_depth < self.min_depth_usd:
+            reasons.append(f"Insufficient {relevant_side_name} depth (${relevant_depth:.2f} < ${self.min_depth_usd})")
+            is_valid = False
+            quality = OrderbookQuality.INSUFFICIENT
+            recommended_action = "wait"
+            
+        # Check 7: Minimum opposite depth (for spread calculation reliability)
+        # Only check if threshold is > 0
+        if self.min_opposite_depth_usd > 0 and opposite_depth < self.min_opposite_depth_usd:
+            reasons.append(f"Low opposite side depth (${opposite_depth:.2f})")
+            if quality in [OrderbookQuality.EXCELLENT, OrderbookQuality.GOOD]:
+                quality = OrderbookQuality.MARGINAL
+                
+        # Check 8: Depth relative to trade size
+        depth_multiple = relevant_depth / trade_size_usd if trade_size_usd > 0 else Decimal("0")
+        
+        if depth_multiple < self.marginal_depth_multiple:
+            reasons.append(f"Depth too thin for trade size ({depth_multiple:.1f}x < {self.marginal_depth_multiple}x)")
+            is_valid = False
+            quality = OrderbookQuality.INSUFFICIENT
+            recommended_action = "use_market_order"  # Suggest taker instead
+        elif depth_multiple < self.good_depth_multiple:
+            if quality in [OrderbookQuality.EXCELLENT, OrderbookQuality.GOOD]:
+                quality = OrderbookQuality.MARGINAL
+        elif depth_multiple < self.excellent_depth_multiple:
+            if quality == OrderbookQuality.EXCELLENT:
+                quality = OrderbookQuality.GOOD
+                
+        # Build final reason string
+        if not reasons:
+            spread_str = f", {spread_percent:.2f}% spread" if spread_percent is not None else ""
+            reason = f"Orderbook healthy: {relevant_levels} {relevant_side_name}, ${relevant_depth:.0f} depth{spread_str}"
+        else:
+            reason = "; ".join(reasons)
+            
+        # Override action based on validity
+        if is_valid:
+            recommended_action = "proceed"
+            
+        result = OrderbookValidationResult(
+            is_valid=is_valid,
+            quality=quality,
+            reason=reason,
+            bid_depth_usd=bid_depth_usd,
+            ask_depth_usd=ask_depth_usd,
+            spread_percent=spread_percent,
+            best_bid=best_bid,
+            best_ask=best_ask,
+            bid_levels=len(bid_levels),
+            ask_levels=len(ask_levels),
+            staleness_seconds=staleness,
+            recommended_action=recommended_action,
+            profile_used=self.profile_name
+        )
+        
+        self._cache_result(cache_key, result)
+        
+        # Log appropriately
+        if not is_valid:
+            logger.warning(f"❌ {symbol} Orderbook INVALID for {side} Maker (profile={self.profile_name}): {reason}")
+        elif quality == OrderbookQuality.MARGINAL:
+            logger.info(f"⚠️ {symbol} Orderbook MARGINAL for {side} Maker (profile={self.profile_name}): {reason}")
+        else:
+            logger.debug(f"✅ {symbol} Orderbook {quality.value} for {side} Maker (profile={self.profile_name}): {reason}")
+            
+        return result
+        
+    def _cache_result(self, key: str, result: OrderbookValidationResult):
+        """Cache validation result"""
+        self._validation_cache[key] = (time.time(), result)
+        
+    def clear_cache(self):
+        """Clear validation cache"""
+        self._validation_cache.clear()
+        
+    def get_recommended_price(
+        self,
+        symbol: str,
+        side: str,
+        bids: List[Tuple[Decimal, Decimal]],
+        asks: List[Tuple[Decimal, Decimal]],
+        offset_bps: int = 1,  # Basis points offset from best price
+    ) -> Optional[Decimal]:
+        """
+        Get recommended Maker price based on orderbook state.
+        
+        For SELL: Place slightly below best ask (to be competitive)
+        For BUY: Place slightly above best bid (to be competitive)
+        
+        Args:
+            symbol: Trading pair
+            side: "BUY" or "SELL"
+            bids: Bid levels
+            asks: Ask levels
+            offset_bps: Basis points to offset from best price (default 1bp = 0.01%)
+            
+        Returns:
+            Recommended limit price or None if orderbook invalid
+        """
+        offset_multiplier = Decimal(str(1 + offset_bps / 10000))
+        offset_divisor = Decimal(str(1 - offset_bps / 10000))
+        
+        if side.upper() == "SELL":
+            # For SELL Maker, we need to be on ask side
+            # Place slightly below best ask to be first in queue
+            if not asks:
+                if bids:
+                    # No asks, use best bid + spread estimate
+                    best_bid = Decimal(str(bids[0][0]))
+                    return best_bid * Decimal("1.001")  # 0.1% above best bid
+                return None
+            best_ask = Decimal(str(asks[0][0]))
+            return best_ask * offset_divisor  # Slightly below best ask
+            
+        else:  # BUY
+            # For BUY Maker, we need to be on bid side
+            # Place slightly above best bid to be first in queue
+            if not bids:
+                if asks:
+                    # No bids, use best ask - spread estimate
+                    best_ask = Decimal(str(asks[0][0]))
+                    return best_ask * Decimal("0.999")  # 0.1% below best ask
+                return None
+            best_bid = Decimal(str(bids[0][0]))
+            return best_bid * offset_multiplier  # Slightly above best bid
+
+
+# Singleton instances for each exchange profile
+_validators: Dict[ExchangeProfile, OrderbookValidator] = {}
+
+
+def get_orderbook_validator(profile: ExchangeProfile = ExchangeProfile.LIGHTER) -> OrderbookValidator:
+    """
+    Get singleton orderbook validator instance for specified profile.
+    
+    Args:
+        profile: Exchange profile (LIGHTER, X10, or DEFAULT)
+        
+    Returns:
+        OrderbookValidator configured for the specified exchange
+    """
+    global _validators
+    
+    if profile not in _validators:
+        # Load config overrides if available
+        try:
+            import config
+            
+            if profile == ExchangeProfile.LIGHTER:
+                _validators[profile] = OrderbookValidator(
+                    profile=ExchangeProfile.LIGHTER,
+                    min_depth_usd=getattr(config, 'OB_LIGHTER_MIN_DEPTH_USD', None),
+                    min_bid_levels=getattr(config, 'OB_LIGHTER_MIN_BID_LEVELS', None),
+                    min_ask_levels=getattr(config, 'OB_LIGHTER_MIN_ASK_LEVELS', None),
+                    max_spread_percent=getattr(config, 'OB_LIGHTER_MAX_SPREAD_PCT', None),
+                    max_staleness_seconds=getattr(config, 'OB_LIGHTER_MAX_STALENESS', None),
+                )
+            elif profile == ExchangeProfile.X10:
+                _validators[profile] = OrderbookValidator(
+                    profile=ExchangeProfile.X10,
+                    min_depth_usd=getattr(config, 'OB_X10_MIN_DEPTH_USD', None),
+                    min_bid_levels=getattr(config, 'OB_X10_MIN_BID_LEVELS', None),
+                    min_ask_levels=getattr(config, 'OB_X10_MIN_ASK_LEVELS', None),
+                    max_spread_percent=getattr(config, 'OB_X10_MAX_SPREAD_PCT', None),
+                    max_staleness_seconds=getattr(config, 'OB_X10_MAX_STALENESS', None),
+                )
+            else:
+                _validators[profile] = OrderbookValidator(
+                    profile=ExchangeProfile.DEFAULT,
+                    min_depth_usd=getattr(config, 'OB_MIN_DEPTH_USD', None),
+                    min_opposite_depth_usd=getattr(config, 'OB_MIN_OPPOSITE_DEPTH_USD', None),
+                    min_bid_levels=getattr(config, 'OB_MIN_BID_LEVELS', None),
+                    min_ask_levels=getattr(config, 'OB_MIN_ASK_LEVELS', None),
+                    max_spread_percent=getattr(config, 'OB_MAX_SPREAD_PERCENT', None),
+                    warn_spread_percent=getattr(config, 'OB_WARN_SPREAD_PERCENT', None),
+                    max_staleness_seconds=getattr(config, 'OB_MAX_STALENESS_SECONDS', None),
+                    warn_staleness_seconds=getattr(config, 'OB_WARN_STALENESS_SECONDS', None),
+                )
+        except ImportError:
+            _validators[profile] = OrderbookValidator(profile=profile)
+            
+    return _validators[profile]
+
+
+def validate_orderbook_for_maker(
+    symbol: str,
+    side: str,
+    trade_size_usd: float,
+    bids: List[Tuple[float, float]],
+    asks: List[Tuple[float, float]],
+    orderbook_timestamp: Optional[float] = None,
+    profile: ExchangeProfile = ExchangeProfile.LIGHTER,
+) -> OrderbookValidationResult:
+    """
+    Convenience function to validate orderbook for Maker order.
+    
+    Args:
+        symbol: Trading pair (e.g., "DOGE-USD")
+        side: "BUY" or "SELL"
+        trade_size_usd: Trade size in USD
+        bids: List of (price, size) tuples
+        asks: List of (price, size) tuples
+        orderbook_timestamp: Unix timestamp of orderbook data
+        profile: Exchange profile to use (default: LIGHTER)
+        
+    Returns:
+        OrderbookValidationResult with validation status
+    
+    Example usage:
+        result = validate_orderbook_for_maker(
+            symbol="DOGE-USD",
+            side="SELL",
+            trade_size_usd=50.0,
+            bids=[(0.138, 1000), (0.1379, 2000)],
+            asks=[(0.1381, 500)],
+            profile=ExchangeProfile.LIGHTER,
+        )
+        
+        if not result.is_valid:
+            if result.recommended_action == "use_market_order":
+                # Fall back to taker order
+                pass
+            elif result.recommended_action == "wait":
+                # Wait and retry
+                pass
+            else:
+                # Skip this trade
+                pass
+    """
+    validator = get_orderbook_validator(profile)
+    return validator.validate_for_maker_order(
+        symbol=symbol,
+        side=side,
+        trade_size_usd=Decimal(str(trade_size_usd)),
+        bids=bids,
+        asks=asks,
+        orderbook_timestamp=orderbook_timestamp,
+    )

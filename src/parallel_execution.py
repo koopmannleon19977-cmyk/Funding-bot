@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 import config
 from src.utils import safe_float, safe_decimal
+from src.validation.orderbook_validator import (
+    OrderbookValidator,
+    OrderbookValidationResult,
+    OrderbookQuality,
+    ExchangeProfile,
+    get_orderbook_validator,
+)
+from src.data.orderbook_provider import get_orderbook_provider, init_orderbook_provider
 import math
 
 def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
@@ -662,6 +670,50 @@ class ParallelExecutionManager:
         symbol = execution.symbol
         
         # ═══════════════════════════════════════════════════════════════════
+        # PHASE 0: ORDERBOOK VALIDATION (Prevent empty orderbook trades)
+        # ═══════════════════════════════════════════════════════════════════
+        if getattr(config, 'OB_VALIDATION_ENABLED', True):
+            validation_result = await self._validate_orderbook_for_maker(
+                symbol=symbol,
+                side=execution.side_lighter,
+                trade_size_usd=execution.size_lighter,
+            )
+            
+            if not validation_result.is_valid:
+                logger.warning(
+                    f"❌ [ORDERBOOK] {symbol}: Validation FAILED - {validation_result.reason} "
+                    f"(quality={validation_result.quality.value}, action={validation_result.recommended_action})"
+                )
+                
+                # Handle based on recommended action
+                if validation_result.recommended_action == "use_market_order":
+                    if getattr(config, 'OB_FALLBACK_TO_MARKET_ORDER', True):
+                        logger.info(f"🔄 {symbol}: Orderbook too thin, falling back to Taker strategy")
+                        # For now, we reject - could implement taker fallback later
+                        execution.state = ExecutionState.FAILED
+                        execution.error = f"Orderbook invalid: {validation_result.reason}"
+                        return False, None, None
+                    
+                elif validation_result.recommended_action == "wait":
+                    # Could implement retry with delay here
+                    logger.info(f"⏳ {symbol}: Orderbook conditions not met, skipping trade")
+                    execution.state = ExecutionState.FAILED
+                    execution.error = f"Orderbook invalid: {validation_result.reason}"
+                    return False, None, None
+                    
+                else:  # "skip"
+                    execution.state = ExecutionState.FAILED
+                    execution.error = f"Orderbook invalid: {validation_result.reason}"
+                    return False, None, None
+            else:
+                # Log successful validation
+                logger.info(
+                    f"✅ [ORDERBOOK] {symbol}: Validation PASSED - quality={validation_result.quality.value}, "
+                    f"bid_depth=${validation_result.bid_depth_usd:.0f}, ask_depth=${validation_result.ask_depth_usd:.0f}, "
+                    f"spread={validation_result.spread_percent:.3f}%" if validation_result.spread_percent else ""
+                )
+        
+        # ═══════════════════════════════════════════════════════════════════
         # PHASE 1: LIGHTER POST-ONLY (Maker)
         # ═══════════════════════════════════════════════════════════════════
         logger.info(f"🔄 [MAKER STRATEGY] {symbol}: Placing Lighter Maker Order...")
@@ -991,6 +1043,113 @@ class ParallelExecutionManager:
     def get_execution(self, symbol: str) -> Optional[TradeExecution]:
         """Get execution state for a symbol"""
         return self.active_executions.get(symbol)
+
+    async def _validate_orderbook_for_maker(
+        self, 
+        symbol: str, 
+        side: str, 
+        trade_size_usd: float
+    ) -> OrderbookValidationResult:
+        """
+        Validate orderbook before placing a Maker order.
+        
+        Uses the orderbook validator to check:
+        - Orderbook is not empty
+        - Sufficient depth on the relevant side
+        - Spread is within acceptable limits
+        - Data is not stale
+        
+        Args:
+            symbol: Trading pair (e.g., "DOGE-USD")
+            side: Order side - "BUY" or "SELL"
+            trade_size_usd: Intended trade size in USD
+            
+        Returns:
+            OrderbookValidationResult with validation status
+        """
+        try:
+            # Get orderbook from Lighter adapter's cache
+            orderbook = None
+            orderbook_timestamp = None
+            
+            if hasattr(self.lighter, '_orderbook_cache'):
+                orderbook = self.lighter._orderbook_cache.get(symbol)
+                orderbook_timestamp = self.lighter._orderbook_cache_time.get(symbol)
+            
+            # If no cached orderbook, try to fetch fresh one
+            if not orderbook:
+                try:
+                    orderbook = await self.lighter.fetch_orderbook(symbol, limit=20)
+                    orderbook_timestamp = time.time()
+                except Exception as e:
+                    logger.warning(f"⚠️ {symbol}: Failed to fetch orderbook: {e}")
+            
+            # Extract bids and asks
+            if orderbook:
+                bids_raw = orderbook.get('bids', [])
+                asks_raw = orderbook.get('asks', [])
+                
+                # Convert to list of tuples [(price, size), ...]
+                bids = []
+                for b in bids_raw:
+                    if isinstance(b, (list, tuple)) and len(b) >= 2:
+                        bids.append((safe_float(b[0], 0), safe_float(b[1], 0)))
+                    elif isinstance(b, dict):
+                        price = safe_float(b.get('price', b.get('p', 0)), 0)
+                        size = safe_float(b.get('size', b.get('s', b.get('quantity', 0))), 0)
+                        bids.append((price, size))
+                
+                asks = []
+                for a in asks_raw:
+                    if isinstance(a, (list, tuple)) and len(a) >= 2:
+                        asks.append((safe_float(a[0], 0), safe_float(a[1], 0)))
+                    elif isinstance(a, dict):
+                        price = safe_float(a.get('price', a.get('p', 0)), 0)
+                        size = safe_float(a.get('size', a.get('s', a.get('quantity', 0))), 0)
+                        asks.append((price, size))
+            else:
+                bids = []
+                asks = []
+            
+            # Log orderbook state before validation
+            logger.debug(
+                f"📚 {symbol} Orderbook state: {len(bids)} bids, {len(asks)} asks, "
+                f"timestamp={orderbook_timestamp}"
+            )
+            
+            # Get validator with Lighter profile (relaxed thresholds for thin WS orderbooks)
+            validator = get_orderbook_validator(profile=ExchangeProfile.LIGHTER)
+            from decimal import Decimal
+            
+            result = validator.validate_for_maker_order(
+                symbol=symbol,
+                side=side,
+                trade_size_usd=Decimal(str(trade_size_usd)),
+                bids=bids,
+                asks=asks,
+                orderbook_timestamp=orderbook_timestamp,
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ {symbol}: Orderbook validation error: {e}")
+            # Return a failed validation result
+            from decimal import Decimal
+            return OrderbookValidationResult(
+                is_valid=False,
+                quality=OrderbookQuality.EMPTY,
+                reason=f"Validation error: {str(e)}",
+                bid_depth_usd=Decimal("0"),
+                ask_depth_usd=Decimal("0"),
+                spread_percent=None,
+                best_bid=None,
+                best_ask=None,
+                bid_levels=0,
+                ask_levels=0,
+                staleness_seconds=0.0,
+                recommended_action="skip"
+            )
 
     async def _run_compliance_check(self, symbol: str, side_x10: str, side_lighter: str) -> bool:
         """

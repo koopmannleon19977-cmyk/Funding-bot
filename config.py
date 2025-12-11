@@ -247,6 +247,49 @@ API_HOST = "0.0.0.0"
 API_PORT = 8080
 
 # ==============================================================================
+# 7. ORDERBOOK VALIDATION SETTINGS (Exchange-Specific)
+# ==============================================================================
+# These settings control when Maker orders are allowed based on orderbook state.
+# Different exchanges have different orderbook characteristics via WebSocket.
+
+# --- LIGHTER EXCHANGE (Thin WebSocket orderbooks) ---
+# Lighter WS typically only streams 1-2 levels, so we use relaxed thresholds
+OB_LIGHTER_MIN_DEPTH_USD = 50.0       # $50 minimum (matches typical trade size)
+OB_LIGHTER_MIN_BID_LEVELS = 1         # Often only 1 level on WS stream
+OB_LIGHTER_MIN_ASK_LEVELS = 1         # Often only 1 level on WS stream
+OB_LIGHTER_MAX_SPREAD_PCT = 2.0       # 2% spread allowed (wider on Lighter)
+OB_LIGHTER_MAX_STALENESS = 10.0       # 10 second staleness (WS can be slower)
+
+# --- X10 EXCHANGE (Fuller orderbooks) ---
+OB_X10_MIN_DEPTH_USD = 200.0          # $200 minimum depth
+OB_X10_MIN_BID_LEVELS = 2             # At least 2 bid levels
+OB_X10_MIN_ASK_LEVELS = 2             # At least 2 ask levels
+OB_X10_MAX_SPREAD_PCT = 0.5           # 0.5% spread max
+OB_X10_MAX_STALENESS = 5.0            # 5 second staleness
+
+# --- DEFAULT PROFILE (Strict - for unknown exchanges) ---
+OB_MIN_DEPTH_USD = 500.0              # Minimum depth on relevant side ($)
+OB_MIN_OPPOSITE_DEPTH_USD = 200.0     # Minimum depth on opposite side ($)
+OB_MIN_BID_LEVELS = 3                 # Minimum bid levels required
+OB_MIN_ASK_LEVELS = 3                 # Minimum ask levels required
+OB_MAX_SPREAD_PERCENT = 0.5           # Maximum spread to place Maker order (%)
+OB_WARN_SPREAD_PERCENT = 0.3          # Warning threshold (%)
+OB_MAX_STALENESS_SECONDS = 5.0        # Maximum orderbook age (seconds)
+OB_WARN_STALENESS_SECONDS = 2.0       # Warning threshold (seconds)
+
+# Depth Quality Thresholds (multiples of trade size)
+OB_EXCELLENT_DEPTH_MULTIPLE = 10.0    # 10x trade size = excellent
+OB_GOOD_DEPTH_MULTIPLE = 5.0          # 5x trade size = good
+OB_MARGINAL_DEPTH_MULTIPLE = 2.0      # 2x trade size = marginal (minimum)
+
+# --- GLOBAL SETTINGS ---
+OB_FALLBACK_TO_MARKET_ORDER = True    # Use Market order if Maker conditions not met
+OB_REST_FALLBACK_ENABLED = True       # Use REST API if WebSocket data stale
+OB_VALIDATION_RETRY_COUNT = 2         # Number of retries before giving up
+OB_VALIDATION_RETRY_DELAY = 2.0       # Seconds between retries
+OB_VALIDATION_ENABLED = True          # Master switch to enable/disable validation
+
+# ==============================================================================
 # 🧩 HELPER FUNCTIONS & LOGGING (DO NOT TOUCH)
 # ==============================================================================
 
