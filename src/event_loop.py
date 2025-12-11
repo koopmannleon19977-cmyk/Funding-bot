@@ -443,14 +443,23 @@ class BotEventLoop:
 
             # 3. Warten bis ALLE fertig sind - Fehler abfangen!
             logger.info(f"⏳ Waiting up to {shutdown_timeout}s for {len(tasks)} close orders...")
-            results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=shutdown_timeout)
-            
-            for i, res in enumerate(results):
-                if isinstance(res, Exception):
-                    logger.error(f"❌ Shutdown Close Error (Task {i}): {res}")
-                else:
-                    logger.info(f"✅ Position closed (Task {i}).")
+            try:
+                results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=shutdown_timeout)
+                
+                for i, res in enumerate(results):
+                    if isinstance(res, Exception):
+                        logger.error(f"❌ Shutdown Close Error (Task {i}): {res}")
+                    else:
+                        logger.info(f"✅ Position closed (Task {i}).")
+            except asyncio.CancelledError:
+                logger.debug("Shutdown close tasks cancelled")
+                # Cancel any pending tasks
+                for task in tasks:
+                    if hasattr(task, 'cancel'):
+                        task.cancel()
 
+        except asyncio.CancelledError:
+            logger.debug("_close_all_trades_on_shutdown cancelled")
         except asyncio.TimeoutError:
             logger.error("❌ SHUTDOWN: Timed out while closing positions!")
         except Exception as e:

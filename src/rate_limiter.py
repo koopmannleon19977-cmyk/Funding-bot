@@ -80,6 +80,8 @@ class TokenBucketRateLimiter:
         """
         Acquire tokens, waiting if necessary.
         Returns wait time in seconds.
+        
+        Handles asyncio.CancelledError gracefully during shutdown.
         """
         # SAFETY: Ensure tokens is a float (catches caller bugs)
         if not isinstance(tokens, (int, float)):
@@ -87,41 +89,57 @@ class TokenBucketRateLimiter:
             tokens = 1.0
         tokens = float(tokens)
         
-        async with self._lock:
-            self._requests_total += 1
-            
-            # Check penalty
-            now = time.monotonic()
-            if now < self._penalty_until:
-                wait_time = self._penalty_until - now
-                self._requests_throttled += 1
-                logger.debug(f"[{self.name}] Penalty active, waiting {wait_time:.1f}s")
-                await asyncio.sleep(wait_time)
+        try:
+            async with self._lock:
+                self._requests_total += 1
+                
+                # Check penalty
                 now = time.monotonic()
-            
-            # Refill tokens
-            self._refill_tokens()
-            
-            # Check minimum interval
-            time_since_last = now - self._last_request
-            if time_since_last < self.config.min_request_interval:
-                wait_time = self.config.min_request_interval - time_since_last
-                await asyncio.sleep(wait_time)
-            
-            # Wait for tokens if needed
-            if self._tokens < tokens:
-                tokens_needed = tokens - self._tokens
-                wait_time = tokens_needed / self.config.tokens_per_second
-                self._requests_throttled += 1
-                logger.debug(f"[{self.name}] Waiting {wait_time:.2f}s for tokens")
-                await asyncio.sleep(wait_time)
+                if now < self._penalty_until:
+                    wait_time = self._penalty_until - now
+                    self._requests_throttled += 1
+                    logger.debug(f"[{self.name}] Penalty active, waiting {wait_time:.1f}s")
+                    try:
+                        await asyncio.sleep(wait_time)
+                    except asyncio.CancelledError:
+                        logger.debug(f"[{self.name}] Rate limiter sleep cancelled during penalty wait")
+                        raise
+                    now = time.monotonic()
+                
+                # Refill tokens
                 self._refill_tokens()
-            
-            # Consume tokens
-            self._tokens -= tokens
-            self._last_request = time.monotonic()
-            
-            return 0.0
+                
+                # Check minimum interval
+                time_since_last = now - self._last_request
+                if time_since_last < self.config.min_request_interval:
+                    wait_time = self.config.min_request_interval - time_since_last
+                    try:
+                        await asyncio.sleep(wait_time)
+                    except asyncio.CancelledError:
+                        logger.debug(f"[{self.name}] Rate limiter sleep cancelled during interval wait")
+                        raise
+                
+                # Wait for tokens if needed
+                if self._tokens < tokens:
+                    tokens_needed = tokens - self._tokens
+                    wait_time = tokens_needed / self.config.tokens_per_second
+                    self._requests_throttled += 1
+                    logger.debug(f"[{self.name}] Waiting {wait_time:.2f}s for tokens")
+                    try:
+                        await asyncio.sleep(wait_time)
+                    except asyncio.CancelledError:
+                        logger.debug(f"[{self.name}] Rate limiter sleep cancelled during token wait")
+                        raise
+                    self._refill_tokens()
+                
+                # Consume tokens
+                self._tokens -= tokens
+                self._last_request = time.monotonic()
+                
+                return 0.0
+        except asyncio.CancelledError:
+            # Re-raise to propagate cancellation properly
+            raise
     
     def penalize_429(self):
         """Apply penalty for 429 response"""

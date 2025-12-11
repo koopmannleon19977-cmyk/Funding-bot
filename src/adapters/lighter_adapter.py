@@ -117,6 +117,22 @@ class LighterAdapter(BaseAdapter):
         if getattr(config, "LIGHTER_BASE_URL", "").startswith("https://testnet"):
             self._ws_url = "wss://testnet.zklighter.elliot.ai/stream"
 
+    async def _safe_acquire_rate_limit(self) -> bool:
+        """
+        Acquire rate limit with proper shutdown handling.
+        Returns True if acquired, False if shutting down.
+        """
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"{self.name}: Skipping rate limit acquire - shutdown in progress")
+            return False
+        
+        try:
+            await self.rate_limiter.acquire()
+            return True
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: Rate limit acquire cancelled")
+            raise
+
     async def start_websocket(self):
         """Start the WebSocket connection task."""
         if self.ws_task and not self.ws_task.done():
@@ -278,9 +294,9 @@ class LighterAdapter(BaseAdapter):
         return self._session
 
     async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
-        """REST GET with rate limiting"""
+        """REST GET with rate limiting and proper cancellation handling"""
         base = getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
-        url = f"{base. rstrip('/')}{path}"
+        url = f"{base.rstrip('/')}{path}"
 
         try:
             await self.rate_limiter.acquire()
@@ -295,8 +311,14 @@ class LighterAdapter(BaseAdapter):
                 data = await resp.json()
                 self.rate_limiter.on_success()
                 return data
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: REST GET {path} cancelled during shutdown")
+            raise  # Always re-raise CancelledError
+        except asyncio.TimeoutError:
+            logger.debug(f"{self.name} REST GET {path} timeout")
+            return None
         except Exception as e:
-            logger. debug(f"{self.name} REST GET {path} error: {e}")
+            logger.debug(f"{self.name} REST GET {path} error: {e}")
             return None
 
     async def refresh_market_limits(self, symbol: str) -> dict:
@@ -1323,9 +1345,12 @@ class LighterAdapter(BaseAdapter):
                         self.rate_limiter.on_success()
                         logger. info(f"✅ {self. name}: Updated {updated_count} markets with size_decimals from API")
                         
+                except asyncio.CancelledError:
+                    logger.debug(f"{self.name}: load_market_cache cancelled during shutdown")
+                    return  # Exit early on cancellation
                 except Exception as e:
                     logger.warning(f"⚠️ Could not load order_book_details: {e}")
-                    logger.warning("   Using default size_decimals=8 (may cause order errors! )")
+                    logger.warning("   Using default size_decimals=8 (may cause order errors!)")
 
             # DEBUG: Zeige die geladenen Werte für Test-Symbole
             for symbol in ['ADA-USD', 'SEI-USD', 'RESOLV-USD', 'TIA-USD']:
@@ -1575,6 +1600,9 @@ class LighterAdapter(BaseAdapter):
 
                 return result
 
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: fetch_orderbook {symbol} cancelled during shutdown")
+            return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "rate limit" in err_str:
@@ -1795,8 +1823,11 @@ class LighterAdapter(BaseAdapter):
                     self. rate_limiter. on_success()
                     return vol
             return 0.0
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: fetch_open_interest {symbol} cancelled during shutdown")
+            return self._oi_cache.get(symbol, 0.0)
         except Exception as e:
-            if "429" in str(e). lower():
+            if "429" in str(e).lower():
                 self.rate_limiter.penalize_429()
             return 0.0
 
@@ -1994,6 +2025,9 @@ class LighterAdapter(BaseAdapter):
                         await asyncio.sleep(1)
                         continue
                     raise
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: get_real_available_balance cancelled during shutdown")
+            return self._balance_cache
         except Exception as e:
             if "429" not in str(e):
                 logger.error(f"❌ Lighter Balance Error: {e}")
@@ -2105,8 +2139,12 @@ class LighterAdapter(BaseAdapter):
             self._positions_cache = positions
             return positions
 
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: fetch_open_positions cancelled during shutdown")
+            # Return cached positions if available, empty list otherwise
+            return getattr(self, '_positions_cache', []) or []
         except Exception as e:
-            logger. error(f"Lighter Positions Error: {e}")
+            logger.error(f"Lighter Positions Error: {e}")
             return getattr(self, '_positions_cache', [])
 
     def _scale_amounts(self, symbol: str, qty: Decimal, price: Decimal, side: str) -> Tuple[int, int]:
@@ -3292,6 +3330,9 @@ class LighterAdapter(BaseAdapter):
             logger.info(f"✅ Lighter prices loaded: {count} symbols")
             return count
 
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: prefetch_prices cancelled during shutdown")
+            return len(self.price_cache)  # Return current cache count
         except Exception as e:
             if "429" in str(e):
                 self.rate_limiter.penalize_429()
@@ -3339,6 +3380,9 @@ class LighterAdapter(BaseAdapter):
             
             return await self._get_balance_via_rest()
             
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: get_collateral_balance cancelled during shutdown")
+            return self._balance_cache if self._balance_cache > 0 else 0.0
         except Exception as e:
             logger.warning(f"Lighter SDK Balance-Abfrage fehlgeschlagen: {e}")
             return await self._get_balance_via_rest()
@@ -3392,6 +3436,9 @@ class LighterAdapter(BaseAdapter):
                 else:
                     body = await resp.text()
                     logger.debug(f"Lighter REST Balance: HTTP {resp.status} - {body[:200]}")
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: _get_balance_via_rest cancelled during shutdown")
+            return self._balance_cache if self._balance_cache > 0 else 0.0
         except Exception as e:
             logger.warning(f"Lighter REST Balance-Fallback fehlgeschlagen: {e}")
         
