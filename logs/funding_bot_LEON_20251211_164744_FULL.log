@@ -1,0 +1,1262 @@
+16:47:45 [INFO] CONFIG VALIDATION COMPLETED.
+16:47:47 [DEBUG] Consider installing rusty-rlp to improve pyrlp performance with a rust basedbackend. Not currently functional for Python 3.11
+16:47:48 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+16:47:48 [DEBUG] ✅ Decimal adapter registered for SQLite
+16:47:48 [INFO] 🔥 BOT V5 (Architected) STARTING...
+16:47:48 [INFO] 🚀 Starting InMemoryStateManager...
+16:47:48 [INFO] 📂 Initializing database: data/trades.db
+16:47:48 [INFO] ✅ Read pool created: 5 connections
+16:47:48 [INFO] ✅ WAL mode enabled
+16:47:48 [INFO] 🔄 Running database migrations...
+16:47:48 [INFO] ✅ Migrations complete (14 statements)
+16:47:48 [INFO] ✅ Database initialized
+16:47:48 [INFO] 🖊️ Database write loop started
+16:47:48 [DEBUG] Maintenance not due (Last: 23h ago)
+16:47:48 [INFO] 📂 Loaded 0 trades from database
+16:47:48 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+16:47:48 [INFO] ✅ State Manager started
+16:47:48 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+16:47:48 [INFO] ✅ Async database initialized
+16:47:48 [INFO] 📝 State writer loop started
+16:47:48 [DEBUG] ✅ Database schema up to date
+16:47:48 [INFO] Initialisiere X10 Adapter...
+16:47:48 [INFO]  X10 Account initialisiert.
+16:47:48 [INFO] Initialisiere Lighter Adapter...
+16:47:48 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+16:47:48 [INFO] 💰 Checking exchange balances at startup...
+16:47:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:47:49 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:47:49 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+16:47:50 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+16:47:52 [DEBUG] Lighter Balance: Raw=$263.84, Safe=$250.65
+16:47:52 [INFO] 💰 STARTUP BALANCE CHECK: X10=$231.55, Lighter=$250.65
+16:47:52 [INFO] ✅ Exchange balances OK - Bot can trade!
+16:47:52 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+16:47:52 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+16:47:52 [INFO] ✅ Lighter Fee Check OK (Using Config): Maker=0.0007, Taker=0.001
+16:47:52 [INFO] ✅ Lighter Fees updated: Maker=0.000700, Taker=0.001000 (source=api)
+16:47:53 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+16:47:53 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+16:47:53 [INFO] ✅ FeeManager started with periodic refresh
+16:47:53 [INFO] ✅ FeeManager started
+16:47:53 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+16:47:53 [INFO] ✅ Kelly Sizer initialized
+16:47:53 [INFO] ✅ Funding Tracker started (updates every 3600s)
+16:47:53 [INFO] ✅ FundingTracker started
+16:47:53 [INFO] 📊 Loading Market Data via REST...
+16:47:53 [INFO] 🔄 Funding tracking loop started...
+16:47:53 [DEBUG] 📊 No open trades to track
+16:47:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:47:54 [INFO] ✅ Lighter: Loaded 114 markets (base data)
+16:47:55 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+16:47:55 [INFO] ✅ Lighter: Updated 113 markets with size_decimals from API
+16:47:55 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+16:47:55 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+16:47:55 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+16:47:55 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+16:47:55 [INFO] ✅ Markets loaded: X10=91, Lighter=114
+16:47:55 [INFO] 📈 Pre-loading Lighter prices...
+16:47:56 [DEBUG] Lighter: Loaded 380 funding rates
+16:47:57 [DEBUG] Lighter: Loaded 115 prices via REST
+16:47:57 [INFO] ✅ Lighter prices loaded: 115 symbols
+16:47:57 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+16:47:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:47:59 [INFO] ✅ Execution clients warmed up & NETWORK READY
+16:47:59 [INFO] 启动 OI Tracker für 65 Symbole...
+16:47:59 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+16:47:59 [INFO] 🌐 Starting WebSocket Manager...
+16:47:59 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+16:47:59 [INFO] 🔌 [lighter] WebSocket manager started
+16:47:59 [INFO] 🔌 [x10_account] WebSocket manager started
+16:47:59 [INFO] 🔌 [x10_trades] WebSocket manager started
+16:47:59 [INFO] 🔌 [x10_funding] WebSocket manager started
+16:47:59 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+16:47:59 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+16:47:59 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:47:59 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:47:59 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:47:59 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+16:47:59 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+16:47:59 [INFO] 💓 [x10_account] Keepalive loop started
+16:47:59 [DEBUG] ✅ ETH-USD: X10=$17,692,751, Lighter=$0, Total=$17,692,751
+16:48:00 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+16:48:00 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+16:48:00 [INFO] [lighter] Resubscribing to 71 channels (paced)...
+16:48:00 [INFO] [lighter] Receive loop started (async iterator)
+16:48:00 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/49
+16:48:00 [DEBUG] [lighter] Subscribed to trade/49
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/52
+16:48:00 [DEBUG] [lighter] Subscribed to trade/52
+16:48:00 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+16:48:00 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:48:00 [INFO] [x10_funding] Receive loop started (async iterator)
+16:48:00 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s)
+16:48:00 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+16:48:00 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:48:00 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+16:48:00 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s)
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/36
+16:48:00 [DEBUG] [lighter] Subscribed to trade/36
+16:48:00 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+16:48:00 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:48:00 [INFO] [x10_trades] Receive loop started (async iterator)
+16:48:00 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s)
+16:48:00 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+16:48:00 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+16:48:00 [INFO] [x10_account] Receive loop started (async iterator)
+16:48:00 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s)
+16:48:00 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.545880, available=$231.545880, uPnL=$0.000000
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/83
+16:48:00 [DEBUG] [lighter] Subscribed to trade/83
+16:48:00 [DEBUG] [lighter] Resubscribed 10/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/103
+16:48:00 [DEBUG] [lighter] Subscribed to trade/103
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/46
+16:48:00 [DEBUG] [lighter] Subscribed to trade/46
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/82
+16:48:00 [DEBUG] [lighter] Subscribed to trade/82
+16:48:00 [DEBUG] [lighter] Resubscribed 20/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/41
+16:48:00 [DEBUG] [lighter] Subscribed to trade/41
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/53
+16:48:00 [DEBUG] [lighter] Subscribed to trade/53
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/10
+16:48:00 [DEBUG] [lighter] Subscribed to trade/10
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/2
+16:48:00 [DEBUG] [lighter] Subscribed to trade/2
+16:48:00 [DEBUG] [lighter] Resubscribed 30/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/51
+16:48:00 [DEBUG] [lighter] Subscribed to trade/51
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/89
+16:48:00 [DEBUG] [lighter] Subscribed to trade/89
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/6
+16:48:00 [DEBUG] [lighter] Subscribed to trade/6
+16:48:00 [DEBUG] [lighter] Resubscribed 40/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/63
+16:48:00 [DEBUG] [lighter] Subscribed to trade/63
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/35
+16:48:00 [DEBUG] [lighter] Subscribed to trade/35
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/34
+16:48:00 [DEBUG] [lighter] Subscribed to trade/34
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/104
+16:48:00 [DEBUG] [lighter] Subscribed to trade/104
+16:48:00 [DEBUG] [lighter] Resubscribed 50/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/13
+16:48:00 [DEBUG] [lighter] Subscribed to trade/13
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/7
+16:48:00 [DEBUG] [lighter] Subscribed to trade/7
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/20
+16:48:00 [DEBUG] [lighter] Subscribed to trade/20
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/26
+16:48:00 [DEBUG] [lighter] Subscribed to trade/26
+16:48:00 [DEBUG] [lighter] Resubscribed 60/71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/42
+16:48:00 [DEBUG] [lighter] Subscribed to trade/42
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/8
+16:48:00 [DEBUG] [lighter] Subscribed to trade/8
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/32
+16:48:00 [DEBUG] [lighter] Subscribed to trade/32
+16:48:00 [DEBUG] [lighter] Resubscribed 70/71 channels
+16:48:00 [INFO] [lighter] Resubscribed to 71 channels
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/45
+16:48:00 [DEBUG] [lighter] Subscribed to trade/45
+16:48:00 [DEBUG] [lighter] Subscribed to order_book/47
+16:48:00 [DEBUG] [lighter] Subscribed to trade/47
+16:48:01 [DEBUG] [lighter] Subscribed to order_book/91
+16:48:01 [DEBUG] [lighter] Subscribed to trade/91
+16:48:01 [DEBUG] [lighter] Subscribed to order_book/43
+16:48:01 [DEBUG] [lighter] Subscribed to trade/43
+16:48:01 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+16:48:01 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+16:48:01 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+16:48:01 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+16:48:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:01 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$378,691, Total=$378,691
+16:48:02 [DEBUG] WS OB Update SUI-USD: +1 bids, +0 asks (Total: 120 bids, 127 asks)
+16:48:02 [DEBUG] WS OB Update DOGE-USD: +0 bids, +1 asks (Total: 94 bids, 115 asks)
+16:48:02 [INFO] Lighter: Found 0 open positions
+16:48:02 [INFO] ✅ No orphaned positions found
+16:48:02 [INFO] ✅ ParallelExecutionManager started
+16:48:02 [INFO] ✅ ParallelExecutionManager started
+16:48:02 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+16:48:02 [DEBUG] Registered task: logic_loop (priority=HIGH)
+16:48:02 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+16:48:02 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+16:48:02 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+16:48:02 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+16:48:02 [DEBUG] Registered task: health_reporter (priority=LOW)
+16:48:02 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+16:48:02 [INFO] ═══════════════════════════════════════════════════════════
+16:48:02 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+16:48:02 [INFO] ═══════════════════════════════════════════════════════════
+16:48:02 [INFO] 🚀 BotEventLoop starting...
+16:48:02 [INFO] ▶️ Started task: connection_watchdog
+16:48:02 [INFO] ▶️ Started task: logic_loop
+16:48:02 [INFO] ▶️ Started task: trade_management_loop
+16:48:02 [INFO] ▶️ Started task: farm_loop
+16:48:02 [INFO] ▶️ Started task: maintenance_loop
+16:48:02 [INFO] ▶️ Started task: cleanup_finished_tasks
+16:48:02 [INFO] ▶️ Started task: health_reporter
+16:48:02 [INFO] ✅ Started 7 tasks
+16:48:02 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+16:48:02 [INFO] Logic Loop gestartet – REFRESH alle 3s
+16:48:02 [INFO] 🔍 RECONCILE: Starting strict sync check...
+16:48:02 [INFO] 🛡️ Trade Management Loop gestartet
+16:48:02 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+16:48:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:48:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:03 [DEBUG] WS OB Update XRP-USD: +5 bids, +3 asks (Total: 10 bids, 9 asks)
+16:48:03 [DEBUG] WS OB Update ASTER-USD: +1 bids, +0 asks (Total: 227 bids, 206 asks)
+16:48:03 [DEBUG] [x10_funding] Firehose stream - no subscription needed
+16:48:03 [DEBUG] [x10_trades] Firehose stream - no subscription needed
+16:48:03 [DEBUG] WS OB Update GRASS-USD: +1 bids, +0 asks (Total: 44 bids, 81 asks)
+16:48:03 [DEBUG] WS OB Update BTC-USD: +1 bids, +3 asks (Total: 3536 bids, 2939 asks)
+16:48:03 [DEBUG] WS OB Update AAVE-USD: +0 bids, +1 asks (Total: 134 bids, 72 asks)
+16:48:03 [DEBUG] WS OB Update HYPE-USD: +1 bids, +1 asks (Total: 25 bids, 18 asks)
+16:48:03 [DEBUG] WS OB Update FARTCOIN-USD: +0 bids, +1 asks (Total: 304 bids, 212 asks)
+16:48:03 [INFO] Lighter: Found 0 open positions
+16:48:03 [INFO] ✅ RECONCILE: Sync complete.
+16:48:03 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+16:48:03 [DEBUG] Price cache status: X10=78/65, Lighter=115/65
+16:48:03 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+16:48:03 [DEBUG] WS OB Update SOL-USD: +2 bids, +2 asks (Total: 1436 bids, 993 asks)
+16:48:04 [DEBUG] WS OB Update ONDO-USD: +2 bids, +0 asks (Total: 62 bids, 94 asks)
+16:48:04 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+16:48:04 [INFO] ✅ UNI-USD: Expected profit $0.0300 in 24.0h (breakeven: 12.75h, APY: 44.7%)
+16:48:04 [INFO] ✅ WIF-USD: Expected profit $0.0400 in 24.0h (breakeven: 10.52h, APY: 48.2%)
+16:48:04 [INFO] ✅ AVAX-USD: Expected profit $0.0400 in 24.0h (breakeven: 12.39h, APY: 58.7%)
+16:48:04 [INFO] ✅ POPCAT-USD: Expected profit $0.2200 in 24.0h (breakeven: 2.39h, APY: 180.5%)
+16:48:04 [INFO] ✅ KAITO-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.96h, APY: 52.6%)
+16:48:04 [INFO] ✅ DOGE-USD: Expected profit $0.0400 in 24.0h (breakeven: 12.64h, APY: 56.1%)
+16:48:04 [INFO] ✅ AERO-USD: Expected profit $0.0500 in 24.0h (breakeven: 10.38h, APY: 62.2%)
+16:48:04 [INFO] ✅ PENDLE-USD: Expected profit $0.0900 in 24.0h (breakeven: 10.10h, APY: 113.0%)
+16:48:04 [INFO] ✅ 1000BONK-USD: Expected profit $0.0300 in 24.0h (breakeven: 15.90h, APY: 56.9%)
+16:48:04 [INFO] ✅ ADA-USD: Expected profit $0.0800 in 24.0h (breakeven: 6.53h, APY: 79.7%)
+16:48:04 [INFO] ✅ GRASS-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.53h, APY: 41.2%)
+16:48:04 [INFO] ✅ CRV-USD: Expected profit $0.0300 in 24.0h (breakeven: 10.24h, APY: 40.3%)
+16:48:04 [INFO] ✅ NEAR-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.86h, APY: 35.9%)
+16:48:04 [INFO] ✅ LTC-USD: Expected profit $0.0200 in 24.0h (breakeven: 13.46h, APY: 36.8%)
+16:48:04 [INFO] ✅ SEI-USD: Expected profit $0.0600 in 24.0h (breakeven: 8.01h, APY: 63.9%)
+16:48:04 [INFO] ✅ MON-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.13h, APY: 28.9%)
+16:48:04 [INFO] ✅ TRX-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.45h, APY: 26.3%)
+16:48:04 [INFO] ✅ Found 17 opportunities from 63 valid pairs
+16:48:04 [INFO] 🎯 Found 5 opportunities
+16:48:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:04 [DEBUG] WS OB Update HYPE-USD: +0 bids, +2 asks (Total: 29 bids, 29 asks)
+16:48:04 [DEBUG] WS OB Update BNB-USD: +1 bids, +2 asks (Total: 334 bids, 245 asks)
+16:48:04 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:04 [DEBUG] ✅ UNI-USD: X10=$180,804, Lighter=$390,682, Total=$571,487
+16:48:04 [DEBUG] WS OB Update DOGE-USD: +1 bids, +0 asks (Total: 98 bids, 118 asks)
+16:48:04 [DEBUG] WS OB Update LINK-USD: +0 bids, +2 asks (Total: 1 bids, 3 asks)
+16:48:04 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+16:48:04 [DEBUG] X10: Funding Refresh OK, cache=91
+16:48:04 [DEBUG] 📊 Lighter Funding Cache refresh (current=113)
+16:48:04 [DEBUG] WS OB Update HYPE-USD: +1 bids, +1 asks (Total: 39 bids, 37 asks)
+16:48:05 [DEBUG] WS OB Update BNB-USD: +0 bids, +2 asks (Total: 335 bids, 245 asks)
+16:48:05 [DEBUG] WS OB Update PENGU-USD: +0 bids, +1 asks (Total: 3 bids, 8 asks)
+16:48:05 [DEBUG] WS OB Update BTC-USD: +6 bids, +11 asks (Total: 3548 bids, 2903 asks)
+16:48:05 [DEBUG] WS OB Update XRP-USD: +1 bids, +1 asks (Total: 13 bids, 10 asks)
+16:48:06 [DEBUG] Lighter Balance: Raw=$263.84, Safe=$250.65
+16:48:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:06 [DEBUG] WS OB Update AVNT-USD: +0 bids, +1 asks (Total: 37 bids, 60 asks)
+16:48:06 [DEBUG] WS OB Update CRV-USD: +0 bids, +1 asks (Total: 66 bids, 48 asks)
+16:48:06 [DEBUG] WS OB Update GRASS-USD: +1 bids, +0 asks (Total: 43 bids, 80 asks)
+16:48:06 [DEBUG] Lighter: Loaded 380 funding rates
+16:48:06 [DEBUG] WS OB Update ADA-USD: +1 bids, +0 asks (Total: 84 bids, 61 asks)
+16:48:06 [DEBUG] WS OB Update 1000BONK-USD: +1 bids, +2 asks (Total: 39 bids, 45 asks)
+16:48:06 [DEBUG] WS OB Update BTC-USD: +44 bids, +34 asks (Total: 3560 bids, 2908 asks)
+16:48:07 [DEBUG] ✅ FARTCOIN-USD: X10=$426,511, Lighter=$10,533,334, Total=$10,959,845
+16:48:07 [DEBUG] WS OB Update FARTCOIN-USD: +2 bids, +0 asks (Total: 303 bids, 207 asks)
+16:48:08 [DEBUG] WS OB Update EIGEN-USD: +1 bids, +1 asks (Total: 46 bids, 63 asks)
+16:48:08 [DEBUG] WS OB Update DOGE-USD: +1 bids, +0 asks (Total: 95 bids, 116 asks)
+16:48:08 [DEBUG] WS OB Update AVAX-USD: +0 bids, +1 asks (Total: 73 bids, 75 asks)
+16:48:08 [DEBUG] WS OB Update ONDO-USD: +0 bids, +1 asks (Total: 58 bids, 92 asks)
+16:48:08 [DEBUG] WS OB Update ZRO-USD: +0 bids, +3 asks (Total: 7 bids, 8 asks)
+16:48:08 [DEBUG] WS OB Update AVAX-USD: +0 bids, +1 asks (Total: 72 bids, 76 asks)
+16:48:08 [INFO] Lighter: Found 0 open positions
+16:48:08 [INFO] 📊 Positions: X10=0, Lighter=0
+16:48:08 [INFO] 🚀 Launching 5 trades
+16:48:08 [INFO] 🚀 Launching POPCAT-USD (APY=180.5%)
+16:48:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:08 [DEBUG] WS OB Update OP-USD: +1 bids, +0 asks (Total: 32 bids, 79 asks)
+16:48:09 [DEBUG] WS OB Update GRASS-USD: +1 bids, +1 asks (Total: 43 bids, 79 asks)
+16:48:09 [INFO] 🚀 Launching PENDLE-USD (APY=113.0%)
+16:48:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:09 [DEBUG] WS OB Update VIRTUAL-USD: +0 bids, +1 asks (Total: 89 bids, 34 asks)
+16:48:09 [DEBUG] WS OB Update EIGEN-USD: +1 bids, +2 asks (Total: 44 bids, 60 asks)
+16:48:09 [DEBUG] Lighter: Loaded 115 prices via REST
+16:48:09 [DEBUG] Lighter: Funding Refresh OK, cache=113
+16:48:09 [INFO] 🔍 Running periodic exchange sync check...
+16:48:09 [INFO] 🚀 Launching ADA-USD (APY=79.7%)
+16:48:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:10 [DEBUG] WS OB Update TRX-USD: +2 bids, +2 asks (Total: 7 bids, 5 asks)
+16:48:10 [DEBUG] WS OB Update APT-USD: +2 bids, +0 asks (Total: 15 bids, 11 asks)
+16:48:10 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=7174)
+16:48:10 [INFO] 🚀 Launching SEI-USD (APY=63.9%)
+16:48:10 [DEBUG] 💓 [x10_funding] Alive (uptime=10s, last_msg=6s ago, msgs=91)
+16:48:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s ago, msgs=7227)
+16:48:10 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=2s ago, msgs=30)
+16:48:10 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s ago, msgs=3)
+16:48:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:10 [DEBUG] WS OB Update BTC-USD: +2 bids, +1 asks (Total: 3550 bids, 2912 asks)
+16:48:10 [DEBUG] WS OB Update PUMP-USD: +1 bids, +0 asks (Total: 11 bids, 12 asks)
+16:48:10 [DEBUG] WS OB Update XRP-USD: +1 bids, +1 asks (Total: 29 bids, 27 asks)
+16:48:10 [INFO] Lighter: Found 0 open positions
+16:48:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:10 [DEBUG] WS OB Update TRUMP-USD: +1 bids, +0 asks (Total: 8 bids, 8 asks)
+16:48:10 [INFO] 🚀 Launching AERO-USD (APY=62.2%)
+16:48:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:11 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:11 [DEBUG] ✅ Exposure Check: 0.22x <= 5.0x
+16:48:11 [DEBUG] MIN_NOTIONAL POPCAT-USD: min_base=40.00000000 coins, price=$0.0987, min_qty_usd=$3.95, min_notional_api=$10.00, final=$11.00
+16:48:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:11 [DEBUG] WS OB Update FIL-USD: +1 bids, +0 asks (Total: 69 bids, 466 asks)
+16:48:11 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:11 [INFO] ✅ Launched 5 trades this cycle
+16:48:11 [DEBUG] ✅ APEX-USD: X10=$70,310, Lighter=$710,152, Total=$780,462
+16:48:11 [DEBUG] WS OB Update KAITO-USD: +0 bids, +1 asks (Total: 9 bids, 7 asks)
+16:48:11 [DEBUG] WS OB Update BTC-USD: +3 bids, +3 asks (Total: 3556 bids, 2882 asks)
+16:48:11 [DEBUG] WS OB Update KAITO-USD: +1 bids, +0 asks (Total: 10 bids, 6 asks)
+16:48:12 [DEBUG] WS OB Update XRP-USD: +5 bids, +2 asks (Total: 40 bids, 33 asks)
+16:48:12 [DEBUG] WS OB Update XPL-USD: +0 bids, +1 asks (Total: 105 bids, 234 asks)
+16:48:12 [DEBUG] WS OB Update ENA-USD: +0 bids, +1 asks (Total: 29 bids, 25 asks)
+16:48:12 [DEBUG] WS OB Update TRUMP-USD: +0 bids, +1 asks (Total: 13 bids, 14 asks)
+16:48:12 [DEBUG] WS OB Update BTC-USD: +4 bids, +1 asks (Total: 3551 bids, 2880 asks)
+16:48:12 [DEBUG] WS OB Update TRUMP-USD: +2 bids, +0 asks (Total: 14 bids, 15 asks)
+16:48:12 [INFO] Lighter: Found 0 open positions
+16:48:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:12 [DEBUG] WS OB Update OP-USD: +0 bids, +1 asks (Total: 38 bids, 84 asks)
+16:48:13 [DEBUG] WS OB Update OP-USD: +0 bids, +2 asks (Total: 39 bids, 84 asks)
+16:48:13 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:13 [DEBUG] ✅ Exposure Check: 0.22x <= 5.0x
+16:48:13 [DEBUG] MIN_NOTIONAL PENDLE-USD: min_base=3.00000000 coins, price=$2.2299, min_qty_usd=$6.69, min_notional_api=$10.00, final=$11.00
+16:48:13 [DEBUG] WS OB Update SOL-USD: +2 bids, +1 asks (Total: 1437 bids, 973 asks)
+16:48:13 [DEBUG] WS OB Update DOT-USD: +0 bids, +1 asks (Total: 43 bids, 102 asks)
+16:48:13 [DEBUG] WS OB Update BTC-USD: +6 bids, +3 asks (Total: 3540 bids, 2881 asks)
+16:48:13 [INFO] Lighter: Found 0 open positions
+16:48:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:14 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:14 [DEBUG] ✅ Exposure Check: 0.22x <= 5.0x
+16:48:14 [DEBUG] MIN_NOTIONAL ADA-USD: min_base=10.00000000 coins, price=$0.4159, min_qty_usd=$4.16, min_notional_api=$10.00, final=$11.00
+16:48:14 [DEBUG] WS OB Update SOL-USD: +1 bids, +0 asks (Total: 1431 bids, 971 asks)
+16:48:14 [INFO] 🔍 RECONCILE: Starting strict sync check...
+16:48:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:14 [DEBUG] WS OB Update ASTER-USD: +7 bids, +6 asks (Total: 223 bids, 208 asks)
+16:48:14 [DEBUG] WS OB Update AERO-USD: +1 bids, +0 asks (Total: 10 bids, 13 asks)
+16:48:14 [DEBUG] WS OB Update BTC-USD: +1 bids, +2 asks (Total: 3546 bids, 2925 asks)
+16:48:14 [DEBUG] WS OB Update ASTER-USD: +1 bids, +0 asks (Total: 223 bids, 209 asks)
+16:48:14 [DEBUG] WS OB Update SOL-USD: +2 bids, +2 asks (Total: 1432 bids, 979 asks)
+16:48:14 [INFO] Lighter: Found 0 open positions
+16:48:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:14 [DEBUG] WS OB Update SPX-USD: +1 bids, +0 asks (Total: 23 bids, 18 asks)
+16:48:14 [DEBUG] WS OB Update WIF-USD: +3 bids, +0 asks (Total: 63 bids, 74 asks)
+16:48:15 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:15 [DEBUG] ✅ Exposure Check: 0.22x <= 5.0x
+16:48:15 [DEBUG] MIN_NOTIONAL SEI-USD: min_base=50.00000000 coins, price=$0.1336, min_qty_usd=$6.68, min_notional_api=$10.00, final=$11.00
+16:48:15 [DEBUG] WS OB Update SPX-USD: +2 bids, +0 asks (Total: 22 bids, 18 asks)
+16:48:15 [DEBUG] WS OB Update HYPE-USD: +18 bids, +13 asks (Total: 70 bids, 73 asks)
+16:48:15 [DEBUG] WS OB Update AAVE-USD: +1 bids, +0 asks (Total: 132 bids, 68 asks)
+16:48:15 [DEBUG] WS OB Update APEX-USD: +2 bids, +0 asks (Total: 3 bids, 0 asks)
+16:48:15 [DEBUG] WS OB Update XRP-USD: +0 bids, +1 asks (Total: 41 bids, 40 asks)
+16:48:15 [DEBUG] WS OB Update AVNT-USD: +1 bids, +0 asks (Total: 37 bids, 60 asks)
+16:48:15 [INFO] Lighter: Found 0 open positions
+16:48:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:16 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:16 [DEBUG] ✅ Exposure Check: 0.22x <= 5.0x
+16:48:16 [DEBUG] MIN_NOTIONAL AERO-USD: min_base=10.00000000 coins, price=$0.6166, min_qty_usd=$6.17, min_notional_api=$10.00, final=$11.00
+16:48:16 [DEBUG] WS OB Update BNB-USD: +0 bids, +1 asks (Total: 339 bids, 246 asks)
+16:48:16 [DEBUG] WS OB Update AVAX-USD: +2 bids, +0 asks (Total: 73 bids, 79 asks)
+16:48:16 [DEBUG] WS OB Update XRP-USD: +3 bids, +0 asks (Total: 42 bids, 40 asks)
+16:48:17 [DEBUG] Lighter Balance: Raw=$263.84, Safe=$250.65
+16:48:17 [INFO] 🎰 KELLY POPCAT-USD: win_rate=50.0%, kelly_fraction=1.0000
+16:48:17 [DEBUG] 🔍 Liquidity Check: Skipping depth check for POPCAT-USD (Maker Order)
+16:48:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:17 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:17 [INFO] 🎰 KELLY PENDLE-USD: win_rate=50.0%, kelly_fraction=1.0000
+16:48:17 [DEBUG] 🔍 Liquidity Check: Skipping depth check for PENDLE-USD (Maker Order)
+16:48:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:17 [DEBUG] WS OB Update ZORA-USD: +0 bids, +2 asks (Total: 70 bids, 48 asks)
+16:48:17 [DEBUG] WS OB Update SUI-USD: +1 bids, +0 asks (Total: 126 bids, 128 asks)
+16:48:17 [DEBUG] WS OB Update OP-USD: +0 bids, +1 asks (Total: 41 bids, 84 asks)
+16:48:17 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:17 [INFO] 🎰 KELLY ADA-USD: win_rate=50.0%, kelly_fraction=1.0000
+16:48:17 [DEBUG] 🔍 Liquidity Check: Skipping depth check for ADA-USD (Maker Order)
+16:48:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:17 [DEBUG] WS OB Update POPCAT-USD: +1 bids, +0 asks (Total: 44 bids, 36 asks)
+16:48:17 [INFO] Lighter: Found 0 open positions
+16:48:17 [INFO] ✅ RECONCILE: Sync complete.
+16:48:17 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+16:48:17 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+16:48:17 [DEBUG] WS OB Update XRP-USD: +0 bids, +2 asks (Total: 41 bids, 40 asks)
+16:48:18 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:18 [INFO] 🎰 KELLY SEI-USD: win_rate=50.0%, kelly_fraction=1.0000
+16:48:18 [DEBUG] 🔍 Liquidity Check: Skipping depth check for SEI-USD (Maker Order)
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:18 [DEBUG] WS OB Update SOL-USD: +1 bids, +2 asks (Total: 1434 bids, 980 asks)
+16:48:18 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:18 [INFO] 🎰 KELLY AERO-USD: win_rate=50.0%, kelly_fraction=1.0000
+16:48:18 [DEBUG] 🔍 Liquidity Check: Skipping depth check for AERO-USD (Maker Order)
+16:48:18 [INFO] 🚀 Opening POPCAT-USD: Size=$50.0
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 HEDGED TRADE START: POPCAT-USD
+16:48:18 [INFO]    Lighter: SELL $50.00 @ $0.098720
+16:48:18 [INFO]    X10:     BUY $50.00 @ $0.098662
+16:48:18 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 Opening PENDLE-USD: Size=$50.0
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 HEDGED TRADE START: PENDLE-USD
+16:48:18 [INFO]    Lighter: SELL $50.00 @ $2.229900
+16:48:18 [INFO]    X10:     BUY $50.00 @ $2.226300
+16:48:18 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:48:18 [INFO] 🚀 Opening ADA-USD: Size=$50.0
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 HEDGED TRADE START: ADA-USD
+16:48:18 [INFO]    Lighter: SELL $50.00 @ $0.415910
+16:48:18 [INFO]    X10:     BUY $50.00 @ $0.415900
+16:48:18 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 Opening SEI-USD: Size=$50.0
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 HEDGED TRADE START: SEI-USD
+16:48:18 [INFO]    Lighter: SELL $50.00 @ $0.133630
+16:48:18 [INFO]    X10:     BUY $50.00 @ $0.133666
+16:48:18 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 Opening AERO-USD: Size=$50.0
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [INFO] 🚀 HEDGED TRADE START: AERO-USD
+16:48:18 [INFO]    Lighter: SELL $50.00 @ $0.616560
+16:48:18 [INFO]    X10:     BUY $50.00 @ $0.616924
+16:48:18 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+16:48:18 [INFO] ═══════════════════════════════════════════════════════════
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:48:18 [INFO] ✅ UNI-USD: Expected profit $0.0300 in 24.0h (breakeven: 12.54h, APY: 45.6%)
+16:48:18 [INFO] ✅ WIF-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.19h, APY: 49.1%)
+16:48:18 [INFO] ✅ AVAX-USD: Expected profit $0.0400 in 24.0h (breakeven: 11.42h, APY: 57.8%)
+16:48:18 [INFO] ✅ POPCAT-USD: Expected profit $0.2100 in 24.0h (breakeven: 3.62h, APY: 180.5%)
+16:48:18 [INFO] ✅ KAITO-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.88h, APY: 52.6%)
+16:48:18 [INFO] ✅ DOGE-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.97h, APY: 56.9%)
+16:48:18 [INFO] ✅ OP-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.83h, APY: 53.4%)
+16:48:18 [INFO] ✅ AERO-USD: Expected profit $0.0500 in 24.0h (breakeven: 10.64h, APY: 61.3%)
+16:48:18 [INFO] ✅ PENDLE-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.76h, APY: 113.0%)
+16:48:18 [INFO] ✅ 1000BONK-USD: Expected profit $0.0400 in 24.0h (breakeven: 12.51h, APY: 56.9%)
+16:48:18 [INFO] ✅ ADA-USD: Expected profit $0.0800 in 24.0h (breakeven: 5.13h, APY: 78.8%)
+16:48:18 [INFO] ✅ GRASS-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.63h, APY: 42.0%)
+16:48:18 [INFO] ✅ CRV-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.48h, APY: 42.0%)
+16:48:18 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.43h, APY: 28.9%)
+16:48:18 [INFO] ✅ NEAR-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.86h, APY: 35.9%)
+16:48:18 [INFO] ✅ RESOLV-USD: Expected profit $0.0100 in 24.0h (breakeven: 19.23h, APY: 28.0%)
+16:48:18 [INFO] ✅ EDEN-USD: Expected profit $0.1500 in 24.0h (breakeven: 5.13h, APY: 137.5%)
+16:48:18 [INFO] ✅ WLD-USD: Expected profit $0.0200 in 24.0h (breakeven: 14.15h, APY: 28.9%)
+16:48:18 [INFO] ✅ LTC-USD: Expected profit $0.0200 in 24.0h (breakeven: 15.27h, APY: 36.8%)
+16:48:18 [INFO] ✅ SEI-USD: Expected profit $0.0600 in 24.0h (breakeven: 7.90h, APY: 64.8%)
+16:48:18 [INFO] ✅ MON-USD: Expected profit $0.0200 in 24.0h (breakeven: 14.69h, APY: 29.8%)
+16:48:18 [INFO] ✅ TRX-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.45h, APY: 26.3%)
+16:48:18 [INFO] ✅ Found 22 opportunities from 63 valid pairs
+16:48:18 [INFO] 🎯 Found 5 opportunities
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:48:18 [DEBUG] WS OB Update SOL-USD: +2 bids, +2 asks (Total: 1432 bids, 983 asks)
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:48:18 [DEBUG] ✅ WIF-USD: X10=$400,203, Lighter=$3,139,884, Total=$3,540,087
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:18 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:19 [DEBUG] WS OB Update MNT-USD: +1 bids, +0 asks (Total: 101 bids, 65 asks)
+16:48:19 [DEBUG] WS OB Update BNB-USD: +1 bids, +0 asks (Total: 339 bids, 246 asks)
+16:48:19 [DEBUG] WS OB Update BNB-USD: +1 bids, +0 asks (Total: 338 bids, 245 asks)
+16:48:19 [DEBUG] WS OB Update AAVE-USD: +1 bids, +1 asks (Total: 134 bids, 68 asks)
+16:48:19 [DEBUG] WS OB Update SOL-USD: +1 bids, +4 asks (Total: 1438 bids, 985 asks)
+16:48:20 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=15574)
+16:48:20 [DEBUG] WS OB Update SOL-USD: +0 bids, +3 asks (Total: 1437 bids, 986 asks)
+16:48:20 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s ago, msgs=74)
+16:48:20 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, last_msg=16s ago, msgs=91)
+16:48:20 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s ago, msgs=10191)
+16:48:20 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s ago, msgs=3)
+16:48:20 [DEBUG] WS OB Update XRP-USD: +0 bids, +2 asks (Total: 37 bids, 43 asks)
+16:48:20 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:48:20 [INFO] ⚖️ Size Alignment POPCAT-USD: 50.00$ -> 49.95$ (506.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+16:48:20 [INFO] 📋 [PHASE 0] POPCAT-USD: Validating orderbook...
+16:48:20 [DEBUG] 📚 POPCAT-USD Orderbook state: 45 bids, 40 asks, timestamp=1765468100.3846638
+16:48:20 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+16:48:20 [DEBUG] ✅ POPCAT-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 45 bids, $1497907 depth, 0.03% spread
+16:48:20 [INFO] ✅ [ORDERBOOK] POPCAT-USD: Validation PASSED - quality=excellent, bid_depth=$1497907, ask_depth=$1632165, spread=0.030%
+16:48:20 [INFO] ───────────────────────────────────────────────────────────
+16:48:20 [INFO] 📤 [LEG 1] POPCAT-USD: Placing Lighter SELL order...
+16:48:20 [INFO]    Size: $49.95 (506.000000 coins)
+16:48:20 [DEBUG] WS OB Update TON-USD: +1 bids, +0 asks (Total: 49 bids, 66 asks)
+16:48:20 [DEBUG] WS OB Update AAVE-USD: +0 bids, +1 asks (Total: 134 bids, 69 asks)
+16:48:20 [DEBUG] WS OB Update APT-USD: +0 bids, +1 asks (Total: 20 bids, 16 asks)
+16:48:21 [DEBUG] WS OB Update BCH-USD: +1 bids, +0 asks (Total: 21 bids, 19 asks)
+16:48:21 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:48:21 [INFO] ⚖️ Size Alignment PENDLE-USD: 50.00$ -> 49.06$ (22.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+16:48:21 [INFO] 📋 [PHASE 0] PENDLE-USD: Validating orderbook...
+16:48:21 [DEBUG] 📚 PENDLE-USD Orderbook state: 80 bids, 54 asks, timestamp=1765468101.2555695
+16:48:21 [DEBUG] ✅ PENDLE-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 80 bids, $1132271 depth, 0.03% spread
+16:48:21 [INFO] ✅ [ORDERBOOK] PENDLE-USD: Validation PASSED - quality=excellent, bid_depth=$1132271, ask_depth=$1188834, spread=0.027%
+16:48:21 [INFO] ───────────────────────────────────────────────────────────
+16:48:21 [INFO] 📤 [LEG 1] PENDLE-USD: Placing Lighter SELL order...
+16:48:21 [INFO]    Size: $49.06 (22.000000 coins)
+16:48:21 [DEBUG] WS OB Update NEAR-USD: +0 bids, +1 asks (Total: 49 bids, 58 asks)
+16:48:21 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:48:21 [INFO] ⚖️ Size Alignment ADA-USD: 50.00$ -> 49.91$ (120.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+16:48:21 [INFO] 📋 [PHASE 0] ADA-USD: Validating orderbook...
+16:48:21 [DEBUG] 📚 ADA-USD Orderbook state: 83 bids, 59 asks, timestamp=1765468101.2707417
+16:48:21 [DEBUG] ✅ ADA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 83 bids, $2442444 depth, 0.02% spread
+16:48:21 [INFO] ✅ [ORDERBOOK] ADA-USD: Validation PASSED - quality=excellent, bid_depth=$2442444, ask_depth=$2532341, spread=0.019%
+16:48:21 [INFO] ───────────────────────────────────────────────────────────
+16:48:21 [INFO] 📤 [LEG 1] ADA-USD: Placing Lighter SELL order...
+16:48:21 [INFO]    Size: $49.91 (120.000000 coins)
+16:48:21 [DEBUG] WS OB Update LTC-USD: +1 bids, +0 asks (Total: 25 bids, 21 asks)
+16:48:21 [DEBUG] WS OB Update AVAX-USD: +1 bids, +0 asks (Total: 73 bids, 77 asks)
+16:48:22 [DEBUG] WS OB Update BNB-USD: +0 bids, +1 asks (Total: 340 bids, 249 asks)
+16:48:22 [DEBUG] WS OB Update POPCAT-USD: +0 bids, +1 asks (Total: 43 bids, 39 asks)
+16:48:22 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:48:22 [INFO] ⚖️ Size Alignment SEI-USD: 50.00$ -> 49.44$ (370.000000 Coins) to match both exchanges (X10 Step: 10.0, Lighter Step: 0.0001)
+16:48:22 [INFO] 📋 [PHASE 0] SEI-USD: Validating orderbook...
+16:48:22 [DEBUG] 📚 SEI-USD Orderbook state: 10 bids, 19 asks, timestamp=1765468102.7037287
+16:48:22 [DEBUG] ✅ SEI-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 10 bids, $406330 depth, 0.03% spread
+16:48:22 [INFO] ✅ [ORDERBOOK] SEI-USD: Validation PASSED - quality=excellent, bid_depth=$406330, ask_depth=$573270, spread=0.030%
+16:48:22 [INFO] ───────────────────────────────────────────────────────────
+16:48:22 [INFO] 📤 [LEG 1] SEI-USD: Placing Lighter SELL order...
+16:48:22 [INFO]    Size: $49.44 (370.000000 coins)
+16:48:22 [DEBUG] WS OB Update TON-USD: +2 bids, +0 asks (Total: 49 bids, 64 asks)
+16:48:22 [DEBUG] WS OB Update AERO-USD: +0 bids, +2 asks (Total: 10 bids, 12 asks)
+16:48:22 [DEBUG] WS OB Update ZEC-USD: +0 bids, +1 asks (Total: 445 bids, 441 asks)
+16:48:23 [DEBUG] WS OB Update GRASS-USD: +0 bids, +2 asks (Total: 44 bids, 83 asks)
+16:48:23 [DEBUG] WS OB Update AAVE-USD: +0 bids, +1 asks (Total: 133 bids, 70 asks)
+16:48:23 [DEBUG] WS OB Update BNB-USD: +0 bids, +1 asks (Total: 339 bids, 250 asks)
+16:48:23 [DEBUG] WS OB Update 1000BONK-USD: +0 bids, +1 asks (Total: 43 bids, 44 asks)
+16:48:23 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:48:23 [INFO] ⚖️ Size Alignment AERO-USD: 50.00$ -> 49.94$ (81.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+16:48:23 [INFO] 📋 [PHASE 0] AERO-USD: Validating orderbook...
+16:48:23 [DEBUG] 📚 AERO-USD Orderbook state: 10 bids, 12 asks, timestamp=1765468102.7457442
+16:48:23 [DEBUG] ✅ AERO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 10 bids, $108561 depth, 0.05% spread
+16:48:23 [INFO] ✅ [ORDERBOOK] AERO-USD: Validation PASSED - quality=excellent, bid_depth=$108561, ask_depth=$114663, spread=0.052%
+16:48:23 [INFO] ───────────────────────────────────────────────────────────
+16:48:23 [INFO] 📤 [LEG 1] AERO-USD: Placing Lighter SELL order...
+16:48:23 [INFO]    Size: $49.94 (81.000000 coins)
+16:48:24 [DEBUG] WS OB Update ZRO-USD: +0 bids, +1 asks (Total: 16 bids, 14 asks)
+16:48:24 [DEBUG] WS OB Update PENGU-USD: +0 bids, +1 asks (Total: 17 bids, 12 asks)
+16:48:24 [DEBUG] WS OB Update SEI-USD: +0 bids, +1 asks (Total: 11 bids, 19 asks)
+16:48:24 [INFO] Lighter: Found 0 open positions
+16:48:24 [INFO] 📊 Positions: X10=0, Lighter=0
+16:48:24 [DEBUG] ⛔ Max trades reached (5/5)
+16:48:25 [DEBUG] WS OB Update TRUMP-USD: +1 bids, +0 asks (Total: 18 bids, 27 asks)
+16:48:25 [DEBUG] WS OB Update LINK-USD: +4 bids, +6 asks (Total: 24 bids, 21 asks)
+16:48:25 [DEBUG] ✅ ARB-USD: X10=$114,446, Lighter=$7,929,832, Total=$8,044,278
+16:48:25 [DEBUG] WS OB Update ZEC-USD: +4 bids, +1 asks (Total: 438 bids, 436 asks)
+16:48:26 [DEBUG] WS OB Update BCH-USD: +1 bids, +0 asks (Total: 23 bids, 19 asks)
+16:48:26 [DEBUG] WS OB Update ZEC-USD: +2 bids, +2 asks (Total: 431 bids, 437 asks)
+16:48:26 [DEBUG] WS OB Update SOL-USD: +2 bids, +2 asks (Total: 1439 bids, 977 asks)
+16:48:26 [DEBUG] WS OB Update WLD-USD: +1 bids, +0 asks (Total: 56 bids, 85 asks)
+16:48:26 [DEBUG] WS OB Update UNI-USD: +0 bids, +2 asks (Total: 126 bids, 494 asks)
+16:48:26 [DEBUG] WS OB Update ARB-USD: +1 bids, +0 asks (Total: 69 bids, 112 asks)
+16:48:26 [INFO] 🚀 LIGHTER OPEN POPCAT-USD: side=SELL, size_usd=$49.99, amount=506.0, price=$0.098790, TIF=None
+16:48:26 [DEBUG] 🔍 DEBUG: POPCAT-USD market_id = 23 (raw=23, type=<class 'int'>)
+16:48:26 [INFO] 🛡️ Maker Price POPCAT-USD SELL: $0.098740 (Penny Jump Ask | Bid=$0.09871, Ask=$0.09875, Tick=1e-05)
+16:48:26 [DEBUG] QUANTIZE POPCAT-USD: Notional=$49.98774 -> RawAmt=506.000000 -> QuantAmt=506.000000 (x0.0001) -> BaseInt=5060
+16:48:26 [DEBUG] WS OB Update TRUMP-USD: +0 bids, +1 asks (Total: 19 bids, 28 asks)
+16:48:27 [DEBUG] WS OB Update WLD-USD: +1 bids, +0 asks (Total: 54 bids, 84 asks)
+16:48:27 [DEBUG] WS OB Update DOGE-USD: +1 bids, +0 asks (Total: 102 bids, 116 asks)
+16:48:27 [INFO] 🚀 LIGHTER OPEN PENDLE-USD: side=SELL, size_usd=$49.06, amount=22.0, price=$2.229900, TIF=None
+16:48:27 [DEBUG] 🔍 DEBUG: PENDLE-USD market_id = 37 (raw=37, type=<class 'int'>)
+16:48:27 [INFO] 🛡️ Maker Price PENDLE-USD SELL: $2.230400 (Penny Jump Ask | Bid=$2.2298, Ask=$2.2305, Tick=0.0001)
+16:48:27 [DEBUG] QUANTIZE PENDLE-USD: Notional=$49.05780000000001 -> RawAmt=22.000000 -> QuantAmt=22.000000 (x0.0001) -> BaseInt=2200
+16:48:27 [DEBUG] WS OB Update XRP-USD: +0 bids, +1 asks (Total: 44 bids, 44 asks)
+16:48:27 [DEBUG] WS OB Update IP-USD: +0 bids, +1 asks (Total: 22 bids, 16 asks)
+16:48:27 [DEBUG] WS OB Update GRASS-USD: +1 bids, +0 asks (Total: 45 bids, 83 asks)
+16:48:27 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+16:48:27 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+16:48:28 [DEBUG] WS OB Update AVAX-USD: +0 bids, +1 asks (Total: 71 bids, 77 asks)
+16:48:28 [INFO] 🚀 LIGHTER OPEN ADA-USD: side=SELL, size_usd=$49.91, amount=120.0, price=$0.415910, TIF=None
+16:48:28 [DEBUG] 🔍 DEBUG: ADA-USD market_id = 39 (raw=39, type=<class 'int'>)
+16:48:28 [INFO] 🛡️ Maker Price ADA-USD SELL: $0.416290 (Penny Jump Ask | Bid=$0.41625, Ask=$0.4163, Tick=1e-05)
+16:48:28 [DEBUG] QUANTIZE ADA-USD: Notional=$49.9092 -> RawAmt=120.000000 -> QuantAmt=120.000000 (x0.0001) -> BaseInt=1200
+16:48:28 [INFO] ✅ UNI-USD: Expected profit $0.0400 in 24.0h (breakeven: 8.73h, APY: 45.6%)
+16:48:28 [INFO] ✅ WIF-USD: Expected profit $0.0400 in 24.0h (breakeven: 10.33h, APY: 49.1%)
+16:48:28 [INFO] ✅ AVAX-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.75h, APY: 57.8%)
+16:48:28 [INFO] ✅ POPCAT-USD: Expected profit $0.1900 in 24.0h (breakeven: 5.34h, APY: 180.5%)
+16:48:28 [INFO] ✅ KAITO-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.88h, APY: 52.6%)
+16:48:28 [INFO] ✅ DOGE-USD: Expected profit $0.0500 in 24.0h (breakeven: 9.08h, APY: 56.9%)
+16:48:28 [INFO] ✅ 1000SHIB-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.21h, APY: 28.9%)
+16:48:28 [INFO] ✅ OP-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.83h, APY: 53.4%)
+16:48:28 [INFO] ✅ AERO-USD: Expected profit $0.0500 in 24.0h (breakeven: 10.64h, APY: 61.3%)
+16:48:28 [INFO] ✅ PENDLE-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.76h, APY: 113.0%)
+16:48:28 [INFO] ✅ 1000BONK-USD: Expected profit $0.0400 in 24.0h (breakeven: 12.51h, APY: 56.9%)
+16:48:28 [INFO] ✅ ADA-USD: Expected profit $0.0800 in 24.0h (breakeven: 5.13h, APY: 78.8%)
+16:48:28 [INFO] ✅ GRASS-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.63h, APY: 42.0%)
+16:48:28 [INFO] ✅ CRV-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.48h, APY: 42.0%)
+16:48:28 [INFO] ✅ VIRTUAL-USD: Expected profit $0.0200 in 24.0h (breakeven: 14.27h, APY: 28.9%)
+16:48:28 [INFO] ✅ NEAR-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.86h, APY: 35.9%)
+16:48:28 [INFO] ✅ EDEN-USD: Expected profit $0.1500 in 24.0h (breakeven: 5.13h, APY: 137.5%)
+16:48:28 [INFO] ✅ LTC-USD: Expected profit $0.0200 in 24.0h (breakeven: 16.30h, APY: 36.8%)
+16:48:28 [INFO] ✅ SEI-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.44h, APY: 64.8%)
+16:48:28 [INFO] ✅ TRX-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.64h, APY: 26.3%)
+16:48:28 [INFO] ✅ Found 20 opportunities from 63 valid pairs
+16:48:28 [INFO] 🎯 Found 5 opportunities
+16:48:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:28 [DEBUG] WS OB Update DOGE-USD: +0 bids, +1 asks (Total: 103 bids, 121 asks)
+16:48:28 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:28 [DEBUG] WS OB Update HYPE-USD: +1 bids, +0 asks (Total: 106 bids, 87 asks)
+16:48:29 [DEBUG] 💓 [x10_account] Sent keepalive ping
+16:48:29 [DEBUG] 💓 [x10_account] Health OK - last activity 29s ago
+16:48:29 [INFO] 🚀 LIGHTER OPEN SEI-USD: side=SELL, size_usd=$49.42, amount=370.0, price=$0.133560, TIF=None
+16:48:29 [DEBUG] 🔍 DEBUG: SEI-USD market_id = 32 (raw=32, type=<class 'int'>)
+16:48:29 [INFO] 🛡️ Maker Price SEI-USD SELL: $0.133600 (Penny Jump Ask | Bid=$0.13357, Ask=$0.13361, Tick=1e-05)
+16:48:29 [DEBUG] QUANTIZE SEI-USD: Notional=$49.4172 -> RawAmt=370.000000 -> QuantAmt=370.000000 (x0.0001) -> BaseInt=3700
+16:48:30 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=24362)
+16:48:30 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=26s ago, msgs=91)
+16:48:30 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s ago, msgs=12628)
+16:48:30 [DEBUG] ⚠️ [x10_account] No messages for 30s (expected every 30s)
+16:48:30 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s ago, msgs=3)
+16:48:30 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s ago, msgs=83)
+16:48:30 [INFO] 🚀 LIGHTER OPEN AERO-USD: side=SELL, size_usd=$49.94, amount=81.0, price=$0.616560, TIF=None
+16:48:30 [DEBUG] 🔍 DEBUG: AERO-USD market_id = 65 (raw=65, type=<class 'int'>)
+16:48:30 [INFO] 🛡️ Maker Price AERO-USD SELL: $0.617490 (Penny Jump Ask | Bid=$0.61712, Ask=$0.6175, Tick=1e-05)
+16:48:30 [DEBUG] QUANTIZE AERO-USD: Notional=$49.94136 -> RawAmt=81.000000 -> QuantAmt=81.000000 (x0.0001) -> BaseInt=810
+16:48:30 [DEBUG] WS OB Update ARB-USD: +1 bids, +0 asks (Total: 73 bids, 116 asks)
+16:48:30 [DEBUG] WS OB Update SOL-USD: +1 bids, +1 asks (Total: 1443 bids, 969 asks)
+16:48:30 [DEBUG] WS OB Update WLD-USD: +1 bids, +1 asks (Total: 54 bids, 83 asks)
+16:48:30 [DEBUG] WS OB Update LDO-USD: +0 bids, +2 asks (Total: 46 bids, 49 asks)
+16:48:31 [WARNING] [lighter] Connection closed: 1006 
+16:48:31 [INFO] 🔄 [lighter] Reconnecting in 1.0s (attempt 1)
+16:48:32 [DEBUG] 🐕 Watchdog OK: Daten-Alter 4.7s
+16:48:32 [DEBUG] 📊 Task health: 7 alive, 0 dead
+16:48:32 [WARNING] ⚠️ WebSocket connections unhealthy
+16:48:32 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+16:48:32 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+16:48:34 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+16:48:34 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+16:48:34 [INFO] [lighter] Resubscribing to 129 channels (paced)...
+16:48:34 [INFO] [lighter] Receive loop started (async iterator)
+16:48:34 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+16:48:34 [DEBUG] [lighter] Resubscribed 10/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 20/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 30/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 40/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 50/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 60/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 70/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 80/129 channels
+16:48:34 [DEBUG] [lighter] Resubscribed 90/129 channels
+16:48:35 [DEBUG] [lighter] Resubscribed 100/129 channels
+16:48:35 [DEBUG] [lighter] Resubscribed 110/129 channels
+16:48:35 [DEBUG] [lighter] Resubscribed 120/129 channels
+16:48:35 [INFO] [lighter] Resubscribed to 129 channels
+16:48:35 [DEBUG] WS OB Update BNB-USD: +1 bids, +2 asks (Total: 385 bids, 286 asks)
+16:48:36 [DEBUG] WS OB Update BTC-USD: +3 bids, +0 asks (Total: 3709 bids, 3046 asks)
+16:48:36 [DEBUG] Lighter Balance: Raw=$263.84, Safe=$250.65
+16:48:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:36 [DEBUG] WS OB Update 1000BONK-USD: +0 bids, +1 asks (Total: 52 bids, 52 asks)
+16:48:36 [DEBUG] WS OB Update ZEC-USD: +0 bids, +1 asks (Total: 483 bids, 473 asks)
+16:48:36 [DEBUG] WS OB Update BNB-USD: +0 bids, +3 asks (Total: 382 bids, 287 asks)
+16:48:37 [DEBUG] WS OB Update UNI-USD: +2 bids, +2 asks (Total: 144 bids, 516 asks)
+16:48:37 [DEBUG] WS OB Update WIF-USD: +0 bids, +1 asks (Total: 79 bids, 90 asks)
+16:48:38 [DEBUG] WS OB Update DOGE-USD: +0 bids, +1 asks (Total: 123 bids, 135 asks)
+16:48:38 [DEBUG] WS OB Update BNB-USD: +1 bids, +1 asks (Total: 385 bids, 289 asks)
+16:48:38 [DEBUG] WS OB Update LINK-USD: +2 bids, +3 asks (Total: 150 bids, 123 asks)
+16:48:38 [INFO] 🔒 Locked execution for POPCAT-USD SELL (Nonce: 6071)...
+16:48:38 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":23,"ClientOrderIndex":1765468157380,"BaseAmount":5060,"Price":9874,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767887318899,"ExpiredAt":1765468717899,"Nonce":6071,"Sig":"l/9cahMovYPDanLqyoFhErsbcoCTgLPtBSQM2BVpI7JhspYlhJV8LQ2n71RS0hf6LAz5u5/bnhlMpbwBi2QNBXpxhvmUIpBoMG5P+rMTNSQ="}
+16:48:38 [DEBUG] WS OB Update LDO-USD: +1 bids, +1 asks (Total: 57 bids, 59 asks)
+16:48:38 [DEBUG] WS OB Update BNB-USD: +2 bids, +1 asks (Total: 375 bids, 285 asks)
+16:48:39 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='181df5ace6f7ae6946d6a2c9142ef7afc57d38175da3a8c98e2ad6fd444c7e249afdb3ac0aac4087' predicted_execution_time_ms=1765468107530 additional_properties={}
+16:48:39 [INFO] ✅ Lighter Order Sent: 181df5ace6f7ae6946d6a2c9142ef7afc57d38175da3a8c98e2ad6fd444c7e249afdb3ac0aac4087
+16:48:39 [INFO] ✅ [LEG 1] POPCAT-USD: Lighter order placed: 181df5ace6f7ae6946d6a2c9142ef7...
+16:48:39 [INFO] ⏳ [LEG 1] POPCAT-USD: Waiting for Lighter fill (max 60s)...
+16:48:39 [DEBUG] WS OB Update BTC-USD: +4 bids, +11 asks (Total: 3656 bids, 3034 asks)
+16:48:39 [DEBUG] ✅ ONDO-USD: X10=$63,416, Lighter=$1,995,852, Total=$2,059,268
+16:48:40 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=36s ago, msgs=91)
+16:48:40 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s ago, msgs=14821)
+16:48:40 [DEBUG] ⚠️ [x10_account] No messages for 40s (expected every 30s)
+16:48:40 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=40s ago, msgs=3)
+16:48:40 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=1s ago, msgs=107)
+16:48:40 [DEBUG] WS OB Update XPL-USD: +1 bids, +0 asks (Total: 112 bids, 249 asks)
+16:48:40 [DEBUG] WS OB Update DOT-USD: +0 bids, +3 asks (Total: 60 bids, 126 asks)
+16:48:41 [DEBUG] WS OB Update SOL-USD: +1 bids, +0 asks (Total: 1503 bids, 1040 asks)
+16:48:41 [INFO] Lighter: Found 0 open positions
+16:48:41 [INFO] 📊 Positions: X10=0, Lighter=0
+16:48:41 [DEBUG] ⛔ Max trades reached (5/5)
+16:48:42 [INFO] Lighter: Found 0 open positions
+16:48:42 [DEBUG] WS OB Update PENDLE-USD: +0 bids, +1 asks (Total: 89 bids, 62 asks)
+16:48:42 [DEBUG] WS OB Update DOT-USD: +2 bids, +0 asks (Total: 60 bids, 124 asks)
+16:48:43 [INFO] 🔒 Locked execution for PENDLE-USD SELL (Nonce: 6072)...
+16:48:43 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":37,"ClientOrderIndex":1765468208837,"BaseAmount":2200,"Price":22304,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767887323006,"ExpiredAt":1765468722006,"Nonce":6072,"Sig":"EoZmN0mp3ccKoNrOfGK3+HPVdiqrd14qhD5vYanFvSLmTnKbyObcQHQqhri6EqM2OFjx/5ix0PORT7UAfetv4vjJdwtJLVljqBWEMvAxfl4="}
+16:48:43 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='154fd9fe18ca3b90de33b08b2f560f1eff323f4adaf57ec6699544cd35445f5e06a54f60f81496c4' predicted_execution_time_ms=1765468111636 additional_properties={}
+16:48:43 [INFO] ✅ Lighter Order Sent: 154fd9fe18ca3b90de33b08b2f560f1eff323f4adaf57ec6699544cd35445f5e06a54f60f81496c4
+16:48:43 [INFO] ✅ [LEG 1] PENDLE-USD: Lighter order placed: 154fd9fe18ca3b90de33b08b2f560f...
+16:48:43 [INFO] ⏳ [LEG 1] PENDLE-USD: Waiting for Lighter fill (max 60s)...
+16:48:43 [DEBUG] WS OB Update BTC-USD: +0 bids, +1 asks (Total: 3695 bids, 3047 asks)
+16:48:44 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=30538)
+16:48:44 [DEBUG] ✅ BTC-USD: X10=$27,598,335, Lighter=$3,063, Total=$27,601,398
+16:48:44 [DEBUG] WS OB Update SPX-USD: +0 bids, +4 asks (Total: 74 bids, 61 asks)
+16:48:44 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+16:48:44 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+16:48:44 [INFO] ✅ UNI-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.34h, APY: 45.6%)
+16:48:44 [INFO] ✅ AVAX-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.29h, APY: 57.8%)
+16:48:44 [INFO] ✅ POPCAT-USD: Expected profit $0.1400 in 24.0h (breakeven: 10.57h, APY: 180.5%)
+16:48:44 [INFO] ✅ KAITO-USD: Expected profit $0.0400 in 24.0h (breakeven: 11.20h, APY: 52.6%)
+16:48:44 [INFO] ✅ DOGE-USD: Expected profit $0.0500 in 24.0h (breakeven: 8.86h, APY: 56.9%)
+16:48:44 [INFO] ✅ 1000SHIB-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.21h, APY: 28.9%)
+16:48:44 [INFO] ✅ OP-USD: Expected profit $0.0300 in 24.0h (breakeven: 13.51h, APY: 53.4%)
+16:48:44 [INFO] ✅ PENDLE-USD: Expected profit $0.1300 in 24.0h (breakeven: 4.18h, APY: 113.0%)
+16:48:44 [INFO] ✅ 1000BONK-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.99h, APY: 56.9%)
+16:48:44 [INFO] ✅ ADA-USD: Expected profit $0.0700 in 24.0h (breakeven: 9.14h, APY: 78.8%)
+16:48:44 [INFO] ✅ GRASS-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.63h, APY: 42.0%)
+16:48:44 [INFO] ✅ CRV-USD: Expected profit $0.0300 in 24.0h (breakeven: 12.52h, APY: 42.0%)
+16:48:44 [INFO] ✅ LTC-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.33h, APY: 36.8%)
+16:48:44 [INFO] ✅ SEI-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.44h, APY: 64.8%)
+16:48:44 [INFO] ✅ MON-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.84h, APY: 29.8%)
+16:48:44 [INFO] ✅ Found 15 opportunities from 63 valid pairs
+16:48:44 [INFO] 🎯 Found 5 opportunities
+16:48:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:45 [DEBUG] WS OB Update DOGE-USD: +0 bids, +1 asks (Total: 118 bids, 132 asks)
+16:48:45 [DEBUG] WS OB Update ADA-USD: +0 bids, +1 asks (Total: 92 bids, 73 asks)
+16:48:45 [INFO] Lighter: Found 0 open positions
+16:48:45 [DEBUG] WS OB Update FARTCOIN-USD: +1 bids, +0 asks (Total: 326 bids, 239 asks)
+16:48:45 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:45 [DEBUG] WS OB Update BTC-USD: +1 bids, +0 asks (Total: 3664 bids, 3025 asks)
+16:48:46 [INFO] Lighter: Found 0 open positions
+16:48:46 [DEBUG] WS OB Update UNI-USD: +2 bids, +0 asks (Total: 147 bids, 512 asks)
+16:48:46 [DEBUG] WS OB Update ARB-USD: +1 bids, +0 asks (Total: 87 bids, 135 asks)
+16:48:47 [INFO] 🔒 Locked execution for ADA-USD SELL (Nonce: 6073)...
+16:48:47 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":39,"ClientOrderIndex":1765468180077,"BaseAmount":1200,"Price":41629,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767887327040,"ExpiredAt":1765468726040,"Nonce":6073,"Sig":"Qv9ShmM1nT7d5AN/1X99Ia+oXsb+atWMwfxT5FR59RR9B3F8UpZND1sW3Jo1xeFqMyv7IdpzQjUKrnjetIRveI0L4Mx6luFnG8vLhh9CNwA="}
+16:48:47 [DEBUG] WS OB Update BNB-USD: +2 bids, +0 asks (Total: 378 bids, 290 asks)
+16:48:47 [DEBUG] WS OB Update NEAR-USD: +1 bids, +0 asks (Total: 67 bids, 79 asks)
+16:48:47 [DEBUG] WS OB Update WIF-USD: +1 bids, +0 asks (Total: 77 bids, 89 asks)
+16:48:47 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='f4dfca42db031a87604d19caa7dbceadd0b5f05be5bb4220436a3022cfc406135c212007697bd5ec' predicted_execution_time_ms=1765468115665 additional_properties={}
+16:48:47 [INFO] ✅ Lighter Order Sent: f4dfca42db031a87604d19caa7dbceadd0b5f05be5bb4220436a3022cfc406135c212007697bd5ec
+16:48:47 [INFO] ✅ [LEG 1] ADA-USD: Lighter order placed: f4dfca42db031a87604d19caa7dbce...
+16:48:47 [INFO] ⏳ [LEG 1] ADA-USD: Waiting for Lighter fill (max 60s)...
+16:48:47 [DEBUG] WS OB Update AAVE-USD: +1 bids, +1 asks (Total: 154 bids, 93 asks)
+16:48:48 [DEBUG] WS OB Update BNB-USD: +1 bids, +1 asks (Total: 376 bids, 292 asks)
+16:48:48 [DEBUG] WS OB Update ONDO-USD: +3 bids, +0 asks (Total: 72 bids, 107 asks)
+16:48:48 [DEBUG] WS OB Update BNB-USD: +3 bids, +5 asks (Total: 364 bids, 277 asks)
+16:48:48 [DEBUG] Lighter Balance: Raw=$263.84, Safe=$250.65
+16:48:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:48:48 [DEBUG] WS OB Update SOL-USD: +0 bids, +4 asks (Total: 1483 bids, 1036 asks)
+16:48:48 [DEBUG] WS OB Update LINEA-USD: +2 bids, +0 asks (Total: 65 bids, 84 asks)
+16:48:48 [DEBUG] WS OB Update APEX-USD: +0 bids, +2 asks (Total: 39 bids, 57 asks)
+16:48:48 [DEBUG] WS OB Update TRUMP-USD: +1 bids, +0 asks (Total: 71 bids, 95 asks)
+16:48:49 [DEBUG] WS OB Update ZRO-USD: +0 bids, +1 asks (Total: 53 bids, 70 asks)
+16:48:49 [INFO] Lighter: Found 0 open positions
+16:48:49 [DEBUG] WS OB Update MON-USD: +2 bids, +0 asks (Total: 167 bids, 387 asks)
+16:48:50 [DEBUG] WS OB Update ARB-USD: +1 bids, +0 asks (Total: 75 bids, 130 asks)
+16:48:50 [DEBUG] WS OB Update TRX-USD: +0 bids, +1 asks (Total: 50 bids, 59 asks)
+16:48:50 [DEBUG] WS OB Update SOL-USD: +0 bids, +1 asks (Total: 1471 bids, 1035 asks)
+16:48:50 [INFO] Lighter: Found 0 open positions
+16:48:50 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s ago, msgs=165)
+16:48:50 [DEBUG] ⚠️ [x10_account] No messages for 50s (expected every 30s)
+16:48:50 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=50s ago, msgs=3)
+16:48:50 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=46s ago, msgs=91)
+16:48:50 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s ago, msgs=17459)
+16:48:50 [DEBUG] WS OB Update SOL-USD: +2 bids, +1 asks (Total: 1470 bids, 1034 asks)
+16:48:50 [DEBUG] WS OB Update ADA-USD: +1 bids, +0 asks (Total: 83 bids, 73 asks)
+16:48:50 [DEBUG] WS OB Update SEI-USD: +2 bids, +0 asks (Total: 47 bids, 108 asks)
+16:48:50 [DEBUG] WS OB Update WIF-USD: +1 bids, +0 asks (Total: 71 bids, 85 asks)
+16:48:50 [DEBUG] WS OB Update XPL-USD: +2 bids, +0 asks (Total: 102 bids, 244 asks)
+16:48:50 [DEBUG] WS OB Update SPX-USD: +1 bids, +0 asks (Total: 69 bids, 59 asks)
+16:48:50 [DEBUG] WS OB Update PUMP-USD: +2 bids, +2 asks (Total: 151 bids, 109 asks)
+16:48:51 [DEBUG] WS OB Update LDO-USD: +1 bids, +0 asks (Total: 56 bids, 63 asks)
+16:48:51 [DEBUG] WS OB Update ONDO-USD: +0 bids, +1 asks (Total: 60 bids, 105 asks)
+16:48:51 [INFO] Lighter: Found 0 open positions
+16:48:51 [DEBUG] WS OB Update BNB-USD: +1 bids, +1 asks (Total: 357 bids, 268 asks)
+16:48:51 [DEBUG] WS OB Update TIA-USD: +3 bids, +1 asks (Total: 55 bids, 83 asks)
+16:48:51 [DEBUG] WS OB Update BTC-USD: +0 bids, +3 asks (Total: 3556 bids, 3033 asks)
+16:48:52 [INFO] 🔒 Locked execution for SEI-USD SELL (Nonce: 6074)...
+16:48:52 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":32,"ClientOrderIndex":1765468204398,"BaseAmount":3700,"Price":13360,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767887332094,"ExpiredAt":1765468731094,"Nonce":6074,"Sig":"nQdtKVWcg8kzP5Rtl9zfc6OEcoiLNskZcnMxRR1PC8KEUR54wp9xHrsvkSGS+t1vvy3yjcgFRkVf1N02MZsbNZ4hp9qxvJu2xv0H3L4ukCg="}
+16:48:52 [DEBUG] WS OB Update TRX-USD: +1 bids, +0 asks (Total: 48 bids, 63 asks)
+16:48:52 [DEBUG] WS OB Update JUP-USD: +1 bids, +0 asks (Total: 48 bids, 83 asks)
+16:48:52 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='2fc217dd5438d6cc5e55bf651664ea8323b90a98fe68116c758b1228005a346d1a278fbfa43792c6' predicted_execution_time_ms=1765468120719 additional_properties={}
+16:48:52 [INFO] ✅ Lighter Order Sent: 2fc217dd5438d6cc5e55bf651664ea8323b90a98fe68116c758b1228005a346d1a278fbfa43792c6
+16:48:52 [INFO] ✅ [LEG 1] SEI-USD: Lighter order placed: 2fc217dd5438d6cc5e55bf651664ea...
+16:48:52 [INFO] ⏳ [LEG 1] SEI-USD: Waiting for Lighter fill (max 60s)...
+16:48:52 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
+16:48:52 [DEBUG] WS OB Update TAO-USD: +0 bids, +2 asks (Total: 140 bids, 100 asks)
+16:48:52 [DEBUG] WS OB Update TRUMP-USD: +1 bids, +0 asks (Total: 73 bids, 96 asks)
+16:48:53 [DEBUG] ✅ AAVE-USD: X10=$184,259, Lighter=$44,340, Total=$228,598
+16:48:53 [DEBUG] WS OB Update LDO-USD: +2 bids, +6 asks (Total: 56 bids, 61 asks)
+16:48:53 [DEBUG] WS OB Update WIF-USD: +2 bids, +0 asks (Total: 71 bids, 87 asks)
+16:48:54 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s ago, msgs=38858)
+16:48:54 [DEBUG] WS OB Update SPX-USD: +6 bids, +0 asks (Total: 67 bids, 55 asks)
+16:48:54 [DEBUG] WS OB Update SOL-USD: +8 bids, +9 asks (Total: 1478 bids, 1044 asks)
+16:48:54 [INFO] Lighter: Found 0 open positions
+16:48:54 [INFO] 📊 Positions: X10=0, Lighter=0
+16:48:54 [DEBUG] ⛔ Max trades reached (5/5)
+16:48:54 [DEBUG] WS OB Update WLD-USD: +0 bids, +1 asks (Total: 68 bids, 102 asks)
+16:48:54 [DEBUG] WS OB Update JUP-USD: +0 bids, +2 asks (Total: 47 bids, 87 asks)
+16:48:55 [DEBUG] WS OB Update WLD-USD: +0 bids, +1 asks (Total: 67 bids, 99 asks)
+16:48:55 [INFO] Lighter: Found 0 open positions
+16:48:55 [DEBUG] WS OB Update EIGEN-USD: +2 bids, +0 asks (Total: 63 bids, 81 asks)
+16:48:55 [DEBUG] WS OB Update DOGE-USD: +1 bids, +0 asks (Total: 112 bids, 137 asks)
+16:48:55 [DEBUG] WS OB Update BNB-USD: +1 bids, +0 asks (Total: 375 bids, 285 asks)
+16:48:56 [DEBUG] WS OB Update TAO-USD: +2 bids, +2 asks (Total: 141 bids, 98 asks)
+16:48:56 [INFO] Lighter: Found 0 open positions
+16:48:56 [DEBUG] WS OB Update MON-USD: +1 bids, +0 asks (Total: 166 bids, 386 asks)
+16:48:56 [DEBUG] WS OB Update BNB-USD: +2 bids, +0 asks (Total: 377 bids, 286 asks)
+16:48:56 [DEBUG] WS OB Update JUP-USD: +2 bids, +0 asks (Total: 48 bids, 86 asks)
+16:48:56 [DEBUG] WS OB Update ADA-USD: +1 bids, +0 asks (Total: 86 bids, 68 asks)
+16:48:57 [DEBUG] WS OB Update AAVE-USD: +0 bids, +1 asks (Total: 144 bids, 88 asks)
+16:48:57 [INFO] Lighter: Found 0 open positions
+16:48:57 [DEBUG] Price cache status: X10=81/65, Lighter=115/65
+16:48:57 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 114, X10 markets: 91
+16:48:57 [DEBUG] WS OB Update LDO-USD: +1 bids, +0 asks (Total: 56 bids, 61 asks)
+16:48:57 [INFO] ✅ UNI-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.34h, APY: 45.6%)
+16:48:57 [INFO] ✅ AVAX-USD: Expected profit $0.0500 in 24.0h (breakeven: 10.02h, APY: 57.8%)
+16:48:57 [INFO] ✅ POPCAT-USD: Expected profit $0.1400 in 24.0h (breakeven: 10.57h, APY: 180.5%)
+16:48:57 [INFO] ✅ KAITO-USD: Expected profit $0.0200 in 24.0h (breakeven: 17.29h, APY: 52.6%)
+16:48:57 [INFO] ✅ DOGE-USD: Expected profit $0.0400 in 24.0h (breakeven: 13.06h, APY: 56.9%)
+16:48:57 [INFO] ✅ 1000SHIB-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.21h, APY: 28.9%)
+16:48:57 [INFO] ✅ AERO-USD: Expected profit $0.0300 in 24.0h (breakeven: 14.12h, APY: 61.3%)
+16:48:57 [INFO] ✅ PENDLE-USD: Expected profit $0.1300 in 24.0h (breakeven: 4.36h, APY: 113.0%)
+16:48:57 [INFO] ✅ 1000BONK-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.99h, APY: 56.9%)
+16:48:57 [INFO] ✅ ADA-USD: Expected profit $0.0700 in 24.0h (breakeven: 9.14h, APY: 78.8%)
+16:48:57 [INFO] ✅ GRASS-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.63h, APY: 42.0%)
+16:48:57 [INFO] ✅ CRV-USD: Expected profit $0.0300 in 24.0h (breakeven: 11.98h, APY: 42.0%)
+16:48:57 [INFO] ✅ EDEN-USD: Expected profit $0.0900 in 24.0h (breakeven: 12.21h, APY: 137.5%)
+16:48:57 [INFO] ✅ WLD-USD: Expected profit $0.0100 in 24.0h (breakeven: 20.38h, APY: 28.9%)
+16:48:57 [INFO] ✅ LTC-USD: Expected profit $0.0300 in 24.0h (breakeven: 10.71h, APY: 36.8%)
+16:48:57 [INFO] ✅ SEI-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.44h, APY: 64.8%)
+16:48:57 [INFO] ✅ TRX-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.04h, APY: 26.3%)
+16:48:57 [INFO] ✅ Found 17 opportunities from 63 valid pairs
+16:48:57 [INFO] 🎯 Found 5 opportunities
+16:48:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+16:48:58 [INFO] 🔒 Locked execution for AERO-USD SELL (Nonce: 6075)...
+16:48:58 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":65,"ClientOrderIndex":1765468164679,"BaseAmount":810,"Price":61749,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1767887338114,"ExpiredAt":1765468737114,"Nonce":6075,"Sig":"z1I8GJ9CQwGxox6ripksJszZOxa6GOiKtfHMHPM3omltyMBir8OAcF4FqMnf0H2FOj1J2VeLEuJ+/2XqW0PzRfKWf/TGgQ21T1wOYU8MuwI="}
+16:48:58 [INFO] 💰 X10 verfügbare Balance: $231.55 USDC
+16:48:58 [DEBUG] WS OB Update LDO-USD: +0 bids, +1 asks (Total: 55 bids, 59 asks)
+16:48:58 [DEBUG] WS OB Update SOL-USD: +5 bids, +2 asks (Total: 1484 bids, 1064 asks)
+16:48:58 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='f783caa9ba542fe0e57bc34aa59a2c40aa25cf3c50b82bf6bb5759f55d87cb998e9f94137eba74b6' predicted_execution_time_ms=1765468126744 additional_properties={}
+16:48:58 [INFO] ✅ Lighter Order Sent: f783caa9ba542fe0e57bc34aa59a2c40aa25cf3c50b82bf6bb5759f55d87cb998e9f94137eba74b6
+16:48:58 [INFO] ✅ [LEG 1] AERO-USD: Lighter order placed: f783caa9ba542fe0e57bc34aa59a2c...
+16:48:58 [INFO] ⏳ [LEG 1] AERO-USD: Waiting for Lighter fill (max 60s)...
+16:48:58 [DEBUG] WS OB Update TAO-USD: +0 bids, +1 asks (Total: 143 bids, 98 asks)
+16:48:58 [DEBUG] WS OB Update DOT-USD: +0 bids, +1 asks (Total: 55 bids, 120 asks)
+16:48:59 [DEBUG] 💓 [x10_account] Sent keepalive ping
+16:48:59 [DEBUG] 💓 [x10_account] Health OK - last activity 59s ago
+16:48:59 [INFO] Lighter: Found 0 open positions
+16:48:59 [DEBUG] WS OB Update ONDO-USD: +1 bids, +1 asks (Total: 64 bids, 106 asks)
+16:49:00 [DEBUG] ✅ AVAX-USD: X10=$427,476, Lighter=$203,679, Total=$631,155
+16:49:00 [DEBUG] WS OB Update BTC-USD: +5 bids, +0 asks (Total: 3623 bids, 3058 asks)
+16:49:00 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=60s, last_msg=0s ago, msgs=19688)
+16:49:00 [DEBUG] ⚠️ [x10_account] No messages for 60s (expected every 30s)
+16:49:00 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=60s ago, msgs=3)
+16:49:00 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=56s ago, msgs=91)
+16:49:00 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=0s ago, msgs=191)
+16:49:00 [DEBUG] WS OB Update UNI-USD: +2 bids, +2 asks (Total: 139 bids, 509 asks)
+16:49:01 [DEBUG] WS OB Update DOGE-USD: +2 bids, +0 asks (Total: 113 bids, 136 asks)
+16:49:01 [DEBUG] WS OB Update TAO-USD: +3 bids, +2 asks (Total: 143 bids, 98 asks)
+16:49:01 [DEBUG] WS OB Update BTC-USD: +10 bids, +7 asks (Total: 3612 bids, 3052 asks)
+16:49:01 [INFO] Lighter: Found 0 open positions
+16:49:02 [INFO] Lighter: Found 1 open positions
+16:49:02 [INFO] ✅ [LEG 1] PENDLE-USD: Lighter order FILLED!
+16:49:02 [INFO] ───────────────────────────────────────────────────────────
+16:49:02 [INFO] 📤 [LEG 2] PENDLE-USD: Placing X10 BUY hedge...
+16:49:02 [INFO]    Size: 22.000000 coins (matching Lighter fill)
+16:49:02 [INFO] 🚀 X10 EXECUTE PENDLE-USD BUY: 22.000000 Coins (Basis: COINS=22.0)
+16:49:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:49:02 [DEBUG] WS OB Update PUMP-USD: +0 bids, +1 asks (Total: 152 bids, 106 asks)
+16:49:02 [DEBUG] WS OB Update SEI-USD: +1 bids, +2 asks (Total: 51 bids, 112 asks)
+16:49:02 [DEBUG] 🐕 Watchdog OK: Daten-Alter 5.3s
+16:49:02 [DEBUG] 📊 Task health: 7 alive, 0 dead
+16:49:02 [DEBUG] WS OB Update LTC-USD: +1 bids, +0 asks (Total: 111 bids, 95 asks)
+16:49:03 [DEBUG] WS OB Update ZRO-USD: +0 bids, +2 asks (Total: 54 bids, 71 asks)
+16:49:03 [INFO] Lighter: Found 1 open positions
+16:49:03 [DEBUG] WS OB Update IP-USD: +1 bids, +0 asks (Total: 48 bids, 76 asks)
+16:49:03 [DEBUG] WS OB Update BNB-USD: +1 bids, +0 asks (Total: 379 bids, 291 asks)
+16:49:04 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s ago, msgs=44875)
+16:49:04 [DEBUG] Placing an order: id=3423340350622020119843886420707513517334365196794847404386276564363614211838
+16:49:04 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+16:49:04 [WARNING] [lighter] Connection closed: 1006 
+16:49:04 [INFO] 🔄 [lighter] Reconnecting in 1.0s (attempt 1)
+16:49:04 [DEBUG] Lighter Balance: Raw=$263.87, Safe=$250.68
+16:49:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:05 [INFO] Lighter: Found 1 open positions
+16:49:05 [INFO]  X10 Order: 1999144365214662656
+16:49:05 [INFO] ✅ [LEG 2] PENDLE-USD: X10 hedge placed: 1999144365214662656
+16:49:05 [INFO] ═══════════════════════════════════════════════════════════
+16:49:05 [INFO] ✅ HEDGED TRADE COMPLETE: PENDLE-USD
+16:49:05 [INFO]    Lighter TX: 154fd9fe18ca3b90de33b08b2f560f...
+16:49:05 [INFO]    X10 Order:  1999144365214662656
+16:49:05 [INFO] ═══════════════════════════════════════════════════════════
+16:49:05 [INFO] 📝 Recording trade PENDLE-USD in database...
+16:49:05 [DEBUG] 📝 Trade added to state: PENDLE-USD
+16:49:05 [INFO] ✅ Trade PENDLE-USD recorded successfully
+16:49:05 [INFO]    X10 Order ID: 1999144365214662656
+16:49:05 [INFO]    Lighter Order ID: 154fd9fe18ca3b90de33b08b2f560f...
+16:49:05 [INFO]    Size: $50.00
+16:49:05 [INFO]    Entry X10: $2.226300
+16:49:05 [INFO]    Entry Lighter: $2.223100
+16:49:05 [INFO]    APY: 113.00%
+16:49:05 [INFO] ✅ OPENED PENDLE-USD: $50.00
+16:49:05 [DEBUG] 📝 Flushed 1 writes
+16:49:05 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+16:49:05 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 20.0, 'ping_timeout': 10.0}
+16:49:05 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.545880, available=$226.638448, uPnL=$0.000000
+16:49:05 [INFO] 📊 [x10_account] FILL: PENDLE-USD BUY 22.0 @ $2.2272 (Order: 1999144365214662656, Fee: $0.0110, Taker: True)
+16:49:05 [INFO] 📋 [x10_account] ORDER: PENDLE-USD BUY FILLED qty=22 filled=22 @ $2.2397 (id=1999144365214662656)
+16:49:05 [DEBUG] 📈 [x10_account] POSITION: PENDLE-USD LONG size=22 markPrice=$2.2306507405 uPnL=$0.075916
+16:49:05 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.610772, available=$226.703340, uPnL=$0.075916
+16:49:06 [INFO] Lighter: Found 1 open positions
+16:49:06 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+16:49:06 [INFO] ✅ [lighter] Keepalive enabled: ping_interval=20.0s, ping_timeout=10.0s
+16:49:06 [INFO] [lighter] Resubscribing to 129 channels (paced)...
+16:49:06 [INFO] [lighter] Receive loop started (async iterator)
+16:49:06 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s)
+16:49:06 [DEBUG] [lighter] Resubscribed 10/129 channels
+16:49:06 [DEBUG] [lighter] Resubscribed 20/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 30/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 40/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 50/129 channels
+16:49:07 [DEBUG] ✅ LINEA-USD: X10=$56,021, Lighter=$108,082,953, Total=$108,138,974
+16:49:07 [DEBUG] [lighter] Resubscribed 60/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 70/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 80/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 90/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 100/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 110/129 channels
+16:49:07 [DEBUG] [lighter] Resubscribed 120/129 channels
+16:49:07 [INFO] [lighter] Resubscribed to 129 channels
+16:49:08 [DEBUG] WS OB Update BNB-USD: +2 bids, +3 asks (Total: 436 bids, 354 asks)
+16:49:08 [DEBUG] WS OB Update ONDO-USD: +1 bids, +1 asks (Total: 81 bids, 117 asks)
+16:49:08 [INFO] Lighter: Found 1 open positions
+16:49:09 [DEBUG] WS OB Update BNB-USD: +3 bids, +2 asks (Total: 427 bids, 348 asks)
+16:49:09 [INFO] 🛑 Initiating shutdown...
+16:49:09 [INFO] 🛑 ParallelExecutionManager: Stopping 4 active executions...
+16:49:09 [INFO] ⏳ Waiting up to 30.0s for 4 executions to complete...
+16:49:09 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+16:49:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+16:49:09 [DEBUG] WS OB Update BTC-USD: +2 bids, +4 asks (Total: 3747 bids, 3204 asks)
+16:49:09 [INFO] Lighter: Found 1 open positions
+16:49:10 [DEBUG] WS OB Update FARTCOIN-USD: +0 bids, +1 asks (Total: 331 bids, 258 asks)
+16:49:10 [WARNING] ⚡ [MAKER STRATEGY] ADA-USD: SHUTDOWN detected - aborting wait!
+16:49:10 [WARNING] ⏰ [MAKER STRATEGY] ADA-USD: Wait timeout! Cancelling Lighter order f4dfca42db031a87604d19caa7dbceadd0b5f05be5bb4220436a3022cfc406135c212007697bd5ec...
+16:49:10 [INFO] 🔍 Lighter: Attempting to resolve Hash f4dfca42db031a87604d19caa7dbceadd0b5f05be5bb4220436a3022cfc406135c212007697bd5ec to Order ID for ADA-USD...
+16:49:10 [DEBUG] ParallelExec stop: 
+16:49:10 [DEBUG] Cancelled task: maintenance_loop
+16:49:10 [DEBUG] Cancelled task: cleanup_finished_tasks
+16:49:10 [DEBUG] Cancelled task: health_reporter
+16:49:10 [DEBUG] Cancelled task: farm_loop
+16:49:10 [DEBUG] Cancelled task: logic_loop
+16:49:10 [DEBUG] Cancelled task: trade_management_loop
+16:49:10 [DEBUG] Cancelled task: connection_watchdog
+16:49:10 [INFO] Farm loop cancelled
+16:49:10 [INFO] Connection watchdog cancelled
+16:49:10 [DEBUG] Lighter: fetch_open_positions cancelled during shutdown
+16:49:10 [INFO] Logic loop cancelled
+16:49:10 [ERROR] _GatheringFuture exception was never retrieved
+future: <_GatheringFuture finished exception=CancelledError()>
+asyncio.exceptions.CancelledError
+16:49:10 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+16:49:10 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+16:49:10 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 5 waiters
+16:49:10 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 5, 'shutdown': True}}
+16:49:10 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 5, 'shutdown': True}}
+16:49:10 [DEBUG] [LIGHTER] Rate limiter sleep cancelled during interval wait
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire cancelled during shutdown
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire cancelled during shutdown
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire cancelled during shutdown
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire cancelled during shutdown
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire cancelled during shutdown
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:10 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:10 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=0s ago, msgs=215)
+16:49:10 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=6s ago, msgs=182)
+16:49:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=70s, last_msg=0s ago, msgs=21824)
+16:49:10 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=5s ago, msgs=8)
+16:49:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:10 [INFO] ℹ️ Lighter Cancel: Hash f4dfca42db... not found in open orders. Assuming closed.
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:10 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:11 [DEBUG] Lighter REST GET /api/v1/accountTrades returned 404 (no data - OK)
+16:49:11 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+16:49:11 [WARNING] ⚡ [MAKER STRATEGY] ADA-USD: SHUTDOWN - skipping extended ghost fill checks!
+16:49:11 [INFO] ✓ [MAKER STRATEGY] ADA-USD: Cancel confirmed (Clean Exit verified after 60s).
+16:49:11 [INFO] ═══════════════════════════════════════════════════════════
+16:49:11 [INFO] ❌ HEDGED TRADE ABORTED: ADA-USD - Lighter order not filled (timeout)
+16:49:11 [INFO] ═══════════════════════════════════════════════════════════
+16:49:11 [WARNING] ❌ Trade execution failed for ADA-USD
+16:49:11 [DEBUG] ✅ WLFI-USD: X10=$768,864, Lighter=$24,197,018, Total=$24,965,881
+16:49:11 [DEBUG] 📈 [x10_account] POSITION: PENDLE-USD LONG size=22 markPrice=$2.228923009624 uPnL=$0.037906
+16:49:11 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.572762, available=$226.669131, uPnL=$0.037906
+16:49:12 [INFO] Lighter: Found 1 open positions
+16:49:12 [INFO] Lighter: Found 1 open positions
+16:49:12 [INFO] Lighter: Found 1 open positions
+16:49:12 [INFO] Lighter: Found 1 open positions
+16:49:12 [INFO] 📸 Position snapshot: X10=1, Lighter=1
+16:49:12 [INFO] ⏳ Waiting for 3 active executions to complete or rollback...
+16:49:12 [INFO] ✅ ParallelExecutionManager: Already stopping
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:12 [DEBUG] WS OB Update PENGU-USD: +1 bids, +1 asks (Total: 104 bids, 91 asks)
+16:49:12 [DEBUG] WS OB Update ZRO-USD: +4 bids, +2 asks (Total: 60 bids, 82 asks)
+16:49:12 [DEBUG] WS OB Update EDEN-USD: +2 bids, +2 asks (Total: 43 bids, 49 asks)
+16:49:12 [DEBUG] WS OB Update AVNT-USD: +0 bids, +2 asks (Total: 53 bids, 78 asks)
+16:49:12 [WARNING] ⚡ [MAKER STRATEGY] AERO-USD: SHUTDOWN detected - aborting wait!
+16:49:12 [WARNING] ⏰ [MAKER STRATEGY] AERO-USD: Wait timeout! Cancelling Lighter order f783caa9ba542fe0e57bc34aa59a2c40aa25cf3c50b82bf6bb5759f55d87cb998e9f94137eba74b6...
+16:49:12 [INFO] 🔍 Lighter: Attempting to resolve Hash f783caa9ba542fe0e57bc34aa59a2c40aa25cf3c50b82bf6bb5759f55d87cb998e9f94137eba74b6 to Order ID for AERO-USD...
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [WARNING] ⚡ [MAKER STRATEGY] SEI-USD: SHUTDOWN detected - aborting wait!
+16:49:12 [WARNING] ⏰ [MAKER STRATEGY] SEI-USD: Wait timeout! Cancelling Lighter order 2fc217dd5438d6cc5e55bf651664ea8323b90a98fe68116c758b1228005a346d1a278fbfa43792c6...
+16:49:12 [INFO] 🔍 Lighter: Attempting to resolve Hash 2fc217dd5438d6cc5e55bf651664ea8323b90a98fe68116c758b1228005a346d1a278fbfa43792c6 to Order ID for SEI-USD...
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [WARNING] ⚡ [MAKER STRATEGY] POPCAT-USD: SHUTDOWN detected - aborting wait!
+16:49:12 [WARNING] ⏰ [MAKER STRATEGY] POPCAT-USD: Wait timeout! Cancelling Lighter order 181df5ace6f7ae6946d6a2c9142ef7afc57d38175da3a8c98e2ad6fd444c7e249afdb3ac0aac4087...
+16:49:12 [INFO] 🔍 Lighter: Attempting to resolve Hash 181df5ace6f7ae6946d6a2c9142ef7afc57d38175da3a8c98e2ad6fd444c7e249afdb3ac0aac4087 to Order ID for POPCAT-USD...
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [DEBUG] WS OB Update ZEC-USD: +6 bids, +4 asks (Total: 548 bids, 540 asks)
+16:49:12 [DEBUG] WS OB Update LDO-USD: +0 bids, +1 asks (Total: 66 bids, 73 asks)
+16:49:12 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:12 [INFO] ℹ️ Lighter Cancel: Hash f783caa9ba... not found in open orders. Assuming closed.
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [INFO] Lighter: Found 1 open positions
+16:49:12 [INFO] ⚡ Attempting global Lighter cancel...
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:12 [DEBUG] WS OB Update EIGEN-USD: +2 bids, +2 asks (Total: 80 bids, 95 asks)
+16:49:12 [DEBUG] WS OB Update BTC-USD: +7 bids, +5 asks (Total: 3738 bids, 3210 asks)
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [DEBUG] ✅ TRUMP-USD: X10=$80,677, Lighter=$220,677, Total=$301,354
+16:49:13 [DEBUG] Lighter REST GET /api/v1/accountTrades returned 404 (no data - OK)
+16:49:13 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+16:49:13 [WARNING] ⚡ [MAKER STRATEGY] AERO-USD: SHUTDOWN - skipping extended ghost fill checks!
+16:49:13 [INFO] ✓ [MAKER STRATEGY] AERO-USD: Cancel confirmed (Clean Exit verified after 60s).
+16:49:13 [INFO] ═══════════════════════════════════════════════════════════
+16:49:13 [INFO] ❌ HEDGED TRADE ABORTED: AERO-USD - Lighter order not filled (timeout)
+16:49:13 [INFO] ═══════════════════════════════════════════════════════════
+16:49:13 [WARNING] ❌ Trade execution failed for AERO-USD
+16:49:13 [DEBUG] WS OB Update ZEC-USD: +0 bids, +1 asks (Total: 545 bids, 540 asks)
+16:49:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:13 [INFO] ℹ️ Lighter Cancel: Hash 2fc217dd54... not found in open orders. Assuming closed.
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:13 [INFO] ℹ️ Lighter Cancel: Hash 181df5ace6... not found in open orders. Assuming closed.
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+16:49:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:13 [INFO] ⚡ Executing ImmediateCancelAll (nonce=6076)...
+16:49:13 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765468752947,"Nonce":6076,"Sig":"MGQBHZt4Mshkn1SA4rCX4E1URSoy4TbT5IojLjwS2h7vHAFYIrlBfcc3h9gaLSuvLQwGGrtZfqdyOzSR/BhSJYe2in/8yClshBMnWyupFgo="}
+16:49:14 [DEBUG] Lighter REST GET /api/v1/accountTrades returned 404 (no data - OK)
+16:49:14 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+16:49:14 [WARNING] ⚡ [MAKER STRATEGY] POPCAT-USD: SHUTDOWN - skipping extended ghost fill checks!
+16:49:14 [INFO] ✓ [MAKER STRATEGY] POPCAT-USD: Cancel confirmed (Clean Exit verified after 60s).
+16:49:14 [INFO] ═══════════════════════════════════════════════════════════
+16:49:14 [INFO] ❌ HEDGED TRADE ABORTED: POPCAT-USD - Lighter order not filled (timeout)
+16:49:14 [INFO] ═══════════════════════════════════════════════════════════
+16:49:14 [WARNING] ❌ Trade execution failed for POPCAT-USD
+16:49:14 [DEBUG] Lighter REST GET /api/v1/accountTrades returned 404 (no data - OK)
+16:49:14 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+16:49:14 [WARNING] ⚡ [MAKER STRATEGY] SEI-USD: SHUTDOWN - skipping extended ghost fill checks!
+16:49:14 [INFO] ✓ [MAKER STRATEGY] SEI-USD: Cancel confirmed (Clean Exit verified after 60s).
+16:49:14 [INFO] ═══════════════════════════════════════════════════════════
+16:49:14 [INFO] ❌ HEDGED TRADE ABORTED: SEI-USD - Lighter order not filled (timeout)
+16:49:14 [INFO] ═══════════════════════════════════════════════════════════
+16:49:14 [WARNING] ❌ Trade execution failed for SEI-USD
+16:49:14 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='fb86ea8fe72895f9194e9c37b48d1b10f8d0abdd6429ee2b2f27988c7769e1725fe26f639171bfbd' predicted_execution_time_ms=1765468142448 additional_properties={}
+16:49:14 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765468752947,"Nonce":6076,"Sig":"MGQBHZt4Mshkn1SA4rCX4E1URSoy4TbT5IojLjwS2h7vHAFYIrlBfcc3h9gaLSuvLQwGGrtZfqdyOzSR/BhSJYe2in/8yClshBMnWyupFgo="})
+16:49:14 [INFO] 🛑 Cancelling open orders for 4 symbols (LighterGlobal=True)...
+16:49:14 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:14 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:14 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:14 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:14 [DEBUG] WS OB Update BNB-USD: +2 bids, +5 asks (Total: 421 bids, 353 asks)
+16:49:14 [DEBUG] WS OB Update AVAX-USD: +1 bids, +2 asks (Total: 108 bids, 106 asks)
+16:49:14 [DEBUG] WS OB Update ONDO-USD: +0 bids, +1 asks (Total: 76 bids, 123 asks)
+16:49:14 [DEBUG] WS OB Update PENGU-USD: +1 bids, +2 asks (Total: 101 bids, 88 asks)
+16:49:14 [DEBUG] WS OB Update LTC-USD: +0 bids, +1 asks (Total: 120 bids, 106 asks)
+16:49:14 [DEBUG] WS OB Update ENA-USD: +0 bids, +1 asks (Total: 242 bids, 483 asks)
+16:49:15 [DEBUG] WS OB Update SUI-USD: +0 bids, +1 asks (Total: 169 bids, 177 asks)
+16:49:15 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:15 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:16 [DEBUG] WS OB Update XRP-USD: +1 bids, +2 asks (Total: 162 bids, 151 asks)
+16:49:16 [INFO] Lighter: Found 1 open positions
+16:49:16 [INFO] 🔻 Close attempt 1/3 | x10=1, lighter=1
+16:49:16 [INFO] 🛑 Closing X10 PENDLE-USD (SELL 22.0)
+16:49:16 [INFO] 🛑 Closing Lighter PENDLE-USD: BUY 22.0 (IOC reduce_only, price=2.2309)
+16:49:16 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:16 [INFO] 🚀 LIGHTER OPEN PENDLE-USD: side=BUY, size_usd=$49.08, amount=22.0, price=$2.230900, TIF=IOC
+16:49:16 [DEBUG] 🔍 DEBUG: PENDLE-USD market_id = 37 (raw=37, type=<class 'int'>)
+16:49:16 [DEBUG] 🔄 PENDLE-USD: Shutdown detected - using passed price as mark (mark=$2.230900)
+16:49:16 [DEBUG] QUANTIZE PENDLE-USD: Notional=$49.079800000000006 -> RawAmt=22.000000 -> QuantAmt=22.000000 (x0.0001) -> BaseInt=2200
+16:49:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:16 [DEBUG] WS OB Update 1000BONK-USD: +0 bids, +2 asks (Total: 52 bids, 56 asks)
+16:49:16 [INFO] 🔒 Locked execution for PENDLE-USD BUY (Nonce: 6077)...
+16:49:16 [INFO] ⚡ MARKET ORDER PENDLE-USD: BUY 2200 @ avg_price=23551 (shutdown fast-close)
+16:49:16 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":37,"ClientOrderIndex":1765468232144,"BaseAmount":2200,"Price":23551,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765468755452,"Nonce":6077,"Sig":"NWdY5HTAvMfI5mvo/h3RXyL5CKjUjtXYqXBs39TdgtFja+enVp7rI37Q+dF/KKfoWCAMdiQMTW2iIvXac59GsYpk10VOdKeAIQ6HAWONED0="}
+16:49:16 [DEBUG] WS OB Update ENA-USD: +1 bids, +0 asks (Total: 242 bids, 484 asks)
+16:49:16 [DEBUG] WS OB Update OP-USD: +5 bids, +1 asks (Total: 47 bids, 94 asks)
+16:49:16 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s ago, msgs=48465)
+16:49:16 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='87cea40c57d040a97abbdaa6fb1530d6bb577a3b5e622b369d6400e57c39ea6cce0a7d7170a7dc21' predicted_execution_time_ms=1765468145154 additional_properties={}
+16:49:16 [INFO] ✅ Lighter Order Sent: 87cea40c57d040a97abbdaa6fb1530d6bb577a3b5e622b369d6400e57c39ea6cce0a7d7170a7dc21
+16:49:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:17 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:17 [DEBUG] ✅ SEI-USD: X10=$234,195, Lighter=$7,388,688, Total=$7,622,883
+16:49:17 [INFO] 🔻 X10 CLOSE PENDLE-USD: size=22.000000, side=SELL
+16:49:17 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:17 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:17 [DEBUG] Placing an order: id=1027381454112640402658024323270915324899011785407468589763908837794479158276
+16:49:17 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+16:49:17 [DEBUG] WS OB Update POPCAT-USD: +0 bids, +1 asks (Total: 61 bids, 54 asks)
+16:49:17 [INFO]  X10 Order: 1999144415905947648
+16:49:17 [INFO] 📊 [x10_account] FILL: PENDLE-USD SELL 22.0 @ $2.2260 (Order: 1999144415905947648, Fee: $0.0110, Taker: True)
+16:49:17 [INFO] 📋 [x10_account] ORDER: PENDLE-USD SELL FILLED qty=22 filled=22 @ $2.2139 (id=1999144415905947648)
+16:49:17 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.572762, available=$231.572762, uPnL=$0.037906
+16:49:17 [DEBUG] 📈 [x10_account] POSITION: PENDLE-USD LONG size=22 markPrice=$2.228923009624 uPnL=$0
+16:49:17 [DEBUG] 💰 [x10_account] BALANCE: equity=$231.497438, available=$231.497438, uPnL=$0.000000
+16:49:17 [DEBUG] WS OB Update ZEC-USD: +2 bids, +5 asks (Total: 537 bids, 541 asks)
+16:49:17 [DEBUG] WS OB Update GRASS-USD: +1 bids, +0 asks (Total: 58 bids, 94 asks)
+16:49:18 [DEBUG] WS OB Update POPCAT-USD: +1 bids, +1 asks (Total: 62 bids, 57 asks)
+16:49:18 [DEBUG] WS OB Update BTC-USD: +2 bids, +0 asks (Total: 3720 bids, 3189 asks)
+16:49:19 [DEBUG] WS OB Update BTC-USD: +0 bids, +5 asks (Total: 3716 bids, 3184 asks)
+16:49:19 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:19 [DEBUG] ✅ POPCAT-USD: X10=$139,840, Lighter=$5,886,753, Total=$6,026,594
+16:49:19 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:20 [DEBUG] WS OB Update BCH-USD: +0 bids, +1 asks (Total: 124 bids, 135 asks)
+16:49:20 [DEBUG] WS OB Update GRASS-USD: +0 bids, +1 asks (Total: 58 bids, 95 asks)
+16:49:20 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=0s ago, msgs=250)
+16:49:20 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=80s, last_msg=0s ago, msgs=24789)
+16:49:20 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=16s ago, msgs=182)
+16:49:20 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=3s ago, msgs=15)
+16:49:20 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:20 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:20 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:20 [DEBUG] WS OB Update XPL-USD: +1 bids, +0 asks (Total: 116 bids, 248 asks)
+16:49:21 [DEBUG] ✅ KAITO-USD: X10=$283,476, Lighter=$1,731,933, Total=$2,015,409
+16:49:21 [INFO] Lighter: Found 0 open positions
+16:49:21 [INFO] ✅ No open positions remaining
+16:49:21 [INFO] 🔍 Final position sweep...
+16:49:21 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:21 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:21 [DEBUG] WS OB Update FARTCOIN-USD: +2 bids, +1 asks (Total: 330 bids, 256 asks)
+16:49:21 [INFO] Lighter: Found 0 open positions
+16:49:21 [INFO] ✅ Final sweep: No positions found
+16:49:21 [INFO] 🛑 Stopping InMemoryStateManager...
+16:49:21 [INFO] 📝 State writer loop stopped
+16:49:22 [INFO] ✅ InMemoryStateManager stopped
+16:49:22 [INFO] 🛑 FeeManager stopped
+16:49:22 [INFO] 🔒 Closing database...
+16:49:22 [DEBUG] WS OB Update ASTER-USD: +0 bids, +1 asks (Total: 254 bids, 241 asks)
+16:49:22 [INFO] 🖊️ Database write loop stopped
+16:49:22 [INFO] ✅ Database closed
+16:49:22 [INFO] 💾 Persist phase complete
+16:49:22 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+16:49:22 [INFO] 💓 [x10_account] Keepalive loop stopped
+16:49:22 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:22 [DEBUG] ✅ TIA-USD: X10=$198,242, Lighter=$2,169,561, Total=$2,367,803
+16:49:23 [INFO] 🔌 [x10_trades] WebSocket stopped
+16:49:24 [DEBUG] [lighter] WebSocket connection closed forcefully (Timeout).
+16:49:24 [INFO] 🔌 [lighter] WebSocket stopped
+16:49:24 [DEBUG] [x10_funding] WebSocket connection closed forcefully (Timeout).
+16:49:24 [INFO] 🔌 [x10_funding] WebSocket stopped
+16:49:24 [DEBUG] [x10_account] WebSocket connection closed forcefully (Timeout).
+16:49:24 [INFO] 🔌 [x10_account] WebSocket stopped
+16:49:24 [DEBUG] [x10_orderbooks] WebSocket connection closed forcefully (Timeout).
+16:49:24 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+16:49:24 [INFO] ✅ WebSocketManager stopped
+16:49:24 [INFO] ✅ Lighter Adapter closed
+16:49:24 [INFO] ✅ X10 Adapter geschlossen.
+16:49:24 [INFO] ✅ Teardown complete
+16:49:24 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+16:49:25 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+16:49:25 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:25 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:25 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:26 [DEBUG] ✅ 1000PEPE-USD: X10=$269,198, Lighter=$200,032,687, Total=$200,301,885
+16:49:26 [INFO] Lighter: Found 0 open positions
+16:49:26 [INFO] ✅ All positions closed. Bye! (elapsed=13.94s)
+16:49:26 [INFO] ✅ Shutdown complete
+16:49:26 [INFO] 🛑 Shutting down...
+16:49:26 [INFO] 🛑 Shutdown requested...
+16:49:26 [INFO] 🛑 Stopping Dashboard API...
+16:49:26 [INFO] ✅ ParallelExecutionManager: Already stopping
+16:49:26 [INFO] ✅ WebSocketManager stopped
+16:49:26 [INFO] ✅ OpenInterestTracker stopped
+16:49:26 [INFO] 🛑 Funding tracker: Cancelled
+16:49:26 [INFO] ✅ Funding Tracker stopped
+16:49:26 [INFO] 🛑 Stopping InMemoryStateManager...
+16:49:26 [INFO] ✅ InMemoryStateManager stopped
+16:49:26 [INFO] 🛑 FeeManager stopped
+16:49:26 [INFO] 🔌 Closing adapters...
+16:49:26 [INFO] ✅ X10 Adapter geschlossen.
+16:49:26 [INFO] ✅ Lighter Adapter closed
+16:49:26 [INFO] ✅ Bot V5 shutdown complete
+16:49:26 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+16:49:26 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+16:49:26 [INFO] 🛑 Shutdown orchestrator start (reason=funding_bot)
+16:49:26 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+16:49:26 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+16:49:26 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+16:49:27 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+16:49:27 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:27 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:29 [INFO] Lighter: Found 0 open positions
+16:49:29 [INFO] 📸 Position snapshot: X10=0, Lighter=0
+16:49:29 [INFO] ✅ No active executions to wait for
+16:49:29 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:29 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:30 [INFO] Lighter: Found 0 open positions
+16:49:30 [INFO] ⚡ Attempting global Lighter cancel...
+16:49:30 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:30 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+16:49:30 [INFO] 🛑 Cancelling open orders for 1 symbols (LighterGlobal=True)...
+16:49:30 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+16:49:30 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:30 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:30 [INFO] Lighter: Found 0 open positions
+16:49:30 [INFO] ✅ No open positions to close
+16:49:30 [INFO] 🔍 Final position sweep...
+16:49:30 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
+16:49:30 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions
+16:49:30 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:30 [INFO] ✅ Final sweep: No positions found
+16:49:30 [INFO] 🛑 Stopping InMemoryStateManager...
+16:49:30 [INFO] ✅ InMemoryStateManager stopped
+16:49:30 [INFO] 🛑 FeeManager stopped
+16:49:30 [INFO] 💾 Persist phase complete
+16:49:30 [INFO] ✅ WebSocketManager stopped
+16:49:30 [INFO] ✅ Lighter Adapter closed
+16:49:30 [INFO] ✅ X10 Adapter geschlossen.
+16:49:30 [INFO] ✅ Teardown complete
+16:49:31 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+16:49:32 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+16:49:32 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+16:49:32 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+16:49:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+16:49:33 [INFO] Lighter: Found 0 open positions
+16:49:33 [INFO] ✅ All positions closed. Bye! (elapsed=4.09s)
+16:49:33 [INFO] ✅ All positions closed. Bye!
+16:49:33 [INFO] 🛑 Stopping Infrastructure...
+16:49:33 [INFO] 🛑 Stopping InMemoryStateManager...
+16:49:33 [INFO] ✅ InMemoryStateManager stopped
+16:49:33 [INFO] 🛑 FeeManager stopped
+16:49:33 [INFO] ✅ X10 Adapter geschlossen.
+16:49:33 [INFO] ✅ Lighter Adapter closed

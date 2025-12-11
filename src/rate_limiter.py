@@ -3,7 +3,7 @@
 import asyncio
 import time
 import logging
-from typing import Optional, Dict, Callable, Any
+from typing import Optional, Dict, Callable, Any, List
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
@@ -38,6 +38,7 @@ class TokenBucketRateLimiter:
     - Exponential backoff on repeated 429s
     - Per-exchange isolation
     - Request deduplication (prevents API storms)
+    - Graceful shutdown support (cancels all waiting tasks)
     """
     
     def __init__(self, config: Optional[RateLimiterConfig] = None, name: str = "default"):
@@ -52,6 +53,13 @@ class TokenBucketRateLimiter:
         self._current_penalty = self.config.penalty_429_seconds
         
         self._lock = asyncio.Lock()
+        
+        # ═══════════════════════════════════════════════════════════════
+        # GRACEFUL SHUTDOWN SUPPORT
+        # ═══════════════════════════════════════════════════════════════
+        self._shutdown = False
+        self._waiters: List[asyncio.Task] = []
+        self._waiters_lock = asyncio.Lock()
         
         # ═══════════════════════════════════════════════════════════════
         # REQUEST DEDUPLICATION (Prevents API storms during shutdown)
@@ -76,21 +84,79 @@ class TokenBucketRateLimiter:
         self._tokens = min(self.config.max_tokens, self._tokens + tokens_to_add)
         self._last_refill = now
     
+    def shutdown(self):
+        """
+        Signal shutdown - cancel all waiting tasks.
+        
+        This should be called early in the shutdown sequence,
+        BEFORE trying to close positions, to prevent rate-limited
+        operations from hanging.
+        """
+        if self._shutdown:
+            return  # Already shut down
+        
+        self._shutdown = True
+        cancelled_count = 0
+        
+        # Cancel all waiting tasks
+        for task in self._waiters:
+            if task and not task.done():
+                task.cancel()
+                cancelled_count += 1
+        
+        self._waiters.clear()
+        logger.info(f"🛑 [{self.name}] Rate limiter shutdown - cancelled {cancelled_count} waiters")
+    
+    @property
+    def is_shutdown(self) -> bool:
+        """Check if rate limiter is in shutdown mode."""
+        return self._shutdown
+    
+    async def _register_waiter(self) -> asyncio.Task:
+        """Register current task as a waiter."""
+        task = asyncio.current_task()
+        if task:
+            async with self._waiters_lock:
+                self._waiters.append(task)
+        return task
+    
+    async def _unregister_waiter(self, task: asyncio.Task):
+        """Unregister task from waiters."""
+        if task:
+            async with self._waiters_lock:
+                if task in self._waiters:
+                    self._waiters.remove(task)
+    
     async def acquire(self, tokens: float = 1.0) -> float:
         """
         Acquire tokens, waiting if necessary.
-        Returns wait time in seconds.
+        Returns wait time in seconds, or -1.0 if shutdown/cancelled.
         
         Handles asyncio.CancelledError gracefully during shutdown.
+        Callers should check for negative return value to detect shutdown.
         """
+        # ═══════════════════════════════════════════════════════════════
+        # SHUTDOWN CHECK: Return immediately if shutting down
+        # ═══════════════════════════════════════════════════════════════
+        if self._shutdown:
+            logger.debug(f"[{self.name}] Rate limiter acquire() skipped - shutdown active")
+            return -1.0
+        
         # SAFETY: Ensure tokens is a float (catches caller bugs)
         if not isinstance(tokens, (int, float)):
             logger.warning(f"[{self.name}] acquire() called with non-numeric tokens: {tokens} (type={type(tokens)}). Using 1.0")
             tokens = 1.0
         tokens = float(tokens)
         
+        # Register this task as a waiter so it can be cancelled during shutdown
+        current_task = await self._register_waiter()
+        
         try:
             async with self._lock:
+                # Double-check shutdown after acquiring lock
+                if self._shutdown:
+                    return -1.0
+                
                 self._requests_total += 1
                 
                 # Check penalty
@@ -104,6 +170,10 @@ class TokenBucketRateLimiter:
                     except asyncio.CancelledError:
                         logger.debug(f"[{self.name}] Rate limiter sleep cancelled during penalty wait")
                         raise
+                    
+                    # Check shutdown after sleep
+                    if self._shutdown:
+                        return -1.0
                     now = time.monotonic()
                 
                 # Refill tokens
@@ -118,6 +188,10 @@ class TokenBucketRateLimiter:
                     except asyncio.CancelledError:
                         logger.debug(f"[{self.name}] Rate limiter sleep cancelled during interval wait")
                         raise
+                    
+                    # Check shutdown after sleep
+                    if self._shutdown:
+                        return -1.0
                 
                 # Wait for tokens if needed
                 if self._tokens < tokens:
@@ -130,6 +204,10 @@ class TokenBucketRateLimiter:
                     except asyncio.CancelledError:
                         logger.debug(f"[{self.name}] Rate limiter sleep cancelled during token wait")
                         raise
+                    
+                    # Check shutdown after sleep
+                    if self._shutdown:
+                        return -1.0
                     self._refill_tokens()
                 
                 # Consume tokens
@@ -142,6 +220,9 @@ class TokenBucketRateLimiter:
             # This prevents "exception was never retrieved" errors in asyncio.gather()
             logger.debug(f"[{self.name}] Rate limiter acquire cancelled during shutdown")
             return -1.0  # Caller should check for negative value
+        finally:
+            # Always unregister waiter
+            await self._unregister_waiter(current_task)
     
     def penalize_429(self):
         """Apply penalty for 429 response"""
@@ -208,7 +289,9 @@ class TokenBucketRateLimiter:
             "requests_deduplicated": self._requests_deduplicated,
             "penalties_applied": self._penalties_applied,
             "consecutive_429s": self._consecutive_429s,
-            "penalty_active": time.monotonic() < self._penalty_until
+            "penalty_active": time.monotonic() < self._penalty_until,
+            "shutdown": self._shutdown,
+            "active_waiters": len(self._waiters)
         }
 
 
@@ -342,3 +425,34 @@ async def reset_all_limiters():
         limiter._penalty_until = 0.0
         limiter._consecutive_429s = 0
         limiter._current_penalty = limiter.config.penalty_429_seconds
+        limiter._shutdown = False
+        limiter._waiters.clear()
+
+
+def shutdown_all_rate_limiters():
+    """
+    Shutdown all rate limiters - cancel all waiting tasks.
+    
+    This should be called early in the bot shutdown sequence,
+    BEFORE trying to close positions, to prevent rate-limited
+    operations from blocking or hanging during shutdown.
+    
+    Returns:
+        Dict with shutdown stats for each limiter
+    """
+    stats = {}
+    for name, limiter in [("X10", X10_RATE_LIMITER), ("LIGHTER", LIGHTER_RATE_LIMITER)]:
+        waiter_count = len(limiter._waiters)
+        limiter.shutdown()
+        stats[name] = {
+            "waiters_cancelled": waiter_count,
+            "shutdown": limiter._shutdown
+        }
+    
+    logger.info(f"🛑 All rate limiters shutdown: {stats}")
+    return stats
+
+
+def are_rate_limiters_shutdown() -> bool:
+    """Check if all rate limiters are in shutdown mode."""
+    return X10_RATE_LIMITER.is_shutdown and LIGHTER_RATE_LIMITER.is_shutdown

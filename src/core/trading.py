@@ -323,24 +323,69 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             )
 
             if success:
+                # ═══════════════════════════════════════════════════════════════
+                # TRADE RECORDING - Save to database with comprehensive logging
+                # ═══════════════════════════════════════════════════════════════
+                logger.info(f"📝 Recording trade {symbol} in database...")
+                
+                entry_price_x10 = x10.fetch_mark_price(symbol) or 0.0
+                entry_price_lighter = lighter.fetch_mark_price(symbol) or 0.0
+                apy_value = opp.get('apy', 0.0)
+                
                 trade_data = {
                     'symbol': symbol,
                     'entry_time': datetime.now(timezone.utc),
                     'notional_usd': final_usd,
                     'status': 'OPEN',
                     'leg1_exchange': leg1_ex,
-                    'entry_price_x10': x10.fetch_mark_price(symbol) or 0.0,
-                    'entry_price_lighter': lighter.fetch_mark_price(symbol) or 0.0,
+                    'entry_price_x10': entry_price_x10,
+                    'entry_price_lighter': entry_price_lighter,
                     'is_farm_trade': opp.get('is_farm_trade', False),
                     'account_label': "Main/Main",
                     'x10_order_id': str(x10_id) if x10_id else None,
-                    'lighter_order_id': str(lit_id) if lit_id else None
+                    'lighter_order_id': str(lit_id) if lit_id else None,
+                    'side_x10': x10_side,
+                    'side_lighter': lit_side,
                 }
-                await add_trade_to_state(trade_data)
+                
+                try:
+                    await add_trade_to_state(trade_data)
+                    logger.info(f"✅ Trade {symbol} recorded successfully")
+                    logger.info(f"   X10 Order ID: {x10_id}")
+                    logger.info(f"   Lighter Order ID: {lit_id[:30] if lit_id and len(lit_id) > 30 else lit_id}...")
+                    logger.info(f"   Size: ${final_usd:.2f}")
+                    logger.info(f"   Entry X10: ${entry_price_x10:.6f}")
+                    logger.info(f"   Entry Lighter: ${entry_price_lighter:.6f}")
+                    logger.info(f"   APY: {apy_value:.2f}%")
+                except Exception as db_error:
+                    # CRITICAL: Trade is open on exchanges but not in DB!
+                    logger.error(f"❌ Failed to record trade {symbol}: {db_error}")
+                    logger.critical(f"═══════════════════════════════════════════════════════════")
+                    logger.critical(f"🚨 ORPHAN TRADE DETECTED: {symbol}")
+                    logger.critical(f"🚨 Trade is OPEN on exchanges but NOT recorded in database!")
+                    logger.critical(f"   X10 Order ID: {x10_id}")
+                    logger.critical(f"   Lighter Order ID: {lit_id}")
+                    logger.critical(f"   Size: ${final_usd:.2f}")
+                    logger.critical(f"═══════════════════════════════════════════════════════════")
+                    
+                    # Try to send Telegram alert
+                    try:
+                        telegram = get_telegram_bot()
+                        if telegram and telegram.enabled:
+                            await telegram.send_error(
+                                f"🚨 ORPHAN TRADE: {symbol}\n"
+                                f"Trade is OPEN on exchanges but NOT in database!\n"
+                                f"X10: {x10_id}\n"
+                                f"Lighter: {lit_id}\n"
+                                f"Size: ${final_usd:.2f}"
+                            )
+                    except Exception:
+                        pass
                 
                 logger.info(f"✅ OPENED {symbol}: ${final_usd:.2f}")
                 return True
             else:
+                logger.warning(f"❌ Trade execution failed for {symbol}")
                 FAILED_COINS[symbol] = time.time()
                 return False
 
@@ -360,14 +405,20 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 # ============================================================
 async def close_trade(trade: Dict, lighter, x10) -> bool:
     """
-    Close trade on both exchanges.
+    Close trade on both exchanges with comprehensive logging.
     """
     _, _, close_trade_in_state, _, _ = _get_state_functions()
     
     symbol = trade['symbol']
-    logger.info(f" 🔻 CLOSING {symbol}...")
+    notional_usd = safe_float(trade.get('notional_usd', 0))
+    
+    logger.info(f"═══════════════════════════════════════════════════════════")
+    logger.info(f"🔻 CLOSING TRADE: {symbol}")
+    logger.info(f"   Notional: ${notional_usd:.2f}")
+    logger.info(f"═══════════════════════════════════════════════════════════")
 
     # Step 1: Close Lighter
+    logger.info(f"📤 [LEG 1] Closing Lighter position for {symbol}...")
     lighter_success = False
     lighter_code_error = False
     lighter_exit_order_id = None
@@ -379,9 +430,11 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
 
         if pos and abs(size) > 1e-10:
             side = "SELL" if size > 0 else "BUY"
+            position_side = "LONG" if size > 0 else "SHORT"
             px = safe_float(lighter.fetch_mark_price(symbol))
             if px > 0:
                 usd_size = abs(size) * px
+                logger.info(f"   Lighter {symbol}: {position_side} {abs(size):.6f} coins @ ${px:.4f} = ${usd_size:.2f}")
                 
                 try:
                     result = await lighter.close_live_position(symbol, side, usd_size)
@@ -390,22 +443,27 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
                         lighter_exit_order_id = result[1] if len(result) > 1 else None
                     else:
                         lighter_success = bool(result)
+                    
+                    if lighter_success:
+                        logger.info(f"✅ [LEG 1] Lighter {symbol} closed: {lighter_exit_order_id}")
+                    else:
+                        logger.error(f"❌ [LEG 1] Lighter {symbol} close returned False")
                 except TypeError as type_err:
                     logger.critical(f"🚨 TypeError in Lighter close for {symbol}: {type_err}")
                     lighter_code_error = True
                 except Exception as close_err:
-                    logger.error(f"❌ Lighter close failed for {symbol}: {close_err}")
+                    logger.error(f"❌ [LEG 1] Lighter close failed for {symbol}: {close_err}")
             else:
-                logger.error(f"❌ Lighter close {symbol}: Invalid price")
+                logger.error(f"❌ [LEG 1] Lighter close {symbol}: Invalid price (px={px})")
         else:
-            logger.info(f"✅ Lighter {symbol}: No position to close")
+            logger.info(f"✅ [LEG 1] Lighter {symbol}: No position to close (size={size})")
             lighter_success = True
 
     except TypeError as e:
         logger.critical(f"🚨 TypeError in Lighter close flow for {symbol}: {e}")
         lighter_code_error = True
     except Exception as e:
-        logger.error(f"❌ Lighter close failed for {symbol}: {e}")
+        logger.error(f"❌ [LEG 1] Lighter close failed for {symbol}: {e}")
 
     # Emergency recovery for code errors
     if lighter_code_error:
@@ -429,20 +487,33 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         logger.error(f"❌ Lighter failed for {symbol}, keeping X10 as hedge")
         return False
 
-    logger.info(f"✅ Lighter {symbol} OK, closing X10...")
+    logger.info(f"✅ [LEG 1] Lighter {symbol} closed, closing X10...")
 
     x10_success = False
+    x10_exit_order_id = None
     try:
         x10_exit_order_id = await safe_close_x10_position(x10, symbol, "AUTO", 0)
         x10_success = x10_exit_order_id is not None
+        if x10_success:
+            logger.info(f"✅ [LEG 2] X10 {symbol} closed: {x10_exit_order_id}")
+        else:
+            logger.error(f"❌ [LEG 2] X10 {symbol} close returned None")
     except Exception as e:
-        logger.error(f"❌ X10 close failed for {symbol}: {e}")
+        logger.error(f"❌ [LEG 2] X10 close failed for {symbol}: {e}")
 
     if lighter_success and x10_success:
-        logger.info(f"✅ {symbol} fully closed")
+        logger.info(f"═══════════════════════════════════════════════════════════")
+        logger.info(f"✅ TRADE CLOSED: {symbol}")
+        logger.info(f"   Lighter Exit: {lighter_exit_order_id}")
+        logger.info(f"   X10 Exit: {x10_exit_order_id}")
+        logger.info(f"═══════════════════════════════════════════════════════════")
         return True
     else:
-        logger.warning(f"⚠️ {symbol} partial: Lighter={lighter_success}, X10={x10_success}")
+        logger.warning(f"═══════════════════════════════════════════════════════════")
+        logger.warning(f"⚠️ TRADE PARTIALLY CLOSED: {symbol}")
+        logger.warning(f"   Lighter: {'✅' if lighter_success else '❌'} (Exit: {lighter_exit_order_id})")
+        logger.warning(f"   X10: {'✅' if x10_success else '❌'} (Exit: {x10_exit_order_id})")
+        logger.warning(f"═══════════════════════════════════════════════════════════")
         return False
 
 

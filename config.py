@@ -21,11 +21,11 @@ load_dotenv()
 # Faustregel: (Position Size * Max Trades) / Dein Kapital = Benötigter Hebel
 # $500 * 5 Trades = $2500 Total Exposure. Bei $270 Kapital -> 9.25x Hebel (OK)
 # $1000 * 5 Trades = $5000 Total Exposure. Bei $500 Kapital -> 10x Hebel (OK)
-DESIRED_NOTIONAL_USD = 50.0       # Increased to $100 for higher volume
-MAX_OPEN_TRADES = 5               # 5 * 60 = $300 (fits with minimal leverage)
-LEVERAGE_MULTIPLIER = 5.0         # Reduced to 5x (plenty for low leverage alts)
+DESIRED_NOTIONAL_USD = 50.0       # Position size per trade in USD
+MAX_OPEN_TRADES = 5               # Max concurrent positions (5 * $50 = $250 total exposure)
+LEVERAGE_MULTIPLIER = 5.0         # Maximum allowed leverage multiplier
 # Burs Limit (New)
-FARM_MAX_CONCURRENT_ORDERS = 5    # Limit concurrent launches to 3
+FARM_MAX_CONCURRENT_ORDERS = 5    # Max concurrent order launches per cycle
 
 # 🔴 CIRCUIT BREAKER (NOT-AUS)
 # ------------------------------------------------------------------------------

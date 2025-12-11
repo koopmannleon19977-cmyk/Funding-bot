@@ -90,6 +90,9 @@ class OpenInterestTracker:
         self._update_task: Optional[asyncio.Task] = None
         self._running = False
         
+        # Graceful shutdown support
+        self._shutdown_event = asyncio.Event()
+        
         # Symbols to track
         self._tracked_symbols: set = set()
         
@@ -123,6 +126,7 @@ class OpenInterestTracker:
             return
         
         self._running = True
+        self._shutdown_event.clear()
         self._update_task = asyncio.create_task(
             self._update_loop(),
             name="oi_tracker"
@@ -130,21 +134,32 @@ class OpenInterestTracker:
         logger.info(f"✅ OpenInterestTracker started (interval={self._fetch_interval}s)")
     
     async def stop(self):
-        """Stop background tracking"""
+        """Gracefully stop the OI tracking loop."""
+        logger.info("🛑 Stopping OpenInterestTracker...")
         self._running = False
+        self._shutdown_event.set()
+        
         if self._update_task and not self._update_task.done():
-            self._update_task.cancel()
             try:
-                await self._update_task
+                # Wait for task to finish with timeout
+                await asyncio.wait_for(self._update_task, timeout=5.0)
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ OI Tracker didn't stop gracefully - cancelling")
+                self._update_task.cancel()
+                try:
+                    await self._update_task
+                except asyncio.CancelledError:
+                    pass
             except asyncio.CancelledError:
                 pass
+                
         logger.info("✅ OpenInterestTracker stopped")
     
     async def _update_loop(self):
-        """Rate-limited OI polling with detailed logging"""
+        """Rate-limited OI polling with shutdown awareness"""
         cycle_count = 0
         
-        while self._running:
+        while not self._shutdown_event.is_set():
             try:
                 cycle_count += 1
                 symbols = list(self._tracked_symbols)
@@ -152,7 +167,18 @@ class OpenInterestTracker:
                 logger.info(f"📊 OI Tracker: Starting cycle {cycle_count} ({len(symbols)} symbols)")
                 
                 if not symbols:
-                    await asyncio.sleep(self._fetch_interval)
+                    # Wait for next cycle with shutdown check
+                    try:
+                        await asyncio.wait_for(
+                            self._shutdown_event.wait(),
+                            timeout=self._fetch_interval
+                        )
+                        # If we get here, shutdown was requested
+                        logger.debug("OI Tracker: Shutdown requested during empty cycle wait")
+                        return
+                    except asyncio.TimeoutError:
+                        # Normal timeout - continue to next cycle
+                        pass
                     continue
                 
                 updated_count = 0
@@ -162,14 +188,19 @@ class OpenInterestTracker:
                 
                 # Batch processing with delays
                 for i in range(0, len(symbols), self._batch_size):
-                    if not self._running:
-                        break
+                    # Check shutdown between each batch
+                    if self._shutdown_event.is_set():
+                        logger.debug("OI Tracker: Shutdown requested mid-cycle (batch)")
+                        return
                         
                     batch = symbols[i:i + self._batch_size]
                     
                     for sym in batch:
-                        if not self._running:
-                            break
+                        # Check shutdown between each symbol
+                        if self._shutdown_event.is_set():
+                            logger.debug("OI Tracker: Shutdown requested mid-cycle (symbol)")
+                            return
+                            
                         try:
                             # Fetch from X10
                             oi_x10 = 0.0
@@ -182,9 +213,19 @@ class OpenInterestTracker:
                                     if "429" in str(e):
                                         rate_limited = True
                                         logger.warning(f"⚠️ OI Tracker: 429 rate limit on X10 for {sym}, pausing 30s")
-                                        await asyncio.sleep(30.0)
+                                        # Interruptible sleep for rate limit
+                                        try:
+                                            await asyncio.wait_for(self._shutdown_event.wait(), timeout=30.0)
+                                            return  # Shutdown requested
+                                        except asyncio.TimeoutError:
+                                            pass
                                     failed_count += 1
-                                await asyncio.sleep(0.5)
+                                # Interruptible short delay
+                                try:
+                                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=0.5)
+                                    return
+                                except asyncio.TimeoutError:
+                                    pass
                             
                             if self.lighter:
                                 try:
@@ -193,7 +234,12 @@ class OpenInterestTracker:
                                     if "429" in str(e):
                                         rate_limited = True
                                         logger.warning(f"⚠️ OI Tracker: 429 rate limit on Lighter for {sym}, pausing 30s")
-                                        await asyncio.sleep(30.0)
+                                        # Interruptible sleep for rate limit
+                                        try:
+                                            await asyncio.wait_for(self._shutdown_event.wait(), timeout=30.0)
+                                            return  # Shutdown requested
+                                        except asyncio.TimeoutError:
+                                            pass
                                     failed_count += 1
                             
                             oi_total = oi_x10 + oi_lighter
@@ -225,15 +271,29 @@ class OpenInterestTracker:
                             if "429" in str(e):
                                 rate_limited = True
                                 logger.warning(f"⚠️ OI Tracker: 429 rate limit on {sym}, pausing 30s")
-                                await asyncio.sleep(30.0)
+                                # Interruptible sleep for rate limit
+                                try:
+                                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=30.0)
+                                    return  # Shutdown requested
+                                except asyncio.TimeoutError:
+                                    pass
                             else:
                                 logger.debug(f"❌ {sym}: Error fetching OI: {e}")
                             continue
                         
-                        await asyncio.sleep(self._batch_delay)
+                        # Interruptible batch delay
+                        try:
+                            await asyncio.wait_for(self._shutdown_event.wait(), timeout=self._batch_delay)
+                            return  # Shutdown requested
+                        except asyncio.TimeoutError:
+                            pass
                     
-                    # Pause between batches
-                    await asyncio.sleep(2.0)
+                    # Interruptible pause between batches
+                    try:
+                        await asyncio.wait_for(self._shutdown_event.wait(), timeout=2.0)
+                        return  # Shutdown requested
+                    except asyncio.TimeoutError:
+                        pass
                 
                 # ═══════════════════════════════════════════════════════════
                 # DETAILED LOGGING: Show results after each cycle
@@ -257,16 +317,31 @@ class OpenInterestTracker:
                 if rate_limited:
                     logger.warning(f"⚠️ Rate limit detected in cycle {cycle_count}, extending interval")
                 
-                # Main interval
-                await asyncio.sleep(self._fetch_interval)
-
-                
+                # Wait for next cycle with shutdown check
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(),
+                        timeout=self._fetch_interval
+                    )
+                    # If we get here, shutdown was requested
+                    return
+                except asyncio.TimeoutError:
+                    # Normal timeout - continue to next cycle
+                    pass
                 
             except asyncio.CancelledError:
-                break
+                logger.debug("OI Tracker: Cancelled")
+                return
             except Exception as e:
                 logger.error(f"OI Tracker error: {e}")
-                await asyncio.sleep(60.0)
+                if self._shutdown_event.is_set():
+                    return
+                # Interruptible error recovery pause
+                try:
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=5.0)
+                    return  # Shutdown requested
+                except asyncio.TimeoutError:
+                    pass  # Brief pause before retry
     
     async def _update_all_symbols(self):
         """Update OI for all tracked symbols"""

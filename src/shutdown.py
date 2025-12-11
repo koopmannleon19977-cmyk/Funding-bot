@@ -4,6 +4,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import config
+from src.rate_limiter import shutdown_all_rate_limiters
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,18 @@ class ShutdownOrchestrator:
                 pass
 
             logger.info(f"🛑 Shutdown orchestrator start (reason={reason})")
+            
+            # ═══════════════════════════════════════════════════════════
+            # PHASE 0.5: Shutdown rate limiters FIRST
+            # This cancels all waiting tasks to prevent hanging during shutdown
+            # Must happen BEFORE any position closing attempts
+            # ═══════════════════════════════════════════════════════════
+            try:
+                rate_limiter_stats = shutdown_all_rate_limiters()
+                logger.info(f"🛑 Rate limiters shutdown: {rate_limiter_stats}")
+            except Exception as e:
+                errors.append(f"rate_limiter_shutdown:{e}")
+                logger.warning(f"⚠️ Rate limiter shutdown error (non-fatal): {e}")
 
             # ═══════════════════════════════════════════════════════════
             # PHASE 1: Snapshot current positions BEFORE any changes

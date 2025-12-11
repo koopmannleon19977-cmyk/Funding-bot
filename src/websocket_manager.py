@@ -496,9 +496,12 @@ class ManagedWebSocket:
                         logger.debug(f"[{self.config.name}] Failed to send JSON pong: {e}")
                 return
             
-            # Handle PONG responses (just log, no action needed)
+            # Handle PONG responses - pass to message handler for health tracking
+            # (x10_account uses pongs for keepalive health monitoring)
             if msg_type == 'pong' or "pong" in data:
                 logger.debug(f"[{self.config.name}] Received PONG response")
+                # Don't return - let the message handler track pongs for health monitoring
+                await self.message_handler(self.config.name, data)
                 return
             
             await self.message_handler(self.config.name, data)
@@ -518,12 +521,21 @@ class ManagedWebSocket:
         Diese Methode überwacht die Verbindungsgesundheit mit unterschiedlichen
         Thresholds für Firehose-Streams (die nicht kontinuierlich senden) vs.
         reguläre Streams.
+        
+        SPECIAL HANDLING for x10_account:
+        - The account stream may not send messages if no account activity
+        - Health monitoring is handled separately by WebSocketManager._x10_account_keepalive_loop
+        - This heartbeat only logs status, doesn't trigger reconnect (handled by keepalive loop)
         """
         # Unterschiedliche Thresholds für verschiedene Stream-Typen
         if self.config.name in ["x10_trades", "x10_funding"]:
             # Firehose: Mehr Toleranz, da nicht jede Sekunde Updates kommen
             stale_threshold = 300.0  # 5 Minuten für Firehose
             expected_interval = 60.0  # Erwarte mindestens alle 60s ein Update
+        elif self.config.name == "x10_account":
+            # Account stream: Relaxed threshold - health check handled by keepalive loop
+            stale_threshold = 300.0  # 5 Minuten - reconnect handled by keepalive loop
+            expected_interval = 30.0  # Just for logging
         else:
             # Regular streams: Strenger
             stale_threshold = 180.0  # 3 Minuten
@@ -552,7 +564,8 @@ class ManagedWebSocket:
                         )
                     
                     # Reconnect at stale_threshold
-                    if silence > stale_threshold:
+                    # NOTE: x10_account reconnect is handled by dedicated keepalive loop
+                    if silence > stale_threshold and self.config.name != "x10_account":
                         logger.warning(
                             f"🔴 [{self.config.name}] Stream stale ({silence:.0f}s), reconnecting..."
                         )
@@ -676,6 +689,7 @@ class WebSocketManager:
     - Health monitoring and metrics
     - Subscription management
     - Message routing to handlers
+    - X10 Account WebSocket health monitoring with keepalive pings
     """
     
     # Exchange WebSocket URLs
@@ -700,6 +714,16 @@ class WebSocketManager:
         
         # OI Tracker
         self. oi_tracker = None
+        
+        # ═══════════════════════════════════════════════════════════════
+        # X10 Account WebSocket Health Tracking
+        # The account stream may not send messages if no account activity
+        # (no trades, position changes, etc.) - we need active keepalive
+        # ═══════════════════════════════════════════════════════════════
+        self._x10_account_stale_threshold = 180.0  # 3 minutes without ANY message triggers reconnect
+        self._x10_account_ping_interval = 30.0     # Send application-level ping every 30s
+        self._x10_account_keepalive_task: Optional[asyncio.Task] = None
+        self._x10_account_last_pong_time = 0.0     # Track when we last received a pong
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters for data updates"""
@@ -713,6 +737,148 @@ class WebSocketManager:
     def set_oi_tracker(self, oi_tracker):
         """Set OI tracker for real-time updates"""
         self. oi_tracker = oi_tracker
+    
+    # ═══════════════════════════════════════════════════════════════
+    # X10 ACCOUNT WEBSOCKET HEALTH MONITORING
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def _x10_account_keepalive_loop(self):
+        """
+        Dedicated keepalive loop for X10 account WebSocket.
+        
+        X10 account stream may not send messages if no account activity,
+        but we need to verify the connection is still alive by sending
+        application-level pings and checking for pong responses.
+        """
+        logger.info("💓 [x10_account] Keepalive loop started")
+        
+        while self._running:
+            try:
+                await asyncio.sleep(self._x10_account_ping_interval)
+                
+                if not self._running:
+                    break
+                
+                # Check if we have a connection
+                conn = self._connections.get("x10_account")
+                if not conn or not conn.is_connected:
+                    logger.debug("💓 [x10_account] Not connected, skipping keepalive ping")
+                    continue
+                
+                # Send application-level ping
+                try:
+                    # X10 uses JSON ping format: {"type": "ping"} or {"ping": timestamp}
+                    ping_msg = {"type": "ping", "ts": int(time.time() * 1000)}
+                    success = await conn.send(ping_msg)
+                    
+                    if success:
+                        logger.debug(f"💓 [x10_account] Sent keepalive ping")
+                    else:
+                        logger.warning(f"⚠️ [x10_account] Failed to send keepalive ping")
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ [x10_account] Ping failed: {e}")
+                
+                # Check connection health
+                is_healthy = await self._check_x10_account_health()
+                if not is_healthy:
+                    logger.warning(f"⚠️ [x10_account] Health check failed - triggering reconnect...")
+                    await self._reconnect_x10_account()
+                    
+            except asyncio.CancelledError:
+                logger.debug("💓 [x10_account] Keepalive loop cancelled")
+                break
+            except Exception as e:
+                logger.error(f"[x10_account] Keepalive error: {e}")
+                await asyncio.sleep(5.0)  # Brief pause on error
+        
+        logger.info("💓 [x10_account] Keepalive loop stopped")
+    
+    async def _check_x10_account_health(self) -> bool:
+        """
+        Check if X10 account WebSocket is healthy.
+        
+        Returns True if healthy, False if needs reconnect.
+        A connection is considered unhealthy if:
+        - WebSocket is closed
+        - No messages received for longer than stale_threshold
+        """
+        conn = self._connections.get("x10_account")
+        if not conn:
+            logger.warning(f"⚠️ [x10_account] Connection object not found")
+            return False
+        
+        # Check connection state
+        if not conn.is_connected:
+            logger.warning(f"⚠️ [x10_account] WebSocket not connected (state: {conn.state})")
+            return False
+        
+        # Check message freshness (ANY message, including pongs)
+        now = time.time()
+        last_msg = conn.metrics.last_message_time or 0
+        
+        # Also consider pong time if available
+        effective_last_msg = max(last_msg, self._x10_account_last_pong_time)
+        
+        if effective_last_msg > 0:
+            silence_duration = now - effective_last_msg
+            
+            if silence_duration > self._x10_account_stale_threshold:
+                logger.warning(
+                    f"⚠️ [x10_account] STALE - No messages for {silence_duration:.0f}s "
+                    f"(threshold: {self._x10_account_stale_threshold}s)"
+                )
+                return False
+            else:
+                logger.debug(
+                    f"💓 [x10_account] Health OK - last activity {silence_duration:.0f}s ago"
+                )
+        
+        return True
+    
+    async def _reconnect_x10_account(self):
+        """
+        Force reconnect of X10 account WebSocket.
+        
+        This stops the current connection and lets the auto-reconnect
+        mechanism in ManagedWebSocket handle the reconnection.
+        """
+        conn = self._connections.get("x10_account")
+        if not conn:
+            return
+        
+        logger.warning(f"🔄 [x10_account] Forcing reconnection due to stale connection...")
+        
+        try:
+            # Stop the current connection - this will trigger the auto-reconnect loop
+            await conn.stop()
+            
+            # Brief pause before restart
+            await asyncio.sleep(1.0)
+            
+            # Restart the connection
+            await conn.start()
+            
+            logger.info(f"✅ [x10_account] Reconnection initiated")
+            
+        except Exception as e:
+            logger.error(f"❌ [x10_account] Reconnection failed: {e}")
+    
+    def _handle_x10_account_pong(self, msg: dict):
+        """
+        Handle pong response from X10 account WebSocket.
+        
+        Updates the last pong time to indicate the connection is alive,
+        even if no account events are occurring.
+        """
+        msg_type = msg.get("type", "")
+        
+        if msg_type == "pong" or "pong" in msg:
+            self._x10_account_last_pong_time = time.time()
+            logger.debug(f"💓 [x10_account] Received pong - connection alive")
+            return True
+        
+        return False
     
     async def start(self, ping_interval: Optional[float] = None, ping_timeout: Optional[float] = None):
         """Start all WebSocket connections
@@ -825,11 +991,25 @@ class WebSocketManager:
             conn.start() for conn in self._connections.values()
         ], return_exceptions=True)
         
-        logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding)")
+        # Start X10 account keepalive loop (dedicated health monitoring)
+        self._x10_account_keepalive_task = asyncio.create_task(
+            self._x10_account_keepalive_loop(),
+            name="x10_account_keepalive"
+        )
+        
+        logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)")
     
     async def stop(self):
         """Stop all WebSocket connections"""
         self._running = False
+        
+        # Stop X10 account keepalive task first
+        if self._x10_account_keepalive_task and not self._x10_account_keepalive_task.done():
+            self._x10_account_keepalive_task.cancel()
+            try:
+                await asyncio.wait_for(self._x10_account_keepalive_task, timeout=2.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
         
         await asyncio.gather(*[
             conn. stop() for conn in self._connections.values()
@@ -917,6 +1097,10 @@ class WebSocketManager:
             
             # X10 Routing
             elif source == "x10_account":
+                # Check for pong response first (keepalive health tracking)
+                if self._handle_x10_account_pong(msg):
+                    return  # Pong handled, no further processing needed
+                
                 # Account Updates (Balance, Orders, Positions)
                 await self._handle_x10_message(msg)
             

@@ -404,12 +404,26 @@ class ParallelExecutionManager:
         timeout: Optional[float] = None
     ) -> Tuple[bool, Optional[str], Optional[str]]:
         """
-        Execute hedged trade on both exchanges in parallel. 
+        Execute hedged trade on both exchanges in parallel.
         
         Returns:
             (success, x10_order_id, lighter_order_id)
         """
         timeout = timeout or self.EXECUTION_TIMEOUT
+        
+        # Get prices for logging
+        lighter_price = float(price_lighter) if price_lighter else self.lighter.fetch_mark_price(symbol) or 0.0
+        x10_price = float(price_x10) if price_x10 else self.x10.fetch_mark_price(symbol) or 0.0
+        
+        # ═══════════════════════════════════════════════════════════════════════════
+        # HEDGED TRADE START - Comprehensive Logging
+        # ═══════════════════════════════════════════════════════════════════════════
+        logger.info(f"═══════════════════════════════════════════════════════════")
+        logger.info(f"🚀 HEDGED TRADE START: {symbol}")
+        logger.info(f"   Lighter: {side_lighter} ${float(size_lighter):.2f} @ ${lighter_price:.6f}")
+        logger.info(f"   X10:     {side_x10} ${float(size_x10):.2f} @ ${x10_price:.6f}")
+        logger.info(f"   Strategy: MAKER (Lighter first, then X10 hedge)")
+        logger.info(f"═══════════════════════════════════════════════════════════")
         
         # Ensure symbol-level lock exists
         if symbol not in self.execution_locks:
@@ -666,12 +680,14 @@ class ParallelExecutionManager:
         execution: TradeExecution,
         timeout: float
     ) -> Tuple[bool, Optional[str], Optional[str]]:
-        """Internal parallel execution logic"""
+        """Internal parallel execution logic with comprehensive logging"""
         symbol = execution.symbol
         
         # ═══════════════════════════════════════════════════════════════════
         # PHASE 0: ORDERBOOK VALIDATION (Prevent empty orderbook trades)
         # ═══════════════════════════════════════════════════════════════════
+        logger.info(f"📋 [PHASE 0] {symbol}: Validating orderbook...")
+        
         if getattr(config, 'OB_VALIDATION_ENABLED', True):
             validation_result = await self._validate_orderbook_for_maker(
                 symbol=symbol,
@@ -684,6 +700,9 @@ class ParallelExecutionManager:
                     f"❌ [ORDERBOOK] {symbol}: Validation FAILED - {validation_result.reason} "
                     f"(quality={validation_result.quality.value}, action={validation_result.recommended_action})"
                 )
+                logger.info(f"═══════════════════════════════════════════════════════════")
+                logger.info(f"❌ HEDGED TRADE ABORTED: {symbol} - Orderbook validation failed")
+                logger.info(f"═══════════════════════════════════════════════════════════")
                 
                 # Handle based on recommended action
                 if validation_result.recommended_action == "use_market_order":
@@ -712,11 +731,15 @@ class ParallelExecutionManager:
                     f"bid_depth=${validation_result.bid_depth_usd:.0f}, ask_depth=${validation_result.ask_depth_usd:.0f}, "
                     f"spread={validation_result.spread_percent:.3f}%" if validation_result.spread_percent else ""
                 )
+        else:
+            logger.info(f"⚠️ [PHASE 0] {symbol}: Orderbook validation disabled")
         
         # ═══════════════════════════════════════════════════════════════════
-        # PHASE 1: LIGHTER POST-ONLY (Maker)
+        # PHASE 1 (LEG 1): LIGHTER POST-ONLY (Maker Order)
         # ═══════════════════════════════════════════════════════════════════
-        logger.info(f"🔄 [MAKER STRATEGY] {symbol}: Placing Lighter Maker Order...")
+        logger.info(f"───────────────────────────────────────────────────────────")
+        logger.info(f"📤 [LEG 1] {symbol}: Placing Lighter {execution.side_lighter} order...")
+        logger.info(f"   Size: ${execution.size_lighter:.2f} ({execution.quantity_coins:.6f} coins)")
         execution.state = ExecutionState.LEG1_SENT
 
         # 1. Place Lighter Order
@@ -731,12 +754,16 @@ class ParallelExecutionManager:
         execution.lighter_order_id = lighter_order_id
         
         if not lighter_success or not lighter_order_id:
-            logger.warning(f"❌ [MAKER STRATEGY] {symbol}: Lighter placement failed/rejected. Aborting.")
+            logger.error(f"❌ [LEG 1] {symbol}: Lighter order FAILED - placement rejected")
+            logger.info(f"═══════════════════════════════════════════════════════════")
+            logger.info(f"❌ HEDGED TRADE ABORTED: {symbol} - Lighter placement failed")
+            logger.info(f"═══════════════════════════════════════════════════════════")
             execution.state = ExecutionState.FAILED
             execution.error = "Lighter Placement Failed"
             return False, None, None
 
-        logger.info(f"⏳ [MAKER STRATEGY] {symbol}: Lighter placed ({lighter_order_id}), waiting for fill...")
+        logger.info(f"✅ [LEG 1] {symbol}: Lighter order placed: {lighter_order_id[:30] if lighter_order_id and len(lighter_order_id) > 30 else lighter_order_id}...")
+        logger.info(f"⏳ [LEG 1] {symbol}: Waiting for Lighter fill (max {getattr(config, 'LIGHTER_ORDER_TIMEOUT_SECONDS', 60)}s)...")
         
         # 2. Wait for Fill (Polled Check)
         # We need to check if it fills. We give it e.g. 10-20 seconds.
@@ -779,19 +806,25 @@ class ParallelExecutionManager:
              filled = await self._handle_maker_timeout(execution, lighter_order_id)
              
              if not filled:
+                 logger.info(f"═══════════════════════════════════════════════════════════")
+                 logger.info(f"❌ HEDGED TRADE ABORTED: {symbol} - Lighter order not filled (timeout)")
+                 logger.info(f"═══════════════════════════════════════════════════════════")
                  execution.state = ExecutionState.FAILED
                  return False, None, lighter_order_id
         
         execution.lighter_filled = True
+        logger.info(f"✅ [LEG 1] {symbol}: Lighter order FILLED!")
         
         # ═══════════════════════════════════════════════════════════════════
-        # PHASE 2: QUANTITY-BASED HEDGING (Match Coins, not USD)
+        # PHASE 2 (LEG 2): X10 HEDGE (Market Order)
         # ═══════════════════════════════════════════════════════════════════
         # PROBLEM: Different prices on Lighter/X10 mean $100 on Lighter != $100 on X10 in Coins.
         # FIX: We fetch the EXACT filled coin amount from Lighter and replicate it on X10.
         
         filled_size_coins = execution.quantity_coins
-        logger.info(f"⚖️ HEDGING {symbol}: Matching calculated amount on X10: {filled_size_coins:.6f} coins")
+        logger.info(f"───────────────────────────────────────────────────────────")
+        logger.info(f"📤 [LEG 2] {symbol}: Placing X10 {execution.side_x10} hedge...")
+        logger.info(f"   Size: {filled_size_coins:.6f} coins (matching Lighter fill)")
 
         # 3. Execute X10 (Taker)
         execution.state = ExecutionState.LEG2_SENT
@@ -809,12 +842,26 @@ class ParallelExecutionManager:
         execution.x10_filled = x10_success
         
         if x10_success:
-             # Success!
+             # ═══════════════════════════════════════════════════════════════
+             # SUCCESS - Both legs executed
+             # ═══════════════════════════════════════════════════════════════
+             logger.info(f"✅ [LEG 2] {symbol}: X10 hedge placed: {x10_order_id}")
+             logger.info(f"═══════════════════════════════════════════════════════════")
+             logger.info(f"✅ HEDGED TRADE COMPLETE: {symbol}")
+             logger.info(f"   Lighter TX: {lighter_order_id[:30] if lighter_order_id and len(lighter_order_id) > 30 else lighter_order_id}...")
+             logger.info(f"   X10 Order:  {x10_order_id}")
+             logger.info(f"═══════════════════════════════════════════════════════════")
+             execution.state = ExecutionState.COMPLETE
              return True, x10_order_id, lighter_order_id
         else:
              # X10 Failed -> ROLLBACK Lighter!
-             logger.error(f"❌ [MAKER STRATEGY] {symbol}: X10 Hedge failed! Rolling back Lighter...")
+             logger.error(f"❌ [LEG 2] {symbol}: X10 hedge FAILED - INITIATING ROLLBACK")
+             logger.warning(f"🔄 {symbol}: Lighter position filled but X10 hedge failed!")
+             logger.warning(f"🔄 {symbol}: Rolling back Lighter position to prevent naked exposure...")
              await self._queue_rollback(execution)
+             logger.info(f"═══════════════════════════════════════════════════════════")
+             logger.info(f"❌ HEDGED TRADE FAILED: {symbol} - X10 hedge failed, rollback queued")
+             logger.info(f"═══════════════════════════════════════════════════════════")
              return False, None, lighter_order_id
 
 
@@ -897,9 +944,15 @@ class ParallelExecutionManager:
     async def _execute_rollback_with_retry(self, execution: TradeExecution) -> bool:
         """Execute rollback with exponential backoff retry"""
         symbol = execution.symbol
-        logger.info(f"🔄 [ROLLBACK] Processing {symbol}...")
+        
+        logger.warning(f"═══════════════════════════════════════════════════════════")
+        logger.warning(f"🔄 ROLLBACK STARTED: {symbol}")
+        logger.warning(f"   Lighter Filled: {execution.lighter_filled}")
+        logger.warning(f"   X10 Filled: {execution.x10_filled}")
+        logger.warning(f"═══════════════════════════════════════════════════════════")
 
         # Initial settlement delay
+        logger.info(f"⏳ {symbol}: Waiting 3s for order settlement before rollback...")
         await asyncio.sleep(3.0)
 
         for attempt in range(self.MAX_ROLLBACK_ATTEMPTS):
@@ -908,37 +961,53 @@ class ParallelExecutionManager:
                 delay = self.ROLLBACK_BASE_DELAY * (2 ** attempt)
                 
                 if attempt > 0:
-                    logger.info(f"🔄 [ROLLBACK] {symbol}: Retry {attempt + 1}/{self.MAX_ROLLBACK_ATTEMPTS} after {delay}s")
+                    logger.warning(f"🔄 ROLLBACK RETRY {symbol}: Attempt {attempt + 1}/{self.MAX_ROLLBACK_ATTEMPTS} after {delay}s delay")
                     await asyncio.sleep(delay)
 
                 success = False
                 
                 if execution.lighter_filled and not execution.x10_filled:
+                    logger.info(f"🔄 {symbol}: Lighter filled but X10 failed -> Rolling back Lighter")
                     success = await self._rollback_lighter(execution)
                 elif execution.x10_filled and not execution.lighter_filled:
+                    logger.info(f"🔄 {symbol}: X10 filled but Lighter failed -> Rolling back X10")
                     success = await self._rollback_x10(execution)
                 else:
                     # Edge case: both or neither - shouldn't happen
-                    logger.warning(f"⚠️ [ROLLBACK] {symbol}: Unexpected state")
+                    logger.warning(f"⚠️ ROLLBACK {symbol}: Unexpected state (lighter={execution.lighter_filled}, x10={execution.x10_filled})")
                     return True
 
                 if success:
-                    logger.info(f"✅ [ROLLBACK] {symbol}: Complete (attempt {attempt + 1})")
+                    logger.info(f"═══════════════════════════════════════════════════════════")
+                    logger.info(f"✅ ROLLBACK COMPLETE: {symbol} (attempt {attempt + 1})")
+                    logger.info(f"═══════════════════════════════════════════════════════════")
                     return True
 
             except Exception as e:
-                logger.error(f"❌ [ROLLBACK] {symbol}: Attempt {attempt + 1} error: {e}")
+                logger.error(f"❌ ROLLBACK ERROR {symbol}: Attempt {attempt + 1} failed: {e}")
 
+        # All attempts failed - CRITICAL
+        logger.critical(f"═══════════════════════════════════════════════════════════")
+        logger.critical(f"🚨 ROLLBACK FAILED: {symbol} after {self.MAX_ROLLBACK_ATTEMPTS} attempts!")
+        logger.critical(f"🚨 NAKED LEG RISK! MANUAL INTERVENTION REQUIRED!")
+        logger.critical(f"═══════════════════════════════════════════════════════════")
+        
         if self.circuit_breaker:
             self.circuit_breaker.trigger_emergency_stop(
                 reason=f"CRITICAL: Rollback failed for {symbol} after {self.MAX_ROLLBACK_ATTEMPTS} attempts! Risk of NAKED LEG!"
             )
-        logger.error(f"❌ [ROLLBACK] {symbol}: All {self.MAX_ROLLBACK_ATTEMPTS} attempts failed! TRIGGERING KILL SWITCH!")
         return False
 
     async def _rollback_x10(self, execution: TradeExecution) -> bool:
-        """Rollback X10 position with actual position verification"""
+        """
+        Rollback X10 position with actual position verification.
+        
+        This is called when Lighter leg fails after X10 order filled.
+        We need to close the X10 position to prevent naked exposure.
+        """
         symbol = execution.symbol
+        
+        logger.warning(f"🔄 ROLLBACK: Closing X10 {symbol} position...")
         
         try:
             positions = await self.x10.fetch_open_positions()
@@ -949,36 +1018,48 @@ class ParallelExecutionManager:
             )
 
             if not pos:
-                logger.info(f"✓ X10 Rollback {symbol}: No position found (already closed?)")
+                logger.info(f"✅ ROLLBACK {symbol}: No X10 position found (already closed?)")
                 return True
 
             actual_size = safe_float(pos.get('size', 0))
             # Positive = LONG, Negative = SHORT
-            original_side = "BUY" if actual_size > 0 else "SELL"
+            position_side = "BUY" if actual_size > 0 else "SELL"
+            close_side = "SELL" if actual_size > 0 else "BUY"
             close_size = abs(actual_size)
 
-            logger.info(
-                f"→ X10 Rollback {symbol}: size={actual_size:.6f}, side={original_side}"
+            logger.warning(
+                f"🔄 ROLLBACK {symbol}: Closing X10 {position_side} position "
+                f"({close_size:.6f} coins) with {close_side} market order"
             )
 
-            success, _ = await self.x10.close_live_position(
-                symbol, original_side, close_size
+            success, order_id = await self.x10.close_live_position(
+                symbol, position_side, close_size
             )
 
             if success:
-                logger.info(f"✓ X10 rollback {symbol}: Success ({close_size:.6f} coins)")
+                logger.info(f"✅ ROLLBACK SUCCESS: X10 position {symbol} closed (order: {order_id})")
                 return True
             else:
-                logger.warning(f"✗ X10 rollback {symbol}: close_live_position returned False")
+                logger.critical(f"🚨 ROLLBACK FAILED: X10 {symbol} close_live_position returned False!")
+                logger.critical(f"🚨 MANUAL INTERVENTION REQUIRED for {symbol}!")
                 return False
 
         except Exception as e:
-            logger.error(f"✗ X10 rollback {symbol}: Exception: {e}")
+            logger.critical(f"🚨 ROLLBACK EXCEPTION {symbol}: {e}")
+            logger.critical(f"🚨 MANUAL INTERVENTION REQUIRED for {symbol}!")
             return False
 
     async def _rollback_lighter(self, execution: TradeExecution) -> bool:
-        """Rollback Lighter position with actual position verification"""
+        """
+        Rollback Lighter position with actual position verification.
+        
+        This is called when X10 hedge fails after Lighter order filled.
+        We need to close the Lighter position to prevent naked exposure.
+        """
         symbol = execution.symbol
+        original_side = execution.side_lighter
+        
+        logger.warning(f"🔄 ROLLBACK: Closing Lighter {symbol} position...")
         
         try:
             positions = await self.lighter.fetch_open_positions()
@@ -989,11 +1070,12 @@ class ParallelExecutionManager:
             )
 
             if not pos:
-                logger.info(f"✓ Lighter Rollback {symbol}: No position found (already closed?)")
+                logger.info(f"✅ ROLLBACK {symbol}: No Lighter position found (already closed?)")
                 return True
 
             actual_size = safe_float(pos.get('size', 0))
-            original_side = "BUY" if actual_size > 0 else "SELL"
+            position_side = "BUY" if actual_size > 0 else "SELL"
+            close_side = "SELL" if actual_size > 0 else "BUY"
             close_size_coins = abs(actual_size)
 
             # CRITICAL FIX: Sichere Typ-Konvertierung
@@ -1001,29 +1083,32 @@ class ParallelExecutionManager:
             mark_price = safe_float(raw_price)
             
             if mark_price <= 0:
-                logger.error(f"✗ Lighter rollback {symbol}: No valid price")
+                logger.critical(f"🚨 ROLLBACK FAILED {symbol}: No valid price available!")
                 return False
 
             notional_usd = close_size_coins * mark_price
 
-            logger.info(
-                f"→ Lighter Rollback {symbol}: "
-                f"size={actual_size:.6f} @ ${mark_price:.2f} = ${notional_usd:.2f}"
+            logger.warning(
+                f"🔄 ROLLBACK {symbol}: Closing Lighter {position_side} position "
+                f"({close_size_coins:.6f} coins @ ${mark_price:.2f} = ${notional_usd:.2f}) "
+                f"with {close_side} market order"
             )
 
-            success, _ = await self.lighter.close_live_position(
-                symbol, original_side, notional_usd
+            success, order_id = await self.lighter.close_live_position(
+                symbol, position_side, notional_usd
             )
 
             if success:
-                logger.info(f"✓ Lighter rollback {symbol}: Success (${notional_usd:.2f})")
+                logger.info(f"✅ ROLLBACK SUCCESS: Lighter position {symbol} closed (order: {order_id})")
                 return True
             else:
-                logger.warning(f"✗ Lighter rollback {symbol}: close_live_position returned False")
+                logger.critical(f"🚨 ROLLBACK FAILED: Lighter {symbol} close_live_position returned False!")
+                logger.critical(f"🚨 MANUAL INTERVENTION REQUIRED for {symbol}!")
                 return False
 
         except Exception as e:
-            logger.error(f"✗ Lighter rollback {symbol}: Exception: {e}")
+            logger.critical(f"🚨 ROLLBACK EXCEPTION {symbol}: {e}")
+            logger.critical(f"🚨 MANUAL INTERVENTION REQUIRED for {symbol}!")
             return False
 
     def get_execution_stats(self) -> Dict[str, Any]:

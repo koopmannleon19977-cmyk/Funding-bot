@@ -2748,7 +2748,38 @@ class LighterAdapter(BaseAdapter):
 
                             if err:
                                 err_str = str(err).lower()
-                                logger.error(f"❌ Lighter Order Failed: {err}")
+                                err_code = ""
+                                
+                                # Try to extract error code if present
+                                try:
+                                    if hasattr(err, 'code'):
+                                        err_code = str(err.code)
+                                    elif isinstance(err, dict):
+                                        err_code = str(err.get('code', ''))
+                                    # Also check for code in error string like "error 1137" or "code: 1137"
+                                    import re
+                                    code_match = re.search(r'(?:error|code)[:\s]*(\d+)', err_str)
+                                    if code_match:
+                                        err_code = code_match.group(1)
+                                except:
+                                    pass
+                                
+                                logger.error(f"❌ Lighter Order Failed: {err} (code={err_code})")
+                                
+                                # ═══════════════════════════════════════════════════════════════
+                                # ERROR 1137: Position Missing / Position Not Found
+                                # This happens when trying to close a position that doesn't exist
+                                # (liquidated, manually closed, or sync issue)
+                                # ═══════════════════════════════════════════════════════════════
+                                if err_code == "1137" or ("position" in err_str and ("missing" in err_str or "not found" in err_str or "does not exist" in err_str)):
+                                    logger.warning(f"⚠️ POSITION MISSING ERROR for {symbol} - Position may have been liquidated or closed externally")
+                                    logger.info(f"🔄 Triggering position sync for {symbol}...")
+                                    
+                                    # Return special status to signal caller that position doesn't exist
+                                    # This allows the caller to clean up DB state
+                                    return False, "POSITION_MISSING_1137"
+                                
+                                # Existing nonce/rate limit handling
                                 if "nonce" in err_str or "429" in err_str or "too many requests" in err_str:
                                     # If it's a nonce error despite our lock, maybe retry? 
                                     # But for now, we just log and return fail to let outer loop handle or bubble up
@@ -3103,16 +3134,25 @@ class LighterAdapter(BaseAdapter):
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 6: Close Order ausführen
             # ═══════════════════════════════════════════════════════════════
-            success, order_id = await self.open_live_position(
+            success, result = await self.open_live_position(
                 symbol=symbol,
                 side=close_side,
                 notional_usd=close_notional_usd,
                 reduce_only=True
             )
 
+            # ═══════════════════════════════════════════════════════════════
+            # Handle special "position missing" case (Error 1137)
+            # Position may have been liquidated or closed externally
+            # ═══════════════════════════════════════════════════════════════
+            if result == "POSITION_MISSING_1137":
+                logger.warning(f"⚠️ {symbol}: Position missing on exchange - treating as already closed")
+                # Signal success so caller cleans up DB
+                return True, "ALREADY_CLOSED_EXTERNAL"
+
             if success:
                 logger.info(f"✅ Lighter close {symbol}: Erfolgreich (${close_notional_usd:.2f})")
-                return True, order_id
+                return True, result
             else:
                 logger.warning(f"❌ Lighter close {symbol}: open_live_position returned False")
                 return False, None
