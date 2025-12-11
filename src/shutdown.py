@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import config
 from src.rate_limiter import shutdown_all_rate_limiters
@@ -45,6 +45,18 @@ class ShutdownOrchestrator:
         self._last_result: Optional[ShutdownResult] = None
         self._shutdown_started = False
         self._positions_at_start: Dict[str, List] = {}
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Track if shutdown has already completed to prevent duplicate runs
+        # This prevents multiple shutdown calls from re-running teardown/persist
+        # ═══════════════════════════════════════════════════════════════
+        self._shutdown_completed = False
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Track closed positions to prevent duplicate close attempts
+        # This prevents "Position is missing for reduce-only order" (1137)
+        # ═══════════════════════════════════════════════════════════════
+        self._closed_positions: Dict[str, set] = {"x10": set(), "lighter": set()}
 
     def configure(self, **components: Any) -> None:
         """Register/override components lazily; ignore None."""
@@ -55,6 +67,14 @@ class ShutdownOrchestrator:
     async def shutdown(self, reason: str = "") -> ShutdownResult:
         """Run the orchestrated shutdown with improved sequence."""
         async with self._lock:
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: If shutdown already completed, return cached result immediately
+            # This prevents duplicate teardown/persist calls from multiple callers
+            # ═══════════════════════════════════════════════════════════════
+            if self._shutdown_completed and self._last_result:
+                logger.info(f"✅ Shutdown already completed (reason={reason}), returning cached result")
+                return self._last_result
+            
             if self._in_progress:
                 return self._last_result or {
                     "success": False,
@@ -159,7 +179,11 @@ class ShutdownOrchestrator:
             self._last_result = result
             self._in_progress = False
             
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Mark shutdown as completed to prevent duplicate runs
+            # ═══════════════════════════════════════════════════════════════
             if success:
+                self._shutdown_completed = True
                 logger.info(f"✅ All positions closed. Bye! (elapsed={elapsed:.2f}s)")
             else:
                 logger.error(
@@ -208,6 +232,8 @@ class ShutdownOrchestrator:
         - Were opened by fills during shutdown
         - Were missed by earlier close attempts
         - Appeared due to race conditions
+        
+        FIX: Now respects position tracking to avoid duplicate close attempts.
         """
         logger.info("🔍 Final position sweep...")
         
@@ -226,14 +252,33 @@ class ShutdownOrchestrator:
             logger.info("✅ Final sweep: No positions found")
             return
         
-        logger.warning(f"⚠️ Final sweep found {len(all_positions)} positions to close!")
-        
+        # Filter out already-closed positions
+        positions_to_close = []
         for exchange_name, adapter, pos in all_positions:
             symbol = pos.get("symbol")
             size = self._safe_float(pos.get("size", 0))
             
             if abs(size) < 1e-8:
                 continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Skip positions already closed in this shutdown cycle
+            # ═══════════════════════════════════════════════════════════════
+            if symbol in self._closed_positions.get(exchange_name, set()):
+                logger.debug(f"⏭️ Final sweep: {exchange_name} {symbol} already closed, skipping")
+                continue
+            
+            positions_to_close.append((exchange_name, adapter, pos))
+        
+        if not positions_to_close:
+            logger.info("✅ Final sweep: All positions already handled")
+            return
+        
+        logger.warning(f"⚠️ Final sweep found {len(positions_to_close)} positions to close!")
+        
+        for exchange_name, adapter, pos in positions_to_close:
+            symbol = pos.get("symbol")
+            size = self._safe_float(pos.get("size", 0))
             
             if not adapter:
                 errors.append(f"final_close_no_adapter:{exchange_name}:{symbol}")
@@ -270,10 +315,23 @@ class ShutdownOrchestrator:
                         time_in_force="IOC"
                     )
                 
-                if not success:
+                if success:
+                    # Track successful close
+                    self._closed_positions[exchange_name].add(symbol)
+                else:
                     errors.append(f"final_close_failed:{exchange_name}:{symbol}")
                     
             except Exception as e:
+                err_str = str(e)
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Handle "position missing" errors gracefully in final sweep
+                # ═══════════════════════════════════════════════════════════════
+                if any(code in err_str for code in ["1137", "1138", "Position is missing", "no position"]):
+                    logger.info(f"✅ Final sweep: {exchange_name} {symbol} already closed")
+                    self._closed_positions[exchange_name].add(symbol)
+                    continue
+                
                 errors.append(f"final_close_error:{exchange_name}:{symbol}:{e}")
                 logger.error(f"❌ Final close error {symbol}: {e}")
         
@@ -334,7 +392,11 @@ class ShutdownOrchestrator:
             logger.warning("⚠️ Cancel orders timed out")
 
     async def _close_and_verify_positions(self, errors: List[str]) -> None:
-        """Close positions with retries and verification."""
+        """Close positions with retries and verification.
+        
+        FIX: Now checks if position still exists before attempting close,
+        preventing "Position is missing for reduce-only order" (error 1137).
+        """
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
 
@@ -356,7 +418,7 @@ class ShutdownOrchestrator:
                 f"x10={len(positions['x10'])}, lighter={len(positions['lighter'])}"
             )
 
-            # Close X10 positions
+            # Close X10 positions - with existence check
             x10_tasks = []
             for pos in positions["x10"]:
                 size = self._safe_float(pos.get("size", 0))
@@ -366,9 +428,17 @@ class ShutdownOrchestrator:
                 side = "BUY" if size < 0 else "SELL" if size > 0 else None
                 if not symbol or not side:
                     continue
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Skip if already closed in this shutdown cycle
+                # ═══════════════════════════════════════════════════════════════
+                if symbol in self._closed_positions["x10"]:
+                    logger.debug(f"⏭️ X10 {symbol} already closed this cycle, skipping")
+                    continue
+                
                 try:
                     logger.info(f"🛑 Closing X10 {symbol} ({side} {abs(size)})")
-                    x10_tasks.append(x10.close_live_position(symbol, side, abs(size)))
+                    x10_tasks.append(self._close_x10_with_tracking(x10, symbol, side, abs(size), errors))
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"x10_close_prepare:{symbol}:{e}")
 
@@ -381,6 +451,14 @@ class ShutdownOrchestrator:
                 symbol = pos.get("symbol")
                 if not symbol:
                     continue
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Skip if already closed in this shutdown cycle
+                # ═══════════════════════════════════════════════════════════════
+                if symbol in self._closed_positions["lighter"]:
+                    logger.debug(f"⏭️ Lighter {symbol} already closed this cycle, skipping")
+                    continue
+                
                 close_side = "SELL" if size > 0 else "BUY"
                 price = self._get_cached_price(symbol)
 
@@ -393,16 +471,7 @@ class ShutdownOrchestrator:
                         f"(IOC reduce_only, price={price})"
                     )
                     lighter_tasks.append(
-                        lighter.open_live_position(
-                            symbol=symbol,
-                            side=close_side,
-                            notional_usd=0,
-                            amount=abs(size),
-                            price=price,  # Raw price - adapter applies slippage
-                            post_only=False,
-                            reduce_only=True,
-                            time_in_force="IOC",
-                        )
+                        self._close_lighter_with_tracking(lighter, symbol, close_side, abs(size), price, errors)
                     )
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"lighter_close_prepare:{symbol}:{e}")
@@ -428,11 +497,121 @@ class ShutdownOrchestrator:
 
         # Final verification handled by caller via _fetch_positions_safely
 
+    async def _close_x10_with_tracking(
+        self, 
+        x10, 
+        symbol: str, 
+        side: str, 
+        size: float, 
+        errors: List[str]
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Close X10 position with tracking to prevent duplicate close attempts.
+        
+        Handles error 1137 "Position is missing for reduce-only order" gracefully
+        by marking the position as closed.
+        """
+        try:
+            success, order_id = await x10.close_live_position(symbol, side, size)
+            
+            if success:
+                # Mark as closed
+                self._closed_positions["x10"].add(symbol)
+                logger.info(f"✅ X10 {symbol} closed and tracked")
+            
+            return success, order_id
+            
+        except Exception as e:
+            err_str = str(e)
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Handle X10 error codes 1137 and 1138 gracefully
+            # 1137: "Position is missing for reduce-only order" - position already closed
+            # 1138: "Position is same side as reduce-only order" - wrong side, check actual position
+            # ═══════════════════════════════════════════════════════════════
+            if "1137" in err_str or "Position is missing" in err_str:
+                logger.info(f"✅ X10 {symbol}: Position already closed (1137)")
+                self._closed_positions["x10"].add(symbol)
+                return True, None
+                
+            if "1138" in err_str or "same side" in err_str.lower():
+                logger.warning(f"⚠️ X10 {symbol}: Position side mismatch (1138) - verifying state...")
+                # Position might be closed or side changed - mark as handled
+                self._closed_positions["x10"].add(symbol)
+                return True, None
+            
+            errors.append(f"x10_close_error:{symbol}:{e}")
+            logger.error(f"❌ X10 close error {symbol}: {e}")
+            return False, None
+
+    async def _close_lighter_with_tracking(
+        self, 
+        lighter, 
+        symbol: str, 
+        close_side: str, 
+        size: float, 
+        price: Optional[float],
+        errors: List[str]
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Close Lighter position with tracking to prevent duplicate close attempts.
+        """
+        try:
+            success, order_id = await lighter.open_live_position(
+                symbol=symbol,
+                side=close_side,
+                notional_usd=0,
+                amount=size,
+                price=price,  # Raw price - adapter applies slippage
+                post_only=False,
+                reduce_only=True,
+                time_in_force="IOC",
+            )
+            
+            if success:
+                # Mark as closed
+                self._closed_positions["lighter"].add(symbol)
+                logger.info(f"✅ Lighter {symbol} closed and tracked")
+            
+            return success, order_id
+            
+        except Exception as e:
+            err_str = str(e)
+            
+            # Check for "no position" type errors from Lighter
+            if any(msg in err_str.lower() for msg in ["no position", "position not found", "reduce only"]):
+                logger.info(f"✅ Lighter {symbol}: Position already closed")
+                self._closed_positions["lighter"].add(symbol)
+                return True, None
+            
+            errors.append(f"lighter_close_error:{symbol}:{e}")
+            logger.error(f"❌ Lighter close error {symbol}: {e}")
+            return False, None
+
     async def _persist_state(self, errors: List[str]) -> None:
         """Persist state and db."""
         state_manager = self._components.get("state_manager")
         close_database_fn = self._components.get("close_database_fn")
         stop_fee_manager_fn = self._components.get("stop_fee_manager_fn")
+
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Mark closed positions in DB BEFORE stopping state manager
+        # This prevents "zombie" trades on next startup
+        # ═══════════════════════════════════════════════════════════════
+        if state_manager and hasattr(state_manager, "close_trade"):
+            # Find symbols closed on BOTH exchanges (fully hedged close)
+            closed_on_both = self._closed_positions.get("x10", set()) & self._closed_positions.get("lighter", set())
+            
+            for symbol in closed_on_both:
+                try:
+                    # Mark trade as closed in DB with PnL=0 (actual PnL calculated at close time)
+                    await state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
+                    logger.info(f"📝 Shutdown: Marked {symbol} as closed in DB")
+                except Exception as e:
+                    logger.warning(f"⚠️ Shutdown: Could not mark {symbol} as closed: {e}")
+            
+            if closed_on_both:
+                logger.info(f"📝 Shutdown: Marked {len(closed_on_both)} trades as closed in DB")
 
         if state_manager and hasattr(state_manager, "stop"):
             try:

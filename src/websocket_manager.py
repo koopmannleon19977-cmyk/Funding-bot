@@ -36,6 +36,11 @@ class WSConfig:
     - max_consecutive_1006: After this many 1006 errors, trigger extended wait
     - extended_delay_1006: Delay to use after consecutive 1006 errors
     - health_check_interval: How often to check connection health
+    
+    Lighter-specific 1006 Prevention:
+    - json_ping_interval: Interval for JSON {"type":"ping"} messages (Lighter-specific)
+    - json_pong_timeout: Max time to wait for pong before marking unhealthy
+    - send_ping_on_connect: Send immediate ping after connection established
     """
     url: str
     name: str
@@ -51,6 +56,10 @@ class WSConfig:
     max_consecutive_1006: int = 5          # Trigger extended wait after this many 1006s
     extended_delay_1006: float = 30.0      # Extended delay after repeated 1006 errors
     health_check_interval: float = 30.0    # Health check interval in seconds
+    # Lighter-specific 1006 Prevention (JSON ping/pong)
+    json_ping_interval: Optional[float] = None  # Set to 10.0 for Lighter
+    json_pong_timeout: float = 15.0             # Max time without pong before unhealthy
+    send_ping_on_connect: bool = False          # Send immediate ping after connect
 
 
 @dataclass
@@ -68,6 +77,11 @@ class WSMetrics:
     last_error_code: int = 0                                     # Last disconnect code
     last_pong_time: float = 0.0                                  # Last pong received
     is_healthy: bool = False                                     # Connection health status
+    # Enhanced pong tracking for 1006 prevention
+    last_ping_sent_time: float = 0.0                             # When we last sent a ping
+    pings_sent: int = 0                                          # Total pings sent
+    pongs_received: int = 0                                      # Total pongs received
+    missed_pongs: int = 0                                        # Consecutive missed pongs
 
 
 class WSState(Enum):
@@ -197,13 +211,26 @@ class ManagedWebSocket:
         
         # Close connection
         try:
-            # FIX: Timeout erhöhen oder Fehler ignorieren, da wir eh abschalten
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Use consistent timeout with connect_kwargs (5.0s)
+            # Also: Send close frame without waiting for server acknowledgment
+            # during shutdown to avoid blocking
+            # ═══════════════════════════════════════════════════════════════
             if self._ws:
-                await asyncio.wait_for(self._ws.close(), timeout=2.0)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            logger.debug(f"[{self.config.name}] WebSocket connection closed forcefully (Timeout).")
+                # First, try to close gracefully with the configured close_timeout
+                # The websockets library will send a close frame and wait for response
+                try:
+                    await asyncio.wait_for(self._ws.close(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    # Server didn't respond in time - force close the transport
+                    # This is normal during shutdown when server is slow to respond
+                    if hasattr(self._ws, 'transport') and self._ws.transport:
+                        self._ws.transport.close()
+                    logger.debug(f"[{self.config.name}] WebSocket closed (server slow to respond)")
+        except asyncio.CancelledError:
+            logger.debug(f"[{self.config.name}] WebSocket close cancelled")
         except Exception as e:
-            logger.debug(f"[{self.config.name}] Error closing WebSocket connection: {e}")
+            logger.debug(f"[{self.config.name}] WebSocket close: {e}")
         finally:
             self._ws = None
         
@@ -256,6 +283,13 @@ class ManagedWebSocket:
                     self._reconnect_delay = self.config.reconnect_delay_initial
                     self._reconnect_attempts = 0
                     consecutive_1006_errors = 0  # Reset 1006 counter on successful connection
+                    
+                    # Reset ping/pong metrics for fresh connection (1006 prevention tracking)
+                    self._metrics.pings_sent = 0
+                    self._metrics.pongs_received = 0
+                    self._metrics.missed_pongs = 0
+                    self._metrics.last_ping_sent_time = 0.0
+                    self._metrics.last_pong_time = time.time()  # Initialize to now
                     
                     # ═══════════════════════════════════════════════════════════════
                     # CRITICAL: Call on_reconnect callback to invalidate orderbooks
@@ -351,13 +385,36 @@ class ManagedWebSocket:
                     f"(error count for {error_code}: {self._metrics.error_counts[error_code]})"
                 )
                 
-                # Special handling for 1006 errors (abnormal closure)
+                # ═══════════════════════════════════════════════════════════════════
+                # ENHANCED 1006 ERROR HANDLING with Diagnostics
+                # ═══════════════════════════════════════════════════════════════════
                 if error_code == 1006:
                     consecutive_1006_errors += 1
+                    
+                    # Calculate diagnostic info
+                    now = time.time()
+                    time_since_last_pong = now - self._metrics.last_pong_time if self._metrics.last_pong_time > 0 else -1
+                    time_since_last_msg = now - self._metrics.last_message_time if self._metrics.last_message_time > 0 else -1
+                    time_since_last_ping = now - self._metrics.last_ping_sent_time if self._metrics.last_ping_sent_time > 0 else -1
+                    
                     logger.warning(
                         f"⚠️ [{self.config.name}] 1006 error #{consecutive_1006_errors} - "
-                        f"connection closed without close frame"
+                        f"connection closed without close frame\n"
+                        f"    📊 Diagnostics:\n"
+                        f"    - Last pong: {time_since_last_pong:.1f}s ago\n"
+                        f"    - Last message: {time_since_last_msg:.1f}s ago\n"
+                        f"    - Last ping sent: {time_since_last_ping:.1f}s ago\n"
+                        f"    - Pings sent: {self._metrics.pings_sent}, Pongs received: {self._metrics.pongs_received}\n"
+                        f"    - Missed pongs: {self._metrics.missed_pongs}"
                     )
+                    
+                    # Log possible causes based on diagnostics
+                    if time_since_last_pong > 20:
+                        logger.warning(f"    ⚠️ Possible cause: Server stopped responding to pings")
+                    if self._metrics.pings_sent == 0:
+                        logger.warning(f"    ⚠️ Possible cause: No pings were sent before disconnect")
+                    if self._metrics.missed_pongs > 0:
+                        logger.warning(f"    ⚠️ Possible cause: {self._metrics.missed_pongs} pongs were missed")
                     
                     # After multiple 1006 errors, use extended wait to let server recover
                     if consecutive_1006_errors >= self.config.max_consecutive_1006:
@@ -368,7 +425,11 @@ class ManagedWebSocket:
                             
                         logger.warning(
                             f"🔄 [{self.config.name}] Frequent 1006 errors ({self._metrics.error_counts.get(1006, 0)} total) - "
-                            f"extended wait {extended_delay:.1f}s"
+                            f"extended wait {extended_delay:.1f}s\n"
+                            f"    💡 Recommendations:\n"
+                            f"    - Check network stability\n"
+                            f"    - Verify Lighter API status\n"
+                            f"    - Consider reducing subscription count"
                         )
                         await asyncio.sleep(extended_delay)
                         consecutive_1006_errors = 0  # Reset after extended wait
@@ -526,13 +587,28 @@ class ManagedWebSocket:
                     except json.JSONDecodeError:
                         pass
                 
-                # Track pong responses for health monitoring
-                # Handles both Lighter {"type": "pong"} and X10 {"pong": value} formats
-                if isinstance(message, str) and ('"pong"' in message or '"type": "pong"' in message.lower()):
-                    self._metrics.last_pong_time = time.time()
-                    self._metrics.is_healthy = True
-                    if self.config.name == "lighter":
-                        logger.debug(f"💓 [{self.config.name}] Received pong response - connection healthy")
+                # ═══════════════════════════════════════════════════════════════════
+                # ENHANCED PONG TRACKING for 1006 Prevention
+                # Handles: {"type": "pong"}, {"pong": value}, {"type":"pong"}
+                # ═══════════════════════════════════════════════════════════════════
+                if isinstance(message, str):
+                    msg_lower = message.lower()
+                    is_pong = (
+                        '"pong"' in message or 
+                        '"type": "pong"' in msg_lower or
+                        '"type":"pong"' in msg_lower  # Without spaces
+                    )
+                    if is_pong:
+                        self._metrics.last_pong_time = time.time()
+                        self._metrics.pongs_received += 1
+                        self._metrics.missed_pongs = 0  # Reset missed counter on successful pong
+                        self._metrics.is_healthy = True
+                        if self.config.name == "lighter":
+                            logger.debug(
+                                f"💓 [{self.config.name}] Received pong #{self._metrics.pongs_received} - "
+                                f"connection healthy (latency: "
+                                f"{(time.time() - self._metrics.last_ping_sent_time)*1000:.0f}ms)"
+                            )
                 
                 # Queue message
                 try:
@@ -645,14 +721,23 @@ class ManagedWebSocket:
             msg_type = data.get('type', '').lower() if isinstance(data.get('type'), str) else str(data.get('type', '')).lower()
             msg_event = data.get('event', '').lower() if isinstance(data.get('event'), str) else ''
             
-            # Respond to {"type": "ping"} style pings (Lighter)
+            # ═══════════════════════════════════════════════════════════════════════
+            # KRITISCH: Respond to SERVER {"type": "ping"} with {"type": "pong"}
+            # Lighter sendet Pings alle ~60s und erwartet Pong-Antwort!
+            # Ohne Antwort → "no pong" / connection rejected / 1006
+            # ═══════════════════════════════════════════════════════════════════════
             if msg_type == 'ping' or msg_event == 'ping':
                 if self._ws and self.is_connected:
                     try:
                         await self._ws.send(json.dumps({'type': 'pong'}))
-                        logger.debug(f"[{self.config.name}] Responded to JSON ping with pong")
+                        # Track that we received a server ping and responded
+                        self._metrics.last_pong_time = time.time()  # Track server ping time
+                        self._metrics.pongs_received += 1  # Count as "server pings received"
+                        self._metrics.missed_pongs = 0  # Reset missed counter
+                        self._metrics.is_healthy = True
+                        logger.info(f"💓 [{self.config.name}] Received SERVER ping → sent pong (ping #{self._metrics.pongs_received})")
                     except Exception as e:
-                        logger.debug(f"[{self.config.name}] Failed to send JSON pong: {e}")
+                        logger.warning(f"⚠️ [{self.config.name}] Failed to respond to server ping: {e}")
                 return
             
             # Handle PONG responses - pass to message handler for health tracking
@@ -670,7 +755,7 @@ class ManagedWebSocket:
             logger.error(f"[{self.config.name}] Handler error: {e}")
     
     async def _heartbeat_loop(self):
-        """Enhanced heartbeat with specific checks for Firehose streams.
+        """Enhanced heartbeat with specific checks for Firehose streams and 1006 prevention.
         
         X10 und Lighter WebSocket Ping-Verhalten:
         - Die websockets Library handhabt WebSocket-Protokoll-Pings automatisch
@@ -685,6 +770,13 @@ class ManagedWebSocket:
         - The account stream may not send messages if no account activity
         - Health monitoring is handled separately by WebSocketManager._x10_account_keepalive_loop
         - This heartbeat only logs status, doesn't trigger reconnect (handled by keepalive loop)
+        
+        LIGHTER 1006 PREVENTION (Updated based on Discord community info):
+        - Der SERVER sendet uns {"type":"ping"} alle ~60s
+        - WIR antworten mit {"type":"pong"}
+        - Wenn wir nicht antworten → connection rejected
+        - Wir senden KEINE eigenen Pings (Server antwortet nicht darauf!)
+        - Überwachung: Warnung wenn >90s kein Server-Ping kam
         """
         # Unterschiedliche Thresholds für verschiedene Stream-Typen
         if self.config.name in ["x10_trades", "x10_funding"]:
@@ -700,15 +792,45 @@ class ManagedWebSocket:
             stale_threshold = 180.0  # 3 Minuten
             expected_interval = 30.0
         
-        check_interval = 10.0
-        # Lighter benötigt explizite JSON-Pings {"type":"ping"}, sonst trennt der
-        # Server nach ~20s ohne Close-Frame (1006). Wir senden daher unabhängig von
-        # eingehenden Nachrichten alle 10s einen JSON-Ping.
-        lighter_json_ping_interval = 10.0 if self.config.name == "lighter" else None
-        last_json_ping = time.time()
-        connect_time = time.time()
+        check_interval = 5.0  # Reduced from 10.0 for faster detection
         
-        logger.debug(f"💓 [{self.config.name}] Heartbeat started (stale_threshold={stale_threshold}s)")
+        # ═══════════════════════════════════════════════════════════════════════════
+        # LIGHTER 1006 PREVENTION: Use config-based JSON ping interval
+        # Lighter Server schließt idle Connections nach ~20s ohne Close-Frame (1006)
+        # ═══════════════════════════════════════════════════════════════════════════
+        json_ping_interval = self.config.json_ping_interval  # None for Lighter!
+        json_pong_timeout = self.config.json_pong_timeout    # 90s for Lighter
+        
+        # WICHTIG: Für Lighter ist json_ping_interval=None!
+        # Der Server sendet UNS Pings, nicht umgekehrt.
+        # Kein Fallback auf 10.0 mehr!
+        
+        connect_time = time.time()
+        last_json_ping = 0.0  # Not used for Lighter (we don't send pings)
+        
+        # ═══════════════════════════════════════════════════════════════════════════
+        # LIGHTER: KEIN sofortiger Ping mehr! 
+        # Der SERVER sendet uns Pings und WIR antworten - nicht umgekehrt!
+        # Wir warten einfach auf den ersten Server-Ping (~60s nach Connect).
+        # ═══════════════════════════════════════════════════════════════════════════
+        if self.config.send_ping_on_connect and self.config.name != "lighter":
+            # Nur für nicht-Lighter Connections (falls konfiguriert)
+            if self._ws and self.is_connected:
+                try:
+                    await self._ws.send(json.dumps({"type": "ping"}))
+                    self._metrics.pings_sent += 1
+                    self._metrics.last_ping_sent_time = time.time()
+                    last_json_ping = time.time()
+                    logger.info(f"💓 [{self.config.name}] Sent IMMEDIATE ping on connect")
+                except Exception as e:
+                    logger.warning(f"[{self.config.name}] Failed to send immediate ping: {e}")
+        elif self.config.name == "lighter":
+            logger.info(f"💓 [{self.config.name}] Waiting for SERVER ping (Lighter sends pings every ~60s)")
+        
+        logger.debug(
+            f"💓 [{self.config.name}] Heartbeat started "
+            f"(stale_threshold={stale_threshold}s, json_ping_interval={json_ping_interval}s)"
+        )
         
         while self._running and self.is_connected:
             try:
@@ -717,39 +839,71 @@ class ManagedWebSocket:
                 now = time.time()
                 uptime = now - connect_time
                 
-                # Fixed JSON heartbeat for Lighter
+                # ═══════════════════════════════════════════════════════════════════
+                # JSON HEARTBEAT für Lighter (1006 Prevention)
+                # ═══════════════════════════════════════════════════════════════════
                 if (
-                    lighter_json_ping_interval
+                    json_ping_interval
                     and self._ws
                     and self.is_connected
-                    and now - last_json_ping >= lighter_json_ping_interval
+                    and now - last_json_ping >= json_ping_interval
                 ):
                     try:
                         await self._ws.send(json.dumps({"type": "ping"}))
+                        self._metrics.pings_sent += 1
+                        self._metrics.last_ping_sent_time = now
                         last_json_ping = now
-                        logger.debug(f"💓 [{self.config.name}] Sent scheduled JSON ping")
+                        logger.debug(f"💓 [{self.config.name}] Sent JSON ping #{self._metrics.pings_sent}")
                     except Exception as e:
-                        logger.warning(f"[{self.config.name}] Failed to send scheduled JSON ping: {e}")
+                        logger.warning(f"[{self.config.name}] Failed to send JSON ping: {e}")
                         self._metrics.is_healthy = False
                         break
                 
-                if self._metrics.last_message_time > 0:
-                    silence = now - self._metrics.last_message_time
+                # ═══════════════════════════════════════════════════════════════════
+                # SERVER PING MONITORING (Lighter-specific)
+                # Der Server sendet uns Pings alle ~60s. Wenn >90s kein Ping kam,
+                # könnte die Connection tot sein.
+                # WICHTIG: Wir senden KEINE eigenen Pings, wir warten auf Server-Pings!
+                # ═══════════════════════════════════════════════════════════════════
+                if self.config.name == "lighter" and self._metrics.last_pong_time > 0:
+                    time_since_last_server_ping = now - self._metrics.last_pong_time
                     
-                    # =================================================================
-                    # PROACTIVE JSON PING FOR LIGHTER (Based on SDK documentation)
-                    # The Lighter SDK uses {"type": "ping"} to keep connections alive
-                    # Send proactive ping when no messages for 30+ seconds
-                    # =================================================================
-                    if self.config.name == "lighter" and silence > 30.0 and self._ws and self.is_connected:
-                        try:
-                            await self._ws.send(json.dumps({"type": "ping"}))
-                            logger.debug(f"💓 [{self.config.name}] Sent proactive JSON ping (silence: {silence:.0f}s)")
-                        except Exception as e:
-                            logger.warning(f"[{self.config.name}] Failed to send proactive ping: {e}")
-                            # Connection likely dead, trigger reconnect
+                    # Warnung wenn >90s kein Server-Ping kam (normal ist ~60s)
+                    if time_since_last_server_ping > json_pong_timeout:
+                        logger.warning(
+                            f"⚠️ [{self.config.name}] No server ping for {time_since_last_server_ping:.0f}s "
+                            f"(expected every ~60s). Connection may be stale."
+                        )
+                        # Nicht automatisch reconnecten - nur warnen
+                        # Die Connection könnte noch aktiv sein wenn Daten fließen
+                
+                # Für nicht-Lighter: Original Pong-Timeout-Logik
+                elif json_ping_interval and self._metrics.last_ping_sent_time > 0:
+                    time_since_last_pong = now - self._metrics.last_pong_time
+                    time_since_last_ping = now - self._metrics.last_ping_sent_time
+                    
+                    if (
+                        self._metrics.pings_sent > 0 
+                        and time_since_last_pong > json_pong_timeout
+                        and time_since_last_ping > 2.0
+                    ):
+                        self._metrics.missed_pongs += 1
+                        logger.warning(
+                            f"⚠️ [{self.config.name}] PONG TIMEOUT! "
+                            f"No pong for {time_since_last_pong:.1f}s "
+                            f"(timeout={json_pong_timeout}s, missed={self._metrics.missed_pongs})"
+                        )
+                        
+                        if self._metrics.missed_pongs >= 2:
+                            logger.error(
+                                f"🔴 [{self.config.name}] Connection unhealthy - "
+                                f"{self._metrics.missed_pongs} missed pongs, triggering reconnect"
+                            )
                             self._metrics.is_healthy = False
                             break
+                
+                if self._metrics.last_message_time > 0:
+                    silence = now - self._metrics.last_message_time
                     
                     # Warning at expected_interval
                     if silence > expected_interval and silence < stale_threshold:
@@ -767,10 +921,21 @@ class ManagedWebSocket:
                         self._metrics.is_healthy = False
                         break
                     else:
-                        logger.debug(
-                            f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, "
-                            f"last_msg={silence:.0f}s ago, msgs={self._metrics.messages_received})"
-                        )
+                        # Periodic health log mit erweiterten Metriken
+                        pong_age = now - self._metrics.last_pong_time if self._metrics.last_pong_time > 0 else -1
+                        if self.config.name == "lighter":
+                            # Für Lighter: pongs_received = Anzahl der Server-Pings auf die wir geantwortet haben
+                            logger.debug(
+                                f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, "
+                                f"last_msg={silence:.0f}s, last_server_ping={pong_age:.0f}s, "
+                                f"server_pings_answered={self._metrics.pongs_received})"
+                            )
+                        else:
+                            logger.debug(
+                                f"💓 [{self.config.name}] Alive (uptime={uptime:.0f}s, "
+                                f"last_msg={silence:.0f}s, last_pong={pong_age:.0f}s, "
+                                f"pings={self._metrics.pings_sent}, pongs={self._metrics.pongs_received})"
+                            )
                 else:
                     # No messages yet
                     if uptime > 60.0:
@@ -806,10 +971,15 @@ class ManagedWebSocket:
         
         NOTE: X10 Firehose streams (x10_trades, x10_funding) don't require subscriptions.
         They automatically send data for all markets.
+        
+        NOTE: X10 Account stream automatically sends all account events after authentication.
+        No explicit subscription required - it's also a "firehose" for YOUR account data.
         """
         # Skip resubscription for Firehose streams (they don't need subscriptions)
-        if self.config.name in ["x10_trades", "x10_funding"]:
-            logger.debug(f"[{self.config.name}] Firehose stream - no subscription needed")
+        # NOTE: x10_account is also effectively a firehose for account data (orders, positions, fills, balance)
+        # It automatically sends all YOUR account events after authentication via X-Api-Key header
+        if self.config.name in ["x10_trades", "x10_funding", "x10_account"]:
+            logger.debug(f"[{self.config.name}] Firehose/Account stream - no explicit subscription needed")
             return
         
         all_channels = list(self._subscriptions | self._pending_subscriptions)
@@ -926,6 +1096,19 @@ class WebSocketManager:
         self._x10_account_keepalive_task: Optional[asyncio.Task] = None
         self._x10_account_last_pong_time = 0.0     # Track when we last received a pong
         self._x10_account_last_msg_time = 0.0      # Track any message (incl. pong) for health logs
+        self._x10_balance_cache: dict = {}         # Latest balance snapshot
+        
+        # ═══════════════════════════════════════════════════════════════
+        # X10 Account Message Type Counters (for health diagnostics)
+        # ═══════════════════════════════════════════════════════════════
+        self._x10_account_msg_counts: Dict[str, int] = {
+            "ORDER": 0,
+            "TRADE": 0,
+            "POSITION": 0,
+            "BALANCE": 0,
+            "PONG": 0,
+            "OTHER": 0,
+        }
     
     def set_orderbook_provider(self, provider):
         """Set orderbook provider for invalidation on reconnect"""
@@ -936,29 +1119,45 @@ class WebSocketManager:
         """
         Handle WebSocket reconnection - invalidate orderbook caches.
         
-        This is called when a WebSocket reconnects to ensure we don't use
-        stale data that may contain crossed book conditions.
+        CRITICAL: After a WebSocket reconnection, we must:
+        1. Clear ALL cached orderbook data (deltas are invalid without base)
+        2. Set a cooldown period to ignore incoming deltas
+        3. Wait for fresh REST snapshots before processing new deltas
+        
+        This prevents crossed book conditions caused by:
+        - Stale delta data being applied to old base
+        - Missing deltas during disconnect window
+        - Out-of-order delta messages after reconnect
         
         Args:
             ws_name: Name of the WebSocket that reconnected
         """
-        if not self._orderbook_provider:
-            logger.warning(f"🔄 [{ws_name}] Reconnected but no OrderbookProvider set - cannot invalidate")
-            return
-        
         # Map WebSocket name to exchange
         if ws_name.startswith("lighter"):
             exchange = "lighter"
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Clear Lighter orderbook caches immediately
+            # ═══════════════════════════════════════════════════════════════
+            self._invalidate_all_lighter_orderbooks()
         elif ws_name.startswith("x10"):
             exchange = "x10"
         else:
             exchange = None  # Invalidate all
+            self._invalidate_all_lighter_orderbooks()
         
-        logger.info(f"🔄 [{ws_name}] Reconnected - invalidating {exchange or 'all'} orderbook caches")
-        self._orderbook_provider.invalidate_all(
-            reason=f"{ws_name} WebSocket reconnect",
-            exchange=exchange
+        logger.warning(
+            f"🔄 [{ws_name}] Reconnected - cleared {exchange or 'all'} orderbook caches. "
+            f"Fresh REST snapshots required before trading!"
         )
+        
+        # Invalidate orderbook provider caches and set cooldown
+        if self._orderbook_provider:
+            self._orderbook_provider.invalidate_all(
+                reason=f"{ws_name} WebSocket reconnect",
+                exchange=exchange
+            )
+        else:
+            logger.warning(f"🔄 [{ws_name}] No OrderbookProvider set - manual cooldown not applied")
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters for data updates"""
@@ -1008,7 +1207,12 @@ class WebSocketManager:
                     success = await conn.send(ping_msg)
                     
                     if success:
-                        logger.debug(f"💓 [x10_account] Sent keepalive ping: {timestamp_ms}")
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX: Update connection metrics so heartbeat shows correct counts
+                        # ═══════════════════════════════════════════════════════════════
+                        conn._metrics.pings_sent += 1
+                        conn._metrics.last_ping_sent_time = time.time()
+                        logger.debug(f"💓 [x10_account] Sent keepalive ping #{conn._metrics.pings_sent}: {timestamp_ms}")
                     else:
                         logger.warning(f"⚠️ [x10_account] Failed to send keepalive ping")
                         
@@ -1020,6 +1224,13 @@ class WebSocketManager:
                 if not is_healthy:
                     logger.warning(f"⚠️ [x10_account] Health check failed - triggering reconnect...")
                     await self._reconnect_x10_account()
+                else:
+                    # Log message type statistics at DEBUG level (frequent)
+                    total_msgs = sum(self._x10_account_msg_counts.values())
+                    counts_str = ", ".join([f"{k}:{v}" for k, v in self._x10_account_msg_counts.items() if v > 0])
+                    logger.debug(
+                        f"💓 [x10_account] Health OK - msgs={total_msgs} ({counts_str or 'none'})"
+                    )
                     
             except asyncio.CancelledError:
                 logger.debug("💓 [x10_account] Keepalive loop cancelled")
@@ -1089,6 +1300,15 @@ class WebSocketManager:
         
         logger.warning(f"🔄 [x10_account] Forcing reconnection due to stale connection...")
         
+        # Log final message counts before reset
+        total_msgs = sum(self._x10_account_msg_counts.values())
+        counts_str = ", ".join([f"{k}:{v}" for k, v in self._x10_account_msg_counts.items() if v > 0])
+        logger.info(f"📊 [x10_account] Pre-reconnect stats - Total: {total_msgs}, Types: {counts_str or 'none'}")
+        
+        # Reset message counters for fresh statistics
+        for key in self._x10_account_msg_counts:
+            self._x10_account_msg_counts[key] = 0
+        
         try:
             # Stop the current connection - this will trigger the auto-reconnect loop
             await conn.stop()
@@ -1115,14 +1335,34 @@ class WebSocketManager:
         if "pong" in msg:
             self._x10_account_last_pong_time = time.time()
             pong_value = msg.get("pong")
-            logger.debug(f"💓 [x10_account] Received pong: {pong_value} - connection alive")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Update connection metrics so heartbeat shows correct counts
+            # ═══════════════════════════════════════════════════════════════
+            conn = self._connections.get("x10_account")
+            if conn:
+                conn._metrics.pongs_received += 1
+                conn._metrics.last_pong_time = time.time()
+                conn._metrics.missed_pongs = 0
+                conn._metrics.is_healthy = True
+            
+            logger.debug(f"💓 [x10_account] Received pong #{conn._metrics.pongs_received if conn else '?'}: {pong_value} - connection alive")
             return True
         
         # Fallback: legacy {"type": "pong"} format
         msg_type = msg.get("type", "")
         if msg_type == "pong":
             self._x10_account_last_pong_time = time.time()
-            logger.debug(f"💓 [x10_account] Received type:pong - connection alive")
+            
+            # FIX: Also update metrics for legacy format
+            conn = self._connections.get("x10_account")
+            if conn:
+                conn._metrics.pongs_received += 1
+                conn._metrics.last_pong_time = time.time()
+                conn._metrics.missed_pongs = 0
+                conn._metrics.is_healthy = True
+            
+            logger.debug(f"💓 [x10_account] Received type:pong #{conn._metrics.pongs_received if conn else '?'} - connection alive")
             return True
         
         return False
@@ -1140,25 +1380,47 @@ class WebSocketManager:
         self._running = True
         
         # 1. Create Lighter connection with enhanced 1006 handling
-        # Lighter often disconnects with 1006 (abnormal closure) - needs robust reconnect
-        # NOTE: Lighter erwartet einen JSON-Heartbeat {"type": "ping"}.
-        # Protokoll-Pings der websockets-Library sind hier kontraproduktiv
-        # (Server schickt selbst keine Ping-Frames). Wir deaktivieren daher
-        # ping_interval/ping_timeout und nutzen ausschließlich den eigenen
-        # JSON-Ping aus dem Heartbeat-Loop.
-        lighter_ping_interval = None
+        # ═══════════════════════════════════════════════════════════════════════════
+        # LIGHTER PING/PONG STRATEGY (Based on Discord community info):
+        # 
+        # KRITISCH: Der Server sendet UNS {"type":"ping"} und WIR müssen antworten!
+        # - Server sendet Pings alle ~60 Sekunden
+        # - Wir müssen mit {"type":"pong"} antworten
+        # - Wenn wir nicht antworten → "no pong" / connection rejected
+        # 
+        # WIR SENDEN KEINE EIGENEN PINGS! Der Server antwortet nicht darauf.
+        # Die Connection wird aktiv gehalten durch:
+        # 1. Unsere Pong-Antworten auf Server-Pings
+        # 2. Die regelmäßigen Daten-Messages (Orderbook, etc.)
+        # 3. Unsere Subscriptions
+        # ═══════════════════════════════════════════════════════════════════════════
+        lighter_ping_interval = None  # Keine WebSocket-Protokoll-Pings
         lighter_ping_timeout = None
+        
+        # Load Lighter-specific settings from config with fallbacks
+        # WICHTIG: json_ping_interval=None da Server nicht auf unsere Pings antwortet!
+        lighter_json_ping_interval = None  # DEAKTIVIERT - Server sendet UNS Pings!
+        lighter_json_pong_timeout = 90.0   # Warnung wenn >90s kein Server-Ping kam
+        lighter_1006_extended_delay = getattr(config, 'WS_1006_EXTENDED_DELAY', 30)
+        lighter_1006_threshold = getattr(config, 'WS_1006_ERROR_THRESHOLD', 3)
+        lighter_ping_on_connect = False    # DEAKTIVIERT - Server startet Ping/Pong!
         
         lighter_config = WSConfig(
             url=self.LIGHTER_WS_URL,
             name="lighter",
-            ping_interval=lighter_ping_interval,   # Aggressive 10s ping for keepalive
-            ping_timeout=lighter_ping_timeout,     # Shorter timeout for faster detection
+            ping_interval=lighter_ping_interval,   # None - we manage JSON pings ourselves
+            ping_timeout=lighter_ping_timeout,     # None - no protocol-level ping timeout
             reconnect_delay_initial=2.0,           # Fast initial reconnect attempt
             reconnect_delay_max=120.0,             # Allow server time to recover
-            max_consecutive_1006=5,                # Trigger extended delay after 5 consecutive 1006s
-            extended_delay_1006=30.0,              # 30s extended delay for repeated 1006s
+            max_consecutive_1006=lighter_1006_threshold,   # From config (default 3)
+            extended_delay_1006=lighter_1006_extended_delay,  # From config (default 30s)
             health_check_interval=30.0,            # Check health every 30s
+            # ═══════════════════════════════════════════════════════════════════════
+            # LIGHTER 1006 PREVENTION - Server sendet UNS Pings!
+            # ═══════════════════════════════════════════════════════════════════════
+            json_ping_interval=lighter_json_ping_interval,  # None! Server sendet UNS Pings
+            json_pong_timeout=lighter_json_pong_timeout,    # 90s - Warnung wenn kein Server-Ping
+            send_ping_on_connect=lighter_ping_on_connect,   # False! Server initiiert Ping/Pong
         )
         self._connections["lighter"] = ManagedWebSocket(
             lighter_config, 
@@ -1282,6 +1544,13 @@ class WebSocketManager:
     
     async def stop(self):
         """Stop all WebSocket connections"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Prevent duplicate stop calls during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self, '_stopped') and self._stopped:
+            return
+        self._stopped = True
+        
         self._running = False
         
         # Stop X10 account keepalive task first
@@ -1293,7 +1562,7 @@ class WebSocketManager:
                 pass
         
         await asyncio.gather(*[
-            conn. stop() for conn in self._connections.values()
+            conn.stop() for conn in self._connections.values()
         ], return_exceptions=True)
         
         self._connections.clear()
@@ -1375,6 +1644,11 @@ class WebSocketManager:
                 logger.warning(
                     f"⚠️ [lighter] Approaching subscription limit: {total_subs}/100"
                 )
+            
+            # NOTE: Lighter WS orderbook processing is DISABLED
+            # We rely on REST polling for orderbooks to avoid crossed books
+            # WS is still used for: prices, funding rates, market stats
+            logger.info(f"ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)")
         
         # 2. X10 Subscriptions
         # WICHTIG: Wir müssen NICHTS mehr senden!
@@ -1409,8 +1683,22 @@ class WebSocketManager:
             elif source == "x10_account":
                 # Track any account-stream message (including pongs) for health logging
                 self._x10_account_last_msg_time = time.time()
+                
+                # Extract message type for routing and stats
+                msg_type = (msg.get("type") or msg.get("e") or msg.get("event") or "UNKNOWN").upper()
+                
+                # DEBUG level for raw messages (set to INFO temporarily for debugging)
+                logger.debug(f"📨 [x10_account] RAW: {msg_type} - {str(msg)[:200]}")
+                
+                # Update message type counter for health diagnostics
+                if msg_type in self._x10_account_msg_counts:
+                    self._x10_account_msg_counts[msg_type] += 1
+                else:
+                    self._x10_account_msg_counts["OTHER"] += 1
+                
                 # Check for pong response first (keepalive health tracking)
                 if self._handle_x10_account_pong(msg):
+                    self._x10_account_msg_counts["PONG"] += 1
                     return  # Pong handled, no further processing needed
                 
                 # Account Updates (Balance, Orders, Positions)
@@ -1494,33 +1782,51 @@ class WebSocketManager:
                 self. oi_tracker. update_from_websocket(symbol, "lighter", float(open_interest))
     
     async def _handle_lighter_orderbook(self, msg: dict):
-        """Process Lighter orderbook update - INCREMENTAL DELTAS
+        """Process Lighter orderbook update - DISABLED
         
-        Lighter sends delta updates, not full snapshots:
-        - size > 0: Add or update the price level
-        - size = 0: Remove the price level
+        ═══════════════════════════════════════════════════════════════════════
+        WebSocket orderbook processing is DISABLED to prevent crossed books.
+        
+        The WS delta approach caused consistent crossed orderbook issues due to:
+        1. Race conditions between WS deltas and REST snapshots
+        2. Deltas arriving faster than processing speed
+        3. No sequence guarantee in WS messages
+        
+        We now rely EXCLUSIVELY on REST polling via fetch_orderbook().
+        WS is still used for: prices, funding rates, market stats.
+        ═══════════════════════════════════════════════════════════════════════
         """
-        data = msg.get("order_book", {})
-        if not data:
-            return
+        # DISABLED - REST polling only for orderbooks
+        # Simply return without processing to avoid any orderbook corruption
+        return
+    
+    def _invalidate_lighter_orderbook(self, symbol: str):
+        """
+        Invalidate a single symbol's orderbook cache after crossed book detection.
         
-        # Extract market from channel
-        channel = msg.get("channel", "")
-        if ":" in channel:
-            market_id = int(channel.split(":")[1])
-            symbol = self._lighter_market_id_to_symbol(market_id)
-            
-            if symbol and self.lighter_adapter:
-                bids = data.get("bids", [])
-                asks = data.get("asks", [])
-                
-                if bids or asks:
-                    # Use the adapter's delta-merge handler
-                    if hasattr(self.lighter_adapter, 'handle_orderbook_snapshot'):
-                        self.lighter_adapter.handle_orderbook_snapshot(symbol, bids, asks)
-                    else:
-                        # Fallback: Must still do proper delta merging!
-                        self._merge_lighter_orderbook_fallback(symbol, bids, asks)
+        This clears the cached orderbook data so that the next validation
+        will trigger a REST fallback fetch.
+        """
+        if self.lighter_adapter:
+            # Clear both caches
+            self.lighter_adapter._orderbook_cache.pop(symbol, None)
+            self.lighter_adapter.orderbook_cache.pop(symbol, None)
+            self.lighter_adapter._orderbook_cache_time.pop(symbol, None)
+            logger.info(f"🗑️ [{symbol}] Orderbook cache invalidated due to crossed book")
+    
+    def _invalidate_all_lighter_orderbooks(self):
+        """
+        Invalidate ALL Lighter orderbook caches.
+        
+        Called on WebSocket reconnect to ensure we start fresh with
+        REST snapshots instead of accumulating potentially stale deltas.
+        """
+        if self.lighter_adapter:
+            symbols = list(self.lighter_adapter._orderbook_cache.keys())
+            self.lighter_adapter._orderbook_cache.clear()
+            self.lighter_adapter.orderbook_cache.clear()
+            self.lighter_adapter._orderbook_cache_time.clear()
+            logger.warning(f"🗑️ All Lighter orderbooks invalidated ({len(symbols)} symbols)")
     
     def _merge_lighter_orderbook_fallback(self, symbol: str, bids: list, asks: list):
         """
@@ -1571,6 +1877,20 @@ class WebSocketManager:
         sorted_bids = sorted(bid_dict.items(), key=lambda x: x[0], reverse=True)
         sorted_asks = sorted(ask_dict.items(), key=lambda x: x[0])
         
+        # ═══════════════════════════════════════════════════════════════
+        # CROSSED BOOK CHECK AFTER MERGE
+        # ═══════════════════════════════════════════════════════════════
+        if sorted_bids and sorted_asks:
+            best_bid = sorted_bids[0][0]
+            best_ask = sorted_asks[0][0]
+            if best_ask <= best_bid:
+                logger.warning(
+                    f"⚠️ CROSSED BOOK after fallback merge for {symbol}: "
+                    f"ask={best_ask} <= bid={best_bid} - invalidating"
+                )
+                self._invalidate_lighter_orderbook(symbol)
+                return
+        
         self.lighter_adapter._orderbook_cache[symbol] = {
             'bids': [[p, s] for p, s in sorted_bids],
             'asks': [[p, s] for p, s in sorted_asks],
@@ -1597,33 +1917,87 @@ class WebSocketManager:
         
         Handles both account-specific messages (ORDER, TRADE, BALANCE, POSITION)
         and public stream messages routed here.
+        
+        X10 Account Stream Message Format (from API docs):
+        {
+            "type": "ORDER" | "TRADE" | "BALANCE" | "POSITION",
+            "data": { ... },
+            "ts": 1715885884837,
+            "seq": 1
+        }
+        
+        Alternative formats that may be used:
+        - "e" field instead of "type" (Binance-style)
+        - "event" field
+        - Nested "data" object or flat structure
         """
-        msg_type = msg.get("type", "")
+        # ═══════════════════════════════════════════════════════════════
+        # FLEXIBLE MESSAGE TYPE DETECTION
+        # X10 may use different field names: type, e, event, channel
+        # ═══════════════════════════════════════════════════════════════
+        msg_type = (
+            msg.get("type") or 
+            msg.get("e") or 
+            msg.get("event") or 
+            msg.get("channel") or 
+            ""
+        ).upper()
         
         # ═══════════════════════════════════════════════════════════════
         # ACCOUNT STREAM MESSAGE TYPES (x10_account connection)
-        # These messages come automatically - no subscription needed!
+        # These messages come automatically after authentication!
         # ═══════════════════════════════════════════════════════════════
         
         # Order updates (new, filled, cancelled, etc.)
-        if msg_type == "ORDER":
+        # Possible type values: ORDER, order, ORDERS, orders, ORDER_UPDATE, orderUpdate
+        if msg_type in ["ORDER", "ORDERS", "ORDER_UPDATE", "ORDERUPDATE"]:
             await self._handle_x10_order_update(msg)
             return
         
         # Trade/fill notifications (CRITICAL for position tracking!)
-        if msg_type == "TRADE":
+        # Possible type values: TRADE, trade, TRADES, trades, FILL, fill, EXECUTION
+        if msg_type in ["TRADE", "TRADES", "FILL", "FILLS", "EXECUTION"]:
             await self._handle_x10_trade_notification(msg)
             return
         
         # Balance updates
-        if msg_type == "BALANCE":
+        # Possible type values: BALANCE, balance, ACCOUNT, account, BALANCE_UPDATE
+        if msg_type in ["BALANCE", "ACCOUNT", "BALANCE_UPDATE", "BALANCEUPDATE"]:
             await self._handle_x10_balance_update(msg)
             return
         
         # Position updates
-        if msg_type == "POSITION":
+        # Possible type values: POSITION, position, POSITIONS, positions, POSITION_UPDATE
+        if msg_type in ["POSITION", "POSITIONS", "POSITION_UPDATE", "POSITIONUPDATE"]:
             await self._handle_x10_position_update(msg)
             return
+        
+        # ═══════════════════════════════════════════════════════════════
+        # ALTERNATIVE: Check if "data" contains typed objects
+        # Some APIs send {"data": {"orders": [...], "positions": [...], ...}}
+        # ═══════════════════════════════════════════════════════════════
+        data = msg.get("data", {})
+        if isinstance(data, dict):
+            # Check for orders array
+            if "orders" in data and data["orders"]:
+                logger.info(f"📋 [x10_account] Found orders array in data: {len(data['orders'])} orders")
+                await self._handle_x10_order_update(msg)
+                # Don't return - might have multiple arrays
+            
+            # Check for trades array
+            if "trades" in data and data["trades"]:
+                logger.info(f"💰 [x10_account] Found trades array in data: {len(data['trades'])} trades")
+                await self._handle_x10_trade_notification(msg)
+            
+            # Check for positions array
+            if "positions" in data and data["positions"]:
+                logger.info(f"📊 [x10_account] Found positions array in data: {len(data['positions'])} positions")
+                await self._handle_x10_position_update(msg)
+            
+            # Check for balance object
+            if "balance" in data and data["balance"]:
+                logger.info(f"💰 [x10_account] Found balance in data")
+                await self._handle_x10_balance_update(msg)
         
         # ═══════════════════════════════════════════════════════════════
         # PUBLIC STREAM MESSAGE TYPES (from other connections)
@@ -1648,6 +2022,12 @@ class WebSocketManager:
         # Open Interest
         elif msg.get("channel") == "open_interest":
             await self._handle_x10_open_interest(msg)
+        
+        # ═══════════════════════════════════════════════════════════════
+        # UNKNOWN MESSAGE TYPE - Log for analysis
+        # ═══════════════════════════════════════════════════════════════
+        if msg_type and msg_type not in ["PONG", "PING", "HEARTBEAT", "SUBSCRIBED", "MP"]:
+            logger.debug(f"[x10_account] Unhandled message type '{msg_type}': {str(msg)[:200]}")
     
     async def _handle_x10_mark_price(self, msg: dict):
         """Process X10 mark price"""
@@ -1749,27 +2129,67 @@ class WebSocketManager:
             "ts": 1715885884837,
             "seq": 1
         }
+        
+        Alternative formats:
+        - Direct order object (not wrapped in "data")
+        - Single order (not array)
+        - Different field names (orderId, symbol, quantity, etc.)
         """
         try:
-            data = msg.get("data", {})
-            orders = data.get("orders", [])
+            # Extract orders - handle multiple possible structures
+            data = msg.get("data", msg)  # Fallback to msg itself if no "data" key
+            
+            # Orders could be in various places
+            orders = (
+                data.get("orders") or 
+                data.get("order") or 
+                (data if "id" in data or "orderId" in data else None) or
+                []
+            )
+            
+            # Ensure it's a list
+            if isinstance(orders, dict):
+                orders = [orders]
+            elif not orders:
+                orders = []
             
             for order in orders:
-                market = order.get("market", "")
-                status = order.get("status", "")
-                order_id = order.get("id")
-                side = order.get("side", "")
-                price = order.get("price", "0")
-                qty = order.get("qty", "0")
-                filled_qty = order.get("filledQty", "0")
+                # Flexible field extraction
+                market = order.get("market") or order.get("symbol") or order.get("m") or ""
+                status = order.get("status") or order.get("orderStatus") or order.get("s") or ""
+                order_id = order.get("id") or order.get("orderId") or order.get("order_id") or order.get("i")
+                side = order.get("side") or order.get("orderSide") or ""
+                price = order.get("price") or order.get("p") or "0"
+                qty = order.get("qty") or order.get("quantity") or order.get("amount") or order.get("q") or "0"
+                filled_qty = order.get("filledQty") or order.get("filled_qty") or order.get("executedQty") or order.get("fq") or "0"
+                
+                # Log with emoji based on status
+                status_upper = str(status).upper()
+                emoji = "📋"
+                if status_upper == "FILLED":
+                    emoji = "✅"
+                elif status_upper == "CANCELLED":
+                    emoji = "❌"
+                elif status_upper == "NEW":
+                    emoji = "🆕"
+                elif "PARTIAL" in status_upper:
+                    emoji = "⏳"
                 
                 logger.info(
-                    f"📋 [x10_account] ORDER: {market} {side} {status} "
+                    f"{emoji} [x10_account] ORDER UPDATE: {market} {side} {status} "
                     f"qty={qty} filled={filled_qty} @ ${price} (id={order_id})"
                 )
                 
+                # Notify X10 Adapter if available
+                if hasattr(self, 'x10_adapter') and self.x10_adapter:
+                    if hasattr(self.x10_adapter, 'on_order_update'):
+                        try:
+                            await self.x10_adapter.on_order_update(order)
+                        except Exception as adapter_err:
+                            logger.debug(f"[x10_account] Adapter order callback error: {adapter_err}")
+                
         except Exception as e:
-            logger.error(f"[x10_account] Order update error: {e}")
+            logger.error(f"[x10_account] Order update error: {e}", exc_info=True)
 
     async def _handle_x10_trade_notification(self, msg: dict):
         """Process X10 trade/fill notification from account stream.
@@ -1793,24 +2213,71 @@ class WebSocketManager:
                 }]
             }
         }
+        
+        Alternative formats:
+        - Direct trade object (not wrapped in "data")
+        - Single trade (not array)
+        - Different field names (tradeId, symbol, quantity, commission, etc.)
         """
         try:
-            data = msg.get("data", {})
-            trades = data.get("trades", [])
+            # Extract trades - handle multiple possible structures
+            data = msg.get("data", msg)  # Fallback to msg itself if no "data" key
+            
+            # Trades could be in various places
+            trades = (
+                data.get("trades") or 
+                data.get("trade") or 
+                data.get("fills") or
+                data.get("fill") or
+                data.get("executions") or
+                (data if "tradeId" in data or "trade_id" in data or ("id" in data and "price" in data) else None) or
+                []
+            )
+            
+            # Ensure it's a list
+            if isinstance(trades, dict):
+                trades = [trades]
+            elif not trades:
+                trades = []
             
             for trade in trades:
-                market = trade.get("market", "")
-                side = trade.get("side", "")
-                price = float(trade.get("price", 0))
-                qty = float(trade.get("qty", 0))
-                fee = float(trade.get("fee", 0))
-                order_id = trade.get("orderId")
-                is_taker = trade.get("isTaker", True)
+                # Flexible field extraction
+                market = trade.get("market") or trade.get("symbol") or trade.get("m") or ""
+                side = trade.get("side") or trade.get("orderSide") or trade.get("s") or ""
+                trade_id = trade.get("id") or trade.get("tradeId") or trade.get("trade_id") or trade.get("t")
+                order_id = trade.get("orderId") or trade.get("order_id") or trade.get("oid")
                 
+                # Parse numeric fields safely
+                try:
+                    price = float(trade.get("price") or trade.get("p") or 0)
+                except (ValueError, TypeError):
+                    price = 0.0
+                
+                try:
+                    qty = float(trade.get("qty") or trade.get("quantity") or trade.get("amount") or trade.get("q") or 0)
+                except (ValueError, TypeError):
+                    qty = 0.0
+                
+                try:
+                    fee = float(trade.get("fee") or trade.get("commission") or trade.get("f") or 0)
+                except (ValueError, TypeError):
+                    fee = 0.0
+                
+                is_taker = trade.get("isTaker", trade.get("is_taker", trade.get("taker", True)))
+                
+                # Log with prominent emoji - this is a CRITICAL event!
                 logger.info(
-                    f"📊 [x10_account] FILL: {market} {side} {qty} @ ${price:.4f} "
-                    f"(Order: {order_id}, Fee: ${fee:.4f}, Taker: {is_taker})"
+                    f"💰💰💰 [x10_account] FILL/TRADE: {market} {side} {qty} @ ${price:.4f} "
+                    f"(Trade: {trade_id}, Order: {order_id}, Fee: ${fee:.4f}, Taker: {is_taker})"
                 )
+                
+                # Notify X10 Adapter if available
+                if hasattr(self, 'x10_adapter') and self.x10_adapter:
+                    if hasattr(self.x10_adapter, 'on_fill_update'):
+                        try:
+                            await self.x10_adapter.on_fill_update(trade)
+                        except Exception as adapter_err:
+                            logger.debug(f"[x10_account] Adapter fill callback error: {adapter_err}")
                 
                 # Notify fill callbacks (for parallel_execution)
                 if hasattr(self, '_fill_callbacks'):
@@ -1822,47 +2289,139 @@ class WebSocketManager:
                             logger.error(f"Fill callback error: {cb_err}")
                             
         except Exception as e:
-            logger.error(f"[x10_account] Trade notification error: {e}")
+            logger.error(f"[x10_account] Trade notification error: {e}", exc_info=True)
 
     async def _handle_x10_balance_update(self, msg: dict):
-        """Process X10 balance update from account stream."""
+        """Process X10 balance update from account stream.
+        
+        Message format:
+        {
+            "type": "BALANCE",
+            "data": {
+                "balance": {
+                    "equity": "10500.00",
+                    "availableForTrade": "10000.00",
+                    "unrealisedPnl": "500.00",
+                    ...
+                }
+            }
+        }
+        """
         try:
-            data = msg.get("data", {})
-            balance = data.get("balance", {})
+            # Extract balance - handle multiple possible structures
+            data = msg.get("data", msg)
+            
+            # Balance could be nested or direct
+            balance = (
+                data.get("balance") or 
+                data.get("account") or 
+                data.get("balances") or
+                (data if "equity" in data or "available" in data else None) or
+                {}
+            )
             
             if balance:
-                equity = balance.get("equity", "0")
-                available = balance.get("availableForTrade", "0")
-                unrealized_pnl = balance.get("unrealisedPnl", "0")
+                # Flexible field extraction
+                equity = balance.get("equity") or balance.get("totalEquity") or balance.get("e") or "0"
+                available = (
+                    balance.get("availableForTrade") or 
+                    balance.get("available") or 
+                    balance.get("availableBalance") or 
+                    balance.get("free") or 
+                    balance.get("a") or 
+                    "0"
+                )
+                unrealized_pnl = (
+                    balance.get("unrealisedPnl") or 
+                    balance.get("unrealizedPnl") or 
+                    balance.get("uPnl") or 
+                    balance.get("pnl") or 
+                    "0"
+                )
+                margin_used = balance.get("marginUsed") or balance.get("usedMargin") or balance.get("m") or "0"
                 
+                # Log at DEBUG level (balance updates are frequent)
                 logger.debug(
                     f"💰 [x10_account] BALANCE: equity=${equity}, "
                     f"available=${available}, uPnL=${unrealized_pnl}"
                 )
                 
+                # Cache balance for health monitoring
+                self._x10_balance_cache = balance
+                
         except Exception as e:
-            logger.error(f"[x10_account] Balance update error: {e}")
+            logger.error(f"[x10_account] Balance update error: {e}", exc_info=True)
 
     async def _handle_x10_position_update(self, msg: dict):
-        """Process X10 position update from account stream."""
+        """Process X10 position update from account stream.
+        
+        Message format:
+        {
+            "type": "POSITION",
+            "data": {
+                "positions": [{
+                    "market": "BTC-USD",
+                    "side": "LONG" | "SHORT",
+                    "size": "0.5",
+                    "entryPrice": "58000.00",
+                    "markPrice": "58500.00",
+                    "unrealisedPnl": "250.00",
+                    ...
+                }]
+            }
+        }
+        """
         try:
-            data = msg.get("data", {})
-            positions = data.get("positions", [])
+            # Extract positions - handle multiple possible structures
+            data = msg.get("data", msg)
+            
+            # Positions could be in various places
+            positions = (
+                data.get("positions") or 
+                data.get("position") or 
+                (data if "market" in data or "symbol" in data else None) or
+                []
+            )
+            
+            # Ensure it's a list
+            if isinstance(positions, dict):
+                positions = [positions]
+            elif not positions:
+                positions = []
             
             for pos in positions:
-                market = pos.get("market", "")
-                side = pos.get("side", "")
-                size = pos.get("size", "0")
-                unrealized_pnl = pos.get("unrealisedPnl", "0")
-                mark_price = pos.get("markPrice", "0")
+                # Flexible field extraction
+                market = pos.get("market") or pos.get("symbol") or pos.get("m") or ""
+                side = pos.get("side") or pos.get("positionSide") or pos.get("s") or ""
+                size = pos.get("size") or pos.get("quantity") or pos.get("qty") or pos.get("q") or "0"
+                entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("avgPrice") or pos.get("ep") or "0"
+                mark_price = pos.get("markPrice") or pos.get("mark_price") or pos.get("mp") or "0"
+                unrealized_pnl = pos.get("unrealisedPnl") or pos.get("unrealizedPnl") or pos.get("uPnl") or pos.get("pnl") or "0"
+                leverage = pos.get("leverage") or pos.get("lev") or ""
+                liquidation_price = pos.get("liquidationPrice") or pos.get("liqPrice") or ""
                 
-                logger.debug(
-                    f"📈 [x10_account] POSITION: {market} {side} size={size} "
-                    f"markPrice=${mark_price} uPnL=${unrealized_pnl}"
+                # Determine emoji based on PnL
+                try:
+                    pnl_val = float(unrealized_pnl)
+                    emoji = "📈" if pnl_val >= 0 else "📉"
+                except (ValueError, TypeError):
+                    emoji = "📊"
+                
+                logger.info(
+                    f"{emoji} [x10_account] POSITION UPDATE: {market} {side} size={size} "
+                    f"entry=${entry_price} mark=${mark_price} uPnL=${unrealized_pnl}"
                 )
                 
+                # Notify X10 Adapter if available
+                if hasattr(self, 'x10_adapter') and self.x10_adapter:
+                    if hasattr(self.x10_adapter, 'on_position_update'):
+                        try:
+                            await self.x10_adapter.on_position_update(pos)
+                        except Exception as adapter_err:
+                            logger.debug(f"[x10_account] Adapter position callback error: {adapter_err}")
+                
         except Exception as e:
-            logger.error(f"[x10_account] Position update error: {e}")
+            logger.error(f"[x10_account] Position update error: {e}", exc_info=True)
 
     def register_fill_callback(self, symbol: str, callback):
         """Register callback to be notified of fills for a symbol."""
@@ -1947,6 +2506,11 @@ class WebSocketManager:
                     'last_error_code': conn.metrics.last_error_code,
                     'error_counts': dict(conn.metrics.error_counts),  # Track errors by code
                     'last_pong_time': conn.metrics.last_pong_time,
+                    # Enhanced 1006 prevention metrics
+                    'pings_sent': conn.metrics.pings_sent,
+                    'pongs_received': conn.metrics.pongs_received,
+                    'missed_pongs': conn.metrics.missed_pongs,
+                    'last_ping_sent_time': conn.metrics.last_ping_sent_time,
                 }
             }
             for name, conn in self._connections.items()

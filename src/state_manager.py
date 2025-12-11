@@ -307,6 +307,13 @@ class InMemoryStateManager:
 
     async def stop(self):
         """Stop the state manager gracefully"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Prevent duplicate stop calls during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self, '_stopped') and self._stopped:
+            return
+        self._stopped = True
+        
         logger.info("🛑 Stopping InMemoryStateManager...")
         self._running = False
         

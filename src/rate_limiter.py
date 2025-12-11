@@ -65,7 +65,7 @@ class TokenBucketRateLimiter:
         # REQUEST DEDUPLICATION (Prevents API storms during shutdown)
         # ═══════════════════════════════════════════════════════════════
         self._recent_requests: Dict[str, float] = {}
-        self._dedup_window = 0.5  # 500ms - skip duplicate requests within this window
+        self._dedup_window = 1.0  # 1000ms - skip duplicate requests within this window (was 500ms)
         self._dedup_cleanup_interval = 60.0  # Cleanup old entries every 60s
         self._last_dedup_cleanup = time.monotonic()
         
@@ -327,12 +327,15 @@ if lighter_tier == 'PREMIUM':
         penalty_429_seconds=10.0
     )
 else:
-    # STANDARD (Default)
+    # STANDARD (Default) - OPTIMIZED for Order Placement Speed
+    # Lighter allows ~60 req/min = 1 req/s average
+    # But we use token bucket to naturally rate limit over time,
+    # while allowing short bursts for order placement
     lighter_config = RateLimiterConfig(
-        tokens_per_second=1.0,   # 1 request per second
-        max_tokens=5.0,          # Burst up to 5
-        min_request_interval=1.0, # Strict 1s interval
-        penalty_429_seconds=30.0 # Stricter penalty for Standard
+        tokens_per_second=1.0,    # 1 token per second (= avg 1 req/s)
+        max_tokens=10.0,          # Allow burst of up to 10 requests
+        min_request_interval=0.15, # 150ms min interval (allows 6-7 req/s burst, but token bucket limits avg)
+        penalty_429_seconds=30.0  # Stricter penalty for Standard
     )
 
 LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(

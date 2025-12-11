@@ -127,10 +127,37 @@ WS_RECONNECT_DELAY_MAX = 120       # Increased from 60 to 120 for server recover
 WS_MAX_RECONNECT_ATTEMPTS = 10     # Max attempts before alerting (0 = infinite)
 WS_HEALTH_CHECK_INTERVAL = 30      # Health check every 30 seconds
 WS_1006_EXTENDED_DELAY = 30        # Extended delay after repeated 1006 errors
+WS_1006_ERROR_THRESHOLD = 3        # Trigger extended delay after this many consecutive 1006s
 
-# Lighter-specific WebSocket settings (more aggressive keepalive for 1006 prevention)
-LIGHTER_WS_PING_INTERVAL = 10      # More aggressive ping (10s instead of 15s)
-LIGHTER_WS_PING_TIMEOUT = 8        # Shorter timeout to detect issues faster
+# ═══════════════════════════════════════════════════════════════════════════════
+# LIGHTER WEBSOCKET SETTINGS (Based on Discord Community Info)
+# ═══════════════════════════════════════════════════════════════════════════════
+# 
+# WebSocket Error 1006 = "Abnormal Closure" - connection closed without close frame
+# 
+# KRITISCH (aus Lighter Discord):
+# - Der SERVER sendet UNS {"type":"ping"} alle ~60 Sekunden
+# - WIR müssen mit {"type":"pong"} antworten
+# - Wenn wir NICHT antworten → "no pong" / connection rejected / 1006!
+# - Wir senden KEINE eigenen Pings - der Server antwortet nicht darauf!
+#
+# Die Connection wird aktiv gehalten durch:
+# 1. Unsere Pong-Antworten auf Server-Pings
+# 2. Die regelmäßigen Daten-Messages (Orderbook updates, etc.)
+# 3. Unsere Subscriptions
+#
+# Docs: https://apidocs.lighter.xyz/docs/websocket-reference
+# Rate Limits: https://apidocs.lighter.xyz/docs/rate-limits
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# DEAKTIVIERT - Wir senden KEINE eigenen Pings!
+# Der Server sendet uns Pings und wir antworten darauf.
+LIGHTER_WS_PING_INTERVAL = None    # DEAKTIVIERT - Server sendet UNS Pings!
+LIGHTER_WS_PING_TIMEOUT = None     # DEAKTIVIERT
+LIGHTER_WS_PONG_TIMEOUT = 90       # Warnung wenn >90s kein Server-Ping kam
+
+# DEAKTIVIERT - Server initiiert Ping/Pong, nicht wir!
+LIGHTER_WS_PING_ON_CONNECT = False
 
 # Lighter WebSocket Subscription Limit (from API docs: https://apidocs.lighter.xyz/docs/rate-limits)
 # Lighter limits: 100 subscriptions per connection, 1000 total, 200 messages/min
@@ -138,6 +165,7 @@ LIGHTER_WS_PING_TIMEOUT = 8        # Shorter timeout to detect issues faster
 # This allows ALL symbols: 65 order_books + 1 market_stats = 66 < 100 ✅
 # Note: market_stats/all provides prices, funding rates, OI for ALL markets
 LIGHTER_WS_MAX_SYMBOLS = 99  # With Option 3, we can track up to 99 symbols (99 + 1 = 100)
+LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
 
 # --- Prediction & Confidence ---
 SYMBOL_CONFIDENCE_BOOST = {

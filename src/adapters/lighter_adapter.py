@@ -106,6 +106,13 @@ class LighterAdapter(BaseAdapter):
         # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
         self.order_lock = asyncio.Lock()
         
+        # ═══════════════════════════════════════════════════════════════
+        # NONCE CACHING: Pre-fetch and increment locally to avoid API calls
+        # ═══════════════════════════════════════════════════════════════
+        self._cached_nonce: Optional[int] = None
+        self._nonce_fetch_time: float = 0.0
+        self._nonce_cache_ttl: float = 30.0  # Re-fetch nonce after 30s of no orders
+        
         # Shutdown state
         self._shutdown_cancel_done = False
         self._shutdown_cancel_failed = False
@@ -142,6 +149,80 @@ class LighterAdapter(BaseAdapter):
         except asyncio.CancelledError:
             logger.debug(f"{self.name}: Rate limit acquire cancelled")
             return False  # Return False instead of raising
+
+    # ═══════════════════════════════════════════════════════════════
+    # NONCE CACHING: Reduces API calls for faster order placement
+    # ═══════════════════════════════════════════════════════════════
+    async def _get_next_nonce(self, force_refresh: bool = False) -> Optional[int]:
+        """
+        Get the next nonce, using cache when possible.
+        
+        Strategy:
+        - If we have a cached nonce and it's not too old, increment and return
+        - Otherwise, fetch a fresh nonce from the API
+        - This reduces API calls from 1 per order to ~1 per 30s
+        
+        MUST be called while holding self.order_lock!
+        """
+        now = time.time()
+        
+        # Check if cache is valid (not expired and not forcing refresh)
+        cache_age = now - self._nonce_fetch_time
+        if not force_refresh and self._cached_nonce is not None and cache_age < self._nonce_cache_ttl:
+            # Use cached nonce and increment for next use
+            nonce_to_use = self._cached_nonce
+            self._cached_nonce += 1
+            logger.debug(f"⚡ Using cached nonce: {nonce_to_use} (age: {cache_age:.1f}s)")
+            return nonce_to_use
+        
+        # Cache expired or not available - fetch fresh nonce
+        try:
+            if self._resolved_account_index is None:
+                await self._resolve_account_index()
+            
+            nonce_params = {
+                "account_index": self._resolved_account_index,
+                "api_key_index": self._resolved_api_key_index
+            }
+            
+            # Fetch fresh nonce from API (NO rate limiting - outer acquire handles it)
+            nonce_resp = await self._rest_get_internal("/api/v1/nextNonce", params=nonce_params)
+            
+            if nonce_resp is None:
+                logger.error("❌ Failed to fetch nonce from API")
+                return None
+            
+            # Parse nonce response
+            if isinstance(nonce_resp, dict):
+                val = nonce_resp.get('nonce')
+                if val is not None:
+                    current_nonce = int(val)
+                else:
+                    logger.error(f"❌ Nonce response dict has no 'nonce' key: {nonce_resp}")
+                    return None
+            else:
+                try:
+                    current_nonce = int(str(nonce_resp).strip())
+                except ValueError:
+                    logger.error(f"❌ Invalid nonce format: {nonce_resp}")
+                    return None
+            
+            # Cache the NEXT nonce for subsequent orders
+            self._cached_nonce = current_nonce + 1
+            self._nonce_fetch_time = now
+            
+            logger.debug(f"🔄 Fetched fresh nonce: {current_nonce} (cached next: {self._cached_nonce})")
+            return current_nonce
+            
+        except Exception as e:
+            logger.error(f"❌ Nonce fetch error: {e}")
+            return None
+    
+    def _invalidate_nonce_cache(self):
+        """Invalidate nonce cache (call on nonce-related errors)."""
+        self._cached_nonce = None
+        self._nonce_fetch_time = 0.0
+        logger.debug("🔄 Nonce cache invalidated")
 
     async def start_websocket(self):
         """Start the WebSocket connection task."""
@@ -302,6 +383,40 @@ class LighterAdapter(BaseAdapter):
         if not hasattr(self, '_session') or self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()
         return self._session
+
+    async def _rest_get_internal(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
+        """REST GET WITHOUT rate limiting - for internal use only (e.g., nonce fetch inside order lock).
+        
+        IMPORTANT: Only use this when rate limiting is handled externally!
+        """
+        base = getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
+        url = f"{base.rstrip('/')}{path}"
+
+        try:
+            session = await self._get_session()
+            async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 429:
+                    self.rate_limiter.penalize_429()
+                    return None
+                
+                if resp.status == 404:
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/accountTrades', '/api/v1/trades', '/api/v1/nextNonce']
+                    if any(path.startswith(p) for p in empty_result_paths):
+                        logger.debug(f"{self.name} REST GET (internal) {path} returned 404")
+                        return None
+                
+                if resp.status >= 400:
+                    logger.warning(f"REST GET (internal) {path} returned {resp.status}")
+                    return None
+                
+                self.rate_limiter.on_success()
+                return await resp.json()
+        except asyncio.CancelledError:
+            logger.debug(f"{self.name}: _rest_get_internal cancelled for {path}")
+            return None
+        except Exception as e:
+            logger.error(f"REST GET (internal) {path} error: {e}")
+            return None
 
     async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
         """REST GET with rate limiting and proper cancellation handling.
@@ -1697,25 +1812,56 @@ class LighterAdapter(BaseAdapter):
     def fetch_24h_vol(self, symbol: str) -> float:
         return 0.0
 
-    async def fetch_orderbook(self, symbol: str, limit: int = 20) -> dict:
-        """Fetch orderbook from Lighter API"""
+    async def fetch_orderbook(self, symbol: str, limit: int = 20, force_fresh: bool = False) -> dict:
+        """Fetch orderbook from Lighter API.
+        
+        IMPORTANT: This fetches from REST API which returns FULL SNAPSHOT.
+        Use this after WebSocket reconnect to get a valid base for delta updates.
+        
+        Args:
+            symbol: Trading pair (e.g., "BTC-USD")
+            limit: Max levels to return per side
+            force_fresh: If True, skip cache and force API call
+            
+        Returns:
+            Dict with 'bids', 'asks', 'timestamp' keys
+        """
         try:
-            if symbol in self.orderbook_cache:
+            # Check cache only if not forcing fresh fetch
+            if not force_fresh and symbol in self.orderbook_cache:
                 cached = self.orderbook_cache[symbol]
-                cache_age = time.time() - cached. get("timestamp", 0) / 1000
+                cache_ts = cached.get("timestamp", 0)
+                # Convert ms to s if needed
+                if cache_ts > 1e12:
+                    cache_ts = cache_ts / 1000
+                cache_age = time.time() - cache_ts
                 if cache_age < 2.0:
-                    return {
-                        "bids": cached.get("bids", [])[:limit],
-                        "asks": cached.get("asks", [])[:limit],
-                        "timestamp": cached.get("timestamp", 0),
-                    }
+                    # ═══════════════════════════════════════════════════════════════
+                    # VALIDATE cached data isn't crossed before returning
+                    # ═══════════════════════════════════════════════════════════════
+                    cached_bids = cached.get("bids", [])
+                    cached_asks = cached.get("asks", [])
+                    if cached_bids and cached_asks:
+                        best_bid = float(cached_bids[0][0]) if cached_bids else 0
+                        best_ask = float(cached_asks[0][0]) if cached_asks else float('inf')
+                        if best_ask <= best_bid:
+                            logger.warning(f"⚠️ Cached orderbook for {symbol} is crossed - forcing fresh fetch")
+                            force_fresh = True
+                        else:
+                            return {
+                                "bids": cached_bids[:limit],
+                                "asks": cached_asks[:limit],
+                                "timestamp": cached.get("timestamp", 0),
+                            }
 
             market_data = self.market_info.get(symbol)
             if not market_data:
+                logger.debug(f"No market data for {symbol}")
                 return {"bids": [], "asks": [], "timestamp": 0}
 
             market_id = market_data.get("i")
             if market_id is None:
+                logger.debug(f"No market_id for {symbol}")
                 return {"bids": [], "asks": [], "timestamp": 0}
 
             if not HAVE_LIGHTER_SDK:
@@ -1741,10 +1887,30 @@ class LighterAdapter(BaseAdapter):
                     price = safe_float(getattr(a, "price", 0), 0.0)
                     size = safe_float(getattr(a, "remaining_base_amount", 0), 0.0)
                     if price > 0 and size > 0:
-                        asks. append([price, size])
+                        asks.append([price, size])
 
                 bids.sort(key=lambda x: x[0], reverse=True)
                 asks.sort(key=lambda x: x[0])
+                
+                # ═══════════════════════════════════════════════════════════════
+                # VALIDATE the REST response isn't crossed
+                # ═══════════════════════════════════════════════════════════════
+                if bids and asks:
+                    best_bid = bids[0][0]
+                    best_ask = asks[0][0]
+                    if best_ask <= best_bid:
+                        logger.warning(
+                            f"⚠️ REST API returned crossed orderbook for {symbol}: "
+                            f"ask={best_ask} <= bid={best_bid} - NOT caching"
+                        )
+                        # Return uncached - let caller decide what to do
+                        return {
+                            "bids": bids[:limit],
+                            "asks": asks[:limit],
+                            "timestamp": int(time.time() * 1000),
+                            "symbol": symbol,
+                            "_crossed": True,  # Flag for caller
+                        }
 
                 result = {
                     "bids": bids[:limit],
@@ -1753,8 +1919,19 @@ class LighterAdapter(BaseAdapter):
                     "symbol": symbol,
                 }
 
+                # ═══════════════════════════════════════════════════════════════
+                # IMPORTANT: Update BOTH caches and clear internal delta dicts
+                # This ensures WebSocket deltas start from a fresh base
+                # ═══════════════════════════════════════════════════════════════
                 self.orderbook_cache[symbol] = result
-                self. rate_limiter. on_success()
+                self._orderbook_cache[symbol] = {
+                    **result,
+                    # Initialize fresh internal dicts for delta merging
+                    "_bid_dict": {b[0]: b[1] for b in bids},
+                    "_ask_dict": {a[0]: a[1] for a in asks},
+                }
+                self._orderbook_cache_time[symbol] = time.time()
+                self.rate_limiter.on_success()
 
                 return result
 
@@ -1773,141 +1950,34 @@ class LighterAdapter(BaseAdapter):
         """
         Process incoming orderbook UPDATE from Lighter WebSocket.
         
-        CRITICAL: Lighter sends INCREMENTAL DELTA updates, NOT full snapshots!
-        Reference: https://apidocs.lighter.xyz/docs/websocket-reference
+        ═══════════════════════════════════════════════════════════════════════
+        DISABLED: WebSocket orderbook processing causes race conditions and
+        crossed books due to timing issues with delta updates.
         
-        Rules:
-        - size > 0: Add or update the price level
-        - size = 0: Remove the price level from orderbook
-        - Must accumulate state over time, not replace
+        We now rely EXCLUSIVELY on REST polling for orderbook data.
+        This is slower but guarantees consistent, non-crossed orderbooks.
         
-        Args:
-            symbol: Trading pair (e.g., "BTC-USD")
-            bids: List of [price, size] or {'p': price, 's': size} updates for bid side
-            asks: List of [price, size] or {'p': price, 's': size} updates for ask side
+        WS is still used for: prices, funding rates, trades, market stats.
+        ═══════════════════════════════════════════════════════════════════════
         """
-        try:
-            # Get existing orderbook state or create new one
-            current = self._orderbook_cache.get(symbol)
-            
-            # Initialize internal dict representation if needed
-            # Dict format: {price: size} for efficient O(1) lookups/updates
-            if current is None:
-                bid_dict = {}
-                ask_dict = {}
-            else:
-                # Use internal dicts if available, otherwise convert from lists
-                bid_dict = current.get('_bid_dict')
-                ask_dict = current.get('_ask_dict')
-                
-                if bid_dict is None:
-                    # Convert list format to dict format: {price: size}
-                    bid_dict = {}
-                    for b in current.get('bids', []):
-                        if isinstance(b, (list, tuple)) and len(b) >= 2:
-                            try:
-                                bid_dict[float(b[0])] = float(b[1])
-                            except (ValueError, TypeError):
-                                continue
-                
-                if ask_dict is None:
-                    ask_dict = {}
-                    for a in current.get('asks', []):
-                        if isinstance(a, (list, tuple)) and len(a) >= 2:
-                            try:
-                                ask_dict[float(a[0])] = float(a[1])
-                            except (ValueError, TypeError):
-                                continue
-            
-            # Helper to parse price/size from incoming data (supports dict or list format)
-            def parse_level(item):
-                """Parse price and size from dict or list format."""
-                if isinstance(item, dict):
-                    price = item.get('p') or item.get('price')
-                    size = item.get('s') or item.get('size') or item.get('remaining_base_amount')
-                elif isinstance(item, (list, tuple)) and len(item) >= 2:
-                    price = item[0]
-                    size = item[1]
-                else:
-                    return None, None
-                try:
-                    return float(price), float(size)
-                except (ValueError, TypeError):
-                    return None, None
-            
-            # Track delta sizes for debug logging
-            delta_bids = 0
-            delta_asks = 0
-            
-            # MERGE incoming bid deltas
-            for bid in bids:
-                price, size = parse_level(bid)
-                if price is None:
-                    continue
-                delta_bids += 1
-                if size == 0:
-                    # Size 0 = REMOVE this price level
-                    bid_dict.pop(price, None)
-                else:
-                    # Size > 0 = ADD or UPDATE this price level
-                    bid_dict[price] = size
-            
-            # MERGE incoming ask deltas
-            for ask in asks:
-                price, size = parse_level(ask)
-                if price is None:
-                    continue
-                delta_asks += 1
-                if size == 0:
-                    # Size 0 = REMOVE this price level
-                    ask_dict.pop(price, None)
-                else:
-                    # Size > 0 = ADD or UPDATE this price level
-                    ask_dict[price] = size
-            
-            # Convert back to sorted list format for consumers
-            # Bids: sorted descending (highest price first)
-            sorted_bids = sorted(bid_dict.items(), key=lambda x: x[0], reverse=True)
-            # Asks: sorted ascending (lowest price first)
-            sorted_asks = sorted(ask_dict.items(), key=lambda x: x[0])
-            
-            # Store in cache with MILLISECOND timestamp (compatible with fetch_orderbook)
-            ts = int(time.time() * 1000)
-            
-            cache_entry = {
-                "bids": [[p, s] for p, s in sorted_bids],
-                "asks": [[p, s] for p, s in sorted_asks],
-                "timestamp": ts,
-                "symbol": symbol,
-                # Keep internal dicts for efficient merging on next update
-                "_bid_dict": bid_dict,
-                "_ask_dict": ask_dict,
-            }
-            
-            # Update both caches to be safe
-            self.orderbook_cache[symbol] = cache_entry
-            self._orderbook_cache[symbol] = cache_entry
-            self._orderbook_cache_time[symbol] = time.time()
-            
-            # Log occasionally showing ACCUMULATED depth (not just delta)
-            if random.random() < 0.005:
-                total_bids = len(sorted_bids)
-                total_asks = len(sorted_asks)
-                logger.debug(f"WS OB Update {symbol}: +{delta_bids} bids, +{delta_asks} asks (Total: {total_bids} bids, {total_asks} asks)")
-                
-        except Exception as e:
-            # Log the DATA that caused the crash to understand structure
-            logger.error(f"Error handling OB delta for {symbol}: {e} | Bids Type: {type(bids)} | First Bid: {bids[0] if bids else 'Empty'}")
+        # COMPLETELY DISABLED - REST polling only
+        # The WS delta approach causes crossed books due to:
+        # 1. Race conditions between REST snapshot and WS deltas
+        # 2. Deltas arriving faster than we can process them
+        # 3. No guarantee of sequence ordering in WS messages
+        #
+        # Trade-off: Slightly slower orderbook updates (REST every 1-2s)
+        #            vs. guaranteed valid, non-crossed orderbooks
+        return
 
     def handle_orderbook_update(self, symbol: str, bids: List, asks: List):
         """
         Process incoming orderbook update (delta) from WebSocket.
         
-        Lighter sends incremental delta updates - this method properly merges them
-        with the existing orderbook state via handle_orderbook_snapshot().
+        DISABLED: We now rely exclusively on REST polling for orderbooks.
         """
-        # Delta merging is now implemented in handle_orderbook_snapshot
-        self.handle_orderbook_snapshot(symbol, bids, asks)
+        # Disabled - REST only
+        return
 
     async def check_liquidity(self, symbol: str, side: str, quantity_usd: float, max_slippage_pct: float = 0.02, is_maker: bool = False) -> bool:
         """
@@ -2654,49 +2724,16 @@ class LighterAdapter(BaseAdapter):
                          logger.debug(f"Lighter: Executing IOC order for {symbol}")
 
                     # ═══════════════════════════════════════════════════════════════
-                    # FIX: NONCE LOCKING + MANUAL FETCHING (Fixes 'int has no decode')
+                    # FIX: NONCE LOCKING + CACHING (Optimized for speed)
                     # ═══════════════════════════════════════════════════════════════
                     async with self.order_lock:
                         try:
-                            # 1. Nonce manuell holen (Sicherer Bypass für den Library-Fehler)
-                            # Wir nutzen den REST Endpoint direkt, da wir im Lock sind
+                            # 1. Get nonce efficiently (uses cache when possible)
+                            current_nonce = await self._get_next_nonce()
                             
-                            # Ensure indices are resolved (should be, but safe check)
-                            if self._resolved_account_index is None:
-                                await self._resolve_account_index()
-                                
-                            nonce_params = {
-                                "account_index": self._resolved_account_index,
-                                "api_key_index": self._resolved_api_key_index
-                            }
-                            
-                            # Fetch Nonce
-                            nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
-                            
-                            if nonce_resp is None:
-                                logger.error(f"❌ Failed to fetch nonce for {symbol}")
+                            if current_nonce is None:
+                                logger.error(f"❌ Failed to get nonce for {symbol}")
                                 return False, None
-
-                            # 🔥 FIX: Parsing der JSON Antwort
-                            # Die API gibt zurück: {'code': 200, 'nonce': 5369} oder einfach 5369
-                            current_nonce = 0
-                            
-                            if isinstance(nonce_resp, dict):
-                                # Fall 1: Antwort ist ein Dictionary
-                                val = nonce_resp.get('nonce')
-                                if val is not None:
-                                    current_nonce = int(val)
-                                else:
-                                    # Fallback: Vielleicht heißt der Key anders?
-                                    logger.error(f"❌ Nonce response dict has no 'nonce' key: {nonce_resp}")
-                                    return False, None
-                            else:
-                                # Fall 2: Antwort ist direkt die Zahl (oder String-Zahl)
-                                try:
-                                    current_nonce = int(str(nonce_resp).strip())
-                                except ValueError:
-                                    logger.error(f"❌ Invalid nonce format: {nonce_resp}")
-                                    return False, None
                             
                             logger.info(f"🔒 Locked execution for {symbol} {side} (Nonce: {current_nonce})...")
 
@@ -2780,10 +2817,13 @@ class LighterAdapter(BaseAdapter):
                                     return False, "POSITION_MISSING_1137"
                                 
                                 # Existing nonce/rate limit handling
-                                if "nonce" in err_str or "429" in err_str or "too many requests" in err_str:
-                                    # If it's a nonce error despite our lock, maybe retry? 
-                                    # But for now, we just log and return fail to let outer loop handle or bubble up
-                                    pass
+                                if "nonce" in err_str:
+                                    # Nonce error - invalidate cache and it will be re-fetched on retry
+                                    self._invalidate_nonce_cache()
+                                    logger.warning(f"⚠️ Nonce error for {symbol} - cache invalidated")
+                                if "429" in err_str or "too many requests" in err_str:
+                                    # Rate limit hit - the rate limiter will handle penalty
+                                    logger.warning(f"⚠️ Rate limit hit for {symbol}")
                                 return False, None
                             
                             tx_hash = getattr(resp, "tx_hash", tx) # tx usually contains hash string in some versions, or resp does
@@ -3190,6 +3230,13 @@ class LighterAdapter(BaseAdapter):
 
     async def aclose(self):
         """Cleanup all sessions and connections"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Prevent duplicate close calls during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self, '_closed') and self._closed:
+            return
+        self._closed = True
+        
         try:
             if hasattr(self, "_session") and self._session:
                 try:
@@ -3299,7 +3346,8 @@ class LighterAdapter(BaseAdapter):
                                 "api_key_index": self._resolved_api_key_index
                             }
                             
-                            nonce_resp = await self._rest_get("/api/v1/nextNonce", params=nonce_params)
+                            # Use internal method - rate limiting already done above
+                            nonce_resp = await self._rest_get_internal("/api/v1/nextNonce", params=nonce_params)
                             
                             if nonce_resp is None:
                                 logger.warning(f"⚠️ Failed to fetch nonce for cancel_all")
@@ -3343,6 +3391,10 @@ class LighterAdapter(BaseAdapter):
                                 # Low‑level signature / type issue – don't retry this path again.
                                 logger.warning(f"⚠️ Lighter ImmediateCancelAll TypeError: {te!r} – disabling global cancel path and falling back to per-order cancel")
                                 self._shutdown_cancel_failed = True
+                                # ═══════════════════════════════════════════════════════════════
+                                # CRITICAL FIX: Invalidate nonce cache - nonce may have been consumed
+                                # ═══════════════════════════════════════════════════════════════
+                                self._invalidate_nonce_cache()
                                 raise
                             
                             if err:
@@ -3351,18 +3403,37 @@ class LighterAdapter(BaseAdapter):
                                 if "no" in err_str and "order" in err_str:
                                     logger.info(f"✅ Lighter: No open orders to cancel")
                                     self._shutdown_cancel_done = True
+                                    # ═══════════════════════════════════════════════════════════════
+                                    # CRITICAL FIX: Invalidate nonce cache after cancel_all_orders
+                                    # The nonce was used, so subsequent orders need fresh nonce
+                                    # ═══════════════════════════════════════════════════════════════
+                                    self._invalidate_nonce_cache()
                                     return True
                                 logger.warning(f"⚠️ Lighter cancel_all_orders error: {err}")
                                 self._shutdown_cancel_failed = True
+                                # ═══════════════════════════════════════════════════════════════
+                                # CRITICAL FIX: Invalidate nonce cache even on error
+                                # The nonce was consumed by the failed request
+                                # ═══════════════════════════════════════════════════════════════
+                                self._invalidate_nonce_cache()
                             else:
                                 logger.info(f"✅ Lighter: ImmediateCancelAll executed (tx={tx})")
                                 self._shutdown_cancel_done = True
+                                # ═══════════════════════════════════════════════════════════════
+                                # CRITICAL FIX: Invalidate nonce cache after cancel_all_orders
+                                # The nonce was used, so subsequent orders need fresh nonce
+                                # ═══════════════════════════════════════════════════════════════
+                                self._invalidate_nonce_cache()
                                 return True
                 except Exception as e:
                     # Mark global cancel as failed so we don't keep retrying
                     # this path on every subsequent shutdown attempt.
                     if not self._shutdown_cancel_failed:
                         self._shutdown_cancel_failed = True
+                    # ═══════════════════════════════════════════════════════════════
+                    # CRITICAL FIX: Invalidate nonce cache - nonce may have been consumed
+                    # ═══════════════════════════════════════════════════════════════
+                    self._invalidate_nonce_cache()
                     logger.warning(f"⚠️ Lighter ImmediateCancelAll failed: {e}, falling back to per-order cancel")
                     # Fall through to per-order cancellation
             

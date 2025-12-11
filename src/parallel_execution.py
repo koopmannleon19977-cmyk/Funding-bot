@@ -143,6 +143,13 @@ class ParallelExecutionManager:
             "rollbacks_failed": 0,
             "rollbacks": 0
         }
+        
+        # ═══════════════════════════════════════════════════════════════
+        # COMPLIANCE CHECK CACHE: Avoid repeated API calls for open orders
+        # ═══════════════════════════════════════════════════════════════
+        self._compliance_cache: Dict[str, Tuple[float, bool]] = {}  # symbol -> (timestamp, is_compliant)
+        self._compliance_cache_ttl = 5.0  # Cache compliance result for 5 seconds
+        
         logger.info("✅ ParallelExecutionManager started")
 
     async def start(self):
@@ -1236,22 +1243,72 @@ class ParallelExecutionManager:
                 # Check if in post-reconnect cooldown
                 if provider.is_in_cooldown():
                     remaining = provider.get_cooldown_remaining()
-                    reason = f"Post-reconnect cooldown ({remaining:.1f}s remaining)"
-                    logger.warning(f"⏱️ {symbol}: {reason}")
-                    return OrderbookValidationResult(
-                        is_valid=False,
-                        quality=OrderbookQuality.EMPTY,
-                        reason=reason,
-                        bid_depth_usd=Decimal("0"),
-                        ask_depth_usd=Decimal("0"),
-                        spread_percent=None,
-                        best_bid=None,
-                        best_ask=None,
-                        bid_levels=0,
-                        ask_levels=0,
-                        staleness_seconds=0.0,
-                        recommended_action="wait"
-                    )
+                    # ═══════════════════════════════════════════════════════════════
+                    # IMPROVEMENT: During cooldown, try to fetch fresh REST snapshot
+                    # instead of immediately failing. This allows trading to resume
+                    # faster after WebSocket reconnects.
+                    # ═══════════════════════════════════════════════════════════════
+                    logger.info(f"⏱️ {symbol}: Post-reconnect cooldown ({remaining:.1f}s) - fetching fresh REST snapshot...")
+                    
+                    try:
+                        fresh_snapshot = await provider.fetch_orderbook_rest_fallback(
+                            symbol, "lighter", retry_on_crossed=True
+                        )
+                        if fresh_snapshot and fresh_snapshot.best_ask and fresh_snapshot.best_bid:
+                            if fresh_snapshot.best_ask > fresh_snapshot.best_bid:
+                                logger.info(f"✅ {symbol}: Fresh REST snapshot OK during cooldown - proceeding with validation")
+                                # Don't return early - continue to full validation with fresh data
+                            else:
+                                logger.warning(f"⚠️ {symbol}: REST snapshot during cooldown still crossed")
+                                return OrderbookValidationResult(
+                                    is_valid=False,
+                                    quality=OrderbookQuality.CROSSED,
+                                    reason=f"Post-reconnect cooldown + crossed book",
+                                    bid_depth_usd=Decimal("0"),
+                                    ask_depth_usd=Decimal("0"),
+                                    spread_percent=None,
+                                    best_bid=fresh_snapshot.best_bid,
+                                    best_ask=fresh_snapshot.best_ask,
+                                    bid_levels=len(fresh_snapshot.bids),
+                                    ask_levels=len(fresh_snapshot.asks),
+                                    staleness_seconds=0.0,
+                                    recommended_action="wait"
+                                )
+                        else:
+                            # Couldn't fetch fresh snapshot - fail with cooldown message
+                            reason = f"Post-reconnect cooldown ({remaining:.1f}s remaining) - REST fetch failed"
+                            logger.warning(f"⏱️ {symbol}: {reason}")
+                            return OrderbookValidationResult(
+                                is_valid=False,
+                                quality=OrderbookQuality.EMPTY,
+                                reason=reason,
+                                bid_depth_usd=Decimal("0"),
+                                ask_depth_usd=Decimal("0"),
+                                spread_percent=None,
+                                best_bid=None,
+                                best_ask=None,
+                                bid_levels=0,
+                                ask_levels=0,
+                                staleness_seconds=0.0,
+                                recommended_action="wait"
+                            )
+                    except Exception as e:
+                        reason = f"Post-reconnect cooldown ({remaining:.1f}s remaining) - REST error: {e}"
+                        logger.warning(f"⏱️ {symbol}: {reason}")
+                        return OrderbookValidationResult(
+                            is_valid=False,
+                            quality=OrderbookQuality.EMPTY,
+                            reason=reason,
+                            bid_depth_usd=Decimal("0"),
+                            ask_depth_usd=Decimal("0"),
+                            spread_percent=None,
+                            best_bid=None,
+                            best_ask=None,
+                            bid_levels=0,
+                            ask_levels=0,
+                            staleness_seconds=0.0,
+                            recommended_action="wait"
+                        )
             
             # ═══════════════════════════════════════════════════════════════
             # STEP 2: Get orderbook data (from provider or adapter)
@@ -1319,9 +1376,9 @@ class ParallelExecutionManager:
                             f"⚠️ CROSSED BOOK detected in validation for {symbol}: "
                             f"ask={best_ask} <= bid={best_bid} - attempting REST fallback..."
                         )
-                        # Try REST fallback
+                        # Try REST fallback with retry logic
                         if provider:
-                            fresh_ob = await provider.fetch_orderbook_rest_fallback(symbol, "lighter")
+                            fresh_ob = await provider.fetch_orderbook_rest_fallback(symbol, "lighter", retry_on_crossed=True)
                             if fresh_ob and fresh_ob.best_ask and fresh_ob.best_bid:
                                 if fresh_ob.best_ask > fresh_ob.best_bid:
                                     # Fresh data is not crossed, use it
@@ -1394,9 +1451,21 @@ class ParallelExecutionManager:
         """
         Checks for self-match / wash trading risks.
         Returns TRUE if safe to trade, FALSE if risk detected.
+        
+        OPTIMIZED: Uses cache to avoid repeated API calls during order bursts.
         """
         if not getattr(config, 'COMPLIANCE_CHECK_ENABLED', False):
             return True
+        
+        # ═══════════════════════════════════════════════════════════════
+        # CHECK CACHE: Skip API calls if we recently checked this symbol
+        # ═══════════════════════════════════════════════════════════════
+        now = time.time()
+        if symbol in self._compliance_cache:
+            cache_time, cached_result = self._compliance_cache[symbol]
+            if now - cache_time < self._compliance_cache_ttl:
+                logger.debug(f"⚡ Compliance check cache hit for {symbol} (age: {now - cache_time:.1f}s)")
+                return cached_result
         
         try:
             # 1. Fetch Open Orders (Parallel)
@@ -1443,13 +1512,18 @@ class ParallelExecutionManager:
             
             if risk_detected:
                 if getattr(config, 'COMPLIANCE_BLOCK_SELF_MATCH', True):
+                    # Cache the failed result
+                    self._compliance_cache[symbol] = (now, False)
                     return False
-                
+            
+            # Cache the successful result
+            self._compliance_cache[symbol] = (now, True)
             return True
             
         except Exception as e:
             logger.error(f"Compliance Check Failed: {e}")
             # Fail safe: Allow trading if check errors locally
+            # Don't cache errors - let next check retry
             return True
 
     def is_busy(self) -> bool:

@@ -71,13 +71,24 @@ class OrderbookProvider:
     
     Integrates with WebSocket manager for real-time updates and
     falls back to REST API when WebSocket data is stale.
+    
+    CRITICAL: After WebSocket reconnect, orderbooks MUST be fetched via REST
+    before processing WebSocket deltas. WebSocket only sends deltas, not snapshots!
+    
+    Reference: https://apidocs.lighter.xyz/docs/websocket-reference
     """
     
     # ═══════════════════════════════════════════════════════════════
     # Reconnect cooldown constants
     # ═══════════════════════════════════════════════════════════════
-    RECONNECT_COOLDOWN_SECONDS = 5.0  # Wait time after reconnect before allowing trades
+    RECONNECT_COOLDOWN_SECONDS = 8.0  # Wait time after reconnect before allowing trades (increased from 5)
     STALENESS_THRESHOLD_SECONDS = 10.0  # Orderbook considered stale after this time
+    
+    # ═══════════════════════════════════════════════════════════════
+    # Crossed Book Detection
+    # ═══════════════════════════════════════════════════════════════
+    MAX_CROSSED_BOOK_RETRIES = 3  # Max REST retries when crossed book detected
+    CROSSED_BOOK_RETRY_DELAY = 0.5  # Delay between retries
     
     def __init__(
         self,
@@ -103,6 +114,12 @@ class OrderbookProvider:
         self._is_valid: Dict[str, bool] = {}  # Per-symbol validity flags
         self._reconnect_cooldown_until: float = 0.0  # Unix timestamp when cooldown ends
         
+        # ═══════════════════════════════════════════════════════════════
+        # Crossed Book Tracking - prevent repeated failures on same symbol
+        # ═══════════════════════════════════════════════════════════════
+        self._crossed_book_counts: Dict[str, int] = {}  # Count of consecutive crossed books per symbol
+        self._crossed_book_blacklist_until: Dict[str, float] = {}  # Temporary blacklist for symbols
+        
         # Last REST fetch timestamps (rate limiting)
         self._last_rest_fetch: Dict[str, float] = {}
         self._rest_cooldown = 1.0  # Minimum 1s between REST calls per symbol
@@ -115,8 +132,15 @@ class OrderbookProvider:
         """
         Invalidate all orderbook caches after reconnect.
         
-        This should be called when a WebSocket reconnects to ensure
-        we don't use stale data that may cause crossed book detection.
+        CRITICAL: After WebSocket reconnect, we MUST:
+        1. Clear all cached orderbook data
+        2. Set cooldown to ignore WebSocket deltas
+        3. Force REST snapshot fetch on next access
+        
+        This prevents crossed books caused by:
+        - Applying deltas without valid base snapshot
+        - Missing deltas during disconnect window
+        - Out-of-order messages after reconnect
         
         Args:
             reason: Reason for invalidation (for logging)
@@ -125,18 +149,35 @@ class OrderbookProvider:
         logger.warning(f"🔄 Invalidating orderbooks: {reason}")
         
         if exchange is None or exchange == "lighter":
-            for symbol in list(self._lighter_orderbooks.keys()):
-                self._is_valid[f"lighter:{symbol}"] = False
-            logger.info(f"   ⏸ Lighter orderbooks invalidated ({len(self._lighter_orderbooks)} symbols)")
+            # Clear the actual cached data (not just validity flags)
+            lighter_count = len(self._lighter_orderbooks)
+            self._lighter_orderbooks.clear()
+            for key in list(self._is_valid.keys()):
+                if key.startswith("lighter:"):
+                    del self._is_valid[key]
+            # Also clear crossed book tracking
+            for key in list(self._crossed_book_counts.keys()):
+                if key.startswith("lighter:"):
+                    del self._crossed_book_counts[key]
+            for key in list(self._crossed_book_blacklist_until.keys()):
+                if key.startswith("lighter:"):
+                    del self._crossed_book_blacklist_until[key]
+            logger.info(f"   🗑️ Lighter orderbooks CLEARED ({lighter_count} symbols)")
         
         if exchange is None or exchange == "x10":
-            for symbol in list(self._x10_orderbooks.keys()):
-                self._is_valid[f"x10:{symbol}"] = False
-            logger.info(f"   ⏸ X10 orderbooks invalidated ({len(self._x10_orderbooks)} symbols)")
+            x10_count = len(self._x10_orderbooks)
+            self._x10_orderbooks.clear()
+            for key in list(self._is_valid.keys()):
+                if key.startswith("x10:"):
+                    del self._is_valid[key]
+            logger.info(f"   🗑️ X10 orderbooks CLEARED ({x10_count} symbols)")
         
-        # Set cooldown period
+        # Set cooldown period - CRITICAL for preventing delta processing
         self._reconnect_cooldown_until = time.time() + self.RECONNECT_COOLDOWN_SECONDS
-        logger.info(f"   ⏱ Trading cooldown set for {self.RECONNECT_COOLDOWN_SECONDS}s")
+        logger.warning(
+            f"   ⏱️ Trading cooldown set for {self.RECONNECT_COOLDOWN_SECONDS}s - "
+            f"WebSocket deltas will be IGNORED until REST snapshots are fetched"
+        )
     
     def is_in_cooldown(self) -> bool:
         """
@@ -245,6 +286,7 @@ class OrderbookProvider:
         self,
         symbol: str,
         exchange: str,
+        retry_on_crossed: bool = True,
     ) -> Optional[OrderbookSnapshot]:
         """
         Fetch fresh orderbook via REST when WebSocket data is invalid.
@@ -254,79 +296,130 @@ class OrderbookProvider:
         - WebSocket data is stale
         - Data is invalid after reconnect
         
+        IMPORTANT: Uses retry logic for crossed books, as the exchange API
+        may temporarily return inconsistent data during high volatility.
+        
         Args:
             symbol: Trading pair (e.g., "DOGE-USD")
             exchange: "lighter" or "x10"
+            retry_on_crossed: Whether to retry if REST also returns crossed book
             
         Returns:
             Fresh OrderbookSnapshot or None if failed
         """
         logger.info(f"📡 REST Fallback: Fetching {symbol} orderbook from {exchange}")
         
-        try:
-            if exchange == "lighter" and self.lighter_adapter:
-                if hasattr(self.lighter_adapter, 'fetch_orderbook'):
-                    orderbook = await self.lighter_adapter.fetch_orderbook(symbol, limit=20)
-                    
-                    if orderbook:
-                        bids = orderbook.get("bids", [])
-                        asks = orderbook.get("asks", [])
+        # Check if symbol is temporarily blacklisted due to repeated crossed books
+        blacklist_key = f"{exchange}:{symbol}"
+        blacklist_until = self._crossed_book_blacklist_until.get(blacklist_key, 0)
+        if time.time() < blacklist_until:
+            remaining = blacklist_until - time.time()
+            logger.warning(
+                f"⏸️ {symbol} temporarily blacklisted for {remaining:.1f}s due to repeated crossed books"
+            )
+            return None
+        
+        max_retries = self.MAX_CROSSED_BOOK_RETRIES if retry_on_crossed else 1
+        
+        for attempt in range(max_retries):
+            try:
+                if exchange == "lighter" and self.lighter_adapter:
+                    if hasattr(self.lighter_adapter, 'fetch_orderbook'):
+                        # Clear adapter's cache to force fresh fetch
+                        self.lighter_adapter.orderbook_cache.pop(symbol, None)
+                        self.lighter_adapter._orderbook_cache.pop(symbol, None)
                         
-                        # Validate the fetched data isn't also crossed
-                        if bids and asks:
-                            best_bid = float(bids[0][0]) if bids else 0
-                            best_ask = float(asks[0][0]) if asks else float('inf')
-                            if best_ask <= best_bid:
-                                logger.warning(
-                                    f"⚠️ REST fallback also returned crossed book for {symbol}: "
-                                    f"ask={best_ask} <= bid={best_bid}"
-                                )
-                                return None
+                        orderbook = await self.lighter_adapter.fetch_orderbook(symbol, limit=20)
                         
-                        snapshot = OrderbookSnapshot(
-                            symbol=symbol,
-                            exchange="lighter",
-                            bids=[(Decimal(str(b[0])), Decimal(str(b[1]))) for b in bids if len(b) >= 2],
-                            asks=[(Decimal(str(a[0])), Decimal(str(a[1]))) for a in asks if len(a) >= 2],
-                            timestamp=time.time(),
-                        )
-                        self._lighter_orderbooks[symbol] = snapshot
-                        self._is_valid[f"lighter:{symbol}"] = True
-                        logger.info(f"✅ {symbol} REST fallback successful - orderbook restored")
-                        return snapshot
+                        if orderbook:
+                            bids = orderbook.get("bids", [])
+                            asks = orderbook.get("asks", [])
+                            
+                            # Validate the fetched data isn't also crossed
+                            if bids and asks:
+                                best_bid = float(bids[0][0]) if bids else 0
+                                best_ask = float(asks[0][0]) if asks else float('inf')
+                                
+                                if best_ask <= best_bid:
+                                    # Track consecutive crossed books
+                                    count = self._crossed_book_counts.get(blacklist_key, 0) + 1
+                                    self._crossed_book_counts[blacklist_key] = count
+                                    
+                                    logger.warning(
+                                        f"⚠️ REST fallback returned crossed book for {symbol} "
+                                        f"(attempt {attempt+1}/{max_retries}): ask={best_ask} <= bid={best_bid}"
+                                    )
+                                    
+                                    if attempt < max_retries - 1:
+                                        # Wait before retry - give exchange time to stabilize
+                                        await asyncio.sleep(self.CROSSED_BOOK_RETRY_DELAY * (attempt + 1))
+                                        continue
+                                    else:
+                                        # Max retries reached - blacklist temporarily
+                                        if count >= 3:
+                                            blacklist_duration = min(30.0, count * 10.0)  # Max 30s blacklist
+                                            self._crossed_book_blacklist_until[blacklist_key] = time.time() + blacklist_duration
+                                            logger.error(
+                                                f"❌ {symbol} blacklisted for {blacklist_duration:.0f}s "
+                                                f"after {count} consecutive crossed books"
+                                            )
+                                        return None
+                            
+                            # SUCCESS - clear crossed book count
+                            self._crossed_book_counts[blacklist_key] = 0
+                            
+                            snapshot = OrderbookSnapshot(
+                                symbol=symbol,
+                                exchange="lighter",
+                                bids=[(Decimal(str(b[0])), Decimal(str(b[1]))) for b in bids if len(b) >= 2],
+                                asks=[(Decimal(str(a[0])), Decimal(str(a[1]))) for a in asks if len(a) >= 2],
+                                timestamp=time.time(),
+                            )
+                            self._lighter_orderbooks[symbol] = snapshot
+                            self._is_valid[f"lighter:{symbol}"] = True
+                            logger.info(f"✅ {symbol} REST fallback successful - orderbook restored")
+                            return snapshot
+                            
+                elif exchange == "x10" and self.x10_adapter:
+                    if hasattr(self.x10_adapter, 'fetch_orderbook'):
+                        orderbook = await self.x10_adapter.fetch_orderbook(symbol)
                         
-            elif exchange == "x10" and self.x10_adapter:
-                if hasattr(self.x10_adapter, 'fetch_orderbook'):
-                    orderbook = await self.x10_adapter.fetch_orderbook(symbol)
-                    
-                    if orderbook:
-                        bids = orderbook.get("bids", [])
-                        asks = orderbook.get("asks", [])
+                        if orderbook:
+                            bids = orderbook.get("bids", [])
+                            asks = orderbook.get("asks", [])
+                            
+                            # Validate
+                            if bids and asks:
+                                best_bid = float(bids[0][0]) if bids else 0
+                                best_ask = float(asks[0][0]) if asks else float('inf')
+                                if best_ask <= best_bid:
+                                    logger.warning(
+                                        f"⚠️ REST fallback also returned crossed book for {symbol}"
+                                    )
+                                    if attempt < max_retries - 1:
+                                        await asyncio.sleep(self.CROSSED_BOOK_RETRY_DELAY)
+                                        continue
+                                    return None
+                            
+                            snapshot = OrderbookSnapshot(
+                                symbol=symbol,
+                                exchange="x10",
+                                bids=[(Decimal(str(b[0])), Decimal(str(b[1]))) for b in bids if len(b) >= 2],
+                                asks=[(Decimal(str(a[0])), Decimal(str(a[1]))) for a in asks if len(a) >= 2],
+                                timestamp=time.time(),
+                            )
+                            self._x10_orderbooks[symbol] = snapshot
+                            self._is_valid[f"x10:{symbol}"] = True
+                            logger.info(f"✅ {symbol} REST fallback successful")
+                            return snapshot
                         
-                        # Validate
-                        if bids and asks:
-                            best_bid = float(bids[0][0]) if bids else 0
-                            best_ask = float(asks[0][0]) if asks else float('inf')
-                            if best_ask <= best_bid:
-                                logger.warning(
-                                    f"⚠️ REST fallback also returned crossed book for {symbol}"
-                                )
-                                return None
-                        
-                        snapshot = OrderbookSnapshot(
-                            symbol=symbol,
-                            exchange="x10",
-                            bids=[(Decimal(str(b[0])), Decimal(str(b[1]))) for b in bids if len(b) >= 2],
-                            asks=[(Decimal(str(a[0])), Decimal(str(a[1]))) for a in asks if len(a) >= 2],
-                            timestamp=time.time(),
-                        )
-                        self._x10_orderbooks[symbol] = snapshot
-                        self._is_valid[f"x10:{symbol}"] = True
-                        logger.info(f"✅ {symbol} REST fallback successful")
-                        return snapshot
-                    
-        except Exception as e:
-            logger.error(f"❌ REST orderbook fallback failed for {symbol} on {exchange}: {e}")
+            except asyncio.CancelledError:
+                logger.debug(f"REST fallback cancelled for {symbol}")
+                return None
+            except Exception as e:
+                logger.error(f"❌ REST orderbook fallback failed for {symbol} on {exchange}: {e}")
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(self.CROSSED_BOOK_RETRY_DELAY)
         
         return None
     
@@ -338,6 +431,9 @@ class OrderbookProvider:
         """
         Get Lighter orderbook, using REST fallback if WebSocket data is stale or crossed.
         
+        CRITICAL: After WebSocket reconnect, this will automatically fetch REST snapshot
+        since WebSocket deltas are invalid without a base snapshot.
+        
         Args:
             symbol: Trading pair (e.g., "DOGE-USD")
             force_refresh: Force REST API call
@@ -345,18 +441,27 @@ class OrderbookProvider:
         Returns:
             OrderbookSnapshot or None if unavailable
         """
-        # Check WebSocket cache first
+        # ═══════════════════════════════════════════════════════════════
+        # CHECK 1: Post-reconnect cooldown - MUST fetch REST snapshot
+        # ═══════════════════════════════════════════════════════════════
+        if self.is_in_cooldown():
+            remaining = self.get_cooldown_remaining()
+            # During cooldown, we MUST fetch from REST to get a valid base snapshot
+            logger.debug(f"⏸️ [{symbol}] In post-reconnect cooldown ({remaining:.1f}s) - forcing REST fetch")
+            force_refresh = True
+        
+        # Check WebSocket cache first (if not in cooldown)
         cached = self._lighter_orderbooks.get(symbol)
         
         if cached and not force_refresh:
             # Check for crossed book condition
             if cached.best_bid and cached.best_ask and cached.best_ask <= cached.best_bid:
                 logger.warning(
-                    f"⚠️ CROSSED BOOK in cache for {symbol}: "
+                    f"⚠️ CROSSED BOOK in provider cache for {symbol}: "
                     f"ask={cached.best_ask} <= bid={cached.best_bid} - triggering REST fallback"
                 )
-                # Try REST fallback immediately
-                fresh = await self.fetch_orderbook_rest_fallback(symbol, "lighter")
+                # Try REST fallback with retry logic
+                fresh = await self.fetch_orderbook_rest_fallback(symbol, "lighter", retry_on_crossed=True)
                 if fresh:
                     return fresh
                 # Invalidate the cached data
@@ -369,7 +474,7 @@ class OrderbookProvider:
                 logger.debug(f"⚠️ {symbol} Lighter orderbook stale ({cached.age_seconds:.1f}s)")
                 
         # Try to get from adapter's cache (populated by WebSocket)
-        if self.lighter_adapter and hasattr(self.lighter_adapter, '_orderbook_cache'):
+        if self.lighter_adapter and hasattr(self.lighter_adapter, '_orderbook_cache') and not force_refresh:
             adapter_cache = self.lighter_adapter._orderbook_cache.get(symbol)
             if adapter_cache:
                 cache_time = self.lighter_adapter._orderbook_cache_time.get(symbol, 0)
@@ -379,15 +484,21 @@ class OrderbookProvider:
                     bids = adapter_cache.get('bids', [])
                     asks = adapter_cache.get('asks', [])
                     
-                    # Check for crossed book in adapter cache
+                    # ═══════════════════════════════════════════════════════════════
+                    # CRITICAL: Check for crossed book in adapter cache
+                    # ═══════════════════════════════════════════════════════════════
                     if bids and asks:
                         best_bid = float(bids[0][0]) if bids else 0
                         best_ask = float(asks[0][0]) if asks else float('inf')
                         if best_ask <= best_bid:
                             logger.warning(
-                                f"⚠️ CROSSED BOOK in adapter cache for {symbol} - triggering REST fallback"
+                                f"⚠️ CROSSED BOOK in adapter cache for {symbol}: "
+                                f"ask={best_ask} <= bid={best_bid} - triggering REST fallback"
                             )
-                            return await self.fetch_orderbook_rest_fallback(symbol, "lighter")
+                            # Clear the adapter's corrupted cache
+                            self.lighter_adapter._orderbook_cache.pop(symbol, None)
+                            self.lighter_adapter.orderbook_cache.pop(symbol, None)
+                            return await self.fetch_orderbook_rest_fallback(symbol, "lighter", retry_on_crossed=True)
                     
                     snapshot = OrderbookSnapshot(
                         symbol=symbol,
@@ -402,7 +513,7 @@ class OrderbookProvider:
                 
         # REST fallback
         if self.rest_fallback_enabled and self.lighter_adapter:
-            # Rate limiting
+            # Rate limiting (skip if force_refresh is True)
             last_fetch = self._last_rest_fetch.get(f"lighter:{symbol}", 0)
             if time.time() - last_fetch < self._rest_cooldown and not force_refresh:
                 return cached  # Return stale data rather than spam API
@@ -410,13 +521,32 @@ class OrderbookProvider:
             try:
                 self._last_rest_fetch[f"lighter:{symbol}"] = time.time()
                 
+                # Clear adapter cache before fetching to ensure fresh data
+                if force_refresh:
+                    self.lighter_adapter.orderbook_cache.pop(symbol, None)
+                    self.lighter_adapter._orderbook_cache.pop(symbol, None)
+                
                 # Use Lighter adapter's fetch_orderbook method
                 if hasattr(self.lighter_adapter, 'fetch_orderbook'):
-                    orderbook = await self.lighter_adapter.fetch_orderbook(symbol)
+                    orderbook = await self.lighter_adapter.fetch_orderbook(symbol, limit=20)
                     
                     if orderbook:
                         bids = orderbook.get("bids", [])
                         asks = orderbook.get("asks", [])
+                        
+                        # ═══════════════════════════════════════════════════════════════
+                        # VALIDATE REST response for crossed book
+                        # ═══════════════════════════════════════════════════════════════
+                        if bids and asks:
+                            best_bid = float(bids[0][0]) if bids else 0
+                            best_ask = float(asks[0][0]) if asks else float('inf')
+                            if best_ask <= best_bid:
+                                logger.warning(
+                                    f"⚠️ REST returned crossed book for {symbol}: "
+                                    f"ask={best_ask} <= bid={best_bid}"
+                                )
+                                return None
+                        
                         snapshot = OrderbookSnapshot(
                             symbol=symbol,
                             exchange="lighter",
@@ -429,6 +559,9 @@ class OrderbookProvider:
                         logger.debug(f"📚 {symbol} Lighter orderbook refreshed via REST")
                         return snapshot
                     
+            except asyncio.CancelledError:
+                logger.debug(f"Lighter orderbook fetch cancelled for {symbol}")
+                return cached
             except Exception as e:
                 logger.warning(f"⚠️ {symbol} Lighter orderbook REST fallback failed: {e}")
                 

@@ -154,6 +154,13 @@ class FeeManager:
     
     async def stop(self):
         """Stop periodic refresh"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Prevent duplicate stop calls during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self, '_stopped') and self._stopped:
+            return
+        self._stopped = True
+        
         if hasattr(self, '_refresh_task') and self._refresh_task:
             self._refresh_task.cancel()
             try:

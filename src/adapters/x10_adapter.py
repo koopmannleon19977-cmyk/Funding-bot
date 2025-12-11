@@ -3,12 +3,13 @@ import asyncio
 import logging
 import inspect  # WICHTIG für aclose Prüfung
 import json
+import random  # Für sporadisches Logging in handle_orderbook_snapshot
 import websockets
 import aiohttp
 import time
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
-from typing import Tuple, Optional, List, Any
+from typing import Tuple, Optional, List, Any, Dict, Callable
 
 from src.rate_limiter import X10_RATE_LIMITER, get_rate_limiter, Exchange
 import config
@@ -61,6 +62,21 @@ class X10Adapter(BaseAdapter):
         self._ws_message_queue = asyncio.Queue()
 
         self.rate_limiter = X10_RATE_LIMITER
+        
+        # ═══════════════════════════════════════════════════════════════
+        # WebSocket Account Event Caches
+        # These are populated by WebSocketManager callbacks
+        # ═══════════════════════════════════════════════════════════════
+        self._order_cache: Dict[str, dict] = {}      # order_id -> order data
+        self._position_cache: Dict[str, dict] = {}   # symbol -> position data
+        self._balance_cache: float = 0.0             # Latest balance value (for deduplication)
+        self._last_balance_update: float = 0.0       # Timestamp of last balance update
+        self._pending_orders: Dict[str, asyncio.Future] = {}  # order_id -> Future for async fill waiting
+        
+        # Event callbacks for external subscribers
+        self._order_callbacks: List[Callable] = []
+        self._position_callbacks: List[Callable] = []
+        self._fill_callbacks: List[Callable] = []
 
         try:
             if config.X10_VAULT_ID:
@@ -921,7 +937,14 @@ class X10Adapter(BaseAdapter):
             
             if resp.error:
                 err_msg = str(resp.error)
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Handle position-related errors gracefully (not as errors)
+                # 1137: "Position is missing for reduce-only order" - position already closed
+                # 1138: "Position is same side as reduce-only order" - side mismatch
+                # These are expected during shutdown and should not be logged as errors
+                # ═══════════════════════════════════════════════════════════════
                 if reduce_only and ("1137" in err_msg or "1138" in err_msg):
+                    logger.info(f"✅ X10 {symbol}: Position already closed or unavailable (reduce-only)")
                     return True, None
                 
                 logger.error(f" X10 Order Fail: {resp.error}")
@@ -937,7 +960,13 @@ class X10Adapter(BaseAdapter):
             return True, str(resp.data.id)
         except Exception as e:
             err_str = str(e)
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Handle position-related errors gracefully (not as errors)
+            # 1137: "Position is missing for reduce-only order" - position already closed
+            # 1138: "Position is same side as reduce-only order" - side mismatch
+            # ═══════════════════════════════════════════════════════════════
             if reduce_only and ("1137" in err_str or "1138" in err_str):
+                logger.info(f"✅ X10 {symbol}: Position already closed (exception path)")
                 return True, None
             if "429" in err_str:
                 self.rate_limiter.penalize_429()
@@ -1108,6 +1137,14 @@ class X10Adapter(BaseAdapter):
         Korrekte Balance-Abfrage für X10 – funktioniert mit aktuellem SDK (Dezember 2025)
         Methode: trading_client.account.get_balance()
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Balance cache to reduce redundant API calls (2s TTL)
+        # ═══════════════════════════════════════════════════════════════
+        import time
+        now = time.time()
+        if now - self._last_balance_update < 2.0 and self._balance_cache > 0:
+            return self._balance_cache
+        
         if not self.trading_client:
             try:
                 await self._get_trading_client()
@@ -1135,6 +1172,9 @@ class X10Adapter(BaseAdapter):
                             balance = float(available)
                             if balance > 0:
                                 logger.info(f"💰 X10 verfügbare Balance: ${balance:.2f} USDC")
+                                # Update cache
+                                self._balance_cache = balance
+                                self._last_balance_update = time.time()
                                 return balance
                         except (ValueError, TypeError):
                             continue
@@ -1237,8 +1277,172 @@ class X10Adapter(BaseAdapter):
 
         return None
 
+    # ═══════════════════════════════════════════════════════════════
+    # WebSocket Event Handlers (called by WebSocketManager)
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def on_order_update(self, data: dict):
+        """
+        Handle order update from WebSocket.
+        
+        This is called by WebSocketManager when an order event is received.
+        Updates local cache and resolves any pending order futures.
+        """
+        try:
+            order_id = str(data.get("id") or data.get("orderId") or data.get("order_id") or "")
+            status = (data.get("status") or data.get("orderStatus") or "").upper()
+            symbol = data.get("market") or data.get("symbol") or ""
+            
+            # Update cache
+            if order_id:
+                self._order_cache[order_id] = data
+            
+            # Resolve pending order futures (for async order placement)
+            if order_id in self._pending_orders:
+                future = self._pending_orders[order_id]
+                if not future.done():
+                    if status in ["FILLED", "PARTIALLY_FILLED"]:
+                        future.set_result({"success": True, "data": data})
+                    elif status in ["CANCELLED", "REJECTED", "EXPIRED"]:
+                        future.set_result({"success": False, "data": data})
+            
+            # Notify registered callbacks
+            for callback in self._order_callbacks:
+                try:
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(data)
+                    else:
+                        callback(data)
+                except Exception as e:
+                    logger.error(f"X10 order callback error: {e}")
+                    
+            logger.debug(f"X10 Adapter: Order update processed - {symbol} #{order_id} {status}")
+            
+        except Exception as e:
+            logger.error(f"X10 Adapter on_order_update error: {e}")
+    
+    async def on_position_update(self, data: dict):
+        """Handle position update from WebSocket."""
+        try:
+            symbol = data.get("market") or data.get("symbol") or ""
+            
+            # Update cache
+            if symbol:
+                self._position_cache[symbol] = data
+            
+            # Notify registered callbacks
+            for callback in self._position_callbacks:
+                try:
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(data)
+                    else:
+                        callback(data)
+                except Exception as e:
+                    logger.error(f"X10 position callback error: {e}")
+                    
+            logger.debug(f"X10 Adapter: Position update processed - {symbol}")
+            
+        except Exception as e:
+            logger.error(f"X10 Adapter on_position_update error: {e}")
+    
+    async def on_fill_update(self, data: dict):
+        """Handle fill/trade update from WebSocket."""
+        try:
+            order_id = str(data.get("orderId") or data.get("order_id") or "")
+            symbol = data.get("market") or data.get("symbol") or ""
+            
+            # Mark order as filled if we're tracking it
+            if order_id in self._pending_orders:
+                future = self._pending_orders[order_id]
+                if not future.done():
+                    future.set_result({"success": True, "filled": True, "data": data})
+            
+            # Notify registered callbacks
+            for callback in self._fill_callbacks:
+                try:
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(data)
+                    else:
+                        callback(data)
+                except Exception as e:
+                    logger.error(f"X10 fill callback error: {e}")
+                    
+            logger.debug(f"X10 Adapter: Fill update processed - {symbol} order={order_id}")
+            
+        except Exception as e:
+            logger.error(f"X10 Adapter on_fill_update error: {e}")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # WebSocket Cache Access Methods
+    # ═══════════════════════════════════════════════════════════════
+    
+    def get_cached_order(self, order_id: str) -> Optional[dict]:
+        """Get order from WebSocket cache."""
+        return self._order_cache.get(str(order_id))
+    
+    def get_cached_position(self, symbol: str) -> Optional[dict]:
+        """Get position from WebSocket cache."""
+        return self._position_cache.get(symbol)
+    
+    def get_all_cached_positions(self) -> List[dict]:
+        """Get all cached positions."""
+        return list(self._position_cache.values())
+    
+    async def wait_for_order_update(
+        self, 
+        order_id: str, 
+        timeout: float = 30.0
+    ) -> Optional[dict]:
+        """
+        Wait for order update via WebSocket.
+        
+        This is more efficient than polling REST API!
+        
+        Args:
+            order_id: The order ID to wait for
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            Order update dict or None on timeout
+        """
+        order_id = str(order_id)
+        
+        if order_id in self._pending_orders:
+            future = self._pending_orders[order_id]
+        else:
+            future = asyncio.get_event_loop().create_future()
+            self._pending_orders[order_id] = future
+        
+        try:
+            result = await asyncio.wait_for(future, timeout=timeout)
+            return result
+        except asyncio.TimeoutError:
+            logger.warning(f"X10: Timeout waiting for order {order_id} update")
+            return None
+        finally:
+            self._pending_orders.pop(order_id, None)
+    
+    def register_order_callback(self, callback: Callable):
+        """Register callback to be notified of order updates."""
+        self._order_callbacks.append(callback)
+    
+    def register_position_callback(self, callback: Callable):
+        """Register callback to be notified of position updates."""
+        self._position_callbacks.append(callback)
+    
+    def register_fill_callback(self, callback: Callable):
+        """Register callback to be notified of fills."""
+        self._fill_callbacks.append(callback)
+
     async def aclose(self):
         """Cleanup all resources including SDK clients"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Prevent duplicate close calls during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self, '_closed') and self._closed:
+            return
+        self._closed = True
+        
         # Close any aiohttp sessions from rate limiter or internal use
         if hasattr(self, '_session') and self._session:
             try:
