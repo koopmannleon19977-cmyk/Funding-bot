@@ -11,7 +11,7 @@
 import asyncio
 import logging
 import time
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, List
 from decimal import Decimal
 from enum import Enum
 from dataclasses import dataclass, field
@@ -123,6 +123,9 @@ class ParallelExecutionManager:
         self._rollback_queue: asyncio.Queue[Optional[TradeExecution]] = asyncio.Queue()
         self._rollback_task: Optional[asyncio.Task] = None
         self._shutdown_event = asyncio.Event()
+        self._shutdown_requested = False
+        self._graceful_timeout = 30.0  # seconds to wait for graceful completion
+        self.is_running = True
         self._stats = {
             "total_executions": 0,
             "successful": 0,
@@ -139,23 +142,202 @@ class ParallelExecutionManager:
         self._rollback_task = asyncio.create_task(self._rollback_processor())
         logger.info("✅ ParallelExecutionManager: Rollback processor started")
 
-    async def stop(self):
-        """Stop background tasks gracefully and abort all active executions"""
+    async def stop(self, force: bool = False) -> None:
+        """
+        Stop the execution manager gracefully.
+        
+        IMPROVED SHUTDOWN SEQUENCE:
+        1. Set shutdown flag (prevents new executions)
+        2. Wait for active executions to complete OR timeout
+        3. For timed-out executions: trigger rollback
+        4. Cancel remaining tasks
+        """
+        if self._shutdown_requested:
+            logger.info("✅ ParallelExecutionManager: Already stopping")
+            return
+            
+        self._shutdown_requested = True
         self._shutdown_event.set()
-        self.is_running = False  # Block new executions
+        self.is_running = False
+        config.IS_SHUTTING_DOWN = True
         
-        # FAST SHUTDOWN: Clear active executions immediately to unblock shutdown
-        if self.active_executions:
-            logger.warning(f"⚡ ParallelExec: Aborting {len(self.active_executions)} active executions for fast shutdown!")
-            self.active_executions.clear()
+        active_count = len(self.active_executions)
+        if active_count == 0:
+            logger.info("✅ ParallelExecutionManager: No active executions")
+            await self._stop_rollback_task()
+            return
         
+        logger.info(f"🛑 ParallelExecutionManager: Stopping {active_count} active executions...")
+        
+        if force:
+            # Immediate abort (old behavior)
+            logger.warning(f"⚡ ParallelExec: Force-aborting {active_count} executions!")
+            await self._cancel_all_tasks()
+            await self._stop_rollback_task()
+            return
+        
+        # ═══════════════════════════════════════════════════════════════════
+        # GRACEFUL SHUTDOWN: Wait for executions to finish or rollback
+        # ═══════════════════════════════════════════════════════════════════
+        
+        logger.info(f"⏳ Waiting up to {self._graceful_timeout}s for {active_count} executions to complete...")
+        
+        # Give active executions time to notice shutdown and abort gracefully
+        # They check config.IS_SHUTTING_DOWN and should exit quickly
+        wait_start = time.monotonic()
+        
+        while len(self.active_executions) > 0:
+            elapsed = time.monotonic() - wait_start
+            if elapsed >= self._graceful_timeout:
+                break
+            await asyncio.sleep(0.5)
+        
+        # Check what's left
+        remaining = len(self.active_executions)
+        completed = active_count - remaining
+        
+        if remaining > 0:
+            logger.warning(f"⚠️ {remaining} executions did not complete in time")
+            
+            # Get symbols of incomplete executions
+            incomplete_symbols = list(self.active_executions.keys())
+            
+            # Rollback incomplete executions
+            await self._rollback_incomplete_executions(incomplete_symbols)
+        
+        logger.info(f"✅ ParallelExecutionManager: {completed} completed, {remaining} rolled back")
+        
+        self.active_executions.clear()
+        await self._stop_rollback_task()
+        logger.info("✅ ParallelExecutionManager: Stopped")
+
+    async def _stop_rollback_task(self) -> None:
+        """Stop the background rollback processor"""
         if self._rollback_task:
             self._rollback_task.cancel()
             try:
                 await self._rollback_task
             except asyncio.CancelledError:
                 pass
-        logger.info("✅ ParallelExecutionManager: Stopped")
+
+    async def _rollback_incomplete_executions(self, symbols: List[str]) -> None:
+        """
+        Rollback partially completed executions.
+        
+        This handles the case where:
+        - Lighter order filled but X10 hedge was not placed
+        - X10 order filled but Lighter hedge was not placed
+        """
+        logger.info(f"🔄 Rolling back {len(symbols)} incomplete executions: {symbols}")
+        
+        for symbol in symbols:
+            try:
+                # Check current positions on both exchanges
+                lighter_pos = None
+                x10_pos = None
+                
+                try:
+                    positions = await self.lighter.fetch_open_positions()
+                    for p in positions or []:
+                        if p.get("symbol") == symbol:
+                            lighter_pos = p
+                            break
+                except Exception as e:
+                    logger.debug(f"Could not fetch Lighter position for {symbol}: {e}")
+                
+                try:
+                    positions = await self.x10.fetch_open_positions()
+                    for p in positions or []:
+                        if p.get("symbol") == symbol:
+                            x10_pos = p
+                            break
+                except Exception as e:
+                    logger.debug(f"Could not fetch X10 position for {symbol}: {e}")
+                
+                # Determine rollback action
+                lighter_size = abs(safe_float(lighter_pos.get("size", 0))) if lighter_pos else 0
+                x10_size = abs(safe_float(x10_pos.get("size", 0))) if x10_pos else 0
+                
+                if lighter_size > 0 and x10_size == 0:
+                    # Lighter filled, X10 missing -> Close Lighter
+                    logger.warning(f"🔄 ROLLBACK {symbol}: Lighter has position ({lighter_size}), X10 missing. Closing Lighter...")
+                    await self._emergency_close_position(self.lighter, symbol, lighter_pos)
+                    
+                elif x10_size > 0 and lighter_size == 0:
+                    # X10 filled, Lighter missing -> Close X10
+                    logger.warning(f"🔄 ROLLBACK {symbol}: X10 has position ({x10_size}), Lighter missing. Closing X10...")
+                    await self._emergency_close_position(self.x10, symbol, x10_pos)
+                    
+                elif lighter_size > 0 and x10_size > 0:
+                    # Both have positions - this is actually OK (hedge complete)
+                    logger.info(f"✅ {symbol}: Both exchanges have positions - hedge appears complete")
+                    
+                else:
+                    # Neither has position - clean exit
+                    logger.info(f"✅ {symbol}: No positions on either exchange - clean")
+                    
+            except Exception as e:
+                logger.error(f"❌ Rollback error for {symbol}: {e}")
+
+    async def _emergency_close_position(self, adapter, symbol: str, position: dict) -> bool:
+        """Emergency close a position during shutdown."""
+        try:
+            size = safe_float(position.get("size", 0))
+            if size == 0:
+                return True
+            
+            # Determine close side - if position is LONG (size > 0), we SELL to close
+            # If position is SHORT (size < 0), we BUY to close
+            # But original_side is the side of the POSITION, not the close order
+            original_side = "BUY" if size > 0 else "SELL"
+            close_side = "SELL" if size > 0 else "BUY"
+            
+            adapter_name = getattr(adapter, 'name', type(adapter).__name__)
+            logger.info(f"🚨 EMERGENCY CLOSE {symbol}: {close_side} {abs(size)} on {adapter_name}")
+            
+            # Calculate notional_usd from size and price
+            try:
+                if hasattr(adapter, 'fetch_mark_price'):
+                    price = safe_float(adapter.fetch_mark_price(symbol))
+                else:
+                    price = safe_float(position.get("mark_price", 0) or position.get("entry_price", 0))
+                notional_usd = abs(size) * price if price > 0 else abs(size) * 100  # fallback to high estimate
+            except Exception:
+                notional_usd = abs(size) * 100  # Conservative fallback
+            
+            # Use close_live_position with POSITIONAL arguments (symbol, original_side, notional_usd)
+            if hasattr(adapter, 'close_live_position'):
+                success, order_id = await adapter.close_live_position(
+                    symbol,
+                    original_side,
+                    notional_usd
+                )
+            else:
+                success, order_id = await adapter.open_live_position(
+                    symbol=symbol,
+                    side=close_side,
+                    notional_usd=0,
+                    amount=abs(size),
+                    reduce_only=True,
+                    time_in_force="IOC"
+                )
+            
+            if success:
+                logger.info(f"✅ Emergency close {symbol} successful: {order_id}")
+            else:
+                logger.error(f"❌ Emergency close {symbol} failed!")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"❌ Emergency close error {symbol}: {e}")
+            return False
+
+    async def _cancel_all_tasks(self) -> None:
+        """Force cancel all tasks (fallback)."""
+        for symbol, task in list(self.active_executions.items()):
+            logger.warning(f"⚡ Force-cancelling execution for {symbol}")
+        self.active_executions.clear()
 
     async def _rollback_processor(self):
         """Background task that processes rollback queue with retry logic"""

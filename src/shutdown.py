@@ -28,10 +28,10 @@ class ShutdownOrchestrator:
 
     def __init__(
         self,
-        global_timeout: float = 60.0,  # FIXED: Need 60s for sequential Lighter orders (1-2s per order * 5 positions * 2 attempts)
-        verify_retries: int = 2,  # OPTIMIZED: 2 retries for faster shutdown
-        verify_delay: float = 0.2,  # OPTIMIZED: Reduced from 0.5s to 0.2s
-        base_slippage: float = 0.05,  # OPTIMIZED: Increased from 0.02 to 0.05 for faster fills
+        global_timeout: float = 90.0,  # INCREASED: Need more time for graceful execution wait + position close
+        verify_retries: int = 3,  # INCREASED: More retries for reliability
+        verify_delay: float = 1.0,  # INCREASED: More delay for API rate limits
+        base_slippage: float = 0.05,
     ):
         self.global_timeout = global_timeout
         self.verify_retries = verify_retries
@@ -42,6 +42,8 @@ class ShutdownOrchestrator:
         self._lock = asyncio.Lock()
         self._in_progress = False
         self._last_result: Optional[ShutdownResult] = None
+        self._shutdown_started = False
+        self._positions_at_start: Dict[str, List] = {}
 
     def configure(self, **components: Any) -> None:
         """Register/override components lazily; ignore None."""
@@ -50,7 +52,7 @@ class ShutdownOrchestrator:
                 self._components[name] = comp
 
     async def shutdown(self, reason: str = "") -> ShutdownResult:
-        """Run the orchestrated shutdown (idempotent)."""
+        """Run the orchestrated shutdown with improved sequence."""
         async with self._lock:
             if self._in_progress:
                 return self._last_result or {
@@ -61,13 +63,16 @@ class ShutdownOrchestrator:
                     "reason": reason,
                 }
             self._in_progress = True
+            self._shutdown_started = True
 
         start = time.monotonic()
         errors: List[str] = []
         remaining: Dict[str, Any] = {}
 
         try:
-            # Block new trading immediately
+            # ═══════════════════════════════════════════════════════════
+            # PHASE 0: Block new trades IMMEDIATELY
+            # ═══════════════════════════════════════════════════════════
             try:
                 config.IS_SHUTTING_DOWN = True
             except Exception:
@@ -75,11 +80,40 @@ class ShutdownOrchestrator:
 
             logger.info(f"🛑 Shutdown orchestrator start (reason={reason})")
 
+            # ═══════════════════════════════════════════════════════════
+            # PHASE 1: Snapshot current positions BEFORE any changes
+            # ═══════════════════════════════════════════════════════════
+            self._positions_at_start = await self._fetch_positions_safely()
+            logger.info(
+                f"📸 Position snapshot: X10={len(self._positions_at_start.get('x10', []))}, "
+                f"Lighter={len(self._positions_at_start.get('lighter', []))}"
+            )
+
             async with asyncio.timeout(self.global_timeout):
+                # ═══════════════════════════════════════════════════════
+                # PHASE 2: Wait for ParallelExecutionManager to finish
+                # This is CRITICAL - let active trades complete or rollback
+                # ═══════════════════════════════════════════════════════
+                await self._wait_for_active_executions(errors)
+                
+                # ═══════════════════════════════════════════════════════
+                # PHASE 3: Cancel any remaining open orders
+                # ═══════════════════════════════════════════════════════
                 await self._cancel_open_orders(errors)
+                
+                # ═══════════════════════════════════════════════════════
+                # PHASE 4: Close positions with verification loop
+                # ═══════════════════════════════════════════════════════
                 await self._close_and_verify_positions(errors)
-                # Extra safety: re-cancel after close attempts to catch makers
-                await self._cancel_open_orders(errors)
+                
+                # ═══════════════════════════════════════════════════════
+                # PHASE 5: Final safety check - any orphaned positions?
+                # ═══════════════════════════════════════════════════════
+                await self._final_position_sweep(errors)
+                
+                # ═══════════════════════════════════════════════════════
+                # PHASE 6: Persist state and cleanup
+                # ═══════════════════════════════════════════════════════
                 await self._persist_state(errors)
                 await self._teardown_components(errors)
 
@@ -98,11 +132,10 @@ class ShutdownOrchestrator:
             if not remaining.get("lighter") and not remaining.get("x10"):
                 errors = [e for e in errors if e != "close_positions_timeout"]
 
-            success = (
-                not errors and
-                not remaining.get("lighter") and
-                not remaining.get("x10")
-            )
+            # Calculate success
+            remaining_count = len(remaining.get("lighter", [])) + len(remaining.get("x10", []))
+            success = remaining_count == 0 and "shutdown_timeout" not in errors
+            
             result: ShutdownResult = {
                 "success": success,
                 "errors": errors,
@@ -112,12 +145,134 @@ class ShutdownOrchestrator:
             }
             self._last_result = result
             self._in_progress = False
-            logger.info(
-                "✅ Shutdown orchestrator finished "
-                f"(success={success}, remaining={len(remaining.get('x10', [])) + len(remaining.get('lighter', []))}, "
-                f"errors={errors}, elapsed={elapsed:.2f}s)"
-            )
+            
+            if success:
+                logger.info(f"✅ All positions closed. Bye! (elapsed={elapsed:.2f}s)")
+            else:
+                logger.error(
+                    f"⚠️ Shutdown incomplete! {remaining_count} positions remain. "
+                    f"Errors: {errors}"
+                )
+            
             return result
+
+    async def _wait_for_active_executions(self, errors: List[str]) -> None:
+        """Wait for ParallelExecutionManager to gracefully stop active executions."""
+        parallel_exec = self._components.get("parallel_exec")
+        
+        if not parallel_exec:
+            logger.info("ℹ️ No ParallelExecutionManager registered")
+            return
+        
+        active_count = len(getattr(parallel_exec, 'active_executions', {}))
+        if active_count == 0:
+            logger.info("✅ No active executions to wait for")
+            return
+        
+        logger.info(f"⏳ Waiting for {active_count} active executions to complete or rollback...")
+        
+        try:
+            # Give ParallelExecutionManager time to gracefully stop
+            # This calls its stop() which handles rollback internally
+            async with asyncio.timeout(45.0):  # 45s for graceful stop
+                await parallel_exec.stop(force=False)
+        except asyncio.TimeoutError:
+            logger.warning("⚠️ Graceful execution stop timed out, forcing...")
+            errors.append("execution_graceful_timeout")
+            try:
+                await parallel_exec.stop(force=True)
+            except Exception as e:
+                errors.append(f"execution_force_stop:{e}")
+        except Exception as e:
+            errors.append(f"execution_stop_error:{e}")
+            logger.error(f"❌ Error stopping executions: {e}")
+
+    async def _final_position_sweep(self, errors: List[str]) -> None:
+        """
+        Final safety check for any orphaned positions.
+        
+        This catches positions that:
+        - Were opened by fills during shutdown
+        - Were missed by earlier close attempts
+        - Appeared due to race conditions
+        """
+        logger.info("🔍 Final position sweep...")
+        
+        lighter = self._components.get("lighter")
+        x10 = self._components.get("x10")
+        
+        positions = await self._fetch_positions()
+        
+        all_positions = []
+        for pos in positions.get("lighter", []):
+            all_positions.append(("lighter", lighter, pos))
+        for pos in positions.get("x10", []):
+            all_positions.append(("x10", x10, pos))
+        
+        if not all_positions:
+            logger.info("✅ Final sweep: No positions found")
+            return
+        
+        logger.warning(f"⚠️ Final sweep found {len(all_positions)} positions to close!")
+        
+        for exchange_name, adapter, pos in all_positions:
+            symbol = pos.get("symbol")
+            size = self._safe_float(pos.get("size", 0))
+            
+            if abs(size) < 1e-8:
+                continue
+            
+            if not adapter:
+                errors.append(f"final_close_no_adapter:{exchange_name}:{symbol}")
+                continue
+            
+            try:
+                # original_side is the side of the POSITION (BUY for long, SELL for short)
+                original_side = "BUY" if size > 0 else "SELL"
+                close_side = "SELL" if size > 0 else "BUY"
+                
+                # Calculate notional_usd from size and cached price
+                price = self._get_cached_price(symbol)
+                if price:
+                    notional_usd = abs(size) * price
+                else:
+                    notional_usd = abs(size) * 100  # Conservative fallback
+                
+                logger.info(f"🚨 Final close: {exchange_name} {symbol} {close_side} {abs(size)} (notional=${notional_usd:.2f})")
+                
+                # Use close_live_position with POSITIONAL arguments (symbol, original_side, notional_usd)
+                if hasattr(adapter, 'close_live_position'):
+                    success, _ = await adapter.close_live_position(
+                        symbol,
+                        original_side,
+                        notional_usd
+                    )
+                else:
+                    success, _ = await adapter.open_live_position(
+                        symbol=symbol,
+                        side=close_side,
+                        notional_usd=0,
+                        amount=abs(size),
+                        reduce_only=True,
+                        time_in_force="IOC"
+                    )
+                
+                if not success:
+                    errors.append(f"final_close_failed:{exchange_name}:{symbol}")
+                    
+            except Exception as e:
+                errors.append(f"final_close_error:{exchange_name}:{symbol}:{e}")
+                logger.error(f"❌ Final close error {symbol}: {e}")
+        
+        # Verify all closed
+        await asyncio.sleep(1.0)
+        final_check = await self._fetch_positions()
+        final_count = len(final_check.get("lighter", [])) + len(final_check.get("x10", []))
+        
+        if final_count > 0:
+            logger.error(f"❌ CRITICAL: {final_count} positions still remain after final sweep!")
+        else:
+            logger.info("✅ Final sweep complete - all positions closed")
 
     # ----- Phases -----------------------------------------------------
     async def _cancel_open_orders(self, errors: List[str]) -> None:
@@ -307,8 +462,8 @@ class ShutdownOrchestrator:
         if ws_manager and hasattr(ws_manager, "stop"):
             await _safe_call(ws_manager.stop, "ws_stop", timeout=5.0)
 
-        if parallel_exec and hasattr(parallel_exec, "stop"):
-            await _safe_call(parallel_exec.stop, "parallel_exec_stop", timeout=5.0)
+        # Note: parallel_exec.stop() is already called in _wait_for_active_executions phase
+        # No need to call it again here
 
         if telegram_bot and hasattr(telegram_bot, "stop"):
             try:
