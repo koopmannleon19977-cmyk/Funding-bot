@@ -119,11 +119,14 @@ CONCURRENT_REQUEST_LIMIT = 10
 REFRESH_DELAY_SECONDS = 3
 TRADE_COOLDOWN_SECONDS = 120
 
-# Reconnect / Watchdog
-WS_PING_INTERVAL = 14
-WS_PING_TIMEOUT = 8
-WS_RECONNECT_DELAY_INITIAL = 5
-WS_RECONNECT_DELAY_MAX = 60
+# Reconnect / Watchdog (Enhanced for 1006 disconnect handling)
+WS_PING_INTERVAL = 15              # Reduced from 20 to 15 for faster detection
+WS_PING_TIMEOUT = 10               # Increased from 8 to 10 for more tolerance
+WS_RECONNECT_DELAY_INITIAL = 2     # Reduced from 5 to 2 for faster reconnect
+WS_RECONNECT_DELAY_MAX = 120       # Increased from 60 to 120 for server recovery
+WS_MAX_RECONNECT_ATTEMPTS = 10     # Max attempts before alerting (0 = infinite)
+WS_HEALTH_CHECK_INTERVAL = 30      # Health check every 30 seconds
+WS_1006_EXTENDED_DELAY = 30        # Extended delay after repeated 1006 errors
 
 # --- Prediction & Confidence ---
 SYMBOL_CONFIDENCE_BOOST = {

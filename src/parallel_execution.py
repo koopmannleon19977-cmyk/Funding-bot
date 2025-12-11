@@ -1209,11 +1209,11 @@ class ParallelExecutionManager:
         """
         Validate orderbook before placing a Maker order.
         
-        Uses the orderbook validator to check:
-        - Orderbook is not empty
-        - Sufficient depth on the relevant side
-        - Spread is within acceptable limits
-        - Data is not stale
+        Enhanced with:
+        - Post-reconnect cooldown checking
+        - Crossed book detection with REST fallback
+        - Staleness validation
+        - Depth and spread checks
         
         Args:
             symbol: Trading pair (e.g., "DOGE-USD")
@@ -1224,15 +1224,57 @@ class ParallelExecutionManager:
             OrderbookValidationResult with validation status
         """
         try:
-            # Get orderbook from Lighter adapter's cache
+            from decimal import Decimal
+            
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 1: Check ONLY post-reconnect cooldown
+            # (We check data validity AFTER trying to fetch it)
+            # ═══════════════════════════════════════════════════════════════
+            provider = get_orderbook_provider()
+            
+            if provider:
+                # Check if in post-reconnect cooldown
+                if provider.is_in_cooldown():
+                    remaining = provider.get_cooldown_remaining()
+                    reason = f"Post-reconnect cooldown ({remaining:.1f}s remaining)"
+                    logger.warning(f"⏱️ {symbol}: {reason}")
+                    return OrderbookValidationResult(
+                        is_valid=False,
+                        quality=OrderbookQuality.EMPTY,
+                        reason=reason,
+                        bid_depth_usd=Decimal("0"),
+                        ask_depth_usd=Decimal("0"),
+                        spread_percent=None,
+                        best_bid=None,
+                        best_ask=None,
+                        bid_levels=0,
+                        ask_levels=0,
+                        staleness_seconds=0.0,
+                        recommended_action="wait"
+                    )
+            
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 2: Get orderbook data (from provider or adapter)
+            # ═══════════════════════════════════════════════════════════════
             orderbook = None
             orderbook_timestamp = None
             
-            if hasattr(self.lighter, '_orderbook_cache'):
+            # Try OrderbookProvider first
+            if provider:
+                snapshot = await provider.get_lighter_orderbook(symbol)
+                if snapshot:
+                    # Convert snapshot to bids/asks tuples
+                    bids = [(float(b[0]), float(b[1])) for b in snapshot.bids]
+                    asks = [(float(a[0]), float(a[1])) for a in snapshot.asks]
+                    orderbook_timestamp = snapshot.timestamp
+                    orderbook = {'bids': bids, 'asks': asks}
+            
+            # Fallback to adapter cache
+            if not orderbook and hasattr(self.lighter, '_orderbook_cache'):
                 orderbook = self.lighter._orderbook_cache.get(symbol)
                 orderbook_timestamp = self.lighter._orderbook_cache_time.get(symbol)
             
-            # If no cached orderbook, try to fetch fresh one
+            # Last resort: fetch fresh
             if not orderbook:
                 try:
                     orderbook = await self.lighter.fetch_orderbook(symbol, limit=20)
@@ -1240,7 +1282,9 @@ class ParallelExecutionManager:
                 except Exception as e:
                     logger.warning(f"⚠️ {symbol}: Failed to fetch orderbook: {e}")
             
-            # Extract bids and asks
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 3: Parse and validate orderbook data
+            # ═══════════════════════════════════════════════════════════════
             if orderbook:
                 bids_raw = orderbook.get('bids', [])
                 asks_raw = orderbook.get('asks', [])
@@ -1263,6 +1307,44 @@ class ParallelExecutionManager:
                         price = safe_float(a.get('price', a.get('p', 0)), 0)
                         size = safe_float(a.get('size', a.get('s', a.get('quantity', 0))), 0)
                         asks.append((price, size))
+                
+                # ═══════════════════════════════════════════════════════════════
+                # STEP 3.5: Pre-check for crossed book before validator
+                # ═══════════════════════════════════════════════════════════════
+                if bids and asks:
+                    best_bid = bids[0][0]
+                    best_ask = asks[0][0]
+                    if best_ask <= best_bid:
+                        logger.warning(
+                            f"⚠️ CROSSED BOOK detected in validation for {symbol}: "
+                            f"ask={best_ask} <= bid={best_bid} - attempting REST fallback..."
+                        )
+                        # Try REST fallback
+                        if provider:
+                            fresh_ob = await provider.fetch_orderbook_rest_fallback(symbol, "lighter")
+                            if fresh_ob and fresh_ob.best_ask and fresh_ob.best_bid:
+                                if fresh_ob.best_ask > fresh_ob.best_bid:
+                                    # Fresh data is not crossed, use it
+                                    bids = [(float(b[0]), float(b[1])) for b in fresh_ob.bids]
+                                    asks = [(float(a[0]), float(a[1])) for a in fresh_ob.asks]
+                                    orderbook_timestamp = fresh_ob.timestamp
+                                    logger.info(f"✅ {symbol}: REST fallback provided valid orderbook")
+                                else:
+                                    # REST also returned crossed - reject
+                                    return OrderbookValidationResult(
+                                        is_valid=False,
+                                        quality=OrderbookQuality.CROSSED,
+                                        reason=f"Crossed book persists after REST fallback: ask={best_ask} <= bid={best_bid}",
+                                        bid_depth_usd=Decimal("0"),
+                                        ask_depth_usd=Decimal("0"),
+                                        spread_percent=None,
+                                        best_bid=Decimal(str(best_bid)),
+                                        best_ask=Decimal(str(best_ask)),
+                                        bid_levels=len(bids),
+                                        ask_levels=len(asks),
+                                        staleness_seconds=0.0,
+                                        recommended_action="wait"
+                                    )
             else:
                 bids = []
                 asks = []
@@ -1273,9 +1355,10 @@ class ParallelExecutionManager:
                 f"timestamp={orderbook_timestamp}"
             )
             
-            # Get validator with Lighter profile (relaxed thresholds for thin WS orderbooks)
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 4: Run full validation with Lighter profile
+            # ═══════════════════════════════════════════════════════════════
             validator = get_orderbook_validator(profile=ExchangeProfile.LIGHTER)
-            from decimal import Decimal
             
             result = validator.validate_for_maker_order(
                 symbol=symbol,

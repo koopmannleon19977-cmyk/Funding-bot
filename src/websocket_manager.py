@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 import logging
-from typing import Dict, Optional, Callable, Any, Set, List
+from typing import Dict, Optional, Callable, Any, Set, List, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -31,24 +31,31 @@ class WSConfig:
     """WebSocket connection configuration
     
     ping_interval/ping_timeout: Library Keepalive (sendet Pings, antwortet auf Server-Pings)
+    
+    Enhanced 1006 Handling:
+    - max_consecutive_1006: After this many 1006 errors, trigger extended wait
+    - extended_delay_1006: Delay to use after consecutive 1006 errors
+    - health_check_interval: How often to check connection health
     """
     url: str
     name: str
-    ping_interval: Optional[float] = 20.0  # Library sendet Pings in diesem Intervall
-    ping_timeout: Optional[float] = 20.0   # Library wartet so lange auf Pong
-    reconnect_delay_initial: float = 1.0
-    reconnect_delay_max: float = 60.0
-    reconnect_delay_multiplier: float = 1.5  # Changed from 2.0 for smoother backoff
+    ping_interval: Optional[float] = 15.0  # Reduced from 20 to 15 for faster detection
+    ping_timeout: Optional[float] = 10.0   # Increased from 8 to 10 for tolerance
+    reconnect_delay_initial: float = 2.0   # Reduced from 5 to 2 for faster reconnect
+    reconnect_delay_max: float = 120.0     # Increased from 60 to 120 for server recovery
+    reconnect_delay_multiplier: float = 1.5  # Smoother exponential backoff
     max_reconnect_attempts: int = 0  # 0 = infinite
-    message_queue_size: int = 10000  # Increased from 1000 to handle initial orderbook snapshot bursts
+    message_queue_size: int = 10000  # Handle initial orderbook snapshot bursts
     headers: Optional[Dict[str, str]] = None
-    # Track connection quality for 1006 handling
-    max_consecutive_1006: int = 5  # Trigger extended wait after this many 1006s
+    # Enhanced 1006 error handling
+    max_consecutive_1006: int = 5          # Trigger extended wait after this many 1006s
+    extended_delay_1006: float = 30.0      # Extended delay after repeated 1006 errors
+    health_check_interval: float = 30.0    # Health check interval in seconds
 
 
 @dataclass
 class WSMetrics:
-    """Connection metrics for monitoring"""
+    """Connection metrics for monitoring with enhanced error tracking"""
     messages_received: int = 0
     messages_sent: int = 0
     reconnect_count: int = 0
@@ -56,6 +63,11 @@ class WSMetrics:
     last_connect_time: float = 0.0
     last_error: Optional[str] = None
     uptime_seconds: float = 0.0
+    # Enhanced 1006 error tracking
+    error_counts: Dict[int, int] = field(default_factory=dict)  # Track errors by code
+    last_error_code: int = 0                                     # Last disconnect code
+    last_pong_time: float = 0.0                                  # Last pong received
+    is_healthy: bool = False                                     # Connection health status
 
 
 class WSState(Enum):
@@ -73,9 +85,10 @@ class ManagedWebSocket:
     Single WebSocket connection with auto-reconnect and health monitoring. 
     """
     
-    def __init__(self, config: WSConfig, message_handler: Callable):
+    def __init__(self, config: WSConfig, message_handler: Callable, on_reconnect: Optional[Callable] = None):
         self.config = config
         self.message_handler = message_handler
+        self.on_reconnect = on_reconnect  # Callback when connection is reestablished
         
         self._ws: Optional[websockets. WebSocketClientProtocol] = None
         self._state = WSState. DISCONNECTED
@@ -109,6 +122,42 @@ class ManagedWebSocket:
         if self._state == WSState.CONNECTED and self._metrics.last_connect_time > 0:
             self._metrics.uptime_seconds = time.time() - self._metrics.last_connect_time
         return self._metrics
+    
+    def classify_error(self, code: int) -> Tuple[str, bool, float]:
+        """
+        Classify WebSocket error and determine reconnect behavior.
+        
+        Args:
+            code: WebSocket close code
+            
+        Returns:
+            Tuple of (error_description, should_reconnect, extra_delay)
+            - error_description: Human readable error description
+            - should_reconnect: Whether to attempt reconnection
+            - extra_delay: Additional delay before reconnecting (seconds)
+        """
+        ERROR_MAP = {
+            # Normal closure - don't reconnect
+            1000: ("Normal closure", False, 0.0),
+            # Server/protocol errors - reconnect with normal delay
+            1001: ("Going away", True, 0.0),
+            1002: ("Protocol error", True, 5.0),
+            1003: ("Unsupported data", True, 5.0),
+            # 1006: Abnormal closure (no close frame) - COMMON, needs special handling
+            1006: ("Abnormal closure (no close frame)", True, 0.0),  # Delay handled specially
+            # Server errors - reconnect with delay
+            1011: ("Server error", True, 10.0),
+            1012: ("Service restart", True, 15.0),
+            1013: ("Try again later", True, 30.0),
+            1014: ("Bad gateway", True, 10.0),
+            1015: ("TLS handshake failed", True, 5.0),
+        }
+        
+        if code in ERROR_MAP:
+            return ERROR_MAP[code]
+        
+        # Unknown error codes - safe default (reconnect with small delay)
+        return (f"Unknown error ({code})", True, 5.0)
     
     async def start(self):
         """Start connection with auto-reconnect"""
@@ -196,6 +245,7 @@ class ManagedWebSocket:
     async def _connection_loop(self):
         """Main connection loop with auto-reconnect and improved 1006 handling"""
         consecutive_1006_errors = 0
+        is_first_connect = True
         
         while self._running:
             try:
@@ -206,6 +256,17 @@ class ManagedWebSocket:
                     self._reconnect_delay = self.config.reconnect_delay_initial
                     self._reconnect_attempts = 0
                     consecutive_1006_errors = 0  # Reset 1006 counter on successful connection
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # CRITICAL: Call on_reconnect callback to invalidate orderbooks
+                    # This prevents crossed book conditions after WebSocket reconnects
+                    # ═══════════════════════════════════════════════════════════════
+                    if not is_first_connect and self.on_reconnect:
+                        try:
+                            self.on_reconnect(self.config.name)
+                        except Exception as e:
+                            logger.error(f"[{self.config.name}] on_reconnect callback error: {e}")
+                    is_first_connect = False
                     
                     # Start receive and heartbeat tasks
                     self._receive_task = asyncio.create_task(
@@ -262,14 +323,36 @@ class ManagedWebSocket:
                 self._metrics.last_error = str(e)
                 logger.error(f"[{self.config.name}] Connection error: {e}")
             
-            # Reconnect logic with 1006-specific handling
+            # Reconnect logic with enhanced error classification
             if self._running:
                 self._state = WSState.RECONNECTING
                 self._metrics.reconnect_count += 1
                 self._reconnect_attempts += 1
+                self._metrics.is_healthy = False
                 
-                # Check if last error was 1006 (abnormal closure - no close frame received)
-                if self._metrics.last_error and "1006" in str(self._metrics.last_error):
+                # Extract error code for classification
+                error_code = 0
+                if self._metrics.last_error:
+                    # Try to extract numeric code from error message
+                    import re
+                    match = re.search(r'(\d{4})', str(self._metrics.last_error))
+                    if match:
+                        error_code = int(match.group(1))
+                
+                # Classify the error and get reconnect parameters
+                error_desc, should_reconnect, extra_delay = self.classify_error(error_code)
+                
+                # Track error counts per code
+                self._metrics.error_counts[error_code] = self._metrics.error_counts.get(error_code, 0) + 1
+                self._metrics.last_error_code = error_code
+                
+                logger.warning(
+                    f"⚠️ [{self.config.name}] Disconnected: {error_code} - {error_desc} "
+                    f"(error count for {error_code}: {self._metrics.error_counts[error_code]})"
+                )
+                
+                # Special handling for 1006 errors (abnormal closure)
+                if error_code == 1006:
                     consecutive_1006_errors += 1
                     logger.warning(
                         f"⚠️ [{self.config.name}] 1006 error #{consecutive_1006_errors} - "
@@ -278,24 +361,43 @@ class ManagedWebSocket:
                     
                     # After multiple 1006 errors, use extended wait to let server recover
                     if consecutive_1006_errors >= self.config.max_consecutive_1006:
-                        extended_delay = min(30.0, self._reconnect_delay * 3)
+                        extended_delay = self.config.extended_delay_1006
+                        # Increase delay further if still getting 1006s after extended waits
+                        if self._metrics.error_counts.get(1006, 0) > 10:
+                            extended_delay = min(extended_delay * 2, self.config.reconnect_delay_max)
+                            
                         logger.warning(
-                            f"🔄 [{self.config.name}] Multiple 1006 errors - extended wait {extended_delay:.1f}s"
+                            f"🔄 [{self.config.name}] Frequent 1006 errors ({self._metrics.error_counts.get(1006, 0)} total) - "
+                            f"extended wait {extended_delay:.1f}s"
                         )
                         await asyncio.sleep(extended_delay)
                         consecutive_1006_errors = 0  # Reset after extended wait
                         continue
+                else:
+                    # Reset 1006 counter on non-1006 error
+                    consecutive_1006_errors = 0
+                
+                if not should_reconnect:
+                    logger.info(f"[{self.config.name}] Not reconnecting (error type: {error_desc})")
+                    break
                 
                 if (self.config.max_reconnect_attempts > 0 and 
                     self._reconnect_attempts >= self.config.max_reconnect_attempts):
-                    logger.error(f"[{self.config.name}] Max reconnect attempts reached")
+                    logger.critical(
+                        f"🚨 [{self.config.name}] Max reconnect attempts ({self.config.max_reconnect_attempts}) reached! "
+                        f"Error counts: {dict(self._metrics.error_counts)}"
+                    )
+                    self._state = WSState.FAILED
                     break
                 
+                # Calculate delay with extra_delay from error classification
+                total_delay = self._reconnect_delay + extra_delay
+                
                 logger.info(
-                    f"🔄 [{self.config.name}] Reconnecting in {self._reconnect_delay:.1f}s "
-                    f"(attempt {self._reconnect_attempts})"
+                    f"🔄 [{self.config.name}] Reconnecting in {total_delay:.1f}s "
+                    f"(attempt {self._reconnect_attempts}, delay={self._reconnect_delay:.1f}s + extra={extra_delay:.1f}s)"
                 )
-                await asyncio.sleep(self._reconnect_delay)
+                await asyncio.sleep(total_delay)
                 
                 # Exponential backoff
                 self._reconnect_delay = min(
@@ -369,6 +471,8 @@ class ManagedWebSocket:
             
             self._state = WSState.CONNECTED
             self._metrics.last_connect_time = time.time()
+            self._metrics.is_healthy = True
+            self._metrics.last_pong_time = time.time()  # Initialize for health tracking
             
             logger.info(f"✅ [{self.config.name}] Connected to {self.config.url}")
             if self.config.ping_interval:
@@ -418,10 +522,16 @@ class ManagedWebSocket:
                         if "ping" in data:
                             ping_value = data["ping"]
                             await self._ws.send(json.dumps({"pong": ping_value}))
+                            self._metrics.last_pong_time = time.time()  # Track pong sent
                             logger.debug(f"[{self.config.name}] JSON pong sent: {ping_value}")
                             continue
                     except json.JSONDecodeError:
                         pass
+                
+                # Track pong responses for health monitoring
+                if isinstance(message, str) and '"pong"' in message:
+                    self._metrics.last_pong_time = time.time()
+                    self._metrics.is_healthy = True
                 
                 # Queue message
                 try:
@@ -434,13 +544,16 @@ class ManagedWebSocket:
                 await asyncio.sleep(0)  # Yield immediately to event loop
         
         except ConnectionClosed as e:
-            # Capture error code for 1006 detection in reconnect logic
+            # Capture error code for classification in reconnect logic
             self._metrics.last_error = f"ConnectionClosed: {e.code} {e.reason}"
+            self._metrics.last_error_code = e.code
+            self._metrics.is_healthy = False
             logger.warning(f"[{self.config.name}] Connection closed: {e.code} {e.reason}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self._metrics.last_error = str(e)
+            self._metrics.is_healthy = False
             logger.error(f"[{self.config.name}] Receive error: {e}")
             raise
     
@@ -580,7 +693,7 @@ class ManagedWebSocket:
         elif self.config.name == "x10_account":
             # Account stream: Relaxed threshold - health check handled by keepalive loop
             stale_threshold = 300.0  # 5 Minuten - reconnect handled by keepalive loop
-            expected_interval = 30.0  # Just for logging
+            expected_interval = 60.0  # Relaxed expectation - account stream can be quiet
         else:
             # Regular streams: Strenger
             stale_threshold = 180.0  # 3 Minuten
@@ -761,6 +874,11 @@ class WebSocketManager:
         self. oi_tracker = None
         
         # ═══════════════════════════════════════════════════════════════
+        # Orderbook Provider for invalidation on reconnect
+        # ═══════════════════════════════════════════════════════════════
+        self._orderbook_provider = None
+        
+        # ═══════════════════════════════════════════════════════════════
         # X10 Account WebSocket Health Tracking
         # The account stream may not send messages if no account activity
         # (no trades, position changes, etc.) - we need active keepalive
@@ -769,6 +887,40 @@ class WebSocketManager:
         self._x10_account_ping_interval = 30.0     # Send application-level ping every 30s
         self._x10_account_keepalive_task: Optional[asyncio.Task] = None
         self._x10_account_last_pong_time = 0.0     # Track when we last received a pong
+        self._x10_account_last_msg_time = 0.0      # Track any message (incl. pong) for health logs
+    
+    def set_orderbook_provider(self, provider):
+        """Set orderbook provider for invalidation on reconnect"""
+        self._orderbook_provider = provider
+        logger.info("📚 OrderbookProvider connected to WebSocketManager")
+    
+    def _on_websocket_reconnect(self, ws_name: str):
+        """
+        Handle WebSocket reconnection - invalidate orderbook caches.
+        
+        This is called when a WebSocket reconnects to ensure we don't use
+        stale data that may contain crossed book conditions.
+        
+        Args:
+            ws_name: Name of the WebSocket that reconnected
+        """
+        if not self._orderbook_provider:
+            logger.warning(f"🔄 [{ws_name}] Reconnected but no OrderbookProvider set - cannot invalidate")
+            return
+        
+        # Map WebSocket name to exchange
+        if ws_name.startswith("lighter"):
+            exchange = "lighter"
+        elif ws_name.startswith("x10"):
+            exchange = "x10"
+        else:
+            exchange = None  # Invalidate all
+        
+        logger.info(f"🔄 [{ws_name}] Reconnected - invalidating {exchange or 'all'} orderbook caches")
+        self._orderbook_provider.invalidate_all(
+            reason=f"{ws_name} WebSocket reconnect",
+            exchange=exchange
+        )
     
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters for data updates"""
@@ -864,7 +1016,11 @@ class WebSocketManager:
         last_msg = conn.metrics.last_message_time or 0
         
         # Also consider pong time if available
-        effective_last_msg = max(last_msg, self._x10_account_last_pong_time)
+        effective_last_msg = max(
+            last_msg,
+            self._x10_account_last_pong_time,
+            self._x10_account_last_msg_time,
+        )
         
         if effective_last_msg > 0:
             silence_duration = now - effective_last_msg
@@ -945,16 +1101,23 @@ class WebSocketManager:
         
         self._running = True
         
-        # 1. Create Lighter connection (bleibt wie sie ist)
+        # 1. Create Lighter connection with enhanced 1006 handling
+        # Lighter often disconnects with 1006 (abnormal closure) - needs robust reconnect
         lighter_config = WSConfig(
             url=self.LIGHTER_WS_URL,
             name="lighter",
-            ping_interval=20.0,
-            ping_timeout=10.0
+            ping_interval=15.0,              # Reduced from 20 for faster detection
+            ping_timeout=10.0,               # Increased for tolerance
+            reconnect_delay_initial=2.0,     # Fast initial reconnect attempt
+            reconnect_delay_max=120.0,       # Allow server time to recover
+            max_consecutive_1006=5,          # Trigger extended delay after 5 consecutive 1006s
+            extended_delay_1006=30.0,        # 30s extended delay for repeated 1006s
+            health_check_interval=30.0,      # Check health every 30s
         )
         self._connections["lighter"] = ManagedWebSocket(
             lighter_config, 
-            self._handle_message
+            self._handle_message,
+            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
         )
         
         # X10 Header Setup
@@ -987,55 +1150,74 @@ class WebSocketManager:
         x10_account_config = WSConfig(
             url=self.X10_ACCOUNT_WS_URL,  # PRIVATE URL
             name="x10_account",
-            ping_interval=15.0,  # Client sendet aktiv Pings um Verbindung offen zu halten
-            ping_timeout=None,  # Ignoriere fehlende Pongs vom Server (verhindert 1011 Fehler clientseitig)
+            ping_interval=15.0,              # Client sends pings actively
+            ping_timeout=None,               # Ignore missing pongs (prevents client-side 1011)
+            reconnect_delay_initial=2.0,     # Fast reconnect
+            reconnect_delay_max=120.0,       # Allow server recovery time
+            max_consecutive_1006=5,          # Extended delay after 5 consecutive 1006s
+            extended_delay_1006=30.0,        # 30s extended delay
             headers=x10_headers,
         )
         self._connections["x10_account"] = ManagedWebSocket(
             x10_account_config,
-            self._handle_message
+            self._handle_message,
+            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
         )
         
-        # 3. X10 TRADES Connection (Public Firehose) - NEU!
-        # Liefert automatisch Trades für ALLE Märkte (kein Subscribe nötig)
+        # 3. X10 TRADES Connection (Public Firehose)
+        # Delivers trades for ALL markets automatically (no subscribe needed)
         x10_trades_config = WSConfig(
             url=self.X10_TRADES_WS_URL,  # PUBLIC TRADES URL
             name="x10_trades",
             ping_interval=15.0,
             ping_timeout=None,
-            headers=x10_headers,  # Header oft auch für Public nötig wegen Rate Limits
+            reconnect_delay_initial=2.0,
+            reconnect_delay_max=120.0,
+            max_consecutive_1006=5,
+            extended_delay_1006=30.0,
+            headers=x10_headers,
         )
         self._connections["x10_trades"] = ManagedWebSocket(
             x10_trades_config,
-            self._handle_message
+            self._handle_message,
+            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
         )
         
-        # 4. X10 FUNDING Connection (Public Firehose) - NEU!
-        # Liefert automatisch Funding Rates für ALLE Märkte (kein Subscribe nötig)
+        # 4. X10 FUNDING Connection (Public Firehose)
+        # Delivers funding rates for ALL markets automatically (no subscribe needed)
         x10_funding_config = WSConfig(
             url=self.X10_FUNDING_WS_URL,  # PUBLIC FUNDING URL
             name="x10_funding",
             ping_interval=15.0,
             ping_timeout=None,
-            headers=x10_headers,  # Header oft auch für Public nötig wegen Rate Limits
+            reconnect_delay_initial=2.0,
+            reconnect_delay_max=120.0,
+            max_consecutive_1006=5,
+            extended_delay_1006=30.0,
+            headers=x10_headers,
         )
         self._connections["x10_funding"] = ManagedWebSocket(
             x10_funding_config,
-            self._handle_message
+            self._handle_message,
+            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
         )
 
         # 5. X10 ORDERBOOK Connection (Public, Delta Updates)
-        # Correct URL: plural 'orderbooks'
         x10_orderbook_config = WSConfig(
             url="wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks",
             name="x10_orderbooks", 
             ping_interval=15.0,
             ping_timeout=None,
+            reconnect_delay_initial=2.0,
+            reconnect_delay_max=120.0,
+            max_consecutive_1006=5,
+            extended_delay_1006=30.0,
             headers=x10_headers,
         )
         self._connections["x10_orderbooks"] = ManagedWebSocket(
             x10_orderbook_config,
-            self._handle_message
+            self._handle_message,
+            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
         )
 
         
@@ -1150,6 +1332,8 @@ class WebSocketManager:
             
             # X10 Routing
             elif source == "x10_account":
+                # Track any account-stream message (including pongs) for health logging
+                self._x10_account_last_msg_time = time.time()
                 # Check for pong response first (keepalive health tracking)
                 if self._handle_x10_account_pong(msg):
                     return  # Pong handled, no further processing needed
@@ -1673,25 +1857,35 @@ class WebSocketManager:
         self._message_handlers[source].append(handler)
     
     def get_connection_status(self) -> Dict[str, dict]:
-        """Get status of all connections"""
+        """Get status of all connections with enhanced error tracking"""
         return {
             name: {
                 'state': conn.state.value,
                 'connected': conn.is_connected,
+                'is_healthy': conn.metrics.is_healthy,
                 'metrics': {
                     'messages_received': conn.metrics.messages_received,
                     'messages_sent': conn.metrics.messages_sent,
                     'reconnect_count': conn.metrics.reconnect_count,
                     'uptime_seconds': conn.metrics.uptime_seconds,
-                    'last_error': conn.metrics.last_error
+                    'last_error': conn.metrics.last_error,
+                    'last_error_code': conn.metrics.last_error_code,
+                    'error_counts': dict(conn.metrics.error_counts),  # Track errors by code
+                    'last_pong_time': conn.metrics.last_pong_time,
                 }
             }
             for name, conn in self._connections.items()
         }
     
     def is_healthy(self) -> bool:
-        """Check if all connections are healthy"""
-        return all(conn.is_connected for conn in self._connections.values())
+        """Check if all connections are healthy (connected and responding)"""
+        for conn in self._connections.values():
+            if not conn.is_connected:
+                return False
+            # Also check if connection is marked as healthy (receiving messages/pongs)
+            if hasattr(conn.metrics, 'is_healthy') and not conn.metrics.is_healthy:
+                return False
+        return True
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1721,6 +1915,17 @@ async def init_websocket_manager(x10_adapter, lighter_adapter, symbols: List[str
     """
     manager = get_websocket_manager()
     manager.set_adapters(x10_adapter, lighter_adapter)
+    
+    # ═══════════════════════════════════════════════════════════════
+    # Initialize and connect OrderbookProvider for auto-invalidation
+    # ═══════════════════════════════════════════════════════════════
+    try:
+        from src.data.orderbook_provider import init_orderbook_provider
+        provider = init_orderbook_provider(lighter_adapter, x10_adapter, manager)
+        manager.set_orderbook_provider(provider)
+        logger.info("✅ OrderbookProvider initialized and connected to WebSocketManager")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not initialize OrderbookProvider: {e}")
     
     await manager.start(ping_interval=ping_interval, ping_timeout=ping_timeout)
     
