@@ -998,7 +998,12 @@ class WebSocketManager:
                 self. oi_tracker. update_from_websocket(symbol, "lighter", float(open_interest))
     
     async def _handle_lighter_orderbook(self, msg: dict):
-        """Process Lighter orderbook update"""
+        """Process Lighter orderbook update - INCREMENTAL DELTAS
+        
+        Lighter sends delta updates, not full snapshots:
+        - size > 0: Add or update the price level
+        - size = 0: Remove the price level
+        """
         data = msg.get("order_book", {})
         if not data:
             return
@@ -1014,16 +1019,69 @@ class WebSocketManager:
                 asks = data.get("asks", [])
                 
                 if bids or asks:
-                    # Use the new handler method!
+                    # Use the adapter's delta-merge handler
                     if hasattr(self.lighter_adapter, 'handle_orderbook_snapshot'):
                         self.lighter_adapter.handle_orderbook_snapshot(symbol, bids, asks)
                     else:
-                        # Fallback (should not happen after fix)
-                        self.lighter_adapter._orderbook_cache[symbol] = {
-                            'bids': bids,
-                            'asks': asks,
-                            'timestamp': time.time()
-                        }
+                        # Fallback: Must still do proper delta merging!
+                        self._merge_lighter_orderbook_fallback(symbol, bids, asks)
+    
+    def _merge_lighter_orderbook_fallback(self, symbol: str, bids: list, asks: list):
+        """
+        Fallback delta merge for Lighter orderbook updates.
+        Only used if lighter_adapter.handle_orderbook_snapshot is unavailable.
+        
+        Lighter sends INCREMENTAL DELTA updates:
+        - size > 0: Add or update the price level
+        - size = 0: Remove the price level from orderbook
+        """
+        current = self.lighter_adapter._orderbook_cache.get(symbol, {})
+        
+        # Get or initialize internal dicts
+        bid_dict = current.get('_bid_dict', {})
+        ask_dict = current.get('_ask_dict', {})
+        
+        # If no internal dicts, convert from lists
+        if not bid_dict and current.get('bids'):
+            bid_dict = {float(b[0]): float(b[1]) for b in current['bids'] if len(b) >= 2}
+        if not ask_dict and current.get('asks'):
+            ask_dict = {float(a[0]): float(a[1]) for a in current['asks'] if len(a) >= 2}
+        
+        # Merge bids
+        for bid in bids:
+            if isinstance(bid, (list, tuple)) and len(bid) >= 2:
+                try:
+                    price, size = float(bid[0]), float(bid[1])
+                    if size == 0:
+                        bid_dict.pop(price, None)
+                    else:
+                        bid_dict[price] = size
+                except (ValueError, TypeError):
+                    continue
+        
+        # Merge asks
+        for ask in asks:
+            if isinstance(ask, (list, tuple)) and len(ask) >= 2:
+                try:
+                    price, size = float(ask[0]), float(ask[1])
+                    if size == 0:
+                        ask_dict.pop(price, None)
+                    else:
+                        ask_dict[price] = size
+                except (ValueError, TypeError):
+                    continue
+        
+        # Store back sorted
+        sorted_bids = sorted(bid_dict.items(), key=lambda x: x[0], reverse=True)
+        sorted_asks = sorted(ask_dict.items(), key=lambda x: x[0])
+        
+        self.lighter_adapter._orderbook_cache[symbol] = {
+            'bids': [[p, s] for p, s in sorted_bids],
+            'asks': [[p, s] for p, s in sorted_asks],
+            'timestamp': time.time(),
+            '_bid_dict': bid_dict,
+            '_ask_dict': ask_dict,
+        }
     
     async def _handle_lighter_trade(self, msg: dict):
         """Process Lighter trade"""

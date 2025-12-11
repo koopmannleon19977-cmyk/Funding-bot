@@ -1769,80 +1769,119 @@ class LighterAdapter(BaseAdapter):
 
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
-    def handle_orderbook_snapshot(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
+    def handle_orderbook_snapshot(self, symbol: str, bids: List, asks: List):
         """
-        Process incoming orderbook snapshot from WebSocket.
-        Updates the local cache used by fetch_orderbook.
+        Process incoming orderbook UPDATE from Lighter WebSocket.
+        
+        CRITICAL: Lighter sends INCREMENTAL DELTA updates, NOT full snapshots!
+        Reference: https://apidocs.lighter.xyz/docs/websocket-reference
+        
+        Rules:
+        - size > 0: Add or update the price level
+        - size = 0: Remove the price level from orderbook
+        - Must accumulate state over time, not replace
         
         Args:
-            symbol: Trading symbol (e.g. 'ETH-USD')
-            bids: List of [price, size]
-            asks: List of [price, size]
+            symbol: Trading pair (e.g., "BTC-USD")
+            bids: List of [price, size] or {'p': price, 's': size} updates for bid side
+            asks: List of [price, size] or {'p': price, 's': size} updates for ask side
         """
         try:
-            # Debug log to see structure on error (only first time or error)
-            # Safe parsing
-            clean_bids = []
-            if bids:
-                # Inspect first item to adapt parsing
-                first = bids[0]
-                if isinstance(first, dict):
-                    # Dict format: {'p': '...', 's': '...'} or {'price': ..., 'size': ...}
-                    for b in bids:
-                        try:
-                            price = float(b.get('p') or b.get('price'))
-                            size = float(b.get('s') or b.get('size') or b.get('remaining_base_amount'))
-                            if price > 0 and size > 0:
-                                clean_bids.append([price, size])
-                        except (ValueError, TypeError):
-                            continue
-                else:
-                    # List format: [price, size, ...]
-                    for b in bids:
-                        try:
-                            # Ensure we don't index out of bounds if list is like [price] only
-                            if len(b) >= 2:
-                                price = float(b[0])
-                                size = float(b[1])
-                                if price > 0 and size > 0:
-                                    clean_bids.append([price, size])
-                        except (ValueError, IndexError):
-                            continue
+            # Get existing orderbook state or create new one
+            current = self._orderbook_cache.get(symbol)
             
-            clean_asks = []
-            if asks:
-                first = asks[0]
-                if isinstance(first, dict):
-                    for a in asks:
-                        try:
-                            price = float(a.get('p') or a.get('price'))
-                            size = float(a.get('s') or a.get('size') or a.get('remaining_base_amount'))
-                            if price > 0 and size > 0:
-                                clean_asks.append([price, size])
-                        except (ValueError, TypeError):
-                            continue
-                else:
-                    for a in asks:
-                        try:
-                            if len(a) >= 2:
-                                price = float(a[0])
-                                size = float(a[1])
-                                if price > 0 and size > 0:
-                                    clean_asks.append([price, size])
-                        except (ValueError, IndexError):
-                            continue
+            # Initialize internal dict representation if needed
+            # Dict format: {price: size} for efficient O(1) lookups/updates
+            if current is None:
+                bid_dict = {}
+                ask_dict = {}
+            else:
+                # Use internal dicts if available, otherwise convert from lists
+                bid_dict = current.get('_bid_dict')
+                ask_dict = current.get('_ask_dict')
+                
+                if bid_dict is None:
+                    # Convert list format to dict format: {price: size}
+                    bid_dict = {}
+                    for b in current.get('bids', []):
+                        if isinstance(b, (list, tuple)) and len(b) >= 2:
+                            try:
+                                bid_dict[float(b[0])] = float(b[1])
+                            except (ValueError, TypeError):
+                                continue
+                
+                if ask_dict is None:
+                    ask_dict = {}
+                    for a in current.get('asks', []):
+                        if isinstance(a, (list, tuple)) and len(a) >= 2:
+                            try:
+                                ask_dict[float(a[0])] = float(a[1])
+                            except (ValueError, TypeError):
+                                continue
             
-            clean_bids.sort(key=lambda x: x[0], reverse=True)
-            clean_asks.sort(key=lambda x: x[0])
+            # Helper to parse price/size from incoming data (supports dict or list format)
+            def parse_level(item):
+                """Parse price and size from dict or list format."""
+                if isinstance(item, dict):
+                    price = item.get('p') or item.get('price')
+                    size = item.get('s') or item.get('size') or item.get('remaining_base_amount')
+                elif isinstance(item, (list, tuple)) and len(item) >= 2:
+                    price = item[0]
+                    size = item[1]
+                else:
+                    return None, None
+                try:
+                    return float(price), float(size)
+                except (ValueError, TypeError):
+                    return None, None
+            
+            # Track delta sizes for debug logging
+            delta_bids = 0
+            delta_asks = 0
+            
+            # MERGE incoming bid deltas
+            for bid in bids:
+                price, size = parse_level(bid)
+                if price is None:
+                    continue
+                delta_bids += 1
+                if size == 0:
+                    # Size 0 = REMOVE this price level
+                    bid_dict.pop(price, None)
+                else:
+                    # Size > 0 = ADD or UPDATE this price level
+                    bid_dict[price] = size
+            
+            # MERGE incoming ask deltas
+            for ask in asks:
+                price, size = parse_level(ask)
+                if price is None:
+                    continue
+                delta_asks += 1
+                if size == 0:
+                    # Size 0 = REMOVE this price level
+                    ask_dict.pop(price, None)
+                else:
+                    # Size > 0 = ADD or UPDATE this price level
+                    ask_dict[price] = size
+            
+            # Convert back to sorted list format for consumers
+            # Bids: sorted descending (highest price first)
+            sorted_bids = sorted(bid_dict.items(), key=lambda x: x[0], reverse=True)
+            # Asks: sorted ascending (lowest price first)
+            sorted_asks = sorted(ask_dict.items(), key=lambda x: x[0])
             
             # Store in cache with MILLISECOND timestamp (compatible with fetch_orderbook)
             ts = int(time.time() * 1000)
             
             cache_entry = {
-                "bids": clean_bids,
-                "asks": clean_asks,
+                "bids": [[p, s] for p, s in sorted_bids],
+                "asks": [[p, s] for p, s in sorted_asks],
                 "timestamp": ts,
-                "symbol": symbol
+                "symbol": symbol,
+                # Keep internal dicts for efficient merging on next update
+                "_bid_dict": bid_dict,
+                "_ask_dict": ask_dict,
             }
             
             # Update both caches to be safe
@@ -1850,21 +1889,24 @@ class LighterAdapter(BaseAdapter):
             self._orderbook_cache[symbol] = cache_entry
             self._orderbook_cache_time[symbol] = time.time()
             
-            # Log only occasionally to avoid spam
+            # Log occasionally showing ACCUMULATED depth (not just delta)
             if random.random() < 0.005:
-                logger.debug(f"WS OB Update {symbol}: {len(clean_bids)} bids, {len(clean_asks)} asks")
+                total_bids = len(sorted_bids)
+                total_asks = len(sorted_asks)
+                logger.debug(f"WS OB Update {symbol}: +{delta_bids} bids, +{delta_asks} asks (Total: {total_bids} bids, {total_asks} asks)")
                 
         except Exception as e:
             # Log the DATA that caused the crash to understand structure
-            logger.error(f"Error handling OB snapshot for {symbol}: {e} | Bids Type: {type(bids)} | First Bid: {bids[0] if bids else 'Empty'}")
+            logger.error(f"Error handling OB delta for {symbol}: {e} | Bids Type: {type(bids)} | First Bid: {bids[0] if bids else 'Empty'}")
 
-    def handle_orderbook_update(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
+    def handle_orderbook_update(self, symbol: str, bids: List, asks: List):
         """
         Process incoming orderbook update (delta) from WebSocket.
-        Currently treats updates as snapshots since Lighter WS often sends full book or we lack delta logic.
+        
+        Lighter sends incremental delta updates - this method properly merges them
+        with the existing orderbook state via handle_orderbook_snapshot().
         """
-        # For now, treat updates as snapshots since we don't have delta merge logic
-        # and Lighter often sends full snapshots on the 'order_book' channel anyway.
+        # Delta merging is now implemented in handle_orderbook_snapshot
         self.handle_orderbook_snapshot(symbol, bids, asks)
 
     async def check_liquidity(self, symbol: str, side: str, quantity_usd: float, max_slippage_pct: float = 0.02, is_maker: bool = False) -> bool:
