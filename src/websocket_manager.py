@@ -2419,7 +2419,24 @@ class WebSocketManager:
                 market = pos.get("market") or pos.get("symbol") or pos.get("m") or ""
                 side = pos.get("side") or pos.get("positionSide") or pos.get("s") or ""
                 size = pos.get("size") or pos.get("quantity") or pos.get("qty") or pos.get("q") or "0"
-                entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("avgPrice") or pos.get("ep") or pos.get("open_price") or pos.get("avgEntryPrice") or pos.get("averageEntryPrice") or "0"
+                status = pos.get("status", "UNKNOWN")
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX #14: Entry Price Logging für CLOSED Positions
+                # Extract openPrice also for CLOSED positions (for logging purposes)
+                # ═══════════════════════════════════════════════════════════════
+                entry_price = (
+                    pos.get("entryPrice") or 
+                    pos.get("entry_price") or 
+                    pos.get("avgPrice") or 
+                    pos.get("ep") or 
+                    pos.get("open_price") or 
+                    pos.get("openPrice") or  # Fix #14: Also check openPrice for CLOSED positions
+                    pos.get("avgEntryPrice") or 
+                    pos.get("averageEntryPrice") or 
+                    "0"
+                )
+                
                 mark_price = pos.get("markPrice") or pos.get("mark_price") or pos.get("mp") or "0"
                 unrealized_pnl = pos.get("unrealisedPnl") or pos.get("unrealizedPnl") or pos.get("uPnl") or pos.get("pnl") or "0"
                 leverage = pos.get("leverage") or pos.get("lev") or ""
@@ -2435,9 +2452,26 @@ class WebSocketManager:
                         try:
                             await self.x10_adapter.on_position_update(pos)
                             # Re-extract entry_price after adapter update (may have been corrected)
-                            entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("open_price") or pos.get("avgPrice") or pos.get("avgEntryPrice") or pos.get("averageEntryPrice") or entry_price
+                            # Fix #14: Also check openPrice for CLOSED positions after adapter update
+                            entry_price = (
+                                pos.get("entryPrice") or 
+                                pos.get("entry_price") or 
+                                pos.get("open_price") or 
+                                pos.get("openPrice") or  # Fix #14: Also check openPrice for CLOSED positions
+                                pos.get("avgPrice") or 
+                                pos.get("avgEntryPrice") or 
+                                pos.get("averageEntryPrice") or 
+                                entry_price
+                            )
                         except Exception as adapter_err:
                             logger.debug(f"[x10_account] Adapter position callback error: {adapter_err}")
+                
+                # Fix #14: For CLOSED positions, ensure we use openPrice if entry_price is still 0
+                if status == "CLOSED" and (not entry_price or float(entry_price) == 0.0):
+                    open_price = pos.get("openPrice") or pos.get("open_price") or "0"
+                    if open_price and float(open_price) > 0:
+                        entry_price = open_price
+                        logger.debug(f"[x10_account] Fix #14: Using openPrice={open_price} for CLOSED position {market}")
                 
                 # Determine emoji based on PnL
                 try:

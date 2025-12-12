@@ -170,7 +170,18 @@ LIGHTER_WS_PING_ON_CONNECT = False
 # OPTION 3: We subscribe to order_book only (no trades) + market_stats/all
 # This allows ALL symbols: 65 order_books + 1 market_stats = 66 < 100 ✅
 # Note: market_stats/all provides prices, funding rates, OI for ALL markets
-LIGHTER_WS_MAX_SYMBOLS = 99  # With Option 3, we can track up to 99 symbols (99 + 1 = 100)
+LIGHTER_WS_MAX_SYMBOLS = 99
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAKER ORDER TIMEOUT & RETRY SETTINGS (Fix #13)
+# ═══════════════════════════════════════════════════════════════════════════════
+LIGHTER_ORDER_TIMEOUT_SECONDS = 60.0      # Default timeout for Maker orders
+MAKER_ORDER_MAX_RETRIES = 2               # Max retry attempts for Maker orders
+MAKER_ORDER_RETRY_DELAY_SECONDS = 2.0     # Delay between retries
+MAKER_ORDER_PRICE_ADJUSTMENT_PCT = 0.001  # 0.1% price adjustment per retry (aggressive)
+MAKER_ORDER_MIN_TIMEOUT_SECONDS = 30.0    # Minimum timeout (for high liquidity)
+MAKER_ORDER_MAX_TIMEOUT_SECONDS = 90.0    # Maximum timeout (for low liquidity)
+MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on liquidity depth  # With Option 3, we can track up to 99 symbols (99 + 1 = 100)
 LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
 
 # --- Prediction & Confidence ---

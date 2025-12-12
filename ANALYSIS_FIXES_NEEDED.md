@@ -349,81 +349,84 @@ Basierend auf Log-Analyse (`logs/funding_bot_LEON_20251212_173845_FULL.log`) und
 
 ---
 
-### 13. **Maker Order Timeout - AERO-USD Fill Timeout nach 60s**
+### 13. **Maker Order Timeout - AERO-USD Fill Timeout nach 60s** ✅ GEFIXT & VERIFIZIERT
 
 **Problem:**
 
-- Maker Order (POST_ONLY) auf Lighter wird nicht gefüllt
-- Timeout nach 60.34s
-- Trade schlägt fehl (`❌ Trade execution failed for AERO-USD`)
-- Order wird gecancelt, aber keine automatische Retry-Logik
-
-**Log-Evidenz:**
-
-```
-21:07:23 [WARNING] ⏰ [PHASE 1.5] AERO-USD: Fill timeout after 60.34s
-21:07:23 [WARNING] ⏰ [MAKER STRATEGY] AERO-USD: Wait timeout! Cancelling Lighter order...
-21:07:24 [INFO]    Result: TIMEOUT
-21:07:24 [INFO]    Reason:  Lighter order not filled
-21:07:24 [WARNING] ❌ Trade execution failed for AERO-USD
-```
-
-**Mögliche Ursachen:**
-
-1. Orderbook zu dünn - Best Ask/Bid zu weit entfernt
-2. POST_ONLY Order wird nicht sofort gefüllt (erwartetes Verhalten)
-3. Preis hat sich während Wartezeit verschoben
-4. Keine Retry-Logik für Maker Orders
-
-**Lösung:**
-
-1. Verbesserte Orderbook-Validierung vor Order-Placement
-2. Dynamische Timeout-Anpassung basierend auf Orderbook-Liquidität
-3. Retry-Logik mit angepasstem Preis für Maker Orders
-4. Besseres Logging für Timeout-Gründe
-
-**Code-Location:**
-
-- `src/parallel_execution.py:700-750` - Maker Strategy Fill Wait Logic
-- `src/core/trading.py` - Orderbook Validation
-
-**Fix-Priorität:** 🟢 MITTEL (Maker Orders können Timeouts haben, aber Retry-Logik wäre hilfreich)
-
----
-
-### 14. **Entry Price $0 bei CLOSED Positions**
-
-**Problem:**
-
-- Geschlossene Positionen zeigen `entry=$0` in Logs
-- Beispiel: `📈 [x10_account] POSITION UPDATE: PENDLE-USD LONG size=22 entry=$0 mark=$2.185234043499 uPnL=$0`
-- Position ist bereits geschlossen (`status=CLOSED`), daher ist Entry Price nicht mehr relevant
-- Aber Logging könnte verwirrend sein
-
-**Log-Evidenz:**
-
-```
-21:07:27 [INFO] 📈 [x10_account] POSITION UPDATE: PENDLE-USD LONG size=22 entry=$0 mark=$2.185234043499 uPnL=$0
-21:07:27 [INFO] 📈 [x10_account] POSITION UPDATE: MON-USD LONG size=2070 entry=$0 mark=$0.024071327975 uPnL=$0
-```
+- ~~Maker Order (POST_ONLY) auf Lighter wird nicht gefüllt~~ ✅ GELÖST
+- ~~Timeout nach 60.34s~~ ✅ GELÖST (dynamische Timeouts: 30s bei hoher Liquidität)
+- ~~Trade schlägt fehl~~ ✅ GELÖST (Retry-Logik implementiert)
+- ~~Order wird gecancelt, aber keine automatische Retry-Logik~~ ✅ GELÖST
 
 **Status:**
 
-- Position ist bereits `CLOSED`, daher wird Entry Price aus Cache entfernt
-- `entry=$0` ist technisch korrekt, aber könnte verwirrend sein
-- `openPrice` ist noch in der RAW Message vorhanden (`"openPrice": "2.1876"`)
+- ✅ **Dynamische Timeout-Anpassung implementiert**: Timeout wird basierend auf Orderbook-Liquidität berechnet (30s statt 60s bei hoher Liquidität)
+- ✅ **Verbessertes Timeout-Logging**: Zeigt Orderbook-Details (bid_depth, ask_depth, spread) für bessere Diagnose
+- ✅ **Retry-Logik implementiert**: Automatische Retries mit angepasstem Preis
+- ✅ **Bug behoben**: `fetch_mark_price` ist synchron, wurde aber mit `await` aufgerufen → behoben
+- ✅ **Retry erfolgreich getestet**: LINEA-USD wurde durch Retry gerettet (Zeile 1086-1088: "✅ [RETRY] LINEA-USD: Fill detected after 6 checks (attempt 1/2)!")
 
-**Lösung:**
+**Log-Evidenz (nach Fix & Verifizierung):**
 
-1. Entry Price aus `openPrice` Feld extrahieren auch für CLOSED Positions (nur für Logging)
-2. Oder Logging anpassen: `entry=N/A` oder `entry=$0 (closed)` für bessere Klarheit
+```
+21:28:21 [DEBUG] ⏱️ EDEN-USD: Dynamic timeout calculated: 30.0s (depth_ratio=2560.11, base=60.0s)
+21:28:52 [WARNING] ⏰ [PHASE 1.5] EDEN-USD: Fill timeout after 30.31s (orderbook: bid_depth=$123897.80, ask_depth=$116147.59, spread=12.380%)
+21:28:55 [INFO] 🔄 [RETRY] EDEN-USD: Attempt 1/2 (price adjustment: 0.100%)
+21:28:55 [DEBUG] 💰 [RETRY] EDEN-USD: Original price=0.064620, Adjusted price=0.064555 (SELL)
+21:28:56 [INFO] ✅ [RETRY] EDEN-USD: Retry order placed: a05df7858f242b53f93b2949d1ce573f26f6494b...
+21:28:55 [INFO] 🔄 [RETRY] LINEA-USD: Attempt 1/2 (price adjustment: 0.100%)
+21:29:01 [INFO] ✅ [RETRY] LINEA-USD: Fill detected after 6 checks (attempt 1/2)!
+21:29:01 [INFO] ✅ [PHASE 1.5] LINEA-USD: Retry order FILLED after timeout
+```
+
+**Implementierte Lösungen:**
+
+1. ✅ Dynamische Timeout-Anpassung basierend auf Orderbook-Liquidität (`_calculate_dynamic_timeout`)
+2. ✅ Retry-Logik mit angepasstem Preis (`_retry_maker_order_with_adjusted_price`)
+3. ✅ Verbessertes Logging für Timeout-Gründe (Orderbook-Analyse)
+4. ✅ Bug-Fix: `fetch_mark_price` ohne `await` aufrufen (synchrone Funktion)
 
 **Code-Location:**
 
-- `src/adapters/x10_adapter.py:1514-1567` - Entry Price Resolution
-- `src/websocket_manager.py:1082-1100` - Position Update Logging
+- `src/parallel_execution.py:667-848` - Retry-Logik für Maker Orders
+- `src/parallel_execution.py:850-1050` - Timeout-Handling mit verbessertem Logging
+- `config.py` - Neue Config-Parameter: `MAKER_ORDER_MAX_RETRIES`, `MAKER_ORDER_RETRY_DELAY_SECONDS`, `MAKER_ORDER_PRICE_ADJUSTMENT_PCT`
 
-**Fix-Priorität:** 🟢 NIEDRIG (kosmetisch, Position ist bereits geschlossen)
+**Fix-Priorität:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 14. **Entry Price $0 bei CLOSED Positions** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Geschlossene Positionen zeigen `entry=$0` in Logs~~ ✅ GELÖST
+- ~~Position ist bereits geschlossen (`status=CLOSED`), daher ist Entry Price nicht mehr relevant~~ ✅ GELÖST
+- ~~Aber Logging könnte verwirrend sein~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Entry Price wird jetzt aus `openPrice` Feld extrahiert auch für CLOSED Positions
+- ✅ Logging zeigt jetzt korrekten Entry Price auch für geschlossene Positionen
+- ✅ `openPrice` wird aus RAW Message extrahiert, auch wenn Position aus Cache entfernt wurde
+
+**Lösung Implementiert:**
+
+1. ✅ `openPrice` wird in der Feld-Extraktion berücksichtigt (neue Priorität)
+2. ✅ Nach Adapter-Update wird `openPrice` erneut geprüft
+3. ✅ Spezielle Behandlung für CLOSED Positions: Wenn `entry_price` = 0, wird `openPrice` aus der RAW Message verwendet
+
+**Code-Location:**
+
+- `src/websocket_manager.py:2418-2453` - Entry Price Extraction für CLOSED Positions
+
+**Log-Verifizierung (funding_bot_LEON_20251212_213337_FULL.log):**
+
+- ✅ Zeile 1933: EDEN-USD CLOSED zeigt `entry=$0.06465` (nicht mehr $0!)
+- ✅ Zeile 2038: AERO-USD CLOSED zeigt `entry=$0.60500` (nicht mehr $0!)
+- ✅ Zeile 2091: MON-USD CLOSED zeigt `entry=$0.02408` (nicht mehr $0!)
+
+**Fix-Priorität:** ✅ **GEFIXT** (kosmetisch, aber jetzt korrekt implementiert)
 
 ---
 
@@ -547,7 +550,8 @@ Basierend auf Log-Analyse (`logs/funding_bot_LEON_20251212_173845_FULL.log`) und
 7. ✅ **GEFIXT:** Lighter Reduce-Only Flag Verification (#8) - reduce_only Parameter ist korrekt (True=1, False=0)
 8. ✅ **GEFIXT:** Position Entry Price Logging (#11) - Vollständige POSITION Messages werden geloggt
 9. ✅ **IMPLEMENTIERT:** Orphan Position Handling (#12) - Automatisches Schließen von Orphan Positions beim Startup und während Reconciliation
-10. 🟡 **NÄCHSTER FIX:** Maker Order Timeout Handling (#13) - Retry-Logik für Maker Orders
+10. ✅ **GEFIXT:** Maker Order Timeout Handling (#13) - Retry-Logik mit dynamischen Timeouts (Bug-Fix angewendet, erfolgreich getestet)
+11. ✅ **GEFIXT:** Entry Price Logging für CLOSED Positions (#14) - Entry Price wird jetzt korrekt aus `openPrice` extrahiert
 
 ---
 
@@ -555,11 +559,11 @@ Basierend auf Log-Analyse (`logs/funding_bot_LEON_20251212_173845_FULL.log`) und
 
 1. ✅ **FERTIG:** Position Entry Price Logging (#11) - Vollständige Messages werden geloggt
 2. ✅ **FERTIG:** Orphan Position Handling (#12) - Automatisches Schließen implementiert
-3. 🟡 **NÄCHSTER FIX:** Maker Order Timeout Handling (#13) - Retry-Logik für Maker Orders implementieren
-4. 🟢 **OPTIONAL:** Entry Price Logging für CLOSED Positions (#14) - Kosmetische Verbesserung
+3. ✅ **FERTIG:** Maker Order Timeout Handling (#13) - Retry-Logik mit dynamischen Timeouts implementiert und erfolgreich getestet (LINEA-USD durch Retry gerettet)
+4. ✅ **FERTIG:** Entry Price Logging für CLOSED Positions (#14) - Entry Price wird jetzt korrekt aus `openPrice` extrahiert
 
 ---
 
 **Erstellt:** 2025-01-12
 **Basierend auf:** `logs/funding_bot_LEON_20251212_173845_FULL.log`
-**Letzte Aktualisierung:** 2025-01-12 (nach `logs/funding_bot_LEON_20251212_211501_FULL.log`)
+**Letzte Aktualisierung:** 2025-01-12 (nach `logs/funding_bot_LEON_20251212_213337_FULL.log`)
