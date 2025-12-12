@@ -626,30 +626,42 @@ class LighterAdapter(BaseAdapter):
             # Ziel: Exakt 1 Tick vor der Konkurrenz, ohne den Spread zu kreuzen.
             
             if side == 'BUY':
-                # Wir wollen KAUFEN -> Best Bid + 1 Tick
-                target_price = best_bid + price_tick
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: For POST_ONLY BUY orders (parallel with Market orders),
+                # use Best Bid (not Best Bid + 1 Tick) to maximize chance of immediate fill
+                # If we're at Best Bid, we're Maker and can fill immediately when Market SELL comes
+                # Using Best Bid + 1 Tick puts us above the current bid, so we won't fill immediately
+                # ═══════════════════════════════════════════════════════════════
+                # Wir wollen KAUFEN -> Best Bid (nicht +1 Tick)
+                # Bei Best Bid sind wir Maker und können sofort füllen, wenn Market SELL kommt
+                target_price = best_bid
                 
-                # Check: Dürfen nicht Ask erreichen/kreuzen (Taker-Gefahr)
-                # Wenn Spread = 1 Tick, dann target_price == best_ask.
-                # In dem Fall müssen wir uns hinten anstellen (Best Bid).
+                # Check: Dürfen nicht Ask erreichen/kreuzen (sollte nie passieren)
                 if target_price >= best_ask:
                     final_price = best_bid
-                    strategy = "Join Bid (Spread Tight)"
+                    strategy = "Join Bid (Spread Tight - Fallback)"
                 else:
                     final_price = target_price
-                    strategy = "Penny Jump Bid"
+                    strategy = "Best Bid (POST_ONLY - Immediate Fill)"
                     
             else: # SELL
-                # Wir wollen VERKAUFEN -> Best Ask - 1 Tick
-                target_price = best_ask - price_tick
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: For POST_ONLY SELL orders (parallel with Market orders),
+                # use Best Ask (not Best Ask - 1 Tick) to maximize chance of immediate fill
+                # If we're at Best Ask, we're Maker and can fill immediately when Market BUY comes
+                # Using Best Ask - 1 Tick puts us below the current ask, so we won't fill immediately
+                # ═══════════════════════════════════════════════════════════════
+                # Wir wollen VERKAUFEN -> Best Ask (nicht -1 Tick)
+                # Bei Best Ask sind wir Maker und können sofort füllen, wenn Market BUY kommt
+                target_price = best_ask
                 
-                # Check: Dürfen nicht Bid erreichen/kreuzen
+                # Check: Dürfen nicht Bid erreichen/kreuzen (sollte nie passieren)
                 if target_price <= best_bid:
                     final_price = best_ask
-                    strategy = "Join Ask (Spread Tight)"
+                    strategy = "Join Ask (Spread Tight - Fallback)"
                 else:
                     final_price = target_price
-                    strategy = "Penny Jump Ask"
+                    strategy = "Best Ask (POST_ONLY - Immediate Fill)"
 
             # WICHTIG: Endgültigen Preis runden (HALF_UP um Float-Fehler zu vermeiden)
             quantized_price = quantize_value(final_price, price_tick, rounding=ROUND_HALF_UP)
@@ -2793,17 +2805,21 @@ class LighterAdapter(BaseAdapter):
                         logger.debug(f"🔍 [TIF] {symbol}: Processing time_in_force='{key}' (raw='{time_in_force}')")
                         if key == "IOC":
                             is_ioc = True
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX #6: Lighter IOC Order TimeInForce - Use correct constant
                             # Try multiple IOC attribute names (SDK may use different names)
-                            if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
-                                tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
-                                logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif}")
-                            elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
+                            # Priority: IMMEDIATE_OR_CANCEL first (most common in Lighter SDK)
+                            # ═══════════════════════════════════════════════════════════════
+                            if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
                                 tif = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
                                 logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = {tif}")
+                            elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
+                                tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
+                                logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif}")
                             else:
-                                # Fallback: IOC is typically 0 in most exchanges
+                                # Fallback: IOC is typically 0 in most exchanges (including Lighter)
                                 tif = 0
-                                logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE_IOC not found in SignerClient, using fallback tif=0")
+                                logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE constants not found in SignerClient, using fallback tif=0")
                             # ═══════════════════════════════════════════════════════════════
                             # FIX: IOC orders require expiry=0 (not 28-day expiry)
                             # ═══════════════════════════════════════════════════════════════
@@ -2815,17 +2831,35 @@ class LighterAdapter(BaseAdapter):
                         elif key == "GTC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_GTC
                     elif reduce_only and not post_only:
-                        if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX #6: Lighter IOC Order TimeInForce - Use IOC for reduce_only
+                        # Priority: IMMEDIATE_OR_CANCEL first (most common in Lighter SDK)
+                        # ═══════════════════════════════════════════════════════════════
+                        is_ioc = True
+                        if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
+                            tif = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
+                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = {tif} (reduce_only)")
+                        elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
-                            is_ioc = True
-                            # ═══════════════════════════════════════════════════════════════
-                            # FIX: IOC orders (reduce_only) require expiry=0
-                            # ═══════════════════════════════════════════════════════════════
-                            expiry = 0
-                            logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for reduce_only IOC order")
+                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif} (reduce_only)")
+                        else:
+                            # Fallback: IOC is typically 0 in most exchanges (including Lighter)
+                            tif = 0
+                            logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE constants not found, using fallback tif=0 (reduce_only)")
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX: IOC orders (reduce_only) require expiry=0
+                        # ═══════════════════════════════════════════════════════════════
+                        expiry = 0
+                        logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for reduce_only IOC order")
                     
-                    # Check if IOC was set (by comparing with known IOC values)
-                    ioc_value = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 0)  # Default to 0 if not found
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX #6: Check if IOC was set (by comparing with known IOC values)
+                    # Try both IOC constant names to determine the correct value
+                    # ═══════════════════════════════════════════════════════════════
+                    ioc_value_imm = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', None)
+                    ioc_value_ioc = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', None)
+                    ioc_value = ioc_value_imm if ioc_value_imm is not None else (ioc_value_ioc if ioc_value_ioc is not None else 0)
+                    
                     if is_ioc or tif == ioc_value or tif == 0:
                         logger.info(f"⚡ [TIF] {symbol}: Using IOC order (tif={tif}, expiry={expiry}, ioc_attr={ioc_value})")
                     else:
@@ -2863,28 +2897,59 @@ class LighterAdapter(BaseAdapter):
                                 else:
                                     avg_exec_price = int(price_int * (1 - float(slippage_pct)))
                                 
+                                # ═══════════════════════════════════════════════════════════════
+                                # FIX #8: Lighter Reduce-Only Flag Verification
+                                # Parameter-Name: reduce_only (confirmed by SDK)
+                                # Boolean-Wert: True = 1 (ReduceOnly), False = 0 (normal order)
+                                # ═══════════════════════════════════════════════════════════════
                                 logger.info(f"⚡ MARKET ORDER {symbol}: {side} {base} @ avg_price={avg_exec_price} (shutdown fast-close)")
+                                logger.debug(f"✅ [REDUCE_ONLY] {symbol}: Market Order reduce_only={reduce_only} (will be {1 if reduce_only else 0} in API)")
                                 tx, resp, err = await signer.create_market_order(
                                     market_index=int(market_id),
                                     client_order_index=int(client_oid_final),
                                     base_amount=int(base),
                                     avg_execution_price=int(avg_exec_price),
                                     is_ask=bool(side == "SELL"),
-                                    reduce_only=bool(reduce_only),
+                                    reduce_only=bool(reduce_only),  # ✅ FIX: Explicit reduce_only parameter
                                     nonce=int(current_nonce),
                                     api_key_index=int(self._resolved_api_key_index)
                                 )
                             else:
                                 # Normal LIMIT order
+                                # ═══════════════════════════════════════════════════════════════
+                                # FIX #5: Verify ORDER_TYPE_LIMIT constant exists
+                                # According to Lighter API docs: ORDER_TYPE_LIMIT = 0, ORDER_TYPE_MARKET = 1
+                                # ═══════════════════════════════════════════════════════════════
+                                order_type_limit = getattr(SignerClient, 'ORDER_TYPE_LIMIT', None)
+                                if order_type_limit is None:
+                                    # Fallback: LIMIT orders are typically 0
+                                    order_type_limit = 0
+                                    logger.warning(f"⚠️ [ORDER_TYPE] {symbol}: ORDER_TYPE_LIMIT not found in SignerClient, using fallback 0")
+                                else:
+                                    logger.debug(f"✅ [ORDER_TYPE] {symbol}: Using ORDER_TYPE_LIMIT = {order_type_limit}")
+                                
+                                # Verify ORDER_TYPE_MARKET exists (for reference, not used here)
+                                order_type_market = getattr(SignerClient, 'ORDER_TYPE_MARKET', None)
+                                if order_type_market is None:
+                                    logger.debug(f"ℹ️ [ORDER_TYPE] {symbol}: ORDER_TYPE_MARKET not found in SignerClient (not needed for limit orders)")
+                                else:
+                                    logger.debug(f"ℹ️ [ORDER_TYPE] {symbol}: ORDER_TYPE_MARKET = {order_type_market} (available but not used for limit orders)")
+                                
+                                # ═══════════════════════════════════════════════════════════════
+                                # FIX #8: Lighter Reduce-Only Flag Verification
+                                # Parameter-Name: reduce_only (confirmed by SDK)
+                                # Boolean-Wert: True = 1 (ReduceOnly), False = 0 (normal order)
+                                # ═══════════════════════════════════════════════════════════════
+                                logger.debug(f"✅ [REDUCE_ONLY] {symbol}: Limit Order reduce_only={reduce_only} (will be {1 if reduce_only else 0} in API)")
                                 tx, resp, err = await signer.create_order(
                                     market_index=int(market_id),         # Force int
                                     client_order_index=int(client_oid_final),
                                     base_amount=int(base),               # Force int
                                     price=int(price_int),                # Force int
                                     is_ask=bool(side == "SELL"),         # Force bool
-                                    order_type=int(getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)),
+                                    order_type=int(order_type_limit),    # ✅ FIX: Explicit ORDER_TYPE_LIMIT
                                     time_in_force=int(tif),
-                                    reduce_only=bool(reduce_only),
+                                    reduce_only=bool(reduce_only),       # ✅ FIX: Explicit reduce_only parameter
                                     trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
                                     order_expiry=int(expiry),
                                     nonce=int(current_nonce),            # 🔥 Explizite Nonce (kein None!)
@@ -3497,10 +3562,19 @@ class LighterAdapter(BaseAdapter):
                             else:
                                 current_nonce = int(str(nonce_resp).strip())
                             
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX #6: ImmediateCancelAll - Use correct IOC constant
+                            # Priority: IMMEDIATE_OR_CANCEL first (most common in Lighter SDK)
+                            # ═══════════════════════════════════════════════════════════════
                             # ImmediateCancelAll - cancels ALL open orders at once
                             # time_in_force=IOC triggers immediate cancel
-                            tif_ioc = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 
-                                             getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 1))
+                            if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
+                                tif_ioc = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
+                            elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
+                                tif_ioc = SignerClient.ORDER_TIME_IN_FORCE_IOC
+                            else:
+                                # Fallback: IOC is typically 0 in most exchanges (including Lighter)
+                                tif_ioc = 0
                             
                             # time parameter is usually a future timestamp for scheduled cancel.
                             # For ImmediateCancelAll we use 0 as a sentinel "no schedule" value;

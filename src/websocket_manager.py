@@ -1687,8 +1687,22 @@ class WebSocketManager:
                 # Extract message type for routing and stats
                 msg_type = (msg.get("type") or msg.get("e") or msg.get("event") or "UNKNOWN").upper()
                 
-                # DEBUG level for raw messages (set to INFO temporarily for debugging)
-                logger.debug(f"📨 [x10_account] RAW: {msg_type} - {str(msg)[:200]}")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX #11: Position Entry Price Logging unvollständig
+                # Log vollständige POSITION Messages (nicht abgeschnitten)
+                # ═══════════════════════════════════════════════════════════════
+                if msg_type == "POSITION":
+                    # Log vollständige POSITION Message mit Pretty Print
+                    import json
+                    try:
+                        msg_json = json.dumps(msg, indent=2, default=str)
+                        logger.debug(f"📨 [x10_account] RAW: POSITION - {msg_json}")
+                    except Exception as e:
+                        # Fallback auf str() wenn json.dumps fehlschlägt
+                        logger.debug(f"📨 [x10_account] RAW: POSITION - {str(msg)}")
+                else:
+                    # Für andere Message-Typen: Begrenzung auf 200 Zeichen (um Log-Spam zu vermeiden)
+                    logger.debug(f"📨 [x10_account] RAW: {msg_type} - {str(msg)[:200]}")
                 
                 # Update message type counter for health diagnostics
                 if msg_type in self._x10_account_msg_counts:
@@ -2390,15 +2404,40 @@ class WebSocketManager:
                 positions = []
             
             for pos in positions:
+                # ═══════════════════════════════════════════════════════════════
+                # FIX #11: Log wichtige Position-Felder einzeln für Debugging
+                # ═══════════════════════════════════════════════════════════════
+                # Log alle verfügbaren Felder für Debugging
+                import json
+                try:
+                    pos_fields = {k: v for k, v in pos.items()}
+                    logger.debug(f"📊 [x10_account] POSITION FIELDS: {json.dumps(pos_fields, indent=2, default=str)}")
+                except Exception as e:
+                    logger.debug(f"📊 [x10_account] POSITION FIELDS (fallback): {str(pos)}")
+                
                 # Flexible field extraction
                 market = pos.get("market") or pos.get("symbol") or pos.get("m") or ""
                 side = pos.get("side") or pos.get("positionSide") or pos.get("s") or ""
                 size = pos.get("size") or pos.get("quantity") or pos.get("qty") or pos.get("q") or "0"
-                entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("avgPrice") or pos.get("ep") or "0"
+                entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("avgPrice") or pos.get("ep") or pos.get("open_price") or pos.get("avgEntryPrice") or pos.get("averageEntryPrice") or "0"
                 mark_price = pos.get("markPrice") or pos.get("mark_price") or pos.get("mp") or "0"
                 unrealized_pnl = pos.get("unrealisedPnl") or pos.get("unrealizedPnl") or pos.get("uPnl") or pos.get("pnl") or "0"
                 leverage = pos.get("leverage") or pos.get("lev") or ""
                 liquidation_price = pos.get("liquidationPrice") or pos.get("liqPrice") or ""
+                
+                # ═══════════════════════════════════════════════════════════════
+                # IMPROVEMENT: Call adapter first to update entry price in data dict
+                # Then log with corrected entry price
+                # ═══════════════════════════════════════════════════════════════
+                # Notify X10 Adapter if available (this will update entry_price in pos dict)
+                if hasattr(self, 'x10_adapter') and self.x10_adapter:
+                    if hasattr(self.x10_adapter, 'on_position_update'):
+                        try:
+                            await self.x10_adapter.on_position_update(pos)
+                            # Re-extract entry_price after adapter update (may have been corrected)
+                            entry_price = pos.get("entryPrice") or pos.get("entry_price") or pos.get("open_price") or pos.get("avgPrice") or pos.get("avgEntryPrice") or pos.get("averageEntryPrice") or entry_price
+                        except Exception as adapter_err:
+                            logger.debug(f"[x10_account] Adapter position callback error: {adapter_err}")
                 
                 # Determine emoji based on PnL
                 try:
@@ -2407,18 +2446,11 @@ class WebSocketManager:
                 except (ValueError, TypeError):
                     emoji = "📊"
                 
+                # Log AFTER adapter callback so entry_price is corrected
                 logger.info(
                     f"{emoji} [x10_account] POSITION UPDATE: {market} {side} size={size} "
                     f"entry=${entry_price} mark=${mark_price} uPnL=${unrealized_pnl}"
                 )
-                
-                # Notify X10 Adapter if available
-                if hasattr(self, 'x10_adapter') and self.x10_adapter:
-                    if hasattr(self.x10_adapter, 'on_position_update'):
-                        try:
-                            await self.x10_adapter.on_position_update(pos)
-                        except Exception as adapter_err:
-                            logger.debug(f"[x10_account] Adapter position callback error: {adapter_err}")
                 
         except Exception as e:
             logger.error(f"[x10_account] Position update error: {e}", exc_info=True)

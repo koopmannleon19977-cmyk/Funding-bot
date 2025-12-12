@@ -299,6 +299,38 @@ async def run_bot_v5(bot_instance=None):
         
         if orphaned:
             logger.warning(f"🚨 Found {len(orphaned)} ORPHANED positions: {orphaned}")
+            
+            # Fix #12: Automatically close orphan positions at startup
+            from src.utils import safe_float
+            for symbol in orphaned:
+                try:
+                    # Close Lighter position if exists
+                    lighter_pos = next((p for p in (lighter_positions or []) if p.get('symbol') == symbol), None)
+                    if lighter_pos:
+                        size = safe_float(lighter_pos.get('size', 0))
+                        if abs(size) > 0:
+                            logger.warning(f"🚨 Closing orphan Lighter position {symbol} (size={size}) at startup...")
+                            px = safe_float(lighter.fetch_mark_price(symbol))
+                            if px > 0:
+                                notional = abs(size) * px
+                                original_side = "BUY" if size < 0 else "SELL"
+                                await lighter.close_live_position(symbol, original_side, notional)
+                                logger.info(f"✅ Closed orphaned Lighter {symbol} at startup")
+                    
+                    # Close X10 position if exists
+                    x10_pos = next((p for p in (x10_positions or []) if p.get('symbol') == symbol), None)
+                    if x10_pos:
+                        size = safe_float(x10_pos.get('size', 0))
+                        if abs(size) > 0:
+                            logger.warning(f"🚨 Closing orphan X10 position {symbol} (size={size}) at startup...")
+                            px = safe_float(x10.fetch_mark_price(symbol))
+                            if px > 0:
+                                notional = abs(size) * px
+                                original_side = "BUY" if size < 0 else "SELL"
+                                await x10.close_live_position(symbol, original_side, notional)
+                                logger.info(f"✅ Closed orphaned X10 {symbol} at startup")
+                except Exception as e:
+                    logger.error(f"❌ Failed to close orphan position {symbol} at startup: {e}")
         else:
             logger.info("✅ No orphaned positions found")
     except Exception as e:

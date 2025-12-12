@@ -1,346 +1,565 @@
-# 🔍 Detaillierte Analyse: Alle Fixes die noch benötigt werden
+# 🔧 KRITISCHE FIXES - Vollständige Analyse
 
-Basierend auf dem Log `funding_bot_LEON_20251212_134225_FULL.log` und Code-Analyse.
+## 📋 Zusammenfassung
 
----
-
-## 🚨 KRITISCHE FIXES (Priorität 1)
-
-### 1. **DUST POSITION FILTERING BUG**
-**Problem:** 
-- VIRTUAL-USD Position ($0.1680) wird 20+ Mal als "Filtered dust" geloggt, erscheint aber weiterhin
-- Während normaler Operation wird `dust_threshold=1.0` verwendet, aber Position wird trotzdem gefiltert
-- Während Shutdown sollte `dust_threshold=0.0` sein, aber Position wird dennoch gefiltert
-
-**Log Beweis:**
-```
-13:42:58 [DEBUG] 🧹 Filtered dust position VIRTUAL-USD: $0.1680 (< $1.0)
-... (wiederholt 20+ mal) ...
-13:43:24 [WARNING] ⚠️ DUST POSITION VIRTUAL-USD: $0.17 < Min $11.00 - FORCING CLOSE ANYWAY
-```
-
-**Root Cause:**
-- In `lighter_adapter.py:2376` wird `dust_threshold` basierend auf `IS_SHUTTING_DOWN` gesetzt, aber:
-  - Position wird während normaler Operation gefiltert (`< $1.0`)
-  - Aber später beim Shutdown erscheint sie wieder, was bedeutet dass die Filterung inkonsistent ist
-  - Ghost Guardian injiziert möglicherweise Positionen zurück
-
-**Fix Required:**
-1. Dust Positions sollten während normaler Operation NICHT gefiltert werden wenn sie aktiv sind
-2. Nur bei initialem `fetch_open_positions` filtern, nicht bei jedem Aufruf
-3. Ghost Guardian sollte keine Dust Positions injizieren
-4. Shutdown sollte alle Positionen erfassen, auch Dust
-
-**Code Location:** `src/adapters/lighter_adapter.py:2359-2381`
+Basierend auf Log-Analyse (`logs/funding_bot_LEON_20251212_173845_FULL.log`) und Code-Review wurden folgende Probleme identifiziert:
 
 ---
 
-### 2. **EXCESSIVE API CALLS - Deduplication zu kurz**
+## 🚨 KRITISCHE PROBLEME (MÜSSEN SOFORT GEFIXT WERDEN)
+
+### 1. **X10 Position Entry Price ist IMMER $0.00** ⚠️ KRITISCH ✅ GEFIXT
+
 **Problem:**
-- 628+ `[LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions` Log-Einträge in 1 Minute
-- Rate Limiter dedupliziert mit 2.0s TTL, aber Fill-Wait-Loop pollt alle 0.5s
-- Führt zu massivem Cache-Miss und trotzdem vielen deduplizierten Calls
 
-**Log Beweis:**
-```
-13:42:51 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions
-... (628+ mal in kurzer Zeit) ...
-```
+- ~~Alle X10 Positionen zeigen `entry=$0` in den Logs~~ ✅ GELÖST
+- ~~Code versucht Entry Price aus WebSocket POSITION Messages zu extrahieren, aber Feld fehlt~~ ✅ GELÖST
+- ~~Betrifft: PnL-Berechnungen, Trade-Tracking, Position-Management~~ ✅ GELÖST
 
-**Root Cause:**
-- `rate_limiter.is_duplicate()` in `lighter_adapter.py:2316` hat TTL von 2.0s
-- Fill-Wait-Loop in `parallel_execution.py:788` pollt alle 0.5s
-- Cache wird zurückgegeben, aber Log zeigt trotzdem "Deduplicated" (was bedeutet: Request wurde dedupliziert, aber kein API-Call)
+**Lösung Implementiert:**
 
-**Fix Required:**
-1. Erhöhe Cache TTL auf mindestens 1.0s für `fetch_open_positions`
-2. Implementiere besseres Caching mit Timestamp-basierter Invalidation
-3. Nutze WebSocket Position Updates statt Polling
-4. Reduziere Polling-Frequenz im Fill-Wait-Loop auf 1.0s statt 0.5s
+1. ✅ **Entry Price wird aus TRADE/FILL messages berechnet** (weighted average)
+2. ✅ **Fallback auf REST API Cache** wenn TRADE fills nicht verfügbar
+3. ✅ **Fallback auf REST API Fetch** als letzter Ausweg
+4. ✅ **Funktioniert unabhängig von REST API Deduplizierung**
 
-**Code Locations:**
-- `src/adapters/lighter_adapter.py:2316-2319`
-- `src/parallel_execution.py:788-797`
-- `src/rate_limiter.py` (TTL Konfiguration)
+**Code-Location:**
+
+- `src/adapters/x10_adapter.py:75` - `_fill_tracking` Dictionary hinzugefügt
+- `src/adapters/x10_adapter.py:1614-1720` - `on_fill_update()` berechnet Entry Price aus Fills
+- `src/adapters/x10_adapter.py:1514-1567` - Prioritätsbasierte Entry Price Resolution
+
+**Status:** ✅ **GEFIXT** - Entry Price wird jetzt korrekt aus TRADE fills berechnet und angezeigt
+
+**Verifizierung:**
+
+- Log `funding_bot_LEON_20251212_181542_FULL.log` zeigt korrekte Entry Prices:
+  - UNI-USD: `entry=$5.3303` ✅
+  - WLFI-USD: `entry=$0.14226` ✅
+  - CRV-USD: `entry=$0.38752` ✅
+  - PENDLE-USD: `entry=$2.1819` ✅
+  - AERO-USD: `entry=$0.60997` ✅
 
 ---
 
-### 3. **MAKER ORDER TIMEOUTS - Keine Fallback-Strategie**
-**Problem:**
-- 3 von 5 Trades timeouten: IP-USD (30.06s), ZRO-USD (29.02s), VIRTUAL-USD (29.09s)
-- Orders werden platziert, aber nie gefüllt (Maker Orders)
-- Keine Fallback-Strategie wenn Maker Order nicht füllt
+### 2. **X10 WebSocket POSITION Message Field-Namen unklar**
 
-**Log Beweis:**
+**Problem:**
+
+- WebSocket POSITION Messages werden im Log abgeschnitten angezeigt
+- Unklar welche Felder tatsächlich vorhanden sind
+- Entry Price kann nicht extrahiert werden
+
+**Log-Evidenz:**
+
 ```
-13:43:19 [WARNING] ⏰ [PHASE 1.5] VIRTUAL-USD: Fill timeout after 29.09s
-13:43:19 [WARNING] ⏰ [MAKER STRATEGY] VIRTUAL-USD: Wait timeout! Cancelling Lighter order...
-13:43:21 [INFO]    Result: TIMEOUT
-13:43:21 [INFO]    Reason:  Lighter order not filled
+17:39:09 [DEBUG] 📨 [x10_account] RAW: POSITION - {'type': 'POSITION', 'data': {'isSnapshot': False, 'positions': [{'id': 1999519348405829632, 'accountId': 127074, 'market': 'UNI-USD', 'status': 'OPENED', 'side': 'LONG', 'leverage': '10', 'size': '9.
 ```
 
-**Root Cause:**
-- Maker Orders (post_only=True) warten auf Taker Fill
-- Wenn kein Taker kommt, Order bleibt offen bis Timeout
-- Nach Timeout wird Order gecancelt, aber kein Taker-Retry
+**Lösung:**
 
-**Fix Required:**
-1. Implementiere "Maker-to-Taker" Fallback: Nach 15s Timeout, cancel Maker Order und place Taker Order
-2. Oder: Nutze aggressive Maker-Price (1 tick inside spread) für schnellere Fills
-3. Oder: Reduziere Timeout auf 20s und falle früher auf Taker zurück
-4. Analysiere warum bestimmte Pairs nicht füllen (Liquidity-Check vor Order-Placement)
+1. Vollständige POSITION Message im Log ausgeben (nicht abschneiden)
+2. Alle verfügbaren Felder dokumentieren
+3. Entry Price Feld identifizieren und verwenden
 
-**Code Location:** `src/parallel_execution.py:767-824`
+**Fix-Priorität:** 🔴 KRITISCH
 
 ---
 
-### 4. **DUST POSITION CLOSING - Min Notional Violation**
-**Problem:**
-- Während Shutdown: VIRTUAL-USD ($0.17) und ZEC-USD ($45.31) warnen über Min Notional
-- Werden trotzdem "FORCED CLOSE", aber API könnte Order ablehnen
+### 3. **X10 Order Type Verification** ✅ GEFIXT & VERIFIZIERT
 
-**Log Beweis:**
+**Problem:**
+
+- ~~Code verwendet `place_order()` mit `time_in_force` Parameter~~ ✅ GELÖST
+- ~~Unklar ob Market Orders korrekt als `Type=1` gesetzt werden~~ ✅ GELÖST
+- ~~X10 API Docs müssen konsultiert werden~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Limit Orders verwenden `TimeInForce.GTT` (Good Till Time)
+- ✅ Market Orders verwenden `TimeInForce.IOC` (Immediate Or Cancel) für `reduce_only=True`
+- ✅ `post_only` Parameter wird explizit an `place_order()` übergeben
+- ✅ Logging zeigt korrekte Order-Typen und TimeInForce-Werte
+
+**Lösung Implementiert:**
+
+1. ✅ Market Orders (reduce_only + nicht post_only) verwenden jetzt `TimeInForce.IOC`
+2. ✅ Limit Orders verwenden `TimeInForce.GTT` oder `TimeInForce.POST_ONLY`
+3. ✅ `post_only` Parameter wird explizit gesetzt
+4. ✅ Debug-Logging für Order-Typen und TimeInForce hinzugefügt
+5. ✅ Expiry-Zeit angepasst: Market Orders (IOC) = 10s, POST_ONLY = 30s, Limit = 600s
+
+**Code-Location:**
+
+- `src/adapters/x10_adapter.py:1033-1065` - TimeInForce.IOC für Market Orders und expliziter `post_only` Parameter
+
+**Log-Verifizierung (funding_bot_LEON_20251212_182859_FULL.log):**
+
+- ✅ Zeile 1053, 1103, 1239, 1269, 1341: Limit Orders verwenden `TimeInForce=GTT, post_only=False`
+- ✅ Zeile 1482, 1493, 1504, 1515, 1540: Market Orders verwenden `TimeInForce.IOC for Market Order (reduce_only)`
+- ✅ Zeile 1609, 1611, 1676, 1678, 1680: `Market Order placed (TimeInForce=IOC, post_only=False)`
+- ✅ Zeile 1608: API Transaction zeigt `"Type":1,"TimeInForce":0` für Market Orders (korrekt)
+- ✅ Alle Market Orders während Shutdown wurden erfolgreich ausgeführt
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 4. **X10 TimeInForce Enum Werte** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Code verwendet `TimeInForce.GTT` als Default~~ ✅ GELÖST
+- ~~`POST_ONLY` wird dynamisch geprüft (`hasattr`)~~ ✅ GELÖST
+- ~~Unklar ob Enum-Werte mit API übereinstimmen~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Verfügbare TimeInForce-Werte: `GTT`, `IOC`, `FOK` (POST_ONLY existiert NICHT im Enum)
+- ✅ POST_ONLY wird über den `post_only` Parameter gesteuert, nicht über TimeInForce
+- ✅ Limit Orders verwenden `TimeInForce.GTT` (Good Till Time)
+- ✅ Market Orders verwenden `TimeInForce.IOC` (Immediate Or Cancel)
+- ✅ Alle TimeInForce-Werte werden korrekt geloggt
+
+**Lösung Implementiert:**
+
+1. ✅ Entfernt fehlerhafte POST_ONLY-Prüfung im TimeInForce Enum
+2. ✅ POST_ONLY funktioniert über den `post_only` Parameter, nicht über TimeInForce
+3. ✅ POST_ONLY Orders verwenden weiterhin `TimeInForce.GTT` (Limit Orders)
+4. ✅ Logging hinzugefügt, um alle verfügbaren TimeInForce-Werte zu dokumentieren
+5. ✅ Fee-Berechnung verbessert: prüft sowohl `time_in_force` als auch `post_only` Parameter
+
+**Code-Location:**
+
+- `src/adapters/x10_adapter.py:1026-1065` - TimeInForce Handling mit korrekten Enum-Werten
+- `src/adapters/x10_adapter.py:148-170` - Fee-Berechnung mit `post_only` Parameter
+
+**Log-Verifizierung (funding_bot_LEON_20251212_183541_FULL.log):**
+
+- ✅ Zeile 459, 544, 609, 619, 628, 880, 933, 972, 983, 994: `ℹ️ [TIF] ...: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK`
+- ✅ Zeile 460, 545, 610, 620, 629: Limit Orders verwenden `TimeInForce=GTT (post_only=False)`
+- ✅ Zeile 467, 549, 630, 678, 722: `Limit Order placed (TimeInForce=GTT, post_only=False)`
+- ✅ Zeile 881, 934, 973, 984, 995: Market Orders verwenden `TimeInForce=IOC (post_only=False, reduce_only=True, is_market=True)`
+- ✅ Zeile 1007, 1009, 1066, 1068, 1070: `Market Order placed (TimeInForce=IOC, post_only=False)`
+- ✅ Keine POST_ONLY als TimeInForce-Wert mehr verwendet
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 5. **Lighter Market Order Type Verification** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Code verwendet `ORDER_TYPE_LIMIT` für alle `create_order()` Aufrufe~~ ✅ GELÖST
+- ~~Market Orders verwenden bereits `create_market_order()` (korrekt)~~ ✅ BESTÄTIGT
+- ~~Aber: Wenn `create_order()` mit `ORDER_TYPE_MARKET` verwendet werden sollte, wird es nicht unterstützt~~ ✅ GELÖST
+- ~~Muss mit API-Dokumentation abgeglichen werden~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Market Orders verwenden bereits `create_market_order()` (korrekt) - Zeile 2879
+- ✅ Limit Orders verwenden `create_order()` mit `ORDER_TYPE_LIMIT` (korrekt) - Zeile 2897
+- ✅ Code prüft jetzt explizit, ob `ORDER_TYPE_LIMIT` und `ORDER_TYPE_MARKET` existieren
+- ✅ Logging hinzugefügt, wenn Konstanten nicht gefunden werden
+- ✅ Fallback auf 0 wenn `ORDER_TYPE_LIMIT` nicht existiert (LIMIT = 0 laut API)
+
+**Lösung Implementiert:**
+
+1. ✅ Explizite Prüfung von `ORDER_TYPE_LIMIT` und `ORDER_TYPE_MARKET`
+2. ✅ Logging hinzugefügt für Debugging
+3. ✅ Fallback auf 0 wenn `ORDER_TYPE_LIMIT` nicht existiert
+4. ✅ Bestätigt: `create_market_order()` ist die korrekte Methode für Market Orders
+
+**Code-Location:**
+
+- `src/adapters/lighter_adapter.py:2897-2920` - Explizite ORDER_TYPE Prüfung und Logging
+
+**Log-Verifizierung (funding_bot_LEON_20251212_182259_FULL.log):**
+
+- ✅ Zeile 275-277: Limit Orders verwenden `ORDER_TYPE_LIMIT = 0` → `"Type":0` in Transaction
+- ✅ Zeile 1197, 1206, 1215, 1228, 1299: Market Orders verwenden `"Type":1` korrekt
+- ✅ Alle ORDER_TYPE Logging-Meldungen erscheinen korrekt
+- ✅ Alle Orders wurden erfolgreich ausgeführt
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 6. **Lighter IOC Order TimeInForce** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Code setzt `TIF=0` für IOC Orders~~ ✅ GELÖST
+- ~~Muss mit API-Dokumentation abgeglichen werden~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ `ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0` wird korrekt verwendet
+- ✅ Optimierte Prüfreihenfolge: `IMMEDIATE_OR_CANCEL` zuerst, dann `IOC`, dann Fallback auf `0`
+- ✅ IOC Orders verwenden `TIF=0` korrekt
+- ✅ `expiry=0` wird korrekt für IOC Orders gesetzt
+- ✅ Alle IOC Orders wurden erfolgreich ausgeführt
+
+**Lösung Implementiert:**
+
+1. ✅ Optimierte Prüfreihenfolge: `ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL` wird zuerst geprüft (häufigste Konstante im Lighter SDK)
+2. ✅ Fallback auf `ORDER_TIME_IN_FORCE_IOC` wenn `IMMEDIATE_OR_CANCEL` nicht existiert
+3. ✅ Fallback auf `TIF=0` wenn keine Konstante gefunden wird (korrekt für Lighter)
+4. ✅ Konsistente IOC-Behandlung für explizite `time_in_force="IOC"` und `reduce_only` Orders
+5. ✅ Verbessertes Logging zeigt, welche Konstante verwendet wird
+6. ✅ ImmediateCancelAll verwendet die gleiche optimierte Prüfreihenfolge
+
+**Code-Location:**
+
+- `src/adapters/lighter_adapter.py:2806-2823` - IOC TimeInForce Handling (explizit)
+- `src/adapters/lighter_adapter.py:2829-2844` - IOC TimeInForce Handling (reduce_only)
+- `src/adapters/lighter_adapter.py:3553-3560` - ImmediateCancelAll IOC Handling
+
+**Log-Verifizierung (funding_bot_LEON_20251212_205502_FULL.log):**
+
+- ✅ Zeile 748, 762: `✅ [TIF] ...: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0`
+- ✅ Zeile 750, 764: `⚡ [TIF] ...: Using IOC order (tif=0, expiry=0, ioc_attr=0)`
+- ✅ Zeile 770, 793: API Transactions zeigen `"TimeInForce":0` für IOC Orders (korrekt)
+- ✅ Zeile 691: ImmediateCancelAll verwendet `"TimeInForce":0` (korrekt)
+- ✅ Zeile 787, 796: Alle IOC Orders wurden erfolgreich ausgeführt
+- ✅ Keine Warnungen über fehlende Konstanten
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 7. **X10 Reduce-Only Flag Verification** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Code verwendet `reduce_only=True` für Position Closes~~ ✅ GELÖST
+- ~~Muss mit API-Dokumentation abgeglichen werden~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Parameter-Name ist korrekt: `reduce_only` (bestätigt durch SDK-Signatur)
+- ✅ Boolean-Wert ist korrekt: `True` = 1 (ReduceOnly), `False` = 0 (normal order)
+- ✅ Limit Orders verwenden `reduce_only=False` → API zeigt `ReduceOnly=0`
+- ✅ Market Orders (reduce_only) verwenden `reduce_only=True` → API zeigt `ReduceOnly=1`
+- ✅ Logging zeigt korrekte Werte für alle Order-Typen
+
+**Lösung Implementiert:**
+
+1. ✅ Verifiziert, dass Parameter-Name `reduce_only` korrekt ist (bestätigt durch SDK)
+2. ✅ Verifiziert, dass Boolean-Wert korrekt ist (True = 1, False = 0 in API-Transaktionen)
+3. ✅ Verbessertes Logging zeigt `reduce_only` Parameter explizit
+4. ✅ Kommentare dokumentieren, dass der Parameter korrekt ist
+
+**Code-Location:**
+
+- `src/adapters/x10_adapter.py:1105-1125` - `reduce_only` Parameter mit verbessertem Logging
+
+**Log-Verifizierung (funding_bot_LEON_20251212_205857_FULL.log):**
+
+- ✅ Zeile 455, 626: Limit Orders zeigen `reduce_only=False` → API zeigt `ReduceOnly=0` (Zeile 315, 330, 351, 376, 401)
+- ✅ Zeile 919, 957: Market Orders zeigen `reduce_only=True` → API zeigt `ReduceOnly=1` (Zeile 924, 947, 956, 967)
+- ✅ Alle Orders wurden erfolgreich ausgeführt
+- ✅ Keine Fehler oder Warnungen bezüglich reduce_only Parameter
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+### 8. **Lighter Reduce-Only Flag Verification** ✅ GEFIXT & VERIFIZIERT
+
+**Problem:**
+
+- ~~Code verwendet `reduce_only=bool(reduce_only)`~~ ✅ GELÖST
+- ~~Muss mit API-Dokumentation abgeglichen werden~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Parameter-Name ist korrekt: `reduce_only` (bestätigt durch SDK-Verwendung)
+- ✅ Boolean-Wert ist korrekt: `True` = 1 (ReduceOnly), `False` = 0 (normal order)
+- ✅ Limit Orders verwenden `reduce_only=False` → API zeigt `ReduceOnly=0`
+- ✅ Market Orders (reduce_only) verwenden `reduce_only=True` → API zeigt `ReduceOnly=1`
+- ✅ Logging zeigt korrekte Werte für alle Order-Typen
+
+**Lösung Implementiert:**
+
+1. ✅ Verifiziert, dass Parameter-Name `reduce_only` korrekt ist (bestätigt durch SDK)
+2. ✅ Verifiziert, dass Boolean-Wert korrekt ist (True = 1, False = 0 in API-Transaktionen)
+3. ✅ Verbessertes Logging zeigt `reduce_only` Parameter explizit
+4. ✅ Kommentare dokumentieren, dass der Parameter korrekt ist
+
+**Code-Location:**
+
+- `src/adapters/lighter_adapter.py:2901-2910` - `create_market_order()` mit `reduce_only` Logging
+- `src/adapters/lighter_adapter.py:2932-2945` - `create_order()` mit `reduce_only` Logging
+
+**Log-Verifizierung (funding_bot_LEON_20251212_205857_FULL.log):**
+
+- ✅ Zeile 924, 947, 956, 967: API-Transaktionen zeigen `"ReduceOnly":1` für reduce_only Orders (korrekt)
+- ✅ Zeile 315, 330, 351, 376, 401: API-Transaktionen zeigen `"ReduceOnly":0` für normale Orders (korrekt)
+- ✅ Alle Orders wurden erfolgreich ausgeführt
+- ✅ Keine Fehler oder Warnungen bezüglich reduce_only Parameter
+
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
+
+---
+
+## 🔍 WEITERE PROBLEME (SOLLTEN GEFIXT WERDEN)
+
+### 12. **Orphan Position Handling - Automatisches Schließen** ✅ IMPLEMENTIERT
+
+**Problem:**
+
+- ~~Position existiert auf Exchange (Lighter) aber nicht in DB~~ ✅ GELÖST
+- ~~Bot erkennt Orphan Position aber schließt sie nicht automatisch~~ ✅ GELÖST
+- ~~Bot versucht weiterhin Trades für bereits offene Orphan Positions zu öffnen~~ ✅ GELÖST
+
+**Status:**
+
+- ✅ Automatisches Schließen von Orphan Positions beim Startup implementiert
+- ✅ Automatisches Schließen von Orphan Positions während Reconciliation implementiert
+- ✅ Code verwendet `close_live_position()` direkt statt nicht-existierender `force_close_symbol()` Methode
+- ✅ Korrekte Side-Bestimmung: BUY für SHORT (size < 0), SELL für LONG (size > 0)
+
+**Lösung Implementiert:**
+
+1. ✅ In `src/core/trade_management.py:534-560` - Orphan Positions werden automatisch geschlossen, wenn erkannt
+2. ✅ In `src/core/startup.py:287-320` - Orphan Positions werden beim Startup automatisch geschlossen
+3. ✅ Verwendet `close_live_position()` mit korrekter Side-Logik
+4. ✅ Mark Price wird verwendet für Notional-Berechnung
+
+**Code-Location:**
+
+- `src/core/trade_management.py:534-560` - Orphan Position Handling in Reconciliation
+- `src/core/startup.py:287-320` - Orphan Position Handling beim Startup
+
+**Log-Verifizierung (funding_bot_LEON_20251212_211501_FULL.log):**
+
+- ✅ Zeile 130-131: `Lighter: Found 0 open positions` → `✅ No orphaned positions found`
+- ✅ Keine `👻 ORPHAN POSITION` Fehlermeldungen während des Betriebs
+- ✅ Keine `⚠️ STRK-USD already open` Warnungen
+- ✅ Alle Reconciliation Checks erfolgreich (`✅ RECONCILE: Sync complete.`)
+
+**Hinweis:**
+
+- Fix ist implementiert, aber konnte nicht vollständig verifiziert werden, da beim Start keine Orphan Positions gefunden wurden
+- Die Logik sollte funktionieren, wenn eine Orphan Position erkannt wird (wird automatisch geschlossen)
+
+**Status:** ✅ **IMPLEMENTIERT** (vollständige Verifizierung bei nächster Orphan Position möglich)
+
+---
+
+### 13. **Maker Order Timeout - AERO-USD Fill Timeout nach 60s**
+
+**Problem:**
+
+- Maker Order (POST_ONLY) auf Lighter wird nicht gefüllt
+- Timeout nach 60.34s
+- Trade schlägt fehl (`❌ Trade execution failed for AERO-USD`)
+- Order wird gecancelt, aber keine automatische Retry-Logik
+
+**Log-Evidenz:**
+
 ```
-13:43:24 [WARNING] ⚠️ DUST POSITION VIRTUAL-USD: $0.17 < Min $11.00 - FORCING CLOSE ANYWAY
-13:43:24 [WARNING] ⚠️ DUST POSITION ZEC-USD: $45.31 < Min $49.84 - FORCING CLOSE ANYWAY
+21:07:23 [WARNING] ⏰ [PHASE 1.5] AERO-USD: Fill timeout after 60.34s
+21:07:23 [WARNING] ⏰ [MAKER STRATEGY] AERO-USD: Wait timeout! Cancelling Lighter order...
+21:07:24 [INFO]    Result: TIMEOUT
+21:07:24 [INFO]    Reason:  Lighter order not filled
+21:07:24 [WARNING] ❌ Trade execution failed for AERO-USD
 ```
 
-**Root Cause:**
-- `close_live_position` verwendet `reduce_only=True` + `IOC`, was Min Notional umgehen sollte
-- Aber Warnung wird trotzdem ausgegeben
-- API könnte Order ablehnen wenn Min Notional verletzt wird
+**Mögliche Ursachen:**
 
-**Fix Required:**
-1. Verifiziere mit Lighter API Docs: Akzeptiert `reduce_only` Orders unter Min Notional?
-2. Wenn ja: Entferne Warnung oder mache sie zu DEBUG-Level
-3. Wenn nein: Implementiere "Dust Cleanup" Strategie: Sammle mehrere Dust Positions und close als Batch
-4. Oder: Nutze Market Order mit exact coin amount (nicht USD notional) für Dust Positions
+1. Orderbook zu dünn - Best Ask/Bid zu weit entfernt
+2. POST_ONLY Order wird nicht sofort gefüllt (erwartetes Verhalten)
+3. Preis hat sich während Wartezeit verschoben
+4. Keine Retry-Logik für Maker Orders
 
-**Code Locations:**
-- `src/shutdown.py:1076-1088`
-- `src/adapters/lighter_adapter.py:3100-3150` (close_live_position)
+**Lösung:**
 
----
+1. Verbesserte Orderbook-Validierung vor Order-Placement
+2. Dynamische Timeout-Anpassung basierend auf Orderbook-Liquidität
+3. Retry-Logik mit angepasstem Preis für Maker Orders
+4. Besseres Logging für Timeout-Gründe
 
-### 5. **FILL DETECTION - Polling statt WebSocket**
-**Problem:**
-- Fill Detection pollt `fetch_open_positions` alle 0.5s
-- WebSocket Position Updates werden nicht genutzt für Fill Detection
-- Ineffizient und führt zu vielen API Calls
+**Code-Location:**
 
-**Root Cause:**
-- Fill-Wait-Loop in `parallel_execution.py:788` nutzt Polling
-- WebSocket Position Updates existieren, werden aber nicht für Fill Detection genutzt
-- Cache wird dedupliziert, aber trotzdem Polling-Loop läuft
+- `src/parallel_execution.py:700-750` - Maker Strategy Fill Wait Logic
+- `src/core/trading.py` - Orderbook Validation
 
-**Fix Required:**
-1. Nutze WebSocket Position Updates für Fill Detection
-2. Implementiere Event-basiertes Fill Detection statt Polling
-3. Fallback auf Polling nur wenn WebSocket nicht verfügbar
-4. Reduziere Polling-Frequenz auf 1.0s wenn WebSocket nicht verfügbar
-
-**Code Locations:**
-- `src/parallel_execution.py:788-797`
-- `src/websocket_manager.py` (Position Update Handler)
+**Fix-Priorität:** 🟢 MITTEL (Maker Orders können Timeouts haben, aber Retry-Logik wäre hilfreich)
 
 ---
 
-## ⚠️ WICHTIGE FIXES (Priorität 2)
+### 14. **Entry Price $0 bei CLOSED Positions**
 
-### 6. **SHUTDOWN RACE CONDITIONS - Rate Limiter**
 **Problem:**
-- Während Shutdown: `[LIGHTER] Rate limiter acquire() skipped - shutdown active`
-- Aber API Calls werden trotzdem versucht
-- Führt zu Fehlern und unnötigen Retries
 
-**Log Beweis:**
+- Geschlossene Positionen zeigen `entry=$0` in Logs
+- Beispiel: `📈 [x10_account] POSITION UPDATE: PENDLE-USD LONG size=22 entry=$0 mark=$2.185234043499 uPnL=$0`
+- Position ist bereits geschlossen (`status=CLOSED`), daher ist Entry Price nicht mehr relevant
+- Aber Logging könnte verwirrend sein
+
+**Log-Evidenz:**
+
 ```
-13:43:20 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
-13:43:20 [DEBUG] Lighter REST GET /api/v1/orders returned 404
+21:07:27 [INFO] 📈 [x10_account] POSITION UPDATE: PENDLE-USD LONG size=22 entry=$0 mark=$2.185234043499 uPnL=$0
+21:07:27 [INFO] 📈 [x10_account] POSITION UPDATE: MON-USD LONG size=2070 entry=$0 mark=$0.024071327975 uPnL=$0
 ```
 
-**Fix Required:**
-1. Prüfe `IS_SHUTTING_DOWN` Flag vor JEDEM API Call
-2. Return early mit cached data wenn shutdown aktiv
-3. Vermeide neue API Calls während Shutdown, nutze nur Cache
+**Status:**
 
-**Code Location:** Alle API Call Stellen in Adaptern
+- Position ist bereits `CLOSED`, daher wird Entry Price aus Cache entfernt
+- `entry=$0` ist technisch korrekt, aber könnte verwirrend sein
+- `openPrice` ist noch in der RAW Message vorhanden (`"openPrice": "2.1876"`)
+
+**Lösung:**
+
+1. Entry Price aus `openPrice` Feld extrahieren auch für CLOSED Positions (nur für Logging)
+2. Oder Logging anpassen: `entry=N/A` oder `entry=$0 (closed)` für bessere Klarheit
+
+**Code-Location:**
+
+- `src/adapters/x10_adapter.py:1514-1567` - Entry Price Resolution
+- `src/websocket_manager.py:1082-1100` - Position Update Logging
+
+**Fix-Priorität:** 🟢 NIEDRIG (kosmetisch, Position ist bereits geschlossen)
 
 ---
 
-### 7. **GHOST GUARDIAN - Synthetic Positions**
+### 9. **Entry Price wird nicht aus Fills berechnet** ✅ GEFIXT
+
 **Problem:**
-- Ghost Guardian injiziert synthetic positions mit `is_ghost=True` Flag
-- Diese werden später als echte Positionen behandelt
-- Kann zu falschen Position-Counts führen
 
-**Log Beweis:**
-```
-13:43:13 [INFO] Lighter: Found 2 open positions  (aber 1 davon ist Ghost)
-```
+- ~~Wenn WebSocket Entry Price fehlt, sollte aus Fills/Trades berechnet werden~~ ✅ GELÖST
+- ~~Aktuell wird einfach $0 verwendet~~ ✅ GELÖST
 
-**Fix Required:**
-1. Markiere Ghost Positions klar mit Flag
-2. Filtere Ghost Positions bei Position-Counts für Trade-Management
-3. Nutze Ghost Positions nur für Fill Detection, nicht für Shutdown Closing
+**Lösung Implementiert:**
 
-**Code Location:** `src/adapters/lighter_adapter.py:2394-2413`
+1. ✅ Fills/Trades werden pro Position gesammelt (`_fill_tracking`)
+2. ✅ Weighted Average Entry Price wird berechnet
+3. ✅ Wird als Priorität 1 verwendet (vor REST API Cache)
+
+**Status:** ✅ **GEFIXT**
 
 ---
 
-### 8. **ORDER CANCEL TIMEOUT - Extended Verification zu langsam**
+### 10. **X10 Position Entry Price aus REST API nicht verwendet** ✅ GEFIXT
+
 **Problem:**
-- Wenn Order timeout, wird extended verification gemacht (30 Checks, ~60s)
-- Während Shutdown wird auf 3 Checks reduziert, aber trotzdem zu langsam
 
-**Log Beweis:**
-```
-13:43:19 [WARNING] ⏰ [PHASE 1.5] VIRTUAL-USD: Fill timeout after 29.09s
-13:43:21 [INFO] ✓ [MAKER STRATEGY] VIRTUAL-USD: Cancel confirmed (Clean Exit verified after 60s)
-```
+- ~~`fetch_open_positions()` verwendet REST API mit `p.open_price`~~ ✅ GELÖST
+- ~~Aber WebSocket Handler verwendet WebSocket Messages~~ ✅ GELÖST
+- ~~Inkonsistenz zwischen REST und WebSocket~~ ✅ GELÖST
 
-**Fix Required:**
-1. Reduziere extended verification auf 5 Checks (10s total) statt 30
-2. Nutze Trade History Check zuerst (schneller als Position Polling)
-3. Während Shutdown: Nur 1 Check, dann abbrechen
+**Lösung Implementiert:**
 
-**Code Location:** `src/parallel_execution.py:633-676`
+1. ✅ WebSocket Handler verwendet REST API als Fallback (Priorität 3)
+2. ✅ Entry Price aus REST API wird im Cache gespeichert (`_positions_cache`)
+3. ✅ WebSocket Handler verwendet Cache-Wert wenn TRADE fills nicht verfügbar
+
+**Status:** ✅ **GEFIXT**
 
 ---
 
-### 9. **MIN_NOTIONAL CALCULATION - Inkonsistent**
+### 11. **Position Entry Price Logging unvollständig** ✅ GEFIXT & VERIFIZIERT
+
 **Problem:**
-- ZEC-USD zeigt Min Notional $49.84, aber Position ist $45.31
-- Warnung wird ausgegeben, aber Position wird trotzdem geschlossen
-- Min Notional Berechnung könnte falsch sein
 
-**Fix Required:**
-1. Verifiziere Min Notional Berechnung mit API Docs
-2. Nutze `min_quote_amount` aus market_info, nicht berechneter Wert
-3. Logge Min Notional Quelle (API vs. calculated)
+- ~~RAW POSITION Messages werden im Log abgeschnitten~~ ✅ GELÖST
+- ~~Vollständige Message-Struktur nicht sichtbar~~ ✅ GELÖST
 
-**Code Location:** `src/adapters/lighter_adapter.py:1086-1087`
+**Status:**
 
----
+- ✅ Vollständige POSITION Messages werden jetzt mit `json.dumps(msg, indent=2)` geloggt
+- ✅ Einzelne Feld-Logging (`📊 [x10_account] POSITION FIELDS`) zeigt alle wichtigen Felder
+- ✅ Alle Felder sind jetzt sichtbar: `openPrice`, `markPrice`, `unrealisedPnl`, `realisedPnl`, etc.
+- ✅ Messages werden nicht mehr abgeschnitten
 
-### 10. **WEBSOCKET POSITION UPDATES - Nicht genutzt**
-**Problem:**
-- WebSocket sendet Position Updates, aber Fill Detection nutzt sie nicht
-- Führt zu verzögerter Fill Detection und unnötigen API Calls
+**Lösung Implementiert:**
 
-**Fix Required:**
-1. Implementiere WebSocket Position Update Handler
-2. Nutze WebSocket Events für Fill Detection
-3. Fallback auf Polling nur wenn WebSocket nicht verfügbar
+1. ✅ Vollständige POSITION Messages werden mit Pretty Print geloggt
+2. ✅ Einzelne Feld-Logging für besseres Debugging hinzugefügt
+3. ✅ Entry Price Extraction erweitert: `open_price`, `avgEntryPrice`, `averageEntryPrice` als mögliche Feld-Namen
 
-**Code Location:** 
-- `src/websocket_manager.py` (Position Update Handler)
-- `src/parallel_execution.py:788` (Fill Detection)
+**Code-Location:**
 
----
+- `src/websocket_manager.py:1030-1080` - Vollständige POSITION Message Logging mit `json.dumps()`
+- `src/websocket_manager.py:1082-1100` - Einzelne Feld-Logging für bessere Lesbarkeit
 
-## 📋 ZUSÄTZLICHE FIXES (Priorität 3)
+**Log-Verifizierung (funding_bot_LEON_20251212_210556_FULL.log):**
 
-### 11. **RATE LIMITER LOGGING - Zu verbose**
-**Problem:**
-- 628+ "Deduplicated" Log-Einträge pro Minute
-- Spammt Logs, erschwert Debugging
+- ✅ Zeile 114-122: Vollständige POSITION Message (nicht abgeschnitten)
+- ✅ Zeile 563-592: Vollständige POSITION Message für MON-USD mit allen Feldern
+- ✅ Zeile 593-612: `📊 [x10_account] POSITION FIELDS` zeigt alle Felder einzeln
+- ✅ Zeile 720-749: Vollständige POSITION Message für PENDLE-USD
+- ✅ Zeile 750-769: `📊 [x10_account] POSITION FIELDS` für PENDLE-USD
+- ✅ Alle wichtigen Felder sind sichtbar: `openPrice`, `markPrice`, `unrealisedPnl`, etc.
 
-**Fix Required:**
-1. Reduziere Log-Level auf TRACE/DEBUG für Deduplication
-2. Oder: Log nur alle 10. deduplizierten Call
-3. Oder: Aggregiere Logs (z.B. "100 calls deduplicated in last 10s")
+**Status:** ✅ **GEFIXT & VERIFIZIERT**
 
 ---
 
-### 12. **POSITION SIZE ALIGNMENT - Rundungsfehler**
-**Problem:**
-- Size Alignment reduziert Position Size (z.B. $50.00 -> $49.69)
-- Kann zu nicht-perfekten Hedges führen
+## 📚 API-DOKUMENTATION KONSULTIEREN
 
-**Fix Required:**
-1. Runde auf, nicht ab, wenn Alignment notwendig
-2. Oder: Nutze kleinere Step Size für bessere Alignment
-3. Logge Alignment-Reason (welcher Exchange hat kleinere Step Size)
+### X10/Extended Exchange
 
----
+1. **REST API Positions:** `/api/v1/user/positions` - Response-Struktur prüfen
+2. **WebSocket POSITION Message:** Field-Namen und Struktur prüfen
+3. **Order Types:** `OrderType` enum - LIMIT vs MARKET
+4. **TimeInForce:** Enum-Werte prüfen
+5. **Reduce-Only:** Parameter-Name und Typ prüfen
 
-### 13. **ORDERBOOK VALIDATION - Könnte aggressiver sein**
-**Problem:**
-- Orderbook Validation prüft Depth und Spread
-- Aber Maker Orders füllen trotzdem nicht (liquidity problem?)
+**Resources:**
 
-**Fix Required:**
-1. Prüfe ob Maker Price tatsächlich im Spread ist
-2. Validiere dass ausreichend Liquidity auf Maker Side ist
-3. Prüfe ob Orderbook stale ist (timestamp check)
+- API Docs: `https://api.docs.extended.exchange/`
+- TypeScript SDK: `https://github.com/Bvvvp009/Extended-TS-SDK`
+  - `src/perpetual/positions.ts` - Position Model
+  - `src/perpetual/orders.ts` - Order Types, TimeInForce
+- Python SDK: `https://github.com/x10xchange/python_sdk` (Branch: starknet)
 
----
+### Lighter/zkLighter
 
-### 14. **BALANCE TRACKING - Cache könnte stale sein**
-**Problem:**
-- Balance wird gecacht, könnte während Trades stale sein
-- Führt zu falschen Exposure Checks
+1. **Order Types:** `ORDER_TYPE_MARKET` vs `ORDER_TYPE_LIMIT`
+2. **TimeInForce:** IOC Order TIF-Wert
+3. **Reduce-Only:** Parameter-Name und Typ
+4. **Market Orders:** `create_market_order()` vs `create_order()` mit Type=1
 
-**Fix Required:**
-1. Invalidiere Balance Cache nach jedem Trade
-2. Oder: Nutze WebSocket Balance Updates
-3. Logge Balance Cache Age bei kritischen Checks
+**Resources:**
 
----
-
-### 15. **ERROR HANDLING - 404 Orders**
-**Problem:**
-- Wenn Order 404 zurückgibt, wird "not found" angenommen
-- Aber könnte auch mean "filled and removed from orderbook"
-
-**Fix Required:**
-1. Prüfe Trade History IMMER wenn Order 404 ist
-2. Prüfe Position für Ghost Fill
-3. Nur dann "not found" annehmen wenn beides clean ist
+- API Docs: `https://apidocs.lighter.xyz/docs/get-started-for-programmers-1`
+- WebSocket Docs: `https://apidocs.lighter.xyz/docs/websocket-reference`
+- TypeScript SDK: `https://github.com/Bvvvp009/lighter-ts`
+  - `docs/OrderApi.md` - Order creation
+  - `docs/SignerClient.md` - Market orders
+- Python SDK: `https://github.com/elliottech/lighter-python`
 
 ---
 
-## 🔗 API DOCUMENTATION REFERENCES
+## ✅ PRIORITÄTEN-REIHENFOLGE
 
-### Lighter/zkLighter:
-- **Position Closing:** https://apidocs.lighter.xyz/docs/order-api#close-position
-- **Min Notional:** Prüfe `min_quote_amount` in Market Info
-- **Reduce Only Orders:** Sollten Min Notional umgehen können
-
-### X10/Extended Exchange:
-- **Position Closing:** https://api.docs.extended.exchange/
-- **Error Codes:** 1137 = "Position missing", 1138 = "Wrong side"
-
----
-
-## 📊 STATISTIKEN AUS DEM LOG
-
-- **Total Trades Started:** 5
-- **Successful:** 2 (DOGE-USD, ZEC-USD)
-- **Timeout:** 3 (IP-USD, ZRO-USD, VIRTUAL-USD)
-- **Success Rate:** 40%
-- **Deduplicated API Calls:** 628+ in ~1 Minute
-- **Dust Position Warnings:** 20+ für VIRTUAL-USD
+1. ✅ **GEFIXT:** X10 Position Entry Price Fix (#1, #2, #9, #10) - Entry Price wird aus TRADE fills berechnet
+2. ✅ **GEFIXT:** Lighter Market Order Type Verification (#5) - ORDER_TYPE Konstanten werden explizit geprüft
+3. ✅ **GEFIXT:** X10 Order Type Verification (#3) - Market Orders verwenden TimeInForce.IOC korrekt
+4. ✅ **GEFIXT:** X10 TimeInForce Enum Werte (#4) - Alle TimeInForce-Werte korrekt (GTT, IOC, FOK), POST_ONLY über Parameter
+5. ✅ **GEFIXT:** Lighter IOC Order TimeInForce (#6) - ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL wird korrekt verwendet (TIF=0)
+6. ✅ **GEFIXT:** X10 Reduce-Only Flag Verification (#7) - reduce_only Parameter ist korrekt (True=1, False=0)
+7. ✅ **GEFIXT:** Lighter Reduce-Only Flag Verification (#8) - reduce_only Parameter ist korrekt (True=1, False=0)
+8. ✅ **GEFIXT:** Position Entry Price Logging (#11) - Vollständige POSITION Messages werden geloggt
+9. ✅ **IMPLEMENTIERT:** Orphan Position Handling (#12) - Automatisches Schließen von Orphan Positions beim Startup und während Reconciliation
+10. 🟡 **NÄCHSTER FIX:** Maker Order Timeout Handling (#13) - Retry-Logik für Maker Orders
 
 ---
 
-## ✅ PRIORISIERUNG
+## 🔧 NÄCHSTE SCHRITTE
 
-1. **KRITISCH (Sofort fixen):**
-   - Fix 1: Dust Position Filtering
-   - Fix 2: Excessive API Calls
-   - Fix 3: Maker Order Timeouts
-
-2. **WICHTIG (Diese Woche):**
-   - Fix 4: Dust Position Closing
-   - Fix 5: Fill Detection via WebSocket
-   - Fix 6: Shutdown Race Conditions
-
-3. **NICE-TO-HAVE (Nächste Woche):**
-   - Fix 7-15: Alle anderen Fixes
+1. ✅ **FERTIG:** Position Entry Price Logging (#11) - Vollständige Messages werden geloggt
+2. ✅ **FERTIG:** Orphan Position Handling (#12) - Automatisches Schließen implementiert
+3. 🟡 **NÄCHSTER FIX:** Maker Order Timeout Handling (#13) - Retry-Logik für Maker Orders implementieren
+4. 🟢 **OPTIONAL:** Entry Price Logging für CLOSED Positions (#14) - Kosmetische Verbesserung
 
 ---
 
 **Erstellt:** 2025-01-12
-**Basierend auf:** `logs/funding_bot_LEON_20251212_134225_FULL.log`
+**Basierend auf:** `logs/funding_bot_LEON_20251212_173845_FULL.log`
+**Letzte Aktualisierung:** 2025-01-12 (nach `logs/funding_bot_LEON_20251212_211501_FULL.log`)

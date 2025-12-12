@@ -69,9 +69,17 @@ class X10Adapter(BaseAdapter):
         # ═══════════════════════════════════════════════════════════════
         self._order_cache: Dict[str, dict] = {}      # order_id -> order data
         self._position_cache: Dict[str, dict] = {}   # symbol -> position data
+        self._positions_cache: List[dict] = []      # List of positions with entry_price (from REST API)
         self._balance_cache: float = 0.0             # Latest balance value (for deduplication)
         self._last_balance_update: float = 0.0       # Timestamp of last balance update
         self._pending_orders: Dict[str, asyncio.Future] = {}  # order_id -> Future for async fill waiting
+        
+        # ═══════════════════════════════════════════════════════════════
+        # Entry Price Tracking from TRADE/FILL messages
+        # Track fills per symbol to calculate weighted average entry price
+        # Format: {symbol: {"total_qty": float, "total_value": float, "fills": List[dict]}}
+        # ═══════════════════════════════════════════════════════════════
+        self._fill_tracking: Dict[str, dict] = {}  # symbol -> {total_qty, total_value, fills}
         
         # Event callbacks for external subscribers
         self._order_callbacks: List[Callable] = []
@@ -140,8 +148,16 @@ class X10Adapter(BaseAdapter):
                             except (ValueError, TypeError):
                                 pass
                         
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX #4: POST_ONLY is not a TimeInForce value - check post_only parameter
+                        # Some APIs may return time_in_force="POST_ONLY" as string, but
+                        # the correct way is to check the post_only boolean parameter
+                        # ═══════════════════════════════════════════════════════════════
                         time_in_force = order.get("time_in_force")
-                        if time_in_force == "POST_ONLY":
+                        post_only_flag = order.get("post_only") or order.get("postOnly") or False
+                        
+                        # Check if order is POST_ONLY (either via parameter or legacy string value)
+                        if post_only_flag or (time_in_force and "POST_ONLY" in str(time_in_force).upper()):
                             return config.MAKER_FEE_X10
                         else:
                             return config.TAKER_FEE_X10
@@ -1025,15 +1041,51 @@ class X10Adapter(BaseAdapter):
         order_side = OrderSide.BUY if side == "BUY" else OrderSide.SELL
         tif = TimeInForce.GTT
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX #4: X10 TimeInForce Enum Werte Verification
+        # Available TimeInForce values: GTT, IOC, FOK
+        # POST_ONLY does NOT exist in TimeInForce enum - it's handled via post_only parameter
+        # ═══════════════════════════════════════════════════════════════
+        is_market_order = False
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX #3: X10 Order Type Verification - Use IOC for Market Orders
+        # Market Orders should use TimeInForce.IOC (Immediate Or Cancel)
+        # Limit Orders use TimeInForce.GTT (POST_ONLY is via post_only parameter, not TimeInForce)
+        # ═══════════════════════════════════════════════════════════════
         if post_only:
-            if hasattr(TimeInForce, "POST_ONLY"):
-                tif = TimeInForce.POST_ONLY
-            elif hasattr(TimeInForce, "PostOnly"):
-                tif = TimeInForce.PostOnly
-            else:
-                post_only = False
+            # POST_ONLY is NOT a TimeInForce value - it's a separate parameter
+            # For POST_ONLY orders, we still use TimeInForce.GTT (or could use FOK for immediate fill-or-cancel)
+            # The post_only=True parameter ensures the order is Maker-only
+            tif = TimeInForce.GTT  # POST_ONLY orders are Limit Orders with GTT
+            logger.debug(f"✅ [TIF] {symbol}: POST_ONLY order (using TimeInForce.GTT, post_only=True parameter)")
+        elif reduce_only and not post_only:
+            # Market Orders during shutdown (reduce_only + not post_only)
+            # Use IOC for immediate fills
+            tif = TimeInForce.IOC
+            is_market_order = True
+            logger.debug(f"✅ [ORDER_TYPE] {symbol}: Using TimeInForce.IOC for Market Order (reduce_only)")
+        else:
+            # Default: Limit Orders use GTT (Good Till Time)
+            tif = TimeInForce.GTT
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX #4: Log all available TimeInForce enum values for verification
+        # ═══════════════════════════════════════════════════════════════
+        available_tif_values = []
+        for attr in ['GTT', 'IOC', 'FOK', 'GTC', 'POST_ONLY']:
+            if hasattr(TimeInForce, attr):
+                available_tif_values.append(f"{attr}={getattr(TimeInForce, attr)}")
+        
+        if available_tif_values:
+            logger.debug(f"ℹ️ [TIF] {symbol}: Available TimeInForce values: {', '.join(available_tif_values)}")
+        else:
+            logger.warning(f"⚠️ [TIF] {symbol}: No TimeInForce enum values found!")
+        
+        # Log the selected TimeInForce value
+        logger.debug(f"✅ [TIF] {symbol}: Selected TimeInForce={tif} (post_only={post_only}, reduce_only={reduce_only}, is_market={is_market_order})")
 
-        expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
+        expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else (10 if is_market_order else 600))
 
         try:
             # FIX: Second rate limiter check before place_order
@@ -1046,15 +1098,33 @@ class X10Adapter(BaseAdapter):
                 # Rate limiter was cancelled (shutdown), but we need to close positions
                 # Continue anyway - the order placement might still work
                 logger.debug(f"[X10] Rate limiter cancelled during place_order (reduce_only={reduce_only}) - continuing for position close")
+            # ═══════════════════════════════════════════════════════════════
+            # FIX #3: Set post_only parameter explicitly
+            # post_only=True = Limit Order (Maker)
+            # post_only=False + TimeInForce.IOC = Market Order (Taker)
+            # ═══════════════════════════════════════════════════════════════
+            # FIX #7: X10 Reduce-Only Flag Verification
+            # Parameter-Name: reduce_only (confirmed via SDK signature)
+            # Boolean-Wert: True = 1 (ReduceOnly), False = 0 (normal order)
+            # ═══════════════════════════════════════════════════════════════
             resp = await client.place_order(
                 market_name=symbol,
                 amount_of_synthetic=qty,
                 price=limit_price,
                 side=order_side,
+                post_only=post_only,  # ✅ FIX: Explicit post_only parameter
                 time_in_force=tif,
                 expire_time=expire,
-                reduce_only=reduce_only,
+                reduce_only=reduce_only,  # ✅ FIX #7: reduce_only parameter (True=1, False=0 in API)
             )
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX #7: Log reduce_only flag for verification
+            # ═══════════════════════════════════════════════════════════════
+            if is_market_order:
+                logger.debug(f"✅ [ORDER_TYPE] {symbol}: Market Order placed (TimeInForce={tif}, post_only={post_only}, reduce_only={reduce_only})")
+            else:
+                logger.debug(f"✅ [ORDER_TYPE] {symbol}: Limit Order placed (TimeInForce={tif}, post_only={post_only}, reduce_only={reduce_only})")
             
             if resp.error:
                 err_msg = str(resp.error)
@@ -1505,8 +1575,72 @@ class X10Adapter(BaseAdapter):
                         data.get("entry_price") or 
                         data.get("open_price") or 
                         data.get("avgPrice") or 
+                        data.get("avgEntryPrice") or
+                        data.get("averageEntryPrice") or
                         0.0
                     )
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX #1: Entry Price Resolution Priority:
+                    # 1. WebSocket POSITION message (if provided)
+                    # 2. Calculated from TRADE/FILL messages (weighted average)
+                    # 3. REST API cache (from previous fetch)
+                    # 4. REST API fetch (if needed)
+                    # ═══════════════════════════════════════════════════════════════
+                    if entry_price <= 0.0:
+                        # Priority 1: Try calculated entry price from TRADE/FILL tracking
+                        if symbol in self._fill_tracking:
+                            track = self._fill_tracking[symbol]
+                            if track["total_qty"] > 1e-8:
+                                calculated_entry = track["total_value"] / track["total_qty"]
+                                if calculated_entry > 0:
+                                    entry_price = calculated_entry
+                                    logger.debug(f"[X10] Using calculated entry price from TRADE fills for {symbol}: ${entry_price:.6f}")
+                        
+                        # Priority 2: Try cached entry price (from REST API or previous calculation)
+                        if entry_price <= 0.0:
+                            cached_pos = next(
+                                (p for p in (self._positions_cache or []) if p.get('symbol') == symbol),
+                                None
+                            )
+                            if cached_pos and cached_pos.get('entry_price', 0) > 0:
+                                entry_price = safe_float(cached_pos.get('entry_price', 0))
+                                logger.debug(f"[X10] Using cached entry price for {symbol}: ${entry_price:.6f}")
+                        
+                        # Priority 3: Last resort - Fetch from REST API
+                        if entry_price <= 0.0:
+                            try:
+                                logger.debug(f"[X10] Entry price missing for {symbol}, fetching from REST API...")
+                                rest_positions = await self.fetch_open_positions()
+                                
+                                rest_pos = next(
+                                    (p for p in (rest_positions or []) if p.get('symbol') == symbol),
+                                    None
+                                )
+                                if rest_pos and rest_pos.get('entry_price', 0) > 0:
+                                    entry_price = safe_float(rest_pos.get('entry_price', 0))
+                                    logger.debug(f"[X10] Fetched entry price from REST API for {symbol}: ${entry_price:.6f}")
+                                else:
+                                    # If still not found, check cache one more time (might have been updated by concurrent call)
+                                    cached_pos_retry = next(
+                                        (p for p in (self._positions_cache or []) if p.get('symbol') == symbol),
+                                        None
+                                    )
+                                    if cached_pos_retry and cached_pos_retry.get('entry_price', 0) > 0:
+                                        entry_price = safe_float(cached_pos_retry.get('entry_price', 0))
+                                        logger.debug(f"[X10] Found entry price in cache after REST API call for {symbol}: ${entry_price:.6f}")
+                            except Exception as e:
+                                logger.debug(f"[X10] Could not fetch entry price from REST API for {symbol}: {e}")
+                                # Last attempt: check cache one more time
+                                cached_pos_final = next(
+                                    (p for p in (self._positions_cache or []) if p.get('symbol') == symbol),
+                                    None
+                                )
+                                if cached_pos_final and cached_pos_final.get('entry_price', 0) > 0:
+                                    entry_price = safe_float(cached_pos_final.get('entry_price', 0))
+                                    logger.debug(f"[X10] Found entry price in cache after exception for {symbol}: ${entry_price:.6f}")
+                                # Keep entry_price as 0.0 - will be updated on next REST API call or TRADE
+                    
                     position_data = {
                         "symbol": symbol,
                         "size": size,
@@ -1520,7 +1654,22 @@ class X10Adapter(BaseAdapter):
                     ]
                     # Add updated position
                     self._positions_cache.append(position_data)
-                    logger.debug(f"[X10] Updated {symbol} in _positions_cache (size={size}, entry={entry_price})")
+                    
+                    if entry_price > 0:
+                        logger.debug(f"[X10] Updated {symbol} in _positions_cache (size={size}, entry=${entry_price:.6f})")
+                        # ═══════════════════════════════════════════════════════════════
+                        # IMPROVEMENT: Update data dict with correct entry price
+                        # This ensures log messages and callbacks see the correct value
+                        # ═══════════════════════════════════════════════════════════════
+                        # Update all possible field names in the data dict
+                        data["entryPrice"] = entry_price
+                        data["entry_price"] = entry_price
+                        data["open_price"] = entry_price
+                        data["avgPrice"] = entry_price
+                        data["avgEntryPrice"] = entry_price
+                        data["averageEntryPrice"] = entry_price
+                    else:
+                        logger.warning(f"[X10] Updated {symbol} in _positions_cache (size={size}, entry=$0.00 - REST API will update on next fetch)")
             
             # Notify registered callbacks
             for callback in self._position_callbacks:
@@ -1542,6 +1691,98 @@ class X10Adapter(BaseAdapter):
         try:
             order_id = str(data.get("orderId") or data.get("order_id") or "")
             symbol = data.get("market") or data.get("symbol") or ""
+            
+            # ═══════════════════════════════════════════════════════════════
+            # IMPROVEMENT: Calculate entry price from TRADE/FILL messages
+            # Track fills per symbol to calculate weighted average entry price
+            # This ensures we have entry price even if REST API is deduplicated
+            # ═══════════════════════════════════════════════════════════════
+            if symbol:
+                try:
+                    # Extract fill price and quantity
+                    fill_price = safe_float(data.get("price") or data.get("p") or 0)
+                    fill_qty = safe_float(data.get("qty") or data.get("quantity") or data.get("amount") or 0)
+                    side = data.get("side") or data.get("orderSide") or ""
+                    
+                    # Only track if we have valid price and quantity
+                    if fill_price > 0 and fill_qty > 0:
+                        # Initialize tracking for this symbol if needed
+                        if symbol not in self._fill_tracking:
+                            self._fill_tracking[symbol] = {
+                                "total_qty": 0.0,
+                                "total_value": 0.0,
+                                "fills": []
+                            }
+                        
+                        track = self._fill_tracking[symbol]
+                        
+                        # Add this fill to tracking
+                        fill_data = {
+                            "price": fill_price,
+                            "qty": fill_qty,
+                            "side": side,
+                            "timestamp": time.time()
+                        }
+                        track["fills"].append(fill_data)
+                        
+                        # Calculate weighted average entry price
+                        # For LONG positions: BUY increases position, SELL decreases
+                        # For SHORT positions: SELL increases position, BUY decreases
+                        # We track net position size and weighted average price
+                        if side.upper() in ["BUY", "LONG"]:
+                            # Opening or increasing LONG position
+                            track["total_value"] += fill_price * fill_qty
+                            track["total_qty"] += fill_qty
+                        elif side.upper() in ["SELL", "SHORT"]:
+                            # Closing LONG or opening SHORT position
+                            # If we're closing, reduce the position
+                            if track["total_qty"] > 0:
+                                # Closing: reduce position proportionally
+                                reduction_ratio = min(fill_qty / track["total_qty"], 1.0)
+                                track["total_value"] *= (1.0 - reduction_ratio)
+                                track["total_qty"] -= fill_qty
+                            else:
+                                # Opening SHORT position
+                                track["total_value"] += fill_price * fill_qty
+                                track["total_qty"] += fill_qty
+                        
+                        # Calculate current entry price (weighted average)
+                        if track["total_qty"] > 1e-8:
+                            calculated_entry_price = track["total_value"] / track["total_qty"]
+                            
+                            # Update _positions_cache with calculated entry price
+                            cached_pos = next(
+                                (p for p in (self._positions_cache or []) if p.get('symbol') == symbol),
+                                None
+                            )
+                            
+                            if cached_pos:
+                                # Update existing cache entry
+                                cached_pos["entry_price"] = calculated_entry_price
+                                logger.debug(f"[X10] Updated entry price from TRADE for {symbol}: ${calculated_entry_price:.6f} (from {len(track['fills'])} fills)")
+                            else:
+                                # Create new cache entry
+                                position_data = {
+                                    "symbol": symbol,
+                                    "size": track["total_qty"],
+                                    "entry_price": calculated_entry_price
+                                }
+                                if not hasattr(self, '_positions_cache'):
+                                    self._positions_cache = []
+                                self._positions_cache.append(position_data)
+                                logger.debug(f"[X10] Created entry price from TRADE for {symbol}: ${calculated_entry_price:.6f}")
+                        else:
+                            # Position closed - remove from tracking
+                            if symbol in self._fill_tracking:
+                                del self._fill_tracking[symbol]
+                            # Remove from cache
+                            if hasattr(self, '_positions_cache'):
+                                self._positions_cache = [
+                                    p for p in self._positions_cache 
+                                    if p.get('symbol') != symbol
+                                ]
+                except Exception as fill_err:
+                    logger.debug(f"[X10] Error tracking fill for entry price calculation: {fill_err}")
             
             # Mark order as filled if we're tracking it
             if order_id in self._pending_orders:

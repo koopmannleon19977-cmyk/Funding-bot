@@ -19,6 +19,7 @@ from typing import Dict, List, Optional, Any
 import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
+from src.kelly_sizing import get_kelly_sizer
 from src.telegram_bot import get_telegram_bot
 
 logger = logging.getLogger(__name__)
@@ -530,9 +531,33 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                 
                 logger.error(f"👻 ORPHAN POSITION: {symbol} found (L={l_size}, X={x_size}) but NOT in DB!")
                 
-                if parallel_exec and hasattr(parallel_exec, 'force_close_symbol'):
-                    logger.warning(f"🚨 Closing orphan position {symbol}...")
-                    await parallel_exec.force_close_symbol(symbol)
+                # Fix #12: Automatically close orphan positions
+                try:
+                    # Close Lighter position if exists
+                    if abs(l_size) > 0:
+                        logger.warning(f"🚨 Closing orphan Lighter position {symbol} (size={l_size})...")
+                        lighter_position = next((p for p in (lighter_pos or []) if p.get('symbol') == symbol), None)
+                        if lighter_position:
+                            px = safe_float(lighter.fetch_mark_price(symbol))
+                            if px > 0:
+                                notional = abs(l_size) * px
+                                original_side = "BUY" if l_size < 0 else "SELL"
+                                await lighter.close_live_position(symbol, original_side, notional)
+                                logger.info(f"✅ Closed orphaned Lighter {symbol}")
+                    
+                    # Close X10 position if exists
+                    if abs(x_size) > 0:
+                        logger.warning(f"🚨 Closing orphan X10 position {symbol} (size={x_size})...")
+                        x10_position = next((p for p in (x10_pos or []) if p.get('symbol') == symbol), None)
+                        if x10_position:
+                            px = safe_float(x10.fetch_mark_price(symbol))
+                            if px > 0:
+                                notional = abs(x_size) * px
+                                original_side = "BUY" if x_size < 0 else "SELL"
+                                await x10.close_live_position(symbol, original_side, notional)
+                                logger.info(f"✅ Closed orphaned X10 {symbol}")
+                except Exception as e:
+                    logger.error(f"❌ Failed to close orphan position {symbol}: {e}")
                     
         logger.info("✅ RECONCILE: Sync complete.")
         
@@ -776,6 +801,18 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                         'spread_pnl': spread_pnl, 
                         'fees': est_fees
                     })
+                    
+                    # Kelly Sizer recording
+                    try:
+                        kelly_sizer = get_kelly_sizer()
+                        kelly_sizer.record_trade(
+                            symbol=sym,
+                            pnl_usd=total_pnl,
+                            hold_time_seconds=hold_hours * 3600,
+                            entry_apy=t.get('apy', None)
+                        )
+                    except Exception as e:
+                        logger.error(f"Kelly Sizer error for {sym}: {e}")
                     
                     # Telegram notification
                     telegram = get_telegram_bot()
