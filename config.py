@@ -70,9 +70,15 @@ EMERGENCY_CLOSE_ON_START = False  # Set True to panic close everything
 IS_SHUTTING_DOWN = False
 
 # --- Fees (DO NOT CHANGE unless exchange fees change) ---
+# X10 Exchange Fees
 TAKER_FEE_X10 = 0.000225  # 0.0225%
 MAKER_FEE_X10 = 0.0000    # 0.00%
-FEES_LIGHTER = 0.00000    # 0.00% (Maker & Taker)
+
+# Lighter Exchange Fees (Standard Account = 0%, Premium = 0.002% Maker / 0.02% Taker)
+# Docs: https://apidocs.lighter.xyz/docs/account-types
+MAKER_FEE_LIGHTER = 0.0   # 0.00% (Standard Account)
+TAKER_FEE_LIGHTER = 0.0   # 0.00% (Standard Account)
+
 # Legacy Fee variables for compatibility
 TAKER_FEE = TAKER_FEE_X10
 MAKER_FEE = MAKER_FEE_X10
@@ -226,14 +232,6 @@ SHUTDOWN_CLOSE_TIMEOUT = 60
 # ═══════════════════════════════════════════════════════════════
 DUST_THRESHOLD_MULTIPLIER = 1.1  # 10% over Min-Notional as safety buffer
 DUST_ALERT_ENABLED = True        # Send Telegram alerts for dust positions
-
-# Kelly Sizing (Advanced)
-POSITION_SIZE_MULTIPLIERS = {"high": 2.0, "medium": 1.5, "normal": 1.2, "low": 0.8}
-MAX_POSITION_SIZE_PCT = 2.0
-MIN_POSITION_SIZE_PCT = 0.02
-KELLY_SAFETY_FACTOR = 0.25
-MAX_SINGLE_TRADE_RISK_PCT = 0.10
-MIN_KELLY_SAMPLE_SIZE = 10
 
 # BTC Correlation
 BTC_STRONG_MOMENTUM_PCT = 5.0

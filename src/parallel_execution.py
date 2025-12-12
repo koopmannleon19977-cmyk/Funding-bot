@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 import config
 from src.utils import safe_float, safe_decimal
+from src.fee_manager import get_fee_manager
 from src.validation.orderbook_validator import (
     OrderbookValidator,
     OrderbookValidationResult,
@@ -121,11 +122,10 @@ class ParallelExecutionManager:
     ROLLBACK_BASE_DELAY = config.ROLLBACK_DELAY_SECONDS
     EXECUTION_TIMEOUT = config.PARALLEL_EXECUTION_TIMEOUT
 
-    def __init__(self, x10_adapter, lighter_adapter, db, circuit_breaker=None):
+    def __init__(self, x10_adapter, lighter_adapter, db):
         self.x10 = x10_adapter
         self.lighter = lighter_adapter
         self.db = db
-        self.circuit_breaker = circuit_breaker
         self.execution_locks: Dict[str, asyncio.Lock] = {}
         self.active_executions: Dict[str, TradeExecution] = {}
         self._rollback_queue: asyncio.Queue[Optional[TradeExecution]] = asyncio.Queue()
@@ -150,11 +150,27 @@ class ParallelExecutionManager:
         self._compliance_cache: Dict[str, Tuple[float, bool]] = {}  # symbol -> (timestamp, is_compliant)
         self._compliance_cache_ttl = 5.0  # Cache compliance result for 5 seconds
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX 5: EVENT-BASED FILL DETECTION
+        # ═══════════════════════════════════════════════════════════════
+        # Events for position updates (filled signals)
+        self._position_fill_events: Dict[str, asyncio.Event] = {}  # symbol -> Event
+        self._position_fill_sizes: Dict[str, float] = {}  # symbol -> target_size_coins
+        self._last_position_check: Dict[str, float] = {}  # symbol -> timestamp
+        
         logger.info("✅ ParallelExecutionManager started")
 
     async def start(self):
-        """Start background rollback processor"""
+        """Start background rollback processor and register position update callbacks"""
         self._rollback_task = asyncio.create_task(self._rollback_processor())
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX 5: Register position update callbacks for event-based fill detection
+        # ═══════════════════════════════════════════════════════════════
+        if hasattr(self.x10, 'register_position_callback'):
+            self.x10.register_position_callback(self._on_x10_position_update)
+            logger.debug("✅ Registered X10 position update callback for fill detection")
+        
         logger.info("✅ ParallelExecutionManager: Rollback processor started")
 
     async def stop(self, force: bool = False) -> None:
@@ -305,6 +321,59 @@ class ParallelExecutionManager:
                     
             except Exception as e:
                 logger.error(f"❌ Rollback error for {symbol}: {e}")
+    
+    # ═══════════════════════════════════════════════════════════════
+    # FIX 5: EVENT-BASED FILL DETECTION
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def _on_x10_position_update(self, data: dict):
+        """
+        Handle X10 position update from WebSocket.
+        Checks if this position update indicates a fill for an active execution.
+        """
+        try:
+            symbol = data.get("market") or data.get("symbol") or ""
+            if not symbol:
+                return
+            
+            # Check if we're waiting for a fill for this symbol
+            if symbol not in self._position_fill_events:
+                return
+            
+            status = data.get("status", "").upper()
+            size = safe_float(data.get("size") or data.get("quantity") or data.get("qty") or 0)
+            target_size = self._position_fill_sizes.get(symbol, 0)
+            
+            # Position is OPENED and size matches target (95% threshold for partial fills)
+            if status == "OPENED" and target_size > 0 and abs(size) >= target_size * 0.95:
+                event = self._position_fill_events.get(symbol)
+                if event and not event.is_set():
+                    logger.debug(f"🔔 [WEBSOCKET FILL] {symbol}: Position update detected fill! size={size}, target={target_size}")
+                    event.set()
+        
+        except Exception as e:
+            logger.debug(f"Error processing X10 position update for fill detection: {e}")
+    
+    def _setup_fill_event(self, symbol: str, target_size_coins: float):
+        """
+        Setup event-based fill detection for a symbol.
+        Returns the event that will be set when fill is detected.
+        """
+        # Create or reset event for this symbol
+        if symbol in self._position_fill_events:
+            self._position_fill_events[symbol].clear()
+        else:
+            self._position_fill_events[symbol] = asyncio.Event()
+        
+        self._position_fill_sizes[symbol] = target_size_coins
+        self._last_position_check[symbol] = time.time()
+        return self._position_fill_events[symbol]
+    
+    def _cleanup_fill_event(self, symbol: str):
+        """Cleanup fill event for a symbol after execution completes"""
+        self._position_fill_events.pop(symbol, None)
+        self._position_fill_sizes.pop(symbol, None)
+        self._last_position_check.pop(symbol, None)
 
     async def _emergency_close_position(self, adapter, symbol: str, position: dict) -> bool:
         """Emergency close a position during shutdown."""
@@ -429,7 +498,7 @@ class ParallelExecutionManager:
         logger.info(f"🚀 HEDGED TRADE START: {symbol}")
         logger.info(f"   Lighter: {side_lighter} ${float(size_lighter):.2f} @ ${lighter_price:.6f}")
         logger.info(f"   X10:     {side_x10} ${float(size_x10):.2f} @ ${x10_price:.6f}")
-        logger.info(f"   Strategy: MAKER (Lighter first, then X10 hedge)")
+        logger.info(f"   Strategy: LIMIT→MARKET (X10 limit, then Lighter market - 0% fees, captures spread as profit)")
         logger.info(f"═══════════════════════════════════════════════════════════")
         
         # Ensure symbol-level lock exists
@@ -519,9 +588,6 @@ class ParallelExecutionManager:
                 else:
                     self._stats["failed"] += 1
                 
-                if self.circuit_breaker:
-                    self.circuit_breaker.record_trade_result(success, symbol)
-                
                 return result
 
             except Exception as e:
@@ -530,9 +596,6 @@ class ParallelExecutionManager:
                 self._stats["failed"] += 1
                 logger.error(f"❌ [PARALLEL] {symbol}: Exception: {e}", exc_info=True)
                 
-                if self.circuit_breaker:
-                    self.circuit_breaker.record_trade_result(False, symbol)
-                    
                 return False, None, None
             
             finally:
@@ -634,25 +697,29 @@ class ParallelExecutionManager:
         else:
                 # FAST SHUTDOWN: Skip extended checks during shutdown
                 is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+                extended_checks_done = 0
+                extended_checks_skipped = False
+                
                 if is_shutting_down:
                     logger.warning(f"⚡ [MAKER STRATEGY] {symbol}: SHUTDOWN - skipping extended ghost fill checks!")
+                    extended_checks_skipped = True
                 else:
                     # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
                     logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
                     
                     # Erhöht von 10 auf 30 Versuche mit ansteigendem Delay (insg. ~60 Sekunden Abdeckung)
-                    # OPTIMIZED: During shutdown, only do 3 quick checks
-                    max_checks = 3 if getattr(config, 'IS_SHUTTING_DOWN', False) else 30
+                    max_checks = 30
                     for i in range(max_checks): 
                         # FAST SHUTDOWN: Abort immediately if shutdown detected mid-loop
                         if getattr(config, 'IS_SHUTTING_DOWN', False):
                             logger.warning(f"⚡ {symbol}: SHUTDOWN detected during ghost check - aborting!")
+                            extended_checks_skipped = True
                             break
                             
                         # Backoff: Wartet 1s, 1.2s, 1.4s ... bis max 3s
-                        # OPTIMIZED: Only 0.3s during shutdown
-                        wait_time = 0.3 if getattr(config, 'IS_SHUTTING_DOWN', False) else min(1.0 + (i * 0.2), 3.0)
+                        wait_time = min(1.0 + (i * 0.2), 3.0)
                         await asyncio.sleep(wait_time)
+                        extended_checks_done += 1
                         
                         try:
                             positions = await self.lighter.fetch_open_positions()
@@ -679,7 +746,15 @@ class ParallelExecutionManager:
             logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
             return True
         else:
-            logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified after 60s).")
+            # FIX: Log-Nachricht akkurat basierend auf tatsächlich durchgeführten Checks
+            if extended_checks_skipped:
+                logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).")
+            elif extended_checks_done > 0:
+                # Berechne ungefähre Zeit basierend auf Checks (Backoff: 1.0s, 1.2s, 1.4s... bis 3.0s max)
+                estimated_seconds = sum(min(1.0 + (i * 0.2), 3.0) for i in range(extended_checks_done))
+                logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified after ~{estimated_seconds:.1f}s, {extended_checks_done} checks).")
+            else:
+                logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit - no extended verification needed).")
             return False
 
     async def _execute_parallel_internal(
@@ -687,228 +762,167 @@ class ParallelExecutionManager:
         execution: TradeExecution,
         timeout: float
     ) -> Tuple[bool, Optional[str], Optional[str]]:
-        """Internal parallel execution logic with comprehensive logging and timeout handling"""
+        """Internal parallel execution logic"""
         symbol = execution.symbol
-        trade_start_time = time.monotonic()
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 1: LIGHTER POST-ONLY (Maker)
+        # ═══════════════════════════════════════════════════════════════
+        logger.info(f"🔄 [PARALLEL] {symbol}: Lighter POST-ONLY first")
+        execution.state = ExecutionState.LEG1_SENT
 
-        # Track all phases for final summary
-        phase_times: Dict[str, float] = {}
-
-        try:
-            # ═══════════════════════════════════════════════════════════════
-            # PHASE 0: ORDERBOOK VALIDATION
-            # ═══════════════════════════════════════════════════════════════
-            phase_start = time.monotonic()
-            logger.info(f"📋 [PHASE 0] {symbol}:  Validating orderbook...")
-
-            if getattr(config, "OB_VALIDATION_ENABLED", True):
-                validation_result = await self._validate_orderbook_for_maker(
-                    symbol=symbol,
-                    side=execution.side_lighter,
-                    trade_size_usd=execution.size_lighter,
-                )
-
-                phase_times["orderbook_validation"] = time.monotonic() - phase_start
-
-                if not validation_result.is_valid:
-                    logger.warning(
-                        f"❌ [PHASE 0] {symbol}:  Orderbook validation FAILED - {validation_result.reason}"
-                    )
-                    self._log_trade_summary(
-                        symbol,
-                        "ABORTED",
-                        "Orderbook validation failed",
-                        trade_start_time,
-                        phase_times,
-                        execution,
-                    )
-                    execution.state = ExecutionState.FAILED
-                    execution.error = f"Orderbook invalid: {validation_result.reason}"
-                    return False, None, None
-                else:
-                    logger.info(
-                        f"✅ [PHASE 0] {symbol}: Orderbook validation PASSED ({phase_times['orderbook_validation']:.2f}s)"
-                    )
-
-            # ═══════════════════════════════════════════════════════════════
-            # PHASE 1: LIGHTER MAKER ORDER
-            # ═══════════════════════════════════════════════════════════════
-            phase_start = time.monotonic()
-            logger.info(f"📤 [PHASE 1] {symbol}: Placing Lighter {execution.side_lighter} order...")
-            logger.info(f"   Size: ${execution.size_lighter:.2f} ({execution.quantity_coins:.6f} coins)")
-            execution.state = ExecutionState.LEG1_SENT
-
-            lighter_success, lighter_order_id = await self._execute_lighter_leg(
-                symbol,
-                execution.side_lighter,
+        lighter_task = asyncio.create_task(
+            self._execute_lighter_leg(
+                symbol, 
+                execution.side_lighter, 
                 execution.size_lighter,
-                post_only=True,
-                amount_coins=execution.quantity_coins,
+                post_only=True
+            ),
+            name=f"lighter_{symbol}"
+        )
+
+        # OPTIMIZATION: Removed 100ms artificial sleep to maximize Latency Arb potential.
+        # Original: await asyncio.sleep(0.1)
+        # New: Minimal yield to ensure task scheduling without waiting
+        await asyncio.sleep(0)
+
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 2: X10 MARKET (Taker) - FILLS IMMEDIATELY
+        # ═══════════════════════════════════════════════════════════════
+        logger.info(f"🔄 [PARALLEL] {symbol}: X10 MARKET order")
+        execution.state = ExecutionState.LEG2_SENT
+
+        x10_task = asyncio.create_task(
+            self._execute_x10_leg(
+                symbol, 
+                execution.side_x10, 
+                execution.size_x10,
+                post_only=False
+            ),
+            name=f"x10_{symbol}"
+        )
+
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 3: WAIT FOR BOTH WITH TIMEOUT
+        # ═══════════════════════════════════════════════════════════════
+        try:
+            results = await asyncio.wait_for(
+                asyncio.gather(lighter_task, x10_task, return_exceptions=True),
+                timeout=timeout
             )
+        except asyncio.TimeoutError:
+            logger.error(f"⏰ [PARALLEL] {symbol}: Execution timeout ({timeout}s)!")
+            lighter_task.cancel()
+            x10_task.cancel()
+            
+            # Check what was partially filled
+            try:
+                lighter_result = lighter_task.result() if lighter_task.done() else None
+                x10_result = x10_task.result() if x10_task.done() else None
+            except (asyncio.CancelledError, asyncio.InvalidStateError):
+                lighter_result = None
+                x10_result = None
 
-            phase_times["lighter_order_placement"] = time.monotonic() - phase_start
-            execution.lighter_order_id = lighter_order_id
+            execution.lighter_filled = self._check_fill(lighter_result)
+            execution.x10_filled = self._check_fill(x10_result)
+            execution.error = "Timeout"
+            
+            if execution.lighter_filled or execution.x10_filled:
+                await self._queue_rollback(execution)
+            
+            return False, None, None
 
-            if not lighter_success or not lighter_order_id:
-                logger.error(
-                    f"❌ [PHASE 1] {symbol}: Lighter order FAILED ({phase_times['lighter_order_placement']:.2f}s)"
+        lighter_result, x10_result = results
+
+        # Parse results
+        lighter_success, lighter_order = self._parse_result(lighter_result)
+        x10_success, x10_order = self._parse_result(x10_result)
+
+        execution.lighter_order_id = lighter_order
+        execution.x10_order_id = x10_order
+
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 3.5: WAIT FOR ACTUAL FILLS (especially for POST_ONLY orders)
+        # ═══════════════════════════════════════════════════════════════
+        # For POST_ONLY orders, "success" only means the order was placed, not filled.
+        # We need to wait for actual fills before marking trade as complete.
+        # X10 Market orders fill immediately, but Lighter POST_ONLY orders need time.
+        if lighter_success and x10_success and lighter_order:
+            # Wait for Lighter POST_ONLY order to actually fill
+            # Max wait: 60s for POST_ONLY orders to fill
+            lighter_fill_confirmed = await self._wait_for_lighter_fill(
+                symbol, execution, lighter_order, max_wait_seconds=60.0
+            )
+            
+            # X10 Market orders fill immediately, verify via cache
+            if x10_order:
+                # Give X10 a moment to update via WebSocket
+                await asyncio.sleep(0.5)
+                positions = await self.x10.fetch_open_positions()
+                x10_pos = next((p for p in (positions or []) if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8), None)
+                x10_fill_confirmed = x10_pos is not None
+            else:
+                x10_fill_confirmed = False
+            
+            execution.lighter_filled = lighter_fill_confirmed
+            execution.x10_filled = x10_fill_confirmed
+            
+            if lighter_fill_confirmed and x10_fill_confirmed:
+                execution.state = ExecutionState.COMPLETE
+                logger.info(
+                    f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:.0f}ms (Lighter POST_ONLY confirmed)"
                 )
-                self._log_trade_summary(
-                    symbol,
-                    "ABORTED",
-                    "Lighter placement failed",
-                    trade_start_time,
-                    phase_times,
-                    execution,
-                )
-                execution.state = ExecutionState.FAILED
-                execution.error = "Lighter Placement Failed"
-                return False, None, None
-
-            logger.info(
-                f"✅ [PHASE 1] {symbol}: Lighter order placed ({phase_times['lighter_order_placement']:.2f}s)"
-            )
-            logger.info(f"   Order ID: {lighter_order_id[:40]}...")
-
-            # ═══════════════════════════════════════════════════════════════
-            # PHASE 1.5: WAIT FOR LIGHTER FILL
-            # ═══════════════════════════════════════════════════════════════
-            phase_start = time.monotonic()
-            is_shutting_down = getattr(config, "IS_SHUTTING_DOWN", False)
-            max_wait_seconds = (
-                2.0 if is_shutting_down else float(getattr(config, "LIGHTER_ORDER_TIMEOUT_SECONDS", 60.0))
-            )
-
-            logger.info(f"⏳ [PHASE 1.5] {symbol}: Waiting for Lighter fill (max {max_wait_seconds}s)...")
-
-            filled = False
-            wait_start = time.time()
-            check_count = 0
-
-            while time.time() - wait_start < max_wait_seconds:
-                if getattr(config, "IS_SHUTTING_DOWN", False):
-                    logger.warning(f"⚡ [PHASE 1.5] {symbol}:  SHUTDOWN detected - aborting wait!")
-                    break
-
-                check_count += 1
-                try:
-                    pos = await self.lighter.fetch_open_positions()
-                    p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
-                    current_size = safe_float(p.get("size", 0)) if p else 0.0
-
-                    if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
-                        filled = True
-                        logger.info(f"✅ [PHASE 1.5] {symbol}: Fill detected after {check_count} checks!")
-                        break
-
-                    await asyncio.sleep(0.5)
-
-                except Exception as e:
-                    logger.debug(f"[PHASE 1.5] {symbol}: Check #{check_count} error: {e}")
-                    await asyncio.sleep(1)
-
-            phase_times["lighter_fill_wait"] = time.monotonic() - phase_start
-
-            if not filled:
-                logger.warning(
-                    f"⏰ [PHASE 1.5] {symbol}: Fill timeout after {phase_times['lighter_fill_wait']:.2f}s"
-                )
-                filled = await self._handle_maker_timeout(execution, lighter_order_id)
-
-                if not filled:
-                    self._log_trade_summary(
-                        symbol,
-                        "TIMEOUT",
-                        "Lighter order not filled",
-                        trade_start_time,
-                        phase_times,
-                        execution,
-                    )
-                    execution.state = ExecutionState.FAILED
-                    return False, None, lighter_order_id
-
-            execution.lighter_filled = True
-            logger.info(f"✅ [PHASE 1.5] {symbol}: Lighter FILLED ({phase_times['lighter_fill_wait']:.2f}s)")
-
-            # ═══════════════════════════════════════════════════════════════
-            # PHASE 2: X10 HEDGE ORDER
-            # ═══════════════════════════════════════════════════════════════
-            phase_start = time.monotonic()
-            filled_size_coins = execution.quantity_coins
-
-            logger.info(f"📤 [PHASE 2] {symbol}: Placing X10 {execution.side_x10} hedge...")
-            logger.info(f"   Size: {filled_size_coins:.6f} coins (matching Lighter fill)")
-
-            execution.state = ExecutionState.LEG2_SENT
-
-            x10_success, x10_order_id = await self._execute_x10_leg(
-                symbol,
-                execution.side_x10,
-                size_type="COINS",
-                size_value=filled_size_coins,
-                post_only=False,
-            )
-
-            phase_times["x10_hedge"] = time.monotonic() - phase_start
-            execution.x10_order_id = x10_order_id
+                return True, x10_order, lighter_order
+            elif not lighter_fill_confirmed and x10_fill_confirmed:
+                # Lighter POST_ONLY didn't fill, need to cancel and rollback
+                logger.warning(f"⚠️ [PARALLEL] {symbol}: Lighter POST_ONLY order didn't fill within 60s, rolling back")
+                if lighter_order:
+                    try:
+                        await self.lighter.cancel_limit_order(lighter_order, symbol)
+                    except Exception as e:
+                        logger.debug(f"Error cancelling Lighter order {lighter_order}: {e}")
+                execution.error = "Lighter POST_ONLY order didn't fill"
+                await self._queue_rollback(execution)
+                return False, x10_order, lighter_order
+            elif lighter_fill_confirmed and not x10_fill_confirmed:
+                # X10 failed (shouldn't happen with market orders)
+                execution.error = "X10 order didn't fill"
+                logger.error(f"🔄 [ROLLBACK] {symbol}: X10 failed, queueing Lighter rollback")
+                await self._queue_rollback(execution)
+                return False, None, lighter_order
+        else:
+            # One or both orders failed to place
+            execution.lighter_filled = lighter_success
             execution.x10_filled = x10_success
 
-            if x10_success:
-                logger.info(f"✅ [PHASE 2] {symbol}:  X10 hedge FILLED ({phase_times['x10_hedge']:.2f}s)")
-                logger.info(f"   Order ID: {x10_order_id}")
-
-                execution.state = ExecutionState.COMPLETE
-                self._log_trade_summary(
-                    symbol,
-                    "SUCCESS",
-                    "Hedged trade complete",
-                    trade_start_time,
-                    phase_times,
-                    execution,
-                )
-                return True, x10_order_id, lighter_order_id
-            else:
-                logger.error(f"❌ [PHASE 2] {symbol}: X10 hedge FAILED ({phase_times['x10_hedge']:.2f}s)")
-                logger.warning(f"🔄 {symbol}: Initiating rollback - Lighter position exposed!")
-
-                await self._queue_rollback(execution)
-                self._log_trade_summary(
-                    symbol,
-                    "ROLLBACK",
-                    "X10 hedge failed",
-                    trade_start_time,
-                    phase_times,
-                    execution,
-                )
-                return False, None, lighter_order_id
-
-        except asyncio.TimeoutError:
-            logger.error(f"❌ {symbol}: Trade execution timeout!")
-            self._log_trade_summary(
-                symbol,
-                "TIMEOUT",
-                "Execution timeout",
-                trade_start_time,
-                phase_times,
-                execution,
+        # ═══════════════════════════════════════════════════════════════
+        # PHASE 4: EVALUATE & ROLLBACK IF NEEDED
+        # ═══════════════════════════════════════════════════════════════
+        if execution.lighter_filled and execution.x10_filled:
+            execution.state = ExecutionState.COMPLETE
+            logger.info(
+                f"✅ [PARALLEL] {symbol}: Both legs filled in {execution.elapsed_ms:.0f}ms"
             )
-            execution.state = ExecutionState.FAILED
-            execution.error = "Execution timeout"
-            return False, None, None
+            return True, x10_order, lighter_order
 
-        except Exception as e:
-            logger.error(f"❌ {symbol}: Unexpected error: {e}", exc_info=True)
-            self._log_trade_summary(
-                symbol,
-                "ERROR",
-                str(e),
-                trade_start_time,
-                phase_times,
-                execution,
-            )
-            execution.state = ExecutionState.FAILED
-            execution.error = str(e)
-            return False, None, None
+        # One or both failed - need rollback
+        if lighter_success and not x10_success:
+            execution.error = f"X10 failed: {x10_result}"
+            logger.error(f"🔄 [ROLLBACK] {symbol}: X10 failed, queueing Lighter rollback")
+            await self._queue_rollback(execution)
+            return False, None, lighter_order
+
+        if x10_success and not lighter_success:
+            execution.error = f"Lighter failed: {lighter_result}"
+            logger.error(f"🔄 [ROLLBACK] {symbol}: Lighter failed, queueing X10 rollback")
+            await self._queue_rollback(execution)
+            return False, x10_order, None
+
+        # Both failed - no rollback needed
+        execution.state = ExecutionState.FAILED
+        execution.error = f"Both failed: X10={x10_result}, Lighter={lighter_result}"
+        logger.error(f"❌ [PARALLEL] {symbol}: Both legs failed")
+        return False, None, None
 
 
     def _log_trade_summary(
@@ -945,53 +959,197 @@ class ParallelExecutionManager:
 
 
 
+    async def _wait_for_lighter_fill(
+        self, symbol: str, execution: TradeExecution, lighter_order_id: str, max_wait_seconds: float
+    ) -> bool:
+        """Wait for Lighter order to fill (polling-based)
+        
+        Market orders (IOC) should fill immediately, so we use a shorter interval
+        for faster detection. POST_ONLY orders may take longer, so we use a longer interval.
+        Also checks if IOC order was cancelled (not in open orders).
+        """
+        wait_start = time.time()
+        check_count = 0
+        # Use longer polling interval for POST_ONLY orders (they may take time to fill)
+        # Check if order is POST_ONLY by checking if it's still in open orders after initial delay
+        polling_interval = 1.0  # Longer interval for POST_ONLY orders (can be adjusted based on order type)
+        # For IOC orders, check order status early to detect cancellations
+        order_status_checked = False
+
+        while time.time() - wait_start < max_wait_seconds:
+            if getattr(config, "IS_SHUTTING_DOWN", False):
+                logger.warning(f"⚡ [LIGHTER FILL] {symbol}: SHUTDOWN detected - aborting wait!")
+                return False
+
+            check_count += 1
+            try:
+                # Check position first (fastest path)
+                pos = await self.lighter.fetch_open_positions()
+                p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
+                current_size = safe_float(p.get("size", 0)) if p else 0.0
+                is_ghost = p.get("is_ghost", False) if p else False
+
+                # Check if position exists:
+                # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
+                # 2. Real position with at least 50% of expected size (more lenient for faster detection)
+                if execution.quantity_coins > 0 and (is_ghost or abs(current_size) >= execution.quantity_coins * 0.50):
+                    fill_time = time.time() - wait_start
+                    if is_ghost:
+                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected via Ghost Guardian after {check_count} checks ({fill_time:.2f}s)! (Order pending, position will appear in API soon)")
+                    else:
+                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected after {check_count} checks ({fill_time:.2f}s)! (size={abs(current_size):.6f}, expected={execution.quantity_coins:.6f})")
+                    return True
+
+                # For IOC orders, check if order still exists after initial delay
+                # IOC orders that don't fill immediately are cancelled
+                # BUT: If order is gone, it might be filled (position exists) OR cancelled (no position)
+                # We need to do a fresh fetch to bypass rate limiter deduplication
+                # However, positions may take time to appear in API, so we check multiple times
+                if not order_status_checked and time.time() - wait_start > 1.0:
+                    try:
+                        open_orders = await self.lighter.get_open_orders(symbol)
+                        # Extract order IDs (could be full hash or truncated)
+                        order_id_short = lighter_order_id[:20] if lighter_order_id else ""
+                        order_found = any(
+                            str(o.get("id", "")).startswith(order_id_short) or 
+                            str(o.get("id", "")).endswith(order_id_short[-20:])
+                            for o in open_orders
+                        )
+                        
+                        if not order_found:
+                            # Order is not in open orders - could be filled OR cancelled
+                            # Do multiple fresh position fetches with delays to account for API lag
+                            # Positions may take 1-3 seconds to appear after IOC order fills
+                            fresh_fetch_attempts = 0
+                            max_fresh_fetch_attempts = 3
+                            fresh_fetch_delay = 0.5
+                            
+                            while fresh_fetch_attempts < max_fresh_fetch_attempts:
+                                cached_positions = None
+                                if hasattr(self.lighter, '_positions_cache'):
+                                    # Set cache to None temporarily to force fresh API call
+                                    cached_positions = self.lighter._positions_cache
+                                    self.lighter._positions_cache = None
+                                
+                                try:
+                                    await asyncio.sleep(fresh_fetch_delay * fresh_fetch_attempts)  # Delay increases with each attempt
+                                    fresh_pos = await self.lighter.fetch_open_positions()
+                                    fresh_p = next((x for x in (fresh_pos or []) if x.get("symbol") == symbol), None)
+                                    fresh_size = safe_float(fresh_p.get("size", 0)) if fresh_p else 0.0
+                                    is_ghost = fresh_p.get("is_ghost", False) if fresh_p else False
+                                    
+                                    # Check if position exists:
+                                    # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
+                                    # 2. Real position with at least 50% of expected size
+                                    if is_ghost:
+                                        # Ghost Guardian position = order is pending, consider it filled
+                                        fill_time = time.time() - wait_start
+                                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via Ghost Guardian (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared, Ghost Guardian detected pending position - will appear in API soon)!")
+                                        # Restore cache with fresh data
+                                        if hasattr(self.lighter, '_positions_cache'):
+                                            self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
+                                        return True  # Fill confirmed, exit immediately
+                                    elif abs(fresh_size) >= execution.quantity_coins * 0.50:
+                                        # Position exists with sufficient size! Order was filled
+                                        fill_time = time.time() - wait_start
+                                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via fresh fetch (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared but position exists)! (size={abs(fresh_size):.6f}, expected={execution.quantity_coins:.6f})")
+                                        # Restore cache with fresh data
+                                        if hasattr(self.lighter, '_positions_cache'):
+                                            self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
+                                        return True  # Fill confirmed, exit immediately
+                                    else:
+                                        fresh_fetch_attempts += 1
+                                        # Restore cache before next attempt
+                                        if hasattr(self.lighter, '_positions_cache'):
+                                            self.lighter._positions_cache = cached_positions
+                                        if fresh_fetch_attempts >= max_fresh_fetch_attempts:
+                                            # No position found after all fresh fetch attempts = order was cancelled/rejected
+                                            elapsed = time.time() - wait_start
+                                            logger.warning(f"❌ [LIGHTER FILL] {symbol}: IOC order not found in open orders and no position after {max_fresh_fetch_attempts} fresh fetch attempts ({elapsed:.2f}s) - cancelled/rejected")
+                                            return False
+                                except Exception as fresh_fetch_error:
+                                    logger.debug(f"[LIGHTER FILL] {symbol}: Fresh fetch attempt {fresh_fetch_attempts + 1} error: {fresh_fetch_error}")
+                                    # Restore cache on error
+                                    if hasattr(self.lighter, '_positions_cache') and cached_positions is not None:
+                                        self.lighter._positions_cache = cached_positions
+                                    fresh_fetch_attempts += 1
+                                    if fresh_fetch_attempts >= max_fresh_fetch_attempts:
+                                        # Continue polling if all fresh fetch attempts fail
+                                        break
+                        else:
+                            # Order still exists, continue normal polling
+                            order_status_checked = True
+                    except Exception as e:
+                        logger.debug(f"[LIGHTER FILL] {symbol}: Order status check error: {e}")
+                        # Continue polling if check fails
+                        order_status_checked = True  # Mark as checked to avoid repeated errors
+
+                await asyncio.sleep(polling_interval)
+            except Exception as e:
+                logger.debug(f"[LIGHTER FILL] {symbol}: Check #{check_count} error: {e}")
+                await asyncio.sleep(polling_interval)
+
+        logger.warning(f"⏰ [LIGHTER FILL] {symbol}: Fill timeout after {max_wait_seconds:.2f}s")
+        return False
+
+    async def _wait_for_x10_fill(
+        self, symbol: str, execution: TradeExecution, x10_order_id: str, max_wait_seconds: float = 60.0
+    ) -> bool:
+        """Wait for X10 limit order to fill (polling-based via WebSocket position updates)"""
+        wait_start = time.time()
+        check_count = 0
+        polling_interval = 0.5  # Check every 0.5s
+        
+        while time.time() - wait_start < max_wait_seconds:
+            if getattr(config, "IS_SHUTTING_DOWN", False):
+                logger.warning(f"⚡ [X10 FILL] {symbol}: SHUTDOWN detected - aborting wait!")
+                return False
+            
+            check_count += 1
+            try:
+                # Check position cache (updated via WebSocket on_position_update)
+                # NOTE: _positions_cache is a LIST of position dicts, not a dict!
+                if hasattr(self.x10, '_positions_cache') and self.x10._positions_cache:
+                    # Search for position in the list
+                    pos = next(
+                        (p for p in self.x10._positions_cache if p.get('symbol') == symbol),
+                        None
+                    )
+                    if pos:
+                        size = safe_float(pos.get('size', 0))
+                        # Check if position matches expected size (at least 95%)
+                        if abs(size) >= execution.quantity_coins * 0.95:
+                            fill_time = time.time() - wait_start
+                            logger.info(f"✅ [X10 FILL] {symbol}: Fill detected after {check_count} checks ({fill_time:.2f}s)!")
+                            return True
+                
+                await asyncio.sleep(polling_interval)
+            except Exception as e:
+                logger.debug(f"[X10 FILL] {symbol}: Check #{check_count} error: {e}")
+                await asyncio.sleep(polling_interval)
+        
+        logger.warning(f"⏰ [X10 FILL] {symbol}: Fill timeout after {max_wait_seconds:.2f}s")
+        return False
+
     async def _execute_lighter_leg(
-        self, symbol: str, side: str, notional_usd: float, post_only: bool, amount_coins: Optional[float] = None
+        self, symbol: str, side: str, notional_usd: float, post_only: bool
     ) -> Tuple[bool, Optional[str]]:
         """Execute Lighter leg with error handling"""
         try:
             return await self.lighter.open_live_position(
-                symbol, side, notional_usd, post_only=post_only, amount=amount_coins
+                symbol, side, notional_usd, post_only=post_only
             )
         except Exception as e:
             logger.error(f"Lighter leg error {symbol}: {e}")
             return False, None
 
     async def _execute_x10_leg(
-        self, 
-        symbol: str, 
-        side: str, 
-        size_type: str,   # "USD" or "COINS"
-        size_value: float, 
-        post_only: bool
+        self, symbol: str, side: str, notional_usd: float, post_only: bool
     ) -> Tuple[bool, Optional[str]]:
         """Execute X10 leg with error handling"""
         try:
-            qty_coins = 0.0
-            notional_usd = 0.0
-            amount_arg = None
-
-            # Preis holen für Logging / Fallback
-            price = self.x10.fetch_mark_price(symbol)
-            
-            if size_type == "COINS":
-                qty_coins = size_value
-                amount_arg = qty_coins
-                # Logging
-                logger.info(f"🚀 X10 EXECUTE {symbol} {side}: {qty_coins:.6f} Coins (Basis: {size_type}={size_value})")
-            else:
-                # USD Mode
-                notional_usd = size_value
-                if price and price > 0:
-                    est_coins = size_value / price
-                    logger.info(f"🚀 X10 EXECUTE {symbol} {side}: ~{est_coins:.6f} Coins (Basis: {size_type}={size_value})")
-                else:
-                    logger.info(f"🚀 X10 EXECUTE {symbol} {side}: ${size_value:.2f} (Basis: USD)")
-
-            # IMPORTANT: We pass 'amount' if we have coins, otherwise 'notional_usd'
-            # open_live_position logic: if amount provided, uses it. else divides notional_usd by price.
             return await self.x10.open_live_position(
-                symbol, side, notional_usd=notional_usd, post_only=post_only, amount=amount_arg
+                symbol, side, notional_usd, post_only=post_only
             )
         except Exception as e:
             logger.error(f"X10 leg error {symbol}: {e}")
@@ -1070,10 +1228,8 @@ class ParallelExecutionManager:
         logger.critical(f"🚨 NAKED LEG RISK! MANUAL INTERVENTION REQUIRED!")
         logger.critical(f"═══════════════════════════════════════════════════════════")
         
-        if self.circuit_breaker:
-            self.circuit_breaker.trigger_emergency_stop(
-                reason=f"CRITICAL: Rollback failed for {symbol} after {self.MAX_ROLLBACK_ATTEMPTS} attempts! Risk of NAKED LEG!"
-            )
+        # Critical failure - log emergency
+        logger.critical(f"🚨 EMERGENCY: Manual intervention required for {symbol}!")
         return False
 
     async def _rollback_x10(self, execution: TradeExecution) -> bool:

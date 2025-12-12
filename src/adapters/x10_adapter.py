@@ -322,12 +322,23 @@ class X10Adapter(BaseAdapter):
             await asyncio.sleep(interval)
 
     async def load_market_cache(self, force: bool = False):
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - skip during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[X10] Shutdown active - skipping load_market_cache")
+            return
+            
         if self.market_info and not force:
             return
 
         client = PerpetualTradingClient(self.client_env)
         try:
-            await self.rate_limiter.acquire()
+            result = await self.rate_limiter.acquire()
+            # FIX: Check if rate limiter was cancelled (shutdown)
+            if result < 0:
+                logger.debug(f"[X10] Rate limiter cancelled during load_market_cache - skipping")
+                return
             resp = await client.markets_info.get_markets()
             if resp and resp.data:
                 for m in resp.data:
@@ -704,6 +715,17 @@ class X10Adapter(BaseAdapter):
             return []
 
         # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return cached data early during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+        if is_shutting_down:
+            # Return cached positions if available, otherwise empty list
+            if hasattr(self, '_positions_cache') and self._positions_cache:
+                logger.debug("[X10] Shutdown active - returning cached positions")
+                return self._positions_cache
+            return []
+
+        # ═══════════════════════════════════════════════════════════════
         # DEDUPLICATION: Prevent API storms during shutdown
         # ═══════════════════════════════════════════════════════════════
         if self.rate_limiter.is_duplicate("X10:fetch_open_positions"):
@@ -714,7 +736,13 @@ class X10Adapter(BaseAdapter):
 
         try:
             client = await self._get_auth_client()
-            await self.rate_limiter.acquire()
+            result = await self.rate_limiter.acquire()
+            # Check if rate limiter was cancelled (shutdown)
+            if result < 0:
+                logger.debug("[X10] Rate limiter cancelled during fetch_open_positions - returning cached data")
+                if hasattr(self, '_positions_cache') and self._positions_cache:
+                    return self._positions_cache
+                return []
             resp = await client.account.get_positions()
 
             if not resp or not resp.data:
@@ -747,6 +775,13 @@ class X10Adapter(BaseAdapter):
 
     async def get_open_orders(self, symbol: str) -> List[dict]:
         """SAFE open orders fetch for compliance check"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return empty list during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[X10] Shutdown active - skipping get_open_orders for {symbol}")
+            return []
+        
         if not self.stark_account:
             return []
         
@@ -760,12 +795,21 @@ class X10Adapter(BaseAdapter):
                 if hasattr(client.account, method_name):
                     method = getattr(client.account, method_name)
                     try:
-                        await self.rate_limiter.acquire()
+                        result = await self.rate_limiter.acquire()
+                        # FIX: Check if rate limiter was cancelled (shutdown)
+                        if result < 0:
+                            logger.debug(f"[X10] Rate limiter cancelled during get_open_orders - returning empty list")
+                            return []
                         try:
                             # Try with market filter
                             orders_resp = await method(market_name=symbol)
                         except TypeError:
-                             # Try without arguments if filter fails
+                            # Need to check rate limiter again for fallback call
+                            result = await self.rate_limiter.acquire()
+                            if result < 0:
+                                logger.debug(f"[X10] Rate limiter cancelled during get_open_orders (fallback) - returning empty list")
+                                return []
+                            # Try without arguments if filter fails
                             orders_resp = await method()
                         break
                     except Exception:
@@ -859,26 +903,94 @@ class X10Adapter(BaseAdapter):
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - skip during shutdown (except reduce_only close orders)
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False) and not reduce_only:
+            logger.debug(f"[X10] Shutdown active - skipping open_live_position for {symbol} (non-reduce_only)")
+            return False, None
+        
         if not config.LIVE_TRADING:
             return True, None
         
         # Warte auf Token BEVOR Request gesendet wird
-        await self.rate_limiter.acquire()
+        result = await self.rate_limiter.acquire()
+        # FIX: Check if rate limiter was cancelled (shutdown)
+        # CRITICAL: During shutdown, we MUST still allow reduce_only orders to close positions
+        # Regular orders are already blocked by the earlier check, but reduce_only needs to work
+        if result < 0 and not reduce_only:
+            logger.debug(f"[X10] Rate limiter cancelled during open_live_position - skipping (non-reduce-only)")
+            return False, None
+        elif result < 0 and reduce_only:
+            # Rate limiter was cancelled (shutdown), but we need to close positions
+            # Continue anyway - the order placement might still work
+            logger.debug(f"[X10] Rate limiter cancelled during open_live_position (reduce_only={reduce_only}) - continuing for position close")
         
         client = await self._get_trading_client()
         market = self.market_info.get(symbol)
         if not market:
             return False, None
 
-        # FIX: Use safe_decimal for precision
-        price = safe_decimal(self.fetch_mark_price(symbol))
-        if price <= 0:
-            return False, None
-
-        slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
-        raw_price = price * (
-            Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
-        )
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: POST_ONLY Orders should use orderbook prices to avoid Taker fills
+        # For POST_ONLY BUY: Use bid price to ensure Maker fill
+        # For POST_ONLY SELL: Use ask price to ensure Maker fill
+        # For Market orders: Use mark price + slippage as before
+        # ═══════════════════════════════════════════════════════════════
+        raw_price = None
+        
+        if post_only:
+            # Get orderbook prices for POST_ONLY orders
+            try:
+                orderbook = await self.fetch_orderbook(symbol, limit=1)
+                bids = orderbook.get("bids", [])
+                asks = orderbook.get("asks", [])
+                
+                # Get tick_size for price adjustment
+                tick_size = safe_decimal(getattr(market.trading_config, "min_price_change", "0.01"))
+                
+                if side == "BUY" and bids and len(bids) > 0:
+                    # For POST_ONLY BUY: Place ONE TICK BELOW best bid to ensure Maker fill
+                    bid_data = bids[0]
+                    if isinstance(bid_data, (list, tuple)) and len(bid_data) > 0:
+                        best_bid = safe_decimal(bid_data[0])
+                    elif isinstance(bid_data, dict):
+                        best_bid = safe_decimal(bid_data.get("p", bid_data.get("price", 0)))
+                    else:
+                        best_bid = safe_decimal(bid_data) if isinstance(bid_data, (int, float, str)) else Decimal(0)
+                    
+                    if best_bid > 0:
+                        # Place ONE TICK BELOW best bid - ensures Maker fill (or doesn't fill immediately)
+                        raw_price = best_bid - tick_size
+                        if raw_price <= 0:
+                            raw_price = best_bid  # Fallback if tick_size too large
+                        logger.debug(f"[X10 POST_ONLY BUY] {symbol}: Using orderbook bid=${best_bid} - 1 tick = ${raw_price} for POST_ONLY limit order (ensures Maker)")
+                elif side == "SELL" and asks and len(asks) > 0:
+                    # For POST_ONLY SELL: Place ONE TICK ABOVE best ask to ensure Maker fill
+                    ask_data = asks[0]
+                    if isinstance(ask_data, (list, tuple)) and len(ask_data) > 0:
+                        best_ask = safe_decimal(ask_data[0])
+                    elif isinstance(ask_data, dict):
+                        best_ask = safe_decimal(ask_data.get("p", ask_data.get("price", 0)))
+                    else:
+                        best_ask = safe_decimal(ask_data) if isinstance(ask_data, (int, float, str)) else Decimal(0)
+                    
+                    if best_ask > 0:
+                        # Place ONE TICK ABOVE best ask - ensures Maker fill (or doesn't fill immediately)
+                        raw_price = best_ask + tick_size
+                        logger.debug(f"[X10 POST_ONLY SELL] {symbol}: Using orderbook ask=${best_ask} + 1 tick = ${raw_price} for POST_ONLY limit order (ensures Maker)")
+            except Exception as e:
+                logger.debug(f"[X10 POST_ONLY] {symbol}: Failed to get orderbook prices: {e}, falling back to mark price")
+        
+        # Fallback to mark price + slippage if orderbook not available or not POST_ONLY
+        if raw_price is None or raw_price <= 0:
+            price = safe_decimal(self.fetch_mark_price(symbol))
+            if price <= 0:
+                return False, None
+            slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
+            raw_price = price * (
+                Decimal(1) + slippage if side == "BUY" else Decimal(1) - slippage
+            )
 
         cfg = market.trading_config
         if hasattr(cfg, "round_price") and callable(cfg.round_price):
@@ -924,7 +1036,16 @@ class X10Adapter(BaseAdapter):
         expire = datetime.now(timezone.utc) + timedelta(seconds=30 if post_only else 600)
 
         try:
-            await self.rate_limiter.acquire()
+            # FIX: Second rate limiter check before place_order
+            # CRITICAL: During shutdown, we MUST still allow reduce_only orders to close positions
+            order_result = await self.rate_limiter.acquire()
+            if order_result < 0 and not reduce_only:
+                logger.debug(f"[X10] Rate limiter cancelled during place_order - skipping (non-reduce-only)")
+                return False, None
+            elif order_result < 0 and reduce_only:
+                # Rate limiter was cancelled (shutdown), but we need to close positions
+                # Continue anyway - the order placement might still work
+                logger.debug(f"[X10] Rate limiter cancelled during place_order (reduce_only={reduce_only}) - continuing for position close")
             resp = await client.place_order(
                 market_name=symbol,
                 amount_of_synthetic=qty,
@@ -1016,24 +1137,32 @@ class X10Adapter(BaseAdapter):
 
                 actual_notional = actual_size_abs * price
 
-                # FIX: Minimum Notional Check für X10 Shutdown
-                # Wir holen das Minimum OHNE Puffer für den Close-Check
-                # min_notional_usd() enthält standardmäßig 5% Puffer, das blockiert uns bei Min-Size-Positionen.
+                # ═══════════════════════════════════════════════════════════════
+                # CRITICAL FIX: During shutdown, ALWAYS try to close positions
+                # We cannot leave positions open during shutdown just because they're
+                # below min notional. The exchange may reject, but we must try.
+                # ═══════════════════════════════════════════════════════════════
+                is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
                 
-                # Berechne das "echte" harte Minimum der API zurück (Buffer rausrechnen oder neu holen)
+                # Calculate minimums for logging only (not for blocking)
                 buffered_min = self.min_notional_usd(symbol)
-                # Entferne den 1.05 Buffer, um das echte Limit zu haben
                 hard_min = buffered_min / 1.05
+                is_dust = actual_notional < hard_min
                 
-                # Toleranz: Wir erlauben das Schließen, solange wir nicht unter 99% des echten Minimums sind
-                # Das erlaubt Rundungsfehler, aber blockiert echten Dust.
-                if actual_notional < (hard_min * 0.99):
-                    if actual_notional < 1.0: # Dust tolerance
+                if is_dust:
+                    if is_shutting_down:
+                        # FIX: reduce_only orders bypass min_notional validation on the exchange
+                        # This is expected behavior during shutdown, so log at DEBUG level
+                        logger.debug(f"🧹 X10 {symbol}: DUST POSITION ${actual_notional:.2f} < ${hard_min:.2f} - "
+                                   f"Closing with reduce_only during shutdown (expected to succeed)")
+                    elif actual_notional < 1.0:
+                        # Normal operation: Skip tiny dust (< $1)
                         logger.warning(f"⚠️ X10 {symbol}: Skipping dust position (${actual_notional:.2f}). Treating as closed.")
                         return True, "DUST_SKIPPED"
-                    
-                    logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < Limit ${hard_min:.2f} (Buffered: ${buffered_min:.2f})")
-                    return False, None
+                    else:
+                        # Normal operation: Block sub-minimum positions
+                        logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < Limit ${hard_min:.2f}")
+                        return False, None
 
                 logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
 
@@ -1091,6 +1220,13 @@ class X10Adapter(BaseAdapter):
         return False, None
     
     async def cancel_all_orders(self, symbol: str = None) -> bool:
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - skip during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[X10] Shutdown active - skipping cancel_all_orders for {symbol}")
+            return True  # Return True to avoid blocking shutdown
+        
         try:
             if not self.stark_account:
                 return False
@@ -1108,9 +1244,18 @@ class X10Adapter(BaseAdapter):
                     method = getattr(client.account, method_name)
                     try:
                         try:
-                            await self.rate_limiter.acquire()
+                            result = await self.rate_limiter.acquire()
+                            # FIX: Check if rate limiter was cancelled (shutdown)
+                            if result < 0:
+                                logger.debug(f"[X10] Rate limiter cancelled during cancel_all_orders - skipping")
+                                return True
                             orders_resp = await method(market_name=symbol)
                         except TypeError:
+                            # Need to check rate limiter again for fallback call
+                            result = await self.rate_limiter.acquire()
+                            if result < 0:
+                                logger.debug(f"[X10] Rate limiter cancelled during cancel_all_orders (fallback) - skipping")
+                                return True
                             orders_resp = await method()
                         break
                     except Exception:
@@ -1122,7 +1267,11 @@ class X10Adapter(BaseAdapter):
             for order in orders_resp.data:
                 if getattr(order, 'status', None) in ["PENDING", "OPEN"]:
                     try:
-                        await self.rate_limiter.acquire()
+                        result = await self.rate_limiter.acquire()
+                        # FIX: Check if rate limiter was cancelled (shutdown)
+                        if result < 0:
+                            logger.debug(f"[X10] Rate limiter cancelled during cancel_order - skipping remaining orders")
+                            break
                         await client.cancel_order(getattr(order, 'id', order))
                         await asyncio.sleep(0.1)
                     except Exception:
@@ -1329,6 +1478,49 @@ class X10Adapter(BaseAdapter):
             # Update cache
             if symbol:
                 self._position_cache[symbol] = data
+                
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Update _positions_cache when position status changes
+                # This ensures fetch_open_positions returns correct data during shutdown
+                # ═══════════════════════════════════════════════════════════════
+                status = data.get("status", "UNKNOWN")
+                size = safe_float(data.get("size") or data.get("quantity") or data.get("qty") or 0)
+                
+                # Initialize _positions_cache if it doesn't exist
+                if not hasattr(self, '_positions_cache'):
+                    self._positions_cache = []
+                
+                # Remove position from cache if it's CLOSED or has zero size
+                if status == "CLOSED" or abs(size) < 1e-8:
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    logger.debug(f"[X10] Removed {symbol} from _positions_cache (status={status}, size={size})")
+                elif status == "OPENED" and abs(size) > 1e-8:
+                    # Update or add position to cache
+                    # Support multiple field names for entry price
+                    entry_price = safe_float(
+                        data.get("entryPrice") or 
+                        data.get("entry_price") or 
+                        data.get("open_price") or 
+                        data.get("avgPrice") or 
+                        0.0
+                    )
+                    position_data = {
+                        "symbol": symbol,
+                        "size": size,
+                        "entry_price": entry_price
+                    }
+                    
+                    # Remove old entry if exists
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    # Add updated position
+                    self._positions_cache.append(position_data)
+                    logger.debug(f"[X10] Updated {symbol} in _positions_cache (size={size}, entry={entry_price})")
             
             # Notify registered callbacks
             for callback in self._position_callbacks:

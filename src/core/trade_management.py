@@ -19,7 +19,6 @@ from typing import Dict, List, Optional, Any
 import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
-from src.kelly_sizing import get_kelly_sizer
 from src.telegram_bot import get_telegram_bot
 
 logger = logging.getLogger(__name__)
@@ -480,7 +479,11 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
             symbol = trade.symbol
             
             if symbol in RECENTLY_OPENED_TRADES:
-                if current_time - RECENTLY_OPENED_TRADES[symbol] < 60:
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: POST_ONLY Orders need more time to fill (they're Maker orders that wait in orderbook)
+                # Extended protection to 120s to allow POST_ONLY orders time to fill before reconciliation
+                # ═══════════════════════════════════════════════════════════════
+                if current_time - RECENTLY_OPENED_TRADES[symbol] < 120:  # Extended from 60s to 120s
                     continue
             
             has_lighter = symbol in real_lighter and abs(real_lighter[symbol]) > 0
@@ -518,7 +521,8 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         for symbol in all_exchange_symbols:
             if symbol not in db_symbols:
                 if symbol in RECENTLY_OPENED_TRADES:
-                    if current_time - RECENTLY_OPENED_TRADES[symbol] < 60:
+                    # Extended protection for POST_ONLY orders (see comment above)
+                    if current_time - RECENTLY_OPENED_TRADES[symbol] < 120:  # Extended from 60s to 120s
                         continue
                         
                 l_size = real_lighter.get(symbol, 0)
@@ -772,18 +776,6 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                         'spread_pnl': spread_pnl, 
                         'fees': est_fees
                     })
-                    
-                    # Kelly Sizer recording
-                    try:
-                        kelly_sizer = get_kelly_sizer()
-                        kelly_sizer.record_trade(
-                            symbol=sym,
-                            pnl_usd=total_pnl,
-                            hold_time_seconds=hold_hours * 3600,
-                            entry_apy=t.get('apy', None)
-                        )
-                    except Exception as e:
-                        logger.error(f"Kelly Sizer error for {sym}: {e}")
                     
                     # Telegram notification
                     telegram = get_telegram_bot()

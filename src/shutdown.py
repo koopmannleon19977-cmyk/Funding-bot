@@ -563,6 +563,9 @@ class ShutdownOrchestrator:
     ) -> Tuple[bool, Optional[str]]:
         """
         Close Lighter position with tracking to prevent duplicate close attempts.
+        
+        ENHANCED: Now handles dust positions by using exact coin amount + reduce_only
+        which bypasses min_notional validation in the adapter.
         """
         # ═══════════════════════════════════════════════════════════════
         # FIX: Skip API call if already tracked as closed
@@ -572,16 +575,31 @@ class ShutdownOrchestrator:
             return True, None
         
         try:
-            success, order_id = await lighter.open_live_position(
-                symbol=symbol,
-                side=close_side,
-                notional_usd=0,
-                amount=size,
-                price=price,  # Raw price - adapter applies slippage
-                post_only=False,
-                reduce_only=True,
-                time_in_force="IOC",
-            )
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL FIX: Use close_live_position which handles dust positions
+            # It now uses reduce_only=True + IOC + exact coin amount
+            # ═══════════════════════════════════════════════════════════════
+            if hasattr(lighter, 'close_live_position'):
+                # close_live_position handles everything internally
+                original_side = "SELL" if close_side == "BUY" else "BUY"  # Position side is opposite of close side
+                notional_usd = abs(size) * price if price else abs(size) * 100
+                success, order_id = await lighter.close_live_position(
+                    symbol,
+                    original_side,
+                    notional_usd
+                )
+            else:
+                # Fallback: Direct open_live_position call
+                success, order_id = await lighter.open_live_position(
+                    symbol=symbol,
+                    side=close_side,
+                    notional_usd=0,
+                    amount=size,
+                    price=price,  # Raw price - adapter applies slippage
+                    post_only=False,
+                    reduce_only=True,
+                    time_in_force="IOC",
+                )
             
             if success:
                 # Mark as closed
@@ -598,6 +616,18 @@ class ShutdownOrchestrator:
                 logger.info(f"✅ Lighter {symbol}: Position already closed")
                 self._closed_positions["lighter"].add(symbol)
                 return True, None
+            
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Handle dust rejection from exchange gracefully
+            # If the exchange rejects due to min size, log and mark as handled
+            # to prevent infinite retry loops. The position is dust and will
+            # naturally decay or can be manually closed later.
+            # ═══════════════════════════════════════════════════════════════
+            if any(msg in err_str.lower() for msg in ["min", "minimum", "too small", "invalid size"]):
+                logger.warning(f"⚠️ Lighter {symbol}: Exchange rejected dust close (${size * (price or 100):.2f}) - marking as handled")
+                self._closed_positions["lighter"].add(symbol)
+                errors.append(f"lighter_dust_stuck:{symbol}")
+                return True, "DUST_EXCHANGE_REJECTED"  # Return success to prevent retry loops
             
             errors.append(f"lighter_close_error:{symbol}:{e}")
             logger.error(f"❌ Lighter close error {symbol}: {e}")

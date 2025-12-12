@@ -99,6 +99,7 @@ class LighterAdapter(BaseAdapter):
         self._last_balance_update = 0.0
         self.base_url = self._get_base_url()
         self._pending_positions = {}  # Ghost Guardian Cache
+        self._dust_logged = set()  # Track dust positions that have been logged (to reduce spam)
         
         # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
         self.order_lock = asyncio.Lock()
@@ -421,11 +422,22 @@ class LighterAdapter(BaseAdapter):
         IMPORTANT: 404 responses are handled specially for certain endpoints
         because Lighter returns 404 when no data exists (e.g., no open orders).
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return None during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[LIGHTER] Shutdown active - skipping _rest_get for {path}")
+            return None
+        
         base = getattr(config, "LIGHTER_BASE_URL", "https://mainnet.zklighter.elliot.ai")
         url = f"{base.rstrip('/')}{path}"
 
         try:
-            await self.rate_limiter.acquire()
+            result = await self.rate_limiter.acquire()
+            # Check if rate limiter was cancelled (shutdown)
+            if result < 0:
+                logger.debug(f"[LIGHTER] Rate limiter cancelled - skipping _rest_get for {path}")
+                return None
             session = await self._get_session()
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 429:
@@ -687,6 +699,13 @@ class LighterAdapter(BaseAdapter):
         Endpoint: GET /api/v1/orders
         Status codes: 0=Open, 1=Filled, 2=Cancelled, 3=Expired
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return empty list during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[LIGHTER] Shutdown active - skipping get_open_orders for {symbol}")
+            return []
+        
         try:
             # Resolve indices if needed
             if not getattr(self, '_resolved_account_index', None):
@@ -795,6 +814,13 @@ class LighterAdapter(BaseAdapter):
         Since Lighter might not have a direct endpoint for single order lookup without market context,
         we try to query /api/v1/orders with order_id if supported, or filter from open orders if necessary.
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return None during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[LIGHTER] Shutdown active - skipping get_order for {order_id}")
+            return None
+        
         try:
             # Resolve indices if needed
             if not getattr(self, '_resolved_account_index', None):
@@ -881,6 +907,13 @@ class LighterAdapter(BaseAdapter):
         IMPORTANT: /api/v1/trades is for PUBLIC market trades (requires market_index)
                    /api/v1/accountTrades is for YOUR account's trades
         """
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return empty list during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[LIGHTER] Shutdown active - skipping fetch_my_trades for {symbol}")
+            return []
+        
         try:
             # Resolve Account Index if needed
             if not getattr(self, '_resolved_account_index', None):
@@ -1107,11 +1140,13 @@ class LighterAdapter(BaseAdapter):
                 # FIX: Wenn wir eine Antwort bekommen, ist die Verbindung OK.
                 # Lighter sendet oft keine Gebühren im Account-Objekt.
                 # Wir geben die Config-Werte zurück, um die Warnung zu unterdrücken.
+                # Standard Account: 0% Maker / 0% Taker
+                # Premium Account: 0.002% Maker / 0.02% Taker
+                # Docs: https://apidocs.lighter.xyz/docs/account-types
                 if response:
-                    maker = getattr(config, 'MAKER_FEE_LIGHTER', 0.0007)
-                    taker = getattr(config, 'TAKER_FEE_LIGHTER', 0.001)
-                    # Optional: Check ob response.fee_tier existiert
-                    logger.info(f"✅ Lighter Fee Check OK (Using Config): Maker={maker}, Taker={taker}")
+                    maker = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
+                    taker = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+                    logger.info(f"✅ Lighter Fee Check OK: Maker={maker}, Taker={taker}")
                     return (maker, taker)
                 
                 return None
@@ -2309,6 +2344,17 @@ class LighterAdapter(BaseAdapter):
             return []
 
         # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - return cached data early during shutdown
+        # ═══════════════════════════════════════════════════════════════
+        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+        if is_shutting_down:
+            # Return cached positions if available, otherwise empty list
+            if hasattr(self, '_positions_cache') and self._positions_cache is not None:
+                logger.debug("[LIGHTER] Shutdown active - returning cached positions")
+                return self._positions_cache
+            return []
+
+        # ═══════════════════════════════════════════════════════════════
         # DEDUPLICATION: Prevent API storms during shutdown
         # ═══════════════════════════════════════════════════════════════
         if self.rate_limiter.is_duplicate("LIGHTER:fetch_open_positions"):
@@ -2321,7 +2367,13 @@ class LighterAdapter(BaseAdapter):
             signer = await self._get_signer()
             account_api = AccountApi(signer.api_client)
 
-            await self.rate_limiter.acquire()
+            result = await self.rate_limiter.acquire()
+            # Check if rate limiter was cancelled (shutdown)
+            if result < 0:
+                logger.debug("[LIGHTER] Rate limiter cancelled during fetch_open_positions - returning cached data")
+                if hasattr(self, '_positions_cache') and self._positions_cache is not None:
+                    return self._positions_cache
+                return []
             await asyncio.sleep(0.2)
 
             response = await account_api.account(
@@ -2355,20 +2407,43 @@ class LighterAdapter(BaseAdapter):
                     symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
                     
                     # ═══════════════════════════════════════════════════════════════
-                    # FILTER MINI POSITIONS ("DUST")
+                    # DUST POSITION DETECTION (NOT FILTERING)
                     # ═══════════════════════════════════════════════════════════════
-                    # Only calculate price if needed to save API calls, but we likely have it buffered
+                    # FIX: Always return all positions from API, but mark dust positions
+                    # with 'is_dust' flag. This prevents the infinite loop where positions
+                    # are filtered but API keeps returning them.
+                    # Consumers can optionally filter based on 'is_dust' flag if needed.
+                    # ═══════════════════════════════════════════════════════════════
                     price = self.get_price(symbol)
-                    if not price:
-                        # Fallback if no price: trust the size, but require slightly more size
-                        logger.debug(f"{symbol} has no price, keeping position (size={size})")
-                        positions.append({"symbol": symbol, "size": size})
-                    else:
+                    is_dust = False
+                    notional_est = 0.0
+                    
+                    if price and price > 0:
                         notional_est = abs(size) * price
-                        if notional_est > 1.0: # Filter < $1 Dust
-                            positions.append({"symbol": symbol, "size": size})
-                        else:
-                            logger.debug(f"🧹 Filtered dust position {symbol}: ${notional_est:.4f} (< $1.0)")
+                        # Dust threshold: $1.0 during normal operation, disabled during shutdown
+                        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+                        dust_threshold = 0.0 if is_shutting_down else 1.0
+                        is_dust = notional_est <= dust_threshold
+                        
+                        if is_dust and not is_shutting_down:
+                            # Only log once per position to reduce spam
+                            if symbol not in self._dust_logged:
+                                logger.debug(f"🧹 Dust position detected {symbol}: ${notional_est:.4f} (< ${dust_threshold}) - marked but not filtered")
+                                self._dust_logged.add(symbol)
+                    else:
+                        # No price available - can't determine if dust, assume not dust
+                        logger.debug(f"{symbol} has no price, keeping position (size={size})")
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # ALWAYS APPEND: Never filter positions, always return them
+                    # Consumers (trade management, shutdown, etc.) can filter if needed
+                    # ═══════════════════════════════════════════════════════════════
+                    positions.append({
+                        "symbol": symbol,
+                        "size": size,
+                        "is_dust": is_dust,
+                        "notional_est": notional_est if price else None
+                    })
 
             logger.info(f"Lighter: Found {len(positions)} open positions")
             
@@ -2552,10 +2627,18 @@ class LighterAdapter(BaseAdapter):
                  if est_notional > 0:
                      notional_usd_safe = est_notional
 
-        is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
-        if not is_valid:
-            logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
-            raise ValueError(f"Order validation failed: {error_msg}")
+        # ═══════════════════════════════════════════════════════════════════════════
+        # CRITICAL FIX: Skip validation for reduce_only orders (closing positions)
+        # Reduce-only orders MUST be executed regardless of min_notional to prevent
+        # dust positions from getting stuck. The exchange will reject invalid orders.
+        # ═══════════════════════════════════════════════════════════════════════════
+        if not reduce_only:
+            is_valid, error_msg = await self.validate_order_params(symbol, notional_usd_safe)
+            if not is_valid:
+                logger.error(f"❌ Order validation failed for {symbol}: {error_msg}")
+                raise ValueError(f"Order validation failed: {error_msg}")
+        else:
+            logger.debug(f"⚡ Skipping validation for reduce_only order {symbol} (${notional_usd_safe:.2f})")
 
         # ═══════════════════════════════════════════════════════════════
         # CRITICAL: Safe-cast price (could be string from API)
@@ -2700,25 +2783,53 @@ class LighterAdapter(BaseAdapter):
                     # Use IOC for straight closes (reduce_only + Taker) to prevent ghost orders on the book.
                     # Use GTT for Open positions or Maker orders.
                     tif = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
-                    # Default expiry for GTT or IOC (script proves default works for IOC too)
+                    # Default expiry for GTT
                     expiry = SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
+                    is_ioc = False
 
                     # LOGIC: Resolve TIF from Arguments or Auto-Detection
                     if time_in_force and isinstance(time_in_force, str):
                         key = time_in_force.upper()
-                        if key == "IOC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
-                            tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
+                        logger.debug(f"🔍 [TIF] {symbol}: Processing time_in_force='{key}' (raw='{time_in_force}')")
+                        if key == "IOC":
+                            is_ioc = True
+                            # Try multiple IOC attribute names (SDK may use different names)
+                            if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
+                                tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
+                                logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif}")
+                            elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
+                                tif = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
+                                logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = {tif}")
+                            else:
+                                # Fallback: IOC is typically 0 in most exchanges
+                                tif = 0
+                                logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE_IOC not found in SignerClient, using fallback tif=0")
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX: IOC orders require expiry=0 (not 28-day expiry)
+                            # ═══════════════════════════════════════════════════════════════
+                            expiry = 0
+                            logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for IOC order")
                         elif key == "FOK" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_FOK'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_FOK
+                            expiry = 0  # FOK also requires expiry=0
                         elif key == "GTC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_GTC
                     elif reduce_only and not post_only:
                         if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
-                            # REMOVED: expiry = 0 override (match successful scripts/full_cleanup.py behavior)
+                            is_ioc = True
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX: IOC orders (reduce_only) require expiry=0
+                            # ═══════════════════════════════════════════════════════════════
+                            expiry = 0
+                            logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for reduce_only IOC order")
                     
-                    if tif == getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', -999):
-                         logger.debug(f"Lighter: Executing IOC order for {symbol}")
+                    # Check if IOC was set (by comparing with known IOC values)
+                    ioc_value = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC', 0)  # Default to 0 if not found
+                    if is_ioc or tif == ioc_value or tif == 0:
+                        logger.info(f"⚡ [TIF] {symbol}: Using IOC order (tif={tif}, expiry={expiry}, ioc_attr={ioc_value})")
+                    else:
+                        logger.debug(f"📋 [TIF] {symbol}: Using TIF={tif}, expiry={expiry} (not IOC)")
 
                     # ═══════════════════════════════════════════════════════════════
                     # FIX: NONCE LOCKING + CACHING (Optimized for speed)
@@ -2858,6 +2969,14 @@ class LighterAdapter(BaseAdapter):
 
     async def cancel_limit_order(self, order_id: str, symbol: str = None) -> bool:
         """Cancel a specific limit order by ID. Resolves Hashes if necessary."""
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Shutdown check - skip cancel during shutdown (already handled by cancel_all)
+        # ═══════════════════════════════════════════════════════════════
+        if getattr(config, 'IS_SHUTTING_DOWN', False):
+            logger.debug(f"[LIGHTER] Shutdown active - skipping cancel_limit_order for {order_id}")
+            # During shutdown, assume cancelled (global cancel was already executed)
+            return True
+        
         try:
             if not HAVE_LIGHTER_SDK:
                 return False
@@ -3056,6 +3175,15 @@ class LighterAdapter(BaseAdapter):
             
             if not positions:
                 logger.warning(f"⚠️ {symbol}: No positions found on Lighter")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Clear cache entry when no positions found
+                # ═══════════════════════════════════════════════════════════════
+                if hasattr(self, '_positions_cache') and self._positions_cache:
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    logger.debug(f"[LIGHTER] Removed {symbol} from _positions_cache (no positions found)")
                 return True, None  # Keine Position = schon geschlossen
 
             # ═══════════════════════════════════════════════════════════════
@@ -3070,6 +3198,15 @@ class LighterAdapter(BaseAdapter):
 
             if not position:
                 logger.info(f"Lighter {symbol}: Position not found (already closed? )")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Update cache when position is already closed
+                # ═══════════════════════════════════════════════════════════════
+                if hasattr(self, '_positions_cache') and self._positions_cache:
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    logger.debug(f"[LIGHTER] Removed {symbol} from _positions_cache (position not found)")
                 return True, None
 
             # ═══════════════════════════════════════════════════════════════
@@ -3108,46 +3245,25 @@ class LighterAdapter(BaseAdapter):
             close_notional_usd = float(close_size_coins) * float(mark_price)
 
             # ═══════════════════════════════════════════════════════════════
-            # SCHRITT 4b: Mindestnotional-Guard (Dust Handling)
+            # SCHRITT 4b: Dust Detection - Log but ALWAYS TRY TO CLOSE
             # ═══════════════════════════════════════════════════════════════
+            # CRITICAL FIX: We no longer skip dust positions! 
+            # Instead, we attempt to close them with reduce_only=True which bypasses
+            # our local min_notional validation. The exchange may still reject,
+            # but we must try. This prevents positions getting stuck on shutdown.
             try:
                 min_required = float(self.min_notional_usd(symbol))
             except Exception:
                 min_required = 10.0  # konservatives Fallback
 
-            # FIX: Wenn Notional zu klein ist (Dust), nicht versuchen zu schließen
-            if close_notional_usd < min_required:
-                logger.warning(
-                    f"⚠️ DUST POSITION {symbol}: ${close_notional_usd:.2f} < Min ${min_required:.2f}"
+            is_dust = close_notional_usd < min_required
+            if is_dust:
+                # FIX: reduce_only orders bypass min_notional validation on the exchange
+                # This is expected behavior and the order will succeed, so log at DEBUG level
+                logger.debug(
+                    f"🧹 DUST POSITION {symbol}: ${close_notional_usd:.2f} < Min ${min_required:.2f} - "
+                    f"Closing with reduce_only (expected to succeed)"
                 )
-                
-                # Send Telegram Alert if enabled
-                if getattr(config, 'DUST_ALERT_ENABLED', True):
-                    try:
-                        from src.telegram_bot import get_telegram_bot
-                        telegram = get_telegram_bot()
-                        if telegram and telegram.enabled:
-                            await telegram.send_message(
-                                f"⚠️ **DUST POSITION DETECTED**\n"
-                                f"Symbol: {symbol}\n"
-                                f"Value: ${close_notional_usd:.2f}\n"
-                                f"Min Required: ${min_required:.2f}\n"
-                                f"Action: Manual intervention needed"
-                            )
-                    except Exception as e:
-                        logger.debug(f"Could not send dust alert: {e}")
-                
-                # Mark in State Manager as dust (if available)
-                try:
-                    from src.state_manager import get_state_manager
-                    sm = await get_state_manager()
-                    if sm:
-                        await sm.update_trade(symbol, {'status': 'dust', 'dust_reason': 'below_min_notional'})
-                except Exception as e:
-                    logger.debug(f"Could not mark as dust in state: {e}")
-                
-                # Return True to avoid infinite retry loops
-                return True, "DUST_SKIPPED"
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 5: Bestimme Close-Seite (Gegenteil der Position)
@@ -3161,17 +3277,22 @@ class LighterAdapter(BaseAdapter):
             logger.info(
                 f"🔻 LIGHTER CLOSE {symbol}: "
                 f"size={size:+.6f} coins, side={close_side}, "
-                f"price=${mark_price:.4f}, notional=${close_notional_usd:.2f}"
+                f"price=${mark_price:.4f}, notional=${close_notional_usd:.2f}, dust={is_dust}"
             )
 
             # ═══════════════════════════════════════════════════════════════
             # SCHRITT 6: Close Order ausführen
+            # CRITICAL: Use IOC (Immediate-or-Cancel) + amount for exact coin size
+            # This ensures we close the EXACT position, not an estimated USD amount
             # ═══════════════════════════════════════════════════════════════
             success, result = await self.open_live_position(
                 symbol=symbol,
                 side=close_side,
                 notional_usd=close_notional_usd,
-                reduce_only=True
+                amount=close_size_coins,  # CRITICAL: Use exact coin amount
+                price=mark_price,         # Current mark price
+                reduce_only=True,
+                time_in_force="IOC"       # Immediate-Or-Cancel for fast fill
             )
 
             # ═══════════════════════════════════════════════════════════════
@@ -3180,11 +3301,30 @@ class LighterAdapter(BaseAdapter):
             # ═══════════════════════════════════════════════════════════════
             if result == "POSITION_MISSING_1137":
                 logger.warning(f"⚠️ {symbol}: Position missing on exchange - treating as already closed")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Update cache when position is missing (already closed externally)
+                # ═══════════════════════════════════════════════════════════════
+                if hasattr(self, '_positions_cache') and self._positions_cache:
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    logger.debug(f"[LIGHTER] Removed {symbol} from _positions_cache (position missing 1137)")
                 # Signal success so caller cleans up DB
                 return True, "ALREADY_CLOSED_EXTERNAL"
 
             if success:
                 logger.info(f"✅ Lighter close {symbol}: Erfolgreich (${close_notional_usd:.2f})")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: Update _positions_cache after successful close
+                # This ensures fetch_open_positions returns correct data during shutdown
+                # ═══════════════════════════════════════════════════════════════
+                if hasattr(self, '_positions_cache') and self._positions_cache:
+                    self._positions_cache = [
+                        p for p in self._positions_cache 
+                        if p.get('symbol') != symbol
+                    ]
+                    logger.debug(f"[LIGHTER] Removed {symbol} from _positions_cache after successful close")
                 return True, result
             else:
                 logger.warning(f"❌ Lighter close {symbol}: open_live_position returned False")

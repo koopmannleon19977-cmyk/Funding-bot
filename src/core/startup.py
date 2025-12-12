@@ -145,7 +145,6 @@ async def run_bot_v5(bot_instance=None):
     from src.fee_manager import init_fee_manager, get_fee_manager, stop_fee_manager
     from src.funding_tracker import FundingTracker
     from src.parallel_execution import ParallelExecutionManager
-    from src.kelly_sizing import get_kelly_sizer
     from src.event_loop import BotEventLoop, TaskPriority, get_event_loop
     from src.open_interest_tracker import init_oi_tracker
     from src.websocket_manager import init_websocket_manager
@@ -203,10 +202,6 @@ async def run_bot_v5(bot_instance=None):
     # Init FeeManager
     fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
-    
-    # Init Kelly Sizer
-    kelly_sizer = get_kelly_sizer()
-    logger.info("✅ Kelly Sizer initialized")
     
     # Init FundingTracker
     funding_tracker = FundingTracker(x10, lighter, state_manager, update_interval_seconds=3600)

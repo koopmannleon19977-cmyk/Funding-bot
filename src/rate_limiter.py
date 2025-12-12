@@ -65,9 +65,13 @@ class TokenBucketRateLimiter:
         # REQUEST DEDUPLICATION (Prevents API storms during shutdown)
         # ═══════════════════════════════════════════════════════════════
         self._recent_requests: Dict[str, float] = {}
-        self._dedup_window = 1.0  # 1000ms - skip duplicate requests within this window (was 500ms)
+        # FIX: Increased from 1.0s to 2.0s to reduce API calls when polling every 1.0s
+        # This prevents excessive deduplication while still providing good caching
+        self._dedup_window = 2.0  # 2000ms - skip duplicate requests within this window
         self._dedup_cleanup_interval = 60.0  # Cleanup old entries every 60s
         self._last_dedup_cleanup = time.monotonic()
+        # Track last log time per key to reduce log spam
+        self._last_dedup_log: Dict[str, float] = {}
         
         # Stats
         self._requests_total = 0
@@ -254,6 +258,9 @@ class TokenBucketRateLimiter:
         if now - self._last_dedup_cleanup > self._dedup_cleanup_interval:
             cutoff = now - self._dedup_window
             self._recent_requests = {k: v for k, v in self._recent_requests.items() if v > cutoff}
+            # Also cleanup old log timestamps (keep last 10 seconds)
+            log_cutoff = now - 10.0
+            self._last_dedup_log = {k: v for k, v in self._last_dedup_log.items() if v > log_cutoff}
             self._last_dedup_cleanup = now
     
     def is_duplicate(self, request_key: str) -> bool:
@@ -272,7 +279,11 @@ class TokenBucketRateLimiter:
         last_request_time = self._recent_requests.get(request_key, 0)
         if now - last_request_time < self._dedup_window:
             self._requests_deduplicated += 1
-            logger.debug(f"[{self.name}] 🔄 Deduplicated: {request_key}")
+            # FIX: Only log deduplication once every 5 seconds per key to reduce log spam
+            last_log_time = self._last_dedup_log.get(request_key, 0)
+            if now - last_log_time >= 5.0:
+                logger.debug(f"[{self.name}] 🔄 Deduplicated: {request_key} (dedup window: {self._dedup_window}s)")
+                self._last_dedup_log[request_key] = now
             return True
         
         # Record this request

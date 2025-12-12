@@ -524,7 +524,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     executing_symbols = set(ACTIVE_TASKS.keys())
                 
                 # Get real positions
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: During shutdown, use cached positions but also check shutdown flag
+                # ═══════════════════════════════════════════════════════════════
                 try:
+                    # Check shutdown before fetching positions
+                    if SHUTDOWN_FLAG:
+                        logger.debug("🚫 Shutdown detected - skipping position fetch")
+                        await asyncio.sleep(REFRESH_DELAY)
+                        continue
+                    
                     x10_pos, lighter_pos = await get_cached_positions(lighter, x10, force=False)
                     real_x10_symbols = {
                         p.get('symbol') for p in (x10_pos or [])
@@ -579,6 +588,14 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 # Reserve slots atomically
                 if trades_to_launch:
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Check shutdown flag before launching trades
+                    # ═══════════════════════════════════════════════════════════════
+                    if SHUTDOWN_FLAG:
+                        logger.info("🚫 Shutdown detected - aborting trade launch")
+                        await asyncio.sleep(REFRESH_DELAY)
+                        continue
+                    
                     LAST_ARBITRAGE_LAUNCH = time.time()
                     
                     reserved_symbols = []
@@ -596,6 +613,17 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                                 reserved_symbols.append(sym)
                     
                     if not reserved_symbols:
+                        await asyncio.sleep(REFRESH_DELAY)
+                        continue
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Double-check shutdown flag right before launching
+                    # ═══════════════════════════════════════════════════════════════
+                    if SHUTDOWN_FLAG:
+                        logger.info("🚫 Shutdown detected - cancelling reserved trades")
+                        async with TASKS_LOCK:
+                            for sym in reserved_symbols:
+                                ACTIVE_TASKS.pop(sym, None)
                         await asyncio.sleep(REFRESH_DELAY)
                         continue
                     

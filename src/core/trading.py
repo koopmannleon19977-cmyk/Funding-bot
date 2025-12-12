@@ -18,7 +18,6 @@ from typing import Optional, Dict, Any
 import config
 from src.utils import safe_float
 from src.volatility_monitor import get_volatility_monitor
-from src.kelly_sizing import get_kelly_sizer
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
 
@@ -186,21 +185,30 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         return False
 
     async with lock:
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Check shutdown flag again after acquiring lock
+        # ═══════════════════════════════════════════════════════════════
+        if SHUTDOWN_FLAG:
+            logger.debug(f"🚫 {symbol}: Shutdown detected - aborting trade execution")
+            return False
+        
         # Check if position already exists
         try:
             x10_positions = await x10.fetch_open_positions()
             lighter_positions = await lighter.fetch_open_positions()
             
-            x10_symbols = {p.get('symbol') for p in (x10_positions or [])}
-            lighter_symbols = {p.get('symbol') for p in (lighter_positions or [])}
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Check both position lists more carefully - also check size
+            # ═══════════════════════════════════════════════════════════════
+            for pos in (x10_positions or []):
+                if pos.get('symbol') == symbol and abs(safe_float(pos.get('size', 0))) > 1e-8:
+                    logger.warning(f"⚠️ {symbol} already open on X10 (size={pos.get('size')}) - SKIP")
+                    return False
             
-            if symbol in x10_symbols:
-                logger.warning(f"⚠️ {symbol} already open on X10 - SKIP")
-                return False
-            
-            if symbol in lighter_symbols:
-                logger.warning(f"⚠️ {symbol} already open on Lighter - SKIP")
-                return False
+            for pos in (lighter_positions or []):
+                if pos.get('symbol') == symbol and abs(safe_float(pos.get('size', 0))) > 1e-8:
+                    logger.warning(f"⚠️ {symbol} already open on Lighter (size={pos.get('size')}) - SKIP")
+                    return False
             
         except Exception as e:
             logger.error(f"Failed to check positions for {symbol}: {e}")
@@ -239,40 +247,29 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
 
-            # Kelly sizing
+            # Fixed position sizing (using DESIRED_NOTIONAL_USD from config)
             available_capital = min(bal_x10_real, bal_lit_real)
-            apy = opp.get('apy', 0.0)
-            apy_decimal = apy / 100.0 if apy > 1 else apy
             
-            kelly_sizer = get_kelly_sizer()
-            kelly_result = kelly_sizer.calculate_position_size(
-                symbol=symbol,
-                available_capital=available_capital,
-                current_apy=apy_decimal
-            )
-            
-            logger.info(
-                f"🎰 KELLY {symbol}: win_rate={kelly_result.win_rate:.1%}, "
-                f"kelly_fraction={kelly_result.kelly_fraction:.4f}"
-            )
-
-            # Calculate final size
+            # Calculate final size - use fixed size from config
             if opp.get('is_farm_trade'):
-                target_farm = float(getattr(config, 'FARM_NOTIONAL_USD', 12.0))
-                if kelly_result.safe_fraction > 0.02:
-                    kelly_adjusted = min(float(kelly_result.recommended_size_usd), target_farm * 1.5)
-                    final_usd = max(target_farm, kelly_adjusted, min_req)
-                else:
-                    final_usd = max(target_farm, min_req)
+                final_usd = float(getattr(config, 'FARM_NOTIONAL_USD', config.DESIRED_NOTIONAL_USD))
             else:
-                final_usd = float(kelly_result.recommended_size_usd)
-                if final_usd < min_req:
-                    can_afford = min_req <= available_capital * 0.9
-                    within_limits = min_req <= config.MAX_TRADE_SIZE_USD and min_req <= max_per_trade
-                    if can_afford and within_limits:
-                        final_usd = float(min_req)
-                    else:
-                        return False
+                final_usd = float(config.DESIRED_NOTIONAL_USD)
+            
+            # Ensure we meet minimum requirements
+            final_usd = max(final_usd, min_req)
+            
+            # Check if we can afford it
+            if final_usd > available_capital * 0.9:
+                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${final_usd:.2f}, have ${available_capital:.2f})")
+                return False
+            
+            # Check limits
+            if final_usd > config.MAX_TRADE_SIZE_USD or final_usd > max_per_trade:
+                logger.warning(f"🛑 {symbol}: Size ${final_usd:.2f} exceeds limits")
+                return False
+            
+            logger.info(f"📐 {symbol}: Fixed position size ${final_usd:.2f}")
 
             # Liquidity check
             l_ex = opp.get('leg1_exchange', 'X10')
