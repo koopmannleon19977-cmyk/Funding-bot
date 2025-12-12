@@ -349,50 +349,53 @@ Basierend auf Log-Analyse (`logs/funding_bot_LEON_20251212_173845_FULL.log`) und
 
 ---
 
-### 13. **Maker Order Timeout - AERO-USD Fill Timeout nach 60s** ✅ GEFIXT & VERIFIZIERT
+### 13. **Maker Order Timeout - Retry-Mechanismus platziert zu viele Orders** ✅ GEFIXT
 
 **Problem:**
 
-- ~~Maker Order (POST_ONLY) auf Lighter wird nicht gefüllt~~ ✅ GELÖST
-- ~~Timeout nach 60.34s~~ ✅ GELÖST (dynamische Timeouts: 30s bei hoher Liquidität)
-- ~~Trade schlägt fehl~~ ✅ GELÖST (Retry-Logik implementiert)
-- ~~Order wird gecancelt, aber keine automatische Retry-Logik~~ ✅ GELÖST
+- ❌ **Retry-Mechanismus platziert mehrere Orders pro Symbol** (z.B. 3 Orders für EDEN-USD: Original + Retry 1 + Retry 2)
+- ❌ **12 offene Orders auf Lighter** statt nur 4 (4 Symbole × 3 Orders = 12)
+- ❌ **Orders werden nicht gecancelt** wenn Retry erfolgreich ist, bleiben alle offen
+- ❌ **Führt zu doppelten/mehrfachen Positionen** wenn mehrere Retry-Orders gefüllt werden
 
-**Status:**
+**Root Cause:**
 
-- ✅ **Dynamische Timeout-Anpassung implementiert**: Timeout wird basierend auf Orderbook-Liquidität berechnet (30s statt 60s bei hoher Liquidität)
-- ✅ **Verbessertes Timeout-Logging**: Zeigt Orderbook-Details (bid_depth, ask_depth, spread) für bessere Diagnose
-- ✅ **Retry-Logik implementiert**: Automatische Retries mit angepasstem Preis
-- ✅ **Bug behoben**: `fetch_mark_price` ist synchron, wurde aber mit `await` aufgerufen → behoben
-- ✅ **Retry erfolgreich getestet**: LINEA-USD wurde durch Retry gerettet (Zeile 1086-1088: "✅ [RETRY] LINEA-USD: Fill detected after 6 checks (attempt 1/2)!")
+- Die Funktion `_retry_maker_order_with_adjusted_price` enthielt noch die alte Retry-Logik, die neue Orders platziert
+- Bei Timeout wird ein Retry-Order platziert (Attempt 1/2), bei erneutem Timeout ein weiterer (Attempt 2/2)
+- Wenn Retry erfolgreich ist, werden die vorherigen Orders nicht gecancelt
+- Ergebnis: Mehrere offene Orders pro Symbol
 
-**Log-Evidenz (nach Fix & Verifizierung):**
+**Log-Evidenz (funding_bot_LEON_20251212_225359_FULL.log):**
 
 ```
-21:28:21 [DEBUG] ⏱️ EDEN-USD: Dynamic timeout calculated: 30.0s (depth_ratio=2560.11, base=60.0s)
-21:28:52 [WARNING] ⏰ [PHASE 1.5] EDEN-USD: Fill timeout after 30.31s (orderbook: bid_depth=$123897.80, ask_depth=$116147.59, spread=12.380%)
-21:28:55 [INFO] 🔄 [RETRY] EDEN-USD: Attempt 1/2 (price adjustment: 0.100%)
-21:28:55 [DEBUG] 💰 [RETRY] EDEN-USD: Original price=0.064620, Adjusted price=0.064555 (SELL)
-21:28:56 [INFO] ✅ [RETRY] EDEN-USD: Retry order placed: a05df7858f242b53f93b2949d1ce573f26f6494b...
-21:28:55 [INFO] 🔄 [RETRY] LINEA-USD: Attempt 1/2 (price adjustment: 0.100%)
-21:29:01 [INFO] ✅ [RETRY] LINEA-USD: Fill detected after 6 checks (attempt 1/2)!
-21:29:01 [INFO] ✅ [PHASE 1.5] LINEA-USD: Retry order FILLED after timeout
+22:54:20 [INFO] ✅ [PHASE 1] EDEN-USD: Lighter order placed (Original)
+22:54:53 [INFO] 🔄 [RETRY] EDEN-USD: Attempt 1/2 (price adjustment: 0.100%)
+22:54:55 [INFO] ✅ [RETRY] EDEN-USD: Retry order placed: f5a60de0bc...
+22:55:30 [INFO] 🔄 [RETRY] EDEN-USD: Attempt 2/2 (price adjustment: 0.200%)
+22:55:31 [INFO] ✅ [RETRY] EDEN-USD: Retry order placed: 62f340fa90...
 ```
 
-**Implementierte Lösungen:**
+**Lösung Implementiert:**
 
-1. ✅ Dynamische Timeout-Anpassung basierend auf Orderbook-Liquidität (`_calculate_dynamic_timeout`)
-2. ✅ Retry-Logik mit angepasstem Preis (`_retry_maker_order_with_adjusted_price`)
-3. ✅ Verbessertes Logging für Timeout-Gründe (Orderbook-Analyse)
-4. ✅ Bug-Fix: `fetch_mark_price` ohne `await` aufrufen (synchrone Funktion)
+1. ✅ **Retry-Logik komplett entfernt**: Keine neuen Orders werden mehr platziert
+2. ✅ **Vereinfachte Logik**: Prüft nur, ob Original-Order bereits gefüllt wurde
+3. ✅ **Position-Check integriert**: Prüft, ob Position existiert, bevor Trade als erfolgreich markiert wird
+4. ✅ **Konservativer Ansatz**: Wenn Order nicht gefunden wird, aber keine Position existiert → Trade schlägt fehl
 
 **Code-Location:**
 
-- `src/parallel_execution.py:667-848` - Retry-Logik für Maker Orders
-- `src/parallel_execution.py:850-1050` - Timeout-Handling mit verbessertem Logging
-- `config.py` - Neue Config-Parameter: `MAKER_ORDER_MAX_RETRIES`, `MAKER_ORDER_RETRY_DELAY_SECONDS`, `MAKER_ORDER_PRICE_ADJUSTMENT_PCT`
+- `src/parallel_execution.py:667-721` - Vereinfachte `_retry_maker_order_with_adjusted_price` Funktion
+  - Alte Retry-Logik (Zeilen 696-849) wurde komplett entfernt
+  - Neue Logik: Nur Order-Check + Position-Check, keine neuen Orders
 
-**Fix-Priorität:** ✅ **GEFIXT & VERIFIZIERT**
+**Erwartetes Verhalten:**
+
+- ✅ Bei Timeout: Trade schlägt fehl, keine Retry-Orders
+- ✅ Wenn Order bereits gefüllt wurde: Erfolg mit original_order_id (nur wenn Position existiert)
+- ✅ Positionen bleiben bei $50 (keine Verdopplung)
+- ✅ Keine 12 offenen Orders mehr, nur noch die ursprünglichen Orders
+
+**Fix-Priorität:** ✅ **GEFIXT** (2025-01-12)
 
 ---
 

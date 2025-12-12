@@ -671,9 +671,8 @@ class ParallelExecutionManager:
         phase_times: Dict[str, float]
     ) -> Tuple[bool, Optional[str]]:
         """
-        Retry Maker order with adjusted price after timeout.
-        
-        Fix #13: Retry logic for Maker Orders with price adjustment.
+        Simplified: Check if original order was filled after timeout.
+        NO RETRIES are placed - this prevents multiple open orders.
         
         Args:
             execution: Trade execution state
@@ -681,172 +680,84 @@ class ParallelExecutionManager:
             phase_times: Phase timing dictionary
             
         Returns:
-            Tuple of (success: bool, new_order_id: Optional[str])
+            Tuple of (success: bool, order_id: Optional[str])
         """
         symbol = execution.symbol
-        max_retries = int(getattr(config, "MAKER_ORDER_MAX_RETRIES", 2))
-        retry_delay = float(getattr(config, "MAKER_ORDER_RETRY_DELAY_SECONDS", 2.0))
-        price_adjustment_pct = float(getattr(config, "MAKER_ORDER_PRICE_ADJUSTMENT_PCT", 0.001))
         
-        # Check if retries are enabled
-        if max_retries <= 0:
-            logger.debug(f"⏭️ {symbol}: Retries disabled (max_retries=0)")
-            return False, None
-        
-        # Cancel original order first
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL FIX: Check if order was already filled
+        # 1. Check if order still exists in open orders
+        # 2. If order not found, ALSO check if position exists
+        # 3. Only return success if BOTH: order not found AND position exists
+        # ═══════════════════════════════════════════════════════════════
+        order_still_exists = False
         try:
-            logger.info(f"🔄 [RETRY] {symbol}: Cancelling original order {original_order_id[:40]}...")
-            if hasattr(self.lighter, 'cancel_limit_order'):
-                await self.lighter.cancel_limit_order(original_order_id, symbol)
-            else:
-                await self.lighter.cancel_all_orders(symbol)
-        except Exception as e:
-            logger.warning(f"⚠️ [RETRY] {symbol}: Error cancelling original order: {e}")
-            # Continue anyway - order might already be cancelled
-        
-        # Wait before retry
-        await asyncio.sleep(retry_delay)
-        
-        # Get current market price for price adjustment
-        try:
-            # Fix #13: fetch_mark_price is synchronous, not async
-            current_price = self.lighter.fetch_mark_price(symbol)
-            if current_price is None or current_price <= 0:
-                logger.warning(f"⚠️ [RETRY] {symbol}: Invalid mark price ({current_price}), skipping retry")
-                return False, None
-        except Exception as e:
-            logger.warning(f"⚠️ [RETRY] {symbol}: Error fetching mark price: {e}, skipping retry")
-            return False, None
-        
-        # Retry loop
-        for retry_attempt in range(1, max_retries + 1):
-            try:
-                logger.info(
-                    f"🔄 [RETRY] {symbol}: Attempt {retry_attempt}/{max_retries} "
-                    f"(price adjustment: {price_adjustment_pct * 100 * retry_attempt:.3f}%)"
-                )
-                
-                # Calculate adjusted price (more aggressive for each retry)
-                if execution.side_lighter == "SELL":
-                    # For SELL orders, lower the price to increase fill probability
-                    adjusted_price = current_price * (1.0 - (price_adjustment_pct * retry_attempt))
-                else:
-                    # For BUY orders, raise the price to increase fill probability
-                    adjusted_price = current_price * (1.0 + (price_adjustment_pct * retry_attempt))
-                
-                logger.debug(
-                    f"💰 [RETRY] {symbol}: Original price={current_price:.6f}, "
-                    f"Adjusted price={adjusted_price:.6f} ({execution.side_lighter})"
-                )
-                
-                # Re-validate orderbook before retry
-                validation_result = await self._validate_orderbook_for_maker(
-                    symbol=symbol,
-                    side=execution.side_lighter,
-                    trade_size_usd=execution.size_lighter,
-                )
-                
-                if not validation_result.is_valid:
-                    logger.warning(
-                        f"⚠️ [RETRY] {symbol}: Orderbook validation failed on retry {retry_attempt}: "
-                        f"{validation_result.reason}"
-                    )
-                    # Wait a bit longer before next retry
-                    await asyncio.sleep(retry_delay * retry_attempt)
-                    continue
-                
-                # Calculate dynamic timeout for retry
-                dynamic_timeout = await self._calculate_dynamic_timeout(
-                    symbol=symbol,
-                    side=execution.side_lighter,
-                    trade_size_usd=execution.size_lighter,
-                )
-                
-                # Place new order with adjusted price
-                # Note: We need to use the adjusted price in the order placement
-                # This requires modifying the _execute_lighter_leg to accept a price parameter
-                # For now, we'll use the existing method and let it calculate the price
-                # The price adjustment will be handled by the maker price calculation
-                
-                # Place retry order
-                retry_success, retry_order_id = await self._execute_lighter_leg(
-                    symbol,
-                    execution.side_lighter,
-                    execution.size_lighter,
-                    post_only=True,
-                    amount_coins=execution.quantity_coins,
-                    # TODO: Add price parameter to _execute_lighter_leg for explicit price control
-                )
-                
-                if not retry_success or not retry_order_id:
-                    logger.warning(f"⚠️ [RETRY] {symbol}: Retry order placement failed (attempt {retry_attempt})")
-                    await asyncio.sleep(retry_delay * retry_attempt)
-                    continue
-                
-                logger.info(f"✅ [RETRY] {symbol}: Retry order placed: {retry_order_id[:40]}...")
-                
-                # Wait for fill with dynamic timeout
-                wait_start = time.time()
-                filled = False
-                check_count = 0
-                
-                while time.time() - wait_start < dynamic_timeout:
-                    if getattr(config, "IS_SHUTTING_DOWN", False):
-                        logger.warning(f"⚡ [RETRY] {symbol}: SHUTDOWN detected - aborting retry wait!")
+            # Check if order still exists in open orders
+            open_orders = await self.lighter.get_open_orders(symbol)
+            if open_orders:
+                # Check if our order ID (or hash) is in the open orders
+                for order in open_orders:
+                    order_id_str = str(order.get('id', ''))
+                    order_hash = str(order.get('tx_hash', '')) or str(order.get('hash', ''))
+                    if (original_order_id in order_id_str or 
+                        original_order_id in order_hash or
+                        order_id_str in original_order_id or
+                        order_hash in original_order_id):
+                        order_still_exists = True
+                        logger.debug(f"[RETRY] {symbol}: Original order {original_order_id[:20]}... still exists in open orders")
                         break
-                    
-                    check_count += 1
-                    try:
-                        pos = await self.lighter.fetch_open_positions()
-                        p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
-                        current_size = safe_float(p.get("size", 0)) if p else 0.0
-                        
-                        if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
-                            filled = True
-                            logger.info(
-                                f"✅ [RETRY] {symbol}: Fill detected after {check_count} checks "
-                                f"(attempt {retry_attempt}/{max_retries})!"
-                            )
-                            break
-                        
-                        await asyncio.sleep(0.5)
-                        
-                    except Exception as e:
-                        logger.debug(f"[RETRY] {symbol}: Check #{check_count} error: {e}")
-                        await asyncio.sleep(1)
-                
-                if filled:
-                    # Update phase times
-                    phase_times["lighter_fill_wait"] = time.time() - wait_start
-                    phase_times["maker_retry_attempt"] = retry_attempt
-                    return True, retry_order_id
-                else:
-                    logger.warning(
-                        f"⏰ [RETRY] {symbol}: Retry order timeout after {dynamic_timeout:.1f}s "
-                        f"(attempt {retry_attempt}/{max_retries})"
-                    )
-                    # Cancel retry order before next attempt
-                    try:
-                        if hasattr(self.lighter, 'cancel_limit_order'):
-                            await self.lighter.cancel_limit_order(retry_order_id, symbol)
-                        else:
-                            await self.lighter.cancel_all_orders(symbol)
-                    except Exception as e:
-                        logger.debug(f"⚠️ [RETRY] {symbol}: Error cancelling retry order: {e}")
-                    
-                    # Wait before next retry
-                    if retry_attempt < max_retries:
-                        await asyncio.sleep(retry_delay * (retry_attempt + 1))
-                
-            except Exception as e:
-                logger.error(f"❌ [RETRY] {symbol}: Error during retry attempt {retry_attempt}: {e}")
-                if retry_attempt < max_retries:
-                    await asyncio.sleep(retry_delay * (retry_attempt + 1))
-                continue
+        except Exception as e:
+            logger.debug(f"[RETRY] {symbol}: Error checking if order exists: {e}")
+            # If check fails, assume order might still exist - return False to be safe
+            return False, None
         
-        # All retries failed
-        logger.warning(f"❌ [RETRY] {symbol}: All {max_retries} retry attempts failed")
-        return False, None
+        # If order still exists, it wasn't filled - timeout is real
+        if order_still_exists:
+            logger.info(
+                f"⏰ [RETRY] {symbol}: Order {original_order_id[:40]}... still exists. "
+                f"Timeout confirmed. Retry disabled - returning False."
+            )
+            return False, None
+        
+        # Order not found in open orders - check if position actually exists
+        # This is CRITICAL: Order not found doesn't mean it was filled!
+        # It could also mean: cancelled, expired, or API lag
+        try:
+            # Wait a moment for position to update (API lag)
+            await asyncio.sleep(0.5)
+            
+            # Check if position exists with expected size
+            pos = await self.lighter.fetch_open_positions()
+            p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
+            current_size = safe_float(p.get("size", 0)) if p else 0.0
+            
+            # Check if position has the expected size (95% threshold)
+            if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
+                # Position exists with expected size - order was filled!
+                logger.info(
+                    f"✅ [RETRY] {symbol}: Original order {original_order_id[:40]}... NOT FOUND in open orders "
+                    f"AND position exists (size={abs(current_size):.6f}, expected={execution.quantity_coins:.6f}). "
+                    f"Order was already FILLED. Returning success with original order ID."
+                )
+                return True, original_order_id
+            else:
+                # Order not found BUT position doesn't exist or is too small
+                # This means the order was NOT filled - it was cancelled, expired, or API lag
+                logger.warning(
+                    f"⚠️ [RETRY] {symbol}: Original order {original_order_id[:40]}... NOT FOUND in open orders, "
+                    f"BUT position does NOT exist or is too small (size={abs(current_size):.6f}, expected={execution.quantity_coins:.6f}). "
+                    f"Order was NOT filled. Returning False."
+                )
+                return False, None
+                
+        except Exception as e:
+            logger.warning(f"⚠️ [RETRY] {symbol}: Error checking position: {e}")
+            # If position check fails, be conservative - return False
+            logger.warning(
+                f"⚠️ [RETRY] {symbol}: Cannot verify if position exists. "
+                f"Returning False to avoid false success."
+            )
+            return False, None
 
     async def _handle_maker_timeout(self, execution, lighter_order_id) -> bool:
         symbol = execution.symbol
