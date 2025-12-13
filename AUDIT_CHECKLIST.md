@@ -198,7 +198,7 @@
 | Best Practices     | 3        | 2      | 5      |
 | **GESAMT**         | **30**   | **49** | **79** |
 
-**Fortschritt: ~50% der Analyse abgeschlossen** (alle kritischen Fixes implementiert und getestet)
+**Fortschritt: ~60% der Analyse abgeschlossen** (alle kritischen Fixes + Warning-Cleanup implementiert)
 
 ---
 
@@ -235,25 +235,32 @@
 
 ### WARNINGS (Nicht kritisch) - ✅ BEHOBEN
 
-| Warning                                     | Vorher | Nachher | Status                                      |
-| ------------------------------------------- | ------ | ------- | ------------------------------------------- |
-| `Could not resolve Hash ... to an Order ID` | 6x     | **0x**  | ✅ BEHOBEN (Position-Check vor Cancel)      |
-| `GHOST FILL DETECTED`                       | 2x     | **0x**  | ✅ BEHOBEN (0.5s Polling + Event-Detection) |
-| `Fill timeout`                              | 2x     | **0x**  | ✅ BEHOBEN (Schnellere Detection)           |
-| `Connection closed: 1011 Ping timeout`      | 1x     | 0x      | ✅ Reconnect funktioniert                   |
+| Warning                                     | Vorher | Nachher | Status                                            |
+| ------------------------------------------- | ------ | ------- | ------------------------------------------------- |
+| `Could not resolve Hash ... to an Order ID` | 8x     | **0x**  | ✅ BEHOBEN (Position-Check in cancel_limit_order) |
+| `GHOST FILL DETECTED`                       | 2x     | **0x**  | ✅ BEHOBEN (0.5s Polling + Event-Detection)       |
+| `Fill timeout`                              | 2x     | **0x**  | ✅ BEHOBEN (Schnellere Detection)                 |
+| `Connection closed: 1011 Ping timeout`      | 1x     | 0x      | ✅ Reconnect funktioniert                         |
+
+### FIX DETAILS: "Could not resolve Hash" (2025-12-13 14:15)
+
+- **Problem:** Warning erschien wenn Order bereits gefüllt war aber API-Lag bestand
+- **Lösung:** Position-Check in `cancel_limit_order()` - wenn Position existiert → DEBUG statt WARNING
+- **Effekt:** 8 WARNINGs → 0 WARNINGs (jetzt saubere DEBUG-Logs)
 
 ---
 
-_Zuletzt aktualisiert: 2025-12-13 14:15 - Memory Leak Fix + State Manager + Cleanup Script modernisiert_
+_Zuletzt aktualisiert: 2025-12-13 14:20 - "Could not resolve Hash" Warnings eliminiert (Position-Check in cancel_limit_order)_
 
 ---
 
 ## 📈 PERFORMANCE VERBESSERUNGEN (Gemessen)
 
-| Metrik               | Vorher                   | Nachher               | Verbesserung      |
-| -------------------- | ------------------------ | --------------------- | ----------------- |
-| Trade-Zeit WLFI-USD  | 30+ sek                  | 3.16s                 | **90% schneller** |
-| Trade-Zeit TRX-USD   | 30+ sek                  | 13.84s                | **50% schneller** |
-| Warnings pro Session | 11                       | 1                     | **91% weniger**   |
-| Ghost-Fill Detection | attempt 10-15            | attempt 1-3           | **80% schneller** |
-| Memory Leak          | ❌ Trades bleiben in RAM | ✅ Cleanup nach Close | **Behoben**       |
+| Metrik               | Vorher                   | Nachher               | Verbesserung        |
+| -------------------- | ------------------------ | --------------------- | ------------------- |
+| Trade-Zeit WLFI-USD  | 30+ sek                  | 3.16s                 | **90% schneller**   |
+| Trade-Zeit TRX-USD   | 30+ sek                  | 13.84s                | **50% schneller**   |
+| Warnings pro Session | 24                       | 12                    | **50% weniger**     |
+| "Hash not resolved"  | 8x WARNING               | 0x (now DEBUG)        | **100% eliminiert** |
+| Ghost-Fill Detection | attempt 10-15            | attempt 1-3           | **80% schneller**   |
+| Memory Leak          | ❌ Trades bleiben in RAM | ✅ Cleanup nach Close | **Behoben**         |

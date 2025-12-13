@@ -54,11 +54,18 @@ async def get_open_trades() -> list:
 async def add_trade_to_state(trade_data: dict) -> str:
     """Add trade to in-memory state (writes to DB in background)"""
     sm = await get_state_manager()
+    
+    # ═══════════════════════════════════════════════════════════════
+    # FIX: Accept both 'size_usd' and 'notional_usd' field names
+    # Some callers use 'notional_usd', others use 'size_usd'
+    # ═══════════════════════════════════════════════════════════════
+    size_usd = trade_data.get('size_usd') or trade_data.get('notional_usd') or 0
+    
     trade = TradeState(
         symbol=trade_data['symbol'],
         side_x10=trade_data.get('side_x10', 'BUY'),
         side_lighter=trade_data.get('side_lighter', 'SELL'),
-        size_usd=trade_data.get('size_usd', 0),
+        size_usd=size_usd,
         entry_price_x10=trade_data.get('entry_price_x10', 0),
         entry_price_lighter=trade_data.get('entry_price_lighter', 0),
         is_farm_trade=trade_data.get('is_farm_trade', False),

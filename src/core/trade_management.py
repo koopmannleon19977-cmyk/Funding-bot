@@ -107,34 +107,16 @@ async def calculate_realized_pnl(
     """
     Calculate realized PnL including all entry and exit fees.
     
-    PNL FIX: If lighter_position is provided, use the REAL unrealized_pnl
-    and total_funding_paid values from Lighter API instead of estimations.
+    NOTE:
+    This function is used for *exit decision making* (estimate net PnL) and
+    therefore expects `gross_pnl` to already contain the strategy's estimated
+    price+funding PnL.
+    
+    Realized PnL for DB/accounting should be computed after close from actual
+    entry/exit fills of both legs (see helpers below).
     """
     entry_value = float(trade.get('notional_usd', 0.0))
     exit_value = entry_value
-    
-    # ═══════════════════════════════════════════════════════════════
-    # PNL FIX: Use REAL Lighter API data if available
-    # The Lighter API provides accurate, exchange-calculated values
-    # ═══════════════════════════════════════════════════════════════
-    lighter_upnl = 0.0
-    lighter_funding = 0.0
-    
-    if lighter_position:
-        lighter_upnl = safe_float(lighter_position.get('unrealized_pnl'), 0.0)
-        lighter_funding = safe_float(lighter_position.get('total_funding_paid'), 0.0)
-        
-        if abs(lighter_upnl) > 0.0001:
-            # Use real Lighter unrealized PnL as base (this is accurate!)
-            # This includes price movement PnL calculated by Lighter
-            logger.debug(
-                f"📊 Using Lighter API PnL: uPnL=${lighter_upnl:.4f}, "
-                f"funding=${lighter_funding:.4f} (instead of gross=${gross_pnl:.4f})"
-            )
-            # Override gross_pnl with Lighter's accurate calculation
-            # Note: Lighter's unrealized_pnl already includes the position's
-            # price movement, so we only need to add fees
-            gross_pnl = lighter_upnl
     
     entry_fee_lighter = trade.get('entry_fee_lighter')
     entry_fee_x10 = trade.get('entry_fee_x10')
@@ -157,6 +139,222 @@ async def calculate_realized_pnl(
     net_pnl = gross_pnl_decimal - Decimal(str(entry_fees)) - Decimal(str(exit_fees))
     
     return net_pnl
+
+
+def _side_sign(side: Optional[str]) -> int:
+    """Return +1 for long/BUY, -1 for short/SELL, 0 for unknown."""
+    if not side:
+        return 0
+    s = str(side).upper()
+    if "BUY" in s or "LONG" in s:
+        return 1
+    if "SELL" in s or "SHORT" in s:
+        return -1
+    return 0
+
+
+def _leg_price_pnl(side: Optional[str], entry_price: float, exit_price: float, qty: float) -> float:
+    """Price PnL in USD for a linear perp leg."""
+    sign = _side_sign(side)
+    if sign == 0 or entry_price <= 0 or exit_price <= 0 or qty <= 0:
+        return 0.0
+    # long: (exit-entry)*qty ; short: (entry-exit)*qty
+    return (exit_price - entry_price) * qty if sign > 0 else (entry_price - exit_price) * qty
+
+
+def _parse_trade_timestamp(ts_val: Any) -> Optional[float]:
+    """Parse various trade timestamp formats to unix seconds (float)."""
+    if ts_val is None:
+        return None
+    # numeric (ms or s)
+    if isinstance(ts_val, (int, float)):
+        v = float(ts_val)
+        # heuristic: ms timestamps are usually > 1e12
+        return v / 1000.0 if v > 1e12 else v
+    # string: iso or numeric
+    try:
+        s = str(ts_val).strip()
+        if not s:
+            return None
+        if s.isdigit():
+            v = float(s)
+            return v / 1000.0 if v > 1e12 else v
+        s = s.replace("Z", "+00:00")
+        return datetime.fromisoformat(s).timestamp()
+    except Exception:
+        return None
+
+
+async def _lighter_fill_stats_for_order(
+    lighter,
+    symbol: str,
+    order_id: Optional[str],
+    fallback_since_ts: Optional[float] = None,
+    max_wait_s: float = 3.0,
+) -> Dict[str, float]:
+    """
+    Best-effort: derive (avg_price, qty, fee_usd) from Lighter /api/v1/accountTrades.
+    Prefers matching by order_id. If not available, falls back to trades newer than fallback_since_ts.
+    """
+    if not symbol:
+        return {"price": 0.0, "qty": 0.0, "fee": 0.0}
+
+    oid = str(order_id) if order_id else None
+    deadline = time.time() + max(0.0, max_wait_s)
+    last_trades = []
+
+    while True:
+        try:
+            trades = await lighter.fetch_my_trades(symbol, limit=50, force=True)
+            last_trades = trades or []
+            fills = []
+            if oid:
+                fills = [t for t in last_trades if str(t.get("order_id") or "") == oid]
+            elif fallback_since_ts is not None:
+                for t in last_trades:
+                    ts = _parse_trade_timestamp(t.get("timestamp"))
+                    if ts is not None and ts >= float(fallback_since_ts):
+                        fills.append(t)
+
+            if fills:
+                total_qty = sum(safe_float(t.get("size", 0.0), 0.0) for t in fills)
+                total_value = sum(
+                    safe_float(t.get("price", 0.0), 0.0) * safe_float(t.get("size", 0.0), 0.0)
+                    for t in fills
+                )
+                total_fee = sum(safe_float(t.get("fee", 0.0), 0.0) for t in fills)
+                avg_price = (total_value / total_qty) if total_qty > 0 else 0.0
+                return {"price": avg_price, "qty": total_qty, "fee": total_fee}
+        except Exception:
+            pass
+
+        if time.time() >= deadline:
+            break
+        await asyncio.sleep(0.3)
+
+    return {"price": 0.0, "qty": 0.0, "fee": 0.0}
+
+
+async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, float]:
+    """
+    Compute realized PnL (for DB/accounting) from best-available entry/exit data.
+    Returns a dict with breakdown fields (price_pnl, fees, funding, total).
+    """
+    symbol = trade.get("symbol")
+    notional = safe_float(trade.get("notional_usd") or trade.get("size_usd") or 0.0, 0.0)
+
+    entry_px_x10 = safe_float(trade.get("entry_price_x10") or 0.0, 0.0)
+    entry_px_lit = safe_float(trade.get("entry_price_lighter") or 0.0, 0.0)
+
+    # Prefer captured entry quantities, otherwise approximate from notional and entry price
+    entry_qty_x10 = safe_float(trade.get("entry_qty_x10") or 0.0, 0.0)
+    entry_qty_lit = safe_float(trade.get("entry_qty_lighter") or 0.0, 0.0)
+    if entry_qty_x10 <= 0 and entry_px_x10 > 0 and notional > 0:
+        entry_qty_x10 = notional / entry_px_x10
+    if entry_qty_lit <= 0 and entry_px_lit > 0 and notional > 0:
+        entry_qty_lit = notional / entry_px_lit
+
+    # Funding: we store profit-positive net funding in trade.funding_collected (best-effort)
+    funding_total = safe_float(trade.get("funding_collected") or 0.0, 0.0)
+
+    # Exit snapshots
+    x10_exit_px = 0.0
+    x10_exit_qty = 0.0
+    x10_exit_fee_usd = 0.0
+    if x10 and hasattr(x10, "get_last_close_price"):
+        try:
+            x10_exit_px, x10_exit_qty, x10_exit_fee_usd = x10.get_last_close_price(symbol)
+            x10_exit_px = safe_float(x10_exit_px, 0.0)
+            x10_exit_qty = safe_float(x10_exit_qty, 0.0)
+            x10_exit_fee_usd = safe_float(x10_exit_fee_usd, 0.0)
+        except Exception:
+            pass
+
+    # Lighter exit: prefer matching the close order id (set by trading.close_trade)
+    lighter_exit_oid = trade.get("lighter_exit_order_id")
+    entry_time_dt = parse_iso_time(trade.get("entry_time"))
+    since_ts = entry_time_dt.timestamp() if entry_time_dt else None
+    lit_stats = await _lighter_fill_stats_for_order(lighter, symbol, lighter_exit_oid, fallback_since_ts=since_ts)
+    lit_exit_px = safe_float(lit_stats.get("price"), 0.0)
+    lit_exit_qty = safe_float(lit_stats.get("qty"), 0.0)
+    lit_exit_fee_usd = safe_float(lit_stats.get("fee"), 0.0)
+
+    # Fallback prices if we couldn't find fills
+    if x10_exit_px <= 0:
+        try:
+            x10_exit_px = safe_float(x10.fetch_mark_price(symbol), 0.0)
+        except Exception:
+            x10_exit_px = 0.0
+    if lit_exit_px <= 0:
+        try:
+            lit_exit_px = safe_float(lighter.fetch_mark_price(symbol), 0.0)
+        except Exception:
+            lit_exit_px = 0.0
+
+    # Pick quantities for PnL calc: prefer exit qty (actual), else entry qty
+    qty_x10 = x10_exit_qty if x10_exit_qty > 0 else entry_qty_x10
+    qty_lit = lit_exit_qty if lit_exit_qty > 0 else entry_qty_lit
+
+    price_pnl_x10 = _leg_price_pnl(trade.get("side_x10"), entry_px_x10, x10_exit_px, qty_x10)
+    price_pnl_lit = _leg_price_pnl(trade.get("side_lighter"), entry_px_lit, lit_exit_px, qty_lit)
+    price_pnl_total = price_pnl_x10 + price_pnl_lit
+
+    # Fees: use actual close fee for X10 if available; otherwise estimate from fee rates.
+    fee_manager = get_fee_manager()
+
+    # Entry fee estimates (rate-based)
+    entry_fee_x10_rate = trade.get("entry_fee_x10")
+    entry_fee_lit_rate = trade.get("entry_fee_lighter")
+    try:
+        entry_fees = float(
+            fee_manager.calculate_trade_fees(
+                notional, "X10", "LIGHTER",
+                is_maker1=False, is_maker2=True,
+                actual_fee1=entry_fee_x10_rate,
+                actual_fee2=entry_fee_lit_rate,
+            )
+        )
+    except Exception:
+        entry_fees = 0.0
+
+    # Exit fees: prefer actual close fees if we have them, else rate-based estimate
+    exit_fee_x10_rate = trade.get("exit_fee_x10")
+    exit_fee_lit_rate = trade.get("exit_fee_lighter")
+    try:
+        exit_fees_est = float(
+            fee_manager.calculate_trade_fees(
+                notional, "X10", "LIGHTER",
+                is_maker1=False, is_maker2=False,
+                actual_fee1=exit_fee_x10_rate,
+                actual_fee2=exit_fee_lit_rate,
+            )
+        )
+    except Exception:
+        exit_fees_est = 0.0
+
+    # Combine using best available per-leg fees
+    exit_fees = x10_exit_fee_usd + lit_exit_fee_usd
+    if exit_fees <= 0:
+        exit_fees = exit_fees_est
+
+    fees_total = safe_float(entry_fees, 0.0) + safe_float(exit_fees, 0.0)
+
+    total_pnl = price_pnl_total - fees_total + funding_total
+
+    return {
+        "price_pnl_x10": price_pnl_x10,
+        "price_pnl_lighter": price_pnl_lit,
+        "price_pnl_total": price_pnl_total,
+        "fees_total": fees_total,
+        "funding_total": funding_total,
+        "total_pnl": total_pnl,
+        "exit_price_x10": x10_exit_px,
+        "exit_price_lighter": lit_exit_px,
+        "exit_qty_x10": qty_x10,
+        "exit_qty_lighter": qty_lit,
+        "exit_fee_x10": x10_exit_fee_usd,
+        "exit_fee_lighter": lit_exit_fee_usd,
+    }
 
 
 def should_farm_quick_exit(symbol: str, trade: Dict, current_spread: float, gross_pnl: float) -> tuple:
@@ -630,8 +828,10 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             
             # ═══════════════════════════════════════════════════════════════
             # Data sanitizing for all numeric fields
+            # FIX: Accept both 'notional_usd' and 'size_usd' field names
+            # DB uses 'size_usd', but some code paths use 'notional_usd'
             # ═══════════════════════════════════════════════════════════════
-            notional = t.get('notional_usd')
+            notional = t.get('notional_usd') or t.get('size_usd') or t.get('size_usd_decimal')
             notional = float(notional) if notional is not None else 0.0
 
             init_funding = t.get('initial_funding_rate_hourly')
@@ -698,27 +898,44 @@ async def manage_open_trades(lighter, x10, state_manager=None):
 
             rx = x10.fetch_funding_rate(sym) or 0.0
             rl = lighter.fetch_funding_rate(sym) or 0.0
-            
-            # Net calculation
-            base_net = rl - rx
-            current_net = -base_net if t.get('leg1_exchange') == 'X10' else base_net
 
-            # PnL calculation
+            # ═══════════════════════════════════════════════════════════════
+            # Strategy PnL ESTIMATE (for exit decisions only)
+            # - Funding: depends on which side we hold on each exchange (BUY=long, SELL=short)
+            # - Price/Basis: depends on long/short legs (NOT absolute spread!)
+            # ═══════════════════════════════════════════════════════════════
+            sx = _side_sign(t.get("side_x10"))
+            sl = _side_sign(t.get("side_lighter"))
+
+            # Funding per hour (profit-positive):
+            # funding_cashflow = -(sign * rate) * notional
+            if sx != 0 and sl != 0:
+                current_net = -((sx * rx) + (sl * rl))
+            else:
+                # Fallback for older records missing sides
+                base_net = rl - rx
+                current_net = -base_net if t.get('leg1_exchange') == 'X10' else base_net
             funding_pnl = current_net * hold_hours * notional
 
-            # Spread PnL
-            ep_x10 = float(t.get('entry_price_x10') or px) 
+            # Price/Basis PnL estimate (profit-positive)
+            ep_x10 = float(t.get('entry_price_x10') or px)
             ep_lit = float(t.get('entry_price_lighter') or pl)
-            
-            entry_spread = abs(ep_x10 - ep_lit)
-            curr_spread = abs(px - pl)
-            
-            if px > 0:
-                spread_pnl = (entry_spread - curr_spread) / px * notional
-                current_spread_pct = curr_spread / px
+            basis_entry = ep_lit - ep_x10
+            basis_curr = pl - px
+            qty_est = (notional / px) if px > 0 else 0.0
+
+            # Common hedge configurations:
+            # - long X10 / short Lighter => PnL ~= qty * (basis_entry - basis_curr)
+            # - short X10 / long Lighter => PnL ~= qty * (basis_curr - basis_entry)
+            if sx == 1 and sl == -1:
+                spread_pnl = qty_est * (basis_entry - basis_curr)
+            elif sx == -1 and sl == 1:
+                spread_pnl = qty_est * (basis_curr - basis_entry)
             else:
-                spread_pnl = 0.0
-                current_spread_pct = 0.0
+                # Best-effort fallback: assume long X10 / short Lighter shape
+                spread_pnl = qty_est * (basis_entry - basis_curr)
+
+            current_spread_pct = abs(basis_curr) / px if px > 0 else 0.0
 
             # Gross PnL (before fees)
             gross_pnl = funding_pnl + spread_pnl
@@ -848,18 +1065,48 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 )
                 
                 if await close_trade(t, lighter, x10):
-                    await close_trade_in_state(sym, pnl=total_pnl, funding=funding_pnl)
+                    # After close: compute REAL realized PnL from entry/exit fills.
+                    # This is what gets persisted to DB (accounting truth).
+                    try:
+                        # Best-effort: fetch exit fee rates (if order ids are available)
+                        if t.get("x10_exit_order_id") and hasattr(x10, "get_order_fee"):
+                            try:
+                                t["exit_fee_x10"] = safe_float(await x10.get_order_fee(str(t["x10_exit_order_id"])), 0.0)
+                            except Exception:
+                                pass
+                        if t.get("lighter_exit_order_id") and hasattr(lighter, "get_order_fee"):
+                            try:
+                                t["exit_fee_lighter"] = safe_float(await lighter.get_order_fee(str(t["lighter_exit_order_id"])), 0.0)
+                            except Exception:
+                                pass
+
+                        realized = await calculate_realized_close_pnl(t, lighter, x10)
+                    except Exception as e:
+                        logger.warning(f"{sym}: Realized PnL calc failed, using estimate. err={e}")
+                        realized = {
+                            "total_pnl": total_pnl,
+                            "funding_total": safe_float(t.get("funding_collected") or funding_pnl, 0.0),
+                            "price_pnl_total": spread_pnl,
+                            "fees_total": est_fees,
+                        }
+
+                    realized_total = safe_float(realized.get("total_pnl"), total_pnl)
+                    realized_funding = safe_float(realized.get("funding_total"), safe_float(t.get("funding_collected") or 0.0, 0.0))
+                    realized_price = safe_float(realized.get("price_pnl_total"), spread_pnl)
+                    realized_fees = safe_float(realized.get("fees_total"), est_fees)
+
+                    await close_trade_in_state(sym, pnl=realized_total, funding=realized_funding)
                     await archive_trade_to_history(t, reason, {
-                        'total_net_pnl': total_pnl, 
-                        'funding_pnl': funding_pnl,
-                        'spread_pnl': spread_pnl, 
-                        'fees': est_fees
+                        'total_net_pnl': realized_total,
+                        'funding_pnl': realized_funding,
+                        'spread_pnl': realized_price,
+                        'fees': realized_fees
                     })
                     
                     # Telegram notification
                     telegram = get_telegram_bot()
                     if telegram.enabled:
-                        await telegram.send_trade_alert(sym, reason, notional, total_pnl)
+                        await telegram.send_trade_alert(sym, reason, notional, realized_total)
 
         except Exception as e:
             logger.error(f"Trade Loop Error for {t.get('symbol', 'UNKNOWN')}: {e}")

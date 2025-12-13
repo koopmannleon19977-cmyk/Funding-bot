@@ -1014,6 +1014,95 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Failed to fetch trades for {symbol}: {e}")
             return []
 
+    async def fetch_account_pnl(self, symbol: str = None, since_timestamp: float = None) -> Optional[dict]:
+        """
+        Fetch realized PnL by getting recent trades for this account.
+        
+        Uses OrderApi.trades() with account_index to get actual fill prices.
+        This is the correct API for getting trade history with prices!
+        
+        Args:
+            symbol: Optional - filter by symbol
+            since_timestamp: Optional - only get trades since this time
+            
+        Returns:
+            Dict with 'close_price', 'realized_pnl' or None if failed
+        """
+        if not HAVE_LIGHTER_SDK or OrderApi is None:
+            logger.debug("Lighter SDK not available for trades fetch")
+            return None
+            
+        try:
+            signer = await self._get_signer()
+            order_api = OrderApi(signer.api_client)
+            
+            # Get account index
+            acc_idx = getattr(self, '_resolved_account_index', None)
+            if not acc_idx:
+                await self._resolve_account_index()
+                acc_idx = getattr(self, '_resolved_account_index', None)
+            
+            if not acc_idx:
+                logger.debug("No account index for trades fetch")
+                return None
+            
+            # Get market index for symbol
+            market_index = None
+            if symbol:
+                market_info = self.market_info.get(symbol, {})
+                market_index = market_info.get('i') or market_info.get('market_id')
+            
+            # Call trades() API with account_index to get MY trades
+            await self.rate_limiter.acquire()
+            response = await order_api.trades(
+                sort_by="timestamp",
+                limit=10,
+                account_index=int(acc_idx),
+                market_id=int(market_index) if market_index else 255,
+                sort_dir="desc"  # Most recent first
+            )
+            self.rate_limiter.on_success()
+            
+            # Parse response
+            if hasattr(response, 'trades') and response.trades:
+                trades = response.trades
+                logger.info(f"✅ Lighter Trades API: Found {len(trades)} trades for {symbol}")
+                
+                # Get the most recent trade (should be the close)
+                if trades:
+                    latest_trade = trades[0]
+                    
+                    # Extract price from trade
+                    close_price = 0.0
+                    if hasattr(latest_trade, 'price'):
+                        close_price = float(latest_trade.price)
+                    elif isinstance(latest_trade, dict):
+                        close_price = float(latest_trade.get('price', 0))
+                    
+                    # Extract realized PnL if available
+                    realized_pnl = 0.0
+                    if hasattr(latest_trade, 'closed_pnl'):
+                        realized_pnl = float(latest_trade.closed_pnl)
+                    elif hasattr(latest_trade, 'pnl'):
+                        realized_pnl = float(latest_trade.pnl)
+                    elif isinstance(latest_trade, dict):
+                        realized_pnl = float(latest_trade.get('closed_pnl', 0) or latest_trade.get('pnl', 0))
+                    
+                    logger.info(f"💰 Lighter Trade: price=${close_price:.6f}, pnl=${realized_pnl:.4f}")
+                    
+                    return {
+                        'close_price': close_price,
+                        'realized_pnl': realized_pnl,
+                        'source': 'lighter_trades_api'
+                    }
+            
+            logger.debug(f"Lighter trades response empty for {symbol}")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Lighter fetch_account_pnl failed: {e}")
+            return None
+
     async def load_markets(self):
         """Alias for load_market_cache - called by main()"""
         await self.load_market_cache(force=True)
@@ -2448,15 +2537,22 @@ class LighterAdapter(BaseAdapter):
                 realized_pnl = safe_float(getattr(p, "realized_pnl", None), 0.0)
                 avg_entry_price = safe_float(getattr(p, "avg_entry_price", None), 0.0)
                 position_value = safe_float(getattr(p, "position_value", None), 0.0)
-                total_funding_paid = safe_float(getattr(p, "total_funding_paid_out", None), 0.0)
+
+                # Lighter semantics (from Position.total_funding_paid_out):
+                # - positive => you PAID funding (cost)
+                # - negative => you RECEIVED funding (profit)
+                # We expose both the raw field and a normalized "funding_received" (profit-positive).
+                total_funding_paid_out = safe_float(getattr(p, "total_funding_paid_out", None), 0.0)
+                funding_received = -total_funding_paid_out
+
                 liquidation_price = safe_float(getattr(p, "liquidation_price", None), 0.0)
                 
                 # Log if we have real PnL data from Lighter
-                if unrealized_pnl != 0.0 or realized_pnl != 0.0:
+                if unrealized_pnl != 0.0 or realized_pnl != 0.0 or total_funding_paid_out != 0.0:
                     logger.debug(
                         f"📊 {symbol_raw} Lighter PnL: uPnL=${unrealized_pnl:.4f}, "
                         f"rPnL=${realized_pnl:.4f}, entry=${avg_entry_price:.6f}, "
-                        f"funding=${total_funding_paid:.4f}"
+                        f"funding_paid_out=${total_funding_paid_out:.4f}, funding_received=${funding_received:.4f}"
                     )
 
                 if abs(size) > 1e-8:
@@ -2507,7 +2603,10 @@ class LighterAdapter(BaseAdapter):
                         "realized_pnl": realized_pnl,
                         "avg_entry_price": avg_entry_price,
                         "position_value": position_value,
-                        "total_funding_paid": total_funding_paid,
+                        # Raw (API) + normalized funding fields
+                        "total_funding_paid_out": total_funding_paid_out,
+                        "total_funding_paid": total_funding_paid_out,  # backward-compat alias (do not use for math)
+                        "funding_received": funding_received,          # profit-positive
                         "liquidation_price": liquidation_price,
                     })
 

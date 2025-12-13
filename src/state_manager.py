@@ -63,6 +63,27 @@ class TradeState:
     account_label: str = "Main"
     x10_order_id: Optional[str] = None
     lighter_order_id: Optional[str] = None
+
+    # ═══════════════════════════════════════════════════════════════
+    # OPTIONAL EXECUTION / PNL SNAPSHOT FIELDS (in-memory only)
+    # These are NOT persisted in the trades table (safe defaults on reload).
+    # Fee fields are stored as *fee rate* (e.g. 0.000225), unless a caller
+    # explicitly uses them differently.
+    # ═══════════════════════════════════════════════════════════════
+    entry_qty_x10: float = 0.0
+    entry_qty_lighter: float = 0.0
+    entry_fee_x10: Optional[float] = None
+    entry_fee_lighter: Optional[float] = None
+
+    exit_qty_x10: float = 0.0
+    exit_qty_lighter: float = 0.0
+    exit_price_x10: float = 0.0
+    exit_price_lighter: float = 0.0
+    exit_fee_x10: Optional[float] = None
+    exit_fee_lighter: Optional[float] = None
+
+    x10_exit_order_id: Optional[str] = None
+    lighter_exit_order_id: Optional[str] = None
     db_id: Optional[int] = None  # Database row ID
     
     # ═══════════════════════════════════════════════════════════════

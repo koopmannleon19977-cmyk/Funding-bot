@@ -81,6 +81,18 @@ class X10Adapter(BaseAdapter):
         # ═══════════════════════════════════════════════════════════════
         self._fill_tracking: Dict[str, dict] = {}  # symbol -> {total_qty, total_value, fills}
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Store recent close fills for PnL calculation
+        # These are preserved even after position is closed
+        # ═══════════════════════════════════════════════════════════════
+        self._recent_close_fills: Dict[str, list] = {}  # symbol -> list of close fills
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Track the most recent reduce_only CLOSE order id per symbol
+        # so we can attribute close fills correctly (avoid mixing entry+exit)
+        # ═══════════════════════════════════════════════════════════════
+        self._closing_order_ids: Dict[str, str] = {}  # symbol -> order_id (string)
+        
         # Event callbacks for external subscribers
         self._order_callbacks: List[Callable] = []
         self._position_callbacks: List[Callable] = []
@@ -772,7 +784,15 @@ class X10Adapter(BaseAdapter):
                 symbol = getattr(p, 'market', 'UNKNOWN')
 
                 if status == "OPENED" and abs(size) > 1e-8:
-                    entry_price = float(p.open_price) if hasattr(p, 'open_price') and p.open_price else 0.0
+                    # Some SDK versions use open_price, others use openPrice (camelCase).
+                    # Prefer whichever is present to avoid missing entry price during shutdown PnL.
+                    try:
+                        raw_open = getattr(p, 'open_price', None)
+                        if raw_open is None:
+                            raw_open = getattr(p, 'openPrice', None)
+                        entry_price = float(raw_open) if raw_open else 0.0
+                    except Exception:
+                        entry_price = 0.0
                     positions.append({
                         "symbol": symbol,
                         "size": size,
@@ -1257,6 +1277,15 @@ class X10Adapter(BaseAdapter):
                         continue
                     return False, None
 
+                # Track the close order id so TRADE fills can be attributed correctly
+                # (used by get_last_close_price / shutdown PnL reconciliation).
+                if order_id:
+                    try:
+                        self._closing_order_ids[symbol] = str(order_id)
+                        logger.debug(f"[X10] Marked close order for {symbol}: order_id={order_id}")
+                    except Exception:
+                        pass
+
                 await asyncio.sleep(2 + attempt)
                 updated_positions = await self.fetch_open_positions()
                 still_open = any(
@@ -1717,10 +1746,14 @@ class X10Adapter(BaseAdapter):
                         track = self._fill_tracking[symbol]
                         
                         # Add this fill to tracking
+                        # FIX: Also store fee for PnL calculation
+                        fill_fee = safe_float(data.get("fee") or data.get("feeAmount") or 0)
                         fill_data = {
+                            "order_id": str(order_id),
                             "price": fill_price,
                             "qty": fill_qty,
                             "side": side,
+                            "fee": fill_fee,
                             "timestamp": time.time()
                         }
                         track["fills"].append(fill_data)
@@ -1772,9 +1805,44 @@ class X10Adapter(BaseAdapter):
                                 self._positions_cache.append(position_data)
                                 logger.debug(f"[X10] Created entry price from TRADE for {symbol}: ${calculated_entry_price:.6f}")
                         else:
-                            # Position closed - remove from tracking
+                            # Position closed - save close fills BEFORE removing from tracking
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX: Store close fills for PnL calculation
+                            # These contain the actual close price and fees
+                            # ═══════════════════════════════════════════════════════════════
                             if symbol in self._fill_tracking:
+                                all_fills = self._fill_tracking[symbol].get("fills", []) or []
+                                closing_oid = None
+                                try:
+                                    closing_oid = self._closing_order_ids.get(symbol)
+                                except Exception:
+                                    closing_oid = None
+
+                                # Prefer fills from the known reduce_only close order id.
+                                close_fills = []
+                                if closing_oid:
+                                    close_fills = [f for f in all_fills if str(f.get("order_id")) == str(closing_oid)]
+
+                                # Fallback: use the last fill only (avoid mixing entry + close).
+                                if not close_fills and all_fills:
+                                    close_fills = all_fills[-1:]
+
+                                if close_fills:
+                                    # Store the last 5 fills (partial close safety)
+                                    self._recent_close_fills[symbol] = close_fills[-5:]
+                                    total_fee = sum(float(f.get("fee", 0) or 0) for f in close_fills[-5:])
+                                    total_qty = sum(float(f.get("qty", 0) or 0) for f in close_fills[-5:])
+                                    logger.debug(
+                                        f"[X10] Saved {len(close_fills[-5:])} close fills for {symbol}: "
+                                        f"qty={total_qty:.4f}, fee=${total_fee:.4f}, order_id={closing_oid}"
+                                    )
+
+                                # Cleanup tracking for next position cycle
                                 del self._fill_tracking[symbol]
+                                try:
+                                    self._closing_order_ids.pop(symbol, None)
+                                except Exception:
+                                    pass
                             # Remove from cache
                             if hasattr(self, '_positions_cache'):
                                 self._positions_cache = [
@@ -1866,6 +1934,38 @@ class X10Adapter(BaseAdapter):
     def register_fill_callback(self, callback: Callable):
         """Register callback to be notified of fills."""
         self._fill_callbacks.append(callback)
+
+    def get_recent_close_fills(self, symbol: str) -> list:
+        """
+        Get the recent close fills for a symbol.
+        
+        Used for PnL calculation after a position is closed.
+        Returns list of fills with price, qty, side, and timestamp.
+        
+        Returns:
+            List of fill dicts, or empty list if no fills found
+        """
+        return self._recent_close_fills.get(symbol, [])
+
+    def get_last_close_price(self, symbol: str) -> tuple:
+        """
+        Get the last close price and fee for a symbol.
+        
+        Returns:
+            Tuple of (price, qty, total_fee) or (0, 0, 0) if not found
+        """
+        fills = self._recent_close_fills.get(symbol, [])
+        if not fills:
+            return (0.0, 0.0, 0.0)
+        
+        # Calculate weighted average close price and total fee
+        total_qty = sum(f.get("qty", 0) for f in fills)
+        total_value = sum(f.get("price", 0) * f.get("qty", 0) for f in fills)
+        total_fee = sum(f.get("fee", 0) for f in fills)
+        
+        avg_price = total_value / total_qty if total_qty > 0 else 0.0
+        
+        return (avg_price, total_qty, total_fee)
 
     async def aclose(self):
         """Cleanup all resources including SDK clients"""

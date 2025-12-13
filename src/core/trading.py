@@ -388,6 +388,76 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     logger.info(f"   Entry X10: ${entry_price_x10:.6f}")
                     logger.info(f"   Entry Lighter: ${entry_price_lighter:.6f}")
                     logger.info(f"   APY: {apy_value:.2f}%")
+
+                    # ═══════════════════════════════════════════════════════════════
+                    # PNL DATA ENRICHMENT (best-effort):
+                    # Capture actual entry quantities/prices + actual fee rates for both legs.
+                    # This makes realized PnL calculation possible later without relying on
+                    # spread-only heuristics.
+                    # ═══════════════════════════════════════════════════════════════
+                    try:
+                        from src.state_manager import get_state_manager
+                        sm = await get_state_manager()
+
+                        # Fetch fee rates for entry orders (if possible)
+                        fee_tasks = []
+                        fee_tasks.append(x10.get_order_fee(str(x10_id)) if x10_id else asyncio.sleep(0, result=None))
+                        fee_tasks.append(lighter.get_order_fee(str(lit_id)) if lit_id else asyncio.sleep(0, result=None))
+                        fee_x10_rate, fee_lit_rate = await asyncio.gather(*fee_tasks, return_exceptions=True)
+
+                        if isinstance(fee_x10_rate, Exception):
+                            fee_x10_rate = None
+                        if isinstance(fee_lit_rate, Exception):
+                            fee_lit_rate = None
+
+                        # Fetch actual entry snapshot from open positions (retry a bit: exchanges can lag)
+                        entry_updates = {}
+                        for _ in range(6):
+                            try:
+                                px_pos, lit_pos = await asyncio.gather(
+                                    x10.fetch_open_positions(),
+                                    lighter.fetch_open_positions(),
+                                    return_exceptions=True
+                                )
+                                px_pos = [] if isinstance(px_pos, Exception) else (px_pos or [])
+                                lit_pos = [] if isinstance(lit_pos, Exception) else (lit_pos or [])
+
+                                x10_p = next((p for p in px_pos if p.get("symbol") == symbol), None)
+                                l_p = next((p for p in lit_pos if p.get("symbol") == symbol), None)
+
+                                if x10_p:
+                                    x_size = safe_float(x10_p.get("size", 0.0))
+                                    x_entry = safe_float(x10_p.get("entry_price", 0.0))
+                                    if abs(x_size) > 1e-10:
+                                        entry_updates["entry_qty_x10"] = abs(x_size)
+                                    if x_entry > 0:
+                                        entry_updates["entry_price_x10"] = x_entry
+
+                                if l_p:
+                                    l_size = safe_float(l_p.get("size", 0.0))
+                                    l_entry = safe_float(l_p.get("avg_entry_price", 0.0))
+                                    if abs(l_size) > 1e-10:
+                                        entry_updates["entry_qty_lighter"] = abs(l_size)
+                                    if l_entry > 0:
+                                        entry_updates["entry_price_lighter"] = l_entry
+
+                                # stop early if we have both legs
+                                if ("entry_qty_x10" in entry_updates and "entry_qty_lighter" in entry_updates):
+                                    break
+                            except Exception:
+                                pass
+                            await asyncio.sleep(0.4)
+
+                        if fee_x10_rate is not None:
+                            entry_updates["entry_fee_x10"] = safe_float(fee_x10_rate, 0.0)
+                        if fee_lit_rate is not None:
+                            entry_updates["entry_fee_lighter"] = safe_float(fee_lit_rate, 0.0)
+
+                        if entry_updates:
+                            await sm.update_trade(symbol, entry_updates)
+                            logger.debug(f"📌 {symbol}: Stored entry snapshot for PnL ({entry_updates})")
+                    except Exception as enrich_err:
+                        logger.debug(f"{symbol}: Entry PnL enrichment skipped: {enrich_err}")
                 except Exception as db_error:
                     # CRITICAL: Trade is open on exchanges but not in DB!
                     logger.error(f"❌ Failed to record trade {symbol}: {db_error}")
@@ -441,7 +511,8 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
     _, _, close_trade_in_state, _, _ = _get_state_functions()
     
     symbol = trade['symbol']
-    notional_usd = safe_float(trade.get('notional_usd', 0))
+    # FIX: Accept both 'notional_usd' and 'size_usd' field names
+    notional_usd = safe_float(trade.get('notional_usd') or trade.get('size_usd') or 0)
     
     logger.info(f"═══════════════════════════════════════════════════════════")
     logger.info(f"🔻 CLOSING TRADE: {symbol}")
@@ -477,6 +548,11 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
                     
                     if lighter_success:
                         logger.info(f"✅ [LEG 1] Lighter {symbol} closed: {lighter_exit_order_id}")
+                        # Expose exit order id to caller for PnL reconciliation
+                        try:
+                            trade["lighter_exit_order_id"] = lighter_exit_order_id
+                        except Exception:
+                            pass
                     else:
                         logger.error(f"❌ [LEG 1] Lighter {symbol} close returned False")
                 except TypeError as type_err:
@@ -527,6 +603,11 @@ async def close_trade(trade: Dict, lighter, x10) -> bool:
         x10_success = x10_exit_order_id is not None
         if x10_success:
             logger.info(f"✅ [LEG 2] X10 {symbol} closed: {x10_exit_order_id}")
+            # Expose exit order id to caller for PnL reconciliation
+            try:
+                trade["x10_exit_order_id"] = x10_exit_order_id
+            except Exception:
+                pass
         else:
             logger.error(f"❌ [LEG 2] X10 {symbol} close returned None")
     except Exception as e:

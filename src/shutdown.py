@@ -296,7 +296,11 @@ class ShutdownOrchestrator:
             if exchange_name == "lighter" and symbol not in self._position_pnl_data:
                 unrealized_pnl = self._safe_float(pos.get("unrealized_pnl", 0))
                 realized_pnl = self._safe_float(pos.get("realized_pnl", 0))
-                total_funding = self._safe_float(pos.get("total_funding_paid", 0))
+                # Funding: profit-positive (received > 0)
+                total_funding = self._safe_float(pos.get("funding_received", 0))
+                if total_funding == 0:
+                    # Fallback: invert paid_out (paid_out > 0 is cost)
+                    total_funding = -self._safe_float(pos.get("total_funding_paid_out", 0))
                 avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
                 
                 self._position_pnl_data[symbol] = {
@@ -304,7 +308,9 @@ class ShutdownOrchestrator:
                     "realized_pnl": realized_pnl,
                     "total_pnl": unrealized_pnl + realized_pnl,
                     "total_funding": total_funding,
-                    "avg_entry_price": avg_entry
+                    "avg_entry_price": avg_entry,
+                    # Keep a snapshot of the lighter position size if provided
+                    "lighter_size": self._safe_float(pos.get("size", 0)),
                 }
                 
                 if unrealized_pnl != 0 or realized_pnl != 0:
@@ -312,6 +318,14 @@ class ShutdownOrchestrator:
                         f"📊 {symbol} Final Sweep PnL: uPnL=${unrealized_pnl:.4f}, "
                         f"rPnL=${realized_pnl:.4f}, funding=${total_funding:.4f}"
                     )
+            # Also capture X10 entry snapshot (needed to compute combined hedge PnL)
+            if exchange_name == "x10":
+                data = self._position_pnl_data.get(symbol, {})
+                if "x10_entry_price" not in data:
+                    data = {**data}
+                    data["x10_entry_price"] = self._safe_float(pos.get("entry_price", 0))
+                    data["x10_size"] = self._safe_float(pos.get("size", 0))
+                    self._position_pnl_data[symbol] = data
             
             try:
                 # original_side is the side of the POSITION (BUY for long, SELL for short)
@@ -464,6 +478,17 @@ class ShutdownOrchestrator:
                 if symbol in self._closed_positions["x10"]:
                     logger.debug(f"⏭️ X10 {symbol} already closed this cycle, skipping")
                     continue
+
+                # Capture X10 entry snapshot for later combined hedge PnL accounting
+                try:
+                    data = self._position_pnl_data.get(symbol, {})
+                    if "x10_entry_price" not in data:
+                        data = {**data}
+                        data["x10_entry_price"] = self._safe_float(pos.get("entry_price", 0))
+                        data["x10_size"] = self._safe_float(pos.get("size", 0))
+                        self._position_pnl_data[symbol] = data
+                except Exception:
+                    pass
                 
                 try:
                     logger.info(f"🛑 Closing X10 {symbol} ({side} {abs(size)})")
@@ -494,7 +519,10 @@ class ShutdownOrchestrator:
                 # ═══════════════════════════════════════════════════════════════
                 unrealized_pnl = self._safe_float(pos.get("unrealized_pnl", 0))
                 realized_pnl = self._safe_float(pos.get("realized_pnl", 0))
-                total_funding = self._safe_float(pos.get("total_funding_paid", 0))
+                # Funding: profit-positive (received > 0)
+                total_funding = self._safe_float(pos.get("funding_received", 0))
+                if total_funding == 0:
+                    total_funding = -self._safe_float(pos.get("total_funding_paid_out", 0))
                 avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
                 
                 # Store PnL data for this symbol (will be used in _persist_state)
@@ -503,7 +531,8 @@ class ShutdownOrchestrator:
                     "realized_pnl": realized_pnl,
                     "total_pnl": unrealized_pnl + realized_pnl,  # Combined PnL
                     "total_funding": total_funding,
-                    "avg_entry_price": avg_entry
+                    "avg_entry_price": avg_entry,
+                    "lighter_size": self._safe_float(pos.get("size", 0)),
                 }
                 
                 if unrealized_pnl != 0 or realized_pnl != 0:
@@ -660,76 +689,177 @@ class ShutdownOrchestrator:
                 logger.info(f"✅ Lighter {symbol} closed and tracked")
                 
                 # ═══════════════════════════════════════════════════════════════
-                # PNL FIX: Fetch ACTUAL realized PnL AFTER the close
-                # Wait briefly for the exchange to process, then get trade history
+                # PNL FIX: Try Lighter API first (Grok's suggestion), then X10 proxy
+                # Priority:
+                # 1. Lighter AccountApi.get_account_pnl() - direct API (if it works)
+                # 2. X10 fill price as proxy (reliable fallback)
+                # 3. Orderbook mid-price (last resort)
                 # ═══════════════════════════════════════════════════════════════
                 try:
-                    await asyncio.sleep(0.5)  # Wait for exchange to settle
+                    await asyncio.sleep(0.5)  # Wait for fills to settle
                     
-                    # Fetch recent trades for this symbol (force=True bypasses shutdown check)
-                    if hasattr(lighter, 'fetch_my_trades'):
-                        trades = await lighter.fetch_my_trades(symbol, limit=50, force=True)
+                    pre_close_data = self._position_pnl_data.get(symbol, {})
+                    entry_price = pre_close_data.get("avg_entry_price", 0.0)
+                    position_size = abs(size)
+                    
+                    closed_pnl = None
+                    pnl_source = "unknown"
+                    close_price = 0.0
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # PRIORITY 1: Try Lighter accountTrades for the REAL close fill price
+                    #
+                    # IMPORTANT:
+                    # - fetch_account_pnl() (OrderApi.trades) can fail with "account not found"
+                    # - accountTrades can be eventually-consistent; retry briefly
+                    # - we only need the CLOSE price; realized_pnl can be derived from entry/close
+                    # ═══════════════════════════════════════════════════════════════
+                    if hasattr(lighter, "fetch_my_trades"):
+                        try:
+                            desired_side = str(close_side or "").upper()
+                            now_ts = time.time()
+                            entry_time = pre_close_data.get("entry_time") or (now_ts - 600)
+                            try:
+                                entry_time = float(entry_time)
+                            except Exception:
+                                entry_time = now_ts - 600
+
+                            def _ts_to_sec(v) -> Optional[float]:
+                                """Best-effort timestamp normalizer for accountTrades."""
+                                if v is None:
+                                    return None
+                                # Numeric unix timestamps (seconds or ms)
+                                if isinstance(v, (int, float)):
+                                    vv = float(v)
+                                    if vv > 1e12:  # ms
+                                        return vv / 1000.0
+                                    if vv > 1e10:  # ms-ish
+                                        return vv / 1000.0
+                                    return vv
+                                # ISO strings
+                                try:
+                                    s = str(v).strip()
+                                    if not s:
+                                        return None
+                                    # Lighter sometimes returns ms epoch as string
+                                    if s.isdigit():
+                                        vv = float(s)
+                                        return vv / 1000.0 if vv > 1e12 else vv
+                                    if s.endswith("Z"):
+                                        s = s.replace("Z", "+00:00")
+                                    return __import__("datetime").datetime.fromisoformat(s).timestamp()
+                                except Exception:
+                                    return None
+
+                            # Retry: trades may appear a bit after the close completes
+                            for _ in range(10):
+                                trades = await lighter.fetch_my_trades(symbol, limit=50, force=True)
+                                parsed = []
+                                for t in (trades or []):
+                                    try:
+                                        p = float(t.get("price") or 0)
+                                        if p <= 0:
+                                            continue
+                                        ts = _ts_to_sec(t.get("timestamp"))
+                                        if ts is None:
+                                            continue
+                                        s = str(t.get("side") or "").upper()
+                                        parsed.append((ts, s, p))
+                                    except Exception:
+                                        continue
+
+                                # Most recent first
+                                parsed.sort(key=lambda x: x[0], reverse=True)
+
+                                # Prefer a trade on the desired side close to this position lifecycle.
+                                # We allow some slack because we might not have an exact entry_time.
+                                for ts, s, p in parsed:
+                                    if desired_side and s != desired_side:
+                                        continue
+                                    if ts < (entry_time - 60):
+                                        continue
+                                    close_price = p
+                                    pnl_source = "lighter_accountTrades"
+                                    break
+
+                                if close_price > 0:
+                                    logger.info(f"✅ {symbol} Using Lighter accountTrades close price: ${close_price:.6f}")
+                                    break
+
+                                await asyncio.sleep(0.75)
+                        except Exception as api_err:
+                            logger.debug(f"Lighter accountTrades close-price fetch failed: {api_err}")
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # PRIORITY 2: X10 fill price as close price proxy (reliable)
+                    # ═══════════════════════════════════════════════════════════════
+                    if closed_pnl is None:
+                        x10 = self._components.get("x10")
+                        if x10 and hasattr(x10, 'get_last_close_price'):
+                            x10_price, x10_qty, x10_fee = x10.get_last_close_price(symbol)
+                            if x10_price > 0:
+                                close_price = x10_price
+                                pnl_source = "x10_fill_proxy"
+                                logger.debug(f"[PNL] {symbol}: Using X10 fill price ${x10_price:.6f}")
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # PRIORITY 3: Orderbook mid-price (last resort)
+                    # ═══════════════════════════════════════════════════════════════
+                    if closed_pnl is None and close_price == 0.0:
+                        if hasattr(lighter, '_rest_get'):
+                            try:
+                                market = lighter.market_info.get(symbol, {})
+                                market_index = market.get('i') or market.get('market_id')
+                                if market_index:
+                                    resp = await lighter._rest_get(
+                                        "/api/v1/orderBookDetails", 
+                                        params={"market_index": int(market_index)},
+                                        force=True
+                                    )
+                                    if resp:
+                                        best_bid = float(resp.get('best_bid_price', 0) or 0)
+                                        best_ask = float(resp.get('best_ask_price', 0) or 0)
+                                        if best_bid > 0 and best_ask > 0:
+                                            close_price = (best_bid + best_ask) / 2
+                                            pnl_source = "orderbook_mid"
+                            except Exception:
+                                pass
                         
-                        if trades:
-                            # Get the pre-close PnL data we captured (for entry price)
-                            pre_close_data = self._position_pnl_data.get(symbol, {})
-                            entry_price = pre_close_data.get("avg_entry_price", 0.0)
-                            expected_size = abs(size)  # The size we're trying to close
-                            
-                            # Calculate closed PnL from the close trades
-                            # For a SHORT position: PnL = (entry_price - exit_price) * size
-                            # The close trades are BUY trades for a SHORT position
-                            closed_pnl = 0.0
-                            total_closed_size = 0.0
-                            
-                            # Trades come sorted by timestamp (newest first typically)
-                            # Take trades until we reach the expected close size
-                            for trade in trades:
-                                trade_side = trade.get("side", "")
-                                trade_price = trade.get("price", 0.0)
-                                trade_size = trade.get("size", 0.0)
-                                
-                                # Close trades for a SHORT are BUYs
-                                # Close trades for a LONG are SELLs
-                                # close_side tells us what side we used to close
-                                if trade_side.upper() == close_side.upper() and trade_size > 0:
-                                    if entry_price > 0 and trade_price > 0:
-                                        # For SHORT (close_side=BUY): 
-                                        # PnL = (entry - exit) * size (positive if price went down)
-                                        # For LONG (close_side=SELL):
-                                        # PnL = (exit - entry) * size (positive if price went up)
-                                        if close_side.upper() == "BUY":  # Closing a SHORT
-                                            trade_pnl = (entry_price - trade_price) * trade_size
-                                        else:  # close_side == SELL, closing a LONG
-                                            trade_pnl = (trade_price - entry_price) * trade_size
-                                        
-                                        closed_pnl += trade_pnl
-                                        total_closed_size += trade_size
-                                        
-                                        # Stop once we've accounted for the full position size
-                                        # (with some tolerance for rounding)
-                                        if total_closed_size >= expected_size * 0.95:
-                                            break
-                            
-                            # Update the PnL data with the ACTUAL closed PnL
-                            if total_closed_size > 0 and abs(closed_pnl) > 0.00001:
-                                old_pnl = pre_close_data.get("total_pnl", 0.0)
-                                self._position_pnl_data[symbol] = {
-                                    **pre_close_data,
-                                    "total_pnl": closed_pnl,
-                                    "unrealized_pnl": 0.0,  # Now realized
-                                    "realized_pnl": closed_pnl,
-                                    "closed_size": total_closed_size,
-                                    "source": "trade_history"
-                                }
-                                logger.info(
-                                    f"💰 {symbol} ACTUAL Closed PnL: ${closed_pnl:.4f} "
-                                    f"(was pre-close estimate: ${old_pnl:.4f}, "
-                                    f"entry=${entry_price:.6f}, closed={total_closed_size:.4f} coins)"
-                                )
+                        # Ultimate fallback
+                        if close_price == 0.0:
+                            try:
+                                close_price = float(lighter.get_price(symbol) or price or 0)
+                                pnl_source = "cached_price"
+                            except Exception:
+                                close_price = 0.0
+                    
+                    # Calculate PnL if not from direct API
+                    if closed_pnl is None and entry_price > 0 and close_price > 0 and position_size > 0:
+                        if close_side.upper() == "BUY":  # Closing a SHORT
+                            closed_pnl = (entry_price - close_price) * position_size
+                        else:  # Closing a LONG
+                            closed_pnl = (close_price - entry_price) * position_size
+                    
+                    # Store result
+                    if closed_pnl is not None:
+                        self._position_pnl_data[symbol] = {
+                            **pre_close_data,
+                            "total_pnl": closed_pnl,
+                            "unrealized_pnl": 0.0,
+                            "realized_pnl": closed_pnl,
+                            "closed_size": position_size,
+                            "entry_price": entry_price,
+                            "close_price": close_price,
+                            "source": pnl_source
+                        }
+                        logger.info(
+                            f"💰 {symbol} Lighter Closed PnL: ${closed_pnl:.4f} "
+                            f"(entry=${entry_price:.6f}, close=${close_price:.6f}, "
+                            f"size={position_size:.4f}, source={pnl_source})"
+                        )
                             
                 except Exception as pnl_err:
-                    logger.debug(f"⚠️ {symbol} Could not fetch post-close PnL: {pnl_err}")
+                    logger.debug(f"⚠️ {symbol} Could not calculate post-close PnL: {pnl_err}")
             
             return success, order_id
             
@@ -779,14 +909,55 @@ class ShutdownOrchestrator:
                     # The _position_pnl_data dict was populated in _close_and_verify_positions
                     # ═══════════════════════════════════════════════════════════════
                     pnl_data = self._position_pnl_data.get(symbol, {})
-                    total_pnl = pnl_data.get("total_pnl", 0.0)  # unrealized_pnl + realized_pnl
-                    total_funding = pnl_data.get("total_funding", 0.0)
+                    # Lighter leg (already computed during close flow)
+                    lighter_pnl = pnl_data.get("total_pnl", 0.0)
+                    total_funding = pnl_data.get("total_funding", 0.0)  # profit-positive funding_received
+
+                    # X10 leg: compute price PnL from entry snapshot + close fill proxy
+                    x10_price_pnl = 0.0
+                    x10_entry_fee_est = 0.0
+                    x10_fee_close = 0.0
                     
-                    # Log the actual PnL being recorded
+                    # ═══════════════════════════════════════════════════════════════
+                    # X10: Use close fill price/fee and stored entry snapshot
+                    # ═══════════════════════════════════════════════════════════════
+                    x10 = self._components.get("x10")
+                    if x10 and hasattr(x10, 'get_last_close_price'):
+                        try:
+                            x10_close_price, x10_close_qty, x10_fee_close = x10.get_last_close_price(symbol)
+                            x10_close_price = float(x10_close_price or 0.0)
+                            x10_close_qty = float(x10_close_qty or 0.0)
+                            x10_fee_close = float(x10_fee_close or 0.0)
+
+                            x10_entry_price = float(pnl_data.get("x10_entry_price", 0.0) or 0.0)
+                            x10_size = float(pnl_data.get("x10_size", 0.0) or 0.0)
+                            qty = abs(x10_size) if abs(x10_size) > 0 else x10_close_qty
+
+                            if x10_entry_price > 0 and x10_close_price > 0 and qty > 0:
+                                if x10_size >= 0:  # LONG
+                                    x10_price_pnl = (x10_close_price - x10_entry_price) * qty
+                                else:  # SHORT
+                                    x10_price_pnl = (x10_entry_price - x10_close_price) * qty
+
+                                # Estimate entry fee (close fee is from fills)
+                                try:
+                                    import config as _cfg
+                                    fee_rate = float(getattr(_cfg, "TAKER_FEE_X10", 0.000225))
+                                    x10_entry_fee_est = (qty * x10_entry_price) * fee_rate
+                                except Exception:
+                                    x10_entry_fee_est = 0.0
+                        except Exception:
+                            pass
+                    
+                    total_pnl = float(lighter_pnl) + float(x10_price_pnl) - float(x10_entry_fee_est) - float(x10_fee_close)
+
+                    # Log the actual PnL being recorded (combined hedge)
                     if total_pnl != 0.0 or total_funding != 0.0:
                         logger.info(
                             f"💰 Shutdown PnL for {symbol}: "
-                            f"PnL=${total_pnl:.4f}, Funding=${total_funding:.4f}"
+                            f"PnL=${total_pnl:.4f}, Funding=${total_funding:.4f} "
+                            f"(lighter_pnl=${float(lighter_pnl):.4f}, x10_pnl=${float(x10_price_pnl):.4f}, "
+                            f"x10_entry_fee≈${float(x10_entry_fee_est):.4f}, x10_close_fee=${float(x10_fee_close):.4f})"
                         )
                     
                     await state_manager.close_trade(symbol, pnl=total_pnl, funding=total_funding)

@@ -695,6 +695,39 @@ class TradeRepository:
         )
         return result['total'] if result else 0.0
 
+    async def save_pnl_snapshot(
+        self,
+        total_pnl: float,
+        unrealized_pnl: float,
+        realized_pnl: float,
+        funding_pnl: float,
+        trade_count: int
+    ):
+        """
+        Save a PnL snapshot for historical tracking.
+        Called periodically to track PnL over time.
+        """
+        sql = """
+            INSERT INTO pnl_snapshots 
+            (timestamp, total_pnl, unrealized_pnl, realized_pnl, funding_pnl, trade_count)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """
+        await self.db.execute(
+            sql,
+            (int(time.time() * 1000), total_pnl, unrealized_pnl, realized_pnl, funding_pnl, trade_count)
+        )
+        logger.debug(f"📸 PnL Snapshot saved: total=${total_pnl:.4f}, uPnL=${unrealized_pnl:.4f}, rPnL=${realized_pnl:.4f}")
+
+    async def get_pnl_snapshots(self, hours: int = 24) -> List[Dict[str, Any]]:
+        """Get PnL snapshots for the last N hours"""
+        cutoff = int(time.time() * 1000) - (hours * 3600 * 1000)
+        sql = """
+            SELECT * FROM pnl_snapshots
+            WHERE timestamp > ?
+            ORDER BY timestamp DESC
+        """
+        return await self.db.fetch_all(sql, (cutoff,))
+
     async def delete_ghost_trades(self, valid_symbols: List[str]):
         """Remove trades that don't exist on exchanges"""
         if not valid_symbols:

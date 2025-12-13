@@ -92,7 +92,7 @@ class FundingTracker:
                 await asyncio.sleep(60)  # Wait 1 minute before retry
 
     async def update_all_trades(self):
-        """Update funding collected for all open trades"""
+        """Update funding collected for all open trades and save PnL snapshot"""
         start_time = time.time()
         
         try:
@@ -101,6 +101,8 @@ class FundingTracker:
             
             if not open_trades:
                 logger.debug("📊 No open trades to track")
+                # Still save a snapshot even with no open trades
+                await self._save_pnl_snapshot(0, 0.0, 0.0, 0.0)
                 return
             
             logger.info(f"📊 Updating funding for {len(open_trades)} open trades...")
@@ -157,6 +159,14 @@ class FundingTracker:
                     f"in {elapsed:.1f}s"
                 )
             
+            # Save PnL snapshot for historical tracking
+            await self._save_pnl_snapshot(
+                len(open_trades),
+                0.0,  # TODO: Calculate unrealized PnL from positions
+                0.0,  # TODO: Get realized PnL from closed trades
+                total_collected
+            )
+            
         except Exception as e:
             logger.error(f"❌ Error in update_all_trades: {e}", exc_info=True)
             self._stats["errors"] += 1
@@ -178,8 +188,15 @@ class FundingTracker:
         lighter_funding = 0.0
         
         # ═══════════════════════════════════════════════════════════════════════
-        # X10: Use get_positions_history() with realised_pnl_breakdown
+        # X10: Funding attribution (best-effort)
         # ═══════════════════════════════════════════════════════════════════════
+        # NOTE:
+        # - X10Adapter.fetch_open_positions currently normalizes only {symbol,size,entry_price}.
+        # - Older logic mistakenly tried to treat realised_pnl as "funding", which is incorrect.
+        # - Until we wire a dedicated X10 funding-payments endpoint, we track X10 funding as 0.
+        #
+        # This keeps funding_collected consistent (won't drift with unrelated realized PnL),
+        # and we still get the Lighter leg funding correctly (which is what the bot relies on most).
         try:
             positions = await self.x10.fetch_open_positions()
             x10_position = next(
@@ -188,24 +205,20 @@ class FundingTracker:
             )
             
             if x10_position:
-                # realised_pnl includes funding fees paid out
-                # NOTE: This is CUMULATIVE for the position lifetime usually
-                x10_funding = float(x10_position.get('realised_pnl', 0))
-                # logger.debug(f"🔍 X10 {symbol}: realised_pnl=${x10_funding:.4f}")
+                # Placeholder (unknown without dedicated endpoint)
+                x10_funding = 0.0
             
         except Exception as e:
             logger.warning(f"⚠️ X10 funding fetch error for {symbol}: {e}")
         
         # ═══════════════════════════════════════════════════════════════════════
-        # Lighter: Use position_funding from Position object
+        # Lighter: Use funding fields from Position object
         # ═══════════════════════════════════════════════════════════════════════
-        # WICHTIG: Lighter's `total_funding_paid_out` Semantik:
-        # - POSITIV = Du hast Funding BEZAHLT (an Gegenseite)
-        # - NEGATIV = Du hast Funding ERHALTEN (von Gegenseite)
-        #
-        # Für Net Funding Berechnung:
-        # - received = -total_funding_paid_out  (Invertieren!)
-        # - Wenn total_funding_paid_out = -5.0, dann received = +5.0 (Profit!)
+        # Semantik:
+        # - total_funding_paid_out > 0  => du hast Funding bezahlt (Cost)
+        # - total_funding_paid_out < 0  => du hast Funding erhalten (Profit)
+        # Normalisierung:
+        # - funding_received = -total_funding_paid_out  (Profit-positiv)
         # ═══════════════════════════════════════════════════════════════════════
         try:
             positions = await self.lighter.fetch_open_positions()
@@ -215,23 +228,27 @@ class FundingTracker:
             )
             
             if lighter_position:
-                # CUMULATIVE funding paid/received
-                # Try multiple field names (API may vary)
-                funding_paid_out = (
-                    lighter_position.get('total_funding_paid_out') or
-                    lighter_position.get('funding_paid_out') or
-                    lighter_position.get('funding') or
-                    lighter_position.get('realized_funding') or
-                    0
-                )
-                if funding_paid_out:
-                    try:
-                        # INVERT: paid_out > 0 means we paid, so funding received = -paid_out
-                        # paid_out < 0 means we received, so funding received = -paid_out = positive
-                        lighter_funding = -float(funding_paid_out)
-                        logger.debug(f"🔍 Lighter {symbol}: funding_paid_out={funding_paid_out}, received={lighter_funding:.4f}")
-                    except (ValueError, TypeError):
-                        pass
+                # Prefer normalized key injected by LighterAdapter.fetch_open_positions()
+                fr = lighter_position.get('funding_received')
+                if fr is not None:
+                    lighter_funding = safe_float(fr, 0.0)
+                else:
+                    # Fallback: compute from raw paid_out (backward compat)
+                    funding_paid_out = (
+                        lighter_position.get('total_funding_paid_out') or
+                        lighter_position.get('total_funding_paid') or
+                        lighter_position.get('funding_paid_out') or
+                        lighter_position.get('funding') or
+                        lighter_position.get('realized_funding') or
+                        0
+                    )
+                    lighter_funding = -safe_float(funding_paid_out, 0.0)
+
+                if abs(lighter_funding) > 0:
+                    logger.debug(
+                        f"🔍 Lighter {symbol}: funding_received_total={lighter_funding:.6f} "
+                        f"(paid_out={safe_float(lighter_position.get('total_funding_paid_out'), 0.0):.6f})"
+                    )
             
         except Exception as e:
             logger.warning(f"⚠️ Lighter funding fetch error for {symbol}: {e}")
@@ -244,6 +261,30 @@ class FundingTracker:
         incremental_funding = total_current_funding - previous_funding
         
         return incremental_funding
+
+    async def _save_pnl_snapshot(
+        self,
+        trade_count: int,
+        unrealized_pnl: float,
+        realized_pnl: float,
+        funding_pnl: float
+    ):
+        """Save PnL snapshot to database for historical tracking"""
+        try:
+            from src.database import get_trade_repository
+            repo = await get_trade_repository()
+            
+            total_pnl = unrealized_pnl + realized_pnl + funding_pnl
+            
+            await repo.save_pnl_snapshot(
+                total_pnl=total_pnl,
+                unrealized_pnl=unrealized_pnl,
+                realized_pnl=realized_pnl,
+                funding_pnl=funding_pnl,
+                trade_count=trade_count
+            )
+        except Exception as e:
+            logger.debug(f"PnL snapshot save error: {e}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Get current tracking statistics"""
