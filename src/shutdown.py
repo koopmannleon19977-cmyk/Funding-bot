@@ -804,16 +804,17 @@ class ShutdownOrchestrator:
                             logger.debug(f"Lighter accountTrades close-price fetch failed: {api_err}")
                     
                     # ═══════════════════════════════════════════════════════════════
-                    # PRIORITY 2: X10 fill price as close price proxy (reliable)
+                    # PRIORITY 2: X10 fill price as close price proxy (fallback only)
+                    # Only use if we didn't get Lighter close price from PRIORITY 1
                     # ═══════════════════════════════════════════════════════════════
-                    if closed_pnl is None:
+                    if close_price == 0.0:
                         x10 = self._components.get("x10")
                         if x10 and hasattr(x10, 'get_last_close_price'):
                             x10_price, x10_qty, x10_fee = x10.get_last_close_price(symbol)
                             if x10_price > 0:
                                 close_price = x10_price
                                 pnl_source = "x10_fill_proxy"
-                                logger.debug(f"[PNL] {symbol}: Using X10 fill price ${x10_price:.6f}")
+                                logger.debug(f"[PNL] {symbol}: Using X10 fill price ${x10_price:.6f} (fallback)")
                     
                     # ═══════════════════════════════════════════════════════════════
                     # PRIORITY 3: Orderbook mid-price (last resort)

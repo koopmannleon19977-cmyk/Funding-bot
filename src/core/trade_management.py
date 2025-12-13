@@ -20,7 +20,7 @@ import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
-from src.pnl_utils import compute_hedge_pnl
+from src.pnl_utils import compute_hedge_pnl, _side_sign
 
 logger = logging.getLogger(__name__)
 
@@ -106,15 +106,22 @@ async def calculate_realized_pnl(
     lighter_position: Optional[Dict] = None
 ) -> Decimal:
     """
-    Calculate realized PnL including all entry and exit fees.
+    Estimate net PnL for EXIT DECISION MAKING (not for final accounting).
     
-    NOTE:
-    This function is used for *exit decision making* (estimate net PnL) and
-    therefore expects `gross_pnl` to already contain the strategy's estimated
-    price+funding PnL.
+    This function takes an already-computed gross_pnl (price+funding estimate)
+    and subtracts estimated entry/exit fees to give a net PnL estimate.
     
-    Realized PnL for DB/accounting should be computed after close from actual
-    entry/exit fills of both legs (see helpers below).
+    USE CASES:
+    - Deciding whether to exit a trade based on estimated net profit
+    - Quick PnL estimation during trade monitoring
+    
+    DO NOT USE FOR:
+    - Final accounting/DB persistence (use calculate_realized_close_pnl instead)
+    - Reconciliation with exchange data
+    
+    For final PnL accounting after close, use calculate_realized_close_pnl()
+    which uses compute_hedge_pnl from pnl_utils for accurate, sign-correct
+    calculations from actual fill data.
     """
     entry_value = float(trade.get('notional_usd', 0.0))
     exit_value = entry_value
@@ -140,27 +147,6 @@ async def calculate_realized_pnl(
     net_pnl = gross_pnl_decimal - Decimal(str(entry_fees)) - Decimal(str(exit_fees))
     
     return net_pnl
-
-
-def _side_sign(side: Optional[str]) -> int:
-    """Return +1 for long/BUY, -1 for short/SELL, 0 for unknown."""
-    if not side:
-        return 0
-    s = str(side).upper()
-    if "BUY" in s or "LONG" in s:
-        return 1
-    if "SELL" in s or "SHORT" in s:
-        return -1
-    return 0
-
-
-def _leg_price_pnl(side: Optional[str], entry_price: float, exit_price: float, qty: float) -> float:
-    """Price PnL in USD for a linear perp leg."""
-    sign = _side_sign(side)
-    if sign == 0 or entry_price <= 0 or exit_price <= 0 or qty <= 0:
-        return 0.0
-    # long: (exit-entry)*qty ; short: (entry-exit)*qty
-    return (exit_price - entry_price) * qty if sign > 0 else (entry_price - exit_price) * qty
 
 
 def _parse_trade_timestamp(ts_val: Any) -> Optional[float]:

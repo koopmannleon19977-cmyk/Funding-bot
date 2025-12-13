@@ -1,0 +1,1887 @@
+17:18:43 [INFO] ✅ CONFIG VALIDATION COMPLETED.
+17:18:46 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+17:18:46 [DEBUG] ✅ Decimal adapter registered for SQLite
+17:18:46 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:18:46 [INFO] 🚀 Starting InMemoryStateManager...
+17:18:46 [INFO] 📂 Initializing database: data/trades.db
+17:18:46 [INFO] ✅ Read pool created: 5 connections
+17:18:46 [INFO] ✅ WAL mode enabled
+17:18:46 [INFO] 🔄 Running database migrations...
+17:18:46 [INFO] ✅ Migrations complete (14 statements)
+17:18:46 [INFO] ✅ Database initialized
+17:18:46 [INFO] 🖊️ Database write loop started
+17:18:46 [DEBUG] Maintenance not due (Last: 23h ago)
+17:18:46 [INFO] 📂 Loaded 0 trades from database
+17:18:46 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+17:18:46 [INFO] ✅ State Manager started
+17:18:46 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:18:46 [INFO] ✅ Async database initialized
+17:18:46 [INFO] 📝 State writer loop started
+17:18:46 [DEBUG] ✅ Database schema up to date
+17:18:46 [INFO] Initialisiere X10 Adapter...
+17:18:46 [INFO]  X10 Account initialisiert.
+17:18:46 [INFO] Initialisiere Lighter Adapter...
+17:18:46 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+17:18:46 [INFO] 💰 Checking exchange balances at startup...
+17:18:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:18:48 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:18:48 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+17:18:50 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+17:18:52 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:18:52 [INFO] 💰 STARTUP BALANCE CHECK: X10=$205.12, Lighter=$237.92
+17:18:52 [INFO] ✅ Exchange balances OK - Bot can trade!
+17:18:52 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:18:52 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+17:18:52 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+17:18:52 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+17:18:53 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+17:18:53 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:18:53 [INFO] ✅ FeeManager started with periodic refresh
+17:18:53 [INFO] ✅ FeeManager started
+17:18:53 [INFO] ✅ Funding Tracker started (updates every 3600s)
+17:18:53 [INFO] ✅ FundingTracker started
+17:18:53 [INFO] 📊 Loading Market Data via REST...
+17:18:53 [INFO] 🔄 Funding tracking loop started...
+17:18:53 [DEBUG] 📊 No open trades to track
+17:18:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:18:54 [INFO] Lighter: Found 0 open positions
+17:18:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:18:55 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+17:18:55 [DEBUG] 📸 PnL Snapshot saved: total=$163.0854, uPnL=$0.0000, rPnL=$163.0854
+17:18:55 [DEBUG] 📸 PnL Snapshot: total=$163.0854 (uPnL=$0.0000, rPnL=$163.0854, funding=$0.0000)
+17:18:55 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+17:18:55 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:18:55 [INFO] ✅ Lighter: Updated 114 markets with size_decimals from API
+17:18:55 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:18:55 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:18:55 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:18:55 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:18:55 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+17:18:55 [INFO] 📈 Pre-loading Lighter prices...
+17:18:56 [DEBUG] Lighter: Loaded 111 funding rates
+17:18:56 [DEBUG] Lighter: Loaded 117 prices via REST
+17:18:56 [INFO] ✅ Lighter prices loaded: 117 symbols
+17:18:56 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:18:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:18:58 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:18:58 [INFO] 启动 OI Tracker für 64 Symbole...
+17:18:58 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:18:58 [INFO] 🌐 Starting WebSocket Manager...
+17:18:58 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+17:18:58 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+17:18:58 [INFO] 📊 OI Tracker: Starting cycle 1 (64 symbols)
+17:18:58 [INFO] 🔌 [lighter] WebSocket manager started
+17:18:58 [INFO] 🔌 [x10_account] WebSocket manager started
+17:18:58 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:18:58 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:18:58 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+17:18:58 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+17:18:58 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:18:58 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:18:58 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:18:58 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:18:58 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+17:18:58 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+17:18:58 [INFO] 💓 [x10_account] Keepalive loop started
+17:18:59 [INFO] ✅ [lighter] Subscribed to 64 channels (1 market_stats/all + 63 order_books)
+17:18:59 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+17:18:59 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:18:59 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:18:59 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:18:59 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:18:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:18:59 [DEBUG] ✅ BERA-USD: X10=$150,328, Lighter=$994,040, Total=$1,144,368
+17:18:59 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:18:59 [INFO] [lighter] Resubscribing to 64 channels (paced)...
+17:18:59 [INFO] [lighter] Receive loop started (async iterator)
+17:18:59 [INFO] 💓 [lighter] Waiting for SERVER ping (Lighter sends pings every ~60s)
+17:18:59 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:19:00 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+17:19:00 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:19:00 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+17:19:00 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:19:00 [INFO] Lighter: Found 0 open positions
+17:19:00 [INFO] ✅ No orphaned positions found
+17:19:00 [INFO] ✅ ParallelExecutionManager started
+17:19:00 [INFO] ✅ ParallelExecutionManager started
+17:19:00 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+17:19:00 [DEBUG] Registered task: logic_loop (priority=HIGH)
+17:19:00 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+17:19:00 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+17:19:00 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+17:19:00 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+17:19:00 [DEBUG] Registered task: health_reporter (priority=LOW)
+17:19:00 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+17:19:00 [INFO] ═══════════════════════════════════════════════════════════
+17:19:00 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:19:00 [INFO] ═══════════════════════════════════════════════════════════
+17:19:00 [INFO] 🚀 BotEventLoop starting...
+17:19:00 [INFO] ▶️ Started task: connection_watchdog
+17:19:00 [INFO] ▶️ Started task: logic_loop
+17:19:00 [INFO] ▶️ Started task: trade_management_loop
+17:19:00 [INFO] ▶️ Started task: farm_loop
+17:19:00 [INFO] ▶️ Started task: maintenance_loop
+17:19:00 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:19:00 [INFO] ▶️ Started task: health_reporter
+17:19:00 [INFO] ✅ Started 7 tasks
+17:19:00 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:19:00 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:19:00 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:19:00 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:19:00 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:19:00 [INFO] 🛡️ Trade Management Loop gestartet
+17:19:00 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+17:19:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:19:00 [INFO] [x10_account] Receive loop started (async iterator)
+17:19:00 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:19:00 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:00 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:19:00 [DEBUG] [lighter] Resubscribed 10/64 channels
+17:19:00 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '205.119160', 'status': 'ACTIVE', 'equity': '205.119160', 'availableForTrade': '205.119160', 'available
+17:19:00 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.119160, available=$205.119160, uPnL=$0.000000
+17:19:00 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765642725580, 'seq': 2}
+17:19:00 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765642725580,
+  "seq": 3
+}
+17:19:00 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:19:00 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:19:00 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:19:00 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:19:00 [INFO] [x10_trades] Receive loop started (async iterator)
+17:19:00 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:19:00 [INFO] [x10_funding] Receive loop started (async iterator)
+17:19:00 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:19:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:00 [DEBUG] [lighter] Resubscribed 20/64 channels
+17:19:00 [DEBUG] [lighter] Resubscribed 30/64 channels
+17:19:00 [INFO] ✅ RECONCILE: Sync complete.
+17:19:00 [INFO] ⚡ Latency Arb Detector initialized (min_lag=5.0s, max_lag=30.0s, min_rate_diff=0.020%)
+17:19:00 [DEBUG] Price cache status: X10=78/64, Lighter=117/64
+17:19:00 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:00 [DEBUG] [lighter] Resubscribed 40/64 channels
+17:19:00 [DEBUG] [lighter] Resubscribed 50/64 channels
+17:19:00 [DEBUG] [lighter] Resubscribed 60/64 channels
+17:19:00 [INFO] [lighter] Resubscribed to 64 channels
+17:19:00 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:19:00 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 9.69h, APY: 54.3%)
+17:19:00 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.76h, APY: 49.9%)
+17:19:00 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+17:19:00 [INFO] 🎯 Found 2 opportunities
+17:19:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:00 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:19:01 [DEBUG] ✅ EDEN-USD: X10=$97,537, Lighter=$4,868,190, Total=$4,965,727
+17:19:01 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:02 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+17:19:02 [DEBUG] X10: Funding Refresh OK, cache=91
+17:19:02 [DEBUG] 📊 Lighter Funding Cache refresh (current=111)
+17:19:02 [INFO] Lighter: Found 0 open positions
+17:19:02 [INFO] 📊 Positions: X10=0, Lighter=0
+17:19:02 [INFO] 🚀 Launching 2 trades
+17:19:02 [INFO] 🚀 Launching KAITO-USD (APY=54.3%)
+17:19:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:02 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+17:19:02 [DEBUG] MIN_NOTIONAL KAITO-USD: min_base=10.00000000 coins, price=$0.6100, min_qty_usd=$6.10, min_notional_api=$10.00, final=$11.00
+17:19:02 [INFO] 📏 SIZE KAITO-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+17:19:02 [DEBUG] 🔍 Liquidity Check: Skipping depth check for KAITO-USD (Maker Order)
+17:19:02 [INFO] 🚀 Opening KAITO-USD: Size=$80.0
+17:19:02 [INFO] ═══════════════════════════════════════════════════════════
+17:19:02 [INFO] 🚀 HEDGED TRADE START: KAITO-USD
+17:19:02 [INFO]    Lighter: SELL $80.00 @ $0.610000
+17:19:02 [INFO]    X10:     BUY $80.00 @ $0.610184
+17:19:02 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+17:19:02 [INFO] ═══════════════════════════════════════════════════════════
+17:19:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+17:19:02 [INFO] 🚀 Launching APT-USD (APY=49.9%)
+17:19:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:02 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:02 [INFO] ⚖️ Size Alignment KAITO-USD: 80.00$ -> 79.91$ (131.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+17:19:02 [INFO] 📋 [PHASE 0] KAITO-USD:  Validating orderbook...
+17:19:02 [DEBUG] 📚 KAITO-USD Lighter orderbook refreshed via REST
+17:19:02 [DEBUG] 📚 KAITO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642742.98505
+17:19:02 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+17:19:02 [DEBUG] ✅ KAITO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $198280 depth, 0.03% spread
+17:19:02 [INFO] ✅ [PHASE 0] KAITO-USD: Orderbook validation PASSED (0.25s)
+17:19:02 [INFO] 📤 [PHASE 1] KAITO-USD: Placing Lighter SELL order...
+17:19:02 [INFO]    Size: $79.91 (131.000000 coins)
+17:19:03 [INFO] 🚀 LIGHTER OPEN KAITO-USD: side=SELL, size_usd=$79.91, amount=131.0, price=$0.610000, TIF=None
+17:19:03 [DEBUG] 🔍 DEBUG: KAITO-USD market_id = 33 (raw=33, type=<class 'int'>)
+17:19:03 [INFO] 🛡️ Maker Price KAITO-USD SELL: $0.610240 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.61004, Ask=$0.61025, Tick=1e-05)
+17:19:03 [DEBUG] QUANTIZE KAITO-USD: Notional=$79.91 -> RawAmt=131.000000 -> QuantAmt=131.000000 (x0.0001) -> BaseInt=1310
+17:19:03 [DEBUG] [x10_account] Firehose/Account stream - no explicit subscription needed
+17:19:03 [DEBUG] [x10_funding] Firehose/Account stream - no explicit subscription needed
+17:19:03 [DEBUG] [x10_trades] Firehose/Account stream - no explicit subscription needed
+17:19:03 [DEBUG] 📋 [TIF] KAITO-USD: Using TIF=1, expiry=-1 (not IOC)
+17:19:03 [INFO] ✅ Launched 2 trades this cycle
+17:19:03 [DEBUG] Lighter: Loaded 111 funding rates
+17:19:03 [DEBUG] 🔄 Fetched fresh nonce: 7589 (cached next: 7590)
+17:19:03 [INFO] 🔒 Locked execution for KAITO-USD SELL (Nonce: 7589)...
+17:19:03 [DEBUG] ✅ [ORDER_TYPE] KAITO-USD: Using ORDER_TYPE_LIMIT = 0
+17:19:03 [DEBUG] ℹ️ [ORDER_TYPE] KAITO-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+17:19:03 [DEBUG] ✅ [REDUCE_ONLY] KAITO-USD: Limit Order reduce_only=False (will be 0 in API)
+17:19:03 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":33,"ClientOrderIndex":1765642770040,"BaseAmount":1310,"Price":61024,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768061943351,"ExpiredAt":1765643342351,"Nonce":7589,"Sig":"aeytFV2kScdkp1uH5GyWtgM9F7TkvJr7Y/6BEsjgGBGApPYTuZM5RzhiToY35lTM8ysegQMpjhyO8QYasXquaB2fpsVRd3Xy4A3aZ8OEf2k="}
+17:19:03 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='8eaaf272e32cb9e1e00d948fe164a3566dc4244fa7d2afa43904509f79100a14722f7f8494d4a227' predicted_execution_time_ms=1765642729477 additional_properties={}
+17:19:03 [INFO] ✅ Lighter Order Sent: 8eaaf272e32cb9e1e00d948fe164a3566dc4244fa7d2afa43904509f79100a14722f7f8494d4a227
+17:19:03 [INFO] ✅ [PHASE 1] KAITO-USD: Lighter order placed (0.62s)
+17:19:03 [INFO]    Order ID: 8eaaf272e32cb9e1e00d948fe164a3566dc4244f...
+17:19:03 [DEBUG] 📚 KAITO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642742.98505
+17:19:03 [DEBUG] ⏱️ KAITO-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2662.76, base=45.0s)
+17:19:03 [INFO] ⏳ [PHASE 1.5] KAITO-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+17:19:03 [DEBUG] ✅ 1000SHIB-USD: X10=$88,284, Lighter=$187,647,679, Total=$187,735,963
+17:19:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:04 [DEBUG] Lighter: Loaded 117 prices via REST
+17:19:04 [DEBUG] Lighter: Funding Refresh OK, cache=111
+17:19:04 [INFO] 🔍 Running periodic exchange sync check...
+17:19:04 [INFO] Lighter: Found 0 open positions
+17:19:04 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:19:04 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+17:19:04 [DEBUG] MIN_NOTIONAL APT-USD: min_base=2.00000000 coins, price=$1.6909, min_qty_usd=$3.38, min_notional_api=$10.00, final=$11.00
+17:19:04 [DEBUG] 💓 [lighter] Alive (uptime=5s, last_msg=0s, last_server_ping=5s, server_pings_answered=0)
+17:19:05 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+17:19:05 [DEBUG] 💓 [x10_account] Alive (uptime=5s, last_msg=5s, last_pong=5s, pings=0, pongs=0)
+17:19:05 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:05 [DEBUG] 💓 [x10_trades] Alive (uptime=5s, last_msg=2s, last_pong=5s, pings=0, pongs=0)
+17:19:05 [DEBUG] ✅ PENDLE-USD: X10=$113,885, Lighter=$1,140,615, Total=$1,254,500
+17:19:05 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:05 [INFO] 📏 SIZE APT-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+17:19:05 [DEBUG] 🔍 Liquidity Check: Skipping depth check for APT-USD (Maker Order)
+17:19:05 [INFO] 🚀 Opening APT-USD: Size=$80.0
+17:19:05 [INFO] ═══════════════════════════════════════════════════════════
+17:19:05 [INFO] 🚀 HEDGED TRADE START: APT-USD
+17:19:05 [INFO]    Lighter: SELL $80.00 @ $1.690900
+17:19:05 [INFO]    X10:     BUY $80.00 @ $1.690732
+17:19:05 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+17:19:05 [INFO] ═══════════════════════════════════════════════════════════
+17:19:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+17:19:05 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:05 [INFO] ⚖️ Size Alignment APT-USD: 80.00$ -> 79.98$ (47.300000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+17:19:05 [INFO] 📋 [PHASE 0] APT-USD:  Validating orderbook...
+17:19:06 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:06 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:06 [DEBUG] 📚 APT-USD Lighter orderbook refreshed via REST
+17:19:06 [DEBUG] 📚 APT-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642746.235703
+17:19:06 [DEBUG] ✅ APT-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $84140 depth, 0.01% spread
+17:19:06 [INFO] ✅ [PHASE 0] APT-USD: Orderbook validation PASSED (0.25s)
+17:19:06 [INFO] 📤 [PHASE 1] APT-USD: Placing Lighter SELL order...
+17:19:06 [INFO]    Size: $79.98 (47.300000 coins)
+17:19:06 [INFO] 🚀 LIGHTER OPEN APT-USD: side=SELL, size_usd=$79.98, amount=47.3, price=$1.690900, TIF=None
+17:19:06 [DEBUG] 🔍 DEBUG: APT-USD market_id = 31 (raw=31, type=<class 'int'>)
+17:19:06 [INFO] 🛡️ Maker Price APT-USD SELL: $1.690700 (Best Ask (Tight Spread) | Bid=$1.6906, Ask=$1.6907, Tick=0.0001)
+17:19:06 [DEBUG] QUANTIZE APT-USD: Notional=$79.97957 -> RawAmt=47.300000 -> QuantAmt=47.300000 (x0.0001) -> BaseInt=4730
+17:19:06 [DEBUG] 📋 [TIF] APT-USD: Using TIF=1, expiry=-1 (not IOC)
+17:19:06 [DEBUG] ⚡ Using cached nonce: 7590 (age: 3.2s)
+17:19:06 [INFO] 🔒 Locked execution for APT-USD SELL (Nonce: 7590)...
+17:19:06 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Using ORDER_TYPE_LIMIT = 0
+17:19:06 [DEBUG] ℹ️ [ORDER_TYPE] APT-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+17:19:06 [DEBUG] ✅ [REDUCE_ONLY] APT-USD: Limit Order reduce_only=False (will be 0 in API)
+17:19:06 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":31,"ClientOrderIndex":1765642759544,"BaseAmount":4730,"Price":16907,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768061946332,"ExpiredAt":1765643345332,"Nonce":7590,"Sig":"VFLfejl/IHPB9cRtPQz6770YuirC3vntjC/YLIKMDIlaBwvoykgSbnF3TagBYDrgIAi4VjfigJ/CKnjnEkw5uIjRDNfMeiQ7A5BavFq+cio="}
+17:19:06 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.00h, APY: 55.2%)
+17:19:06 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.47h, APY: 51.7%)
+17:19:06 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+17:19:06 [INFO] 🎯 Found 2 opportunities
+17:19:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:06 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='06bb8c661a9a4b2ae5442bd5d480cd0f2ad8a24b52eae25e346c9d9dc147b2207990b3fc4ed84635' predicted_execution_time_ms=1765642732455 additional_properties={}
+17:19:06 [INFO] ✅ Lighter Order Sent: 06bb8c661a9a4b2ae5442bd5d480cd0f2ad8a24b52eae25e346c9d9dc147b2207990b3fc4ed84635
+17:19:06 [INFO] ✅ [PHASE 1] APT-USD: Lighter order placed (0.34s)
+17:19:06 [INFO]    Order ID: 06bb8c661a9a4b2ae5442bd5d480cd0f2ad8a24b...
+17:19:06 [DEBUG] 📚 APT-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642746.235703
+17:19:06 [DEBUG] ⏱️ APT-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2442.01, base=45.0s)
+17:19:06 [INFO] ⏳ [PHASE 1.5] APT-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+17:19:06 [INFO] Lighter: Found 0 open positions
+17:19:06 [INFO] 📊 Positions: X10=0, Lighter=0
+17:19:07 [DEBUG] ✅ JUP-USD: X10=$91,506, Lighter=$5,020,410, Total=$5,111,916
+17:19:08 [INFO] Lighter: Found 0 open positions
+17:19:09 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:09 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:09 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s, last_server_ping=10s, server_pings_answered=0)
+17:19:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+17:19:10 [DEBUG] 💓 [x10_funding] Alive (uptime=10s, last_msg=3s, last_pong=10s, pings=0, pongs=0)
+17:19:10 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=1s, last_pong=10s, pings=0, pongs=0)
+17:19:10 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s, last_pong=10s, pings=0, pongs=0)
+17:19:10 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:10 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:10 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.47h, APY: 51.7%)
+17:19:10 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+17:19:10 [INFO] 🎯 Found 2 opportunities
+17:19:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:10 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:19:11 [INFO] Lighter: Found 0 open positions
+17:19:11 [DEBUG] ✅ AERO-USD: X10=$353,195, Lighter=$2,293,807, Total=$2,647,002
+17:19:11 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:11 [INFO] 📊 Positions: X10=0, Lighter=0
+17:19:12 [DEBUG] ✅ ENA-USD: X10=$264,794, Lighter=$20,361,645, Total=$20,626,440
+17:19:13 [INFO] Lighter: Found 0 open positions
+17:19:14 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:14 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:14 [DEBUG] ✅ 1000PEPE-USD: X10=$255,767, Lighter=$244,570,796, Total=$244,826,563
+17:19:14 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:14 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.47h, APY: 51.7%)
+17:19:14 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+17:19:14 [INFO] 🎯 Found 2 opportunities
+17:19:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:14 [DEBUG] 💓 [lighter] Alive (uptime=15s, last_msg=0s, last_server_ping=15s, server_pings_answered=0)
+17:19:15 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+17:19:15 [DEBUG] 💓 [x10_account] Alive (uptime=15s, last_msg=15s, last_pong=15s, pings=0, pongs=0)
+17:19:15 [DEBUG] 💓 [x10_funding] Alive (uptime=15s, last_msg=8s, last_pong=15s, pings=0, pongs=0)
+17:19:15 [DEBUG] 💓 [x10_trades] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+17:19:15 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:19:15 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:15 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0061, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:15 [INFO] Lighter: Found 1 open positions
+17:19:15 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.91
+17:19:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:16 [INFO] 📊 Positions: X10=0, Lighter=1
+17:19:16 [DEBUG] ✅ 1000BONK-USD: X10=$118,455, Lighter=$87,987,699, Total=$88,106,154
+17:19:17 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:17 [INFO] Lighter: Found 1 open positions
+17:19:17 [INFO] ✅ [PHASE 1.5] APT-USD: Fill detected after 22 checks!
+17:19:17 [INFO] ✅ [PHASE 1.5] APT-USD: Lighter FILLED (11.41s)
+17:19:17 [INFO] 📤 [PHASE 2] APT-USD: Placing X10 BUY hedge...
+17:19:17 [INFO]    Size: 47.300000 coins (matching Lighter fill)
+17:19:17 [INFO] 🚀 X10 EXECUTE APT-USD BUY: 47.300000 Coins (Basis: COINS=47.3)
+17:19:17 [DEBUG] ℹ️ [TIF] APT-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:19:17 [DEBUG] ✅ [TIF] APT-USD: Selected TimeInForce=GTT (post_only=False, reduce_only=False, is_market=False)
+17:19:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:19:18 [DEBUG] ✅ SPX-USD: X10=$53,859, Lighter=$3,428,059, Total=$3,481,918
+17:19:19 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:19 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:19 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:19 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.47h, APY: 51.7%)
+17:19:19 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+17:19:19 [INFO] 🎯 Found 2 opportunities
+17:19:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:19 [INFO] 💰 X10 verfügbare Balance: $205.12 USDC
+17:19:19 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s, last_server_ping=20s, server_pings_answered=0)
+17:19:20 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+17:19:20 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s, last_pong=20s, pings=0, pongs=0)
+17:19:20 [DEBUG] 💓 [x10_funding] Alive (uptime=20s, last_msg=13s, last_pong=20s, pings=0, pongs=0)
+17:19:20 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+17:19:20 [DEBUG] Placing an order: id=2977693680141729262937577882586700442189809522249149286238305514742689200826
+17:19:20 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:19:20 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:20 [INFO] Lighter: Found 1 open positions
+17:19:20 [DEBUG] Lighter Balance: Raw=$250.43, Safe=$237.91
+17:19:20 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:21 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Limit Order placed (TimeInForce=GTT, post_only=False, reduce_only=False)
+17:19:21 [INFO]  X10 Order: 1999876745294307328
+17:19:21 [INFO] ✅ [PHASE 2] APT-USD:  X10 hedge FILLED (3.09s)
+17:19:21 [INFO]    Order ID: 1999876745294307328
+17:19:21 [INFO] ════════════════════════════════════════════════════════════
+17:19:21 [INFO] 📊 TRADE SUMMARY:  APT-USD
+17:19:21 [INFO]    Result: SUCCESS
+17:19:21 [INFO]    Reason:  Hedged trade complete
+17:19:21 [INFO]    Total Time: 15.11s
+17:19:21 [INFO]    State: COMPLETE
+17:19:21 [INFO]    Phase Times:
+17:19:21 [INFO]       - orderbook_validation: 0.25s
+17:19:21 [INFO]       - lighter_order_placement: 0.34s
+17:19:21 [INFO]       - lighter_fill_wait: 11.41s
+17:19:21 [INFO]       - x10_hedge: 3.09s
+17:19:21 [INFO]    Lighter Order:  06bb8c661a9a4b2ae5442bd5d480cd0f2ad8a24b...
+17:19:21 [INFO]    X10 Order: 1999876745294307328
+17:19:21 [INFO] ════════════════════════════════════════════════════════════
+17:19:21 [INFO] 📝 Recording trade APT-USD in database...
+17:19:21 [DEBUG] 📝 Trade added to state: APT-USD
+17:19:21 [INFO] ✅ Trade APT-USD recorded successfully
+17:19:21 [INFO]    X10 Order ID: 1999876745294307328
+17:19:21 [INFO]    Lighter Order ID: 06bb8c661a9a4b2ae5442bd5d480cd...
+17:19:21 [INFO]    Size: $80.00
+17:19:21 [INFO]    Entry X10: $1.690732
+17:19:21 [INFO]    Entry Lighter: $1.690900
+17:19:21 [INFO]    APY: 49.93%
+17:19:21 [DEBUG] 📝 Flushed 1 writes
+17:19:21 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:19:21 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999876745294307328, 'accountId': 127074, 'externalId': '2977693680141729262937577882586700442189809522249149286238305514742689200826'
+17:19:21 [INFO] ✅ [x10_account] ORDER UPDATE: APT-USD BUY FILLED qty=47.3 filled=47.3 @ $1.7009 (id=1999876745294307328)
+17:19:21 [DEBUG] X10 Adapter: Order update processed - APT-USD #1999876745294307328 FILLED
+17:19:21 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.119160', 'status': 'ACTIVE', 'equity': '205.119160', 'availableForTrade': '197.118447', 'availabl
+17:19:21 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.119160, available=$197.118447, uPnL=$0.000000
+17:19:21 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999876746131804160, 'accountId': 127074, 'market': 'APT-USD', 'orderId': 1999876745294307328, 'externalOrderId': '2977693680141729262
+17:19:21 [INFO] 💰💰💰 [x10_account] FILL/TRADE: APT-USD BUY 47.3 @ $1.6921 (Trade: 1999876746131804160, Order: 1999876745294307328, Fee: $0.0180, Taker: True)
+17:19:21 [DEBUG] [X10] Created entry price from TRADE for APT-USD: $1.692100
+17:19:21 [DEBUG] X10 Adapter: Fill update processed - APT-USD order=1999876745294307328
+17:19:21 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999876746152771584,
+        "accountId": 127074,
+        "market": "APT-USD",
+        "status": "OPENED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "47.3",
+        "value": "80.007124",
+        "openPrice": "1.6921",
+        "markPrice": "1.691482546874",
+        "liquidationPrice": "0",
+        "margin": "1.600142",
+        "unrealisedPnl": "-0.029206",
+        "midPriceUnrealisedPnl": "-0.002365",
+        "realisedPnl": "-0.018008",
+        "adl": 3,
+        "createdAt": 1765642746857,
+        "updatedAt": 1765642746857
+      }
+    ]
+  },
+  "ts": 1765642746857,
+  "seq": 7
+}
+17:19:21 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999876746152771584,
+  "accountId": 127074,
+  "market": "APT-USD",
+  "status": "OPENED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "47.3",
+  "value": "80.007124",
+  "openPrice": "1.6921",
+  "markPrice": "1.691482546874",
+  "liquidationPrice": "0",
+  "margin": "1.600142",
+  "unrealisedPnl": "-0.029206",
+  "midPriceUnrealisedPnl": "-0.002365",
+  "realisedPnl": "-0.018008",
+  "adl": 3,
+  "createdAt": 1765642746857,
+  "updatedAt": 1765642746857
+}
+17:19:21 [DEBUG] [X10] Using calculated entry price from TRADE fills for APT-USD: $1.692100
+17:19:21 [DEBUG] [X10] Updated APT-USD in _positions_cache (size=47.3, entry=$1.692100)
+17:19:21 [DEBUG] X10 Adapter: Position update processed - APT-USD
+17:19:21 [INFO] 📉 [x10_account] POSITION UPDATE: APT-USD LONG size=47.3 entry=$1.6921 mark=$1.691482546874 uPnL=$-0.029206
+17:19:21 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.101152', 'status': 'ACTIVE', 'equity': '205.071946', 'availableForTrade': '197.071233', 'availabl
+17:19:21 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.071946, available=$197.071233, uPnL=$-0.029206
+17:19:21 [DEBUG] ✅ WLD-USD: X10=$81,613, Lighter=$2,844,356, Total=$2,925,969
+17:19:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:22 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:22 [INFO] Lighter: Found 1 open positions
+17:19:22 [DEBUG] 📌 APT-USD: Stored entry snapshot for PnL ({'entry_qty_x10': 47.3, 'entry_price_x10': 1.6921, 'entry_qty_lighter': 47.3, 'entry_price_lighter': 1.6907, 'entry_fee_x10': 0.000225, 'entry_fee_lighter': 0.0})
+17:19:22 [INFO] ✅ OPENED APT-USD: $80.00
+17:19:22 [DEBUG] 📝 Flushed 1 writes
+17:19:23 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:23 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:23 [DEBUG] ✅ STRK-USD: X10=$403,116, Lighter=$7,273,312, Total=$7,676,428
+17:19:23 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:23 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:23 [INFO] 🎯 Found 1 opportunities
+17:19:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:24 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:24 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0047, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:24 [INFO] Lighter: Found 1 open positions
+17:19:24 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:24 [DEBUG] 💓 [lighter] Alive (uptime=25s, last_msg=0s, last_server_ping=25s, server_pings_answered=0)
+17:19:25 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+17:19:25 [DEBUG] 💓 [x10_account] Alive (uptime=25s, last_msg=4s, last_pong=25s, pings=0, pongs=0)
+17:19:25 [DEBUG] 💓 [x10_trades] Alive (uptime=25s, last_msg=1s, last_pong=25s, pings=0, pongs=0)
+17:19:25 [DEBUG] 💓 [x10_funding] Alive (uptime=25s, last_msg=18s, last_pong=25s, pings=0, pongs=0)
+17:19:25 [INFO] 📊 Positions: X10=1, Lighter=1
+17:19:25 [DEBUG] ✅ GRASS-USD: X10=$68,765, Lighter=$1,918,100, Total=$1,986,866
+17:19:26 [DEBUG] ⚠️ KAITO-USD Lighter orderbook stale (23.2s)
+17:19:26 [DEBUG] 📚 KAITO-USD Lighter orderbook refreshed via REST
+17:19:26 [DEBUG] 📚 KAITO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642766.4377463
+17:19:26 [DEBUG] ✅ KAITO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $198232 depth, 0.02% spread
+17:19:26 [WARNING] ⏰ [PHASE 1.5] KAITO-USD: Fill timeout after 22.58s (orderbook: bid_depth=$198232.06, ask_depth=$197506.18, spread=2.131%)
+17:19:26 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:19:26 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:26 [INFO] Lighter: Found 1 open positions
+17:19:26 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:26 [INFO] 🔄 [RETRY] KAITO-USD: Cancelling original order 8eaaf272e32cb9e1e00d948fe164a3566dc4244f...
+17:19:26 [INFO] 🔍 Lighter: Attempting to resolve Hash 8eaaf272e32cb9e1e00d948fe164a3566dc4244fa7d2afa43904509f79100a14722f7f8494d4a227 to Order ID for KAITO-USD...
+17:19:27 [DEBUG] ✅ AAVE-USD: X10=$158,583, Lighter=$46,324, Total=$204,906
+17:19:27 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:28 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:28 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:28 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:28 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:28 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:28 [INFO] 🎯 Found 1 opportunities
+17:19:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:28 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:28 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:28 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:28 [DEBUG] 💓 [x10_account] Sent keepalive ping #1: 1765642768911
+17:19:28 [DEBUG] 💓 [x10_account] Health OK - last activity 8s ago
+17:19:28 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+17:19:28 [DEBUG] ✅ ZORA-USD: X10=$93,347, Lighter=$29,617,911, Total=$29,711,258
+17:19:29 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:29 [DEBUG] Lighter Balance: Raw=$250.43, Safe=$237.91
+17:19:29 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:29 [INFO] Lighter: Found 1 open positions
+17:19:29 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 8eaaf272e3... to an Order ID for KAITO-USD. No position found. Order may have been cancelled elsewhere.
+17:19:29 [WARNING] 🛑 [RETRY] KAITO-USD: Original order cancel NOT confirmed; skipping retry to prevent duplicate fills
+17:19:29 [WARNING] ⏰ [MAKER STRATEGY] KAITO-USD: Wait timeout! Cancelling Lighter order 8eaaf272e32cb9e1e00d948fe164a3566dc4244fa7d2afa43904509f79100a14722f7f8494d4a227...
+17:19:29 [INFO] 🔍 Lighter: Attempting to resolve Hash 8eaaf272e32cb9e1e00d948fe164a3566dc4244fa7d2afa43904509f79100a14722f7f8494d4a227 to Order ID for KAITO-USD...
+17:19:29 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:29 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s, last_server_ping=30s, server_pings_answered=0)
+17:19:29 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:30 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+17:19:30 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+17:19:30 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=9s, last_pong=30s, pings=1, pongs=0)
+17:19:30 [DEBUG] 🐕 Watchdog OK: Daten-Alter 2.0s
+17:19:30 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=23s, last_pong=30s, pings=0, pongs=0)
+17:19:30 [DEBUG] 📊 Task health: 7 alive, 0 dead
+17:19:30 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:30 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:30 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:30 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 8eaaf272e3... to an Order ID for KAITO-USD. No position found. Order may have been cancelled elsewhere.
+17:19:31 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:19:31 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+17:19:31 [INFO] 🔍 [MAKER STRATEGY] KAITO-USD: Checking for Ghost Fills (EXTENDED CHECK)...
+17:19:32 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:32 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:32 [DEBUG] ✅ ETH-USD: X10=$15,542,096, Lighter=$0, Total=$15,542,096
+17:19:32 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:32 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:32 [INFO] 🎯 Found 1 opportunities
+17:19:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:32 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:32 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0047, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:32 [INFO] Lighter: Found 1 open positions
+17:19:32 [DEBUG] 🔍 KAITO-USD check 1/30 clean...
+17:19:33 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:33 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:34 [INFO] 📊 Positions: X10=1, Lighter=1
+17:19:34 [DEBUG] ✅ ONDO-USD: X10=$109,223, Lighter=$2,216,456, Total=$2,325,679
+17:19:34 [DEBUG] 💓 [lighter] Alive (uptime=35s, last_msg=0s, last_server_ping=35s, server_pings_answered=0)
+17:19:35 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+17:19:35 [DEBUG] 💓 [x10_funding] Alive (uptime=35s, last_msg=28s, last_pong=35s, pings=0, pongs=0)
+17:19:35 [DEBUG] 💓 [x10_account] Alive (uptime=35s, last_msg=14s, last_pong=35s, pings=1, pongs=0)
+17:19:35 [DEBUG] 💓 [x10_trades] Alive (uptime=35s, last_msg=1s, last_pong=35s, pings=0, pongs=0)
+17:19:35 [DEBUG] ✅ HYPE-USD: X10=$5,280,469, Lighter=$1,671,161, Total=$6,951,630
+17:19:35 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0047, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:35 [INFO] Lighter: Found 1 open positions
+17:19:37 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:37 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:37 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (30.5s > 30.0s) - stale data, skip
+17:19:37 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:37 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:37 [INFO] 🎯 Found 1 opportunities
+17:19:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:37 [DEBUG] ✅ BTC-USD: X10=$29,693,816, Lighter=$2,979, Total=$29,696,796
+17:19:37 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:38 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0378, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:38 [INFO] Lighter: Found 1 open positions
+17:19:38 [DEBUG] Lighter Balance: Raw=$250.48, Safe=$237.96
+17:19:39 [DEBUG] ✅ PUMP-USD: X10=$516,963, Lighter=$1,623,178,949, Total=$1,623,695,912
+17:19:39 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s, last_server_ping=40s, server_pings_answered=0)
+17:19:40 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:19:40 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=33s, last_pong=40s, pings=0, pongs=0)
+17:19:40 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:19:40 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=19s, last_pong=40s, pings=1, pongs=0)
+17:19:40 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0473, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:40 [INFO] Lighter: Found 1 open positions
+17:19:41 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:41 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:41 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (34.8s > 30.0s) - stale data, skip
+17:19:41 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:41 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:41 [INFO] 🎯 Found 1 opportunities
+17:19:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:42 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:42 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0378, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:42 [INFO] Lighter: Found 1 open positions
+17:19:42 [DEBUG] 🔍 KAITO-USD check 6/30 clean...
+17:19:42 [DEBUG] Lighter Balance: Raw=$250.48, Safe=$237.96
+17:19:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:42 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:43 [INFO] 📊 Positions: X10=1, Lighter=1
+17:19:43 [DEBUG] ✅ ADA-USD: X10=$259,651, Lighter=$3,700,724, Total=$3,960,375
+17:19:44 [DEBUG] ✅ UNI-USD: X10=$187,185, Lighter=$387,459, Total=$574,644
+17:19:44 [DEBUG] 💓 [lighter] Alive (uptime=45s, last_msg=0s, last_server_ping=45s, server_pings_answered=0)
+17:19:45 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=45s, last_msg=0s, last_pong=45s, pings=0, pongs=0)
+17:19:45 [DEBUG] 💓 [x10_funding] Alive (uptime=45s, last_msg=38s, last_pong=45s, pings=0, pongs=0)
+17:19:45 [DEBUG] 💓 [x10_trades] Alive (uptime=45s, last_msg=1s, last_pong=45s, pings=0, pongs=0)
+17:19:45 [DEBUG] 💓 [x10_account] Alive (uptime=45s, last_msg=24s, last_pong=45s, pings=1, pongs=0)
+17:19:45 [INFO] Lighter: Found 1 open positions
+17:19:46 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:46 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:46 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (39.5s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (39.5s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (39.5s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (39.4s > 30.0s) - stale data, skip
+17:19:46 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (39.5s > 30.0s) - stale data, skip
+17:19:46 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:46 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:46 [INFO] 🎯 Found 1 opportunities
+17:19:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:46 [DEBUG] ✅ XRP-USD: X10=$834,147, Lighter=$5,129,015, Total=$5,963,162
+17:19:46 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:47 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:48 [INFO] Lighter: Found 1 open positions
+17:19:48 [DEBUG] ✅ VIRTUAL-USD: X10=$107,878, Lighter=$635,073, Total=$742,951
+17:19:49 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s, last_server_ping=50s, server_pings_answered=0)
+17:19:50 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s, last_pong=50s, pings=0, pongs=0)
+17:19:50 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=29s, last_pong=50s, pings=1, pongs=0)
+17:19:50 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=43s, last_pong=50s, pings=0, pongs=0)
+17:19:50 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=1s, last_pong=50s, pings=0, pongs=0)
+17:19:50 [DEBUG] ✅ WLFI-USD: X10=$753,449, Lighter=$24,447,274, Total=$25,200,723
+17:19:50 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:50 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:50 [DEBUG] 🔍 Lag check OP-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check BERA-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check 1000SHIB-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check EDEN-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check PENDLE-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check JUP-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check AERO-USD: 43.79s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ENA-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check 1000PEPE-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check 1000BONK-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check SPX-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check WLD-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check STRK-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check GRASS-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check AAVE-USD: 43.80s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ETH-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ONDO-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check HYPE-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check BTC-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check PUMP-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ADA-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check UNI-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check XRP-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check VIRTUAL-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check WLFI-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ZRO-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check BCH-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check APEX-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check IP-USD: 43.81s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check BNB-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check DOT-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ARB-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check KAITO-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check NEAR-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check EIGEN-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check FIL-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check SOL-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check DOGE-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check XPL-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check LINK-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check LTC-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check POPCAT-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check TAO-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check AVNT-USD: 43.82s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check MNT-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ASTER-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check LDO-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check TRUMP-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check TRX-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check PENGU-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check MON-USD: 43.83s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check SUI-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check FARTCOIN-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check SEI-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check WIF-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check TON-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check CRV-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ZEC-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check TIA-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check AVAX-USD: 43.85s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check ZORA-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [DEBUG] 🔍 Lag check RESOLV-USD: 43.84s (X10 slow)
+17:19:50 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (43.8s > 30.0s) - stale data, skip
+17:19:50 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:50 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:50 [INFO] 🎯 Found 1 opportunities
+17:19:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:51 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:51 [INFO] Lighter: Found 1 open positions
+17:19:51 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:19:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:19:51 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:19:52 [INFO] 📊 Positions: X10=1, Lighter=1
+17:19:53 [DEBUG] ✅ ZRO-USD: X10=$121,587, Lighter=$606,256, Total=$727,844
+17:19:54 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:54 [INFO] Lighter: Found 1 open positions
+17:19:54 [DEBUG] 💓 [lighter] Alive (uptime=55s, last_msg=0s, last_server_ping=55s, server_pings_answered=0)
+17:19:55 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+17:19:55 [DEBUG] 💓 [x10_account] Alive (uptime=55s, last_msg=34s, last_pong=55s, pings=1, pongs=0)
+17:19:55 [DEBUG] 💓 [x10_funding] Alive (uptime=55s, last_msg=48s, last_pong=55s, pings=0, pongs=0)
+17:19:55 [DEBUG] 💓 [x10_trades] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+17:19:55 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:55 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:55 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (48.4s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (48.5s > 30.0s) - stale data, skip
+17:19:55 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:55 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:55 [INFO] 🎯 Found 1 opportunities
+17:19:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:55 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$4,122, Total=$4,122
+17:19:55 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:19:56 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:19:57 [DEBUG] ✅ APEX-USD: X10=$46,200, Lighter=$789,006, Total=$835,207
+17:19:57 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:19:57 [INFO] Lighter: Found 1 open positions
+17:19:57 [DEBUG] 🔍 KAITO-USD check 11/30 clean...
+17:19:58 [DEBUG] 💓 [x10_account] Sent keepalive ping #2: 1765642798909
+17:19:58 [DEBUG] 💓 [x10_account] Health OK - last activity 38s ago
+17:19:58 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+17:19:59 [DEBUG] ✅ IP-USD: X10=$120,821, Lighter=$403,904, Total=$524,725
+17:19:59 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:19:59 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:19:59 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (52.8s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (52.9s > 30.0s) - stale data, skip
+17:19:59 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:19:59 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:19:59 [INFO] 🎯 Found 1 opportunities
+17:19:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:19:59 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s, last_server_ping=60s, server_pings_answered=0)
+17:19:59 [INFO] 💓 [lighter] Received SERVER ping → sent pong (ping #1)
+17:20:00 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=60s, last_msg=0s, last_pong=60s, pings=0, pongs=0)
+17:20:00 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.5s
+17:20:00 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=1s, last_pong=60s, pings=0, pongs=0)
+17:20:00 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=53s, last_pong=60s, pings=0, pongs=0)
+17:20:00 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=39s, last_pong=60s, pings=2, pongs=0)
+17:20:00 [DEBUG] 📊 Task health: 7 alive, 0 dead
+17:20:00 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:00 [DEBUG] ✅ BNB-USD: X10=$1,474,792, Lighter=$13,748, Total=$1,488,540
+17:20:00 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:20:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:00 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:01 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:01 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:01 [INFO] Lighter: Found 1 open positions
+17:20:04 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:04 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:04 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+17:20:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:20:04 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (57.4s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (57.5s > 30.0s) - stale data, skip
+17:20:04 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.27h, APY: 53.4%)
+17:20:04 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:04 [INFO] 🎯 Found 1 opportunities
+17:20:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:04 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$473,078, Total=$473,078
+17:20:04 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:04 [INFO] Lighter: Found 1 open positions
+17:20:04 [DEBUG] 💓 [lighter] Alive (uptime=65s, last_msg=0s, last_server_ping=5s, server_pings_answered=1)
+17:20:05 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=65s, last_msg=0s, last_pong=65s, pings=0, pongs=0)
+17:20:05 [DEBUG] 💓 [x10_funding] Alive (uptime=65s, last_msg=58s, last_pong=65s, pings=0, pongs=0)
+17:20:05 [DEBUG] 💓 [x10_trades] Alive (uptime=65s, last_msg=3s, last_pong=65s, pings=0, pongs=0)
+17:20:05 [DEBUG] 💓 [x10_account] Alive (uptime=65s, last_msg=44s, last_pong=65s, pings=2, pongs=0)
+17:20:05 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:20:06 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+17:20:06 [DEBUG] X10: Funding Refresh OK, cache=91
+17:20:06 [DEBUG] 📊 Lighter Funding Cache refresh (current=111)
+17:20:06 [DEBUG] ✅ ARB-USD: X10=$140,252, Lighter=$6,183,399, Total=$6,323,650
+17:20:06 [DEBUG] Lighter: Loaded 384 funding rates
+17:20:07 [DEBUG] Lighter: Loaded 117 prices via REST
+17:20:07 [DEBUG] Lighter: Funding Refresh OK, cache=114
+17:20:08 [DEBUG] ✅ KAITO-USD: X10=$237,414, Lighter=$1,902,630, Total=$2,140,044
+17:20:08 [INFO] Lighter: Found 1 open positions
+17:20:08 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:08 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:08 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:08 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:08 [INFO] 🎯 Found 1 opportunities
+17:20:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:09 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:09 [DEBUG] Lighter Balance: Raw=$250.44, Safe=$237.92
+17:20:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:09 [DEBUG] ✅ RESOLV-USD: X10=$154,471, Lighter=$47,888,311, Total=$48,042,782
+17:20:09 [DEBUG] 💓 [lighter] Alive (uptime=70s, last_msg=0s, last_server_ping=10s, server_pings_answered=1)
+17:20:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=70s, last_msg=0s, last_pong=70s, pings=0, pongs=0)
+17:20:10 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=1s, last_pong=70s, pings=0, pongs=0)
+17:20:10 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=3s, last_pong=70s, pings=0, pongs=0)
+17:20:10 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=49s, last_pong=70s, pings=2, pongs=0)
+17:20:10 [INFO] Lighter: Found 1 open positions
+17:20:10 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:11 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:11 [DEBUG] ✅ NEAR-USD: X10=$255,394, Lighter=$769,386, Total=$1,024,781
+17:20:13 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:13 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:13 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:13 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:13 [INFO] 🎯 Found 1 opportunities
+17:20:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:13 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:14 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:20:14 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0284, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:14 [INFO] Lighter: Found 1 open positions
+17:20:14 [DEBUG] 🔍 KAITO-USD check 16/30 clean...
+17:20:14 [DEBUG] 💓 [lighter] Alive (uptime=75s, last_msg=0s, last_server_ping=15s, server_pings_answered=1)
+17:20:15 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=75s, last_msg=0s, last_pong=75s, pings=0, pongs=0)
+17:20:15 [DEBUG] 💓 [x10_account] Alive (uptime=75s, last_msg=54s, last_pong=75s, pings=2, pongs=0)
+17:20:15 [DEBUG] 💓 [x10_trades] Alive (uptime=75s, last_msg=0s, last_pong=75s, pings=0, pongs=0)
+17:20:15 [DEBUG] 💓 [x10_funding] Alive (uptime=75s, last_msg=8s, last_pong=75s, pings=0, pongs=0)
+17:20:15 [DEBUG] ✅ EIGEN-USD: X10=$97,517, Lighter=$1,297,388, Total=$1,394,905
+17:20:17 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$364,757, Total=$364,757
+17:20:17 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:17 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:17 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:17 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:17 [INFO] 🎯 Found 1 opportunities
+17:20:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:18 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:18 [INFO] Lighter: Found 1 open positions
+17:20:18 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:18 [DEBUG] ✅ SOL-USD: X10=$5,034,023, Lighter=$346,470, Total=$5,380,493
+17:20:18 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:20:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:18 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:19 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:19 [DEBUG] 💓 [lighter] Alive (uptime=80s, last_msg=0s, last_server_ping=20s, server_pings_answered=1)
+17:20:20 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=80s, last_msg=0s, last_pong=80s, pings=0, pongs=0)
+17:20:20 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=0s, last_pong=80s, pings=0, pongs=0)
+17:20:20 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=59s, last_pong=80s, pings=2, pongs=0)
+17:20:20 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=13s, last_pong=80s, pings=0, pongs=0)
+17:20:20 [DEBUG] ✅ DOGE-USD: X10=$452,902, Lighter=$22,170,013, Total=$22,622,915
+17:20:21 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0047, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:21 [INFO] Lighter: Found 1 open positions
+17:20:22 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:22 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:22 [DEBUG] ✅ XPL-USD: X10=$284,913, Lighter=$20,100,506, Total=$20,385,419
+17:20:22 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:22 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:22 [INFO] 🎯 Found 1 opportunities
+17:20:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:22 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:23 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:20:24 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0284, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:24 [INFO] Lighter: Found 1 open positions
+17:20:24 [DEBUG] 💓 [lighter] Alive (uptime=85s, last_msg=0s, last_server_ping=25s, server_pings_answered=1)
+17:20:25 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=85s, last_msg=0s, last_pong=85s, pings=0, pongs=0)
+17:20:25 [DEBUG] 💓 [x10_funding] Alive (uptime=85s, last_msg=18s, last_pong=85s, pings=0, pongs=0)
+17:20:25 [DEBUG] ⚠️ [x10_account] No messages for 64s (expected every 60s)
+17:20:25 [DEBUG] 💓 [x10_account] Alive (uptime=85s, last_msg=64s, last_pong=85s, pings=2, pongs=0)
+17:20:25 [DEBUG] 💓 [x10_trades] Alive (uptime=85s, last_msg=5s, last_pong=85s, pings=0, pongs=0)
+17:20:26 [DEBUG] ✅ LINK-USD: X10=$286,376, Lighter=$201,982, Total=$488,358
+17:20:26 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:26 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:26 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:26 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:26 [INFO] 🎯 Found 1 opportunities
+17:20:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:27 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:27 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+17:20:27 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:20:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:27 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:28 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0284, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:28 [INFO] Lighter: Found 1 open positions
+17:20:28 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:28 [DEBUG] 💓 [x10_account] Sent keepalive ping #3: 1765642828912
+17:20:28 [DEBUG] 💓 [x10_account] Health OK - last activity 68s ago
+17:20:28 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+17:20:29 [DEBUG] ✅ LTC-USD: X10=$219,829, Lighter=$14,572, Total=$234,401
+17:20:29 [DEBUG] 💓 [lighter] Alive (uptime=90s, last_msg=0s, last_server_ping=30s, server_pings_answered=1)
+17:20:30 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=90s, last_msg=0s, last_pong=90s, pings=0, pongs=0)
+17:20:30 [DEBUG] 💓 [x10_trades] Alive (uptime=90s, last_msg=0s, last_pong=90s, pings=0, pongs=0)
+17:20:30 [DEBUG] ⚠️ [x10_account] No messages for 69s (expected every 60s)
+17:20:30 [DEBUG] 💓 [x10_account] Alive (uptime=90s, last_msg=69s, last_pong=90s, pings=3, pongs=0)
+17:20:30 [DEBUG] 💓 [x10_funding] Alive (uptime=90s, last_msg=23s, last_pong=90s, pings=0, pongs=0)
+17:20:30 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.5s
+17:20:31 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:31 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:31 [DEBUG] ✅ POPCAT-USD: X10=$98,053, Lighter=$6,079,112, Total=$6,177,165
+17:20:31 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0284, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:31 [INFO] Lighter: Found 1 open positions
+17:20:31 [DEBUG] 🔍 KAITO-USD check 21/30 clean...
+17:20:31 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:31 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:31 [INFO] 🎯 Found 1 opportunities
+17:20:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:31 [INFO] 💰 X10 verfügbare Balance: $197.07 USDC
+17:20:32 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:20:33 [DEBUG] ✅ TAO-USD: X10=$434,610, Lighter=$7,671, Total=$442,280
+17:20:34 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0378, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:34 [INFO] Lighter: Found 1 open positions
+17:20:34 [DEBUG] 💓 [lighter] Alive (uptime=95s, last_msg=0s, last_server_ping=35s, server_pings_answered=1)
+17:20:35 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=95s, last_msg=0s, last_pong=95s, pings=0, pongs=0)
+17:20:35 [DEBUG] 💓 [x10_funding] Alive (uptime=95s, last_msg=28s, last_pong=95s, pings=0, pongs=0)
+17:20:35 [DEBUG] 💓 [x10_trades] Alive (uptime=95s, last_msg=0s, last_pong=95s, pings=0, pongs=0)
+17:20:35 [DEBUG] ⚠️ [x10_account] No messages for 74s (expected every 60s)
+17:20:35 [DEBUG] 💓 [x10_account] Alive (uptime=95s, last_msg=74s, last_pong=95s, pings=3, pongs=0)
+17:20:35 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999876746152771584,
+        "accountId": 127074,
+        "market": "APT-USD",
+        "status": "OPENED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "47.3",
+        "value": "79.922939",
+        "openPrice": "1.6921",
+        "markPrice": "1.689702739999",
+        "liquidationPrice": "0",
+        "margin": "1.598458",
+        "unrealisedPnl": "-0.113391",
+        "midPriceUnrealisedPnl": "-0.054395",
+        "realisedPnl": "-0.018008",
+        "adl": 3,
+        "createdAt": 1765642746857,
+        "updatedAt": 1765642820622
+      }
+    ]
+  },
+  "ts": 1765642820622,
+  "seq": 9
+}
+17:20:35 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999876746152771584,
+  "accountId": 127074,
+  "market": "APT-USD",
+  "status": "OPENED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "47.3",
+  "value": "79.922939",
+  "openPrice": "1.6921",
+  "markPrice": "1.689702739999",
+  "liquidationPrice": "0",
+  "margin": "1.598458",
+  "unrealisedPnl": "-0.113391",
+  "midPriceUnrealisedPnl": "-0.054395",
+  "realisedPnl": "-0.018008",
+  "adl": 3,
+  "createdAt": 1765642746857,
+  "updatedAt": 1765642820622
+}
+17:20:35 [DEBUG] [X10] Using calculated entry price from TRADE fills for APT-USD: $1.692100
+17:20:35 [DEBUG] [X10] Updated APT-USD in _positions_cache (size=47.3, entry=$1.692100)
+17:20:35 [DEBUG] X10 Adapter: Position update processed - APT-USD
+17:20:35 [INFO] 📉 [x10_account] POSITION UPDATE: APT-USD LONG size=47.3 entry=$1.6921 mark=$1.689702739999 uPnL=$-0.113391
+17:20:35 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.101152', 'status': 'ACTIVE', 'equity': '204.987761', 'availableForTrade': '196.995467', 'availabl
+17:20:35 [DEBUG] 💰 [x10_account] BALANCE: equity=$204.987761, available=$196.995467, uPnL=$-0.113391
+17:20:35 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:35 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:35 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:35 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:35 [INFO] 🎯 Found 1 opportunities
+17:20:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:36 [INFO] 💰 X10 verfügbare Balance: $197.00 USDC
+17:20:36 [DEBUG] ✅ AVNT-USD: X10=$92,729, Lighter=$2,262,496, Total=$2,355,226
+17:20:36 [DEBUG] Lighter Balance: Raw=$250.48, Safe=$237.96
+17:20:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:37 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0378, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:37 [INFO] Lighter: Found 1 open positions
+17:20:37 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:37 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:38 [DEBUG] ✅ MNT-USD: X10=$73,555, Lighter=$3,515,944, Total=$3,589,499
+17:20:39 [DEBUG] 💓 [lighter] Alive (uptime=100s, last_msg=0s, last_server_ping=40s, server_pings_answered=1)
+17:20:40 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=100s, last_msg=0s, last_pong=100s, pings=0, pongs=0)
+17:20:40 [DEBUG] 💓 [x10_funding] Alive (uptime=100s, last_msg=33s, last_pong=100s, pings=0, pongs=0)
+17:20:40 [DEBUG] 💓 [x10_account] Alive (uptime=100s, last_msg=5s, last_pong=100s, pings=3, pongs=0)
+17:20:40 [DEBUG] 💓 [x10_trades] Alive (uptime=100s, last_msg=1s, last_pong=100s, pings=0, pongs=0)
+17:20:40 [DEBUG] ✅ ASTER-USD: X10=$481,476, Lighter=$13,292,434, Total=$13,773,910
+17:20:40 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:40 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:40 [DEBUG] 🔍 Lag check OP-USD: 33.94s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check BERA-USD: 33.94s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check 1000SHIB-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check EDEN-USD: 33.70s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check PENDLE-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check JUP-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check AERO-USD: 33.70s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ENA-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (33.9s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check 1000PEPE-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check 1000BONK-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check SPX-USD: 33.70s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check WLD-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check STRK-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check GRASS-USD: 33.71s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check AAVE-USD: 33.95s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ETH-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ONDO-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check HYPE-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check BTC-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check PUMP-USD: 33.71s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ADA-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check UNI-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check XRP-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check VIRTUAL-USD: 33.96s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check WLFI-USD: 33.72s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ZRO-USD: 33.72s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check BCH-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check APEX-USD: 33.72s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check IP-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check BNB-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check DOT-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ARB-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check KAITO-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check NEAR-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check EIGEN-USD: 33.72s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check FIL-USD: 33.97s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check SOL-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check DOGE-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check XPL-USD: 33.73s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check LINK-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check MKR-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb MKR-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check LTC-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check POPCAT-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check TAO-USD: 33.73s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check AVNT-USD: 33.73s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check MNT-USD: 33.73s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ASTER-USD: 33.73s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check LDO-USD: 33.74s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check TRUMP-USD: 33.98s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check TRX-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check PENGU-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check MON-USD: 33.74s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check SUI-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check FARTCOIN-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check SEI-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check WIF-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check TON-USD: 33.74s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check CRV-USD: 33.74s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ZEC-USD: 33.74s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check TIA-USD: 33.99s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check AVAX-USD: 34.00s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (34.0s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check ZORA-USD: 33.75s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [DEBUG] 🔍 Lag check RESOLV-USD: 33.75s (X10 slow)
+17:20:40 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (33.7s > 30.0s) - stale data, skip
+17:20:40 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:40 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:40 [INFO] 🎯 Found 1 opportunities
+17:20:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:41 [INFO] 💰 X10 verfügbare Balance: $197.00 USDC
+17:20:41 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:41 [INFO] Lighter: Found 1 open positions
+17:20:41 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:20:42 [DEBUG] ✅ APT-USD: X10=$38,967, Lighter=$1,725,898, Total=$1,764,865
+17:20:43 [DEBUG] ✅ TRUMP-USD: X10=$68,977, Lighter=$256,877, Total=$325,854
+17:20:44 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:44 [INFO] Lighter: Found 1 open positions
+17:20:44 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:20:44 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:20:44 [DEBUG] 💓 [lighter] Alive (uptime=105s, last_msg=0s, last_server_ping=45s, server_pings_answered=1)
+17:20:45 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=105s, last_msg=0s, last_pong=105s, pings=0, pongs=0)
+17:20:45 [DEBUG] 💓 [x10_trades] Alive (uptime=105s, last_msg=0s, last_pong=105s, pings=0, pongs=0)
+17:20:45 [DEBUG] 💓 [x10_funding] Alive (uptime=105s, last_msg=38s, last_pong=105s, pings=0, pongs=0)
+17:20:45 [DEBUG] 💓 [x10_account] Alive (uptime=105s, last_msg=10s, last_pong=105s, pings=3, pongs=0)
+17:20:45 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (38.3s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb MKR-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (38.4s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (38.1s > 30.0s) - stale data, skip
+17:20:45 [INFO] ✅ KAITO-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.96h, APY: 49.9%)
+17:20:45 [INFO] ✅ Found 1 opportunities from 61 valid pairs
+17:20:45 [INFO] 🎯 Found 1 opportunities
+17:20:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:20:45 [INFO] 💰 X10 verfügbare Balance: $197.00 USDC
+17:20:46 [DEBUG] Lighter Balance: Raw=$250.46, Safe=$237.93
+17:20:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:20:46 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:20:46 [INFO] 📊 Positions: X10=1, Lighter=1
+17:20:47 [DEBUG] ✅ TRX-USD: X10=$309,144, Lighter=$6,193,636, Total=$6,502,780
+17:20:47 [INFO] 🛑 Initiating shutdown...
+17:20:47 [INFO] 🛑 ParallelExecutionManager: Stopping 1 active executions...
+17:20:47 [INFO] ⏳ Waiting up to 30.0s for 1 executions to complete...
+17:20:48 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0047, rPnL=$0.0000, entry=$1.690700, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:20:48 [INFO] Lighter: Found 1 open positions
+17:20:48 [DEBUG] 🔍 KAITO-USD check 26/30 clean...
+17:20:48 [WARNING] ⚡ KAITO-USD: SHUTDOWN detected during ghost check - aborting!
+17:20:48 [INFO] ✓ [MAKER STRATEGY] KAITO-USD: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).
+17:20:48 [INFO] ════════════════════════════════════════════════════════════
+17:20:48 [INFO] 📊 TRADE SUMMARY:  KAITO-USD
+17:20:48 [INFO]    Result: TIMEOUT
+17:20:48 [INFO]    Reason:  Lighter order not filled (no retries available)
+17:20:48 [INFO]    Total Time: 105.41s
+17:20:48 [INFO]    State: LEG1_SENT
+17:20:48 [INFO]    Phase Times:
+17:20:48 [INFO]       - orderbook_validation: 0.25s
+17:20:48 [INFO]       - lighter_order_placement: 0.62s
+17:20:48 [INFO]       - lighter_fill_wait: 22.58s
+17:20:48 [INFO]    Lighter Order:  8eaaf272e32cb9e1e00d948fe164a3566dc4244f...
+17:20:48 [INFO] ════════════════════════════════════════════════════════════
+17:20:48 [WARNING] ❌ Trade execution failed for KAITO-USD
+17:20:48 [INFO] ✅ ParallelExecutionManager: 1 completed, 0 rolled back
+17:20:48 [INFO] ✅ ParallelExecutionManager: Stopped
+17:20:48 [DEBUG] Cancelled task: maintenance_loop
+17:20:48 [DEBUG] Cancelled task: cleanup_finished_tasks
+17:20:48 [DEBUG] Cancelled task: health_reporter
+17:20:48 [DEBUG] Cancelled task: farm_loop
+17:20:48 [DEBUG] Cancelled task: logic_loop
+17:20:48 [DEBUG] Cancelled task: trade_management_loop
+17:20:48 [DEBUG] Cancelled task: connection_watchdog
+17:20:48 [INFO] Farm loop cancelled
+17:20:48 [INFO] Logic loop cancelled
+17:20:48 [INFO] Connection watchdog cancelled
+17:20:48 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+17:20:48 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+17:20:48 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+17:20:48 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:20:48 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:20:48 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:20:48 [DEBUG] [X10] Shutdown active - returning cached positions
+17:20:48 [INFO] 📸 Position snapshot: X10=1, Lighter=1
+17:20:48 [INFO] ✅ No active executions to wait for
+17:20:48 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:20:48 [DEBUG] [X10] Shutdown active - returning cached positions
+17:20:48 [INFO] ⚡ Attempting global Lighter cancel...
+17:20:48 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:49 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:49 [DEBUG] ✅ PENGU-USD: X10=$57,455, Lighter=$76,299,723, Total=$76,357,178
+17:20:49 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7591)...
+17:20:49 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765643448317,"Nonce":7591,"Sig":"OttpHcvcKUfMlLsYdW++fkJMh2nuqE0ATLoAyIzf5V+zvn8vf4pOInm9EGWT4iuUJ00YWhEnByCZlkLk0+y6LRS3Yim6juehyh1Wbvqeqhs="}
+17:20:49 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='997d34d3e1541e41de7bb3fe97c3dd95961ce73928e48d0e0555b15dac0483fd18789476eaa654b8' predicted_execution_time_ms=1765642835243 additional_properties={}
+17:20:49 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765643448317,"Nonce":7591,"Sig":"OttpHcvcKUfMlLsYdW++fkJMh2nuqE0ATLoAyIzf5V+zvn8vf4pOInm9EGWT4iuUJ00YWhEnByCZlkLk0+y6LRS3Yim6juehyh1Wbvqeqhs="})
+17:20:49 [DEBUG] 🔄 Nonce cache invalidated
+17:20:49 [INFO] 🛑 Cancelling open orders for 1 symbols (LighterGlobal=True)...
+17:20:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APT-USD
+17:20:49 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:20:49 [DEBUG] [X10] Shutdown active - returning cached positions
+17:20:49 [INFO] 🔻 Close attempt 1/3 | x10=1, lighter=1
+17:20:49 [INFO] 🛑 Closing X10 APT-USD (SELL 47.3)
+17:20:49 [INFO] 📊 APT-USD Pre-Close PnL: uPnL=$0.0047, rPnL=$0.0000, funding=$-0.0000, entry=$1.690700
+17:20:49 [INFO] 🛑 Closing Lighter APT-USD: BUY 47.3 (IOC reduce_only, price=1.6904)
+17:20:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APT-USD
+17:20:49 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:49 [DEBUG] close_live_position: symbol=APT-USD, side=SELL, notional=$79.95591999999999
+17:20:49 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:49 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+17:20:49 [DEBUG] 💓 [lighter] Alive (uptime=110s, last_msg=0s, last_server_ping=50s, server_pings_answered=1)
+17:20:50 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=110s, last_msg=0s, last_pong=110s, pings=0, pongs=0)
+17:20:50 [DEBUG] 💓 [x10_account] Alive (uptime=110s, last_msg=15s, last_pong=110s, pings=3, pongs=0)
+17:20:50 [DEBUG] 💓 [x10_funding] Alive (uptime=110s, last_msg=43s, last_pong=110s, pings=0, pongs=0)
+17:20:50 [DEBUG] 💓 [x10_trades] Alive (uptime=110s, last_msg=1s, last_pong=110s, pings=0, pongs=0)
+17:20:50 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:20:50 [DEBUG] MIN_NOTIONAL APT-USD: min_base=2.00000000 coins, price=$1.6904, min_qty_usd=$3.38, min_notional_api=$10.00, final=$11.00
+17:20:50 [INFO] 🔻 LIGHTER CLOSE APT-USD: size=-47.300000 coins, side=BUY, price=$1.6904, notional=$79.96, dust=False
+17:20:50 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:50 [DEBUG] ⚡ Skipping validation for reduce_only order APT-USD ($79.96)
+17:20:50 [INFO] 🚀 LIGHTER OPEN APT-USD: side=BUY, size_usd=$79.96, amount=47.3, price=$1.690400, TIF=IOC
+17:20:50 [DEBUG] 🔍 DEBUG: APT-USD market_id = 31 (raw=31, type=<class 'int'>)
+17:20:50 [DEBUG] 🔄 APT-USD: Shutdown detected - using passed price as mark (mark=$1.690400)
+17:20:50 [DEBUG] QUANTIZE APT-USD: Notional=$79.95591999999999 -> RawAmt=47.300000 -> QuantAmt=47.300000 (x0.0001) -> BaseInt=4730
+17:20:50 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:50 [DEBUG] 🔍 [TIF] APT-USD: Processing time_in_force='IOC' (raw='IOC')
+17:20:50 [DEBUG] ✅ [TIF] APT-USD: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0
+17:20:50 [DEBUG] 🔧 [TIF] APT-USD: Set expiry=0 for IOC order
+17:20:50 [INFO] ⚡ [TIF] APT-USD: Using IOC order (tif=0, expiry=0, ioc_attr=0)
+17:20:50 [DEBUG] [X10] Shutdown active - returning cached positions
+17:20:50 [INFO] 🔻 X10 CLOSE APT-USD: size=47.300000, side=SELL
+17:20:50 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:20:50 [DEBUG] [X10] Rate limiter cancelled during open_live_position (reduce_only=True) - continuing for position close
+17:20:50 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Using TimeInForce.IOC for Market Order (reduce_only)
+17:20:50 [DEBUG] ℹ️ [TIF] APT-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:20:50 [DEBUG] ✅ [TIF] APT-USD: Selected TimeInForce=IOC (post_only=False, reduce_only=True, is_market=True)
+17:20:50 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:20:50 [DEBUG] [X10] Rate limiter cancelled during place_order (reduce_only=True) - continuing for position close
+17:20:50 [DEBUG] Placing an order: id=2719852841717163002055382105298382820607414676211393880410736426609172963596
+17:20:50 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:20:50 [DEBUG] 🔄 Fetched fresh nonce: 7592 (cached next: 7593)
+17:20:50 [INFO] 🔒 Locked execution for APT-USD BUY (Nonce: 7592)...
+17:20:50 [INFO] ⚡ MARKET ORDER APT-USD: BUY 4730 @ avg_price=17845 (shutdown fast-close)
+17:20:50 [DEBUG] ✅ [REDUCE_ONLY] APT-USD: Market Order reduce_only=True (will be 1 in API)
+17:20:50 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":31,"ClientOrderIndex":1765642908759,"BaseAmount":4730,"Price":17845,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765643449340,"Nonce":7592,"Sig":"NxTGfGTQYkKRljIWbFQlyt6jte8cotfmUVJ6nX3TJ1cso4dm8g0HIhWO1spd1ddRk0oOA8lo8OAc2nlBwgfMW2gKJJcCnAd+tDFxWak9/ks="}
+17:20:50 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='935b4586d9d0e8e4492f5e1fd72dba37e92aee5c589fc5736774941d2af844b3b9bfc5b503840876' predicted_execution_time_ms=1765642836473 additional_properties={}
+17:20:50 [INFO] ✅ Lighter Order Sent: 935b4586d9d0e8e4492f5e1fd72dba37e92aee5c589fc5736774941d2af844b3b9bfc5b503840876
+17:20:50 [INFO] ✅ Lighter close APT-USD: Erfolgreich ($79.96)
+17:20:50 [DEBUG] [LIGHTER] Removed APT-USD from _positions_cache after successful close
+17:20:50 [INFO] ✅ Lighter APT-USD closed and tracked
+17:20:50 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:51 [DEBUG] ✅ MON-USD: X10=$105,698, Lighter=$229,977,929, Total=$230,083,627
+17:20:51 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Market Order placed (TimeInForce=IOC, post_only=False, reduce_only=True)
+17:20:51 [INFO]  X10 Order: 1999877122823434240
+17:20:51 [DEBUG] [X10] Marked close order for APT-USD: order_id=1999877122823434240
+17:20:51 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999877122823434240, 'accountId': 127074, 'externalId': '2719852841717163002055382105298382820607414676211393880410736426609172963596'
+17:20:51 [INFO] ✅ [x10_account] ORDER UPDATE: APT-USD SELL FILLED qty=47.3 filled=47.3 @ $1.6806 (id=1999877122823434240)
+17:20:51 [DEBUG] X10 Adapter: Order update processed - APT-USD #1999877122823434240 FILLED
+17:20:51 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999877123661107203, 'accountId': 127074, 'market': 'APT-USD', 'orderId': 1999877122823434240, 'externalOrderId': '2719852841717163002
+17:20:51 [INFO] 💰💰💰 [x10_account] FILL/TRADE: APT-USD SELL 47.3 @ $1.6911 (Trade: 1999877123661107203, Order: 1999877122823434240, Fee: $0.0180, Taker: True)
+17:20:51 [DEBUG] [X10] Saved 1 close fills for APT-USD: qty=47.3000, fee=$0.0180, order_id=1999877122823434240
+17:20:51 [DEBUG] X10 Adapter: Fill update processed - APT-USD order=1999877122823434240
+17:20:51 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.101152', 'status': 'ACTIVE', 'equity': '204.987761', 'availableForTrade': '204.987761', 'availabl
+17:20:51 [DEBUG] 💰 [x10_account] BALANCE: equity=$204.987761, available=$204.987761, uPnL=$-0.113391
+17:20:51 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999876746152771584,
+        "accountId": 127074,
+        "market": "APT-USD",
+        "status": "CLOSED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "47.3",
+        "value": "79.922939",
+        "openPrice": "1.6921",
+        "markPrice": "1.689702739999",
+        "liquidationPrice": "0",
+        "margin": "0",
+        "unrealisedPnl": "0",
+        "midPriceUnrealisedPnl": "-0.026015",
+        "realisedPnl": "-0.083305",
+        "createdAt": 1765642746857,
+        "updatedAt": 1765642836865
+      }
+    ]
+  },
+  "ts": 1765642836865,
+  "seq": 14
+}
+17:20:51 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999876746152771584,
+  "accountId": 127074,
+  "market": "APT-USD",
+  "status": "CLOSED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "47.3",
+  "value": "79.922939",
+  "openPrice": "1.6921",
+  "markPrice": "1.689702739999",
+  "liquidationPrice": "0",
+  "margin": "0",
+  "unrealisedPnl": "0",
+  "midPriceUnrealisedPnl": "-0.026015",
+  "realisedPnl": "-0.083305",
+  "createdAt": 1765642746857,
+  "updatedAt": 1765642836865
+}
+17:20:51 [DEBUG] [X10] Removed APT-USD from _positions_cache (status=CLOSED, size=47.3)
+17:20:51 [DEBUG] X10 Adapter: Position update processed - APT-USD
+17:20:51 [INFO] 📈 [x10_account] POSITION UPDATE: APT-USD LONG size=47.3 entry=$1.6921 mark=$1.689702739999 uPnL=$0
+17:20:51 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.035855', 'status': 'ACTIVE', 'equity': '205.035855', 'availableForTrade': '205.035855', 'availabl
+17:20:51 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.035855, available=$205.035855, uPnL=$0.000000
+17:20:52 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:52 [DEBUG] ✅ SUI-USD: X10=$525,065, Lighter=$2,520,916, Total=$3,045,981
+17:20:53 [INFO] ✅ X10 APT-USD closed and tracked
+17:20:54 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:54 [DEBUG] ✅ FARTCOIN-USD: X10=$434,998, Lighter=$8,850,154, Total=$9,285,152
+17:20:54 [DEBUG] 💓 [lighter] Alive (uptime=115s, last_msg=0s, last_server_ping=55s, server_pings_answered=1)
+17:20:55 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=115s, last_msg=0s, last_pong=115s, pings=0, pongs=0)
+17:20:55 [DEBUG] 💓 [x10_funding] Alive (uptime=115s, last_msg=48s, last_pong=115s, pings=0, pongs=0)
+17:20:55 [DEBUG] 💓 [x10_account] Alive (uptime=115s, last_msg=4s, last_pong=115s, pings=3, pongs=0)
+17:20:55 [DEBUG] 💓 [x10_trades] Alive (uptime=115s, last_msg=0s, last_pong=115s, pings=0, pongs=0)
+17:20:58 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:58 [DEBUG] ✅ SEI-USD: X10=$179,110, Lighter=$8,811,053, Total=$8,990,163
+17:20:58 [DEBUG] 💓 [x10_account] Sent keepalive ping #4: 1765642858908
+17:20:58 [DEBUG] 💓 [x10_account] Health OK - last activity 8s ago
+17:20:58 [DEBUG] 💓 [x10_account] Health OK - msgs=15 (ORDER:3, TRADE:2, POSITION:4, BALANCE:6)
+17:20:59 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:20:59 [DEBUG] 💓 [lighter] Alive (uptime=120s, last_msg=0s, last_server_ping=60s, server_pings_answered=1)
+17:21:00 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=120s, last_msg=0s, last_pong=120s, pings=0, pongs=0)
+17:21:00 [DEBUG] ✅ WIF-USD: X10=$206,577, Lighter=$3,968,364, Total=$4,174,941
+17:21:00 [DEBUG] 💓 [x10_account] Alive (uptime=120s, last_msg=9s, last_pong=120s, pings=4, pongs=0)
+17:21:00 [DEBUG] 💓 [x10_trades] Alive (uptime=120s, last_msg=0s, last_pong=120s, pings=0, pongs=0)
+17:21:00 [DEBUG] 💓 [x10_funding] Alive (uptime=120s, last_msg=53s, last_pong=120s, pings=0, pongs=0)
+17:21:00 [INFO] 💓 [lighter] Received SERVER ping → sent pong (ping #2)
+17:21:01 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:21:01 [DEBUG] ✅ TON-USD: X10=$95,562, Lighter=$672,424, Total=$767,986
+17:21:01 [DEBUG] [PNL] APT-USD: Using X10 fill price $1.691100
+17:21:01 [INFO] 💰 APT-USD Lighter Closed PnL: $-0.0189 (entry=$1.690700, close=$1.691100, size=47.3000, source=x10_fill_proxy)
+17:21:02 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:21:02 [INFO] ✅ No open positions remaining
+17:21:02 [INFO] 🔍 Final position sweep...
+17:21:02 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:21:02 [INFO] ✅ Final sweep: No positions found
+17:21:02 [DEBUG] ✓ APT-USD entry prices: x10=$1.692100, lighter=$1.690700, source=trade_obj
+17:21:02 [DEBUG] [PNL] APT-USD Hedge: lighter_pnl=$-0.018920 (SHORT), x10_pnl=$-0.047300 (LONG), fees=$0.036005, funding=$-0.000000, total=$-0.102225
+17:21:02 [INFO] 💰 Shutdown PnL for APT-USD: PnL=$-0.1022, Funding=$-0.0000 (lighter_pnl=$-0.0189, x10_pnl=$-0.0473, fees=$0.0360)
+17:21:02 [INFO] 📝 StateManager.close_trade(APT-USD): PnL=$-0.1022, Funding=$-0.0000
+17:21:02 [DEBUG] 📝 StateManager.close_trade(APT-USD): update_trade returned True
+17:21:02 [DEBUG] 🧹 Removed closed trade APT-USD from memory
+17:21:02 [INFO] 📝 Shutdown: Marked APT-USD as closed in DB (PnL=$-0.1022, Funding=$-0.0000)
+17:21:02 [INFO] 📝 Shutdown: Marked 1 trades as closed in DB | Session Total: PnL=$-0.0189, Funding=$0.0000
+17:21:02 [INFO] 🛑 Stopping InMemoryStateManager...
+17:21:02 [INFO] 📝 DB close_trade(APT-USD): PnL=$-0.1022, Funding=$-0.0000
+17:21:02 [DEBUG] 📝 DB close_trade(APT-USD): Execute returned 584
+17:21:02 [DEBUG] 📝 Flushed 1 writes
+17:21:02 [INFO] 📝 State writer loop stopped
+17:21:02 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:21:02 [INFO] ✅ InMemoryStateManager stopped
+17:21:02 [INFO] 🛑 FeeManager stopped
+17:21:02 [INFO] 🔒 Closing database...
+17:21:02 [INFO] 🖊️ Database write loop stopped
+17:21:02 [INFO] ✅ Database closed
+17:21:02 [INFO] 💾 Persist phase complete
+17:21:02 [INFO] 🛑 Stopping OI Tracker...
+17:21:02 [INFO] 🛑 Stopping OpenInterestTracker...
+17:21:02 [INFO] ✅ OpenInterestTracker stopped
+17:21:02 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+17:21:02 [INFO] 💓 [x10_account] Keepalive loop stopped
+17:21:03 [DEBUG] [lighter] WebSocket closed (server slow to respond)
+17:21:03 [INFO] 🔌 [lighter] WebSocket stopped
+17:21:03 [DEBUG] [x10_account] WebSocket closed (server slow to respond)
+17:21:03 [INFO] 🔌 [x10_account] WebSocket stopped
+17:21:03 [DEBUG] [x10_funding] WebSocket closed (server slow to respond)
+17:21:03 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:21:03 [DEBUG] [x10_orderbooks] WebSocket closed (server slow to respond)
+17:21:03 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+17:21:03 [DEBUG] [x10_trades] WebSocket closed (server slow to respond)
+17:21:03 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:21:03 [INFO] ✅ WebSocketManager stopped
+17:21:03 [INFO] ✅ Lighter Adapter closed
+17:21:03 [INFO] ✅ X10 Adapter geschlossen.
+17:21:03 [INFO] ✅ Teardown complete
+17:21:03 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:21:03 [INFO] ✅ All positions closed. Bye! (elapsed=15.64s)
+17:21:03 [INFO] ✅ Shutdown complete
+17:21:03 [INFO] 🛑 Shutting down...
+17:21:03 [INFO] 🛑 Shutdown requested...
+17:21:03 [INFO] 🛑 Stopping Dashboard API...
+17:21:03 [INFO] ✅ ParallelExecutionManager: Already stopping
+17:21:03 [INFO] 🛑 Stopping OpenInterestTracker...
+17:21:03 [INFO] ✅ OpenInterestTracker stopped
+17:21:03 [INFO] 🛑 Funding tracker: Cancelled
+17:21:03 [INFO] ✅ Funding Tracker stopped
+17:21:03 [INFO] 🔌 Closing adapters...
+17:21:03 [INFO] ✅ Bot V5 shutdown complete
+17:21:03 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+17:21:03 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+17:21:03 [INFO] ✅ Shutdown already completed (reason=funding_bot), returning cached result
+17:21:03 [INFO] ✅ All positions closed. Bye!
+17:21:03 [INFO] 🛑 Stopping Infrastructure...

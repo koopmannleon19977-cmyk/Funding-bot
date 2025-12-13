@@ -404,7 +404,7 @@ class LighterAdapter(BaseAdapter):
                     return None
                 
                 if resp.status == 404:
-                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades', '/api/v1/nextNonce']
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades', '/api/v1/nextNonce', '/api/v1/accountInactiveOrders']
                     if any(path.startswith(p) for p in empty_result_paths):
                         logger.debug(f"{self.name} REST GET (internal) {path} returned 404")
                         return None
@@ -461,7 +461,7 @@ class LighterAdapter(BaseAdapter):
                 # Lighter returns 404 when no orders/trades exist - this is NOT an error!
                 # ═══════════════════════════════════════════════════════════════
                 if resp.status == 404:
-                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades']
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades', '/api/v1/accountInactiveOrders']
                     if any(path.startswith(p) for p in empty_result_paths):
                         logger.debug(f"{self.name} REST GET {path} returned 404 (no data - OK)")
                         # Return empty structure that matches expected response format
@@ -932,10 +932,11 @@ class LighterAdapter(BaseAdapter):
 
     async def fetch_my_trades(self, symbol: str, limit: int = 20, force: bool = False) -> List[dict]:
         """
-        Fetch account trade history for a symbol (fills).
+        Fetch account trade history for a symbol (fills) via inactive orders.
         
-        The Lighter API provides trades via the /api/v1/account endpoint which returns
-        an Account object including positions, orders, and trades.
+        The Lighter API does NOT have a direct accountTrades endpoint.
+        Instead, we use /api/v1/accountInactiveOrders which returns filled orders
+        with price information (filled_quote_amount / filled_base_amount = avg fill price).
         
         Args:
             symbol: Trading pair symbol
@@ -965,51 +966,117 @@ class LighterAdapter(BaseAdapter):
             if market:
                 market_index = market.get('i') or market.get('market_id') or market.get('market_index')
             
-            # ═══════════════════════════════════════════════════════════════
-            # Use /api/v1/account endpoint which includes trades
-            # This is the correct endpoint per the Lighter TS SDK
-            # ═══════════════════════════════════════════════════════════════
-            params = {
-                "by": "index",
-                "value": str(acc_idx)
-            }
-            
-            resp = await self._rest_get("/api/v1/account", params=params, force=force)
-            
-            if not resp:
+            if market_index is None:
+                logger.debug(f"[LIGHTER] No market_index found for {symbol}")
                 return []
             
-            # Trades are in the account object
-            trades = resp.get('trades', [])
+            # ═══════════════════════════════════════════════════════════════
+            # Generate auth token - required for accountInactiveOrders endpoint
+            # ═══════════════════════════════════════════════════════════════
+            auth_token = None
+            try:
+                # Ensure signer is initialized
+                signer = await self._get_signer()
+                if signer:
+                    # create_auth_token_with_expiry returns (auth_str, error_str) tuple!
+                    auth_result = signer.create_auth_token_with_expiry()
+                    if isinstance(auth_result, tuple):
+                        auth_token, auth_error = auth_result
+                        if auth_error:
+                            logger.debug(f"[LIGHTER] Auth token error: {auth_error}")
+                    else:
+                        auth_token = auth_result
+                    
+                    if auth_token:
+                        logger.debug(f"[LIGHTER] Generated auth token for accountInactiveOrders")
+                    else:
+                        logger.debug(f"[LIGHTER] Auth token generation returned None")
+            except Exception as auth_err:
+                logger.debug(f"[LIGHTER] Failed to create auth token: {auth_err}")
             
-            # Parse and return normalized trades, filtered by symbol/market_id
+            # ═══════════════════════════════════════════════════════════════
+            # Use /api/v1/accountInactiveOrders - returns filled/cancelled orders
+            # This is the CORRECT way to get trade history per Lighter TS SDK
+            # ═══════════════════════════════════════════════════════════════
+            params = {
+                "account_index": acc_idx,
+                "market_id": int(market_index),
+                "limit": limit
+            }
+            
+            # Add auth token if available
+            if auth_token:
+                params["auth"] = auth_token
+            
+            resp = await self._rest_get("/api/v1/accountInactiveOrders", params=params, force=force)
+            
+            if not resp:
+                logger.debug(f"[LIGHTER] accountInactiveOrders returned empty for {symbol}")
+                return []
+            
+            # Response format: { "code": 0, "orders": [...], "next_cursor": "..." }
+            orders = resp.get('orders', [])
+            
+            if not orders:
+                logger.debug(f"[LIGHTER] No inactive orders found for {symbol}")
+                return []
+            
+            # Parse and return normalized trades from filled orders
             result = []
-            for t in trades:
+            for o in orders:
                 try:
-                    # Filter by market_id if we have it
-                    trade_market_id = t.get('market_id')
-                    if market_index is not None and trade_market_id is not None:
-                        if int(trade_market_id) != int(market_index):
-                            continue
+                    status = str(o.get('status', '')).lower()
+                    
+                    # Only include filled orders (these are actual trades)
+                    if status != 'filled':
+                        continue
+                    
+                    # Calculate average fill price from filled amounts
+                    filled_base = safe_float(o.get('filled_base_amount') or o.get('filled_size', 0))
+                    filled_quote = safe_float(o.get('filled_quote_amount', 0))
+                    
+                    if filled_base <= 0:
+                        continue
+                    
+                    # Price = quote / base (what we paid/received per unit)
+                    if filled_quote > 0:
+                        avg_price = filled_quote / filled_base
+                    else:
+                        # Fallback to order price if no quote amount
+                        avg_price = safe_float(o.get('price', 0))
+                    
+                    if avg_price <= 0:
+                        continue
+                    
+                    # Determine side
+                    side = str(o.get('side', '')).upper()
+                    if not side:
+                        # Lighter uses 0=Buy, 1=Sell in some responses
+                        side_num = o.get('side_num') or o.get('is_ask')
+                        if side_num is not None:
+                            side = "SELL" if int(side_num) == 1 else "BUY"
                     
                     result.append({
-                        "id": t.get('id') or t.get('trade_index'),
-                        "order_id": t.get('order_id') or t.get('order_index'),
+                        "id": o.get('order_index') or o.get('id'),
+                        "order_id": o.get('order_index') or o.get('id'),
                         "symbol": symbol,
-                        "side": str(t.get('side', '')).upper(),
-                        "price": safe_float(t.get('price', 0)),
-                        "size": safe_float(t.get('size') or t.get('base_amount', 0)),
-                        "fee": safe_float(t.get('fee', 0)),
-                        "timestamp": t.get('timestamp') or t.get('created_at')
+                        "side": side,
+                        "price": avg_price,
+                        "size": filled_base,
+                        "fee": safe_float(o.get('fee', 0)),
+                        "timestamp": o.get('timestamp') or o.get('created_at') or o.get('updated_at'),
+                        "status": status
                     })
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"[LIGHTER] Error parsing order: {e}")
                     continue
             
-            # Limit results
+            # Sort by timestamp (newest first) and limit
+            result.sort(key=lambda x: x.get('timestamp') or 0, reverse=True)
             result = result[:limit]
             
             if result:
-                logger.debug(f"Lighter fetch_my_trades({symbol}): Found {len(result)} trades")
+                logger.debug(f"Lighter fetch_my_trades({symbol}): Found {len(result)} filled orders")
             
             return result
             

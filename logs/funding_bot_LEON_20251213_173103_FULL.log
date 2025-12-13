@@ -1,0 +1,708 @@
+17:31:04 [INFO] ✅ CONFIG VALIDATION COMPLETED.
+17:31:08 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+17:31:08 [DEBUG] ✅ Decimal adapter registered for SQLite
+17:31:08 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:31:08 [INFO] 🚀 Starting InMemoryStateManager...
+17:31:08 [INFO] 📂 Initializing database: data/trades.db
+17:31:08 [INFO] ✅ Read pool created: 5 connections
+17:31:08 [INFO] ✅ WAL mode enabled
+17:31:08 [INFO] 🔄 Running database migrations...
+17:31:08 [INFO] ✅ Migrations complete (14 statements)
+17:31:08 [INFO] ✅ Database initialized
+17:31:08 [INFO] 🖊️ Database write loop started
+17:31:08 [DEBUG] Maintenance not due (Last: 23h ago)
+17:31:08 [INFO] 📂 Loaded 0 trades from database
+17:31:08 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+17:31:08 [INFO] ✅ State Manager started
+17:31:08 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:31:08 [INFO] ✅ Async database initialized
+17:31:08 [INFO] 📝 State writer loop started
+17:31:08 [DEBUG] ✅ Database schema up to date
+17:31:08 [INFO] Initialisiere X10 Adapter...
+17:31:08 [INFO]  X10 Account initialisiert.
+17:31:08 [INFO] Initialisiere Lighter Adapter...
+17:31:08 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+17:31:08 [INFO] 💰 Checking exchange balances at startup...
+17:31:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:31:09 [INFO] 💰 X10 verfügbare Balance: $205.04 USDC
+17:31:10 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+17:31:11 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+17:31:12 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:31:12 [INFO] 💰 STARTUP BALANCE CHECK: X10=$205.04, Lighter=$237.93
+17:31:12 [INFO] ✅ Exchange balances OK - Bot can trade!
+17:31:12 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:31:12 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+17:31:13 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+17:31:13 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+17:31:13 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+17:31:13 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:31:13 [INFO] ✅ FeeManager started with periodic refresh
+17:31:13 [INFO] ✅ FeeManager started
+17:31:13 [INFO] ✅ Funding Tracker started (updates every 3600s)
+17:31:13 [INFO] ✅ FundingTracker started
+17:31:13 [INFO] 📊 Loading Market Data via REST...
+17:31:13 [INFO] 🔄 Funding tracking loop started...
+17:31:13 [DEBUG] 📊 No open trades to track
+17:31:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:31:14 [INFO] Lighter: Found 0 open positions
+17:31:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:15 [DEBUG] 📸 PnL Snapshot saved: total=$83.1304, uPnL=$0.0000, rPnL=$83.1304
+17:31:15 [DEBUG] 📸 PnL Snapshot: total=$83.1304 (uPnL=$0.0000, rPnL=$83.1304, funding=$0.0000)
+17:31:15 [DEBUG] 📝 Flushed 1 writes in 15.0ms
+17:31:15 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+17:31:16 [INFO] ✅ Lighter: Updated 114 markets with size_decimals from API
+17:31:16 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:31:16 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:31:16 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:31:16 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:31:17 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:31:17 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+17:31:17 [INFO] 📈 Pre-loading Lighter prices...
+17:31:18 [DEBUG] Lighter: Loaded 384 funding rates
+17:31:18 [DEBUG] Lighter: Loaded 117 prices via REST
+17:31:18 [INFO] ✅ Lighter prices loaded: 117 symbols
+17:31:19 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:31:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:31:23 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:31:23 [INFO] 启动 OI Tracker für 64 Symbole...
+17:31:23 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:31:23 [INFO] 🌐 Starting WebSocket Manager...
+17:31:23 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+17:31:23 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+17:31:23 [INFO] 📊 OI Tracker: Starting cycle 1 (64 symbols)
+17:31:23 [INFO] 🔌 [lighter] WebSocket manager started
+17:31:23 [INFO] 🔌 [x10_account] WebSocket manager started
+17:31:23 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:31:23 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:31:23 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+17:31:23 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+17:31:23 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:31:23 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:31:23 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:31:23 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:31:23 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+17:31:23 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+17:31:23 [INFO] 💓 [x10_account] Keepalive loop started
+17:31:23 [INFO] ✅ [lighter] Subscribed to 64 channels (1 market_stats/all + 63 order_books)
+17:31:23 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+17:31:23 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:31:23 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:31:23 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:31:23 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:31:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:23 [DEBUG] ✅ CRV-USD: X10=$95,708, Lighter=$2,176,555, Total=$2,272,263
+17:31:24 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:31:24 [INFO] [lighter] Resubscribing to 64 channels (paced)...
+17:31:24 [INFO] [lighter] Receive loop started (async iterator)
+17:31:24 [INFO] 💓 [lighter] Waiting for SERVER ping (Lighter sends pings every ~60s)
+17:31:24 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:31:24 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:31:24 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:31:24 [INFO] [x10_trades] Receive loop started (async iterator)
+17:31:24 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:31:24 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:31:24 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:31:24 [INFO] [x10_funding] Receive loop started (async iterator)
+17:31:24 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:31:24 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:31:24 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:31:24 [INFO] Lighter: Found 0 open positions
+17:31:24 [INFO] ✅ No orphaned positions found
+17:31:24 [INFO] ✅ ParallelExecutionManager started
+17:31:24 [INFO] ✅ ParallelExecutionManager started
+17:31:24 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+17:31:24 [INFO] [x10_account] Receive loop started (async iterator)
+17:31:24 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:31:24 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765643469717, 'seq': 1}
+17:31:24 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765643469717,
+  "seq": 2
+}
+17:31:24 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '205.035855', 'status': 'ACTIVE', 'equity': '205.035855', 'availableForTrade': '205.035855', 'available
+17:31:24 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.035855, available=$205.035855, uPnL=$0.000000
+17:31:24 [DEBUG] Registered task: logic_loop (priority=HIGH)
+17:31:24 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+17:31:24 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+17:31:24 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+17:31:24 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+17:31:24 [DEBUG] Registered task: health_reporter (priority=LOW)
+17:31:24 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+17:31:24 [INFO] ═══════════════════════════════════════════════════════════
+17:31:24 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:31:24 [INFO] ═══════════════════════════════════════════════════════════
+17:31:24 [INFO] 🚀 BotEventLoop starting...
+17:31:24 [INFO] ▶️ Started task: connection_watchdog
+17:31:24 [INFO] ▶️ Started task: logic_loop
+17:31:24 [INFO] ▶️ Started task: trade_management_loop
+17:31:24 [INFO] ▶️ Started task: farm_loop
+17:31:24 [INFO] ▶️ Started task: maintenance_loop
+17:31:24 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:31:24 [INFO] ▶️ Started task: health_reporter
+17:31:24 [INFO] ✅ Started 7 tasks
+17:31:24 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:31:24 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:31:24 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:24 [INFO] 🛡️ Trade Management Loop gestartet
+17:31:24 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+17:31:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:31:24 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+17:31:24 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:31:24 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:31:24 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:31:24 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+17:31:24 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:31:24 [DEBUG] [lighter] Resubscribed 10/64 channels
+17:31:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:24 [DEBUG] [lighter] Resubscribed 20/64 channels
+17:31:24 [DEBUG] [lighter] Resubscribed 30/64 channels
+17:31:24 [INFO] ✅ RECONCILE: Sync complete.
+17:31:24 [INFO] ⚡ Latency Arb Detector initialized (min_lag=5.0s, max_lag=30.0s, min_rate_diff=0.020%)
+17:31:24 [DEBUG] Price cache status: X10=78/64, Lighter=117/64
+17:31:24 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:24 [DEBUG] [lighter] Resubscribed 40/64 channels
+17:31:24 [DEBUG] [lighter] Resubscribed 50/64 channels
+17:31:24 [DEBUG] [lighter] Resubscribed 60/64 channels
+17:31:24 [INFO] [lighter] Resubscribed to 64 channels
+17:31:24 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:31:24 [INFO] ✅ APT-USD: Expected profit $0.0700 in 24.0h (breakeven: 11.10h, APY: 57.8%)
+17:31:24 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:31:24 [INFO] 🎯 Found 1 opportunities
+17:31:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:31:25 [INFO] 💰 X10 verfügbare Balance: $205.04 USDC
+17:31:25 [DEBUG] ✅ HYPE-USD: X10=$5,285,036, Lighter=$1,695,038, Total=$6,980,075
+17:31:25 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:31:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:26 [INFO] Lighter: Found 0 open positions
+17:31:26 [INFO] 📊 Positions: X10=0, Lighter=0
+17:31:26 [INFO] 🚀 Launching 1 trades
+17:31:26 [INFO] 🚀 Launching APT-USD (APY=57.8%)
+17:31:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:26 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+17:31:26 [DEBUG] MIN_NOTIONAL APT-USD: min_base=2.00000000 coins, price=$1.6868, min_qty_usd=$3.37, min_notional_api=$10.00, final=$11.00
+17:31:26 [INFO] 📏 SIZE APT-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+17:31:26 [DEBUG] 🔍 Liquidity Check: Skipping depth check for APT-USD (Maker Order)
+17:31:26 [INFO] 🚀 Opening APT-USD: Size=$80.0
+17:31:26 [INFO] ═══════════════════════════════════════════════════════════
+17:31:26 [INFO] 🚀 HEDGED TRADE START: APT-USD
+17:31:26 [INFO]    Lighter: SELL $80.00 @ $1.686800
+17:31:26 [INFO]    X10:     BUY $80.00 @ $1.687753
+17:31:26 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+17:31:26 [INFO] ═══════════════════════════════════════════════════════════
+17:31:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+17:31:26 [INFO] ✅ Launched 1 trades this cycle
+17:31:26 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:31:26 [INFO] ⚖️ Size Alignment APT-USD: 80.00$ -> 79.95$ (47.400000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+17:31:26 [INFO] 📋 [PHASE 0] APT-USD:  Validating orderbook...
+17:31:27 [DEBUG] 📚 APT-USD Lighter orderbook refreshed via REST
+17:31:27 [DEBUG] 📚 APT-USD Orderbook state: 20 bids, 20 asks, timestamp=1765643487.150203
+17:31:27 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+17:31:27 [DEBUG] ✅ APT-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $226338 depth, 0.02% spread
+17:31:27 [INFO] ✅ [PHASE 0] APT-USD: Orderbook validation PASSED (0.25s)
+17:31:27 [INFO] 📤 [PHASE 1] APT-USD: Placing Lighter SELL order...
+17:31:27 [INFO]    Size: $79.95 (47.400000 coins)
+17:31:27 [INFO] 🚀 LIGHTER OPEN APT-USD: side=SELL, size_usd=$79.95, amount=47.4, price=$1.686800, TIF=None
+17:31:27 [DEBUG] 🔍 DEBUG: APT-USD market_id = 31 (raw=31, type=<class 'int'>)
+17:31:27 [INFO] 🛡️ Maker Price APT-USD SELL: $1.686800 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$1.6865, Ask=$1.6869, Tick=0.0001)
+17:31:27 [DEBUG] QUANTIZE APT-USD: Notional=$79.95432 -> RawAmt=47.400000 -> QuantAmt=47.400000 (x0.0001) -> BaseInt=4740
+17:31:27 [DEBUG] [x10_account] Firehose/Account stream - no explicit subscription needed
+17:31:27 [DEBUG] [x10_trades] Firehose/Account stream - no explicit subscription needed
+17:31:27 [DEBUG] [x10_funding] Firehose/Account stream - no explicit subscription needed
+17:31:27 [DEBUG] 📋 [TIF] APT-USD: Using TIF=1, expiry=-1 (not IOC)
+17:31:27 [DEBUG] 🔄 Fetched fresh nonce: 7595 (cached next: 7596)
+17:31:27 [INFO] 🔒 Locked execution for APT-USD SELL (Nonce: 7595)...
+17:31:27 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Using ORDER_TYPE_LIMIT = 0
+17:31:27 [DEBUG] ℹ️ [ORDER_TYPE] APT-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+17:31:27 [DEBUG] ✅ [REDUCE_ONLY] APT-USD: Limit Order reduce_only=False (will be 0 in API)
+17:31:27 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":31,"ClientOrderIndex":1765643578671,"BaseAmount":4740,"Price":16868,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768062687519,"ExpiredAt":1765644086519,"Nonce":7595,"Sig":"D3U59j9QvLEWrL3AcxZtkfCmeiA8ZY0vPezICDEyZOnDU9gdBiQaXWaOPPHMP+yNnSerTLdry1lqeZxqgRxlHONw3FYyclictw5bIwhOO0k="}
+17:31:27 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='08e0d599958ccf44751ce74eaa453ecf87773a2ed988113bdd4c5e54b5f0e8020cf9295a8312b4e7' predicted_execution_time_ms=1765643473636 additional_properties={}
+17:31:27 [INFO] ✅ Lighter Order Sent: 08e0d599958ccf44751ce74eaa453ecf87773a2ed988113bdd4c5e54b5f0e8020cf9295a8312b4e7
+17:31:27 [INFO] ✅ [PHASE 1] APT-USD: Lighter order placed (0.64s)
+17:31:27 [INFO]    Order ID: 08e0d599958ccf44751ce74eaa453ecf87773a2e...
+17:31:27 [DEBUG] 📚 APT-USD Orderbook state: 20 bids, 20 asks, timestamp=1765643487.150203
+17:31:27 [DEBUG] ⏱️ APT-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2441.36, base=45.0s)
+17:31:27 [INFO] ⏳ [PHASE 1.5] APT-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+17:31:28 [DEBUG] ✅ STRK-USD: X10=$397,890, Lighter=$7,331,963, Total=$7,729,853
+17:31:28 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+17:31:28 [DEBUG] X10: Funding Refresh OK, cache=91
+17:31:28 [DEBUG] 📊 Lighter Funding Cache refresh (current=114)
+17:31:28 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0190, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:28 [INFO] Lighter: Found 1 open positions
+17:31:28 [INFO] ✅ [PHASE 1.5] APT-USD: Fill detected after 2 checks!
+17:31:28 [INFO] ✅ [PHASE 1.5] APT-USD: Lighter FILLED (0.94s)
+17:31:28 [INFO] 📤 [PHASE 2] APT-USD: Placing X10 BUY hedge...
+17:31:28 [INFO]    Size: 47.400000 coins (matching Lighter fill)
+17:31:28 [INFO] 🚀 X10 EXECUTE APT-USD BUY: 47.400000 Coins (Basis: COINS=47.4)
+17:31:28 [DEBUG] ℹ️ [TIF] APT-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:31:28 [DEBUG] ✅ [TIF] APT-USD: Selected TimeInForce=GTT (post_only=False, reduce_only=False, is_market=False)
+17:31:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:31:29 [DEBUG] Lighter: Loaded 384 funding rates
+17:31:29 [DEBUG] 💓 [lighter] Alive (uptime=5s, last_msg=0s, last_server_ping=5s, server_pings_answered=0)
+17:31:29 [DEBUG] 💓 [x10_trades] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+17:31:29 [DEBUG] 💓 [x10_account] Alive (uptime=5s, last_msg=5s, last_pong=5s, pings=0, pongs=0)
+17:31:29 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+17:31:29 [DEBUG] Lighter: Loaded 117 prices via REST
+17:31:29 [DEBUG] Lighter: Funding Refresh OK, cache=114
+17:31:29 [INFO] 🔍 Running periodic exchange sync check...
+17:31:29 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:29 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:29 [DEBUG] ✅ APEX-USD: X10=$46,129, Lighter=$784,902, Total=$831,031
+17:31:30 [INFO] ✅ APT-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.30h, APY: 57.8%)
+17:31:30 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:31:30 [INFO] 🎯 Found 1 opportunities
+17:31:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:31:30 [INFO] 💰 X10 verfügbare Balance: $205.04 USDC
+17:31:31 [DEBUG] Lighter Balance: Raw=$250.43, Safe=$237.91
+17:31:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:31 [DEBUG] Placing an order: id=244044376771502159311509021398137071091950008838507381523833707757297170251
+17:31:31 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:31:31 [DEBUG] ✅ NEAR-USD: X10=$254,785, Lighter=$769,454, Total=$1,024,239
+17:31:31 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0142, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:31 [INFO] Lighter: Found 1 open positions
+17:31:31 [INFO] 📊 Positions: X10=0, Lighter=1
+17:31:32 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Limit Order placed (TimeInForce=GTT, post_only=False, reduce_only=False)
+17:31:32 [INFO]  X10 Order: 1999879811996602368
+17:31:32 [INFO] ✅ [PHASE 2] APT-USD:  X10 hedge FILLED (3.53s)
+17:31:32 [INFO]    Order ID: 1999879811996602368
+17:31:32 [INFO] ════════════════════════════════════════════════════════════
+17:31:32 [INFO] 📊 TRADE SUMMARY:  APT-USD
+17:31:32 [INFO]    Result: SUCCESS
+17:31:32 [INFO]    Reason:  Hedged trade complete
+17:31:32 [INFO]    Total Time: 5.36s
+17:31:32 [INFO]    State: COMPLETE
+17:31:32 [INFO]    Phase Times:
+17:31:32 [INFO]       - orderbook_validation: 0.25s
+17:31:32 [INFO]       - lighter_order_placement: 0.64s
+17:31:32 [INFO]       - lighter_fill_wait: 0.94s
+17:31:32 [INFO]       - x10_hedge: 3.53s
+17:31:32 [INFO]    Lighter Order:  08e0d599958ccf44751ce74eaa453ecf87773a2e...
+17:31:32 [INFO]    X10 Order: 1999879811996602368
+17:31:32 [INFO] ════════════════════════════════════════════════════════════
+17:31:32 [INFO] 📝 Recording trade APT-USD in database...
+17:31:32 [DEBUG] 📝 Trade added to state: APT-USD
+17:31:32 [INFO] ✅ Trade APT-USD recorded successfully
+17:31:32 [INFO]    X10 Order ID: 1999879811996602368
+17:31:32 [INFO]    Lighter Order ID: 08e0d599958ccf44751ce74eaa453e...
+17:31:32 [INFO]    Size: $80.00
+17:31:32 [INFO]    Entry X10: $1.687753
+17:31:32 [INFO]    Entry Lighter: $1.687200
+17:31:32 [INFO]    APY: 57.82%
+17:31:32 [DEBUG] 📝 Flushed 1 writes
+17:31:32 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:31:32 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999879812839116801, 'accountId': 127074, 'market': 'APT-USD', 'orderId': 1999879811996602368, 'externalOrderId': '2440443767715021593
+17:31:32 [INFO] 💰💰💰 [x10_account] FILL/TRADE: APT-USD BUY 47.4 @ $1.6889 (Trade: 1999879812839116801, Order: 1999879811996602368, Fee: $0.0180, Taker: True)
+17:31:32 [DEBUG] [X10] Created entry price from TRADE for APT-USD: $1.688900
+17:31:32 [DEBUG] X10 Adapter: Fill update processed - APT-USD order=1999879811996602368
+17:31:32 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.035855', 'status': 'ACTIVE', 'equity': '205.035855', 'availableForTrade': '197.031204', 'availabl
+17:31:32 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.035855, available=$197.031204, uPnL=$0.000000
+17:31:32 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999879812872667136,
+        "accountId": 127074,
+        "market": "APT-USD",
+        "status": "OPENED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "47.4",
+        "value": "80.046505",
+        "openPrice": "1.6889",
+        "markPrice": "1.6887448325",
+        "liquidationPrice": "0",
+        "margin": "1.600930",
+        "unrealisedPnl": "-0.007355",
+        "midPriceUnrealisedPnl": "-0.009480",
+        "realisedPnl": "-0.018012",
+        "adl": 3,
+        "createdAt": 1765643478031,
+        "updatedAt": 1765643478031
+      }
+    ]
+  },
+  "ts": 1765643478031,
+  "seq": 6
+}
+17:31:32 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999879812872667136,
+  "accountId": 127074,
+  "market": "APT-USD",
+  "status": "OPENED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "47.4",
+  "value": "80.046505",
+  "openPrice": "1.6889",
+  "markPrice": "1.6887448325",
+  "liquidationPrice": "0",
+  "margin": "1.600930",
+  "unrealisedPnl": "-0.007355",
+  "midPriceUnrealisedPnl": "-0.009480",
+  "realisedPnl": "-0.018012",
+  "adl": 3,
+  "createdAt": 1765643478031,
+  "updatedAt": 1765643478031
+}
+17:31:32 [DEBUG] [X10] Using calculated entry price from TRADE fills for APT-USD: $1.688900
+17:31:32 [DEBUG] [X10] Updated APT-USD in _positions_cache (size=47.4, entry=$1.688900)
+17:31:32 [DEBUG] X10 Adapter: Position update processed - APT-USD
+17:31:32 [INFO] 📉 [x10_account] POSITION UPDATE: APT-USD LONG size=47.4 entry=$1.6889 mark=$1.6887448325 uPnL=$-0.007355
+17:31:32 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.017843', 'status': 'ACTIVE', 'equity': '205.010488', 'availableForTrade': '197.005837', 'availabl
+17:31:32 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.010488, available=$197.005837, uPnL=$-0.007355
+17:31:32 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999879811996602368, 'accountId': 127074, 'externalId': '244044376771502159311509021398137071091950008838507381523833707757297170251',
+17:31:32 [INFO] ✅ [x10_account] ORDER UPDATE: APT-USD BUY FILLED qty=47.4 filled=47.4 @ $1.6979 (id=1999879811996602368)
+17:31:32 [DEBUG] X10 Adapter: Order update processed - APT-USD #1999879811996602368 FILLED
+17:31:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:33 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0142, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:33 [INFO] Lighter: Found 1 open positions
+17:31:33 [DEBUG] 📌 APT-USD: Stored entry snapshot for PnL ({'entry_qty_x10': 47.4, 'entry_price_x10': 1.6889, 'entry_qty_lighter': 47.4, 'entry_price_lighter': 1.6872, 'entry_fee_x10': 0.000225, 'entry_fee_lighter': 0.0})
+17:31:33 [INFO] ✅ OPENED APT-USD: $80.00
+17:31:33 [DEBUG] 📝 Flushed 1 writes
+17:31:34 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s, last_server_ping=10s, server_pings_answered=0)
+17:31:34 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=2s, last_pong=10s, pings=0, pongs=0)
+17:31:34 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=2s, last_pong=10s, pings=0, pongs=0)
+17:31:34 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+17:31:34 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:34 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:31:34 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:31:34 [INFO] ✅ RECONCILE: Sync complete.
+17:31:34 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:34 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:35 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:35 [DEBUG] ✅ MON-USD: X10=$109,722, Lighter=$229,962,755, Total=$230,072,476
+17:31:37 [DEBUG] ✅ PENDLE-USD: X10=$113,840, Lighter=$1,140,615, Total=$1,254,455
+17:31:38 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:38 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0142, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:38 [INFO] Lighter: Found 1 open positions
+17:31:38 [INFO] ✅ RECONCILE: Sync complete.
+17:31:38 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:38 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:39 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:39 [DEBUG] 💓 [lighter] Alive (uptime=15s, last_msg=0s, last_server_ping=15s, server_pings_answered=0)
+17:31:39 [DEBUG] 💓 [x10_account] Alive (uptime=15s, last_msg=7s, last_pong=15s, pings=0, pongs=0)
+17:31:39 [DEBUG] 💓 [x10_trades] Alive (uptime=15s, last_msg=1s, last_pong=15s, pings=0, pongs=0)
+17:31:39 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+17:31:39 [DEBUG] ✅ EDEN-USD: X10=$98,193, Lighter=$4,897,265, Total=$4,995,458
+17:31:41 [DEBUG] ✅ PUMP-USD: X10=$516,225, Lighter=$1,623,097,084, Total=$1,623,613,309
+17:31:42 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:42 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:42 [DEBUG] 📊 APT Lighter PnL: uPnL=$-0.0047, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:42 [INFO] Lighter: Found 1 open positions
+17:31:42 [INFO] ✅ RECONCILE: Sync complete.
+17:31:42 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:42 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:42 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:43 [DEBUG] ✅ ARB-USD: X10=$139,630, Lighter=$6,170,281, Total=$6,309,912
+17:31:44 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s, last_server_ping=20s, server_pings_answered=0)
+17:31:44 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=12s, last_pong=20s, pings=0, pongs=0)
+17:31:44 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=2s, last_pong=20s, pings=0, pongs=0)
+17:31:44 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+17:31:45 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:46 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0047, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:46 [INFO] Lighter: Found 1 open positions
+17:31:46 [INFO] ✅ RECONCILE: Sync complete.
+17:31:46 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:46 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:46 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:46 [DEBUG] ✅ ADA-USD: X10=$259,244, Lighter=$3,708,400, Total=$3,967,645
+17:31:48 [DEBUG] ✅ BTC-USD: X10=$29,791,372, Lighter=$2,976, Total=$29,794,348
+17:31:49 [DEBUG] 💓 [lighter] Alive (uptime=25s, last_msg=0s, last_server_ping=25s, server_pings_answered=0)
+17:31:49 [DEBUG] 💓 [x10_trades] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+17:31:49 [DEBUG] 💓 [x10_account] Alive (uptime=25s, last_msg=17s, last_pong=25s, pings=0, pongs=0)
+17:31:49 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+17:31:49 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:50 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0095, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:50 [INFO] Lighter: Found 1 open positions
+17:31:50 [INFO] ✅ RECONCILE: Sync complete.
+17:31:50 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:50 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:50 [DEBUG] ✅ PENGU-USD: X10=$57,446, Lighter=$76,031,421, Total=$76,088,867
+17:31:50 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:52 [DEBUG] ✅ 1000SHIB-USD: X10=$88,174, Lighter=$187,589,674, Total=$187,677,848
+17:31:53 [DEBUG] 💓 [x10_account] Sent keepalive ping #1: 1765643513076
+17:31:53 [DEBUG] 💓 [x10_account] Health OK - last activity 21s ago
+17:31:53 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+17:31:53 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:54 [DEBUG] 📊 APT Lighter PnL: uPnL=$0.0190, rPnL=$0.0000, entry=$1.687200, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:31:54 [INFO] Lighter: Found 1 open positions
+17:31:54 [INFO] ✅ RECONCILE: Sync complete.
+17:31:54 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:31:54 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:31:54 [DEBUG] ✅ SEI-USD: X10=$178,968, Lighter=$8,806,776, Total=$8,985,744
+17:31:54 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s, last_server_ping=30s, server_pings_answered=0)
+17:31:54 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=3s, last_pong=30s, pings=0, pongs=0)
+17:31:54 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=22s, last_pong=30s, pings=1, pongs=0)
+17:31:54 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.7s
+17:31:54 [DEBUG] 📊 Task health: 7 alive, 0 dead
+17:31:54 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+17:31:54 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:31:57 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:31:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:31:57 [INFO] 🛑 Initiating shutdown...
+17:31:57 [INFO] ✅ ParallelExecutionManager: No active executions
+17:31:57 [DEBUG] Cancelled task: maintenance_loop
+17:31:57 [DEBUG] Cancelled task: cleanup_finished_tasks
+17:31:57 [DEBUG] Cancelled task: health_reporter
+17:31:57 [DEBUG] Cancelled task: farm_loop
+17:31:57 [DEBUG] Cancelled task: logic_loop
+17:31:57 [DEBUG] Cancelled task: trade_management_loop
+17:31:57 [DEBUG] Cancelled task: connection_watchdog
+17:31:57 [INFO] Farm loop cancelled
+17:31:57 [DEBUG] Lighter: fetch_open_positions cancelled during shutdown
+17:31:57 [INFO] Connection watchdog cancelled
+17:31:57 [INFO] Logic loop cancelled
+17:31:57 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+17:31:57 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+17:31:57 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+17:31:57 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:31:57 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:31:57 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:31:57 [DEBUG] [X10] Shutdown active - returning cached positions
+17:31:57 [INFO] 📸 Position snapshot: X10=1, Lighter=1
+17:31:57 [INFO] ✅ No active executions to wait for
+17:31:57 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:31:57 [DEBUG] [X10] Shutdown active - returning cached positions
+17:31:57 [INFO] ⚡ Attempting global Lighter cancel...
+17:31:57 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:57 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:57 [DEBUG] ✅ ASTER-USD: X10=$489,291, Lighter=$13,295,305, Total=$13,784,596
+17:31:58 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7596)...
+17:31:58 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765644117513,"Nonce":7596,"Sig":"3HpSsw3fy48qeC2E+pi2twbByIuw1Xr+PBvLUFyBOe9idlzuM+l5LoEXuVrhZxZYdUV9qI8mqEi/gj9z4+odGsAIF/4NybIUysK0hPFAIXY="}
+17:31:58 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='4f1cc4d74c063bcca46019e7fb5aa776b664920483c8970f735e9c62f74f71caffbfcdc5f4dc0f0e' predicted_execution_time_ms=1765643504424 additional_properties={}
+17:31:58 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765644117513,"Nonce":7596,"Sig":"3HpSsw3fy48qeC2E+pi2twbByIuw1Xr+PBvLUFyBOe9idlzuM+l5LoEXuVrhZxZYdUV9qI8mqEi/gj9z4+odGsAIF/4NybIUysK0hPFAIXY="})
+17:31:58 [DEBUG] 🔄 Nonce cache invalidated
+17:31:58 [INFO] 🛑 Cancelling open orders for 1 symbols (LighterGlobal=True)...
+17:31:58 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APT-USD
+17:31:58 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:31:58 [DEBUG] [X10] Shutdown active - returning cached positions
+17:31:58 [INFO] 🔻 Close attempt 1/3 | x10=1, lighter=1
+17:31:58 [INFO] 🛑 Closing X10 APT-USD (SELL 47.4)
+17:31:58 [INFO] 📊 APT-USD Pre-Close PnL: uPnL=$0.0190, rPnL=$0.0000, funding=$-0.0000, entry=$1.687200
+17:31:58 [INFO] 🛑 Closing Lighter APT-USD: BUY 47.4 (IOC reduce_only, price=1.6872)
+17:31:58 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APT-USD
+17:31:58 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:58 [DEBUG] close_live_position: symbol=APT-USD, side=SELL, notional=$79.97328
+17:31:58 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:58 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+17:31:59 [DEBUG] 💓 [lighter] Alive (uptime=35s, last_msg=0s, last_server_ping=35s, server_pings_answered=0)
+17:31:59 [DEBUG] 💓 [x10_account] Alive (uptime=35s, last_msg=27s, last_pong=35s, pings=1, pongs=0)
+17:31:59 [DEBUG] 💓 [x10_trades] Alive (uptime=35s, last_msg=2s, last_pong=35s, pings=0, pongs=0)
+17:31:59 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+17:31:59 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:31:59 [DEBUG] MIN_NOTIONAL APT-USD: min_base=2.00000000 coins, price=$1.6872, min_qty_usd=$3.37, min_notional_api=$10.00, final=$11.00
+17:31:59 [INFO] 🔻 LIGHTER CLOSE APT-USD: size=-47.400000 coins, side=BUY, price=$1.6872, notional=$79.97, dust=False
+17:31:59 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:59 [DEBUG] ⚡ Skipping validation for reduce_only order APT-USD ($79.97)
+17:31:59 [INFO] 🚀 LIGHTER OPEN APT-USD: side=BUY, size_usd=$79.97, amount=47.4, price=$1.687200, TIF=IOC
+17:31:59 [DEBUG] 🔍 DEBUG: APT-USD market_id = 31 (raw=31, type=<class 'int'>)
+17:31:59 [DEBUG] 🔄 APT-USD: Shutdown detected - using passed price as mark (mark=$1.687200)
+17:31:59 [DEBUG] QUANTIZE APT-USD: Notional=$79.97328 -> RawAmt=47.400000 -> QuantAmt=47.400000 (x0.0001) -> BaseInt=4740
+17:31:59 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:59 [DEBUG] 🔍 [TIF] APT-USD: Processing time_in_force='IOC' (raw='IOC')
+17:31:59 [DEBUG] ✅ [TIF] APT-USD: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0
+17:31:59 [DEBUG] 🔧 [TIF] APT-USD: Set expiry=0 for IOC order
+17:31:59 [INFO] ⚡ [TIF] APT-USD: Using IOC order (tif=0, expiry=0, ioc_attr=0)
+17:31:59 [DEBUG] [X10] Shutdown active - returning cached positions
+17:31:59 [INFO] 🔻 X10 CLOSE APT-USD: size=47.400000, side=SELL
+17:31:59 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:31:59 [DEBUG] [X10] Rate limiter cancelled during open_live_position (reduce_only=True) - continuing for position close
+17:31:59 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Using TimeInForce.IOC for Market Order (reduce_only)
+17:31:59 [DEBUG] ℹ️ [TIF] APT-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:31:59 [DEBUG] ✅ [TIF] APT-USD: Selected TimeInForce=IOC (post_only=False, reduce_only=True, is_market=True)
+17:31:59 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:31:59 [DEBUG] [X10] Rate limiter cancelled during place_order (reduce_only=True) - continuing for position close
+17:31:59 [DEBUG] Placing an order: id=3069061258437329571186875676192246069662921839644262067905670850705483804923
+17:31:59 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:31:59 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:31:59 [DEBUG] 🔄 Fetched fresh nonce: 7597 (cached next: 7598)
+17:31:59 [INFO] 🔒 Locked execution for APT-USD BUY (Nonce: 7597)...
+17:31:59 [INFO] ⚡ MARKET ORDER APT-USD: BUY 4740 @ avg_price=17811 (shutdown fast-close)
+17:31:59 [DEBUG] ✅ [REDUCE_ONLY] APT-USD: Market Order reduce_only=True (will be 1 in API)
+17:31:59 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":31,"ClientOrderIndex":1765643603704,"BaseAmount":4740,"Price":17811,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765644118547,"Nonce":7597,"Sig":"l21kTpEQuoqicKXMPB/Dvh9C8Mo1/NoyFLrsRfjaL9KJywvdfqaqCY59i8UJTaFnjg0Xf6iPhYzyC2wRYndSBNlA67hmr1nV3Vx8g0h1dHQ="}
+17:31:59 [DEBUG] ✅ AAVE-USD: X10=$158,321, Lighter=$46,297, Total=$204,618
+17:31:59 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='48ec887721e22956918b03ce480e4e025f44f56c8960bb2697a417b5c3fbc3b4005bf92df469a75c' predicted_execution_time_ms=1765643505662 additional_properties={}
+17:31:59 [INFO] ✅ Lighter Order Sent: 48ec887721e22956918b03ce480e4e025f44f56c8960bb2697a417b5c3fbc3b4005bf92df469a75c
+17:31:59 [INFO] ✅ Lighter close APT-USD: Erfolgreich ($79.97)
+17:31:59 [DEBUG] [LIGHTER] Removed APT-USD from _positions_cache after successful close
+17:31:59 [INFO] ✅ Lighter APT-USD closed and tracked
+17:32:00 [DEBUG] ✅ [ORDER_TYPE] APT-USD: Market Order placed (TimeInForce=IOC, post_only=False, reduce_only=True)
+17:32:00 [INFO]  X10 Order: 1999879929643147264
+17:32:00 [DEBUG] [X10] Marked close order for APT-USD: order_id=1999879929643147264
+17:32:00 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:00 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:00 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:00 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999879929643147264, 'accountId': 127074, 'externalId': '3069061258437329571186875676192246069662921839644262067905670850705483804923'
+17:32:00 [INFO] ✅ [x10_account] ORDER UPDATE: APT-USD SELL FILLED qty=47.4 filled=47.4 @ $1.6788 (id=1999879929643147264)
+17:32:00 [DEBUG] X10 Adapter: Order update processed - APT-USD #1999879929643147264 FILLED
+17:32:00 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999879930485149696, 'accountId': 127074, 'market': 'APT-USD', 'orderId': 1999879929643147264, 'externalOrderId': '3069061258437329571
+17:32:00 [INFO] 💰💰💰 [x10_account] FILL/TRADE: APT-USD SELL 47.4 @ $1.6878 (Trade: 1999879930485149696, Order: 1999879929643147264, Fee: $0.0180, Taker: True)
+17:32:00 [DEBUG] [X10] Saved 1 close fills for APT-USD: qty=47.4000, fee=$0.0180, order_id=1999879929643147264
+17:32:00 [DEBUG] X10 Adapter: Fill update processed - APT-USD order=1999879929643147264
+17:32:00 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.017843', 'status': 'ACTIVE', 'equity': '205.010488', 'availableForTrade': '205.010488', 'availabl
+17:32:00 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.010488, available=$205.010488, uPnL=$-0.007355
+17:32:00 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999879812872667136,
+        "accountId": 127074,
+        "market": "APT-USD",
+        "status": "CLOSED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "47.4",
+        "value": "80.046505",
+        "openPrice": "1.6889",
+        "markPrice": "1.6887448325",
+        "liquidationPrice": "0",
+        "margin": "0",
+        "unrealisedPnl": "0",
+        "midPriceUnrealisedPnl": "-0.047400",
+        "realisedPnl": "-0.088152",
+        "createdAt": 1765643478031,
+        "updatedAt": 1765643506064
+      }
+    ]
+  },
+  "ts": 1765643506064,
+  "seq": 12
+}
+17:32:00 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999879812872667136,
+  "accountId": 127074,
+  "market": "APT-USD",
+  "status": "CLOSED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "47.4",
+  "value": "80.046505",
+  "openPrice": "1.6889",
+  "markPrice": "1.6887448325",
+  "liquidationPrice": "0",
+  "margin": "0",
+  "unrealisedPnl": "0",
+  "midPriceUnrealisedPnl": "-0.047400",
+  "realisedPnl": "-0.088152",
+  "createdAt": 1765643478031,
+  "updatedAt": 1765643506064
+}
+17:32:00 [DEBUG] [X10] Removed APT-USD from _positions_cache (status=CLOSED, size=47.4)
+17:32:00 [DEBUG] X10 Adapter: Position update processed - APT-USD
+17:32:00 [INFO] 📈 [x10_account] POSITION UPDATE: APT-USD LONG size=47.4 entry=$1.6889 mark=$1.6887448325 uPnL=$0
+17:32:00 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '204.947703', 'status': 'ACTIVE', 'equity': '204.947703', 'availableForTrade': '204.947703', 'availabl
+17:32:00 [DEBUG] 💰 [x10_account] BALANCE: equity=$204.947703, available=$204.947703, uPnL=$0.000000
+17:32:01 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:32:01 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:01 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:01 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:01 [DEBUG] ✅ ZORA-USD: X10=$93,443, Lighter=$29,552,609, Total=$29,646,052
+17:32:01 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:01 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:01 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:02 [INFO] ✅ X10 APT-USD closed and tracked
+17:32:02 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:02 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:02 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:02 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:32:03 [DEBUG] ✅ SUI-USD: X10=$522,143, Lighter=$2,360,065, Total=$2,882,208
+17:32:03 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:03 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:03 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:04 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s, last_server_ping=40s, server_pings_answered=0)
+17:32:04 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:04 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:04 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:04 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=4s, last_pong=40s, pings=1, pongs=0)
+17:32:04 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:32:04 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:32:04 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:32:04 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:04 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:04 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:04 [DEBUG] ✅ TIA-USD: X10=$215,504, Lighter=$2,090,109, Total=$2,305,612
+17:32:05 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:05 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:05 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:06 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:06 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:06 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:07 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+17:32:07 [DEBUG] Lighter REST GET /api/v1/accountInactiveOrders error: Invalid variable type: value should be str, int or float, got None of type <class 'NoneType'>
+17:32:07 [DEBUG] [LIGHTER] accountInactiveOrders returned empty for APT-USD
+17:32:07 [DEBUG] [PNL] APT-USD: Using X10 fill price $1.687800
+17:32:07 [INFO] 💰 APT-USD Lighter Closed PnL: $-0.0284 (entry=$1.687200, close=$1.687800, size=47.4000, source=x10_fill_proxy)
+17:32:08 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:32:08 [DEBUG] ✅ AVAX-USD: X10=$366,980, Lighter=$206,312, Total=$573,292
+17:32:08 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:32:08 [INFO] ✅ No open positions remaining
+17:32:08 [INFO] 🔍 Final position sweep...
+17:32:08 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:32:08 [INFO] ✅ Final sweep: No positions found
+17:32:08 [DEBUG] ✓ APT-USD entry prices: x10=$1.688900, lighter=$1.687200, source=trade_obj
+17:32:08 [DEBUG] [PNL] APT-USD Hedge: lighter_pnl=$-0.028440 (SHORT), x10_pnl=$-0.052140 (LONG), fees=$0.036012, funding=$-0.000000, total=$-0.116592
+17:32:08 [INFO] 💰 Shutdown PnL for APT-USD: PnL=$-0.1166, Funding=$-0.0000 (lighter_pnl=$-0.0284, x10_pnl=$-0.0521, fees=$0.0360)
+17:32:08 [INFO] 📝 StateManager.close_trade(APT-USD): PnL=$-0.1166, Funding=$-0.0000
+17:32:08 [DEBUG] 📝 StateManager.close_trade(APT-USD): update_trade returned True
+17:32:08 [DEBUG] 🧹 Removed closed trade APT-USD from memory
+17:32:08 [INFO] 📝 Shutdown: Marked APT-USD as closed in DB (PnL=$-0.1166, Funding=$-0.0000)
+17:32:08 [INFO] 📝 Shutdown: Marked 1 trades as closed in DB | Session Total: PnL=$-0.0284, Funding=$0.0000
+17:32:08 [INFO] 🛑 Stopping InMemoryStateManager...
+17:32:08 [INFO] 📝 DB close_trade(APT-USD): PnL=$-0.1166, Funding=$-0.0000
+17:32:08 [DEBUG] 📝 DB close_trade(APT-USD): Execute returned 585
+17:32:08 [DEBUG] 📝 Flushed 1 writes
+17:32:08 [INFO] 📝 State writer loop stopped
+17:32:08 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:32:08 [INFO] ✅ InMemoryStateManager stopped
+17:32:08 [INFO] 🛑 FeeManager stopped
+17:32:08 [INFO] 🔒 Closing database...
+17:32:08 [INFO] 🖊️ Database write loop stopped
+17:32:08 [INFO] ✅ Database closed
+17:32:08 [INFO] 💾 Persist phase complete
+17:32:08 [INFO] 🛑 Stopping OI Tracker...
+17:32:08 [INFO] 🛑 Stopping OpenInterestTracker...
+17:32:08 [INFO] ✅ OpenInterestTracker stopped
+17:32:08 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+17:32:08 [INFO] 💓 [x10_account] Keepalive loop stopped
+17:32:09 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:32:09 [DEBUG] [x10_funding] WebSocket closed (server slow to respond)
+17:32:09 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:32:09 [DEBUG] [x10_orderbooks] WebSocket closed (server slow to respond)
+17:32:09 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+17:32:09 [DEBUG] [x10_account] WebSocket closed (server slow to respond)
+17:32:09 [INFO] 🔌 [x10_account] WebSocket stopped
+17:32:09 [DEBUG] [lighter] WebSocket closed (server slow to respond)
+17:32:09 [INFO] 🔌 [lighter] WebSocket stopped
+17:32:09 [INFO] ✅ WebSocketManager stopped
+17:32:09 [INFO] ✅ Lighter Adapter closed
+17:32:09 [INFO] ✅ X10 Adapter geschlossen.
+17:32:09 [INFO] ✅ Teardown complete
+17:32:09 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:32:09 [INFO] ✅ All positions closed. Bye! (elapsed=12.41s)
+17:32:09 [INFO] ✅ Shutdown complete
+17:32:09 [INFO] 🛑 Shutting down...
+17:32:09 [INFO] 🛑 Shutdown requested...
+17:32:09 [INFO] 🛑 Stopping Dashboard API...
+17:32:09 [INFO] ✅ ParallelExecutionManager: Already stopping
+17:32:09 [INFO] 🛑 Stopping OpenInterestTracker...
+17:32:09 [INFO] ✅ OpenInterestTracker stopped
+17:32:09 [INFO] 🛑 Funding tracker: Cancelled
+17:32:09 [INFO] ✅ Funding Tracker stopped
+17:32:09 [INFO] 🔌 Closing adapters...
+17:32:09 [INFO] ✅ Bot V5 shutdown complete
+17:32:09 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+17:32:09 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+17:32:09 [INFO] ✅ Shutdown already completed (reason=funding_bot), returning cached result
+17:32:09 [INFO] ✅ All positions closed. Bye!
+17:32:09 [INFO] 🛑 Stopping Infrastructure...
