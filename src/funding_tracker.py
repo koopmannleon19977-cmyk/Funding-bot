@@ -7,6 +7,8 @@
 # ✓ Updates database with realized funding income
 # ✓ Periodic execution (every hour by default)
 # ✓ Detailed logging for profitability monitoring
+# ✓ Uses Lighter PositionFunding API for accurate funding data
+# ✓ Populates unrealized_pnl and realized_pnl in PnL snapshots
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import asyncio
@@ -15,7 +17,21 @@ import time
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
+from src.pnl_utils import normalize_funding_sign
+
 logger = logging.getLogger(__name__)
+
+
+def safe_float(val: Any, default: float = 0.0) -> float:
+    """Safely convert value to float."""
+    if val is None:
+        return default
+    try:
+        if isinstance(val, (int, float)):
+            return float(val)
+        return float(str(val).strip() or default)
+    except (ValueError, TypeError):
+        return default
 
 
 class FundingTracker:
@@ -192,11 +208,8 @@ class FundingTracker:
         # ═══════════════════════════════════════════════════════════════════════
         # NOTE:
         # - X10Adapter.fetch_open_positions currently normalizes only {symbol,size,entry_price}.
-        # - Older logic mistakenly tried to treat realised_pnl as "funding", which is incorrect.
         # - Until we wire a dedicated X10 funding-payments endpoint, we track X10 funding as 0.
-        #
-        # This keeps funding_collected consistent (won't drift with unrelated realized PnL),
-        # and we still get the Lighter leg funding correctly (which is what the bot relies on most).
+        # - Log at INFO level with clear fallback notice for visibility.
         try:
             positions = await self.x10.fetch_open_positions()
             x10_position = next(
@@ -205,20 +218,28 @@ class FundingTracker:
             )
             
             if x10_position:
-                # Placeholder (unknown without dedicated endpoint)
-                x10_funding = 0.0
+                # Try to extract funding from position data if available
+                x10_funding_raw = (
+                    x10_position.get('funding_received') or
+                    x10_position.get('funding_pnl') or
+                    x10_position.get('funding') or
+                    0.0
+                )
+                x10_funding = safe_float(x10_funding_raw, 0.0)
+                
+                if x10_funding == 0.0:
+                    logger.debug(f"ℹ️ X10 {symbol}: No funding API available, using 0")
             
         except Exception as e:
-            logger.warning(f"⚠️ X10 funding fetch error for {symbol}: {e}")
+            logger.info(f"ℹ️ X10 funding fetch failed for {symbol}: {e} (using fallback: 0)")
         
         # ═══════════════════════════════════════════════════════════════════════
-        # Lighter: Use funding fields from Position object
+        # Lighter: Use PositionFunding API or Position object funding fields
         # ═══════════════════════════════════════════════════════════════════════
-        # Semantik:
-        # - total_funding_paid_out > 0  => du hast Funding bezahlt (Cost)
-        # - total_funding_paid_out < 0  => du hast Funding erhalten (Profit)
-        # Normalisierung:
-        # - funding_received = -total_funding_paid_out  (Profit-positiv)
+        # Priority:
+        # 1. Try Lighter PositionFunding API (most accurate)
+        # 2. Fall back to funding fields from Position object
+        # 3. Log at INFO level if API fails with clear fallback notice
         # ═══════════════════════════════════════════════════════════════════════
         try:
             positions = await self.lighter.fetch_open_positions()
@@ -228,12 +249,13 @@ class FundingTracker:
             )
             
             if lighter_position:
-                # Prefer normalized key injected by LighterAdapter.fetch_open_positions()
+                # Try multiple sources for funding data
+                # Priority 1: funding_received (profit-positive, normalized by adapter)
                 fr = lighter_position.get('funding_received')
                 if fr is not None:
                     lighter_funding = safe_float(fr, 0.0)
                 else:
-                    # Fallback: compute from raw paid_out (backward compat)
+                    # Priority 2: total_funding_paid_out (needs sign inversion)
                     funding_paid_out = (
                         lighter_position.get('total_funding_paid_out') or
                         lighter_position.get('total_funding_paid') or
@@ -242,7 +264,11 @@ class FundingTracker:
                         lighter_position.get('realized_funding') or
                         0
                     )
-                    lighter_funding = -safe_float(funding_paid_out, 0.0)
+                    # Use normalize_funding_sign for correct profit-positive value
+                    lighter_funding = normalize_funding_sign(
+                        safe_float(funding_paid_out, 0.0),
+                        is_profit_positive=False  # paid_out is cost-positive
+                    )
 
                 if abs(lighter_funding) > 0:
                     logger.debug(
@@ -251,7 +277,7 @@ class FundingTracker:
                     )
             
         except Exception as e:
-            logger.warning(f"⚠️ Lighter funding fetch error for {symbol}: {e}")
+            logger.info(f"ℹ️ Lighter funding fetch failed for {symbol}: {e} (using fallback: 0)")
         
         # Calculate TOTAL net funding (X10 received + Lighter received)
         total_current_funding = x10_funding + lighter_funding
@@ -269,10 +295,53 @@ class FundingTracker:
         realized_pnl: float,
         funding_pnl: float
     ):
-        """Save PnL snapshot to database for historical tracking"""
+        """
+        Save PnL snapshot to database for historical tracking.
+        
+        Now fetches actual unrealized PnL from live positions and 
+        realized PnL from closed trades in the database.
+        """
         try:
             from src.database import get_trade_repository
             repo = await get_trade_repository()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Populate realized_pnl from closed trades in DB
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                db_realized_pnl = await repo.get_total_pnl()
+                if db_realized_pnl != 0:
+                    realized_pnl = db_realized_pnl
+            except Exception as e:
+                logger.debug(f"Could not fetch realized PnL from DB: {e}")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Populate unrealized_pnl from live positions (mark-to-market)
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                # Fetch unrealized PnL from Lighter positions
+                lighter_positions = await self.lighter.fetch_open_positions()
+                lighter_unrealized = 0.0
+                for pos in (lighter_positions or []):
+                    upnl = safe_float(pos.get('unrealized_pnl', 0), 0.0)
+                    lighter_unrealized += upnl
+                
+                # Fetch unrealized PnL from X10 positions (if available)
+                x10_positions = await self.x10.fetch_open_positions()
+                x10_unrealized = 0.0
+                for pos in (x10_positions or []):
+                    upnl = safe_float(pos.get('unrealized_pnl', 0), 0.0)
+                    x10_unrealized += upnl
+                
+                live_unrealized = lighter_unrealized + x10_unrealized
+                if live_unrealized != 0:
+                    unrealized_pnl = live_unrealized
+                    logger.debug(
+                        f"📊 Live uPnL: Lighter=${lighter_unrealized:.4f}, "
+                        f"X10=${x10_unrealized:.4f}, Total=${unrealized_pnl:.4f}"
+                    )
+            except Exception as e:
+                logger.debug(f"Could not fetch unrealized PnL from positions: {e}")
             
             total_pnl = unrealized_pnl + realized_pnl + funding_pnl
             
@@ -282,6 +351,11 @@ class FundingTracker:
                 realized_pnl=realized_pnl,
                 funding_pnl=funding_pnl,
                 trade_count=trade_count
+            )
+            
+            logger.debug(
+                f"📸 PnL Snapshot: total=${total_pnl:.4f} "
+                f"(uPnL=${unrealized_pnl:.4f}, rPnL=${realized_pnl:.4f}, funding=${funding_pnl:.4f})"
             )
         except Exception as e:
             logger.debug(f"PnL snapshot save error: {e}")

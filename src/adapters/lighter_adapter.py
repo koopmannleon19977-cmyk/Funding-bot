@@ -404,7 +404,7 @@ class LighterAdapter(BaseAdapter):
                     return None
                 
                 if resp.status == 404:
-                    empty_result_paths = ['/api/v1/orders', '/api/v1/accountTrades', '/api/v1/trades', '/api/v1/nextNonce']
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades', '/api/v1/nextNonce']
                     if any(path.startswith(p) for p in empty_result_paths):
                         logger.debug(f"{self.name} REST GET (internal) {path} returned 404")
                         return None
@@ -461,7 +461,7 @@ class LighterAdapter(BaseAdapter):
                 # Lighter returns 404 when no orders/trades exist - this is NOT an error!
                 # ═══════════════════════════════════════════════════════════════
                 if resp.status == 404:
-                    empty_result_paths = ['/api/v1/orders', '/api/v1/accountTrades', '/api/v1/trades']
+                    empty_result_paths = ['/api/v1/orders', '/api/v1/trades']
                     if any(path.startswith(p) for p in empty_result_paths):
                         logger.debug(f"{self.name} REST GET {path} returned 404 (no data - OK)")
                         # Return empty structure that matches expected response format
@@ -934,12 +934,12 @@ class LighterAdapter(BaseAdapter):
         """
         Fetch account trade history for a symbol (fills).
         
-        API Reference: https://apidocs.lighter.xyz/docs/get-started-for-programmers-1
+        The Lighter API provides trades via the /api/v1/account endpoint which returns
+        an Account object including positions, orders, and trades.
         
-        IMPORTANT: /api/v1/trades is for PUBLIC market trades (requires market_index)
-                   /api/v1/accountTrades is for YOUR account's trades
-                   
         Args:
+            symbol: Trading pair symbol
+            limit: Max number of trades to return
             force: If True, bypass the shutdown check (used for PnL calculation after close)
         """
         # ═══════════════════════════════════════════════════════════════
@@ -959,48 +959,54 @@ class LighterAdapter(BaseAdapter):
             if acc_idx is None:
                 return []
             
-            # Get market index for the symbol (optional filter)
+            # Get market index for the symbol (for filtering)
             market = self.market_info.get(symbol)
             market_index = None
             if market:
                 market_index = market.get('i') or market.get('market_id') or market.get('market_index')
             
             # ═══════════════════════════════════════════════════════════════
-            # CORRECT ENDPOINT: /api/v1/accountTrades (not /api/v1/trades!)
-            # /api/v1/trades is for PUBLIC market trades and requires market_index
+            # Use /api/v1/account endpoint which includes trades
+            # This is the correct endpoint per the Lighter TS SDK
             # ═══════════════════════════════════════════════════════════════
             params = {
-                "account_index": int(acc_idx),
-                "limit": limit
+                "by": "index",
+                "value": str(acc_idx)
             }
             
-            # Add market_index if available (optional filter)
-            if market_index is not None:
-                params["market_index"] = int(market_index)
-            
-            resp = await self._rest_get("/api/v1/accountTrades", params=params, force=force)
+            resp = await self._rest_get("/api/v1/account", params=params, force=force)
             
             if not resp:
                 return []
             
-            trades = resp.get('trades', resp.get('data', []))
+            # Trades are in the account object
+            trades = resp.get('trades', [])
             
-            # Parse and return normalized trades
+            # Parse and return normalized trades, filtered by symbol/market_id
             result = []
             for t in trades:
                 try:
+                    # Filter by market_id if we have it
+                    trade_market_id = t.get('market_id')
+                    if market_index is not None and trade_market_id is not None:
+                        if int(trade_market_id) != int(market_index):
+                            continue
+                    
                     result.append({
-                        "id": t.get('trade_index') or t.get('id'),
-                        "order_id": t.get('order_index') or t.get('order_id'),
+                        "id": t.get('id') or t.get('trade_index'),
+                        "order_id": t.get('order_id') or t.get('order_index'),
                         "symbol": symbol,
-                        "side": "SELL" if t.get('is_ask') else "BUY",
+                        "side": str(t.get('side', '')).upper(),
                         "price": safe_float(t.get('price', 0)),
-                        "size": safe_float(t.get('base_amount') or t.get('size', 0)),
+                        "size": safe_float(t.get('size') or t.get('base_amount', 0)),
                         "fee": safe_float(t.get('fee', 0)),
                         "timestamp": t.get('timestamp') or t.get('created_at')
                     })
                 except Exception:
                     continue
+            
+            # Limit results
+            result = result[:limit]
             
             if result:
                 logger.debug(f"Lighter fetch_my_trades({symbol}): Found {len(result)} trades")
@@ -1011,7 +1017,7 @@ class LighterAdapter(BaseAdapter):
             logger.debug(f"Lighter fetch_my_trades({symbol}) cancelled")
             return []  # Return empty list instead of raising
         except Exception as e:
-            logger.error(f"Failed to fetch trades for {symbol}: {e}")
+            logger.debug(f"Failed to fetch trades for {symbol}: {e}")
             return []
 
     async def fetch_account_pnl(self, symbol: str = None, since_timestamp: float = None) -> Optional[dict]:

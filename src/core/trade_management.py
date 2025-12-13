@@ -20,6 +20,7 @@ import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
+from src.pnl_utils import compute_hedge_pnl
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +240,8 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
     """
     Compute realized PnL (for DB/accounting) from best-available entry/exit data.
     Returns a dict with breakdown fields (price_pnl, fees, funding, total).
+    
+    Uses compute_hedge_pnl from pnl_utils for accurate, sign-correct calculations.
     """
     symbol = trade.get("symbol")
     notional = safe_float(trade.get("notional_usd") or trade.get("size_usd") or 0.0, 0.0)
@@ -295,10 +298,6 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
     qty_x10 = x10_exit_qty if x10_exit_qty > 0 else entry_qty_x10
     qty_lit = lit_exit_qty if lit_exit_qty > 0 else entry_qty_lit
 
-    price_pnl_x10 = _leg_price_pnl(trade.get("side_x10"), entry_px_x10, x10_exit_px, qty_x10)
-    price_pnl_lit = _leg_price_pnl(trade.get("side_lighter"), entry_px_lit, lit_exit_px, qty_lit)
-    price_pnl_total = price_pnl_x10 + price_pnl_lit
-
     # Fees: use actual close fee for X10 if available; otherwise estimate from fee rates.
     fee_manager = get_fee_manager()
 
@@ -339,15 +338,36 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
 
     fees_total = safe_float(entry_fees, 0.0) + safe_float(exit_fees, 0.0)
 
-    total_pnl = price_pnl_total - fees_total + funding_total
+    # Use compute_hedge_pnl for accurate, sign-correct calculation
+    hedge_result = compute_hedge_pnl(
+        symbol=symbol,
+        lighter_side=trade.get("side_lighter", ""),
+        x10_side=trade.get("side_x10", ""),
+        lighter_entry_price=entry_px_lit,
+        lighter_close_price=lit_exit_px,
+        lighter_qty=qty_lit,
+        x10_entry_price=entry_px_x10,
+        x10_close_price=x10_exit_px,
+        x10_qty=qty_x10,
+        lighter_fees=entry_fees / 2 + lit_exit_fee_usd,  # Approximate split
+        x10_fees=entry_fees / 2 + x10_exit_fee_usd,
+        funding_collected=funding_total,
+    )
+
+    logger.info(
+        f"📊 {symbol} Realized PnL: "
+        f"lighter=${hedge_result['lighter_pnl']:.4f}, x10=${hedge_result['x10_pnl']:.4f}, "
+        f"fees=${hedge_result['fee_total']:.4f}, funding=${funding_total:.4f}, "
+        f"total=${hedge_result['total_pnl']:.4f}"
+    )
 
     return {
-        "price_pnl_x10": price_pnl_x10,
-        "price_pnl_lighter": price_pnl_lit,
-        "price_pnl_total": price_pnl_total,
-        "fees_total": fees_total,
+        "price_pnl_x10": hedge_result["x10_pnl"],
+        "price_pnl_lighter": hedge_result["lighter_pnl"],
+        "price_pnl_total": hedge_result["price_pnl_total"],
+        "fees_total": hedge_result["fee_total"],
         "funding_total": funding_total,
-        "total_pnl": total_pnl,
+        "total_pnl": hedge_result["total_pnl"],
         "exit_price_x10": x10_exit_px,
         "exit_price_lighter": lit_exit_px,
         "exit_qty_x10": qty_x10,

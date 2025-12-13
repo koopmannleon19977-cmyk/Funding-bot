@@ -1,0 +1,715 @@
+17:06:54 [INFO] ✅ CONFIG VALIDATION COMPLETED.
+17:06:58 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+17:06:58 [DEBUG] ✅ Decimal adapter registered for SQLite
+17:06:58 [INFO] 🔥 BOT V5 (Architected) STARTING...
+17:06:58 [INFO] 🚀 Starting InMemoryStateManager...
+17:06:58 [INFO] 📂 Initializing database: data/trades.db
+17:06:58 [INFO] ✅ Read pool created: 5 connections
+17:06:58 [INFO] ✅ WAL mode enabled
+17:06:58 [INFO] 🔄 Running database migrations...
+17:06:58 [INFO] ✅ Migrations complete (14 statements)
+17:06:58 [INFO] ✅ Database initialized
+17:06:58 [INFO] 🖊️ Database write loop started
+17:06:58 [DEBUG] Maintenance not due (Last: 23h ago)
+17:06:58 [INFO] 📂 Loaded 0 trades from database
+17:06:58 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+17:06:58 [INFO] ✅ State Manager started
+17:06:58 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+17:06:58 [INFO] ✅ Async database initialized
+17:06:58 [INFO] 📝 State writer loop started
+17:06:58 [DEBUG] ✅ Database schema up to date
+17:06:58 [INFO] Initialisiere X10 Adapter...
+17:06:58 [INFO]  X10 Account initialisiert.
+17:06:58 [INFO] Initialisiere Lighter Adapter...
+17:06:58 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+17:06:58 [INFO] 💰 Checking exchange balances at startup...
+17:06:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:00 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:00 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+17:07:01 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+17:07:03 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:07:03 [INFO] 💰 STARTUP BALANCE CHECK: X10=$205.18, Lighter=$237.95
+17:07:03 [INFO] ✅ Exchange balances OK - Bot can trade!
+17:07:03 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+17:07:03 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+17:07:03 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+17:07:03 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+17:07:04 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+17:07:04 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+17:07:04 [INFO] ✅ FeeManager started with periodic refresh
+17:07:04 [INFO] ✅ FeeManager started
+17:07:04 [INFO] ✅ Funding Tracker started (updates every 3600s)
+17:07:04 [INFO] ✅ FundingTracker started
+17:07:04 [INFO] 📊 Loading Market Data via REST...
+17:07:04 [INFO] 🔄 Funding tracking loop started...
+17:07:04 [DEBUG] 📊 No open trades to track
+17:07:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:07:04 [INFO] Lighter: Found 0 open positions
+17:07:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:05 [DEBUG] 📸 PnL Snapshot saved: total=$239.3197, uPnL=$0.0000, rPnL=$239.3197
+17:07:05 [DEBUG] 📸 PnL Snapshot: total=$239.3197 (uPnL=$0.0000, rPnL=$239.3197, funding=$0.0000)
+17:07:05 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+17:07:05 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+17:07:06 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+17:07:06 [INFO] ✅ Lighter: Updated 114 markets with size_decimals from API
+17:07:06 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+17:07:06 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+17:07:06 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+17:07:06 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+17:07:06 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+17:07:06 [INFO] 📈 Pre-loading Lighter prices...
+17:07:07 [DEBUG] Lighter: Loaded 111 funding rates
+17:07:08 [DEBUG] Lighter: Loaded 117 prices via REST
+17:07:08 [INFO] ✅ Lighter prices loaded: 117 symbols
+17:07:08 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+17:07:08 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:07:11 [INFO] ✅ Execution clients warmed up & NETWORK READY
+17:07:11 [INFO] 启动 OI Tracker für 64 Symbole...
+17:07:11 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+17:07:11 [INFO] 🌐 Starting WebSocket Manager...
+17:07:11 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+17:07:11 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+17:07:11 [INFO] 📊 OI Tracker: Starting cycle 1 (64 symbols)
+17:07:11 [INFO] 🔌 [lighter] WebSocket manager started
+17:07:11 [INFO] 🔌 [x10_account] WebSocket manager started
+17:07:11 [INFO] 🔌 [x10_trades] WebSocket manager started
+17:07:11 [INFO] 🔌 [x10_funding] WebSocket manager started
+17:07:11 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+17:07:11 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+17:07:11 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:07:11 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:07:11 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:07:11 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+17:07:11 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+17:07:11 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+17:07:11 [INFO] 💓 [x10_account] Keepalive loop started
+17:07:11 [INFO] ✅ [lighter] Subscribed to 64 channels (1 market_stats/all + 63 order_books)
+17:07:11 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+17:07:11 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+17:07:11 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+17:07:11 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+17:07:11 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+17:07:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:12 [DEBUG] ✅ 1000SHIB-USD: X10=$88,257, Lighter=$362,485,528, Total=$362,573,785
+17:07:12 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+17:07:12 [INFO] [lighter] Resubscribing to 64 channels (paced)...
+17:07:12 [INFO] [lighter] Receive loop started (async iterator)
+17:07:12 [INFO] 💓 [lighter] Waiting for SERVER ping (Lighter sends pings every ~60s)
+17:07:12 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:07:12 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+17:07:12 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:07:12 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+17:07:12 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+17:07:12 [DEBUG] [lighter] Resubscribed 10/64 channels
+17:07:12 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+17:07:12 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:07:12 [INFO] [x10_account] Receive loop started (async iterator)
+17:07:12 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:07:12 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765642018151,
+  "seq": 1
+}
+17:07:12 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765642018151, 'seq': 2}
+17:07:12 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '205.181348', 'status': 'ACTIVE', 'equity': '205.181348', 'availableForTrade': '205.181348', 'available
+17:07:12 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.181348, available=$205.181348, uPnL=$0.000000
+17:07:12 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+17:07:12 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:07:12 [INFO] [x10_funding] Receive loop started (async iterator)
+17:07:12 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:07:12 [INFO] Lighter: Found 0 open positions
+17:07:12 [INFO] ✅ No orphaned positions found
+17:07:12 [INFO] ✅ ParallelExecutionManager started
+17:07:12 [INFO] ✅ ParallelExecutionManager started
+17:07:12 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+17:07:12 [DEBUG] Registered task: logic_loop (priority=HIGH)
+17:07:12 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+17:07:12 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+17:07:12 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+17:07:12 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+17:07:12 [DEBUG] Registered task: health_reporter (priority=LOW)
+17:07:12 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+17:07:12 [INFO] ═══════════════════════════════════════════════════════════
+17:07:12 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+17:07:12 [INFO] ═══════════════════════════════════════════════════════════
+17:07:12 [INFO] 🚀 BotEventLoop starting...
+17:07:12 [INFO] ▶️ Started task: connection_watchdog
+17:07:12 [INFO] ▶️ Started task: logic_loop
+17:07:12 [INFO] ▶️ Started task: trade_management_loop
+17:07:12 [INFO] ▶️ Started task: farm_loop
+17:07:12 [INFO] ▶️ Started task: maintenance_loop
+17:07:12 [INFO] ▶️ Started task: cleanup_finished_tasks
+17:07:12 [INFO] ▶️ Started task: health_reporter
+17:07:12 [INFO] ✅ Started 7 tasks
+17:07:12 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+17:07:12 [INFO] Logic Loop gestartet – REFRESH alle 3s
+17:07:12 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:07:12 [INFO] 🛡️ Trade Management Loop gestartet
+17:07:12 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+17:07:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:07:12 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:07:12 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:07:12 [DEBUG] [lighter] Resubscribed 20/64 channels
+17:07:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:12 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+17:07:12 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+17:07:12 [INFO] [x10_trades] Receive loop started (async iterator)
+17:07:12 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+17:07:12 [DEBUG] [lighter] Resubscribed 30/64 channels
+17:07:12 [DEBUG] [lighter] Resubscribed 40/64 channels
+17:07:13 [INFO] ✅ RECONCILE: Sync complete.
+17:07:13 [INFO] ⚡ Latency Arb Detector initialized (min_lag=5.0s, max_lag=30.0s, min_rate_diff=0.020%)
+17:07:13 [DEBUG] Price cache status: X10=78/64, Lighter=117/64
+17:07:13 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:13 [DEBUG] [lighter] Resubscribed 50/64 channels
+17:07:13 [DEBUG] [lighter] Resubscribed 60/64 channels
+17:07:13 [INFO] [lighter] Resubscribed to 64 channels
+17:07:13 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+17:07:13 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 8.74h, APY: 58.7%)
+17:07:13 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:13 [INFO] 🎯 Found 1 opportunities
+17:07:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:13 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:14 [DEBUG] ✅ BTC-USD: X10=$29,638,946, Lighter=$2,970, Total=$29,641,915
+17:07:14 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:07:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:14 [INFO] Lighter: Found 0 open positions
+17:07:14 [INFO] 📊 Positions: X10=0, Lighter=0
+17:07:14 [INFO] 🚀 Launching 1 trades
+17:07:14 [INFO] 🚀 Launching KAITO-USD (APY=58.7%)
+17:07:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:15 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+17:07:15 [DEBUG] X10: Funding Refresh OK, cache=91
+17:07:15 [DEBUG] 📊 Lighter Funding Cache refresh (current=111)
+17:07:15 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+17:07:15 [DEBUG] MIN_NOTIONAL KAITO-USD: min_base=10.00000000 coins, price=$0.6102, min_qty_usd=$6.10, min_notional_api=$10.00, final=$11.00
+17:07:15 [INFO] 📏 SIZE KAITO-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+17:07:15 [DEBUG] 🔍 Liquidity Check: Skipping depth check for KAITO-USD (Maker Order)
+17:07:15 [INFO] 🚀 Opening KAITO-USD: Size=$80.0
+17:07:15 [INFO] ═══════════════════════════════════════════════════════════
+17:07:15 [INFO] 🚀 HEDGED TRADE START: KAITO-USD
+17:07:15 [INFO]    Lighter: SELL $80.00 @ $0.610190
+17:07:15 [INFO]    X10:     BUY $80.00 @ $0.610025
+17:07:15 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+17:07:15 [INFO] ═══════════════════════════════════════════════════════════
+17:07:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+17:07:15 [DEBUG] Lighter: Loaded 111 funding rates
+17:07:15 [INFO] ✅ Launched 1 trades this cycle
+17:07:15 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+17:07:15 [INFO] ⚖️ Size Alignment KAITO-USD: 80.00$ -> 79.93$ (131.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+17:07:15 [INFO] 📋 [PHASE 0] KAITO-USD:  Validating orderbook...
+17:07:15 [DEBUG] [x10_account] Firehose/Account stream - no explicit subscription needed
+17:07:15 [DEBUG] [x10_funding] Firehose/Account stream - no explicit subscription needed
+17:07:15 [DEBUG] 📚 KAITO-USD Lighter orderbook refreshed via REST
+17:07:15 [DEBUG] 📚 KAITO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642035.8150432
+17:07:15 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+17:07:15 [DEBUG] ✅ KAITO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $198098 depth, 0.03% spread
+17:07:15 [INFO] ✅ [PHASE 0] KAITO-USD: Orderbook validation PASSED (0.38s)
+17:07:15 [INFO] 📤 [PHASE 1] KAITO-USD: Placing Lighter SELL order...
+17:07:15 [INFO]    Size: $79.93 (131.000000 coins)
+17:07:15 [INFO] 🚀 LIGHTER OPEN KAITO-USD: side=SELL, size_usd=$79.93, amount=131.0, price=$0.610190, TIF=None
+17:07:15 [DEBUG] 🔍 DEBUG: KAITO-USD market_id = 33 (raw=33, type=<class 'int'>)
+17:07:15 [INFO] 🛡️ Maker Price KAITO-USD SELL: $0.610170 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.60997, Ask=$0.61018, Tick=1e-05)
+17:07:15 [DEBUG] QUANTIZE KAITO-USD: Notional=$79.93489 -> RawAmt=131.000000 -> QuantAmt=131.000000 (x0.0001) -> BaseInt=1310
+17:07:15 [DEBUG] [x10_trades] Firehose/Account stream - no explicit subscription needed
+17:07:16 [DEBUG] 📋 [TIF] KAITO-USD: Using TIF=1, expiry=-1 (not IOC)
+17:07:16 [DEBUG] 🔄 Fetched fresh nonce: 7586 (cached next: 7587)
+17:07:16 [INFO] 🔒 Locked execution for KAITO-USD SELL (Nonce: 7586)...
+17:07:16 [DEBUG] ✅ [ORDER_TYPE] KAITO-USD: Using ORDER_TYPE_LIMIT = 0
+17:07:16 [DEBUG] ℹ️ [ORDER_TYPE] KAITO-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+17:07:16 [DEBUG] ✅ [REDUCE_ONLY] KAITO-USD: Limit Order reduce_only=False (will be 0 in API)
+17:07:16 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":33,"ClientOrderIndex":1765642048528,"BaseAmount":1310,"Price":61017,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768061236290,"ExpiredAt":1765642635291,"Nonce":7586,"Sig":"BVWTnpG6fprYgdrfsYPcyP/OFtGVKsCxHzsDT1yCpQftLCrbGbDGen8uV23OsxhQFgHc7UWZzNMuRq51kudtP+4nMMfhnld8pfx1zyo1PGs="}
+17:07:16 [DEBUG] ✅ LINK-USD: X10=$290,149, Lighter=$184,978, Total=$475,127
+17:07:17 [DEBUG] Lighter: Loaded 117 prices via REST
+17:07:17 [DEBUG] Lighter: Funding Refresh OK, cache=111
+17:07:17 [INFO] 🔍 Running periodic exchange sync check...
+17:07:17 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='d291692dfaaf6a5fcea9e4b066d415f1107133fc8dea8ed0ec49f99a7f9f3994c716955bf489fa2a' predicted_execution_time_ms=1765642023191 additional_properties={}
+17:07:17 [INFO] ✅ Lighter Order Sent: d291692dfaaf6a5fcea9e4b066d415f1107133fc8dea8ed0ec49f99a7f9f3994c716955bf489fa2a
+17:07:17 [INFO] ✅ [PHASE 1] KAITO-USD: Lighter order placed (1.42s)
+17:07:17 [INFO]    Order ID: d291692dfaaf6a5fcea9e4b066d415f1107133fc...
+17:07:17 [DEBUG] 📚 KAITO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765642035.8150432
+17:07:17 [DEBUG] ✅ KAITO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $198098 depth, 0.03% spread
+17:07:17 [DEBUG] ⏱️ KAITO-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2480.74, base=45.0s)
+17:07:17 [INFO] ⏳ [PHASE 1.5] KAITO-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+17:07:17 [DEBUG] 💓 [lighter] Alive (uptime=5s, last_msg=0s, last_server_ping=5s, server_pings_answered=0)
+17:07:17 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+17:07:17 [DEBUG] 💓 [x10_account] Alive (uptime=5s, last_msg=5s, last_pong=5s, pings=0, pongs=0)
+17:07:17 [DEBUG] 💓 [x10_trades] Alive (uptime=5s, last_msg=1s, last_pong=5s, pings=0, pongs=0)
+17:07:18 [INFO] Lighter: Found 0 open positions
+17:07:18 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:18 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:18 [DEBUG] ✅ LTC-USD: X10=$223,182, Lighter=$14,561, Total=$237,743
+17:07:18 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:07:18 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.74h, APY: 56.9%)
+17:07:18 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:18 [INFO] 🎯 Found 1 opportunities
+17:07:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:19 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:20 [INFO] Lighter: Found 0 open positions
+17:07:20 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:07:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:20 [DEBUG] ✅ ZRO-USD: X10=$121,993, Lighter=$603,664, Total=$725,657
+17:07:20 [INFO] 📊 Positions: X10=0, Lighter=0
+17:07:22 [INFO] Lighter: Found 0 open positions
+17:07:22 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s, last_server_ping=10s, server_pings_answered=0)
+17:07:22 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+17:07:22 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s, last_pong=10s, pings=0, pongs=0)
+17:07:22 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+17:07:23 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:23 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:23 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.74h, APY: 56.9%)
+17:07:23 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:23 [INFO] 🎯 Found 1 opportunities
+17:07:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:23 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:23 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:07:24 [DEBUG] ✅ AAVE-USD: X10=$159,029, Lighter=$46,313, Total=$205,342
+17:07:24 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:07:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:24 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0018, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:24 [INFO] Lighter: Found 1 open positions
+17:07:24 [INFO] 📊 Positions: X10=0, Lighter=0
+17:07:25 [DEBUG] ✅ 1000PEPE-USD: X10=$256,130, Lighter=$245,067,889, Total=$245,324,019
+17:07:27 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0018, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:27 [INFO] Lighter: Found 1 open positions
+17:07:27 [DEBUG] 💓 [lighter] Alive (uptime=15s, last_msg=0s, last_server_ping=15s, server_pings_answered=0)
+17:07:27 [DEBUG] ✅ UNI-USD: X10=$187,275, Lighter=$387,665, Total=$574,940
+17:07:27 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+17:07:27 [DEBUG] 💓 [x10_account] Alive (uptime=15s, last_msg=15s, last_pong=15s, pings=0, pongs=0)
+17:07:27 [DEBUG] 💓 [x10_trades] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+17:07:27 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:27 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:28 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.74h, APY: 56.9%)
+17:07:28 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:28 [INFO] 🎯 Found 1 opportunities
+17:07:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:28 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:29 [DEBUG] Lighter Balance: Raw=$250.47, Safe=$237.95
+17:07:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:29 [DEBUG] ✅ ARB-USD: X10=$139,705, Lighter=$7,314,278, Total=$7,453,983
+17:07:29 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:07:29 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0004, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:29 [INFO] Lighter: Found 1 open positions
+17:07:29 [INFO] 📊 Positions: X10=0, Lighter=1
+17:07:31 [DEBUG] ✅ SPX-USD: X10=$53,968, Lighter=$3,428,059, Total=$3,482,027
+17:07:31 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0144, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:31 [INFO] Lighter: Found 1 open positions
+17:07:31 [INFO] ✅ [PHASE 1.5] KAITO-USD: Fill detected after 24 checks!
+17:07:31 [INFO] ✅ [PHASE 1.5] KAITO-USD: Lighter FILLED (14.53s)
+17:07:31 [INFO] 📤 [PHASE 2] KAITO-USD: Placing X10 BUY hedge...
+17:07:31 [INFO]    Size: 131.000000 coins (matching Lighter fill)
+17:07:31 [INFO] 🚀 X10 EXECUTE KAITO-USD BUY: 131.000000 Coins (Basis: COINS=131.0)
+17:07:31 [DEBUG] ℹ️ [TIF] KAITO-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:07:31 [DEBUG] ✅ [TIF] KAITO-USD: Selected TimeInForce=GTT (post_only=False, reduce_only=False, is_market=False)
+17:07:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+17:07:32 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s, last_server_ping=20s, server_pings_answered=0)
+17:07:32 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+17:07:32 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s, last_pong=20s, pings=0, pongs=0)
+17:07:32 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:32 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:32 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+17:07:33 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.74h, APY: 56.9%)
+17:07:33 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:33 [INFO] 🎯 Found 1 opportunities
+17:07:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:33 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:34 [DEBUG] Lighter Balance: Raw=$250.46, Safe=$237.93
+17:07:34 [DEBUG] ✅ WIF-USD: X10=$205,705, Lighter=$3,367,708, Total=$3,573,413
+17:07:36 [DEBUG] ✅ ENA-USD: X10=$268,376, Lighter=$20,361,322, Total=$20,629,698
+17:07:37 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:37 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:37 [INFO] ✅ KAITO-USD: Expected profit $0.0800 in 24.0h (breakeven: 7.74h, APY: 56.9%)
+17:07:37 [INFO] ✅ Found 1 opportunities from 62 valid pairs
+17:07:37 [INFO] 🎯 Found 1 opportunities
+17:07:37 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+17:07:37 [DEBUG] 💓 [lighter] Alive (uptime=25s, last_msg=0s, last_server_ping=25s, server_pings_answered=0)
+17:07:37 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+17:07:37 [DEBUG] 💓 [x10_account] Alive (uptime=25s, last_msg=25s, last_pong=25s, pings=0, pongs=0)
+17:07:37 [INFO] 💰 X10 verfügbare Balance: $205.18 USDC
+17:07:37 [DEBUG] 💓 [x10_trades] Alive (uptime=25s, last_msg=1s, last_pong=25s, pings=0, pongs=0)
+17:07:38 [DEBUG] ✅ PUMP-USD: X10=$516,394, Lighter=$1,623,100,648, Total=$1,623,617,042
+17:07:38 [DEBUG] Lighter Balance: Raw=$250.45, Safe=$237.93
+17:07:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:38 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0197, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:38 [INFO] Lighter: Found 1 open positions
+17:07:38 [INFO] 📊 Positions: X10=0, Lighter=1
+17:07:38 [DEBUG] Placing an order: id=94405382273279044647347125264052605586878269957372096365400612775220579487
+17:07:38 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:07:40 [DEBUG] ✅ AVAX-USD: X10=$367,932, Lighter=$205,187, Total=$573,119
+17:07:40 [DEBUG] ✅ [ORDER_TYPE] KAITO-USD: Limit Order placed (TimeInForce=GTT, post_only=False, reduce_only=False)
+17:07:40 [INFO]  X10 Order: 1999873804822888448
+17:07:40 [INFO] ✅ [PHASE 2] KAITO-USD:  X10 hedge FILLED (8.17s)
+17:07:40 [INFO]    Order ID: 1999873804822888448
+17:07:40 [INFO] ════════════════════════════════════════════════════════════
+17:07:40 [INFO] 📊 TRADE SUMMARY:  KAITO-USD
+17:07:40 [INFO]    Result: SUCCESS
+17:07:40 [INFO]    Reason:  Hedged trade complete
+17:07:40 [INFO]    Total Time: 24.53s
+17:07:40 [INFO]    State: COMPLETE
+17:07:40 [INFO]    Phase Times:
+17:07:40 [INFO]       - orderbook_validation: 0.38s
+17:07:40 [INFO]       - lighter_order_placement: 1.42s
+17:07:40 [INFO]       - lighter_fill_wait: 14.53s
+17:07:40 [INFO]       - x10_hedge: 8.17s
+17:07:40 [INFO]    Lighter Order:  d291692dfaaf6a5fcea9e4b066d415f1107133fc...
+17:07:40 [INFO]    X10 Order: 1999873804822888448
+17:07:40 [INFO] ════════════════════════════════════════════════════════════
+17:07:40 [INFO] 📝 Recording trade KAITO-USD in database...
+17:07:40 [DEBUG] 📝 Trade added to state: KAITO-USD
+17:07:40 [INFO] ✅ Trade KAITO-USD recorded successfully
+17:07:40 [INFO]    X10 Order ID: 1999873804822888448
+17:07:40 [INFO]    Lighter Order ID: d291692dfaaf6a5fcea9e4b066d415...
+17:07:40 [INFO]    Size: $80.00
+17:07:40 [INFO]    Entry X10: $0.610025
+17:07:40 [INFO]    Entry Lighter: $0.609960
+17:07:40 [INFO]    APY: 58.69%
+17:07:40 [DEBUG] 📝 Flushed 1 writes
+17:07:40 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+17:07:40 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.181348', 'status': 'ACTIVE', 'equity': '205.181348', 'availableForTrade': '197.187443', 'availabl
+17:07:40 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.181348, available=$197.187443, uPnL=$0.000000
+17:07:40 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999873804822888448, 'accountId': 127074, 'externalId': '94405382273279044647347125264052605586878269957372096365400612775220579487', 
+17:07:40 [INFO] ✅ [x10_account] ORDER UPDATE: KAITO-USD BUY FILLED qty=131 filled=131 @ $0.6137 (id=1999873804822888448)
+17:07:40 [DEBUG] X10 Adapter: Order update processed - KAITO-USD #1999873804822888448 FILLED
+17:07:40 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999873805660459008, 'accountId': 127074, 'market': 'KAITO-USD', 'orderId': 1999873804822888448, 'externalOrderId': '94405382273279044
+17:07:40 [INFO] 💰💰💰 [x10_account] FILL/TRADE: KAITO-USD BUY 131.0 @ $0.6106 (Trade: 1999873805660459008, Order: 1999873804822888448, Fee: $0.0180, Taker: True)
+17:07:40 [DEBUG] [X10] Created entry price from TRADE for KAITO-USD: $0.610600
+17:07:40 [DEBUG] X10 Adapter: Fill update processed - KAITO-USD order=1999873804822888448
+17:07:40 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999873805677232128,
+        "accountId": 127074,
+        "market": "KAITO-USD",
+        "status": "OPENED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "131",
+        "value": "79.939041",
+        "openPrice": "0.6106",
+        "markPrice": "0.610221692624",
+        "liquidationPrice": "0",
+        "margin": "3.996952",
+        "unrealisedPnl": "-0.049559",
+        "midPriceUnrealisedPnl": "-0.013100",
+        "realisedPnl": "-0.017997",
+        "adl": 4,
+        "createdAt": 1765642045791,
+        "updatedAt": 1765642045791
+      }
+    ]
+  },
+  "ts": 1765642045791,
+  "seq": 7
+}
+17:07:40 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999873805677232128,
+  "accountId": 127074,
+  "market": "KAITO-USD",
+  "status": "OPENED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "131",
+  "value": "79.939041",
+  "openPrice": "0.6106",
+  "markPrice": "0.610221692624",
+  "liquidationPrice": "0",
+  "margin": "3.996952",
+  "unrealisedPnl": "-0.049559",
+  "midPriceUnrealisedPnl": "-0.013100",
+  "realisedPnl": "-0.017997",
+  "adl": 4,
+  "createdAt": 1765642045791,
+  "updatedAt": 1765642045791
+}
+17:07:40 [DEBUG] [X10] Using calculated entry price from TRADE fills for KAITO-USD: $0.610600
+17:07:40 [DEBUG] [X10] Updated KAITO-USD in _positions_cache (size=131.0, entry=$0.610600)
+17:07:40 [DEBUG] X10 Adapter: Position update processed - KAITO-USD
+17:07:40 [INFO] 📉 [x10_account] POSITION UPDATE: KAITO-USD LONG size=131 entry=$0.6106 mark=$0.610221692624 uPnL=$-0.049559
+17:07:40 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.163351', 'status': 'ACTIVE', 'equity': '205.113792', 'availableForTrade': '197.119887', 'availabl
+17:07:40 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.113792, available=$197.119887, uPnL=$-0.049559
+17:07:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:41 [DEBUG] 💓 [x10_account] Sent keepalive ping #1: 1765642061424
+17:07:41 [DEBUG] 💓 [x10_account] Health OK - last activity 1s ago
+17:07:41 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+17:07:41 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0197, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:41 [INFO] Lighter: Found 1 open positions
+17:07:41 [DEBUG] 📌 KAITO-USD: Stored entry snapshot for PnL ({'entry_qty_x10': 131.0, 'entry_price_x10': 0.6106, 'entry_qty_lighter': 131.0, 'entry_price_lighter': 0.61017, 'entry_fee_x10': 0.000225, 'entry_fee_lighter': 0.0})
+17:07:41 [INFO] ✅ OPENED KAITO-USD: $80.00
+17:07:41 [DEBUG] 📝 Flushed 1 writes
+17:07:41 [DEBUG] ✅ AERO-USD: X10=$353,571, Lighter=$2,293,571, Total=$2,647,142
+17:07:41 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:07:41 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+17:07:41 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+17:07:41 [INFO] ✅ RECONCILE: Sync complete.
+17:07:41 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:41 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:42 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:07:42 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s, last_server_ping=30s, server_pings_answered=0)
+17:07:42 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+17:07:42 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=2s, last_pong=30s, pings=1, pongs=0)
+17:07:42 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.8s
+17:07:42 [DEBUG] 📊 Task health: 7 alive, 0 dead
+17:07:42 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=1s, last_pong=30s, pings=0, pongs=0)
+17:07:45 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:07:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:45 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$4,117, Total=$4,117
+17:07:45 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0079, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:45 [INFO] Lighter: Found 1 open positions
+17:07:45 [INFO] ✅ RECONCILE: Sync complete.
+17:07:45 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:45 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:46 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:07:47 [DEBUG] ✅ MNT-USD: X10=$73,273, Lighter=$3,531,288, Total=$3,604,561
+17:07:47 [DEBUG] 💓 [lighter] Alive (uptime=35s, last_msg=0s, last_server_ping=35s, server_pings_answered=0)
+17:07:47 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+17:07:47 [DEBUG] 💓 [x10_account] Alive (uptime=35s, last_msg=7s, last_pong=35s, pings=1, pongs=0)
+17:07:47 [DEBUG] 💓 [x10_trades] Alive (uptime=35s, last_msg=1s, last_pong=35s, pings=0, pongs=0)
+17:07:49 [INFO] 🔍 RECONCILE: Starting strict sync check...
+17:07:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+17:07:49 [DEBUG] ✅ ADA-USD: X10=$259,956, Lighter=$3,697,951, Total=$3,957,907
+17:07:49 [DEBUG] 📊 KAITO Lighter PnL: uPnL=$-0.0066, rPnL=$0.0000, entry=$0.610170, funding_paid_out=$0.0000, funding_received=$-0.0000
+17:07:49 [INFO] Lighter: Found 1 open positions
+17:07:49 [INFO] ✅ RECONCILE: Sync complete.
+17:07:49 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+17:07:49 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+17:07:49 [INFO] ✅ Found 0 opportunities from 61 valid pairs
+17:07:50 [INFO] 🛑 Initiating shutdown...
+17:07:50 [INFO] ✅ ParallelExecutionManager: No active executions
+17:07:50 [DEBUG] Cancelled task: maintenance_loop
+17:07:50 [DEBUG] Cancelled task: cleanup_finished_tasks
+17:07:50 [DEBUG] Cancelled task: health_reporter
+17:07:50 [DEBUG] Cancelled task: farm_loop
+17:07:50 [DEBUG] Cancelled task: logic_loop
+17:07:50 [DEBUG] Cancelled task: trade_management_loop
+17:07:50 [DEBUG] Cancelled task: connection_watchdog
+17:07:50 [INFO] Farm loop cancelled
+17:07:50 [INFO] Logic loop cancelled
+17:07:50 [INFO] Connection watchdog cancelled
+17:07:50 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+17:07:50 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+17:07:50 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+17:07:50 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:07:50 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+17:07:50 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:07:50 [DEBUG] [X10] Shutdown active - returning cached positions
+17:07:50 [INFO] 📸 Position snapshot: X10=1, Lighter=1
+17:07:50 [INFO] ✅ No active executions to wait for
+17:07:50 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:07:50 [DEBUG] [X10] Shutdown active - returning cached positions
+17:07:50 [INFO] ⚡ Attempting global Lighter cancel...
+17:07:50 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:50 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$364,549, Total=$364,549
+17:07:51 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7587)...
+17:07:51 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765642670711,"Nonce":7587,"Sig":"N6XHpSsbe9jZ78nrA5XA0u4prg5txRURLanu23aY9QKgwOLYDYStERN+8TgekFJOWBUNHsI3OSdtqP4BBfDt4G/MJ8IjLHME9A2MIY6j0lw="}
+17:07:51 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='01312c2ea1f12079d1b3abae1584ebdf564c599f5e4f0d9bcf22819b97eea6062e89713e8b0da5b6' predicted_execution_time_ms=1765642057641 additional_properties={}
+17:07:51 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765642670711,"Nonce":7587,"Sig":"N6XHpSsbe9jZ78nrA5XA0u4prg5txRURLanu23aY9QKgwOLYDYStERN+8TgekFJOWBUNHsI3OSdtqP4BBfDt4G/MJ8IjLHME9A2MIY6j0lw="})
+17:07:51 [DEBUG] 🔄 Nonce cache invalidated
+17:07:51 [INFO] 🛑 Cancelling open orders for 1 symbols (LighterGlobal=True)...
+17:07:51 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for KAITO-USD
+17:07:51 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:07:51 [DEBUG] [X10] Shutdown active - returning cached positions
+17:07:51 [INFO] 🔻 Close attempt 1/3 | x10=1, lighter=1
+17:07:51 [INFO] 🛑 Closing X10 KAITO-USD (SELL 131.0)
+17:07:51 [INFO] 📊 KAITO-USD Pre-Close PnL: uPnL=$-0.0066, rPnL=$0.0000, funding=$-0.0000, entry=$0.610170
+17:07:51 [INFO] 🛑 Closing Lighter KAITO-USD: BUY 131.0 (IOC reduce_only, price=0.60996)
+17:07:51 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for KAITO-USD
+17:07:51 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:51 [DEBUG] close_live_position: symbol=KAITO-USD, side=SELL, notional=$79.90476
+17:07:51 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:51 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+17:07:52 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:52 [DEBUG] [X10] Shutdown active - returning cached positions
+17:07:52 [INFO] 🔻 X10 CLOSE KAITO-USD: size=131.000000, side=SELL
+17:07:52 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:07:52 [DEBUG] [X10] Rate limiter cancelled during open_live_position (reduce_only=True) - continuing for position close
+17:07:52 [DEBUG] ✅ [ORDER_TYPE] KAITO-USD: Using TimeInForce.IOC for Market Order (reduce_only)
+17:07:52 [DEBUG] ℹ️ [TIF] KAITO-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+17:07:52 [DEBUG] ✅ [TIF] KAITO-USD: Selected TimeInForce=IOC (post_only=False, reduce_only=True, is_market=True)
+17:07:52 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+17:07:52 [DEBUG] [X10] Rate limiter cancelled during place_order (reduce_only=True) - continuing for position close
+17:07:52 [DEBUG] Placing an order: id=2861771785150549908153433312436078567988580242167440430779439574733522727157
+17:07:52 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+17:07:52 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:07:52 [DEBUG] MIN_NOTIONAL KAITO-USD: min_base=10.00000000 coins, price=$0.6100, min_qty_usd=$6.10, min_notional_api=$10.00, final=$11.00
+17:07:52 [INFO] 🔻 LIGHTER CLOSE KAITO-USD: size=-131.000000 coins, side=BUY, price=$0.6100, notional=$79.90, dust=False
+17:07:52 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:52 [DEBUG] ⚡ Skipping validation for reduce_only order KAITO-USD ($79.90)
+17:07:52 [INFO] 🚀 LIGHTER OPEN KAITO-USD: side=BUY, size_usd=$79.90, amount=131.0, price=$0.609960, TIF=IOC
+17:07:52 [DEBUG] 🔍 DEBUG: KAITO-USD market_id = 33 (raw=33, type=<class 'int'>)
+17:07:52 [DEBUG] 🔄 KAITO-USD: Shutdown detected - using passed price as mark (mark=$0.609960)
+17:07:52 [DEBUG] QUANTIZE KAITO-USD: Notional=$79.90476 -> RawAmt=131.000000 -> QuantAmt=131.000000 (x0.0001) -> BaseInt=1310
+17:07:52 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:52 [DEBUG] 🔍 [TIF] KAITO-USD: Processing time_in_force='IOC' (raw='IOC')
+17:07:52 [DEBUG] ✅ [TIF] KAITO-USD: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0
+17:07:52 [DEBUG] 🔧 [TIF] KAITO-USD: Set expiry=0 for IOC order
+17:07:52 [INFO] ⚡ [TIF] KAITO-USD: Using IOC order (tif=0, expiry=0, ioc_attr=0)
+17:07:52 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s, last_server_ping=40s, server_pings_answered=0)
+17:07:52 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:07:52 [DEBUG] ✅ NEAR-USD: X10=$255,073, Lighter=$1,801,627, Total=$2,056,700
+17:07:52 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=12s, last_pong=40s, pings=1, pongs=0)
+17:07:52 [DEBUG] 🔄 Fetched fresh nonce: 7588 (cached next: 7589)
+17:07:52 [INFO] 🔒 Locked execution for KAITO-USD BUY (Nonce: 7588)...
+17:07:52 [INFO] ⚡ MARKET ORDER KAITO-USD: BUY 1310 @ avg_price=64395 (shutdown fast-close)
+17:07:52 [DEBUG] ✅ [REDUCE_ONLY] KAITO-USD: Market Order reduce_only=True (will be 1 in API)
+17:07:52 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":33,"ClientOrderIndex":1765642138653,"BaseAmount":1310,"Price":64395,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765642671720,"Nonce":7588,"Sig":"yvG52BA1ekVqX+LXcRDXw2s7NDatAiJ63FNrvyQjeILnH0d7VSYuOqWX6zssW3XkNR7nEwwcXrGkefOVocur2JmEJR88W/KqbNy5WmtpGnQ="}
+17:07:52 [DEBUG] ✅ [ORDER_TYPE] KAITO-USD: Market Order placed (TimeInForce=IOC, post_only=False, reduce_only=True)
+17:07:52 [INFO]  X10 Order: 1999873858119475200
+17:07:52 [DEBUG] [X10] Marked close order for KAITO-USD: order_id=1999873858119475200
+17:07:52 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+17:07:52 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999873858119475200, 'accountId': 127074, 'externalId': '2861771785150549908153433312436078567988580242167440430779439574733522727157'
+17:07:52 [INFO] ✅ [x10_account] ORDER UPDATE: KAITO-USD SELL FILLED qty=131 filled=131 @ $0.6070 (id=1999873858119475200)
+17:07:52 [DEBUG] X10 Adapter: Order update processed - KAITO-USD #1999873858119475200 FILLED
+17:07:52 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.163351', 'status': 'ACTIVE', 'equity': '205.113792', 'availableForTrade': '205.113792', 'availabl
+17:07:52 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.113792, available=$205.113792, uPnL=$-0.049559
+17:07:52 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999873858957479936, 'accountId': 127074, 'market': 'KAITO-USD', 'orderId': 1999873858119475200, 'externalOrderId': '28617717851505499
+17:07:52 [INFO] 💰💰💰 [x10_account] FILL/TRADE: KAITO-USD SELL 131.0 @ $0.6104 (Trade: 1999873858957479936, Order: 1999873858119475200, Fee: $0.0180, Taker: True)
+17:07:52 [DEBUG] [X10] Saved 1 close fills for KAITO-USD: qty=131.0000, fee=$0.0180, order_id=1999873858119475200
+17:07:52 [DEBUG] X10 Adapter: Fill update processed - KAITO-USD order=1999873858119475200
+17:07:52 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999873805677232128,
+        "accountId": 127074,
+        "market": "KAITO-USD",
+        "status": "CLOSED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "131",
+        "value": "79.939041",
+        "openPrice": "0.6106",
+        "markPrice": "0.610221692624",
+        "liquidationPrice": "0",
+        "margin": "0",
+        "unrealisedPnl": "0",
+        "midPriceUnrealisedPnl": "-0.013100",
+        "realisedPnl": "-0.062188",
+        "createdAt": 1765642045791,
+        "updatedAt": 1765642058501
+      }
+    ]
+  },
+  "ts": 1765642058501,
+  "seq": 12
+}
+17:07:52 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999873805677232128,
+  "accountId": 127074,
+  "market": "KAITO-USD",
+  "status": "CLOSED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "131",
+  "value": "79.939041",
+  "openPrice": "0.6106",
+  "markPrice": "0.610221692624",
+  "liquidationPrice": "0",
+  "margin": "0",
+  "unrealisedPnl": "0",
+  "midPriceUnrealisedPnl": "-0.013100",
+  "realisedPnl": "-0.062188",
+  "createdAt": 1765642045791,
+  "updatedAt": 1765642058501
+}
+17:07:52 [DEBUG] [X10] Removed KAITO-USD from _positions_cache (status=CLOSED, size=131.0)
+17:07:52 [DEBUG] X10 Adapter: Position update processed - KAITO-USD
+17:07:52 [INFO] 📈 [x10_account] POSITION UPDATE: KAITO-USD LONG size=131 entry=$0.6106 mark=$0.610221692624 uPnL=$0
+17:07:52 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '205.119160', 'status': 'ACTIVE', 'equity': '205.119160', 'availableForTrade': '205.119160', 'availabl
+17:07:52 [DEBUG] 💰 [x10_account] BALANCE: equity=$205.119160, available=$205.119160, uPnL=$0.000000
+17:07:53 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='41f83ab624ba9768d6f9fa19d7cb7fc21cfbd1bab26c8a37f6d4ac300976ea99832107c3c5c090c1' predicted_execution_time_ms=1765642058856 additional_properties={}
+17:07:53 [INFO] ✅ Lighter Order Sent: 41f83ab624ba9768d6f9fa19d7cb7fc21cfbd1bab26c8a37f6d4ac300976ea99832107c3c5c090c1
+17:07:53 [INFO] ✅ Lighter close KAITO-USD: Erfolgreich ($79.90)
+17:07:53 [DEBUG] [LIGHTER] Removed KAITO-USD from _positions_cache after successful close
+17:07:53 [INFO] ✅ Lighter KAITO-USD closed and tracked
+17:07:54 [INFO] ✅ X10 KAITO-USD closed and tracked
+17:07:56 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:56 [DEBUG] ✅ BERA-USD: X10=$148,841, Lighter=$992,831, Total=$1,141,672
+17:07:57 [DEBUG] 💓 [lighter] Alive (uptime=45s, last_msg=0s, last_server_ping=45s, server_pings_answered=0)
+17:07:57 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=45s, last_msg=0s, last_pong=45s, pings=0, pongs=0)
+17:07:57 [DEBUG] 💓 [x10_account] Alive (uptime=45s, last_msg=5s, last_pong=45s, pings=1, pongs=0)
+17:07:57 [DEBUG] 💓 [x10_trades] Alive (uptime=45s, last_msg=3s, last_pong=45s, pings=0, pongs=0)
+17:07:57 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:58 [DEBUG] ✅ XPL-USD: X10=$282,045, Lighter=$18,679,766, Total=$18,961,812
+17:07:59 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:07:59 [DEBUG] ✅ HYPE-USD: X10=$5,374,350, Lighter=$1,575,318, Total=$6,949,668
+17:08:01 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:08:01 [DEBUG] ✅ POPCAT-USD: X10=$97,959, Lighter=$6,137,554, Total=$6,235,513
+17:08:02 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s, last_server_ping=50s, server_pings_answered=0)
+17:08:02 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=10s, last_pong=50s, pings=1, pongs=0)
+17:08:02 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s, last_pong=50s, pings=0, pongs=0)
+17:08:02 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=1s, last_pong=50s, pings=0, pongs=0)
+17:08:03 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+17:08:03 [DEBUG] ✅ EIGEN-USD: X10=$101,207, Lighter=$1,293,642, Total=$1,394,849
+17:08:03 [DEBUG] [PNL] KAITO-USD: Using X10 fill price $0.610400
+17:08:03 [INFO] 💰 KAITO-USD Lighter Closed PnL: $-0.0301 (entry=$0.610170, close=$0.610400, size=131.0000, source=x10_fill_proxy)
+17:08:04 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:08:04 [INFO] ✅ No open positions remaining
+17:08:04 [INFO] 🔍 Final position sweep...
+17:08:04 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:08:04 [INFO] ✅ Final sweep: No positions found
+17:08:04 [DEBUG] ✓ KAITO-USD entry prices: x10=$0.610600, lighter=$0.610170, source=trade_obj
+17:08:04 [DEBUG] [PNL] KAITO-USD Hedge: lighter_pnl=$-0.030130 (SHORT), x10_pnl=$-0.026200 (LONG), fees=$0.035988, funding=$-0.000000, total=$-0.092318
+17:08:04 [INFO] 💰 Shutdown PnL for KAITO-USD: PnL=$-0.0923, Funding=$-0.0000 (lighter_pnl=$-0.0301, x10_pnl=$-0.0262, fees=$0.0360)
+17:08:04 [INFO] 📝 StateManager.close_trade(KAITO-USD): PnL=$-0.0923, Funding=$-0.0000
+17:08:04 [DEBUG] 📝 StateManager.close_trade(KAITO-USD): update_trade returned True
+17:08:04 [DEBUG] 🧹 Removed closed trade KAITO-USD from memory
+17:08:04 [INFO] 📝 Shutdown: Marked KAITO-USD as closed in DB (PnL=$-0.0923, Funding=$-0.0000)
+17:08:04 [INFO] 📝 Shutdown: Marked 1 trades as closed in DB | Session Total: PnL=$-0.0301, Funding=$0.0000
+17:08:04 [INFO] 🛑 Stopping InMemoryStateManager...
+17:08:04 [INFO] 📝 DB close_trade(KAITO-USD): PnL=$-0.0923, Funding=$-0.0000
+17:08:04 [DEBUG] 📝 DB close_trade(KAITO-USD): Execute returned 582
+17:08:04 [DEBUG] 📝 Flushed 1 writes
+17:08:04 [INFO] 📝 State writer loop stopped
+17:08:04 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+17:08:04 [INFO] ✅ InMemoryStateManager stopped
+17:08:04 [INFO] 🛑 FeeManager stopped
+17:08:04 [INFO] 🔒 Closing database...
+17:08:04 [INFO] 🖊️ Database write loop stopped
+17:08:04 [INFO] ✅ Database closed
+17:08:04 [INFO] 💾 Persist phase complete
+17:08:04 [INFO] 🛑 Stopping OI Tracker...
+17:08:04 [INFO] 🛑 Stopping OpenInterestTracker...
+17:08:04 [INFO] ✅ OpenInterestTracker stopped
+17:08:04 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+17:08:04 [INFO] 💓 [x10_account] Keepalive loop stopped
+17:08:05 [DEBUG] [lighter] WebSocket closed (server slow to respond)
+17:08:05 [INFO] 🔌 [lighter] WebSocket stopped
+17:08:05 [DEBUG] [x10_account] WebSocket closed (server slow to respond)
+17:08:05 [INFO] 🔌 [x10_account] WebSocket stopped
+17:08:05 [DEBUG] [x10_trades] WebSocket closed (server slow to respond)
+17:08:05 [INFO] 🔌 [x10_trades] WebSocket stopped
+17:08:05 [DEBUG] [x10_funding] WebSocket closed (server slow to respond)
+17:08:05 [INFO] 🔌 [x10_funding] WebSocket stopped
+17:08:05 [DEBUG] [x10_orderbooks] WebSocket closed (server slow to respond)
+17:08:05 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+17:08:05 [INFO] ✅ WebSocketManager stopped
+17:08:05 [INFO] ✅ Lighter Adapter closed
+17:08:05 [INFO] ✅ X10 Adapter geschlossen.
+17:08:05 [INFO] ✅ Teardown complete
+17:08:05 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+17:08:05 [INFO] ✅ All positions closed. Bye! (elapsed=15.16s)
+17:08:05 [INFO] ✅ Shutdown complete
+17:08:05 [INFO] 🛑 Shutting down...
+17:08:05 [INFO] 🛑 Shutdown requested...
+17:08:05 [INFO] 🛑 Stopping Dashboard API...
+17:08:05 [INFO] ✅ ParallelExecutionManager: Already stopping
+17:08:05 [INFO] 🛑 Stopping OpenInterestTracker...
+17:08:05 [INFO] ✅ OpenInterestTracker stopped
+17:08:05 [INFO] 🛑 Funding tracker: Cancelled
+17:08:05 [INFO] ✅ Funding Tracker stopped
+17:08:05 [INFO] 🔌 Closing adapters...
+17:08:05 [INFO] ✅ Bot V5 shutdown complete
+17:08:05 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+17:08:05 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+17:08:05 [INFO] ✅ Shutdown already completed (reason=funding_bot), returning cached result
+17:08:05 [INFO] ✅ All positions closed. Bye!
+17:08:05 [INFO] 🛑 Stopping Infrastructure...

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import config
 from src.rate_limiter import shutdown_all_rate_limiters
+from src.pnl_utils import compute_hedge_pnl
 
 logger = logging.getLogger(__name__)
 
@@ -319,12 +320,18 @@ class ShutdownOrchestrator:
                         f"rPnL=${realized_pnl:.4f}, funding=${total_funding:.4f}"
                     )
             # Also capture X10 entry snapshot (needed to compute combined hedge PnL)
+            # NOTE: X10 API uses 'openPrice' not 'entry_price'
             if exchange_name == "x10":
                 data = self._position_pnl_data.get(symbol, {})
                 if "x10_entry_price" not in data:
                     data = {**data}
-                    data["x10_entry_price"] = self._safe_float(pos.get("entry_price", 0))
+                    # X10 uses 'openPrice', fallback to 'entry_price' for compatibility
+                    data["x10_entry_price"] = self._safe_float(
+                        pos.get("openPrice") or pos.get("entry_price") or pos.get("open_price", 0)
+                    )
                     data["x10_size"] = self._safe_float(pos.get("size", 0))
+                    # Store side from position for correct PnL sign
+                    data["x10_side"] = pos.get("side", "")
                     self._position_pnl_data[symbol] = data
             
             try:
@@ -480,12 +487,18 @@ class ShutdownOrchestrator:
                     continue
 
                 # Capture X10 entry snapshot for later combined hedge PnL accounting
+                # NOTE: X10 API uses 'openPrice' not 'entry_price'
                 try:
                     data = self._position_pnl_data.get(symbol, {})
                     if "x10_entry_price" not in data:
                         data = {**data}
-                        data["x10_entry_price"] = self._safe_float(pos.get("entry_price", 0))
+                        # X10 uses 'openPrice', fallback to 'entry_price' for compatibility
+                        data["x10_entry_price"] = self._safe_float(
+                            pos.get("openPrice") or pos.get("entry_price") or pos.get("open_price", 0)
+                        )
                         data["x10_size"] = self._safe_float(pos.get("size", 0))
+                        # Store side from position for correct PnL sign
+                        data["x10_side"] = pos.get("side", "")
                         self._position_pnl_data[symbol] = data
                 except Exception:
                     pass
@@ -889,7 +902,7 @@ class ShutdownOrchestrator:
             return False, None
 
     async def _persist_state(self, errors: List[str]) -> None:
-        """Persist state and db."""
+        """Persist state and db using compute_hedge_pnl for accurate calculations."""
         state_manager = self._components.get("state_manager")
         close_database_fn = self._components.get("close_database_fn")
         stop_fee_manager_fn = self._components.get("stop_fee_manager_fn")
@@ -897,6 +910,7 @@ class ShutdownOrchestrator:
         # ═══════════════════════════════════════════════════════════════
         # FIX: Mark closed positions in DB BEFORE stopping state manager
         # This prevents "zombie" trades on next startup
+        # Uses compute_hedge_pnl for accurate, sign-correct PnL calculation
         # ═══════════════════════════════════════════════════════════════
         if state_manager and hasattr(state_manager, "close_trade"):
             # Find symbols closed on BOTH exchanges (fully hedged close)
@@ -904,60 +918,157 @@ class ShutdownOrchestrator:
             
             for symbol in closed_on_both:
                 try:
-                    # ═══════════════════════════════════════════════════════════════
-                    # PNL FIX: Use REAL PnL data from Lighter position
-                    # The _position_pnl_data dict was populated in _close_and_verify_positions
-                    # ═══════════════════════════════════════════════════════════════
                     pnl_data = self._position_pnl_data.get(symbol, {})
-                    # Lighter leg (already computed during close flow)
-                    lighter_pnl = pnl_data.get("total_pnl", 0.0)
                     total_funding = pnl_data.get("total_funding", 0.0)  # profit-positive funding_received
 
-                    # X10 leg: compute price PnL from entry snapshot + close fill proxy
-                    x10_price_pnl = 0.0
-                    x10_entry_fee_est = 0.0
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Also look up the trade object which has the correct entry
+                    # data stored during trade opening (more reliable than pnl_data)
+                    # ═══════════════════════════════════════════════════════════════
+                    trade_obj = None
+                    if hasattr(state_manager, "get_trade"):
+                        try:
+                            # get_trade is async, need to await it!
+                            trade_obj = await state_manager.get_trade(symbol)
+                        except Exception:
+                            trade_obj = None
+                    if trade_obj is None and hasattr(state_manager, "_trades"):
+                        # Direct access to internal dict as fallback
+                        trade_obj = state_manager._trades.get(symbol)
+                    
+                    # Extract Lighter data
+                    lighter_entry_price = self._safe_float(pnl_data.get("avg_entry_price", 0.0))
+                    lighter_close_price = self._safe_float(pnl_data.get("close_price", 0.0))
+                    lighter_size = self._safe_float(pnl_data.get("lighter_size", 0.0))
+                    
+                    # Fallback to trade object for Lighter entry if pnl_data is empty
+                    if lighter_entry_price <= 0 and trade_obj:
+                        lighter_entry_price = self._safe_float(
+                            getattr(trade_obj, 'entry_price_lighter', 0) or
+                            (trade_obj.get('entry_price_lighter', 0) if isinstance(trade_obj, dict) else 0)
+                        )
+                    if lighter_size == 0 and trade_obj:
+                        lighter_size = -self._safe_float(
+                            getattr(trade_obj, 'entry_qty_lighter', 0) or
+                            (trade_obj.get('entry_qty_lighter', 0) if isinstance(trade_obj, dict) else 0)
+                        )  # Negative because typically SHORT on Lighter
+                    
+                    # Determine Lighter side from size sign (positive = LONG, negative = SHORT)
+                    lighter_side = "LONG" if lighter_size >= 0 else "SHORT"
+                    lighter_qty = abs(lighter_size)
+
+                    # ═══════════════════════════════════════════════════════════════
+                    # X10 data: PRIORITIZE trade object which has correct entry data
+                    # stored during trade opening, fallback to pnl_data snapshots
+                    # ═══════════════════════════════════════════════════════════════
+                    x10_entry_price = 0.0
+                    x10_size = 0.0
+                    x10_side = "LONG"
+                    
+                    # First try: trade object (most reliable - stored during trade open)
+                    if trade_obj:
+                        x10_entry_price = self._safe_float(
+                            getattr(trade_obj, 'entry_price_x10', 0) or
+                            (trade_obj.get('entry_price_x10', 0) if isinstance(trade_obj, dict) else 0)
+                        )
+                        x10_size = self._safe_float(
+                            getattr(trade_obj, 'entry_qty_x10', 0) or
+                            (trade_obj.get('entry_qty_x10', 0) if isinstance(trade_obj, dict) else 0)
+                        )
+                        # X10 is typically opposite of Lighter, so LONG on X10 when SHORT on Lighter
+                        x10_side = "SHORT" if lighter_side == "LONG" else "LONG"
+                    
+                    # Second try: pnl_data snapshots (fallback)
+                    if x10_entry_price <= 0:
+                        x10_entry_price = self._safe_float(pnl_data.get("x10_entry_price", 0.0))
+                    if x10_size <= 0:
+                        x10_size = self._safe_float(pnl_data.get("x10_size", 0.0))
+                    
+                    # Prefer stored side from position if available
+                    stored_x10_side = pnl_data.get("x10_side", "")
+                    if stored_x10_side:
+                        x10_side = stored_x10_side.upper()
+                    elif x10_size != 0 and x10_entry_price <= 0:
+                        # Fallback to size-based detection only if no entry price
+                        x10_side = "LONG" if x10_size >= 0 else "SHORT"
+                    
+                    x10_qty = abs(x10_size)
+                    
+                    x10_close_price = 0.0
                     x10_fee_close = 0.0
                     
-                    # ═══════════════════════════════════════════════════════════════
-                    # X10: Use close fill price/fee and stored entry snapshot
-                    # ═══════════════════════════════════════════════════════════════
+                    # Get X10 close fill data
                     x10 = self._components.get("x10")
                     if x10 and hasattr(x10, 'get_last_close_price'):
                         try:
                             x10_close_price, x10_close_qty, x10_fee_close = x10.get_last_close_price(symbol)
-                            x10_close_price = float(x10_close_price or 0.0)
-                            x10_close_qty = float(x10_close_qty or 0.0)
-                            x10_fee_close = float(x10_fee_close or 0.0)
-
-                            x10_entry_price = float(pnl_data.get("x10_entry_price", 0.0) or 0.0)
-                            x10_size = float(pnl_data.get("x10_size", 0.0) or 0.0)
-                            qty = abs(x10_size) if abs(x10_size) > 0 else x10_close_qty
-
-                            if x10_entry_price > 0 and x10_close_price > 0 and qty > 0:
-                                if x10_size >= 0:  # LONG
-                                    x10_price_pnl = (x10_close_price - x10_entry_price) * qty
-                                else:  # SHORT
-                                    x10_price_pnl = (x10_entry_price - x10_close_price) * qty
-
-                                # Estimate entry fee (close fee is from fills)
-                                try:
-                                    import config as _cfg
-                                    fee_rate = float(getattr(_cfg, "TAKER_FEE_X10", 0.000225))
-                                    x10_entry_fee_est = (qty * x10_entry_price) * fee_rate
-                                except Exception:
-                                    x10_entry_fee_est = 0.0
+                            x10_close_price = self._safe_float(x10_close_price)
+                            x10_close_qty = self._safe_float(x10_close_qty)
+                            x10_fee_close = self._safe_float(x10_fee_close)
+                            if x10_close_qty > 0:
+                                x10_qty = x10_close_qty
                         except Exception:
                             pass
+
+                    # Estimate entry fee for X10
+                    x10_entry_fee_est = 0.0
+                    if x10_entry_price > 0 and x10_qty > 0:
+                        try:
+                            import config as _cfg
+                            fee_rate = float(getattr(_cfg, "TAKER_FEE_X10", 0.000225))
+                            x10_entry_fee_est = (x10_qty * x10_entry_price) * fee_rate
+                        except Exception:
+                            pass
+
+                    # Estimate Lighter fees (typically maker = 0 or very low)
+                    lighter_fees = 0.0
+                    try:
+                        import config as _cfg
+                        lighter_fee_rate = float(getattr(_cfg, "FEES_LIGHTER", 0.0))
+                        if lighter_entry_price > 0 and lighter_qty > 0:
+                            lighter_fees = (lighter_qty * lighter_entry_price) * lighter_fee_rate * 2  # entry + exit
+                    except Exception:
+                        pass
+
+                    # Debug: Log entry prices to verify fix
+                    if x10_entry_price <= 0:
+                        logger.warning(
+                            f"⚠️ {symbol}: x10_entry_price=0! "
+                            f"trade_obj={trade_obj is not None}, "
+                            f"pnl_data={pnl_data.get('x10_entry_price', 'MISSING')}"
+                        )
+                    else:
+                        logger.debug(
+                            f"✓ {symbol} entry prices: x10=${x10_entry_price:.6f}, "
+                            f"lighter=${lighter_entry_price:.6f}, "
+                            f"source={'trade_obj' if trade_obj else 'pnl_data'}"
+                        )
                     
-                    total_pnl = float(lighter_pnl) + float(x10_price_pnl) - float(x10_entry_fee_est) - float(x10_fee_close)
+                    # Use compute_hedge_pnl for accurate calculation
+                    hedge_result = compute_hedge_pnl(
+                        symbol=symbol,
+                        lighter_side=lighter_side,
+                        x10_side=x10_side,
+                        lighter_entry_price=lighter_entry_price,
+                        lighter_close_price=lighter_close_price,
+                        lighter_qty=lighter_qty,
+                        x10_entry_price=x10_entry_price,
+                        x10_close_price=x10_close_price,
+                        x10_qty=x10_qty,
+                        lighter_fees=lighter_fees,
+                        x10_fees=x10_entry_fee_est + x10_fee_close,
+                        funding_collected=total_funding,
+                    )
+
+                    total_pnl = hedge_result["total_pnl"]
 
                     # Log the actual PnL being recorded (combined hedge)
                     if total_pnl != 0.0 or total_funding != 0.0:
                         logger.info(
                             f"💰 Shutdown PnL for {symbol}: "
                             f"PnL=${total_pnl:.4f}, Funding=${total_funding:.4f} "
-                            f"(lighter_pnl=${float(lighter_pnl):.4f}, x10_pnl=${float(x10_price_pnl):.4f}, "
-                            f"x10_entry_fee≈${float(x10_entry_fee_est):.4f}, x10_close_fee=${float(x10_fee_close):.4f})"
+                            f"(lighter_pnl=${hedge_result['lighter_pnl']:.4f}, x10_pnl=${hedge_result['x10_pnl']:.4f}, "
+                            f"fees=${hedge_result['fee_total']:.4f})"
                         )
                     
                     await state_manager.close_trade(symbol, pnl=total_pnl, funding=total_funding)
