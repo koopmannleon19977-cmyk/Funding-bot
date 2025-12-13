@@ -71,7 +71,7 @@
 | Exposure-Checks prüfen                           | ✅     | `check_total_exposure()` vorhanden    |
 | Lighter PositionFunding.md integrieren           | ❌     | Noch nicht geladen                    |
 | OI-Integration aus X10 markets.py                | ❌     | Teilweise, nicht vollständig          |
-| Unhedged Closures prüfen (`cleanup_unhedged.py`) | ❌     | Datei nicht analysiert                |
+| Unhedged Closures prüfen (`cleanup_unhedged.py`) | ✅     | Modernisiert: Async, Two-Way Check, Dry-Run |
 
 ### 2.3 Data/Monitoring (websocket_manager.py, open_interest_tracker.py, volatility_monitor.py)
 
@@ -87,7 +87,7 @@
 
 | Aufgabe                               | Status | Notizen                                      |
 | ------------------------------------- | ------ | -------------------------------------------- |
-| Write-Behind prüfen                   | ❌     | Datei nicht gelesen                          |
+| Write-Behind prüfen                   | ✅     | Exzellent implementiert, Memory Leak Fix hinzugefügt |
 | Decimal-Adapter prüfen                | ✅     | Log: "Decimal adapter registered for SQLite" |
 | Migration zu Lighter AccountPnL.md    | ❌     | Noch nicht implementiert                     |
 | Backup-Snapshots (X10 tests/fixtures) | ❌     | Noch nicht geprüft                           |
@@ -210,11 +210,11 @@
 2. ✅ **Maker Order Timeout erhöht** (config.py: 30s → 45s, MAX: 45s → 60s)
 3. ✅ **Nonce Cache TTL reduziert** (lighter_adapter.py: 30s → 10s)
 
-### 🟠 Diese Woche
+### 🟠 Diese Woche - ✅ ABGESCHLOSSEN (2025-12-13)
 
-4. ❌ **funding_fees.csv analysieren** (PnL-Validierung)
-5. ❌ **cleanup_unhedged.py prüfen**
-6. ❌ **state_manager.py lesen** (Write-Behind Pattern)
+4. ⏭️ **funding_fees.csv analysieren** - Datei existiert nicht (übersprungen)
+5. ✅ **cleanup_unhedged.py modernisiert** - Async/Await, Two-Way Check, Dry-Run Mode
+6. ✅ **state_manager.py analysiert** - Write-Behind Pattern OK, Memory Leak Fix implementiert
 
 ### 🟡 Später
 
@@ -244,7 +244,7 @@
 
 ---
 
-_Zuletzt aktualisiert: 2025-12-13 14:10 - Alle kritischen Fixes implementiert und erfolgreich getestet_
+_Zuletzt aktualisiert: 2025-12-13 14:15 - Memory Leak Fix + State Manager + Cleanup Script modernisiert_
 
 ---
 
@@ -256,3 +256,4 @@ _Zuletzt aktualisiert: 2025-12-13 14:10 - Alle kritischen Fixes implementiert un
 | Trade-Zeit TRX-USD   | 30+ sek       | 13.84s      | **50% schneller** |
 | Warnings pro Session | 11            | 1           | **91% weniger**   |
 | Ghost-Fill Detection | attempt 10-15 | attempt 1-3 | **80% schneller** |
+| Memory Leak | ❌ Trades bleiben in RAM | ✅ Cleanup nach Close | **Behoben** |

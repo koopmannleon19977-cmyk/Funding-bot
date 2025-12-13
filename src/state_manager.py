@@ -419,6 +419,8 @@ class InMemoryStateManager:
         
         Accepts both float and Decimal for pnl/funding.
         Internally converts to float for storage, using Decimal for precision.
+        
+        FIXED: Removes trade from memory after successful close to prevent memory leak.
         """
         # Convert to Decimal for precise calculation, then to float for storage
         # REMOVED quantize_usd to preserve precision for small PnL (e.g. < $0.01)
@@ -436,6 +438,19 @@ class InMemoryStateManager:
         })
         
         logger.debug(f"📝 StateManager.close_trade({symbol}): update_trade returned {result}")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # MEMORY LEAK FIX: Remove closed trade from memory after DB write is queued
+        # This prevents memory growth during long bot sessions.
+        # The trade data is safely persisted in the database.
+        # ═══════════════════════════════════════════════════════════════
+        if result:
+            async with self._trade_lock:
+                if symbol in self._trades:
+                    del self._trades[symbol]
+                    self._dirty_trades.discard(symbol)
+                    logger.debug(f"🧹 Removed closed trade {symbol} from memory")
+        
         return result
 
     async def close_trade_verified(
