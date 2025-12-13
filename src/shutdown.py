@@ -720,12 +720,11 @@ class ShutdownOrchestrator:
                     close_price = 0.0
                     
                     # ═══════════════════════════════════════════════════════════════
-                    # PRIORITY 1: Try Lighter accountTrades for the REAL close fill price
+                    # PRIORITY 1: Try Lighter accountInactiveOrders for the REAL close fill price
                     #
-                    # IMPORTANT:
-                    # - fetch_account_pnl() (OrderApi.trades) can fail with "account not found"
-                    # - accountTrades can be eventually-consistent; retry briefly
-                    # - we only need the CLOSE price; realized_pnl can be derived from entry/close
+                    # Uses fetch_my_trades() which calls /api/v1/accountInactiveOrders
+                    # to get filled orders with price data. Retries briefly as trades
+                    # may appear with slight delay after order execution.
                     # ═══════════════════════════════════════════════════════════════
                     if hasattr(lighter, "fetch_my_trades"):
                         try:
