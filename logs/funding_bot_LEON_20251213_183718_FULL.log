@@ -1,0 +1,1915 @@
+18:37:20 [INFO] ✅ CONFIG VALIDATION COMPLETED.
+18:37:23 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+18:37:24 [DEBUG] ✅ Decimal adapter registered for SQLite
+18:37:24 [INFO] 🔥 BOT V5 (Architected) STARTING...
+18:37:24 [INFO] 🚀 Starting InMemoryStateManager...
+18:37:24 [INFO] 📂 Initializing database: data/trades.db
+18:37:24 [INFO] ✅ Read pool created: 5 connections
+18:37:24 [INFO] ✅ WAL mode enabled
+18:37:24 [INFO] 🔄 Running database migrations...
+18:37:24 [INFO] ✅ Migrations complete (14 statements)
+18:37:24 [INFO] ✅ Database initialized
+18:37:24 [INFO] 🖊️ Database write loop started
+18:37:24 [DEBUG] Maintenance not due (Last: 0h ago)
+18:37:24 [INFO] 📂 Loaded 0 trades from database
+18:37:24 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+18:37:24 [INFO] ✅ State Manager started
+18:37:24 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+18:37:24 [INFO] ✅ Async database initialized
+18:37:24 [INFO] 📝 State writer loop started
+18:37:24 [DEBUG] ✅ Database schema up to date
+18:37:24 [INFO] Initialisiere X10 Adapter...
+18:37:24 [INFO]  X10 Account initialisiert.
+18:37:24 [INFO] Initialisiere Lighter Adapter...
+18:37:24 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+18:37:24 [INFO] 💰 Checking exchange balances at startup...
+18:37:24 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:25 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:25 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+18:37:26 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+18:37:28 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:28 [INFO] 💰 STARTUP BALANCE CHECK: X10=$204.87, Lighter=$237.70
+18:37:28 [INFO] ✅ Exchange balances OK - Bot can trade!
+18:37:28 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+18:37:28 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+18:37:28 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+18:37:28 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+18:37:29 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+18:37:29 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+18:37:29 [INFO] ✅ FeeManager started with periodic refresh
+18:37:29 [INFO] ✅ FeeManager started
+18:37:29 [INFO] ✅ Funding Tracker started (updates every 3600s)
+18:37:29 [INFO] ✅ FundingTracker started
+18:37:29 [INFO] 📊 Loading Market Data via REST...
+18:37:29 [INFO] 🔄 Funding tracking loop started...
+18:37:29 [DEBUG] 📊 No open trades to track
+18:37:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:37:29 [INFO] Lighter: Found 0 open positions
+18:37:29 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:30 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+18:37:30 [DEBUG] 📸 PnL Snapshot saved: total=$90.5220, uPnL=$0.0000, rPnL=$90.5220
+18:37:30 [DEBUG] 📸 PnL Snapshot: total=$90.5220 (uPnL=$0.0000, rPnL=$90.5220, funding=$0.0000)
+18:37:30 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+18:37:31 [INFO] ✅ Lighter: Updated 114 markets with size_decimals from API
+18:37:31 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+18:37:31 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+18:37:31 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+18:37:31 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+18:37:35 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+18:37:35 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+18:37:35 [INFO] 📈 Pre-loading Lighter prices...
+18:37:35 [DEBUG] Lighter: Loaded 111 funding rates
+18:37:36 [DEBUG] Lighter: Loaded 117 prices via REST
+18:37:36 [INFO] ✅ Lighter prices loaded: 117 symbols
+18:37:36 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+18:37:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:37:40 [INFO] ✅ Execution clients warmed up & NETWORK READY
+18:37:40 [INFO] 启动 OI Tracker für 64 Symbole...
+18:37:40 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+18:37:40 [INFO] 🌐 Starting WebSocket Manager...
+18:37:40 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+18:37:40 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+18:37:40 [INFO] 📊 OI Tracker: Starting cycle 1 (64 symbols)
+18:37:40 [INFO] 🔌 [lighter] WebSocket manager started
+18:37:40 [INFO] 🔌 [x10_account] WebSocket manager started
+18:37:40 [INFO] 🔌 [x10_trades] WebSocket manager started
+18:37:40 [INFO] 🔌 [x10_funding] WebSocket manager started
+18:37:40 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+18:37:40 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+18:37:40 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:37:40 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:37:40 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:37:40 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+18:37:40 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+18:37:40 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+18:37:40 [INFO] 💓 [x10_account] Keepalive loop started
+18:37:40 [INFO] ✅ [lighter] Subscribed to 64 channels (1 market_stats/all + 63 order_books)
+18:37:40 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+18:37:40 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+18:37:40 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+18:37:40 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+18:37:40 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+18:37:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:40 [DEBUG] ✅ TRX-USD: X10=$308,644, Lighter=$6,263,827, Total=$6,572,471
+18:37:41 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+18:37:41 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:37:41 [INFO] [x10_funding] Receive loop started (async iterator)
+18:37:41 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+18:37:41 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+18:37:41 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:37:41 [INFO] [x10_account] Receive loop started (async iterator)
+18:37:41 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+18:37:41 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765647446747, 'seq': 1}
+18:37:41 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '204.874206', 'status': 'ACTIVE', 'equity': '204.874206', 'availableForTrade': '204.874206', 'available
+18:37:41 [DEBUG] 💰 [x10_account] BALANCE: equity=$204.874206, available=$204.874206, uPnL=$0.000000
+18:37:41 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765647446747,
+  "seq": 3
+}
+18:37:41 [INFO] Lighter: Found 0 open positions
+18:37:41 [INFO] ✅ No orphaned positions found
+18:37:41 [INFO] ✅ ParallelExecutionManager started
+18:37:41 [INFO] ✅ ParallelExecutionManager started
+18:37:41 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+18:37:41 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+18:37:41 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:37:41 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+18:37:41 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+18:37:41 [INFO] [x10_trades] Receive loop started (async iterator)
+18:37:41 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+18:37:41 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+18:37:41 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+18:37:41 [DEBUG] Registered task: logic_loop (priority=HIGH)
+18:37:41 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+18:37:41 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+18:37:41 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+18:37:41 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+18:37:41 [DEBUG] Registered task: health_reporter (priority=LOW)
+18:37:41 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+18:37:41 [INFO] ═══════════════════════════════════════════════════════════
+18:37:41 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+18:37:41 [INFO] ═══════════════════════════════════════════════════════════
+18:37:41 [INFO] 🚀 BotEventLoop starting...
+18:37:41 [INFO] ▶️ Started task: connection_watchdog
+18:37:41 [INFO] ▶️ Started task: logic_loop
+18:37:41 [INFO] ▶️ Started task: trade_management_loop
+18:37:41 [INFO] ▶️ Started task: farm_loop
+18:37:41 [INFO] ▶️ Started task: maintenance_loop
+18:37:41 [INFO] ▶️ Started task: cleanup_finished_tasks
+18:37:41 [INFO] ▶️ Started task: health_reporter
+18:37:41 [INFO] ✅ Started 7 tasks
+18:37:41 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+18:37:41 [INFO] Logic Loop gestartet – REFRESH alle 3s
+18:37:41 [INFO] 🔍 RECONCILE: Starting strict sync check...
+18:37:41 [INFO] 🛡️ Trade Management Loop gestartet
+18:37:41 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+18:37:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:37:41 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+18:37:41 [INFO] [lighter] Resubscribing to 64 channels (paced)...
+18:37:41 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:37:41 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:37:41 [INFO] [lighter] Receive loop started (async iterator)
+18:37:41 [INFO] 💓 [lighter] Waiting for SERVER ping (Lighter sends pings every ~60s)
+18:37:41 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+18:37:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:41 [DEBUG] [lighter] Resubscribed 10/64 channels
+18:37:41 [DEBUG] [lighter] Resubscribed 20/64 channels
+18:37:41 [INFO] ✅ RECONCILE: Sync complete.
+18:37:41 [INFO] ⚡ Latency Arb Detector initialized (min_lag=5.0s, max_lag=30.0s, min_rate_diff=0.020%)
+18:37:41 [DEBUG] Price cache status: X10=78/64, Lighter=117/64
+18:37:41 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:37:41 [DEBUG] [lighter] Resubscribed 30/64 channels
+18:37:41 [DEBUG] [lighter] Resubscribed 40/64 channels
+18:37:41 [DEBUG] [lighter] Resubscribed 50/64 channels
+18:37:41 [DEBUG] [lighter] Resubscribed 60/64 channels
+18:37:41 [INFO] [lighter] Resubscribed to 64 channels
+18:37:41 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+18:37:41 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.55h, APY: 44.7%)
+18:37:41 [INFO] ✅ ZRO-USD: Expected profit $0.0600 in 24.0h (breakeven: 13.81h, APY: 65.7%)
+18:37:41 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:37:41 [INFO] 🎯 Found 2 opportunities
+18:37:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:42 [DEBUG] ✅ AVAX-USD: X10=$369,317, Lighter=$209,137, Total=$578,454
+18:37:43 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:43 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:44 [DEBUG] [x10_funding] Firehose/Account stream - no explicit subscription needed
+18:37:44 [INFO] Lighter: Found 0 open positions
+18:37:44 [INFO] 📊 Positions: X10=0, Lighter=0
+18:37:44 [INFO] 🚀 Launching 2 trades
+18:37:44 [INFO] 🚀 Launching ZRO-USD (APY=65.7%)
+18:37:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:44 [DEBUG] [x10_account] Firehose/Account stream - no explicit subscription needed
+18:37:44 [DEBUG] [x10_trades] Firehose/Account stream - no explicit subscription needed
+18:37:44 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+18:37:44 [DEBUG] MIN_NOTIONAL ZRO-USD: min_base=3.00000000 coins, price=$1.5205, min_qty_usd=$4.56, min_notional_api=$10.00, final=$11.00
+18:37:44 [INFO] 📏 SIZE ZRO-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+18:37:44 [DEBUG] 🔍 Liquidity Check: Skipping depth check for ZRO-USD (Maker Order)
+18:37:44 [INFO] 🚀 Opening ZRO-USD: Size=$80.0
+18:37:44 [INFO] ═══════════════════════════════════════════════════════════
+18:37:44 [INFO] 🚀 HEDGED TRADE START: ZRO-USD
+18:37:44 [INFO]    Lighter: SELL $80.00 @ $1.520520
+18:37:44 [INFO]    X10:     BUY $80.00 @ $1.518742
+18:37:44 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+18:37:44 [INFO] ═══════════════════════════════════════════════════════════
+18:37:44 [INFO] 🧹 [PRE-TRADE] ZRO-USD: Cancelled any existing Lighter orders (defensive cleanup)
+18:37:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:37:44 [INFO] 🚀 Launching TIA-USD (APY=44.7%)
+18:37:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:44 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:37:44 [INFO] ⚖️ Size Alignment ZRO-USD: 80.00$ -> 79.07$ (52.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:37:44 [INFO] 📋 [PHASE 0] ZRO-USD:  Validating orderbook...
+18:37:45 [DEBUG] 📚 ZRO-USD Lighter orderbook refreshed via REST
+18:37:45 [DEBUG] 📚 ZRO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647465.0457852
+18:37:45 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+18:37:45 [DEBUG] ✅ ZRO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $205453 depth, 0.03% spread
+18:37:45 [INFO] ✅ [PHASE 0] ZRO-USD: Orderbook validation PASSED (0.27s)
+18:37:45 [INFO] 📤 [PHASE 1] ZRO-USD: Placing Lighter SELL order...
+18:37:45 [INFO]    Size: $79.07 (52.000000 coins)
+18:37:45 [INFO] 🚀 LIGHTER OPEN ZRO-USD: side=SELL, size_usd=$79.07, amount=52.0, price=$1.520520, TIF=None
+18:37:45 [DEBUG] 🔍 DEBUG: ZRO-USD market_id = 60 (raw=60, type=<class 'int'>)
+18:37:45 [INFO] 🛡️ Maker Price ZRO-USD SELL: $1.520600 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$1.52009, Ask=$1.52061, Tick=1e-05)
+18:37:45 [DEBUG] QUANTIZE ZRO-USD: Notional=$79.06704 -> RawAmt=52.000000 -> QuantAmt=52.000000 (x0.0001) -> BaseInt=520
+18:37:45 [DEBUG] 📋 [TIF] ZRO-USD: Using TIF=1, expiry=-1 (not IOC)
+18:37:45 [DEBUG] ✅ IP-USD: X10=$120,987, Lighter=$400,781, Total=$521,768
+18:37:45 [INFO] ✅ Launched 2 trades this cycle
+18:37:45 [DEBUG] 🔄 Fetched fresh nonce: 7617 (cached next: 7618)
+18:37:45 [INFO] 🔒 Locked execution for ZRO-USD SELL (Nonce: 7617)...
+18:37:45 [DEBUG] ✅ [ORDER_TYPE] ZRO-USD: Using ORDER_TYPE_LIMIT = 0
+18:37:45 [DEBUG] ℹ️ [ORDER_TYPE] ZRO-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:37:45 [DEBUG] ✅ [REDUCE_ONLY] ZRO-USD: Limit Order reduce_only=False (will be 0 in API)
+18:37:45 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":60,"ClientOrderIndex":1765647510938,"BaseAmount":520,"Price":152060,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066665390,"ExpiredAt":1765648064390,"Nonce":7617,"Sig":"W2756FDWfUnfCEmpWjHpbuWy0vCDL9By4iXsy7Ik5WXqCBFIiq8Jfkf32Emt1tzkf/dJZPYaCkmuWAYTuodwyxU5mn/P8x8TvOa1eHwkF08="}
+18:37:45 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+18:37:45 [DEBUG] X10: Funding Refresh OK, cache=91
+18:37:45 [DEBUG] 📊 Lighter Funding Cache refresh (current=111)
+18:37:45 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='1dc568028120c806c302e92fd5fd71be27b31abeebdfc15c34295e2cd061eca4258d880dcb3a0aa7' predicted_execution_time_ms=1765647451452 additional_properties={}
+18:37:45 [INFO] ✅ Lighter Order Sent: 1dc568028120c806c302e92fd5fd71be27b31abeebdfc15c34295e2cd061eca4258d880dcb3a0aa7
+18:37:45 [INFO] ✅ [PHASE 1] ZRO-USD: Lighter order placed (0.59s)
+18:37:45 [INFO]    Order ID: 1dc568028120c806c302e92fd5fd71be27b31abe...
+18:37:45 [DEBUG] 📚 ZRO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647465.0457852
+18:37:45 [DEBUG] ⏱️ ZRO-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2083.72, base=45.0s)
+18:37:45 [INFO] ⏳ [PHASE 1.5] ZRO-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+18:37:45 [DEBUG] Lighter: Loaded 111 funding rates
+18:37:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:45 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:45 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+18:37:45 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5798, min_qty_usd=$1.74, min_notional_api=$10.00, final=$11.00
+18:37:46 [DEBUG] 💓 [x10_account] Alive (uptime=5s, last_msg=5s, last_pong=5s, pings=0, pongs=0)
+18:37:46 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+18:37:46 [DEBUG] 💓 [x10_trades] Alive (uptime=5s, last_msg=1s, last_pong=5s, pings=0, pongs=0)
+18:37:46 [DEBUG] 💓 [lighter] Alive (uptime=5s, last_msg=0s, last_server_ping=5s, server_pings_answered=0)
+18:37:46 [DEBUG] Lighter: Loaded 117 prices via REST
+18:37:46 [DEBUG] Lighter: Funding Refresh OK, cache=111
+18:37:46 [INFO] 🔍 Running periodic exchange sync check...
+18:37:46 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:46 [INFO] 📏 SIZE TIA-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+18:37:46 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TIA-USD (Maker Order)
+18:37:46 [INFO] 🚀 Opening TIA-USD: Size=$80.0
+18:37:46 [INFO] ═══════════════════════════════════════════════════════════
+18:37:46 [INFO] 🚀 HEDGED TRADE START: TIA-USD
+18:37:46 [INFO]    Lighter: SELL $80.00 @ $0.579810
+18:37:46 [INFO]    X10:     BUY $80.00 @ $0.579649
+18:37:46 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+18:37:46 [INFO] ═══════════════════════════════════════════════════════════
+18:37:46 [INFO] 🧹 [PRE-TRADE] TIA-USD: Cancelled any existing Lighter orders (defensive cleanup)
+18:37:46 [INFO] Lighter: Found 0 open positions
+18:37:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:37:47 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:37:47 [INFO] ⚖️ Size Alignment TIA-USD: 80.00$ -> 79.43$ (137.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:37:47 [INFO] 📋 [PHASE 0] TIA-USD:  Validating orderbook...
+18:37:47 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:37:47 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+18:37:47 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647467.3881311
+18:37:47 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $160291 depth, 0.04% spread
+18:37:47 [INFO] ✅ [PHASE 0] TIA-USD: Orderbook validation PASSED (0.25s)
+18:37:47 [INFO] 📤 [PHASE 1] TIA-USD: Placing Lighter SELL order...
+18:37:47 [INFO]    Size: $79.43 (137.000000 coins)
+18:37:47 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$79.43, amount=137.0, price=$0.579810, TIF=None
+18:37:47 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+18:37:47 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.579650 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.57944, Ask=$0.57966, Tick=1e-05)
+18:37:47 [DEBUG] QUANTIZE TIA-USD: Notional=$79.43397 -> RawAmt=137.000000 -> QuantAmt=137.000000 (x0.0001) -> BaseInt=1370
+18:37:47 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+18:37:47 [DEBUG] ⚡ Using cached nonce: 7618 (age: 2.3s)
+18:37:47 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7618)...
+18:37:47 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+18:37:47 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:37:47 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+18:37:47 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765647526797,"BaseAmount":1370,"Price":57965,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066667476,"ExpiredAt":1765648066476,"Nonce":7618,"Sig":"g1m4EwC8ysNEFfqtowLO8blV4pRBcLoNl0Emg6EIwx9aI2daUDCNWgURZzV9QmUft+aVPkNKiiXIGxMqt3oyc4uVTj0bRpxt3z85yqn36A0="}
+18:37:47 [DEBUG] ✅ TON-USD: X10=$95,155, Lighter=$672,095, Total=$767,250
+18:37:47 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='4e888313da01ea04e946f6307194c01646a8a21478fb3eeed05f5ba306ac76a3948dd202d0275e45' predicted_execution_time_ms=1765647453537 additional_properties={}
+18:37:47 [INFO] ✅ Lighter Order Sent: 4e888313da01ea04e946f6307194c01646a8a21478fb3eeed05f5ba306ac76a3948dd202d0275e45
+18:37:47 [INFO] ✅ [PHASE 1] TIA-USD: Lighter order placed (0.36s)
+18:37:47 [INFO]    Order ID: 4e888313da01ea04e946f6307194c01646a8a214...
+18:37:47 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647467.3881311
+18:37:47 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2256.55, base=45.0s)
+18:37:47 [INFO] ⏳ [PHASE 1.5] TIA-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+18:37:48 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:37:48 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:37:48 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.55h, APY: 44.7%)
+18:37:48 [INFO] ✅ ZRO-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.64h, APY: 65.7%)
+18:37:48 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:37:48 [INFO] 🎯 Found 2 opportunities
+18:37:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:48 [INFO] Lighter: Found 0 open positions
+18:37:48 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:49 [DEBUG] ✅ BNB-USD: X10=$1,424,634, Lighter=$13,927, Total=$1,438,561
+18:37:49 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:50 [INFO] 📊 Positions: X10=0, Lighter=0
+18:37:50 [INFO] Lighter: Found 0 open positions
+18:37:51 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s, last_pong=10s, pings=0, pongs=0)
+18:37:51 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+18:37:51 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+18:37:51 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s, last_server_ping=10s, server_pings_answered=0)
+18:37:52 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:37:53 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:37:53 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:37:53 [DEBUG] ✅ STRK-USD: X10=$393,215, Lighter=$7,343,456, Total=$7,736,671
+18:37:53 [INFO] Lighter: Found 0 open positions
+18:37:53 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.55h, APY: 44.7%)
+18:37:53 [INFO] ✅ ZRO-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.64h, APY: 65.7%)
+18:37:53 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:37:53 [INFO] 🎯 Found 2 opportunities
+18:37:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:53 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:54 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:54 [INFO] 📊 Positions: X10=0, Lighter=0
+18:37:54 [DEBUG] ✅ AERO-USD: X10=$351,388, Lighter=$2,280,942, Total=$2,632,329
+18:37:55 [INFO] Lighter: Found 0 open positions
+18:37:56 [DEBUG] 💓 [x10_account] Alive (uptime=15s, last_msg=15s, last_pong=15s, pings=0, pongs=0)
+18:37:56 [DEBUG] 💓 [x10_trades] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+18:37:56 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+18:37:56 [DEBUG] 💓 [lighter] Alive (uptime=15s, last_msg=0s, last_server_ping=15s, server_pings_answered=0)
+18:37:56 [DEBUG] ✅ FARTCOIN-USD: X10=$432,099, Lighter=$8,523,943, Total=$8,956,042
+18:37:57 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:37:57 [DEBUG] 🧹 Dust position detected ZRO-USD: $0.3039 (< $1.0) - marked but not filtered
+18:37:57 [INFO] Lighter: Found 1 open positions
+18:37:57 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:37:57 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:37:58 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.55h, APY: 44.7%)
+18:37:58 [INFO] ✅ ZRO-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.64h, APY: 65.7%)
+18:37:58 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:37:58 [INFO] 🎯 Found 2 opportunities
+18:37:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:37:58 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:37:58 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:37:58 [DEBUG] ✅ TAO-USD: X10=$431,241, Lighter=$7,540, Total=$438,782
+18:37:59 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:37:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:37:59 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:37:59 [INFO] Lighter: Found 1 open positions
+18:37:59 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:00 [DEBUG] ✅ SUI-USD: X10=$521,804, Lighter=$2,363,566, Total=$2,885,370
+18:38:01 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s, last_pong=20s, pings=0, pongs=0)
+18:38:01 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=4s, last_pong=20s, pings=0, pongs=0)
+18:38:01 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+18:38:01 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s, last_server_ping=20s, server_pings_answered=0)
+18:38:01 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:01 [INFO] Lighter: Found 1 open positions
+18:38:02 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:02 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:03 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.55h, APY: 44.7%)
+18:38:03 [INFO] ✅ ZRO-USD: Expected profit $0.0900 in 24.0h (breakeven: 9.64h, APY: 65.7%)
+18:38:03 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:03 [INFO] 🎯 Found 2 opportunities
+18:38:03 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:03 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:03 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:03 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:03 [INFO] Lighter: Found 1 open positions
+18:38:03 [DEBUG] ✅ ADA-USD: X10=$280,961, Lighter=$3,719,170, Total=$4,000,130
+18:38:04 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:04 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:05 [DEBUG] ✅ LINK-USD: X10=$284,730, Lighter=$184,873, Total=$469,603
+18:38:05 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:05 [INFO] Lighter: Found 1 open positions
+18:38:06 [DEBUG] 💓 [x10_account] Alive (uptime=25s, last_msg=25s, last_pong=25s, pings=0, pongs=0)
+18:38:06 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+18:38:06 [DEBUG] 💓 [x10_trades] Alive (uptime=25s, last_msg=1s, last_pong=25s, pings=0, pongs=0)
+18:38:06 [DEBUG] 💓 [lighter] Alive (uptime=25s, last_msg=0s, last_server_ping=25s, server_pings_answered=0)
+18:38:07 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:07 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:07 [DEBUG] ✅ TIA-USD: X10=$214,218, Lighter=$2,103,362, Total=$2,317,580
+18:38:07 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:07 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:07 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:07 [INFO] 🎯 Found 2 opportunities
+18:38:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:08 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:08 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:08 [INFO] Lighter: Found 1 open positions
+18:38:08 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:08 [DEBUG] ⚠️ ZRO-USD Lighter orderbook stale (23.7s)
+18:38:08 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:09 [DEBUG] 📚 ZRO-USD Lighter orderbook refreshed via REST
+18:38:09 [DEBUG] 📚 ZRO-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647489.0205564
+18:38:09 [DEBUG] ✅ ZRO-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $233570 depth, 0.01% spread
+18:38:09 [WARNING] ⏰ [PHASE 1.5] ZRO-USD: Fill timeout after 23.12s (orderbook: bid_depth=$233569.69, ask_depth=$132578.42, spread=1.381%)
+18:38:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:09 [INFO] ✅ [RETRY] ZRO-USD: Position already exists - order likely filled, skipping retry
+18:38:09 [WARNING] ⏰ [MAKER STRATEGY] ZRO-USD: Wait timeout! Cancelling Lighter order 1dc568028120c806c302e92fd5fd71be27b31abeebdfc15c34295e2cd061eca4258d880dcb3a0aa7...
+18:38:09 [INFO] 🔍 Lighter: Attempting to resolve Hash 1dc568028120c806c302e92fd5fd71be27b31abeebdfc15c34295e2cd061eca4258d880dcb3a0aa7 to Order ID for ZRO-USD...
+18:38:09 [DEBUG] ✅ EIGEN-USD: X10=$125,812, Lighter=$1,230,025, Total=$1,355,837
+18:38:10 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:10 [INFO] Lighter: Found 1 open positions
+18:38:10 [DEBUG] 💓 [x10_account] Sent keepalive ping #1: 1765647490132
+18:38:10 [DEBUG] 💓 [x10_account] Health OK - last activity 29s ago
+18:38:10 [DEBUG] 💓 [x10_account] Health OK - msgs=3 (ORDER:1, POSITION:1, BALANCE:1)
+18:38:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:10 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (23.2s)
+18:38:10 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:10 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+18:38:10 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647490.9373772
+18:38:10 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $155820 depth, 0.06% spread
+18:38:10 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 22.84s (orderbook: bid_depth=$155819.73, ask_depth=$171105.13, spread=6.388%)
+18:38:10 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:11 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:11 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=4s, last_pong=30s, pings=0, pongs=0)
+18:38:11 [DEBUG] ✅ 1000PEPE-USD: X10=$254,787, Lighter=$239,818,628, Total=$240,073,415
+18:38:11 [INFO] 🔄 [RETRY] TIA-USD: Cancelling original order 4e888313da01ea04e946f6307194c01646a8a214...
+18:38:11 [INFO] 🔍 Lighter: Attempting to resolve Hash 4e888313da01ea04e946f6307194c01646a8a21478fb3eeed05f5ba306ac76a3948dd202d0275e45 to Order ID for TIA-USD...
+18:38:11 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=30s, last_pong=30s, pings=1, pongs=0)
+18:38:11 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=2s, last_pong=30s, pings=0, pongs=0)
+18:38:11 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.8s
+18:38:11 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+18:38:11 [DEBUG] 📊 Task health: 7 alive, 0 dead
+18:38:11 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s, last_server_ping=30s, server_pings_answered=0)
+18:38:11 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:11 [DEBUG] 🔍 Lighter Cancel: Hash 1dc5680281... not found but position exists for ZRO-USD. Order was likely FILLED. Skipping cancel.
+18:38:11 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:11 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+18:38:11 [DEBUG] Lighter fetch_my_trades(ZRO-USD): Found 7 filled orders
+18:38:11 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+18:38:11 [INFO] 🔍 [MAKER STRATEGY] ZRO-USD: Checking for Ghost Fills (FAST CHECK)...
+18:38:11 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:11 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:12 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:12 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:12 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:12 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:12 [INFO] 🎯 Found 2 opportunities
+18:38:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:12 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:12 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:12 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:12 [INFO] Lighter: Found 1 open positions
+18:38:12 [WARNING] ⚠️ [MAKER STRATEGY] ZRO-USD: GHOST FILL DETECTED on attempt 1! Size=-0.2. HEDGING NOW!
+18:38:12 [INFO] ✅ [MAKER STRATEGY] ZRO-USD: Lighter Filled! Executing X10 Hedge...
+18:38:12 [INFO] ✅ [PHASE 1.5] ZRO-USD: Lighter FILLED (23.12s)
+18:38:12 [INFO] 📊 [PHASE 2] ZRO-USD: Using ACTUAL filled size: 0.200000 coins (from Ghost Fill/Partial Fill detection)
+18:38:12 [INFO] 📤 [PHASE 2] ZRO-USD: Placing X10 BUY hedge...
+18:38:12 [INFO]    Size: 0.200000 coins (matching Lighter fill)
+18:38:12 [INFO] 🚀 X10 EXECUTE ZRO-USD BUY: 0.200000 Coins (Basis: COINS=0.2)
+18:38:12 [DEBUG] ℹ️ [TIF] ZRO-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+18:38:12 [DEBUG] ✅ [TIF] ZRO-USD: Selected TimeInForce=GTT (post_only=False, reduce_only=False, is_market=False)
+18:38:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:38:12 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:12 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:13 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 4e888313da... to an Order ID for TIA-USD. No position found. Order may have been cancelled elsewhere.
+18:38:13 [WARNING] 🛑 [RETRY] TIA-USD: Original order cancel NOT confirmed; skipping retry to prevent duplicate fills
+18:38:13 [WARNING] ⏰ [MAKER STRATEGY] TIA-USD: Wait timeout! Cancelling Lighter order 4e888313da01ea04e946f6307194c01646a8a21478fb3eeed05f5ba306ac76a3948dd202d0275e45...
+18:38:13 [INFO] 🔍 Lighter: Attempting to resolve Hash 4e888313da01ea04e946f6307194c01646a8a21478fb3eeed05f5ba306ac76a3948dd202d0275e45 to Order ID for TIA-USD...
+18:38:13 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:13 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:13 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:13 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:14 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:14 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:14 [DEBUG] ✅ XPL-USD: X10=$295,529, Lighter=$23,433,684, Total=$23,729,213
+18:38:15 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:15 [INFO] Lighter: Found 1 open positions
+18:38:15 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 4e888313da... to an Order ID for TIA-USD. No position found. Order may have been cancelled elsewhere.
+18:38:15 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:15 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+18:38:15 [DEBUG] Lighter fetch_my_trades(TIA-USD): Found 9 filled orders
+18:38:15 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+18:38:15 [INFO] 🔍 [MAKER STRATEGY] TIA-USD: Checking for Ghost Fills (FAST CHECK)...
+18:38:15 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:15 [DEBUG] 🔍 TIA-USD check 1/20 clean...
+18:38:16 [DEBUG] 💓 [x10_funding] Alive (uptime=35s, last_msg=9s, last_pong=35s, pings=0, pongs=0)
+18:38:16 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+18:38:16 [DEBUG] 💓 [x10_trades] Alive (uptime=35s, last_msg=2s, last_pong=35s, pings=0, pongs=0)
+18:38:16 [DEBUG] 💓 [x10_account] Alive (uptime=35s, last_msg=35s, last_pong=35s, pings=1, pongs=0)
+18:38:16 [DEBUG] 💓 [lighter] Alive (uptime=35s, last_msg=0s, last_server_ping=35s, server_pings_answered=0)
+18:38:16 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:16 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:16 [DEBUG] ✅ PUMP-USD: X10=$518,665, Lighter=$1,617,525,343, Total=$1,618,044,008
+18:38:16 [DEBUG] Placing an order: id=878001924163865392491223626895998844132487190763799647423173674883212031873
+18:38:16 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+18:38:16 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:16 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:16 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:16 [INFO] 🎯 Found 2 opportunities
+18:38:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:17 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:17 [INFO] Lighter: Found 1 open positions
+18:38:17 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:17 [ERROR] Error response from https://api.starknet.extended.exchange/api/v1/user/order: {"status":"ERROR","error":{"code":1120,"message":"Order quantity less than min trade size"}}
+18:38:17 [ERROR]  X10 Order Exception: Error response from https://api.starknet.extended.exchange/api/v1/user/order: code 400 - {"status":"ERROR","error":{"code":1120,"message":"Order quantity less than min trade size"}}
+18:38:17 [ERROR] ❌ [PHASE 2] ZRO-USD: X10 hedge FAILED (5.16s)
+18:38:17 [WARNING] 🔄 ZRO-USD: Initiating rollback - Lighter position exposed!
+18:38:17 [INFO] 📤 [ROLLBACK] ZRO-USD: Queued for background processing
+18:38:17 [INFO] ════════════════════════════════════════════════════════════
+18:38:17 [INFO] 📊 TRADE SUMMARY:  ZRO-USD
+18:38:17 [INFO]    Result: ROLLBACK
+18:38:17 [INFO]    Reason:  X10 hedge failed
+18:38:17 [INFO]    Total Time: 32.97s
+18:38:17 [INFO]    State: ROLLBACK_QUEUED
+18:38:17 [INFO]    Phase Times:
+18:38:17 [INFO]       - orderbook_validation: 0.27s
+18:38:17 [INFO]       - lighter_order_placement: 0.59s
+18:38:17 [INFO]       - lighter_fill_wait: 23.12s
+18:38:17 [INFO]       - x10_hedge: 5.16s
+18:38:17 [INFO]    Lighter Order:  1dc568028120c806c302e92fd5fd71be27b31abe...
+18:38:17 [INFO] ════════════════════════════════════════════════════════════
+18:38:17 [WARNING] ❌ Trade execution failed for ZRO-USD
+18:38:18 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:18 [INFO] 🚀 Launching 1 trades
+18:38:18 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:18 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:18 [DEBUG] ✅ 1000BONK-USD: X10=$100,028, Lighter=$90,358,802, Total=$90,458,830
+18:38:18 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:18 [DEBUG] 🔍 TIA-USD check 6/20 clean...
+18:38:18 [INFO] ✅ Launched 1 trades this cycle
+18:38:19 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:19 [INFO] Lighter: Found 1 open positions
+18:38:20 [DEBUG] ✅ PENDLE-USD: X10=$113,211, Lighter=$1,143,759, Total=$1,256,969
+18:38:21 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:21 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=14s, last_pong=40s, pings=0, pongs=0)
+18:38:21 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=4s, last_pong=40s, pings=0, pongs=0)
+18:38:21 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+18:38:21 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=40s, last_pong=40s, pings=1, pongs=0)
+18:38:21 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s, last_server_ping=40s, server_pings_answered=0)
+18:38:21 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:21 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:21 [DEBUG] ✅ AVNT-USD: X10=$98,179, Lighter=$2,262,651, Total=$2,360,830
+18:38:22 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:22 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:22 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:22 [INFO] 🎯 Found 2 opportunities
+18:38:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:22 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:22 [INFO] Lighter: Found 1 open positions
+18:38:22 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:23 [DEBUG] 🔍 TIA-USD check 11/20 clean...
+18:38:23 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:23 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:23 [INFO] 🚀 Launching 1 trades
+18:38:23 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:23 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:23 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:24 [INFO] ✅ Launched 1 trades this cycle
+18:38:24 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:24 [INFO] Lighter: Found 1 open positions
+18:38:24 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:25 [DEBUG] ✅ ARB-USD: X10=$117,735, Lighter=$5,769,588, Total=$5,887,324
+18:38:26 [DEBUG] 💓 [x10_funding] Alive (uptime=45s, last_msg=19s, last_pong=45s, pings=0, pongs=0)
+18:38:26 [DEBUG] 💓 [x10_account] Alive (uptime=45s, last_msg=45s, last_pong=45s, pings=1, pongs=0)
+18:38:26 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=45s, last_msg=0s, last_pong=45s, pings=0, pongs=0)
+18:38:26 [DEBUG] 💓 [x10_trades] Alive (uptime=45s, last_msg=1s, last_pong=45s, pings=0, pongs=0)
+18:38:26 [DEBUG] 💓 [lighter] Alive (uptime=45s, last_msg=0s, last_server_ping=45s, server_pings_answered=0)
+18:38:27 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:27 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:27 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:27 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:27 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:27 [INFO] 🎯 Found 2 opportunities
+18:38:27 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:27 [DEBUG] ✅ TRUMP-USD: X10=$69,555, Lighter=$256,586, Total=$326,141
+18:38:27 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:27 [INFO] Lighter: Found 1 open positions
+18:38:27 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:28 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:28 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:28 [DEBUG] 🔍 TIA-USD check 16/20 clean...
+18:38:28 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:28 [INFO] 🚀 Launching 1 trades
+18:38:28 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:28 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:28 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:29 [INFO] ✅ Launched 1 trades this cycle
+18:38:29 [DEBUG] ✅ UNI-USD: X10=$186,359, Lighter=$384,123, Total=$570,482
+18:38:29 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0002, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:29 [INFO] Lighter: Found 1 open positions
+18:38:29 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:31 [DEBUG] ✅ BERA-USD: X10=$152,356, Lighter=$1,038,207, Total=$1,190,563
+18:38:31 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=24s, last_pong=50s, pings=0, pongs=0)
+18:38:31 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=1s, last_pong=50s, pings=0, pongs=0)
+18:38:31 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s, last_pong=50s, pings=0, pongs=0)
+18:38:31 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=50s, last_pong=50s, pings=1, pongs=0)
+18:38:31 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s, last_server_ping=50s, server_pings_answered=0)
+18:38:31 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0002, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:31 [INFO] Lighter: Found 1 open positions
+18:38:32 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:32 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:32 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:32 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:32 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:32 [INFO] 🎯 Found 2 opportunities
+18:38:32 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:32 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:32 [DEBUG] ✅ SPX-USD: X10=$53,558, Lighter=$3,441,081, Total=$3,494,639
+18:38:32 [INFO] ✓ [MAKER STRATEGY] TIA-USD: Cancel confirmed (Clean Exit verified after ~14.8s, 20 checks).
+18:38:32 [INFO] ════════════════════════════════════════════════════════════
+18:38:32 [INFO] 📊 TRADE SUMMARY:  TIA-USD
+18:38:32 [INFO]    Result: TIMEOUT
+18:38:32 [INFO]    Reason:  Lighter order not filled (no retries available)
+18:38:32 [INFO]    Total Time: 45.84s
+18:38:32 [INFO]    State: LEG1_SENT
+18:38:32 [INFO]    Phase Times:
+18:38:32 [INFO]       - orderbook_validation: 0.25s
+18:38:32 [INFO]       - lighter_order_placement: 0.36s
+18:38:32 [INFO]       - lighter_fill_wait: 22.84s
+18:38:32 [INFO]    Lighter Order:  4e888313da01ea04e946f6307194c01646a8a214...
+18:38:32 [INFO] ════════════════════════════════════════════════════════════
+18:38:32 [WARNING] ❌ Trade execution failed for TIA-USD
+18:38:33 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:34 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0002, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:34 [INFO] Lighter: Found 1 open positions
+18:38:34 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:34 [INFO] 🚀 Launching 2 trades
+18:38:34 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:34 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:34 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:34 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:34 [INFO] 🚀 Launching TIA-USD (APY=45.6%)
+18:38:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:34 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+18:38:34 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5798, min_qty_usd=$1.74, min_notional_api=$10.00, final=$11.00
+18:38:34 [INFO] 📏 SIZE TIA-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+18:38:34 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TIA-USD (Maker Order)
+18:38:34 [INFO] 🚀 Opening TIA-USD: Size=$80.0
+18:38:34 [INFO] ═══════════════════════════════════════════════════════════
+18:38:34 [INFO] 🚀 HEDGED TRADE START: TIA-USD
+18:38:34 [INFO]    Lighter: SELL $80.00 @ $0.579810
+18:38:34 [INFO]    X10:     BUY $80.00 @ $0.579649
+18:38:34 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+18:38:34 [INFO] ═══════════════════════════════════════════════════════════
+18:38:34 [INFO] 🧹 [PRE-TRADE] TIA-USD: Cancelled any existing Lighter orders (defensive cleanup)
+18:38:34 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:38:35 [INFO] ✅ Launched 2 trades this cycle
+18:38:35 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:35 [INFO] ⚖️ Size Alignment TIA-USD: 80.00$ -> 79.43$ (137.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:38:35 [INFO] 📋 [PHASE 0] TIA-USD:  Validating orderbook...
+18:38:35 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (25.0s)
+18:38:36 [DEBUG] 💓 [x10_funding] Alive (uptime=55s, last_msg=29s, last_pong=55s, pings=0, pongs=0)
+18:38:36 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+18:38:36 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647516.1895866
+18:38:36 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $159778 depth, 0.04% spread
+18:38:36 [INFO] ✅ [PHASE 0] TIA-USD: Orderbook validation PASSED (0.27s)
+18:38:36 [INFO] 📤 [PHASE 1] TIA-USD: Placing Lighter SELL order...
+18:38:36 [INFO]    Size: $79.43 (137.000000 coins)
+18:38:36 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$79.43, amount=137.0, price=$0.579810, TIF=None
+18:38:36 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+18:38:36 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.579470 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.57927, Ask=$0.57948, Tick=1e-05)
+18:38:36 [DEBUG] QUANTIZE TIA-USD: Notional=$79.43397 -> RawAmt=137.000000 -> QuantAmt=137.000000 (x0.0001) -> BaseInt=1370
+18:38:36 [DEBUG] 💓 [x10_trades] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+18:38:36 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+18:38:36 [DEBUG] 💓 [x10_account] Alive (uptime=55s, last_msg=55s, last_pong=55s, pings=1, pongs=0)
+18:38:36 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+18:38:36 [DEBUG] 💓 [lighter] Alive (uptime=55s, last_msg=0s, last_server_ping=55s, server_pings_answered=0)
+18:38:36 [DEBUG] 🔄 Fetched fresh nonce: 7619 (cached next: 7620)
+18:38:36 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7619)...
+18:38:36 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+18:38:36 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:38:36 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+18:38:36 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765647517248,"BaseAmount":1370,"Price":57947,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066716562,"ExpiredAt":1765648115562,"Nonce":7619,"Sig":"srvWisP4xxtu+6HvEpkjPI9dIKrAezYIYb4Cci9YRm3y1VfiOiZlKw1ab1EU7qwILs6XWMcZUjH1UkU1kX26iVIZuBZU95lWK2G4kNLYQVo="}
+18:38:36 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$4,486, Total=$4,486
+18:38:36 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='6692ef13cc7383a2fb03d17b7304be5034e4aeed97fb08dc16e47eb195f1ac5f178caaa4799d98c8' predicted_execution_time_ms=1765647502639 additional_properties={}
+18:38:36 [INFO] ✅ Lighter Order Sent: 6692ef13cc7383a2fb03d17b7304be5034e4aeed97fb08dc16e47eb195f1ac5f178caaa4799d98c8
+18:38:36 [INFO] ✅ [PHASE 1] TIA-USD: Lighter order placed (0.64s)
+18:38:36 [INFO]    Order ID: 6692ef13cc7383a2fb03d17b7304be5034e4aeed...
+18:38:36 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647516.1895866
+18:38:36 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2210.49, base=45.0s)
+18:38:36 [INFO] ⏳ [PHASE 1.5] TIA-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+18:38:37 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:37 [INFO] Lighter: Found 1 open positions
+18:38:38 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:38 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:38 [DEBUG] ✅ DOGE-USD: X10=$447,044, Lighter=$22,321,300, Total=$22,768,344
+18:38:38 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (31.7s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (31.7s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (31.6s > 30.0s) - stale data, skip
+18:38:38 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (31.7s > 30.0s) - stale data, skip
+18:38:38 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:38 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:38 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:38 [INFO] 🎯 Found 2 opportunities
+18:38:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:38 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:39 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:39 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:39 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:39 [INFO] 🚀 Launching 1 trades
+18:38:39 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:39 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:39 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:39 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:39 [INFO] Lighter: Found 1 open positions
+18:38:39 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:40 [DEBUG] 💓 [x10_account] Sent keepalive ping #2: 1765647520133
+18:38:40 [DEBUG] 💓 [x10_account] Health OK - last activity 59s ago
+18:38:40 [DEBUG] 💓 [x10_account] Health OK - msgs=3 (ORDER:1, POSITION:1, BALANCE:1)
+18:38:40 [DEBUG] ✅ 1000SHIB-USD: X10=$88,009, Lighter=$199,086,008, Total=$199,174,017
+18:38:40 [INFO] ✅ Launched 1 trades this cycle
+18:38:41 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=34s, last_pong=60s, pings=0, pongs=0)
+18:38:41 [DEBUG] ⚠️ [x10_account] No messages for 60s (expected every 60s)
+18:38:41 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=60s, last_pong=60s, pings=2, pongs=0)
+18:38:41 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=1s, last_pong=60s, pings=0, pongs=0)
+18:38:41 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=60s, last_msg=1s, last_pong=60s, pings=0, pongs=0)
+18:38:41 [DEBUG] 🐕 Watchdog OK: Daten-Alter 3.2s
+18:38:41 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s, last_server_ping=60s, server_pings_answered=0)
+18:38:41 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:41 [INFO] Lighter: Found 1 open positions
+18:38:41 [DEBUG] ✅ ENA-USD: X10=$280,708, Lighter=$20,300,059, Total=$20,580,767
+18:38:43 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:43 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:43 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (36.8s > 30.0s) - stale data, skip
+18:38:43 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:43 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:43 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:43 [INFO] 🎯 Found 2 opportunities
+18:38:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:43 [DEBUG] ✅ ZRO-USD: X10=$120,757, Lighter=$593,900, Total=$714,657
+18:38:43 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:44 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:44 [INFO] Lighter: Found 1 open positions
+18:38:44 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:44 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:44 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:45 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:45 [INFO] 🚀 Launching 1 trades
+18:38:45 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:45 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:45 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:45 [INFO] ✅ Launched 1 trades this cycle
+18:38:46 [DEBUG] 💓 [x10_funding] Alive (uptime=65s, last_msg=39s, last_pong=65s, pings=0, pongs=0)
+18:38:46 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:46 [INFO] Lighter: Found 1 open positions
+18:38:46 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=65s, last_msg=0s, last_pong=65s, pings=0, pongs=0)
+18:38:46 [DEBUG] 💓 [x10_trades] Alive (uptime=65s, last_msg=2s, last_pong=65s, pings=0, pongs=0)
+18:38:46 [DEBUG] ⚠️ [x10_account] No messages for 65s (expected every 60s)
+18:38:46 [DEBUG] 💓 [x10_account] Alive (uptime=65s, last_msg=65s, last_pong=65s, pings=2, pongs=0)
+18:38:46 [DEBUG] 💓 [lighter] Alive (uptime=65s, last_msg=0s, last_server_ping=65s, server_pings_answered=0)
+18:38:46 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+18:38:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+18:38:47 [DEBUG] ✅ HYPE-USD: X10=$5,279,534, Lighter=$1,690,438, Total=$6,969,971
+18:38:48 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:48 [INFO] Lighter: Found 1 open positions
+18:38:48 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:48 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:49 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (42.2s > 30.0s) - stale data, skip
+18:38:49 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:49 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 9.77h, APY: 64.8%)
+18:38:49 [INFO] ✅ Found 2 opportunities from 62 valid pairs
+18:38:49 [INFO] 🎯 Found 2 opportunities
+18:38:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:49 [DEBUG] ✅ JUP-USD: X10=$92,054, Lighter=$4,977,766, Total=$5,069,820
+18:38:49 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:50 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:50 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:50 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:50 [INFO] 🚀 Launching 1 trades
+18:38:50 [INFO] 🚀 Launching ZRO-USD (APY=64.8%)
+18:38:50 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:50 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:50 [INFO] ✅ Launched 1 trades this cycle
+18:38:50 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+18:38:50 [DEBUG] X10: Funding Refresh OK, cache=91
+18:38:50 [DEBUG] 📊 Lighter Funding Cache refresh (current=111)
+18:38:50 [DEBUG] ✅ ASTER-USD: X10=$475,331, Lighter=$13,306,627, Total=$13,781,957
+18:38:51 [DEBUG] Lighter: Loaded 111 funding rates
+18:38:51 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=44s, last_pong=70s, pings=0, pongs=0)
+18:38:51 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=70s, last_msg=0s, last_pong=70s, pings=0, pongs=0)
+18:38:51 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=3s, last_pong=70s, pings=0, pongs=0)
+18:38:51 [DEBUG] ⚠️ [x10_account] No messages for 70s (expected every 60s)
+18:38:51 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=70s, last_pong=70s, pings=2, pongs=0)
+18:38:51 [DEBUG] 💓 [lighter] Alive (uptime=70s, last_msg=0s, last_server_ping=70s, server_pings_answered=0)
+18:38:51 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:51 [INFO] Lighter: Found 1 open positions
+18:38:52 [DEBUG] Lighter: Loaded 117 prices via REST
+18:38:52 [DEBUG] Lighter: Funding Refresh OK, cache=111
+18:38:52 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:52 [INFO] Lighter: Found 1 open positions
+18:38:52 [DEBUG] ✅ ZEC-USD: X10=$1,361,842, Lighter=$17,094, Total=$1,378,936
+18:38:53 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:53 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:38:54 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (47.4s > 30.0s) - stale data, skip
+18:38:54 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:38:54 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:38:54 [INFO] ✅ ZEC-USD: Expected profit $0.0600 in 24.0h (breakeven: 9.44h, APY: 46.4%)
+18:38:54 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:38:54 [INFO] 🎯 Found 3 opportunities
+18:38:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:54 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$371,716, Total=$371,716
+18:38:54 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:54 [INFO] Lighter: Found 1 open positions
+18:38:54 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:55 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:38:55 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:38:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:55 [INFO] 📊 Positions: X10=0, Lighter=1
+18:38:55 [INFO] 🚀 Launching 2 trades
+18:38:55 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:38:55 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:38:55 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:56 [DEBUG] 💓 [x10_funding] Alive (uptime=75s, last_msg=49s, last_pong=75s, pings=0, pongs=0)
+18:38:56 [DEBUG] ⚠️ [x10_account] No messages for 75s (expected every 60s)
+18:38:56 [DEBUG] 💓 [x10_account] Alive (uptime=75s, last_msg=75s, last_pong=75s, pings=2, pongs=0)
+18:38:56 [INFO] 🚀 Launching ZEC-USD (APY=46.4%)
+18:38:56 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=75s, last_msg=0s, last_pong=75s, pings=0, pongs=0)
+18:38:56 [DEBUG] 💓 [x10_trades] Alive (uptime=75s, last_msg=1s, last_pong=75s, pings=0, pongs=0)
+18:38:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:38:56 [DEBUG] 💓 [lighter] Alive (uptime=75s, last_msg=0s, last_server_ping=75s, server_pings_answered=0)
+18:38:56 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:56 [INFO] Lighter: Found 1 open positions
+18:38:56 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:38:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:38:56 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:38:56 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+18:38:56 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$427.8010, min_qty_usd=$42.78, min_notional_api=$10.00, final=$47.06
+18:38:56 [INFO] 📏 SIZE ZEC-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+18:38:56 [DEBUG] 🔍 Liquidity Check: Skipping depth check for ZEC-USD (Maker Order)
+18:38:56 [INFO] 🚀 Opening ZEC-USD: Size=$80.0
+18:38:56 [INFO] ═══════════════════════════════════════════════════════════
+18:38:56 [INFO] 🚀 HEDGED TRADE START: ZEC-USD
+18:38:56 [INFO]    Lighter: SELL $80.00 @ $427.801000
+18:38:56 [INFO]    X10:     BUY $80.00 @ $427.758000
+18:38:56 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+18:38:56 [INFO] ═══════════════════════════════════════════════════════════
+18:38:56 [INFO] 🧹 [PRE-TRADE] ZEC-USD: Cancelled any existing Lighter orders (defensive cleanup)
+18:38:56 [INFO] ✅ Launched 2 trades this cycle
+18:38:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+18:38:57 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:38:57 [INFO] ⚖️ Size Alignment ZEC-USD: 80.00$ -> 42.78$ (0.100000 Coins) to match both exchanges (X10 Step: 0.1, Lighter Step: 0.0001)
+18:38:57 [INFO] 📋 [PHASE 0] ZEC-USD:  Validating orderbook...
+18:38:58 [DEBUG] ✅ ETH-USD: X10=$15,576,629, Lighter=$0, Total=$15,576,629
+18:38:58 [DEBUG] 📚 ZEC-USD Lighter orderbook refreshed via REST
+18:38:58 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647538.1746838
+18:38:58 [DEBUG] ✅ ZEC-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $52837 depth, 0.04% spread
+18:38:58 [INFO] ✅ [PHASE 0] ZEC-USD: Orderbook validation PASSED (0.25s)
+18:38:58 [INFO] 📤 [PHASE 1] ZEC-USD: Placing Lighter SELL order...
+18:38:58 [INFO]    Size: $42.78 (0.100000 coins)
+18:38:58 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=SELL, size_usd=$42.78, amount=0.1, price=$427.801000, TIF=None
+18:38:58 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+18:38:58 [INFO] 🛡️ Maker Price ZEC-USD SELL: $427.973000 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$427.822, Ask=$427.974, Tick=0.001)
+18:38:58 [DEBUG] QUANTIZE ZEC-USD: Notional=$42.780100000000004 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+18:38:58 [DEBUG] 📋 [TIF] ZEC-USD: Using TIF=1, expiry=-1 (not IOC)
+18:38:58 [DEBUG] 🔄 Fetched fresh nonce: 7620 (cached next: 7621)
+18:38:58 [INFO] 🔒 Locked execution for ZEC-USD SELL (Nonce: 7620)...
+18:38:58 [DEBUG] ✅ [ORDER_TYPE] ZEC-USD: Using ORDER_TYPE_LIMIT = 0
+18:38:58 [DEBUG] ℹ️ [ORDER_TYPE] ZEC-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:38:58 [DEBUG] ✅ [REDUCE_ONLY] ZEC-USD: Limit Order reduce_only=False (will be 0 in API)
+18:38:58 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765647590856,"BaseAmount":100,"Price":427973,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066738534,"ExpiredAt":1765648137534,"Nonce":7620,"Sig":"fv9xtpvzr3k7N8/hHYbyzupnDJ/w8jIYTKOJGeIj5IVH3d5RVxwuI0D+abmSh3lcoEKznQZwqwmce5EtKsSvepK11rdvkKSSbVNd1mpClEg="}
+18:38:58 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:38:58 [INFO] Lighter: Found 1 open positions
+18:38:58 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='bfe16a9bf13f55529ab1f5cccad47eb7f77ae517e0cd1db7b0731bdf70be9d11307999468710fe29' predicted_execution_time_ms=1765647524596 additional_properties={}
+18:38:58 [INFO] ✅ Lighter Order Sent: bfe16a9bf13f55529ab1f5cccad47eb7f77ae517e0cd1db7b0731bdf70be9d11307999468710fe29
+18:38:58 [INFO] ✅ [PHASE 1] ZEC-USD: Lighter order placed (0.62s)
+18:38:58 [INFO]    Order ID: bfe16a9bf13f55529ab1f5cccad47eb7f77ae517...
+18:38:58 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647538.1746838
+18:38:58 [DEBUG] ⏱️ ZEC-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2240.16, base=45.0s)
+18:38:58 [INFO] ⏳ [PHASE 1.5] ZEC-USD: Waiting for Lighter fill (max 22.5s, dynamic timeout)...
+18:38:59 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (23.6s)
+18:38:59 [DEBUG] ✅ POPCAT-USD: X10=$97,643, Lighter=$6,122,613, Total=$6,220,256
+18:38:59 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:38:59 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:39:00 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+18:39:00 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647540.0289614
+18:39:00 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $159676 depth, 0.02% spread
+18:39:00 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 22.94s (orderbook: bid_depth=$159675.58, ask_depth=$173713.69, spread=1.726%)
+18:39:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:00 [DEBUG] 🔍 Lag check TRX-USD: 53.37s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check AVAX-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check IP-USD: 53.37s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check TON-USD: 53.37s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check BNB-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check STRK-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check AERO-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check FARTCOIN-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check TAO-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check SUI-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ADA-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check LINK-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check TIA-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check EIGEN-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check 1000PEPE-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check XPL-USD: 53.38s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check 1000BONK-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check PUMP-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check PENDLE-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check AVNT-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ARB-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check TRUMP-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check UNI-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check BERA-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check SPX-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check BCH-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check DOGE-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check 1000SHIB-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ENA-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ZRO-USD: 53.39s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check HYPE-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check JUP-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ASTER-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ZEC-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check FIL-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ETH-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check POPCAT-USD: 53.40s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check LTC-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check XRP-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check APT-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check EDEN-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check GRASS-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check DOT-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check WIF-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check OP-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check MNT-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check NEAR-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check PENGU-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check CRV-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check RESOLV-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ZORA-USD: 53.41s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check KAITO-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check ONDO-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check LDO-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check BTC-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check MON-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check SOL-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check AAVE-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check WLD-USD: 53.43s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check WLFI-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check APEX-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check VIRTUAL-USD: 53.42s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [DEBUG] 🔍 Lag check SEI-USD: 53.43s (X10 slow)
+18:39:00 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (53.4s > 30.0s) - stale data, skip
+18:39:00 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:39:00 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:39:00 [INFO] ✅ ZEC-USD: Expected profit $0.0600 in 24.0h (breakeven: 9.44h, APY: 46.4%)
+18:39:00 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:39:00 [INFO] 🎯 Found 3 opportunities
+18:39:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:00 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:39:00 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:00 [INFO] Lighter: Found 1 open positions
+18:39:00 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:39:00 [INFO] 🔄 [RETRY] TIA-USD: Cancelling original order 6692ef13cc7383a2fb03d17b7304be5034e4aeed...
+18:39:00 [INFO] 🔍 Lighter: Attempting to resolve Hash 6692ef13cc7383a2fb03d17b7304be5034e4aeed97fb08dc16e47eb195f1ac5f178caaa4799d98c8 to Order ID for TIA-USD...
+18:39:00 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:01 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=54s, last_pong=80s, pings=0, pongs=0)
+18:39:01 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:01 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=2s, last_pong=80s, pings=0, pongs=0)
+18:39:01 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=80s, last_msg=0s, last_pong=80s, pings=0, pongs=0)
+18:39:01 [DEBUG] ⚠️ [x10_account] No messages for 80s (expected every 60s)
+18:39:01 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=80s, last_pong=80s, pings=2, pongs=0)
+18:39:01 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:39:01 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:39:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:01 [DEBUG] 💓 [lighter] Alive (uptime=80s, last_msg=0s, last_server_ping=80s, server_pings_answered=0)
+18:39:01 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:01 [INFO] 📊 Positions: X10=0, Lighter=1
+18:39:01 [INFO] 🚀 Launching 1 trades
+18:39:01 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:39:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:01 [DEBUG] ✅ LTC-USD: X10=$219,026, Lighter=$14,932, Total=$233,958
+18:39:01 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:01 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:39:01 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:01 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 6692ef13cc... to an Order ID for TIA-USD. No position found. Order may have been cancelled elsewhere.
+18:39:01 [WARNING] 🛑 [RETRY] TIA-USD: Original order cancel NOT confirmed; skipping retry to prevent duplicate fills
+18:39:01 [WARNING] ⏰ [MAKER STRATEGY] TIA-USD: Wait timeout! Cancelling Lighter order 6692ef13cc7383a2fb03d17b7304be5034e4aeed97fb08dc16e47eb195f1ac5f178caaa4799d98c8...
+18:39:01 [INFO] 🔍 Lighter: Attempting to resolve Hash 6692ef13cc7383a2fb03d17b7304be5034e4aeed97fb08dc16e47eb195f1ac5f178caaa4799d98c8 to Order ID for TIA-USD...
+18:39:02 [INFO] ✅ Launched 1 trades this cycle
+18:39:02 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:02 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:02 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:02 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:02 [INFO] Lighter: Found 1 open positions
+18:39:02 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:03 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:03 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash 6692ef13cc... to an Order ID for TIA-USD. No position found. Order may have been cancelled elsewhere.
+18:39:03 [DEBUG] ✅ XRP-USD: X10=$864,260, Lighter=$5,173,339, Total=$6,037,599
+18:39:03 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+18:39:03 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+18:39:03 [DEBUG] Lighter fetch_my_trades(TIA-USD): Found 9 filled orders
+18:39:03 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+18:39:03 [INFO] 🔍 [MAKER STRATEGY] TIA-USD: Checking for Ghost Fills (FAST CHECK)...
+18:39:04 [DEBUG] 🔍 TIA-USD check 1/20 clean...
+18:39:05 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:39:05 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:39:05 [DEBUG] ✅ APT-USD: X10=$40,624, Lighter=$1,756,615, Total=$1,797,239
+18:39:05 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:05 [INFO] Lighter: Found 1 open positions
+18:39:05 [DEBUG] ⚠️ Latency Arb TRX-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb AVAX-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb IP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb TON-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb BNB-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb STRK-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb AERO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb FARTCOIN-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb TAO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb SUI-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ADA-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb LINK-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb TIA-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb EIGEN-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb 1000PEPE-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb XPL-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb 1000BONK-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb PUMP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb PENDLE-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb AVNT-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ARB-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb TRUMP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb UNI-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb BERA-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb SPX-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb BCH-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb DOGE-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb 1000SHIB-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ENA-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ZRO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb HYPE-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb JUP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ASTER-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ZEC-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb FIL-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ETH-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb POPCAT-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb LTC-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb XRP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb APT-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb EDEN-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb GRASS-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb DOT-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb WIF-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb OP-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb MNT-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb NEAR-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb PENGU-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb CRV-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb RESOLV-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ZORA-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb KAITO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb ONDO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb LDO-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb BTC-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb MON-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb SOL-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb AAVE-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb WLD-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb WLFI-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb APEX-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb VIRTUAL-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [DEBUG] ⚠️ Latency Arb SEI-USD: Lag too large (58.6s > 30.0s) - stale data, skip
+18:39:05 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:39:05 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:39:05 [INFO] ✅ ZEC-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.53h, APY: 46.4%)
+18:39:05 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:39:05 [INFO] 🎯 Found 3 opportunities
+18:39:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:05 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:39:05 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:39:06 [DEBUG] 💓 [x10_funding] Alive (uptime=85s, last_msg=59s, last_pong=85s, pings=0, pongs=0)
+18:39:06 [DEBUG] 💓 [x10_trades] Alive (uptime=85s, last_msg=0s, last_pong=85s, pings=0, pongs=0)
+18:39:06 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=85s, last_msg=0s, last_pong=85s, pings=0, pongs=0)
+18:39:06 [DEBUG] ⚠️ [x10_account] No messages for 85s (expected every 60s)
+18:39:06 [DEBUG] 💓 [x10_account] Alive (uptime=85s, last_msg=85s, last_pong=85s, pings=2, pongs=0)
+18:39:06 [DEBUG] 💓 [lighter] Alive (uptime=85s, last_msg=0s, last_server_ping=85s, server_pings_answered=0)
+18:39:06 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:39:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:06 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:06 [INFO] Lighter: Found 1 open positions
+18:39:06 [INFO] 📊 Positions: X10=0, Lighter=1
+18:39:06 [INFO] 🚀 Launching 1 trades
+18:39:06 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:39:06 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:39:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:07 [DEBUG] 🔍 TIA-USD check 6/20 clean...
+18:39:07 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:39:07 [INFO] ✅ Launched 1 trades this cycle
+18:39:08 [DEBUG] ✅ EDEN-USD: X10=$98,452, Lighter=$4,855,960, Total=$4,954,412
+18:39:09 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:09 [INFO] Lighter: Found 1 open positions
+18:39:10 [DEBUG] 💓 [x10_account] Sent keepalive ping #3: 1765647550142
+18:39:10 [DEBUG] 💓 [x10_account] Health OK - last activity 89s ago
+18:39:10 [DEBUG] 💓 [x10_account] Health OK - msgs=3 (ORDER:1, POSITION:1, BALANCE:1)
+18:39:10 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:39:10 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:39:10 [DEBUG] 🔍 TIA-USD check 11/20 clean...
+18:39:10 [DEBUG] ✅ GRASS-USD: X10=$67,989, Lighter=$1,894,220, Total=$1,962,209
+18:39:10 [DEBUG] 🔍 Lag check TRX-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check AVAX-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check IP-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check TON-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check BNB-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check STRK-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check AERO-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check FARTCOIN-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check TAO-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check SUI-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ADA-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check LINK-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check TIA-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check EIGEN-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check 1000PEPE-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check XPL-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check 1000BONK-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check PUMP-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check PENDLE-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check AVNT-USD: 3.98s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ARB-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check TRUMP-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check UNI-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check BERA-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check SPX-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check BCH-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check DOGE-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check 1000SHIB-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ENA-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ZRO-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check HYPE-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check JUP-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ASTER-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ZEC-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check FIL-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ETH-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check POPCAT-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check LTC-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check XRP-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check APT-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check EDEN-USD: 3.99s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check GRASS-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check DOT-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check WIF-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check OP-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check MNT-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check NEAR-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check PENGU-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check CRV-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check RESOLV-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ZORA-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check KAITO-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check ONDO-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check LDO-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check BTC-USD: 4.01s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check MON-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check SOL-USD: 4.01s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check AAVE-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check WLD-USD: 4.01s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check WLFI-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check APEX-USD: 4.00s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check VIRTUAL-USD: 4.01s (X10 slow)
+18:39:10 [DEBUG] 🔍 Lag check SEI-USD: 4.01s (X10 slow)
+18:39:10 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:39:10 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:39:10 [INFO] ✅ ZEC-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.37h, APY: 47.3%)
+18:39:10 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:39:10 [INFO] 🎯 Found 3 opportunities
+18:39:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:11 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:39:11 [DEBUG] 💓 [x10_funding] Alive (uptime=90s, last_msg=4s, last_pong=90s, pings=0, pongs=0)
+18:39:11 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.8s
+18:39:11 [DEBUG] ⚠️ [x10_account] No messages for 90s (expected every 60s)
+18:39:11 [DEBUG] 💓 [x10_account] Alive (uptime=90s, last_msg=90s, last_pong=90s, pings=3, pongs=0)
+18:39:11 [DEBUG] 💓 [x10_trades] Alive (uptime=90s, last_msg=1s, last_pong=90s, pings=0, pongs=0)
+18:39:11 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=90s, last_msg=0s, last_pong=90s, pings=0, pongs=0)
+18:39:11 [DEBUG] 📊 Task health: 7 alive, 0 dead
+18:39:11 [WARNING] ⚠️ [lighter] No server ping for 90s (expected every ~60s). Connection may be stale.
+18:39:11 [DEBUG] 💓 [lighter] Alive (uptime=90s, last_msg=0s, last_server_ping=90s, server_pings_answered=0)
+18:39:11 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:39:11 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:39:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:11 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:11 [INFO] Lighter: Found 1 open positions
+18:39:12 [INFO] 📊 Positions: X10=0, Lighter=1
+18:39:12 [INFO] 🚀 Launching 1 trades
+18:39:12 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:39:12 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:39:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:12 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:39:12 [DEBUG] ✅ MKR-USD: X10=$9,283, Lighter=$0, Total=$9,283
+18:39:12 [INFO] ✅ Launched 1 trades this cycle
+18:39:13 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:13 [INFO] Lighter: Found 1 open positions
+18:39:14 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$499,353, Total=$499,353
+18:39:15 [DEBUG] 🔍 TIA-USD check 16/20 clean...
+18:39:15 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:39:15 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:39:15 [DEBUG] ✅ WIF-USD: X10=$205,233, Lighter=$3,391,707, Total=$3,596,939
+18:39:15 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:15 [INFO] Lighter: Found 1 open positions
+18:39:16 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:39:16 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:39:16 [INFO] ✅ ZEC-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.37h, APY: 47.3%)
+18:39:16 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:39:16 [INFO] 🎯 Found 3 opportunities
+18:39:16 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:16 [DEBUG] 💓 [x10_funding] Alive (uptime=95s, last_msg=9s, last_pong=95s, pings=0, pongs=0)
+18:39:16 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:39:16 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=95s, last_msg=0s, last_pong=95s, pings=0, pongs=0)
+18:39:16 [DEBUG] 💓 [x10_trades] Alive (uptime=95s, last_msg=0s, last_pong=95s, pings=0, pongs=0)
+18:39:16 [DEBUG] ⚠️ [x10_account] No messages for 95s (expected every 60s)
+18:39:16 [DEBUG] 💓 [x10_account] Alive (uptime=95s, last_msg=95s, last_pong=95s, pings=3, pongs=0)
+18:39:16 [WARNING] ⚠️ [lighter] No server ping for 95s (expected every ~60s). Connection may be stale.
+18:39:16 [DEBUG] 💓 [lighter] Alive (uptime=95s, last_msg=0s, last_server_ping=95s, server_pings_answered=0)
+18:39:16 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+18:39:17 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:39:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:17 [INFO] 📊 Positions: X10=0, Lighter=1
+18:39:17 [INFO] 🚀 Launching 1 trades
+18:39:17 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:39:17 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+18:39:17 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:18 [INFO] ✅ Launched 1 trades this cycle
+18:39:18 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:18 [INFO] Lighter: Found 1 open positions
+18:39:18 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:39:19 [INFO] ✓ [MAKER STRATEGY] TIA-USD: Cancel confirmed (Clean Exit verified after ~14.8s, 20 checks).
+18:39:19 [INFO] ════════════════════════════════════════════════════════════
+18:39:19 [INFO] 📊 TRADE SUMMARY:  TIA-USD
+18:39:19 [INFO]    Result: TIMEOUT
+18:39:19 [INFO]    Reason:  Lighter order not filled (no retries available)
+18:39:19 [INFO]    Total Time: 43.33s
+18:39:19 [INFO]    State: LEG1_SENT
+18:39:19 [INFO]    Phase Times:
+18:39:19 [INFO]       - orderbook_validation: 0.27s
+18:39:19 [INFO]       - lighter_order_placement: 0.64s
+18:39:19 [INFO]       - lighter_fill_wait: 22.94s
+18:39:19 [INFO]    Lighter Order:  6692ef13cc7383a2fb03d17b7304be5034e4aeed...
+18:39:19 [INFO] ════════════════════════════════════════════════════════════
+18:39:19 [WARNING] ❌ Trade execution failed for TIA-USD
+18:39:19 [DEBUG] ✅ OP-USD: X10=$192,529, Lighter=$2,997,356, Total=$3,189,886
+18:39:20 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:20 [INFO] Lighter: Found 1 open positions
+18:39:21 [DEBUG] Price cache status: X10=81/64, Lighter=117/64
+18:39:21 [DEBUG] 🔍 Scanning 64 pairs. Lighter markets: 115, X10 markets: 91
+18:39:21 [DEBUG] 💓 [x10_funding] Alive (uptime=100s, last_msg=14s, last_pong=100s, pings=0, pongs=0)
+18:39:21 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=100s, last_msg=0s, last_pong=100s, pings=0, pongs=0)
+18:39:21 [DEBUG] ⚠️ [x10_account] No messages for 100s (expected every 60s)
+18:39:21 [DEBUG] 💓 [x10_account] Alive (uptime=100s, last_msg=100s, last_pong=100s, pings=3, pongs=0)
+18:39:21 [DEBUG] 💓 [x10_trades] Alive (uptime=100s, last_msg=1s, last_pong=100s, pings=0, pongs=0)
+18:39:21 [WARNING] ⚠️ [lighter] No server ping for 100s (expected every ~60s). Connection may be stale.
+18:39:21 [DEBUG] 💓 [lighter] Alive (uptime=100s, last_msg=0s, last_server_ping=100s, server_pings_answered=0)
+18:39:21 [INFO] ✅ TIA-USD: Expected profit $0.0500 in 24.0h (breakeven: 11.33h, APY: 45.6%)
+18:39:21 [INFO] ✅ ZRO-USD: Expected profit $0.0800 in 24.0h (breakeven: 10.68h, APY: 66.6%)
+18:39:21 [INFO] ✅ ZEC-USD: Expected profit $0.0700 in 24.0h (breakeven: 8.37h, APY: 47.3%)
+18:39:21 [INFO] ✅ Found 3 opportunities from 62 valid pairs
+18:39:21 [INFO] 🎯 Found 3 opportunities
+18:39:21 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+18:39:21 [DEBUG] ✅ MNT-USD: X10=$75,109, Lighter=$3,647,278, Total=$3,722,387
+18:39:21 [INFO] 💰 X10 verfügbare Balance: $204.87 USDC
+18:39:21 [DEBUG] ⚠️ ZEC-USD Lighter orderbook stale (23.6s)
+18:39:22 [DEBUG] 📚 ZEC-USD Lighter orderbook refreshed via REST
+18:39:22 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647562.0226176
+18:39:22 [DEBUG] ✅ ZEC-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $91592 depth, 0.03% spread
+18:39:22 [WARNING] ⏰ [PHASE 1.5] ZEC-USD: Fill timeout after 22.94s (orderbook: bid_depth=$91591.51, ask_depth=$72544.65, spread=3.272%)
+18:39:22 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+18:39:22 [INFO] 🛑 Initiating shutdown...
+18:39:22 [INFO] 🛑 ParallelExecutionManager: Stopping 1 active executions...
+18:39:22 [INFO] ⏳ Waiting up to 30.0s for 1 executions to complete...
+18:39:22 [DEBUG] Lighter Balance: Raw=$250.21, Safe=$237.70
+18:39:22 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:22 [INFO] 📊 Positions: X10=0, Lighter=1
+18:39:22 [INFO] 🚀 Launching 2 trades
+18:39:22 [INFO] 🚀 Launching ZRO-USD (APY=66.6%)
+18:39:22 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:22 [WARNING] ⚠️ ZRO-USD already open on Lighter (size=-0.2) - SKIP
+18:39:22 [DEBUG] 📊 ZRO Lighter PnL: uPnL=$0.0001, rPnL=$0.0000, entry=$1.520600, funding_paid_out=$0.0000, funding_received=$-0.0000
+18:39:22 [INFO] Lighter: Found 1 open positions
+18:39:22 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:22 [INFO] 🔄 [RETRY] ZEC-USD: Cancelling original order bfe16a9bf13f55529ab1f5cccad47eb7f77ae517...
+18:39:22 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for bfe16a9bf13f55529ab1f5cccad47eb7f77ae517e0cd1db7b0731bdf70be9d11307999468710fe29
+18:39:22 [DEBUG] [LIGHTER] Shutdown active - skipping get_open_orders for ZEC-USD
+18:39:23 [DEBUG] ✅ NEAR-USD: X10=$252,420, Lighter=$770,068, Total=$1,022,488
+18:39:23 [INFO] 🚀 Launching TIA-USD (APY=45.6%)
+18:39:23 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:23 [DEBUG] ✅ Exposure Check: 0.39x <= 5.0x
+18:39:23 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5798, min_qty_usd=$1.74, min_notional_api=$10.00, final=$11.00
+18:39:23 [INFO] 📏 SIZE TIA-USD: $80.00 (DESIRED_NOTIONAL_USD=$80.00)
+18:39:23 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TIA-USD (Maker Order)
+18:39:23 [INFO] 🚀 Opening TIA-USD: Size=$80.0
+18:39:23 [INFO] ═══════════════════════════════════════════════════════════
+18:39:23 [INFO] 🚀 HEDGED TRADE START: TIA-USD
+18:39:23 [INFO]    Lighter: SELL $80.00 @ $0.579810
+18:39:23 [INFO]    X10:     BUY $80.00 @ $0.579649
+18:39:23 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+18:39:23 [INFO] ═══════════════════════════════════════════════════════════
+18:39:23 [DEBUG] ParallelExec stop: 
+18:39:23 [DEBUG] Cancelled task: maintenance_loop
+18:39:23 [DEBUG] Cancelled task: cleanup_finished_tasks
+18:39:23 [DEBUG] Cancelled task: health_reporter
+18:39:23 [DEBUG] Cancelled task: farm_loop
+18:39:23 [DEBUG] Cancelled task: logic_loop
+18:39:23 [DEBUG] Cancelled task: trade_management_loop
+18:39:23 [DEBUG] Cancelled task: connection_watchdog
+18:39:23 [INFO] Farm loop cancelled
+18:39:23 [INFO] Logic loop cancelled
+18:39:23 [INFO] Connection watchdog cancelled
+18:39:23 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+18:39:23 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+18:39:23 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+18:39:23 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+18:39:23 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+18:39:23 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:23 [INFO] 📸 Position snapshot: X10=0, Lighter=1
+18:39:23 [INFO] ⏳ Waiting for 1 active executions to complete or rollback...
+18:39:23 [INFO] ✅ ParallelExecutionManager: Already stopping
+18:39:23 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:23 [INFO] ⚡ Attempting global Lighter cancel...
+18:39:23 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:23 [INFO] 🔄 [RETRY] ZEC-USD: Attempt 1/3 (price adjustment: 0.200%)
+18:39:23 [DEBUG] 💰 [RETRY] ZEC-USD: Original price=427.801000, Adjusted price=426.945398 (SELL)
+18:39:23 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647562.0226176
+18:39:23 [DEBUG] ✅ ZEC-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $91592 depth, 0.03% spread
+18:39:23 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647562.0226176
+18:39:23 [DEBUG] ⏱️ ZEC-USD: Dynamic timeout calculated: 22.5s (depth_ratio=1695.76, base=45.0s)
+18:39:23 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:23 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=SELL, size_usd=$42.78, amount=0.1, price=$427.801000, TIF=None
+18:39:23 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+18:39:23 [INFO] 🛡️ Maker Price ZEC-USD SELL: $427.951000 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$427.812, Ask=$427.952, Tick=0.001)
+18:39:23 [DEBUG] 🔄 ZEC-USD: Shutdown detected - using passed price as mark (mark=$427.801000)
+18:39:23 [DEBUG] QUANTIZE ZEC-USD: Notional=$42.780100000000004 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+18:39:23 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:23 [DEBUG] 📋 [TIF] ZEC-USD: Using TIF=1, expiry=-1 (not IOC)
+18:39:24 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7621)...
+18:39:24 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765648163249,"Nonce":7621,"Sig":"8IlLkx0F+8DJySHF+dR4IMtJDwBJZLmwaYJAn4VTeG+YCNlyDiHOF3kHlfUoHklQaDLg+YW6xSZ1cBJrMYIpB/Rt+72g9DM0cvKmhUuyZyc="}
+18:39:24 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b4dccfe7555ddec91628700aa02e61ee85ab8e1a9fc569634e8f7a133811b270eb8a5cd7a5abce34' predicted_execution_time_ms=1765647550107 additional_properties={}
+18:39:24 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765648163249,"Nonce":7621,"Sig":"8IlLkx0F+8DJySHF+dR4IMtJDwBJZLmwaYJAn4VTeG+YCNlyDiHOF3kHlfUoHklQaDLg+YW6xSZ1cBJrMYIpB/Rt+72g9DM0cvKmhUuyZyc="})
+18:39:24 [DEBUG] 🔄 Nonce cache invalidated
+18:39:24 [INFO] 🧹 [PRE-TRADE] TIA-USD: Cancelled any existing Lighter orders (defensive cleanup)
+18:39:24 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+18:39:24 [INFO] 🛑 Cancelling open orders for 2 symbols (LighterGlobal=True)...
+18:39:24 [DEBUG] [X10] Shutdown active - skipping get_open_orders for TIA-USD
+18:39:24 [DEBUG] [LIGHTER] Shutdown active - skipping get_open_orders for TIA-USD
+18:39:24 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZEC-USD
+18:39:24 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZRO-USD
+18:39:24 [INFO] ⚖️ Size Alignment TIA-USD: 80.00$ -> 79.43$ (137.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+18:39:24 [INFO] 📋 [PHASE 0] TIA-USD:  Validating orderbook...
+18:39:24 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (24.5s)
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:24 [INFO] 🔻 Close attempt 1/3 | x10=0, lighter=1
+18:39:24 [INFO] 📊 ZRO-USD Pre-Close PnL: uPnL=$0.0001, rPnL=$0.0000, funding=$-0.0000, entry=$1.520600
+18:39:24 [INFO] 🛑 Closing Lighter ZRO-USD: BUY 0.2 (IOC reduce_only, price=1.51984)
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [DEBUG] close_live_position: symbol=ZRO-USD, side=SELL, notional=$0.303968
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [DEBUG] 🔄 Fetched fresh nonce: 7622 (cached next: 7623)
+18:39:24 [INFO] 🔒 Locked execution for ZEC-USD SELL (Nonce: 7622)...
+18:39:24 [DEBUG] ✅ [ORDER_TYPE] ZEC-USD: Using ORDER_TYPE_LIMIT = 0
+18:39:24 [DEBUG] ℹ️ [ORDER_TYPE] ZEC-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:39:24 [DEBUG] ✅ [REDUCE_ONLY] ZEC-USD: Limit Order reduce_only=False (will be 0 in API)
+18:39:24 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765647663668,"BaseAmount":100,"Price":427951,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066764771,"ExpiredAt":1765648163771,"Nonce":7622,"Sig":"tQXBot6MzU0m7xE0X32+9Pm2MGG5u6bYVsfm0I3OIFTqreMolKy9QX3fNZwdbZI+exFAvUPp7sH1e9w86RN+uSKZrTFcFSqPnj1EOlxasiI="}
+18:39:24 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+18:39:24 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:24 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $155791 depth, 0.04% spread
+18:39:24 [INFO] ✅ [PHASE 0] TIA-USD: Orderbook validation PASSED (0.25s)
+18:39:24 [INFO] 📤 [PHASE 1] TIA-USD: Placing Lighter SELL order...
+18:39:24 [INFO]    Size: $79.43 (137.000000 coins)
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$79.43, amount=137.0, price=$0.579810, TIF=None
+18:39:24 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+18:39:24 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.579550 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.57935, Ask=$0.57956, Tick=1e-05)
+18:39:24 [DEBUG] 🔄 TIA-USD: Shutdown detected - using passed price as mark (mark=$0.579810)
+18:39:24 [DEBUG] QUANTIZE TIA-USD: Notional=$79.43397 -> RawAmt=137.000000 -> QuantAmt=137.000000 (x0.0001) -> BaseInt=1370
+18:39:24 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:24 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+18:39:24 [DEBUG] ✅ PENGU-USD: X10=$57,624, Lighter=$75,857,338, Total=$75,914,962
+18:39:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='42eb32514b6cbeafb821a651bd6e7dc55bbec959b6d107aa1854eb6568c8b8c908942a94976fbd55' predicted_execution_time_ms=1765647550839 additional_properties={}
+18:39:25 [INFO] ✅ Lighter Order Sent: 42eb32514b6cbeafb821a651bd6e7dc55bbec959b6d107aa1854eb6568c8b8c908942a94976fbd55
+18:39:25 [INFO] ✅ [RETRY] ZEC-USD: Retry order placed: 42eb32514b6cbeafb821a651bd6e7dc55bbec959...
+18:39:25 [WARNING] ⚡ [RETRY] ZEC-USD: SHUTDOWN detected - aborting retry wait!
+18:39:25 [WARNING] ⏰ [RETRY] ZEC-USD: Retry order timeout after 22.5s (attempt 1/3)
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 42eb32514b6cbeafb821a651bd6e7dc55bbec959b6d107aa1854eb6568c8b8c908942a94976fbd55
+18:39:25 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+18:39:25 [DEBUG] ⚡ Using cached nonce: 7623 (age: 0.5s)
+18:39:25 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7623)...
+18:39:25 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+18:39:25 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:39:25 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+18:39:25 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765647646029,"BaseAmount":1370,"Price":57955,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066765051,"ExpiredAt":1765648164051,"Nonce":7623,"Sig":"nRAOGXBW6lhD0cosLDK5lNxHZ6y1YO9AkMW5s8V5MIt//OYGcd55V/Q+UYs8ontzVW7OgErHobLlAU36Ki+66lmOGI+8WRNjTABOjEXOcUs="}
+18:39:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='2917bc8c27be2c642c533fc0765f13de47107ecf68778d70e0db6ba55185b64bb50a7cd892faf567' predicted_execution_time_ms=1765647551110 additional_properties={}
+18:39:25 [INFO] ✅ Lighter Order Sent: 2917bc8c27be2c642c533fc0765f13de47107ecf68778d70e0db6ba55185b64bb50a7cd892faf567
+18:39:25 [INFO] ✅ [PHASE 1] TIA-USD: Lighter order placed (0.53s)
+18:39:25 [INFO]    Order ID: 2917bc8c27be2c642c533fc0765f13de47107ecf...
+18:39:25 [INFO] ⏳ [PHASE 1.5] TIA-USD: Waiting for Lighter fill (max 2.0s, dynamic timeout)...
+18:39:25 [WARNING] ⚡ [PHASE 1.5] TIA-USD:  SHUTDOWN detected - aborting wait!
+18:39:25 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:25 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 0.00s (orderbook: bid_depth=$155790.54, ask_depth=$177986.72, spread=3.625%)
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:25 [INFO] 🔄 [RETRY] TIA-USD: Cancelling original order 2917bc8c27be2c642c533fc0765f13de47107ecf...
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 2917bc8c27be2c642c533fc0765f13de47107ecf68778d70e0db6ba55185b64bb50a7cd892faf567
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - skipping get_open_orders for TIA-USD
+18:39:25 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:25 [DEBUG] MIN_NOTIONAL ZRO-USD: min_base=3.00000000 coins, price=$1.5198, min_qty_usd=$4.56, min_notional_api=$10.00, final=$11.00
+18:39:25 [DEBUG] 🧹 DUST POSITION ZRO-USD: $0.30 < Min $11.00 - Closing with reduce_only (expected to succeed)
+18:39:25 [INFO] 🔻 LIGHTER CLOSE ZRO-USD: size=-0.200000 coins, side=BUY, price=$1.5198, notional=$0.30, dust=True
+18:39:25 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:25 [DEBUG] ⚡ Skipping validation for reduce_only order ZRO-USD ($0.30)
+18:39:25 [INFO] 🚀 LIGHTER OPEN ZRO-USD: side=BUY, size_usd=$0.30, amount=0.2, price=$1.519840, TIF=IOC
+18:39:25 [DEBUG] 🔍 DEBUG: ZRO-USD market_id = 60 (raw=60, type=<class 'int'>)
+18:39:25 [DEBUG] 🔄 ZRO-USD: Shutdown detected - using passed price as mark (mark=$1.519840)
+18:39:25 [DEBUG] QUANTIZE ZRO-USD: Notional=$0.303968 -> RawAmt=0.200000 -> QuantAmt=0.200000 (x0.0001) -> BaseInt=2
+18:39:25 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:25 [DEBUG] 🔍 [TIF] ZRO-USD: Processing time_in_force='IOC' (raw='IOC')
+18:39:25 [DEBUG] ✅ [TIF] ZRO-USD: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0
+18:39:25 [DEBUG] 🔧 [TIF] ZRO-USD: Set expiry=0 for IOC order
+18:39:25 [INFO] ⚡ [TIF] ZRO-USD: Using IOC order (tif=0, expiry=0, ioc_attr=0)
+18:39:25 [DEBUG] ⚡ Using cached nonce: 7624 (age: 1.0s)
+18:39:25 [INFO] 🔒 Locked execution for ZRO-USD BUY (Nonce: 7624)...
+18:39:25 [INFO] ⚡ MARKET ORDER ZRO-USD: BUY 2 @ avg_price=160456 (shutdown fast-close)
+18:39:25 [DEBUG] ✅ [REDUCE_ONLY] ZRO-USD: Market Order reduce_only=True (will be 1 in API)
+18:39:25 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":60,"ClientOrderIndex":1765647623493,"BaseAmount":2,"Price":160456,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765648164569,"Nonce":7624,"Sig":"0VRfCDPMi48nkWIN0KPUTEBF3R3rW0vpnMSnK1/S2kebXohfvDnUaWc0ff4lCi/e1+8pla+2kVgpN7reHYgxxoZWbndDzE17CjiCN5/NVXI="}
+18:39:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='586fd78a2158139f7c43366c3634e55ae2dc7c496096a0673a2775a7cbc40d1775ecbd9e158d6cdb' predicted_execution_time_ms=1765647551628 additional_properties={}
+18:39:25 [INFO] ✅ Lighter Order Sent: 586fd78a2158139f7c43366c3634e55ae2dc7c496096a0673a2775a7cbc40d1775ecbd9e158d6cdb
+18:39:25 [INFO] ✅ Lighter close ZRO-USD: Erfolgreich ($0.30)
+18:39:25 [DEBUG] [LIGHTER] Removed ZRO-USD from _positions_cache after successful close
+18:39:25 [INFO] ✅ Lighter ZRO-USD closed and tracked
+18:39:26 [DEBUG] 💓 [x10_funding] Alive (uptime=105s, last_msg=19s, last_pong=105s, pings=0, pongs=0)
+18:39:26 [DEBUG] 💓 [x10_trades] Alive (uptime=105s, last_msg=2s, last_pong=105s, pings=0, pongs=0)
+18:39:26 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=105s, last_msg=0s, last_pong=105s, pings=0, pongs=0)
+18:39:26 [DEBUG] ⚠️ [x10_account] No messages for 105s (expected every 60s)
+18:39:26 [DEBUG] 💓 [x10_account] Alive (uptime=105s, last_msg=105s, last_pong=105s, pings=3, pongs=0)
+18:39:26 [INFO] 🔄 [RETRY] TIA-USD: Attempt 1/3 (price adjustment: 0.200%)
+18:39:26 [DEBUG] 💰 [RETRY] TIA-USD: Original price=0.579810, Adjusted price=0.578650 (SELL)
+18:39:26 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:26 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $155791 depth, 0.04% spread
+18:39:26 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:26 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2240.69, base=45.0s)
+18:39:26 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:26 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$79.43, amount=137.0, price=$0.579810, TIF=None
+18:39:26 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+18:39:26 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.579550 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.57935, Ask=$0.57956, Tick=1e-05)
+18:39:26 [DEBUG] 🔄 TIA-USD: Shutdown detected - using passed price as mark (mark=$0.579810)
+18:39:26 [DEBUG] QUANTIZE TIA-USD: Notional=$79.43397 -> RawAmt=137.000000 -> QuantAmt=137.000000 (x0.0001) -> BaseInt=1370
+18:39:26 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:26 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+18:39:26 [DEBUG] ⚡ Using cached nonce: 7625 (age: 1.8s)
+18:39:26 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7625)...
+18:39:26 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+18:39:26 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:39:26 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+18:39:26 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765647597142,"BaseAmount":1370,"Price":57955,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066766335,"ExpiredAt":1765648165335,"Nonce":7625,"Sig":"/rsy9Mu1rpZLw0ueTypzmY6zbiDUMAoWerYCEsx5Za+zaNnPxwykX/ZXBldfZk5LoZCgtVoXsDHT+EGp9QE1KLojYLpcp/Otiww8/m1BgyE="}
+18:39:26 [WARNING] ⚠️ [lighter] No server ping for 105s (expected every ~60s). Connection may be stale.
+18:39:26 [DEBUG] 💓 [lighter] Alive (uptime=105s, last_msg=0s, last_server_ping=105s, server_pings_answered=0)
+18:39:26 [DEBUG] [LIGHTER] Generated auth token for accountInactiveOrders
+18:39:26 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:26 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b4ec07197364e563073535e3b2ed64a2f0a9355a47600890913172857d2a1d5f6264b72e52def305' predicted_execution_time_ms=1765647552402 additional_properties={}
+18:39:26 [INFO] ✅ Lighter Order Sent: b4ec07197364e563073535e3b2ed64a2f0a9355a47600890913172857d2a1d5f6264b72e52def305
+18:39:26 [INFO] ✅ [RETRY] TIA-USD: Retry order placed: b4ec07197364e563073535e3b2ed64a2f0a9355a...
+18:39:26 [WARNING] ⚡ [RETRY] TIA-USD: SHUTDOWN detected - aborting retry wait!
+18:39:26 [WARNING] ⏰ [RETRY] TIA-USD: Retry order timeout after 22.5s (attempt 1/3)
+18:39:26 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for b4ec07197364e563073535e3b2ed64a2f0a9355a47600890913172857d2a1d5f6264b72e52def305
+18:39:26 [DEBUG] ✅ CRV-USD: X10=$113,571, Lighter=$2,266,135, Total=$2,379,707
+18:39:26 [DEBUG] Lighter fetch_my_trades(ZRO-USD): Found 36 filled orders
+18:39:26 [INFO] ✅ ZRO-USD Using Lighter accountTrades close price: $1.520610
+18:39:26 [INFO] 💰 ZRO-USD Lighter Closed PnL: $-0.0000 (entry=$1.520600, close=$1.520610, size=0.2000, source=lighter_accountTrades)
+18:39:27 [INFO] 🔄 [RETRY] ZEC-USD: Attempt 2/3 (price adjustment: 0.400%)
+18:39:27 [DEBUG] 💰 [RETRY] ZEC-USD: Original price=427.801000, Adjusted price=426.089796 (SELL)
+18:39:27 [DEBUG] ⚠️ ZEC-USD Lighter orderbook stale (5.0s)
+18:39:27 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:27 [DEBUG] 📚 ZEC-USD Lighter orderbook refreshed via REST
+18:39:27 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647567.2903447
+18:39:27 [DEBUG] ✅ ZEC-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $55368 depth, 0.02% spread
+18:39:27 [DEBUG] 📚 ZEC-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647567.2903447
+18:39:27 [DEBUG] ⏱️ ZEC-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2678.49, base=45.0s)
+18:39:27 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:27 [INFO] 🚀 LIGHTER OPEN ZEC-USD: side=SELL, size_usd=$42.78, amount=0.1, price=$427.801000, TIF=None
+18:39:27 [DEBUG] 🔍 DEBUG: ZEC-USD market_id = 90 (raw=90, type=<class 'int'>)
+18:39:27 [INFO] 🛡️ Maker Price ZEC-USD SELL: $427.950000 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$427.869, Ask=$427.951, Tick=0.001)
+18:39:27 [DEBUG] 🔄 ZEC-USD: Shutdown detected - using passed price as mark (mark=$427.801000)
+18:39:27 [DEBUG] QUANTIZE ZEC-USD: Notional=$42.780100000000004 -> RawAmt=0.100000 -> QuantAmt=0.100000 (x0.0001) -> BaseInt=100
+18:39:27 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:27 [DEBUG] 📋 [TIF] ZEC-USD: Using TIF=1, expiry=-1 (not IOC)
+18:39:27 [DEBUG] ⚡ Using cached nonce: 7626 (age: 2.8s)
+18:39:27 [INFO] 🔒 Locked execution for ZEC-USD SELL (Nonce: 7626)...
+18:39:27 [DEBUG] ✅ [ORDER_TYPE] ZEC-USD: Using ORDER_TYPE_LIMIT = 0
+18:39:27 [DEBUG] ℹ️ [ORDER_TYPE] ZEC-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:39:27 [DEBUG] ✅ [REDUCE_ONLY] ZEC-USD: Limit Order reduce_only=False (will be 0 in API)
+18:39:27 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":90,"ClientOrderIndex":1765647625152,"BaseAmount":100,"Price":427950,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066767300,"ExpiredAt":1765648166300,"Nonce":7626,"Sig":"Fmuu+FMHLq8KCncW5onQ2N85mD9ojwuAaPp9qRRhksKW7f/OLM43fAlraEH4wlHs6GUZjjIZ8vPG6BAwRgS1bZW25gyvQAnqOvXUFXTJa1k="}
+18:39:27 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='b05692c7d1e013ce291be8582b136d5bee555bcaa003c1ac955c7138d79be53447eff30799ba2b61' predicted_execution_time_ms=1765647553360 additional_properties={}
+18:39:27 [INFO] ✅ Lighter Order Sent: b05692c7d1e013ce291be8582b136d5bee555bcaa003c1ac955c7138d79be53447eff30799ba2b61
+18:39:27 [INFO] ✅ [RETRY] ZEC-USD: Retry order placed: b05692c7d1e013ce291be8582b136d5bee555bca...
+18:39:27 [WARNING] ⚡ [RETRY] ZEC-USD: SHUTDOWN detected - aborting retry wait!
+18:39:27 [WARNING] ⏰ [RETRY] ZEC-USD: Retry order timeout after 22.5s (attempt 2/3)
+18:39:27 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for b05692c7d1e013ce291be8582b136d5bee555bcaa003c1ac955c7138d79be53447eff30799ba2b61
+18:39:27 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:27 [INFO] ✅ No open positions remaining
+18:39:27 [INFO] 🔍 Final position sweep...
+18:39:27 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:27 [INFO] ✅ Final sweep: No positions found
+18:39:27 [INFO] 🛑 Stopping InMemoryStateManager...
+18:39:27 [INFO] 📝 State writer loop stopped
+18:39:27 [INFO] ✅ InMemoryStateManager stopped
+18:39:27 [INFO] 🛑 FeeManager stopped
+18:39:27 [INFO] 🔒 Closing database...
+18:39:27 [INFO] 🖊️ Database write loop stopped
+18:39:27 [INFO] ✅ Database closed
+18:39:27 [INFO] 💾 Persist phase complete
+18:39:27 [INFO] 🛑 Stopping OI Tracker...
+18:39:27 [INFO] 🛑 Stopping OpenInterestTracker...
+18:39:27 [INFO] ✅ OpenInterestTracker stopped
+18:39:27 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+18:39:27 [INFO] 💓 [x10_account] Keepalive loop stopped
+18:39:28 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+18:39:28 [INFO] 🔄 [RETRY] TIA-USD: Attempt 2/3 (price adjustment: 0.400%)
+18:39:28 [DEBUG] 💰 [RETRY] TIA-USD: Original price=0.579810, Adjusted price=0.577491 (SELL)
+18:39:28 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:28 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $155791 depth, 0.04% spread
+18:39:28 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765647564.7781463
+18:39:28 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 22.5s (depth_ratio=2240.69, base=45.0s)
+18:39:28 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:28 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$79.43, amount=137.0, price=$0.579810, TIF=None
+18:39:28 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+18:39:28 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:28 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.579540 (Ask-1 Tick (Penny Jump - Priority Fill!) | Bid=$0.57935, Ask=$0.57955, Tick=1e-05)
+18:39:28 [DEBUG] 🔄 TIA-USD: Shutdown detected - using passed price as mark (mark=$0.579810)
+18:39:28 [DEBUG] QUANTIZE TIA-USD: Notional=$79.43397 -> RawAmt=137.000000 -> QuantAmt=137.000000 (x0.0001) -> BaseInt=1370
+18:39:28 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+18:39:28 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+18:39:28 [DEBUG] ⚡ Using cached nonce: 7627 (age: 4.4s)
+18:39:28 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7627)...
+18:39:28 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+18:39:28 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+18:39:28 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+18:39:28 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765647612326,"BaseAmount":1370,"Price":57954,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768066768874,"ExpiredAt":1765648167874,"Nonce":7627,"Sig":"o0SXSD8eEzmqpAFZL4VIVLYXEa43cfzvnqYW2OF7S9zhFK7N3QtQV5H3Ue0PiOOYvcto0wqSEppo3oBVm7ny0iQrfpoFfnlvpHtDmBdnSjA="}
+18:39:28 [DEBUG] [x10_trades] WebSocket closed (server slow to respond)
+18:39:28 [INFO] 🔌 [x10_trades] WebSocket stopped
+18:39:28 [DEBUG] [x10_funding] WebSocket closed (server slow to respond)
+18:39:28 [INFO] 🔌 [x10_funding] WebSocket stopped
+18:39:28 [DEBUG] [lighter] WebSocket closed (server slow to respond)
+18:39:28 [INFO] 🔌 [lighter] WebSocket stopped
+18:39:28 [DEBUG] [x10_account] WebSocket closed (server slow to respond)
+18:39:28 [INFO] 🔌 [x10_account] WebSocket stopped
+18:39:28 [INFO] ✅ WebSocketManager stopped
+18:39:28 [ERROR] ❌ Lighter Inner Error: Server disconnected
+18:39:28 [DEBUG] Traceback (most recent call last):
+  File "C:\Users\koopm\funding-bot\src\adapters\lighter_adapter.py", line 3088, in open_live_position
+    tx, resp, err = await signer.create_order(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 110, in wrapper
+    created_tx, ret, err = await func(self, **partial_arguments, nonce=nonce, api_key_index=api_key_index)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 636, in create_order
+    api_response = await self.send_tx(tx_type=self.TX_TYPE_CREATE_ORDER, tx_info=tx_info)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\signer_client.py", line 972, in send_tx
+    return await self.tx_api.send_tx(tx_type=tx_type, tx_info=tx_info)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\pydantic\_internal\_validate_call.py", line 34, in wrapper_function
+    return await wrapper(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\api\transaction_api.py", line 1384, in send_tx
+    response_data = await self.api_client.call_api(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\api_client.py", line 274, in call_api
+    response_data = await self.rest_client.request(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\lighter\rest.py", line 208, in request
+    r = await pool_manager.request(**args)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 779, in _request
+    resp = await handler(req)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client.py", line 757, in _connect_and_send_request
+    await resp.start(conn)
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\client_reqrep.py", line 539, in start
+    message, payload = await protocol.read()  # type: ignore[union-attr]
+                       ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\koopm\funding-bot\.venv\Lib\site-packages\aiohttp\streams.py", line 680, in read
+    await self._waiter
+aiohttp.client_exceptions.ServerDisconnectedError: Server disconnected
+
+18:39:28 [WARNING] ⚠️ [RETRY] TIA-USD: Retry order placement failed (attempt 2)
+18:39:28 [INFO] ✅ Lighter Adapter closed
+18:39:28 [INFO] ✅ X10 Adapter geschlossen.
+18:39:28 [INFO] ✅ Teardown complete
+18:39:28 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+18:39:28 [INFO] ✅ All positions closed. Bye! (elapsed=5.42s)
+18:39:28 [INFO] ✅ Shutdown complete
+18:39:28 [INFO] 🛑 Shutting down...
+18:39:28 [INFO] 🛑 Shutdown requested...
+18:39:28 [INFO] 🛑 Stopping Dashboard API...
+18:39:28 [INFO] ✅ ParallelExecutionManager: Already stopping
+18:39:28 [INFO] 🛑 Stopping OpenInterestTracker...
+18:39:28 [INFO] ✅ OpenInterestTracker stopped
+18:39:28 [INFO] 🛑 Funding tracker: Cancelled
+18:39:28 [INFO] ✅ Funding Tracker stopped
+18:39:28 [INFO] 🔌 Closing adapters...
+18:39:28 [INFO] ✅ Bot V5 shutdown complete
+18:39:28 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+18:39:28 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+18:39:28 [INFO] ✅ Shutdown already completed (reason=funding_bot), returning cached result
+18:39:28 [INFO] ✅ All positions closed. Bye!
+18:39:28 [INFO] 🛑 Stopping Infrastructure...

@@ -127,6 +127,18 @@ class LighterAdapter(BaseAdapter):
         self._request_cache: Dict[str, Tuple[float, Any]] = {}
         self._request_cache_ttl = 2.0  # seconds
         self._request_lock = asyncio.Lock()
+        
+        # ═══════════════════════════════════════════════════════════════
+        # FIX 3 (2025-12-13): Order Tracking for Cancel Resolution
+        # Pattern from lighter-ts-main/src/utils/order-status-checker.ts:
+        # - Track orders by tx_hash AND client_order_index
+        # - When cancel fails to resolve hash → use client_order_index
+        # - Enables ImmediateCancelAll even when API 404s on order lookup
+        # 
+        # Structure: { tx_hash: { symbol, client_order_index, placed_at, nonce } }
+        # ═══════════════════════════════════════════════════════════════
+        self._placed_orders: Dict[str, Dict[str, Any]] = {}
+        self._placed_orders_lock = asyncio.Lock()
 
         # WebSocket Management
         self.ws_task = None
@@ -3152,6 +3164,32 @@ class LighterAdapter(BaseAdapter):
 
                             logger.info(f"✅ Lighter Order Sent: {tx_hash_final}")
                             
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX 3 (2025-12-13): Track placed order for cancel resolution
+                            # Pattern from lighter-ts-main/src/utils/order-status-checker.ts:
+                            # - Store tx_hash → { symbol, client_order_index, nonce }
+                            # - Used when cancel_limit_order can't resolve hash via API
+                            # ═══════════════════════════════════════════════════════════════
+                            try:
+                                async with self._placed_orders_lock:
+                                    self._placed_orders[tx_hash_final] = {
+                                        "symbol": symbol,
+                                        "client_order_index": client_oid_final,
+                                        "nonce": current_nonce,
+                                        "placed_at": time.time(),
+                                        "side": side,
+                                        "market_id": market_id,
+                                        "base_amount": base,
+                                    }
+                                    # Cleanup old entries (older than 1 hour)
+                                    cutoff = time.time() - 3600
+                                    stale_hashes = [h for h, v in self._placed_orders.items() if v.get("placed_at", 0) < cutoff]
+                                    for h in stale_hashes:
+                                        del self._placed_orders[h]
+                                    logger.debug(f"📝 Tracked order {tx_hash_final[:20]}... (client_oid={client_oid_final})")
+                            except Exception as track_e:
+                                logger.debug(f"⚠️ Order tracking error (non-fatal): {track_e}")
+                            
                             # GHOST GUARDIAN: Register success time
                             if not post_only:
                                 # Nur bei Taker-Orders (sofortiger Fill erwartet) injizieren wir eine Pending Position
@@ -3202,6 +3240,60 @@ class LighterAdapter(BaseAdapter):
             
             # If it looks like a Hash (long string or contains 0x)
             elif isinstance(order_id, str) and (len(order_id) > 15 or "0x" in order_id):
+                # ═══════════════════════════════════════════════════════════════
+                # FIX 3 (2025-12-13): FIRST TRY ORDER TRACKING CACHE
+                # Pattern from lighter-ts-main/src/utils/order-status-checker.ts:
+                # Before slow API lookup, check our local tracking cache.
+                # This enables cancel even when API returns 404 for the order.
+                # ═══════════════════════════════════════════════════════════════
+                tracked_order = None
+                try:
+                    async with self._placed_orders_lock:
+                        tracked_order = self._placed_orders.get(order_id)
+                    
+                    if tracked_order:
+                        tracked_symbol = tracked_order.get("symbol")
+                        tracked_client_oid = tracked_order.get("client_order_index")
+                        tracked_market_id = tracked_order.get("market_id")
+                        
+                        if symbol is None:
+                            symbol = tracked_symbol
+                        
+                        logger.info(
+                            f"📝 Lighter: Found tracked order for hash {order_id[:20]}... "
+                            f"(symbol={tracked_symbol}, client_oid={tracked_client_oid})"
+                        )
+                        
+                        # Try to cancel by market_id directly using ImmediateCancelAll
+                        # This bypasses the need to resolve hash → order_id
+                        if tracked_market_id is not None:
+                            try:
+                                signer = await self._get_signer()
+                                # Use ImmediateCancelAll for the tracked market
+                                async with self.order_lock:
+                                    nonce = await self._get_next_nonce()
+                                    if nonce is None:
+                                        logger.error("❌ Failed to get nonce for cancel")
+                                    else:
+                                        tx, resp, err = await signer.cancel_all_orders(
+                                            time_in_force=0,  # IMMEDIATE
+                                            time=0,
+                                            nonce=int(nonce),
+                                            api_key_index=int(self._resolved_api_key_index)
+                                        )
+                                        if not err:
+                                            logger.info(f"✅ Cancelled via ImmediateCancelAll (tracked order fallback)")
+                                            # Remove from tracking
+                                            async with self._placed_orders_lock:
+                                                self._placed_orders.pop(order_id, None)
+                                            return True
+                            except Exception as cancel_e:
+                                logger.debug(f"⚠️ ImmediateCancelAll fallback failed: {cancel_e}")
+                
+                except Exception as track_lookup_e:
+                    logger.debug(f"⚠️ Order tracking lookup error: {track_lookup_e}")
+                
+                # Fall back to original hash resolution logic
                 if not symbol:
                     logger.warning(f"⚠️ Lighter Cancel: Cannot resolve hash {order_id} without symbol.")
                     return False
@@ -3925,10 +4017,22 @@ class LighterAdapter(BaseAdapter):
                 orders_list = orders_resp
 
             if not orders_list:
-                # Fallback: Vielleicht gab es keine Orders oder die Methode war falsch.
-                # Wir machen einen expliziten Check via get_open_orders wenn wir unsicher sind.
-                # Aber hier nehmen wir an, es ist leer.
-                return True
+                # FIX (2025-12-13): Double-check via REST API get_open_orders()
+                # The SDK method might not find orders due to eventual consistency,
+                # but orders might still exist in the orderbook. Use REST API as fallback.
+                try:
+                    rest_orders = await self.get_open_orders(symbol)
+                    if rest_orders and len(rest_orders) > 0:
+                        logger.warning(f"⚠️ [CANCEL_ALL] {symbol}: SDK found no orders, but REST API found {len(rest_orders)} order(s) - will cancel them")
+                        # Fall through to cancellation logic below
+                        orders_list = rest_orders
+                    else:
+                        # Both SDK and REST API found no orders - truly empty
+                        logger.debug(f"✅ [CANCEL_ALL] {symbol}: No orders found via SDK or REST API - nothing to cancel")
+                        return True
+                except Exception as rest_e:
+                    logger.debug(f"⚠️ [CANCEL_ALL] {symbol}: REST API check failed: {rest_e} - assuming no orders")
+                    return True
 
             cancel_candidates = [
                 "cancel_order", "cancel", "cancel_order_by_id", "delete_order",

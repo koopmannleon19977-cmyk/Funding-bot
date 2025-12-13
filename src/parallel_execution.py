@@ -543,6 +543,45 @@ class ParallelExecutionManager:
 
         async with self.execution_locks[symbol]:
             # ═══════════════════════════════════════════════════════════════
+            # PHASE 0.5: CANCEL EXISTING ORDERS (Prevent Duplicate Orders)
+            # ═══════════════════════════════════════════════════════════════
+            # FIX (2025-12-13): If a previous order timeout/failed cancel left an order
+            # in the orderbook, cancel it before placing a new one to prevent duplicates.
+            # CRITICAL: Always attempt cancel_all_orders() for the symbol, even if API doesn't find orders,
+            # because orders might exist in orderbook but API has eventual consistency issues.
+            try:
+                # Step 1: Check if there are any open orders (for logging only)
+                existing_orders = []
+                if hasattr(self.lighter, 'get_open_orders'):
+                    try:
+                        existing_orders = await self.lighter.get_open_orders(symbol)
+                    except Exception as e:
+                        logger.debug(f"🧹 [PRE-TRADE] {symbol}: Error checking open orders: {e}")
+                
+                # Step 2: ALWAYS attempt cancel_all_orders() for this symbol
+                # This is idempotent (safe if no orders exist) and handles cases where
+                # orders exist in orderbook but API can't find them (eventual consistency)
+                if hasattr(self.lighter, 'cancel_all_orders'):
+                    if existing_orders and len(existing_orders) > 0:
+                        logger.warning(f"🧹 [PRE-TRADE] {symbol}: Found {len(existing_orders)} existing order(s) via API - cancelling before new trade")
+                    else:
+                        logger.debug(f"🧹 [PRE-TRADE] {symbol}: No orders found via API, but attempting cancel_all_orders anyway (defensive cleanup)")
+                    
+                    cancelled = await self.lighter.cancel_all_orders(symbol)
+                    if cancelled:
+                        if existing_orders:
+                            logger.info(f"🧹 [PRE-TRADE] {symbol}: Successfully cancelled {len(existing_orders)} existing order(s)")
+                        else:
+                            logger.debug(f"🧹 [PRE-TRADE] {symbol}: cancel_all_orders() executed (no orders found or already cancelled)")
+                    else:
+                        logger.warning(f"🧹 [PRE-TRADE] {symbol}: cancel_all_orders returned False - may indicate API issue")
+                else:
+                    logger.warning(f"🧹 [PRE-TRADE] {symbol}: cancel_all_orders not available - cannot cancel existing orders!")
+            except Exception as e:
+                # Non-fatal: Log but continue (order might already be cancelled or not exist)
+                logger.warning(f"🧹 [PRE-TRADE] {symbol}: Error in order cleanup: {e} - proceeding anyway")
+
+            # ═══════════════════════════════════════════════════════════════
             # PHASE 3: COMPLIANCE CHECK (Wash Trading Prevention)
             # ═══════════════════════════════════════════════════════════════
             is_compliant = await self._run_compliance_check(symbol, side_x10, side_lighter)
@@ -853,6 +892,16 @@ class ParallelExecutionManager:
         
         # Retry loop
         for retry_attempt in range(1, max_retries + 1):
+            # ═══════════════════════════════════════════════════════════════
+            # FIX 1 (2025-12-13): SHUTDOWN CHECK BEFORE ANY ORDER PLACEMENT
+            # This MUST happen BEFORE placing any new orders to prevent:
+            # 1. Orders placed AFTER ImmediateCancelAll (won't be cancelled!)
+            # 2. Duplicate orders accumulating in the orderbook
+            # ═══════════════════════════════════════════════════════════════
+            if getattr(config, "IS_SHUTTING_DOWN", False):
+                logger.warning(f"⚡ [RETRY] {symbol}: SHUTDOWN detected - aborting retry loop before placing new order!")
+                return False, None
+            
             try:
                 logger.info(
                     f"🔄 [RETRY] {symbol}: Attempt {retry_attempt}/{max_retries} "
@@ -981,24 +1030,75 @@ class ParallelExecutionManager:
         logger.warning(f"❌ [RETRY] {symbol}: All {max_retries} retry attempts failed")
         return False, None
 
-    async def _handle_maker_timeout(self, execution, lighter_order_id) -> bool:
+    async def _handle_maker_timeout(self, execution, lighter_order_id) -> Tuple[bool, Optional[float], bool]:
+        """
+        Handle maker order timeout and check for fills.
+        
+        Returns:
+            Tuple[bool, Optional[float], bool]: (filled, actual_filled_size_coins, wait_more)
+            - filled: True if order was filled (fully or partially) and ready for hedge
+            - actual_filled_size_coins: Actual filled size in coins if known, None otherwise
+            - wait_more: True if partial fill exists but is below X10 min_trade_size (keep waiting)
+        """
         symbol = execution.symbol
-        logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
+        logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Checking for fills before cancel...")
+
+        # ═══════════════════════════════════════════════════════════════
+        # FIX (2025-12-13): Get X10 min_trade_size for this symbol
+        # ═══════════════════════════════════════════════════════════════
+        x10_min_trade_size = 0.001  # Default fallback
+        try:
+            x10_m = self.x10.market_info.get(symbol) if hasattr(self, 'x10') else None
+            if x10_m:
+                if hasattr(x10_m, 'trading_config'):  # Object from SDK
+                    x10_min_trade_size = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                elif isinstance(x10_m, dict):
+                    x10_min_trade_size = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
+            logger.debug(f"📏 [MIN_SIZE] {symbol}: X10 min_trade_size = {x10_min_trade_size}")
+        except Exception as e:
+            logger.debug(f"[MIN_SIZE] {symbol}: Error getting X10 min_trade_size: {e}")
 
         # ═══════════════════════════════════════════════════════════════
         # FIX: Check if position already exists BEFORE trying to cancel
         # If position exists, order was already filled - skip cancel attempt
-        # This eliminates "Could not resolve Hash" warnings for filled orders
+        # NEW: If partial fill < X10 min_trade_size, DON'T CANCEL - keep waiting!
         # ═══════════════════════════════════════════════════════════════
         try:
             positions = await self.lighter.fetch_open_positions()
             pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
             if pos:
                 pos_size = safe_float(pos.get("size", 0))
+                abs_pos_size = abs(pos_size)
                 is_ghost = pos.get("is_ghost", False)
-                if is_ghost or abs(pos_size) >= execution.quantity_coins * 0.50:
+                
+                if is_ghost or abs_pos_size >= execution.quantity_coins * 0.50:
+                    # FULL or LARGE PARTIAL FILL: Sufficient for hedge
                     logger.info(f"✅ [MAKER STRATEGY] {symbol}: Position already exists (size={pos_size:.6f}) - order was filled, skipping cancel")
-                    return True  # Order was filled, proceed to hedge
+                    return True, abs_pos_size, False  # filled=True, wait_more=False
+                    
+                elif abs_pos_size > 1e-8:
+                    # PARTIAL FILL: Position exists but is smaller than expected
+                    # ═══════════════════════════════════════════════════════════════
+                    # OPTION A FIX: Check if partial fill >= X10 min_trade_size
+                    # If UNDER min_trade_size: DON'T CANCEL, keep waiting for more fills
+                    # ═══════════════════════════════════════════════════════════════
+                    if abs_pos_size < x10_min_trade_size:
+                        logger.warning(
+                            f"⏳ [MAKER STRATEGY] {symbol}: SMALL PARTIAL FILL detected "
+                            f"({abs_pos_size:.6f} < X10 min {x10_min_trade_size:.6f}) - "
+                            f"NOT CANCELLING ORDER, will keep waiting for more fills!"
+                        )
+                        # Return special signal: wait_more=True
+                        return False, None, True  # filled=False, wait_more=True
+                    else:
+                        # Partial fill IS large enough for X10 hedge
+                        logger.warning(
+                            f"⚠️ [MAKER STRATEGY] {symbol}: PARTIAL FILL detected "
+                            f"({abs_pos_size:.6f} >= X10 min {x10_min_trade_size:.6f}) - "
+                            f"will cancel remaining order and hedge this amount"
+                        )
+                        # Don't return yet - continue to cancel remaining order parts
+                        
         except Exception as e:
             logger.debug(f"[MAKER STRATEGY] {symbol}: Position pre-check error: {e}")
             # Continue with cancel attempt if check fails
@@ -1025,6 +1125,7 @@ class ParallelExecutionManager:
         # FIX: 404 Handling & Trade History Check
         # -----------------------------------------------------------------------
         filled = False
+        actual_filled_size: Optional[float] = None  # Track actual filled size
         check_history = False
 
         try:
@@ -1038,6 +1139,7 @@ class ParallelExecutionManager:
                 if status in ['FILLED', 'PARTIALLY_FILLED'] or filled_amount > 0:
                     logger.warning(f"⚠️ [MAKER STRATEGY] Order {lighter_order_id} found as {status} (Size: {filled_amount})")
                     filled = True
+                    actual_filled_size = abs(filled_amount)  # Store actual filled size
                 elif status == 'CANCELED':
                     logger.info(f"✓ Order confirmed CANCELED via API.")
                     filled = False
@@ -1075,6 +1177,7 @@ class ParallelExecutionManager:
                     fill_sum = sum(float(t.get('amount', 0) or t.get('qty', 0)) for t in my_fills)
                     logger.warning(f"🚨 404 TRAP: Order returned 404 but found {len(my_fills)} FILLS in history! Sum: {fill_sum}")
                     filled = True
+                    actual_filled_size = abs(fill_sum)  # Store actual filled size from trade history
                 else:
                     logger.info(f"✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.")
                     filled = False
@@ -1100,11 +1203,15 @@ class ParallelExecutionManager:
                     logger.warning(f"⚡ [MAKER STRATEGY] {symbol}: SHUTDOWN - skipping extended ghost fill checks!")
                     extended_checks_skipped = True
                 else:
-                    # 2. FIX: Der "Paranoid Check" muss aggressiver sein (User Request)
-                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (EXTENDED CHECK)...")
+                    # 2. FIX: Aggressiver Ghost-Fill Check (2025-12-13 Audit Fix)
+                    # PROBLEM: Alter Code startete bei 1.0s und wuchs auf 3.0s = 55s bis Attempt 22!
+                    # LÖSUNG: Schnellere Checks mit kürzerem Backoff + tatsächliche Position Size tracken
+                    logger.info(f"🔍 [MAKER STRATEGY] {symbol}: Checking for Ghost Fills (FAST CHECK)...")
                     
-                    # Erhöht von 10 auf 30 Versuche mit ansteigendem Delay (insg. ~60 Sekunden Abdeckung)
-                    max_checks = 30
+                    # AUDIT FIX: 20 Versuche mit schnellerem Intervall (~10s total statt ~60s)
+                    # Alt: 30 Versuche, 1.0-3.0s delay = ~60s
+                    # Neu: 20 Versuche, 0.3-1.0s delay = ~10s
+                    max_checks = 20
                     for i in range(max_checks): 
                         # FAST SHUTDOWN: Abort immediately if shutdown detected mid-loop
                         if getattr(config, 'IS_SHUTTING_DOWN', False):
@@ -1112,8 +1219,10 @@ class ParallelExecutionManager:
                             extended_checks_skipped = True
                             break
                             
-                        # Backoff: Wartet 1s, 1.2s, 1.4s ... bis max 3s
-                        wait_time = min(1.0 + (i * 0.2), 3.0)
+                        # AUDIT FIX: Schnellerer Backoff - Start 0.3s, +0.05s pro Versuch, max 1.0s
+                        # Attempt 0: 0.3s, Attempt 5: 0.55s, Attempt 14+: 1.0s
+                        # Total Zeit für 20 checks: ~10-12s (statt ~55s vorher!)
+                        wait_time = min(0.3 + (i * 0.05), 1.0)
                         await asyncio.sleep(wait_time)
                         extended_checks_done += 1
                         
@@ -1127,9 +1236,20 @@ class ParallelExecutionManager:
                             if abs(size) > 1e-8:
                                 logger.warning(f"⚠️ [MAKER STRATEGY] {symbol}: GHOST FILL DETECTED on attempt {i+1}! Size={size}. HEDGING NOW!")
                                 filled = True
+                                actual_filled_size = abs(size)  # Store actual position size for accurate hedge
+                                
+                                # CRITICAL FIX (2025-12-13): If partial fill detected, attempt to cancel remaining order
+                                # The original order might still be open in the orderbook (e.g., 0.2 filled, 51.8 still open)
+                                try:
+                                    if hasattr(self.lighter, 'cancel_all_orders'):
+                                        logger.info(f"🧹 [GHOST FILL] {symbol}: Attempting to cancel remaining order parts after partial fill (size={size})")
+                                        await self.lighter.cancel_all_orders(symbol)
+                                except Exception as cancel_e:
+                                    logger.debug(f"🧹 [GHOST FILL] {symbol}: Error cancelling remaining order: {cancel_e}")
+                                
                                 break
                             
-                            # Logge nur alle 5 Versuche, um Spam zu vermeiden
+                            # Logge alle 5 Versuche für besseres Monitoring
                             if i % 5 == 0:
                                 logger.debug(f"🔍 {symbol} check {i+1}/{max_checks} clean...")
                                 
@@ -1140,18 +1260,19 @@ class ParallelExecutionManager:
 
         if filled:
             logger.info(f"✅ [MAKER STRATEGY] {symbol}: Lighter Filled! Executing X10 Hedge...")
-            return True
+            # Return filled=True with actual size (or None if size unknown)
+            return True, actual_filled_size, False  # filled=True, wait_more=False
         else:
             # FIX: Log-Nachricht akkurat basierend auf tatsächlich durchgeführten Checks
             if extended_checks_skipped:
                 logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).")
             elif extended_checks_done > 0:
-                # Berechne ungefähre Zeit basierend auf Checks (Backoff: 1.0s, 1.2s, 1.4s... bis 3.0s max)
-                estimated_seconds = sum(min(1.0 + (i * 0.2), 3.0) for i in range(extended_checks_done))
+                # AUDIT FIX: Neue Formel für Backoff: 0.3s + (i * 0.05s), max 1.0s
+                estimated_seconds = sum(min(0.3 + (i * 0.05), 1.0) for i in range(extended_checks_done))
                 logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit verified after ~{estimated_seconds:.1f}s, {extended_checks_done} checks).")
             else:
                 logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit - no extended verification needed).")
-            return False
+            return False, None, False  # Not filled, no size, wait_more=False
 
     async def _execute_parallel_internal(
         self, 
@@ -1287,6 +1408,10 @@ class ParallelExecutionManager:
 
             phase_times["lighter_fill_wait"] = time.monotonic() - phase_start
 
+            # Track actual filled size (for partial fills / ghost fills)
+            # Will be set by _handle_maker_timeout if fill detected there, otherwise None (use planned size)
+            actual_filled_size: Optional[float] = None
+
             if not filled:
                 # Fix #13: Enhanced timeout logging with orderbook analysis
                 try:
@@ -1323,12 +1448,78 @@ class ParallelExecutionManager:
                 
                 if retry_success and retry_order_id:
                     # Retry succeeded - update order ID and continue
+                    # Retry orders typically fill completely, so use planned size (actual_filled_size stays None)
                     lighter_order_id = retry_order_id
                     filled = True
                     logger.info(f"✅ [PHASE 1.5] {symbol}: Retry order FILLED after timeout")
                 else:
                     # Check if original order was filled during cancel (race condition)
-                    filled = await self._handle_maker_timeout(execution, lighter_order_id)
+                    # This may return actual filled size if partial fill or ghost fill detected
+                    # NEW: Also handles wait_more signal for small partial fills
+                    filled, actual_filled_size, wait_more = await self._handle_maker_timeout(execution, lighter_order_id)
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # OPTION A FIX: If wait_more=True, partial fill is below X10 min size
+                    # Keep the order alive and wait for more fills!
+                    # ═══════════════════════════════════════════════════════════════
+                    if wait_more:
+                        logger.info(f"⏳ [PHASE 1.5] {symbol}: Extending wait - partial fill too small for X10 hedge")
+                        
+                        # Extended wait loop - additional 60 seconds max
+                        extended_wait_start = time.monotonic()
+                        extended_wait_max = 60.0  # Wait up to 60 more seconds for fills
+                        extended_check_interval = 2.0  # Check every 2 seconds
+                        
+                        while time.monotonic() - extended_wait_start < extended_wait_max:
+                            # Check for shutdown
+                            if getattr(config, "IS_SHUTTING_DOWN", False):
+                                logger.warning(f"⚡ [PHASE 1.5] {symbol}: SHUTDOWN during extended wait - will close position")
+                                break
+                            
+                            await asyncio.sleep(extended_check_interval)
+                            
+                            # Check position again
+                            try:
+                                positions = await self.lighter.fetch_open_positions()
+                                pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+                                if pos:
+                                    current_size = abs(safe_float(pos.get("size", 0)))
+                                    
+                                    # Get X10 min size again
+                                    x10_min = 0.001
+                                    x10_m = self.x10.market_info.get(symbol) if hasattr(self, 'x10') else None
+                                    if x10_m:
+                                        if hasattr(x10_m, 'trading_config'):
+                                            x10_min = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                                        elif isinstance(x10_m, dict):
+                                            x10_min = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
+                                    
+                                    elapsed = time.monotonic() - extended_wait_start
+                                    logger.debug(f"⏳ [EXTENDED WAIT] {symbol}: Current fill={current_size:.6f}, X10 min={x10_min:.6f}, elapsed={elapsed:.1f}s")
+                                    
+                                    if current_size >= x10_min:
+                                        logger.info(f"✅ [EXTENDED WAIT] {symbol}: Fill now sufficient ({current_size:.6f} >= {x10_min:.6f})!")
+                                        filled = True
+                                        actual_filled_size = current_size
+                                        # Cancel remaining order parts
+                                        try:
+                                            await self.lighter.cancel_all_orders(symbol)
+                                            logger.info(f"🧹 [EXTENDED WAIT] {symbol}: Cancelled remaining order parts")
+                                        except Exception as cancel_e:
+                                            logger.debug(f"🧹 [EXTENDED WAIT] {symbol}: Cancel error: {cancel_e}")
+                                        break
+                                        
+                            except Exception as e:
+                                logger.debug(f"[EXTENDED WAIT] {symbol}: Check error: {e}")
+                        
+                        # If still not enough fills, cancel the order and fail
+                        if not filled:
+                            logger.warning(f"⏰ [EXTENDED WAIT] {symbol}: Extended wait exhausted - cancelling order and closing position")
+                            try:
+                                await self.lighter.cancel_all_orders(symbol)
+                            except Exception:
+                                pass
+                            # TODO: Could trigger rollback/close here if position exists
 
                     if not filled:
                         self._log_trade_summary(
@@ -1349,7 +1540,16 @@ class ParallelExecutionManager:
             # PHASE 2: X10 HEDGE ORDER
             # ═══════════════════════════════════════════════════════════════
             phase_start = time.monotonic()
-            filled_size_coins = execution.quantity_coins
+            
+            # FIX (2025-12-13): Use actual filled size if available (e.g., from Ghost Fill detection)
+            # This prevents hedging more than actually filled (e.g., hedge 52 coins when only 0.2 were filled)
+            if actual_filled_size is not None:
+                filled_size_coins = actual_filled_size
+                logger.info(f"📊 [PHASE 2] {symbol}: Using ACTUAL filled size: {filled_size_coins:.6f} coins (from Ghost Fill/Partial Fill detection)")
+            else:
+                # Normal case: Use planned quantity (assumes full fill)
+                filled_size_coins = execution.quantity_coins
+                logger.info(f"📊 [PHASE 2] {symbol}: Using PLANNED size: {filled_size_coins:.6f} coins (no partial fill detected)")
 
             logger.info(f"📤 [PHASE 2] {symbol}: Placing X10 {execution.side_x10} hedge...")
             logger.info(f"   Size: {filled_size_coins:.6f} coins (matching Lighter fill)")

@@ -247,6 +247,35 @@ class ShutdownOrchestrator:
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX 2 (2025-12-13): FINAL ImmediateCancelAll BEFORE position sweep
+        # This catches any orders placed AFTER the first CancelAll during:
+        # 1. Retry attempts that slipped through
+        # 2. Orders placed with later nonces (e.g., 7632 after 7631 CancelAll)
+        # 3. Race conditions between shutdown phases
+        # 
+        # Pattern from lighter-ts-main/examples/cancel_all_orders.ts:
+        # - Execute ImmediateCancelAll with TIF=0, Time=0
+        # - Wait for confirmation
+        # ═══════════════════════════════════════════════════════════════
+        if lighter and hasattr(lighter, "cancel_all_orders"):
+            try:
+                logger.info("⚡ [FINAL] Executing FINAL ImmediateCancelAll before sweep...")
+                async with asyncio.timeout(10.0):
+                    # Force a fresh cancel by using any symbol
+                    # The cancel_all_orders method will use ImmediateCancelAll internally
+                    symbols = await self._collect_relevant_symbols()
+                    if symbols:
+                        # Reset the dedup flag to force a new CancelAll
+                        if hasattr(lighter, '_shutdown_cancel_done'):
+                            lighter._shutdown_cancel_done = False
+                        await lighter.cancel_all_orders(symbols[0])
+                        logger.info("✅ [FINAL] ImmediateCancelAll executed")
+            except asyncio.TimeoutError:
+                logger.warning("⚠️ [FINAL] ImmediateCancelAll timed out")
+            except Exception as e:
+                logger.warning(f"⚠️ [FINAL] ImmediateCancelAll error: {e}")
+        
         positions = await self._fetch_positions()
         
         all_positions = []

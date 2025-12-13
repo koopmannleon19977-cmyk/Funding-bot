@@ -41,32 +41,115 @@
 
 ### Gefundene Patterns
 
-| Pattern                    | Count | Zeilen     | Status | Fix/Empfehlung           |
-| -------------------------- | ----- | ---------- | ------ | ------------------------ |
-| Fill timeout               | 1     | 369        | 🔄     | Dynamic timeout anpassen |
-| Cancel NOT confirmed       | 1     | 390        | ✅     | Retry-Skip ist korrekt   |
-| Maker Strategy timeout     | 1     | 391        | 🔄     | Increase MAX_TIMEOUT     |
-| No server ping 90s+        | 2     | 1115, 1256 | 🔄     | Proaktive Pings?         |
-| 1006 Abnormal closure      | 1     | 1266-1268  | ✅     | Auto-Reconnect OK        |
-| Orderbooks invalidated     | 1     | 1346-1348  | ✅     | Korrekt nach Reconnect   |
-| **GHOST FILL attempt 22**  | 1     | 1381       | ⚠️     | Detection zu langsam!    |
-| Shutdown already completed | 1     | 2928       | ✅     | Idempotent - Perfekt     |
+| Pattern                    | Count | Zeilen     | Status | Fix/Empfehlung                                      |
+| -------------------------- | ----- | ---------- | ------ | --------------------------------------------------- |
+| Fill timeout               | 1     | 369        | 🔄     | Dynamic timeout anpassen                            |
+| Cancel NOT confirmed       | 1     | 390        | ✅     | Retry-Skip ist korrekt                              |
+| Maker Strategy timeout     | 1     | 391        | 🔄     | Increase MAX_TIMEOUT                                |
+| No server ping 90s+        | 2     | 1115, 1256 | 🔄     | Proaktive Pings?                                    |
+| 1006 Abnormal closure      | 1     | 1266-1268  | ✅     | Auto-Reconnect OK                                   |
+| Orderbooks invalidated     | 1     | 1346-1348  | ✅     | Korrekt nach Reconnect                              |
+| **GHOST FILL attempt 22**  | 1     | 1381       | ✅     | GEFIXT: Schnelleres Polling + Partial Fill Tracking |
+| Shutdown already completed | 1     | 2928       | ✅     | Idempotent - Perfekt                                |
 
 ### Kritische Findings
 
-#### 1. ⚠️ Ghost Fill auf Attempt 22 (Zeile 1381)
+#### 1. ⚠️ Ghost Fill auf Attempt 22 (Zeile 1381) - **GEFIXT** ✅
 
 ```
 17:59:11 [WARNING] ⚠️ [MAKER STRATEGY] ZRO-USD: GHOST FILL DETECTED on attempt 22!
 ```
 
-**Problem:** Ghost Fill erst nach 22 Polling-Versuchen (~11s @ 0.5s/attempt) erkannt.
+**Problem (ALT):** Ghost Fill erst nach 22 Polling-Versuchen (~11s @ 0.5s/attempt) erkannt.
 
-**Empfehlung:**
+**Fix (2025-12-13):**
 
-- Event-basierte Detection über WS Position-Updates nutzen
-- Polling-Interval auf 0.3s reduzieren für schnellere Erkennung
-- Pre-Fill Position Snapshot vor Order-Placement
+- ✅ Polling-Interval reduziert: 20 Versuche @ 0.3-1.0s delay (~10s total statt ~60s)
+- ✅ Partial Fill Detection: `_handle_maker_timeout()` gibt jetzt `Tuple[bool, Optional[float]]` zurück
+- ✅ Tatsächliche gefüllte Size wird getrackt und für Hedge verwendet (z.B. 0.2 coins statt 52 coins)
+
+**Status:** Ghost Fill Detection funktioniert, Partial Fills werden korrekt gehedgt.
+
+---
+
+#### 1a. 🔴 **NEUES PROBLEM (2025-12-13 18:45:50 Log):** Cancel Hash Resolution Failure → Duplicate Orders ⚠️
+
+**Symptome aus Log:**
+
+```
+18:46:40 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 22.56s
+18:46:42 [DEBUG] 🔍 Lighter Cancel: Could not resolve Hash ba56b28509... to an Order ID for TIA-USD. No position found.
+18:46:42 [WARNING] 🛑 [RETRY] TIA-USD: Original order cancel NOT confirmed; skipping retry to prevent duplicate fills
+```
+
+**Was wir implementiert haben (Fixes):**
+
+1. **PRE-TRADE Cleanup (PHASE 0.5):**
+
+   - Prüft `get_open_orders()` vor jedem neuen Trade
+   - Ruft IMMER `cancel_all_orders(symbol)` auf (defensiver Cleanup)
+   - Log: `🧹 [PRE-TRADE] {symbol}: No orders found via API, but attempting cancel_all_orders anyway`
+
+2. **`cancel_all_orders()` Fallback:**
+
+   - Verwendet `get_open_orders()` (REST API) als Fallback wenn SDK-Methoden nichts finden
+   - Code: `lighter_adapter.py` Zeile 3927-3943
+
+3. **Partial Fill Cancel:**
+   - Nach Ghost Fill Detection wird versucht, restliche Order-Teile zu canceln
+   - Code: `parallel_execution.py` Zeile ~1180
+
+**Aktuelles Problem:**
+
+1. **Hash → Order ID Resolution schlägt fehl:**
+
+   - Wenn eine Order nicht füllt (Timeout nach ~22s), versucht der Bot sie zu canceln
+   - Die Cancel-Funktion benötigt eine Order ID, hat aber nur den Transaction Hash
+   - `get_open_orders()` findet die Order nicht (404), Hash kann nicht aufgelöst werden
+   - Resultat: Cancel schlägt fehl, Order bleibt im Orderbook
+
+2. **PRE-TRADE Cleanup greift nicht:**
+
+   - PRE-TRADE ruft `cancel_all_orders()` auf
+   - `cancel_all_orders()` verwendet SDK-Methoden → findet nichts → ruft REST API `get_open_orders()` auf
+   - REST API gibt auch 404 zurück → nimmt an, es gibt keine Orders
+   - **ABER:** Die Orders könnten trotzdem noch im Orderbook sein (Eventual Consistency / API-Problem)
+   - Neue Orders werden platziert → Duplikate entstehen
+
+3. **Evidence aus Log:**
+   - Zeile 204: `🧹 [PRE-TRADE] ZRO-USD: No orders found via API, but attempting cancel_all_orders anyway`
+   - Zeile 205: `🧹 [PRE-TRADE] ZRO-USD: cancel_all_orders() executed (no orders found or already cancelled)`
+   - Zeile 453, 458: Fill Timeouts für TIA und ZRO
+   - Zeile 484, 497: "Could not resolve Hash... Order may have been cancelled elsewhere"
+   - **User Screenshot zeigt:** 2x TIA Orders, 2x ZRO Orders, 1x ZEC Order (alle offen)
+
+**Root Cause:**
+
+- **API Eventual Consistency:** Lighter API kann Orders manchmal nicht finden, obwohl sie im Orderbook existieren
+- **Hash-Resolution-Problem:** Ohne Order ID kann nicht gezielt gecancelt werden
+- **Fehlende Order-Tracking:** Der Bot trackt nicht welche Orders er selbst platziert hat (nur Hash)
+- **Defensive Cleanup unvollständig:** `cancel_all_orders()` gibt `True` zurück wenn nichts gefunden wird, auch wenn Orders noch existieren könnten
+
+**Nächste Schritte (IMPLEMENTIERT 2025-12-13 18:55):**
+
+- [x] **FIX 1:** Shutdown Check vor Retry-Order-Platzierung (`parallel_execution.py`)
+  - Verhindert neue Orders NACH ImmediateCancelAll
+  - Pattern: Prüfe `IS_SHUTTING_DOWN` am Anfang der Retry-Loop
+
+- [x] **FIX 2:** Finaler ImmediateCancelAll vor Position-Sweep (`shutdown.py`)
+  - Zweiter Aufruf fängt Orders mit späteren Nonces ab
+  - Pattern: Reset `_shutdown_cancel_done` Flag, dann erneuter CancelAll
+
+- [x] **FIX 3:** Order-Tracking für Cancel-Resolution (`lighter_adapter.py`)
+  - Lokale Datenstruktur: `_placed_orders[tx_hash] = { symbol, client_order_index, nonce, ... }`
+  - Bei Cancel-Failure: Lookup im Tracking-Cache vor API-Fallback
+  - Fallback: ImmediateCancelAll für tracked `market_id`
+
+- [x] **FIX 4:** Extended Wait für kleine Partial Fills (Option A) (`parallel_execution.py`)
+  - Problem: Partial Fill (z.B. 0.2 ZRO) < X10 min_trade_size (1.0 ZRO) → Hedge fehlgeschlagen
+  - Lösung: Wenn Partial Fill < X10 min → NICHT canceln, +60s warten auf mehr Fills
+  - Funktionen: `_handle_maker_timeout()` gibt jetzt 3-Tuple zurück (filled, size, wait_more)
+  - Extended Wait Loop: Prüft alle 2s ob Fill >= X10 min, mit Shutdown-Check
 
 #### 2. ✅ WebSocket 1006 mit Auto-Recovery
 
@@ -390,4 +473,18 @@
 
 ---
 
-_Zuletzt aktualisiert: 2025-12-13 18:30 - Erweiterte Audit mit Log-Analyse und TS-SDK Mapping_
+---
+
+## 🔴 OFFENE PROBLEME (Stand: 2025-12-13 18:45)
+
+### Problem 1: Cancel Hash Resolution Failure → Duplicate Orders ⚠️
+
+**Status:** 🔴 AKTIV - Fixes implementiert, aber Problem besteht weiterhin
+
+**Beschreibung:** Siehe Abschnitt "1a. NEUES PROBLEM" oben.
+
+**Impact:** Duplicate Orders für gleiche Symbole (2x TIA, 2x ZRO beobachtet)
+
+**Priorität:** HOCH - Kann zu unhedged positions führen
+
+_Zuletzt aktualisiert: 2025-12-13 18:50 - Problem mit Cancel Hash Resolution dokumentiert, Fixes implementiert aber Problem besteht weiterhin_
