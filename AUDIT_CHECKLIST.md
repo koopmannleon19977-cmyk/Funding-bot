@@ -65,12 +65,12 @@
 
 ### 2.2 Core Logic (opportunities.py, trading.py, parallel_execution.py)
 
-| Aufgabe                                          | Status | Notizen                               |
-| ------------------------------------------------ | ------ | ------------------------------------- |
-| APY-Calc mit adaptive_threshold.py               | ✅     | `calculate_expected_profit()` korrekt |
-| Exposure-Checks prüfen                           | ✅     | `check_total_exposure()` vorhanden    |
-| Lighter PositionFunding.md integrieren           | ❌     | Noch nicht geladen                    |
-| OI-Integration aus X10 markets.py                | ❌     | Teilweise, nicht vollständig          |
+| Aufgabe                                          | Status | Notizen                                     |
+| ------------------------------------------------ | ------ | ------------------------------------------- |
+| APY-Calc mit adaptive_threshold.py               | ✅     | `calculate_expected_profit()` korrekt       |
+| Exposure-Checks prüfen                           | ✅     | `check_total_exposure()` vorhanden          |
+| Lighter PositionFunding.md integrieren           | ❌     | Noch nicht geladen                          |
+| OI-Integration aus X10 markets.py                | ❌     | Teilweise, nicht vollständig                |
 | Unhedged Closures prüfen (`cleanup_unhedged.py`) | ✅     | Modernisiert: Async, Two-Way Check, Dry-Run |
 
 ### 2.3 Data/Monitoring (websocket_manager.py, open_interest_tracker.py, volatility_monitor.py)
@@ -85,13 +85,13 @@
 
 ### 2.4 State/DB (state_manager.py, database.py)
 
-| Aufgabe                               | Status | Notizen                                      |
-| ------------------------------------- | ------ | -------------------------------------------- |
+| Aufgabe                               | Status | Notizen                                              |
+| ------------------------------------- | ------ | ---------------------------------------------------- |
 | Write-Behind prüfen                   | ✅     | Exzellent implementiert, Memory Leak Fix hinzugefügt |
-| Decimal-Adapter prüfen                | ✅     | Log: "Decimal adapter registered for SQLite" |
-| Migration zu Lighter AccountPnL.md    | ❌     | Noch nicht implementiert                     |
-| Backup-Snapshots (X10 tests/fixtures) | ❌     | Noch nicht geprüft                           |
-| Concurrency in `get_open_trades()`    | ❌     | Noch nicht getestet                          |
+| Decimal-Adapter prüfen                | ✅     | Log: "Decimal adapter registered for SQLite"         |
+| Migration zu Lighter AccountPnL.md    | ❌     | Noch nicht implementiert                             |
+| Backup-Snapshots (X10 tests/fixtures) | ❌     | Noch nicht geprüft                                   |
+| Concurrency in `get_open_trades()`    | ❌     | Noch nicht getestet                                  |
 
 ### 2.5 Config/Helpers (config.py, helpers.py)
 
@@ -250,10 +250,10 @@ _Zuletzt aktualisiert: 2025-12-13 14:15 - Memory Leak Fix + State Manager + Clea
 
 ## 📈 PERFORMANCE VERBESSERUNGEN (Gemessen)
 
-| Metrik               | Vorher        | Nachher     | Verbesserung      |
-| -------------------- | ------------- | ----------- | ----------------- |
-| Trade-Zeit WLFI-USD  | 30+ sek       | 3.16s       | **90% schneller** |
-| Trade-Zeit TRX-USD   | 30+ sek       | 13.84s      | **50% schneller** |
-| Warnings pro Session | 11            | 1           | **91% weniger**   |
-| Ghost-Fill Detection | attempt 10-15 | attempt 1-3 | **80% schneller** |
-| Memory Leak | ❌ Trades bleiben in RAM | ✅ Cleanup nach Close | **Behoben** |
+| Metrik               | Vorher                   | Nachher               | Verbesserung      |
+| -------------------- | ------------------------ | --------------------- | ----------------- |
+| Trade-Zeit WLFI-USD  | 30+ sek                  | 3.16s                 | **90% schneller** |
+| Trade-Zeit TRX-USD   | 30+ sek                  | 13.84s                | **50% schneller** |
+| Warnings pro Session | 11                       | 1                     | **91% weniger**   |
+| Ghost-Fill Detection | attempt 10-15            | attempt 1-3           | **80% schneller** |
+| Memory Leak          | ❌ Trades bleiben in RAM | ✅ Cleanup nach Close | **Behoben**       |
