@@ -93,29 +93,82 @@ def create_backup(include_logs: bool = False, description: str = None):
     
     # Sicherstellen, dass Backup-Dir existiert
     BACKUP_DIR.mkdir(exist_ok=True)
+    
+    # Wenn Ziel bereits existiert, löschen
+    if dest_folder.exists():
+        print(f"⚠️  Zielordner existiert bereits, lösche...")
+        shutil.rmtree(dest_folder, ignore_errors=True)
 
     try:
         # Ignore-Filter Funktion
         exclude_dirs = EXCLUDE_DIRS.copy()
         if not include_logs:
             exclude_dirs.add("logs")
+        
+        def _should_ignore(path: Path) -> bool:
+            """Prüft ob ein Pfad ignoriert werden soll."""
+            # Relativer Pfad vom BASE_DIR
+            try:
+                rel_path = path.relative_to(BASE_DIR)
+            except ValueError:
+                return True
             
-        def _ignore_filter(path, names):
-            ignored = set()
+            # Prüfe ob ein Teil des Pfads in exclude_dirs ist
+            parts = rel_path.parts
+            if parts and parts[0] in exclude_dirs:
+                return True
             
-            # Ordner ausschließen
-            for name in names:
-                if name in exclude_dirs:
-                    ignored.add(name)
+            # Prüfe Dateimuster
+            if path.is_file():
+                for pattern in IGNORE_PATTERNS:
+                    if path.match(pattern):
+                        return True
             
-            # Patterns filtern
-            pattern_ignored = shutil.ignore_patterns(*IGNORE_PATTERNS)(path, names)
-            ignored.update(pattern_ignored)
+            return False
+        
+        # Dateien und Ordner kopieren
+        copied_files = 0
+        copied_dirs = 0
+        
+        print("⏳ Kopiere Dateien...")
+        
+        # Alle Dateien und Ordner durchgehen
+        for root, dirs, files in os.walk(BASE_DIR):
+            root_path = Path(root)
             
-            return ignored
-
-        # Kopieren
-        shutil.copytree(BASE_DIR, dest_folder, ignore=_ignore_filter, dirs_exist_ok=True)
+            # Filtere dirs in-place (damit os.walk sie überspringt)
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            
+            # Prüfe ob dieser Ordner ignoriert werden soll
+            if _should_ignore(root_path):
+                continue
+            
+            # Relativer Pfad vom BASE_DIR
+            rel_path = root_path.relative_to(BASE_DIR)
+            dest_path = dest_folder / rel_path
+            
+            # Zielordner erstellen
+            if not dest_path.exists():
+                dest_path.mkdir(parents=True, exist_ok=True)
+                copied_dirs += 1
+            
+            # Dateien kopieren
+            for file in files:
+                src_file = root_path / file
+                dest_file = dest_path / file
+                
+                # Prüfe ob Datei ignoriert werden soll
+                if _should_ignore(src_file):
+                    continue
+                
+                try:
+                    shutil.copy2(src_file, dest_file)
+                    copied_files += 1
+                except Exception as e:
+                    print(f"   ⚠️  Fehler beim Kopieren von {src_file.name}: {e}")
+        
+        print(f"   ✅ {copied_files} Dateien, {copied_dirs} Ordner kopiert")
+        print()
         
         # Backup-Info erstellen
         info_file = dest_folder / "backup_info.txt"
@@ -152,9 +205,14 @@ def create_backup(include_logs: bool = False, description: str = None):
         print()
         
     except Exception as e:
+        import traceback
         print(f"\n❌ FEHLER beim Backup: {e}")
+        print(traceback.format_exc())
         if dest_folder.exists():
-            shutil.rmtree(dest_folder)
+            try:
+                shutil.rmtree(dest_folder, ignore_errors=True)
+            except:
+                pass
         return None
 
     list_recent_backups()
@@ -377,7 +435,11 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     
     if not args:
-        # Standard: Backup erstellen
+        # Standard: Backup erstellen (wird aufgerufen mit: python backup.py)
+        print("=" * 70)
+        print("  FUNDING BOT - BACKUP TOOL")
+        print("=" * 70)
+        print()
         create_backup()
     
     elif args[0] == "list":

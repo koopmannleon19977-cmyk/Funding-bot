@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from collections import deque
 from enum import Enum
 
+import config  # For IS_SHUTTING_DOWN check
+
 logger = logging.getLogger(__name__)
 
 
@@ -160,6 +162,14 @@ class OpenInterestTracker:
         cycle_count = 0
         
         while not self._shutdown_event.is_set():
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Check global shutdown flag at cycle start
+            # This catches shutdown signal immediately, even before _shutdown_event is set
+            # ═══════════════════════════════════════════════════════════════
+            if getattr(config, 'IS_SHUTTING_DOWN', False):
+                logger.info("🛑 OI Tracker: Global shutdown detected, exiting immediately")
+                return
+            
             try:
                 cycle_count += 1
                 symbols = list(self._tracked_symbols)

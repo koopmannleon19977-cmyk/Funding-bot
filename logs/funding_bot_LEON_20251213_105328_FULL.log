@@ -1,0 +1,1633 @@
+10:53:29 [WARNING] CONFIG: DESIRED_NOTIONAL_USD too small (25.0)
+10:53:29 [INFO] CONFIG VALIDATION COMPLETED.
+10:53:32 [DEBUG] Consider installing rusty-rlp to improve pyrlp performance with a rust basedbackend. Not currently functional for Python 3.11
+10:53:32 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+10:53:33 [DEBUG] ✅ Decimal adapter registered for SQLite
+10:53:33 [INFO] 🔥 BOT V5 (Architected) STARTING...
+10:53:33 [INFO] 🚀 Starting InMemoryStateManager...
+10:53:33 [INFO] 📂 Initializing database: data/trades.db
+10:53:33 [INFO] ✅ Read pool created: 5 connections
+10:53:33 [INFO] ✅ WAL mode enabled
+10:53:33 [INFO] 🔄 Running database migrations...
+10:53:33 [INFO] ✅ Migrations complete (14 statements)
+10:53:33 [INFO] ✅ Database initialized
+10:53:33 [INFO] 🖊️ Database write loop started
+10:53:33 [DEBUG] Maintenance not due (Last: 16h ago)
+10:53:33 [INFO] 📂 Loaded 0 trades from database
+10:53:33 [INFO] ✅ InMemoryStateManager started (loaded 0 trades)
+10:53:33 [INFO] ✅ State Manager started
+10:53:33 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+10:53:33 [INFO] ✅ Async database initialized
+10:53:33 [INFO] 📝 State writer loop started
+10:53:33 [DEBUG] ✅ Database schema up to date
+10:53:33 [INFO] Initialisiere X10 Adapter...
+10:53:33 [INFO]  X10 Account initialisiert.
+10:53:33 [INFO] Initialisiere Lighter Adapter...
+10:53:33 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+10:53:33 [INFO] 💰 Checking exchange balances at startup...
+10:53:33 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:34 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:34 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+10:53:35 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+10:53:37 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:53:37 [INFO] 💰 STARTUP BALANCE CHECK: X10=$208.82, Lighter=$239.47
+10:53:37 [INFO] ✅ Exchange balances OK - Bot can trade!
+10:53:37 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+10:53:37 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+10:53:37 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+10:53:37 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+10:53:38 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+10:53:38 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+10:53:38 [INFO] ✅ FeeManager started with periodic refresh
+10:53:38 [INFO] ✅ FeeManager started
+10:53:38 [INFO] ✅ Funding Tracker started (updates every 3600s)
+10:53:38 [INFO] ✅ FundingTracker started
+10:53:38 [INFO] 📊 Loading Market Data via REST...
+10:53:38 [INFO] 🔄 Funding tracking loop started...
+10:53:38 [DEBUG] 📊 No open trades to track
+10:53:38 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+10:53:40 [INFO] ✅ Lighter: Loaded 116 markets (base data)
+10:53:40 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+10:53:40 [INFO] ✅ Lighter: Updated 115 markets with size_decimals from API
+10:53:40 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+10:53:40 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+10:53:40 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+10:53:40 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+10:53:40 [INFO] ✅ Markets loaded: X10=91, Lighter=116
+10:53:40 [INFO] 📈 Pre-loading Lighter prices...
+10:53:41 [DEBUG] Lighter: Loaded 112 funding rates
+10:53:41 [DEBUG] Lighter: Loaded 117 prices via REST
+10:53:41 [INFO] ✅ Lighter prices loaded: 117 symbols
+10:53:41 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+10:53:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+10:53:43 [INFO] ✅ Execution clients warmed up & NETWORK READY
+10:53:43 [INFO] 启动 OI Tracker für 65 Symbole...
+10:53:43 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+10:53:43 [INFO] 🌐 Starting WebSocket Manager...
+10:53:43 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+10:53:43 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+10:53:43 [INFO] 📊 OI Tracker: Starting cycle 1 (65 symbols)
+10:53:43 [INFO] 🔌 [lighter] WebSocket manager started
+10:53:43 [INFO] 🔌 [x10_account] WebSocket manager started
+10:53:43 [INFO] 🔌 [x10_trades] WebSocket manager started
+10:53:43 [INFO] 🔌 [x10_funding] WebSocket manager started
+10:53:43 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+10:53:43 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+10:53:43 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+10:53:43 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+10:53:43 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+10:53:43 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+10:53:43 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+10:53:43 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+10:53:43 [INFO] ✅ [lighter] Subscribed to 1 channels (1 market_stats/all + 0 order_books) - FIX #4: Dynamic subscriptions enabled
+10:53:43 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+10:53:43 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+10:53:43 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+10:53:43 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+10:53:43 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+10:53:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:43 [INFO] 💓 [x10_account] Keepalive loop started
+10:53:44 [DEBUG] 📊 Market stats EDEN-USD: price=$0.066160, OI=$4887869, vol24h=$0
+10:53:44 [DEBUG] ✅ EDEN-USD: X10=$114,113, Lighter=$4,887,869, Total=$5,001,982
+10:53:45 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+10:53:45 [INFO] [lighter] Resubscribing to 1 channels (paced)...
+10:53:45 [INFO] [lighter] Receive loop started (async iterator)
+10:53:45 [INFO] 💓 [lighter] Waiting for SERVER ping (Lighter sends pings every ~60s)
+10:53:45 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+10:53:45 [INFO] [lighter] Resubscribed to 1 channels
+10:53:45 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+10:53:45 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+10:53:45 [INFO] [x10_funding] Receive loop started (async iterator)
+10:53:45 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+10:53:45 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+10:53:45 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+10:53:45 [INFO] [x10_trades] Receive loop started (async iterator)
+10:53:45 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+10:53:45 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+10:53:45 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+10:53:45 [INFO] [x10_account] Receive loop started (async iterator)
+10:53:45 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+10:53:45 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765619610963, 'seq': 1}
+10:53:45 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '208.821422', 'status': 'ACTIVE', 'equity': '208.821422', 'availableForTrade': '208.821422', 'available
+10:53:45 [DEBUG] 💰 [x10_account] BALANCE: equity=$208.821422, available=$208.821422, uPnL=$0.000000
+10:53:45 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765619610963,
+  "seq": 3
+}
+10:53:45 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+10:53:45 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+10:53:45 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+10:53:45 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+10:53:45 [INFO] Lighter: Found 0 open positions
+10:53:45 [INFO] ✅ No orphaned positions found
+10:53:45 [INFO] ✅ ParallelExecutionManager started
+10:53:45 [INFO] ✅ ParallelExecutionManager started
+10:53:45 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+10:53:45 [DEBUG] Registered task: logic_loop (priority=HIGH)
+10:53:45 [DEBUG] Registered task: trade_management_loop (priority=HIGH)
+10:53:45 [DEBUG] Registered task: farm_loop (priority=NORMAL)
+10:53:45 [DEBUG] Registered task: maintenance_loop (priority=LOW)
+10:53:45 [DEBUG] Registered task: cleanup_finished_tasks (priority=LOW)
+10:53:45 [DEBUG] Registered task: health_reporter (priority=LOW)
+10:53:45 [DEBUG] Registered task: connection_watchdog (priority=CRITICAL)
+10:53:45 [INFO] ═══════════════════════════════════════════════════════════
+10:53:45 [INFO]    BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   
+10:53:45 [INFO] ═══════════════════════════════════════════════════════════
+10:53:45 [INFO] 🚀 BotEventLoop starting...
+10:53:45 [INFO] ▶️ Started task: connection_watchdog
+10:53:45 [INFO] ▶️ Started task: logic_loop
+10:53:45 [INFO] ▶️ Started task: trade_management_loop
+10:53:45 [INFO] ▶️ Started task: farm_loop
+10:53:45 [INFO] ▶️ Started task: maintenance_loop
+10:53:45 [INFO] ▶️ Started task: cleanup_finished_tasks
+10:53:45 [INFO] ▶️ Started task: health_reporter
+10:53:45 [INFO] ✅ Started 7 tasks
+10:53:45 [INFO] 🐕 Connection Watchdog gestartet (Timeout: 120s)
+10:53:45 [INFO] Logic Loop gestartet – REFRESH alle 3s
+10:53:45 [INFO] 🔍 RECONCILE: Starting strict sync check...
+10:53:45 [INFO] 🛡️ Trade Management Loop gestartet
+10:53:45 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+10:53:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+10:53:45 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:53:45 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:53:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:45 [INFO] ✅ RECONCILE: Sync complete.
+10:53:45 [INFO] ⚡ Latency Arb Detector initialized (threshold: 5.0s)
+10:53:45 [DEBUG] Price cache status: X10=78/65, Lighter=117/65
+10:53:45 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:53:46 [INFO]  Volatility Monitor initialized: Low<3.0%, Normal<10.0%, High<20.0%, Hard Cap<50.0%
+10:53:46 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.44h, APY: 34.2%)
+10:53:46 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.83h, APY: 27.2%)
+10:53:46 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:53:46 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.06h, APY: 39.4%)
+10:53:46 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.01h, APY: 33.3%)
+10:53:46 [INFO] ✅ TRX-USD: Expected profit $0.0300 in 24.0h (breakeven: 8.29h, APY: 63.1%)
+10:53:46 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.05h, APY: 47.3%)
+10:53:46 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:53:46 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.46h, APY: 34.2%)
+10:53:46 [INFO] ✅ Found 9 opportunities from 63 valid pairs
+10:53:46 [INFO] 🎯 Found 5 opportunities
+10:53:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:46 [DEBUG] 📊 Market stats SPX-USD: price=$0.591450, OI=$3460978, vol24h=$0
+10:53:46 [DEBUG] ✅ SPX-USD: X10=$47,525, Lighter=$3,460,978, Total=$3,508,503
+10:53:46 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:47 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:53:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:47 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+10:53:47 [DEBUG] X10: Funding Refresh OK, cache=91
+10:53:47 [DEBUG] 📊 Lighter Funding Cache refresh (current=112)
+10:53:47 [INFO] Lighter: Found 0 open positions
+10:53:47 [INFO] 📊 Positions: X10=0, Lighter=0
+10:53:47 [INFO] 🚀 Launching 5 trades
+10:53:47 [INFO] 🚀 Launching LINEA-USD (APY=71.0%)
+10:53:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:47 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:47 [DEBUG] MIN_NOTIONAL LINEA-USD: min_base=100.00000000 coins, price=$0.0076, min_qty_usd=$0.76, min_notional_api=$10.00, final=$11.00
+10:53:47 [INFO] 🎲 KellyPositionSizer initialized (Safety=0.25, MaxFraction=0.1)
+10:53:47 [INFO] 🎰 KELLY LINEA-USD: win_rate=50.0%, kelly_fraction=1.0000
+10:53:47 [DEBUG] 🔍 Liquidity Check: Skipping depth check for LINEA-USD (Maker Order)
+10:53:47 [INFO] 🚀 Opening LINEA-USD: Size=$25.0
+10:53:47 [INFO] ═══════════════════════════════════════════════════════════
+10:53:47 [INFO] 🚀 HEDGED TRADE START: LINEA-USD
+10:53:47 [INFO]    Lighter: SELL $25.00 @ $0.007627
+10:53:47 [INFO]    X10:     BUY $25.00 @ $0.007625
+10:53:47 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+10:53:47 [INFO] ═══════════════════════════════════════════════════════════
+10:53:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+10:53:48 [DEBUG] [x10_funding] Firehose/Account stream - no explicit subscription needed
+10:53:48 [DEBUG] [x10_trades] Firehose/Account stream - no explicit subscription needed
+10:53:48 [DEBUG] [x10_account] Firehose/Account stream - no explicit subscription needed
+10:53:48 [INFO] 🚀 Launching TIA-USD (APY=67.5%)
+10:53:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:48 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:53:48 [INFO] ⚖️ Size Alignment LINEA-USD: 25.00$ -> 24.41$ (3200.000000 Coins) to match both exchanges (X10 Step: 100.0, Lighter Step: 0.0001)
+10:53:48 [INFO] 📋 [PHASE 0] LINEA-USD:  Validating orderbook...
+10:53:48 [DEBUG] 📊 Market stats IP-USD: price=$1.890000, OI=$400368, vol24h=$0
+10:53:48 [DEBUG] ✅ IP-USD: X10=$114,881, Lighter=$400,368, Total=$515,248
+10:53:48 [INFO] 🚀 Launching TRX-USD (APY=63.1%)
+10:53:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:48 [DEBUG] Lighter: Loaded 112 funding rates
+10:53:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:49 [INFO] 🚀 Launching CRV-USD (APY=47.3%)
+10:53:49 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:49 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:49 [DEBUG] MIN_NOTIONAL TRX-USD: min_base=40.00000000 coins, price=$0.2730, min_qty_usd=$10.92, min_notional_api=$10.00, final=$12.01
+10:53:49 [INFO] 🎰 KELLY TRX-USD: win_rate=50.0%, kelly_fraction=1.0000
+10:53:49 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TRX-USD (Maker Order)
+10:53:49 [INFO] 🚀 Opening TRX-USD: Size=$28.7
+10:53:49 [INFO] ═══════════════════════════════════════════════════════════
+10:53:49 [INFO] 🚀 HEDGED TRADE START: TRX-USD
+10:53:49 [INFO]    Lighter: SELL $28.66 @ $0.273020
+10:53:49 [INFO]    X10:     BUY $28.66 @ $0.272940
+10:53:49 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+10:53:49 [INFO] ═══════════════════════════════════════════════════════════
+10:53:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:49 [DEBUG] 📚 LINEA-USD Lighter orderbook refreshed via REST
+10:53:49 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619629.283752
+10:53:49 [DEBUG] OrderbookValidator initialized with profile=lighter: min_depth=$50.0, min_levels=1/1, max_spread=2.0%
+10:53:49 [DEBUG] ✅ LINEA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $62808 depth, 0.01% spread
+10:53:49 [INFO] ✅ [PHASE 0] LINEA-USD: Orderbook validation PASSED (1.02s)
+10:53:49 [INFO] 📤 [PHASE 1] LINEA-USD: Placing Lighter SELL order...
+10:53:49 [INFO]    Size: $24.41 (3200.000000 coins)
+10:53:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+10:53:49 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=SELL, size_usd=$24.41, amount=3200.0, price=$0.007627, TIF=None
+10:53:49 [DEBUG] 🔍 DEBUG: LINEA-USD market_id = 76 (raw=76, type=<class 'int'>)
+10:53:49 [INFO] 🛡️ Maker Price LINEA-USD SELL: $0.007627 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.007626, Ask=$0.007627, Tick=1e-06)
+10:53:49 [DEBUG] QUANTIZE LINEA-USD: Notional=$24.4064 -> RawAmt=3200.000000 -> QuantAmt=3200.000000 (x0.0001) -> BaseInt=3200
+10:53:49 [DEBUG] 📋 [TIF] LINEA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:53:49 [DEBUG] Lighter: Loaded 117 prices via REST
+10:53:49 [DEBUG] Lighter: Funding Refresh OK, cache=112
+10:53:49 [INFO] 🔍 Running periodic exchange sync check...
+10:53:49 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:53:49 [INFO] ⚖️ Size Alignment TRX-USD: 28.66$ -> 27.30$ (100.000000 Coins) to match both exchanges (X10 Step: 10.0, Lighter Step: 0.0001)
+10:53:49 [INFO] 📋 [PHASE 0] TRX-USD:  Validating orderbook...
+10:53:49 [INFO] 🚀 Launching ZEC-USD (APY=39.4%)
+10:53:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:49 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:49 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:53:49 [DEBUG] 📚 TRX-USD Lighter orderbook refreshed via REST
+10:53:49 [DEBUG] 📚 TRX-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619629.9799087
+10:53:49 [DEBUG] ✅ TRX-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $105360 depth, 0.01% spread
+10:53:49 [INFO] ✅ [PHASE 0] TRX-USD: Orderbook validation PASSED (0.36s)
+10:53:49 [INFO] 📤 [PHASE 1] TRX-USD: Placing Lighter SELL order...
+10:53:49 [INFO]    Size: $27.30 (100.000000 coins)
+10:53:49 [INFO] 🚀 LIGHTER OPEN TRX-USD: side=SELL, size_usd=$27.30, amount=100.0, price=$0.273050, TIF=None
+10:53:49 [DEBUG] 🔍 DEBUG: TRX-USD market_id = 43 (raw=43, type=<class 'int'>)
+10:53:49 [INFO] 🛡️ Maker Price TRX-USD SELL: $0.273050 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.27303, Ask=$0.27305, Tick=1e-05)
+10:53:49 [DEBUG] QUANTIZE TRX-USD: Notional=$27.305 -> RawAmt=100.000000 -> QuantAmt=100.000000 (x0.0001) -> BaseInt=1000
+10:53:50 [DEBUG] 💓 [lighter] Alive (uptime=5s, last_msg=0s, last_server_ping=5s, server_pings_answered=0)
+10:53:50 [DEBUG] 📊 Market stats BCH-USD: price=$575.250000, OI=$4065, vol24h=$0
+10:53:50 [DEBUG] ✅ BCH-USD: X10=$0, Lighter=$4,065, Total=$4,065
+10:53:50 [DEBUG] 📋 [TIF] TRX-USD: Using TIF=1, expiry=-1 (not IOC)
+10:53:50 [INFO] Lighter: Found 0 open positions
+10:53:50 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:50 [DEBUG] MIN_NOTIONAL CRV-USD: min_base=20.00000000 coins, price=$0.3995, min_qty_usd=$7.99, min_notional_api=$10.00, final=$11.00
+10:53:50 [DEBUG] 💓 [x10_trades] Alive (uptime=5s, last_msg=1s, last_pong=5s, pings=0, pongs=0)
+10:53:50 [DEBUG] 💓 [x10_account] Alive (uptime=5s, last_msg=5s, last_pong=5s, pings=0, pongs=0)
+10:53:50 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=5s, last_msg=0s, last_pong=5s, pings=0, pongs=0)
+10:53:50 [INFO] ✅ Launched 5 trades this cycle
+10:53:50 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:50 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:50 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5830, min_qty_usd=$1.75, min_notional_api=$10.00, final=$11.00
+10:53:50 [DEBUG] 🔄 Fetched fresh nonce: 7338 (cached next: 7339)
+10:53:50 [INFO] 🔒 Locked execution for LINEA-USD SELL (Nonce: 7338)...
+10:53:50 [DEBUG] ✅ [ORDER_TYPE] LINEA-USD: Using ORDER_TYPE_LIMIT = 0
+10:53:50 [DEBUG] ℹ️ [ORDER_TYPE] LINEA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:53:50 [DEBUG] ✅ [REDUCE_ONLY] LINEA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:53:50 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1765619669834,"BaseAmount":3200,"Price":7627,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038830523,"ExpiredAt":1765620229523,"Nonce":7338,"Sig":"+TGX6/9DN2qnxNgMCd9JUelQqBdq75Ca5dX/Z0Flpwx8ZDuUFT0oXzgQ1W/wJfKRXHw75abweWrNTTGRbRhw8GN/Q8AISJMGiIqzRz9u7hY="}
+10:53:50 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415' predicted_execution_time_ms=1765619616957 additional_properties={}
+10:53:50 [INFO] ✅ Lighter Order Sent: ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415
+10:53:50 [INFO] ✅ [PHASE 1] LINEA-USD: Lighter order placed (1.50s)
+10:53:50 [INFO]    Order ID: ab4c2549b20f1461028b7a45592783cd27e5291c...
+10:53:50 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619629.283752
+10:53:50 [DEBUG] ✅ LINEA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $62808 depth, 0.01% spread
+10:53:50 [DEBUG] ⏱️ LINEA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=2788.19, base=60.0s)
+10:53:50 [INFO] ⏳ [PHASE 1.5] LINEA-USD: Waiting for Lighter fill (max 30.0s, dynamic timeout)...
+10:53:50 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:53:50 [DEBUG] ⚡ Using cached nonce: 7339 (age: 1.3s)
+10:53:50 [INFO] 🔒 Locked execution for TRX-USD SELL (Nonce: 7339)...
+10:53:50 [DEBUG] ✅ [ORDER_TYPE] TRX-USD: Using ORDER_TYPE_LIMIT = 0
+10:53:50 [DEBUG] ℹ️ [ORDER_TYPE] TRX-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:53:50 [DEBUG] ✅ [REDUCE_ONLY] TRX-USD: Limit Order reduce_only=False (will be 0 in API)
+10:53:50 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":43,"ClientOrderIndex":1765619717699,"BaseAmount":1000,"Price":27305,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038830799,"ExpiredAt":1765620229799,"Nonce":7339,"Sig":"9lW12zxd902SGB5qv1XBH49Csw8KWtUU5/b3Zeb13zRc4uzlhz81Z/UstFZSD7/R3wXfTe/1EuUKKDGY7H1dvBdlcQ8wIdAhMKb5Ye9/GW4="}
+10:53:50 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:53:50 [INFO] 🎰 KELLY CRV-USD: win_rate=50.0%, kelly_fraction=1.0000
+10:53:50 [DEBUG] 🔍 Liquidity Check: Skipping depth check for CRV-USD (Maker Order)
+10:53:50 [INFO] 🎰 KELLY TIA-USD: win_rate=50.0%, kelly_fraction=1.0000
+10:53:50 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TIA-USD (Maker Order)
+10:53:50 [INFO] 🚀 Opening CRV-USD: Size=$25.0
+10:53:50 [INFO] ═══════════════════════════════════════════════════════════
+10:53:50 [INFO] 🚀 HEDGED TRADE START: CRV-USD
+10:53:50 [INFO]    Lighter: SELL $25.00 @ $0.399450
+10:53:50 [INFO]    X10:     BUY $25.00 @ $0.399524
+10:53:50 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+10:53:50 [INFO] ═══════════════════════════════════════════════════════════
+10:53:50 [INFO] 🚀 Opening TIA-USD: Size=$25.0
+10:53:50 [INFO] ═══════════════════════════════════════════════════════════
+10:53:50 [INFO] 🚀 HEDGED TRADE START: TIA-USD
+10:53:50 [INFO]    Lighter: SELL $25.00 @ $0.583050
+10:53:50 [INFO]    X10:     BUY $25.00 @ $0.582885
+10:53:50 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+10:53:50 [INFO] ═══════════════════════════════════════════════════════════
+10:53:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+10:53:51 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='aae98cc8f53d7c77cf50a6626fc3dd29069e83a1796e2673f303692d3fa22828da9ac8bd0d627b3a' predicted_execution_time_ms=1765619617230 additional_properties={}
+10:53:51 [INFO] ✅ Lighter Order Sent: aae98cc8f53d7c77cf50a6626fc3dd29069e83a1796e2673f303692d3fa22828da9ac8bd0d627b3a
+10:53:51 [INFO] ✅ [PHASE 1] TRX-USD: Lighter order placed (1.09s)
+10:53:51 [INFO]    Order ID: aae98cc8f53d7c77cf50a6626fc3dd29069e83a1...
+10:53:51 [DEBUG] 📚 TRX-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619629.9799087
+10:53:51 [DEBUG] ✅ TRX-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $105360 depth, 0.01% spread
+10:53:51 [DEBUG] ⏱️ TRX-USD: Dynamic timeout calculated: 30.0s (depth_ratio=4192.06, base=60.0s)
+10:53:51 [INFO] ⏳ [PHASE 1.5] TRX-USD: Waiting for Lighter fill (max 30.0s, dynamic timeout)...
+10:53:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/orders?
+10:53:51 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:53:51 [INFO] ⚖️ Size Alignment CRV-USD: 25.00$ -> 24.77$ (62.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+10:53:51 [INFO] 📋 [PHASE 0] CRV-USD:  Validating orderbook...
+10:53:51 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:53:51 [INFO] ⚖️ Size Alignment TIA-USD: 25.00$ -> 24.49$ (42.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+10:53:51 [INFO] 📋 [PHASE 0] TIA-USD:  Validating orderbook...
+10:53:51 [DEBUG] 📚 CRV-USD Lighter orderbook refreshed via REST
+10:53:51 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619631.5009346
+10:53:51 [DEBUG] ✅ CRV-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $371148 depth, 0.07% spread
+10:53:51 [INFO] ✅ [PHASE 0] CRV-USD: Orderbook validation PASSED (0.27s)
+10:53:51 [INFO] 📤 [PHASE 1] CRV-USD: Placing Lighter SELL order...
+10:53:51 [INFO]    Size: $24.77 (62.000000 coins)
+10:53:51 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=SELL, size_usd=$24.77, amount=62.0, price=$0.399450, TIF=None
+10:53:51 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+10:53:51 [INFO] 🛡️ Maker Price CRV-USD SELL: $0.399710 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.39945, Ask=$0.39971, Tick=1e-05)
+10:53:51 [DEBUG] QUANTIZE CRV-USD: Notional=$24.765900000000002 -> RawAmt=62.000000 -> QuantAmt=62.000000 (x0.0001) -> BaseInt=620
+10:53:51 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+10:53:51 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619631.611023
+10:53:51 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $154511 depth, 0.03% spread
+10:53:51 [INFO] ✅ [PHASE 0] TIA-USD: Orderbook validation PASSED (0.27s)
+10:53:51 [INFO] 📤 [PHASE 1] TIA-USD: Placing Lighter SELL order...
+10:53:51 [INFO]    Size: $24.49 (42.000000 coins)
+10:53:51 [DEBUG] 📋 [TIF] CRV-USD: Using TIF=1, expiry=-1 (not IOC)
+10:53:51 [DEBUG] ⚡ Using cached nonce: 7340 (age: 2.1s)
+10:53:51 [INFO] 🔒 Locked execution for CRV-USD SELL (Nonce: 7340)...
+10:53:51 [DEBUG] ✅ [ORDER_TYPE] CRV-USD: Using ORDER_TYPE_LIMIT = 0
+10:53:51 [DEBUG] ℹ️ [ORDER_TYPE] CRV-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:53:51 [DEBUG] ✅ [REDUCE_ONLY] CRV-USD: Limit Order reduce_only=False (will be 0 in API)
+10:53:51 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1765619634839,"BaseAmount":620,"Price":39971,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038831617,"ExpiredAt":1765620230617,"Nonce":7340,"Sig":"PJZ7TmAoXpXKURislGW98HP1cPjSSev92i7SXtiqmiHAkUtNUCxLVBoxAKO5PyDJ0PEBLPUOP9MoxPv+Mkn9xlBoMTpvjjM1ApRQnckqDCg="}
+10:53:51 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea' predicted_execution_time_ms=1765619618048 additional_properties={}
+10:53:51 [INFO] ✅ Lighter Order Sent: a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea
+10:53:51 [INFO] ✅ [PHASE 1] CRV-USD: Lighter order placed (0.38s)
+10:53:51 [INFO]    Order ID: a326522012745bc441097b153464d827bd87fdd6...
+10:53:51 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619631.5009346
+10:53:51 [DEBUG] ⏱️ CRV-USD: Dynamic timeout calculated: 30.0s (depth_ratio=4380.90, base=60.0s)
+10:53:51 [INFO] ⏳ [PHASE 1.5] CRV-USD: Waiting for Lighter fill (max 30.0s, dynamic timeout)...
+10:53:51 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$24.49, amount=42.0, price=$0.583050, TIF=None
+10:53:51 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+10:53:51 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.583120 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.58293, Ask=$0.58312, Tick=1e-05)
+10:53:51 [DEBUG] QUANTIZE TIA-USD: Notional=$24.4881 -> RawAmt=42.000000 -> QuantAmt=42.000000 (x0.0001) -> BaseInt=420
+10:53:52 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:53:52 [DEBUG] ⚡ Using cached nonce: 7341 (age: 2.5s)
+10:53:52 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7341)...
+10:53:52 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+10:53:52 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:53:52 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:53:52 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765619651378,"BaseAmount":420,"Price":58312,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038832003,"ExpiredAt":1765620231003,"Nonce":7341,"Sig":"GHyXvsJfukWTVr+Y6kEFirWGwXlMdkinRf9Ndta3d/VUNCZ/wlGmYvaUJkEuMq7gG3KrD4daRpynUFvRNX3JQaPXWyR4MAKuel7azVH1JGg="}
+10:53:52 [DEBUG] 📊 Market stats MON-USD: price=$0.023500, OI=$226642102, vol24h=$0
+10:53:52 [DEBUG] ✅ MON-USD: X10=$101,607, Lighter=$226,642,102, Total=$226,743,709
+10:53:52 [INFO] Lighter: Found 0 open positions
+10:53:52 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825' predicted_execution_time_ms=1765619618437 additional_properties={}
+10:53:52 [INFO] ✅ Lighter Order Sent: 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825
+10:53:52 [INFO] ✅ [PHASE 1] TIA-USD: Lighter order placed (0.66s)
+10:53:52 [INFO]    Order ID: 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e...
+10:53:52 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619631.611023
+10:53:52 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=6063.69, base=60.0s)
+10:53:52 [INFO] ⏳ [PHASE 1.5] TIA-USD: Waiting for Lighter fill (max 30.0s, dynamic timeout)...
+10:53:53 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:53:53 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:53:53 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:53:53 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.83h, APY: 27.2%)
+10:53:53 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:53:53 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.17h, APY: 39.4%)
+10:53:53 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.01h, APY: 33.3%)
+10:53:53 [INFO] ✅ TRX-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.05h, APY: 63.1%)
+10:53:53 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.05h, APY: 47.3%)
+10:53:53 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:53:53 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.46h, APY: 34.2%)
+10:53:53 [INFO] ✅ Found 9 opportunities from 63 valid pairs
+10:53:53 [INFO] 🎯 Found 5 opportunities
+10:53:53 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:53 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:54 [INFO] Lighter: Found 0 open positions
+10:53:54 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:53:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:54 [INFO] 📊 Positions: X10=0, Lighter=0
+10:53:54 [INFO] 🚀 Launching 1 trades
+10:53:54 [INFO] 🚀 Launching ZEC-USD (APY=39.4%)
+10:53:54 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:53:54 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:53:55 [DEBUG] 💓 [lighter] Alive (uptime=10s, last_msg=0s, last_server_ping=10s, server_pings_answered=0)
+10:53:55 [DEBUG] 💓 [x10_account] Alive (uptime=10s, last_msg=10s, last_pong=10s, pings=0, pongs=0)
+10:53:55 [DEBUG] 💓 [x10_trades] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+10:53:55 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:53:55 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:53:55 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=10s, last_msg=0s, last_pong=10s, pings=0, pongs=0)
+10:53:55 [INFO] ✅ Launched 1 trades this cycle
+10:53:55 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:53:55 [DEBUG] 📊 Market stats PENDLE-USD: price=$2.164900, OI=$1119529, vol24h=$0
+10:53:55 [DEBUG] ✅ PENDLE-USD: X10=$110,858, Lighter=$1,119,529, Total=$1,230,388
+10:53:56 [INFO] Lighter: Found 0 open positions
+10:53:57 [DEBUG] ⚠️ Market ID not found for ETH-USD
+10:53:57 [DEBUG] ✅ ETH-USD: X10=$14,954,624, Lighter=$0, Total=$14,954,624
+10:53:58 [INFO] Lighter: Found 0 open positions
+10:53:58 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:53:58 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:53:58 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:53:58 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.83h, APY: 27.2%)
+10:53:58 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:53:58 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.17h, APY: 39.4%)
+10:53:58 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.01h, APY: 33.3%)
+10:53:58 [INFO] ✅ TRX-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.05h, APY: 63.1%)
+10:53:58 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.05h, APY: 47.3%)
+10:53:58 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:53:58 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.46h, APY: 34.2%)
+10:53:58 [INFO] ✅ Found 9 opportunities from 63 valid pairs
+10:53:58 [INFO] 🎯 Found 5 opportunities
+10:53:58 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:53:59 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:53:59 [DEBUG] 📊 Market stats LDO-USD: price=$0.597910, OI=$2208722, vol24h=$0
+10:53:59 [DEBUG] ✅ LDO-USD: X10=$208,296, Lighter=$2,208,722, Total=$2,417,018
+10:53:59 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:53:59 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:00 [DEBUG] 💓 [lighter] Alive (uptime=15s, last_msg=0s, last_server_ping=15s, server_pings_answered=0)
+10:54:00 [DEBUG] 💓 [x10_trades] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+10:54:00 [DEBUG] 💓 [x10_account] Alive (uptime=15s, last_msg=15s, last_pong=15s, pings=0, pongs=0)
+10:54:00 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=15s, last_msg=0s, last_pong=15s, pings=0, pongs=0)
+10:54:00 [INFO] Lighter: Found 0 open positions
+10:54:00 [INFO] 📊 Positions: X10=0, Lighter=0
+10:54:00 [INFO] 🚀 Launching 1 trades
+10:54:00 [INFO] 🚀 Launching ZEC-USD (APY=39.4%)
+10:54:00 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:00 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:00 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:00 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:00 [INFO] ✅ Launched 1 trades this cycle
+10:54:00 [DEBUG] 📊 Market stats JUP-USD: price=$0.203980, OI=$5077614, vol24h=$0
+10:54:00 [DEBUG] ✅ JUP-USD: X10=$90,841, Lighter=$5,077,614, Total=$5,168,455
+10:54:00 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:02 [INFO] Lighter: Found 0 open positions
+10:54:02 [DEBUG] 📊 Market stats TRUMP-USD: price=$5.567600, OI=$276764, vol24h=$0
+10:54:02 [DEBUG] ✅ TRUMP-USD: X10=$68,259, Lighter=$276,764, Total=$345,023
+10:54:03 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:03 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:04 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:04 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:04 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:04 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.17h, APY: 39.4%)
+10:54:04 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 17.01h, APY: 33.3%)
+10:54:04 [INFO] ✅ TRX-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.05h, APY: 63.1%)
+10:54:04 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.05h, APY: 47.3%)
+10:54:04 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:04 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:04 [INFO] ✅ Found 9 opportunities from 63 valid pairs
+10:54:04 [INFO] 🎯 Found 5 opportunities
+10:54:04 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:04 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:54:04 [INFO] Lighter: Found 0 open positions
+10:54:05 [DEBUG] 💓 [lighter] Alive (uptime=20s, last_msg=0s, last_server_ping=20s, server_pings_answered=0)
+10:54:05 [DEBUG] 💓 [x10_account] Alive (uptime=20s, last_msg=20s, last_pong=20s, pings=0, pongs=0)
+10:54:05 [DEBUG] 💓 [x10_trades] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+10:54:05 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=20s, last_msg=0s, last_pong=20s, pings=0, pongs=0)
+10:54:05 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:05 [INFO] 📊 Positions: X10=0, Lighter=0
+10:54:05 [INFO] 🚀 Launching 1 trades
+10:54:05 [INFO] 🚀 Launching ZEC-USD (APY=39.4%)
+10:54:05 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:05 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:05 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:05 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:05 [INFO] ✅ Launched 1 trades this cycle
+10:54:05 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:06 [DEBUG] 📊 Market stats RESOLV-USD: price=$0.078272, OI=$48013646, vol24h=$0
+10:54:06 [DEBUG] ✅ RESOLV-USD: X10=$137,080, Lighter=$48,013,646, Total=$48,150,726
+10:54:06 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:06 [INFO] Lighter: Found 1 open positions
+10:54:07 [INFO] ✅ [PHASE 1.5] TRX-USD: Fill detected after 30 checks!
+10:54:07 [INFO] ✅ [PHASE 1.5] TRX-USD: Lighter FILLED (16.03s)
+10:54:07 [INFO] 📤 [PHASE 2] TRX-USD: Placing X10 BUY hedge...
+10:54:07 [INFO]    Size: 100.000000 coins (matching Lighter fill)
+10:54:07 [INFO] 🚀 X10 EXECUTE TRX-USD BUY: 100.000000 Coins (Basis: COINS=100.0)
+10:54:07 [DEBUG] ℹ️ [TIF] TRX-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+10:54:07 [DEBUG] ✅ [TIF] TRX-USD: Selected TimeInForce=GTT (post_only=False, reduce_only=False, is_market=False)
+10:54:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+10:54:08 [DEBUG] 📊 Market stats VIRTUAL-USD: price=$0.804740, OI=$647868, vol24h=$0
+10:54:08 [DEBUG] ✅ VIRTUAL-USD: X10=$119,593, Lighter=$647,868, Total=$767,461
+10:54:08 [INFO] Lighter: Found 1 open positions
+10:54:08 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:08 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:09 [DEBUG] Placing an order: id=539945463156676322448266378211410080387693230662374812704103584553032752540
+10:54:09 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+10:54:09 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:09 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:09 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:09 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 12.61h, APY: 41.2%)
+10:54:09 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:09 [INFO] ✅ TRX-USD: Expected profit $0.0300 in 24.0h (breakeven: 9.05h, APY: 63.1%)
+10:54:09 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:09 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:09 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:09 [INFO] ✅ Found 9 opportunities from 63 valid pairs
+10:54:09 [INFO] 🎯 Found 5 opportunities
+10:54:09 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:09 [INFO] 💰 X10 verfügbare Balance: $208.82 USDC
+10:54:09 [DEBUG] 📊 Market stats ARB-USD: price=$0.208970, OI=$6870210, vol24h=$0
+10:54:09 [DEBUG] ✅ ARB-USD: X10=$142,990, Lighter=$6,870,210, Total=$7,013,200
+10:54:10 [DEBUG] 💓 [lighter] Alive (uptime=25s, last_msg=0s, last_server_ping=25s, server_pings_answered=0)
+10:54:10 [DEBUG] 💓 [x10_funding] Alive (uptime=25s, last_msg=4s, last_pong=25s, pings=0, pongs=0)
+10:54:10 [DEBUG] 💓 [x10_trades] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+10:54:10 [DEBUG] 💓 [x10_account] Alive (uptime=25s, last_msg=25s, last_pong=25s, pings=0, pongs=0)
+10:54:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=25s, last_msg=0s, last_pong=25s, pings=0, pongs=0)
+10:54:10 [DEBUG] ✅ [ORDER_TYPE] TRX-USD: Limit Order placed (TimeInForce=GTT, post_only=False, reduce_only=False)
+10:54:10 [INFO]  X10 Order: 1999779812784844800
+10:54:10 [INFO] ✅ [PHASE 2] TRX-USD:  X10 hedge FILLED (3.17s)
+10:54:10 [INFO]    Order ID: 1999779812784844800
+10:54:10 [INFO] ════════════════════════════════════════════════════════════
+10:54:10 [INFO] 📊 TRADE SUMMARY:  TRX-USD
+10:54:10 [INFO]    Result: SUCCESS
+10:54:10 [INFO]    Reason:  Hedged trade complete
+10:54:10 [INFO]    Total Time: 20.66s
+10:54:10 [INFO]    State: COMPLETE
+10:54:10 [INFO]    Phase Times:
+10:54:10 [INFO]       - orderbook_validation: 0.36s
+10:54:10 [INFO]       - lighter_order_placement: 1.09s
+10:54:10 [INFO]       - lighter_fill_wait: 16.03s
+10:54:10 [INFO]       - x10_hedge: 3.17s
+10:54:10 [INFO]    Lighter Order:  aae98cc8f53d7c77cf50a6626fc3dd29069e83a1...
+10:54:10 [INFO]    X10 Order: 1999779812784844800
+10:54:10 [INFO] ════════════════════════════════════════════════════════════
+10:54:10 [INFO] 📝 Recording trade TRX-USD in database...
+10:54:10 [DEBUG] 📝 Trade added to state: TRX-USD
+10:54:10 [INFO] ✅ Trade TRX-USD recorded successfully
+10:54:10 [INFO]    X10 Order ID: 1999779812784844800
+10:54:10 [INFO]    Lighter Order ID: aae98cc8f53d7c77cf50a6626fc3dd...
+10:54:10 [INFO]    Size: $28.66
+10:54:10 [INFO]    Entry X10: $0.272940
+10:54:10 [INFO]    Entry Lighter: $0.273050
+10:54:10 [INFO]    APY: 63.07%
+10:54:10 [INFO] ✅ OPENED TRX-USD: $28.66
+10:54:10 [DEBUG] 📝 Flushed 1 writes
+10:54:10 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+10:54:10 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:10 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:10 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '208.821422', 'status': 'ACTIVE', 'equity': '208.821422', 'availableForTrade': '206.091308', 'availabl
+10:54:10 [DEBUG] 💰 [x10_account] BALANCE: equity=$208.821422, available=$206.091308, uPnL=$0.000000
+10:54:10 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999779812784844800, 'accountId': 127074, 'externalId': '539945463156676322448266378211410080387693230662374812704103584553032752540',
+10:54:10 [INFO] ✅ [x10_account] ORDER UPDATE: TRX-USD BUY FILLED qty=100 filled=100 @ $0.27458 (id=1999779812784844800)
+10:54:10 [DEBUG] X10 Adapter: Order update processed - TRX-USD #1999779812784844800 FILLED
+10:54:10 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999779813623074816, 'accountId': 127074, 'market': 'TRX-USD', 'orderId': 1999779812784844800, 'externalOrderId': '5399454631566763224
+10:54:10 [INFO] 💰💰💰 [x10_account] FILL/TRADE: TRX-USD BUY 100.0 @ $0.2729 (Trade: 1999779813623074816, Order: 1999779812784844800, Fee: $0.0061, Taker: True)
+10:54:10 [DEBUG] [X10] Created entry price from TRADE for TRX-USD: $0.272940
+10:54:10 [DEBUG] X10 Adapter: Fill update processed - TRX-USD order=1999779812784844800
+10:54:10 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999779813635653632,
+        "accountId": 127074,
+        "market": "TRX-USD",
+        "status": "OPENED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "100",
+        "value": "27.301137",
+        "openPrice": "0.27294",
+        "markPrice": "0.2730113797",
+        "liquidationPrice": "0",
+        "margin": "0.546022",
+        "unrealisedPnl": "0.007137",
+        "midPriceUnrealisedPnl": "-0.007500",
+        "realisedPnl": "-0.006141",
+        "adl": 4,
+        "createdAt": 1765619636344,
+        "updatedAt": 1765619636344
+      }
+    ]
+  },
+  "ts": 1765619636344,
+  "seq": 7
+}
+10:54:10 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999779813635653632,
+  "accountId": 127074,
+  "market": "TRX-USD",
+  "status": "OPENED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "100",
+  "value": "27.301137",
+  "openPrice": "0.27294",
+  "markPrice": "0.2730113797",
+  "liquidationPrice": "0",
+  "margin": "0.546022",
+  "unrealisedPnl": "0.007137",
+  "midPriceUnrealisedPnl": "-0.007500",
+  "realisedPnl": "-0.006141",
+  "adl": 4,
+  "createdAt": 1765619636344,
+  "updatedAt": 1765619636344
+}
+10:54:10 [DEBUG] [X10] Using calculated entry price from TRADE fills for TRX-USD: $0.272940
+10:54:10 [DEBUG] [X10] Updated TRX-USD in _positions_cache (size=100.0, entry=$0.272940)
+10:54:10 [DEBUG] X10 Adapter: Position update processed - TRX-USD
+10:54:10 [INFO] 📈 [x10_account] POSITION UPDATE: TRX-USD LONG size=100 entry=$0.27294 mark=$0.2730113797 uPnL=$0.007137
+10:54:10 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '208.815281', 'status': 'ACTIVE', 'equity': '208.822418', 'availableForTrade': '206.092304', 'availabl
+10:54:10 [DEBUG] 💰 [x10_account] BALANCE: equity=$208.822418, available=$206.092304, uPnL=$0.007137
+10:54:10 [INFO] Lighter: Found 1 open positions
+10:54:10 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:10 [INFO] 🚀 Launching 1 trades
+10:54:10 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:10 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:10 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:10 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:10 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:11 [INFO] ✅ Launched 1 trades this cycle
+10:54:11 [DEBUG] 📊 Market stats SEI-USD: price=$0.129450, OI=$8955037, vol24h=$0
+10:54:11 [DEBUG] ✅ SEI-USD: X10=$165,195, Lighter=$8,955,037, Total=$9,120,232
+10:54:12 [INFO] Lighter: Found 1 open positions
+10:54:13 [DEBUG] 📊 Market stats SUI-USD: price=$1.601920, OI=$2349852, vol24h=$0
+10:54:13 [DEBUG] ✅ SUI-USD: X10=$469,326, Lighter=$2,349,852, Total=$2,819,178
+10:54:13 [DEBUG] 💓 [x10_account] Sent keepalive ping #1: 1765619653997
+10:54:13 [DEBUG] 💓 [x10_account] Health OK - last activity 4s ago
+10:54:13 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+10:54:14 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:14 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:14 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:14 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:14 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:14 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 12.61h, APY: 41.2%)
+10:54:14 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:14 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:14 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:14 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:14 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:14 [INFO] 🎯 Found 5 opportunities
+10:54:14 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:14 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:15 [DEBUG] 💓 [lighter] Alive (uptime=30s, last_msg=0s, last_server_ping=30s, server_pings_answered=0)
+10:54:15 [DEBUG] 💓 [x10_funding] Alive (uptime=30s, last_msg=9s, last_pong=30s, pings=0, pongs=0)
+10:54:15 [DEBUG] 💓 [x10_account] Alive (uptime=30s, last_msg=5s, last_pong=30s, pings=1, pongs=0)
+10:54:15 [DEBUG] 💓 [x10_trades] Alive (uptime=30s, last_msg=1s, last_pong=30s, pings=0, pongs=0)
+10:54:15 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=30s, last_msg=0s, last_pong=30s, pings=0, pongs=0)
+10:54:15 [INFO] Lighter: Found 1 open positions
+10:54:15 [DEBUG] 🐕 Watchdog OK: Daten-Alter 1.3s
+10:54:15 [DEBUG] 📊 Task health: 7 alive, 0 dead
+10:54:15 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:15 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:15 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:15 [INFO] 🚀 Launching 1 trades
+10:54:15 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:15 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:15 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:15 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:16 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:16 [INFO] ✅ Launched 1 trades this cycle
+10:54:17 [DEBUG] 📊 Market stats DOT-USD: price=$2.036570, OI=$514176, vol24h=$0
+10:54:17 [DEBUG] ✅ DOT-USD: X10=$0, Lighter=$514,176, Total=$514,176
+10:54:17 [INFO] Lighter: Found 1 open positions
+10:54:18 [DEBUG] 📊 Market stats ONDO-USD: price=$0.462790, OI=$2075805, vol24h=$0
+10:54:18 [DEBUG] ✅ ONDO-USD: X10=$158,503, Lighter=$2,075,805, Total=$2,234,308
+10:54:19 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:19 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:19 [INFO] Lighter: Found 1 open positions
+10:54:19 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:19 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:19 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:19 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 12.61h, APY: 41.2%)
+10:54:19 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:19 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:19 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:19 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:19 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:19 [INFO] 🎯 Found 5 opportunities
+10:54:19 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:20 [DEBUG] 💓 [lighter] Alive (uptime=35s, last_msg=0s, last_server_ping=35s, server_pings_answered=0)
+10:54:20 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:20 [DEBUG] 💓 [x10_funding] Alive (uptime=35s, last_msg=14s, last_pong=35s, pings=0, pongs=0)
+10:54:20 [DEBUG] 💓 [x10_account] Alive (uptime=35s, last_msg=10s, last_pong=35s, pings=1, pongs=0)
+10:54:20 [DEBUG] 💓 [x10_trades] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+10:54:20 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=35s, last_msg=0s, last_pong=35s, pings=0, pongs=0)
+10:54:20 [DEBUG] 📊 Market stats 1000PEPE-USD: price=$0.004400, OI=$239098561, vol24h=$0
+10:54:20 [DEBUG] ✅ 1000PEPE-USD: X10=$253,437, Lighter=$239,098,561, Total=$239,351,998
+10:54:20 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:20 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:21 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:21 [INFO] 🚀 Launching 1 trades
+10:54:21 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:21 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:21 [DEBUG] ⚠️ LINEA-USD Lighter orderbook stale (31.9s)
+10:54:21 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:21 [DEBUG] 📚 LINEA-USD Lighter orderbook refreshed via REST
+10:54:21 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619661.4739048
+10:54:21 [DEBUG] ✅ LINEA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $66178 depth, 0.03% spread
+10:54:21 [WARNING] ⏰ [PHASE 1.5] LINEA-USD: Fill timeout after 30.39s (orderbook: bid_depth=$66178.42, ask_depth=$64742.58, spread=2.623%)
+10:54:21 [INFO] 🔄 [RETRY] LINEA-USD: Cancelling original order ab4c2549b20f1461028b7a45592783cd27e5291c...
+10:54:21 [INFO] 🔍 Lighter: Attempting to resolve Hash ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415 to Order ID for LINEA-USD...
+10:54:21 [INFO] Lighter: Found 1 open positions
+10:54:21 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:21 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:21 [INFO] ✅ Launched 1 trades this cycle
+10:54:21 [DEBUG] ⚠️ CRV-USD Lighter orderbook stale (30.4s)
+10:54:22 [DEBUG] 📚 CRV-USD Lighter orderbook refreshed via REST
+10:54:22 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.1823676
+10:54:22 [DEBUG] ✅ CRV-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $371205 depth, 0.05% spread
+10:54:22 [WARNING] ⏰ [PHASE 1.5] CRV-USD: Fill timeout after 30.05s (orderbook: bid_depth=$371204.64, ask_depth=$107304.77, spread=4.756%)
+10:54:22 [INFO] 🔄 [RETRY] CRV-USD: Cancelling original order a326522012745bc441097b153464d827bd87fdd6...
+10:54:22 [INFO] 🔍 Lighter: Attempting to resolve Hash a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea to Order ID for CRV-USD...
+10:54:22 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:22 [INFO] ℹ️ Lighter Cancel: Hash ab4c2549b2... not found in open orders. Assuming closed.
+10:54:22 [DEBUG] 📊 Market stats GRASS-USD: price=$0.310910, OI=$1869061, vol24h=$0
+10:54:22 [DEBUG] ✅ GRASS-USD: X10=$67,188, Lighter=$1,869,061, Total=$1,936,249
+10:54:22 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (31.1s)
+10:54:22 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+10:54:22 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.959772
+10:54:22 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $138430 depth, 0.02% spread
+10:54:22 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 30.44s (orderbook: bid_depth=$138429.95, ask_depth=$46075.40, spread=2.230%)
+10:54:22 [INFO] 🔄 [RETRY] TIA-USD: Cancelling original order 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e...
+10:54:22 [INFO] 🔍 Lighter: Attempting to resolve Hash 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825 to Order ID for TIA-USD...
+10:54:23 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:23 [INFO] ℹ️ Lighter Cancel: Hash a326522012... not found in open orders. Assuming closed.
+10:54:23 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:23 [INFO] ℹ️ Lighter Cancel: Hash 68ad6b40c0... not found in open orders. Assuming closed.
+10:54:24 [DEBUG] 📊 Market stats WLD-USD: price=$0.587160, OI=$2110309, vol24h=$0
+10:54:24 [DEBUG] ✅ WLD-USD: X10=$80,643, Lighter=$2,110,309, Total=$2,190,952
+10:54:24 [INFO] 🔄 [RETRY] LINEA-USD: Attempt 1/2 (price adjustment: 0.100%)
+10:54:24 [DEBUG] 💰 [RETRY] LINEA-USD: Original price=0.007627, Adjusted price=0.007619 (SELL)
+10:54:24 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619661.4739048
+10:54:24 [DEBUG] ✅ LINEA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $66178 depth, 0.03% spread
+10:54:24 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619661.4739048
+10:54:24 [DEBUG] ⏱️ LINEA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=2652.69, base=60.0s)
+10:54:24 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=SELL, size_usd=$24.41, amount=3200.0, price=$0.007627, TIF=None
+10:54:24 [DEBUG] 🔍 DEBUG: LINEA-USD market_id = 76 (raw=76, type=<class 'int'>)
+10:54:24 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:24 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:24 [INFO] 🛡️ Maker Price LINEA-USD SELL: $0.007627 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.007625, Ask=$0.007627, Tick=1e-06)
+10:54:24 [DEBUG] QUANTIZE LINEA-USD: Notional=$24.4064 -> RawAmt=3200.000000 -> QuantAmt=3200.000000 (x0.0001) -> BaseInt=3200
+10:54:24 [DEBUG] 📋 [TIF] LINEA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:54:25 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:25 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:25 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:25 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:25 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:25 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:25 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:25 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:25 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:25 [INFO] 🎯 Found 5 opportunities
+10:54:25 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:25 [DEBUG] 💓 [lighter] Alive (uptime=40s, last_msg=0s, last_server_ping=40s, server_pings_answered=0)
+10:54:25 [DEBUG] 🔄 Fetched fresh nonce: 7342 (cached next: 7343)
+10:54:25 [INFO] 🔒 Locked execution for LINEA-USD SELL (Nonce: 7342)...
+10:54:25 [DEBUG] ✅ [ORDER_TYPE] LINEA-USD: Using ORDER_TYPE_LIMIT = 0
+10:54:25 [DEBUG] ℹ️ [ORDER_TYPE] LINEA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:54:25 [DEBUG] ✅ [REDUCE_ONLY] LINEA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:54:25 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1765619696197,"BaseAmount":3200,"Price":7627,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038865124,"ExpiredAt":1765620264124,"Nonce":7342,"Sig":"pdXm/rfq0AvMhidomTRbpuMhhKxVqPTs7vK3mcfjefh60js8Vk5qXp2LsarCJ0Xp/k80uxwOZAlIeXX0OMajwukuME1bN5O+K4at0ieKqF4="}
+10:54:25 [DEBUG] 💓 [x10_account] Alive (uptime=40s, last_msg=15s, last_pong=40s, pings=1, pongs=0)
+10:54:25 [DEBUG] 💓 [x10_funding] Alive (uptime=40s, last_msg=19s, last_pong=40s, pings=0, pongs=0)
+10:54:25 [DEBUG] 💓 [x10_trades] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+10:54:25 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=40s, last_msg=0s, last_pong=40s, pings=0, pongs=0)
+10:54:25 [INFO] 🔄 [RETRY] CRV-USD: Attempt 1/2 (price adjustment: 0.100%)
+10:54:25 [DEBUG] 💰 [RETRY] CRV-USD: Original price=0.399450, Adjusted price=0.399051 (SELL)
+10:54:25 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.1823676
+10:54:25 [DEBUG] ✅ CRV-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $371205 depth, 0.05% spread
+10:54:25 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.1823676
+10:54:25 [DEBUG] ⏱️ CRV-USD: Dynamic timeout calculated: 30.0s (depth_ratio=4332.76, base=60.0s)
+10:54:25 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=SELL, size_usd=$24.77, amount=62.0, price=$0.399450, TIF=None
+10:54:25 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+10:54:25 [INFO] 🔄 [RETRY] TIA-USD: Attempt 1/2 (price adjustment: 0.100%)
+10:54:25 [DEBUG] 💰 [RETRY] TIA-USD: Original price=0.583050, Adjusted price=0.582467 (SELL)
+10:54:25 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.959772
+10:54:25 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $138430 depth, 0.02% spread
+10:54:25 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619662.959772
+10:54:25 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=1881.54, base=60.0s)
+10:54:25 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:25 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='734a054182edaaa7deec7b9279e7fe394955f8fefd4c99212bdb1aaa0a91787799808c8116b8b73d' predicted_execution_time_ms=1765619651553 additional_properties={}
+10:54:25 [INFO] ✅ Lighter Order Sent: 734a054182edaaa7deec7b9279e7fe394955f8fefd4c99212bdb1aaa0a91787799808c8116b8b73d
+10:54:25 [INFO] ✅ [RETRY] LINEA-USD: Retry order placed: 734a054182edaaa7deec7b9279e7fe394955f8fe...
+10:54:25 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$24.49, amount=42.0, price=$0.583050, TIF=None
+10:54:25 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+10:54:25 [INFO] 🛡️ Maker Price CRV-USD SELL: $0.399680 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.39949, Ask=$0.39968, Tick=1e-05)
+10:54:25 [DEBUG] QUANTIZE CRV-USD: Notional=$24.765900000000002 -> RawAmt=62.000000 -> QuantAmt=62.000000 (x0.0001) -> BaseInt=620
+10:54:25 [DEBUG] 📋 [TIF] CRV-USD: Using TIF=1, expiry=-1 (not IOC)
+10:54:25 [DEBUG] ⚡ Using cached nonce: 7343 (age: 0.9s)
+10:54:25 [INFO] 🔒 Locked execution for CRV-USD SELL (Nonce: 7343)...
+10:54:25 [DEBUG] ✅ [ORDER_TYPE] CRV-USD: Using ORDER_TYPE_LIMIT = 0
+10:54:25 [DEBUG] ℹ️ [ORDER_TYPE] CRV-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:54:25 [DEBUG] ✅ [REDUCE_ONLY] CRV-USD: Limit Order reduce_only=False (will be 0 in API)
+10:54:25 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1765619711401,"BaseAmount":620,"Price":39968,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038865786,"ExpiredAt":1765620264786,"Nonce":7343,"Sig":"eXB9/hH186w4lJhyRnSYGBN2lnRxuqNpSCHxz0k7q6JzZmCTrS3tDTYbmnsJv/nS4AGafLCCb5nQNVYrCSFe187Q+n0kL9lSsYePq5S4iUk="}
+10:54:25 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.583010 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.58288, Ask=$0.58301, Tick=1e-05)
+10:54:25 [DEBUG] QUANTIZE TIA-USD: Notional=$24.4881 -> RawAmt=42.000000 -> QuantAmt=42.000000 (x0.0001) -> BaseInt=420
+10:54:25 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:54:26 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='82bae4cf717ffd0c668dd173b2a166da86a9a87a89a9178ae6e21db3e851dd8db4a5cfe1d8b1f02f' predicted_execution_time_ms=1765619652219 additional_properties={}
+10:54:26 [INFO] ✅ Lighter Order Sent: 82bae4cf717ffd0c668dd173b2a166da86a9a87a89a9178ae6e21db3e851dd8db4a5cfe1d8b1f02f
+10:54:26 [INFO] ✅ [RETRY] CRV-USD: Retry order placed: 82bae4cf717ffd0c668dd173b2a166da86a9a87a...
+10:54:26 [DEBUG] ⚡ Using cached nonce: 7344 (age: 1.2s)
+10:54:26 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7344)...
+10:54:26 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+10:54:26 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:54:26 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:54:26 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765619762279,"BaseAmount":420,"Price":58301,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038866058,"ExpiredAt":1765620265058,"Nonce":7344,"Sig":"4lkLt2niKbIDUKi79G6AjqPJFFX3nHOshnvk3z+zIeCW4+PMGxoUflm7QIRawx7tpH7p+EYTKmjqPwxzjXR6/lqd8gxi9BEE8YR5ceerDjQ="}
+10:54:26 [INFO] Lighter: Found 1 open positions
+10:54:26 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:26 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:26 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:26 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='304067e694068704237aa669aca48a134283f55b79d4d38631194535b0069057e85bcd48f6f363da' predicted_execution_time_ms=1765619652491 additional_properties={}
+10:54:26 [INFO] ✅ Lighter Order Sent: 304067e694068704237aa669aca48a134283f55b79d4d38631194535b0069057e85bcd48f6f363da
+10:54:26 [INFO] ✅ [RETRY] TIA-USD: Retry order placed: 304067e694068704237aa669aca48a134283f55b...
+10:54:26 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:26 [INFO] 🚀 Launching 1 trades
+10:54:26 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:26 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:26 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:26 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:27 [INFO] ✅ Launched 1 trades this cycle
+10:54:28 [INFO] Lighter: Found 1 open positions
+10:54:28 [DEBUG] 📊 Market stats XPL-USD: price=$0.153060, OI=$18355808, vol24h=$0
+10:54:28 [DEBUG] ✅ XPL-USD: X10=$268,037, Lighter=$18,355,808, Total=$18,623,844
+10:54:29 [DEBUG] 📊 Market stats PENGU-USD: price=$0.010948, OI=$72227751, vol24h=$0
+10:54:29 [DEBUG] ✅ PENGU-USD: X10=$62,359, Lighter=$72,227,751, Total=$72,290,110
+10:54:30 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:30 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:30 [INFO] Lighter: Found 1 open positions
+10:54:30 [DEBUG] 💓 [lighter] Alive (uptime=45s, last_msg=0s, last_server_ping=45s, server_pings_answered=0)
+10:54:30 [DEBUG] 💓 [x10_account] Alive (uptime=45s, last_msg=20s, last_pong=45s, pings=1, pongs=0)
+10:54:30 [DEBUG] 💓 [x10_trades] Alive (uptime=45s, last_msg=1s, last_pong=45s, pings=0, pongs=0)
+10:54:30 [DEBUG] 💓 [x10_funding] Alive (uptime=45s, last_msg=24s, last_pong=45s, pings=0, pongs=0)
+10:54:30 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=45s, last_msg=0s, last_pong=45s, pings=0, pongs=0)
+10:54:30 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:30 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:30 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:30 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:30 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:30 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:30 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:30 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:30 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:30 [INFO] 🎯 Found 5 opportunities
+10:54:30 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:30 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:31 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:31 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:31 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:31 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:31 [INFO] 🚀 Launching 1 trades
+10:54:31 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:31 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:31 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:31 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:31 [DEBUG] 📊 Market stats LTC-USD: price=$81.901000, OI=$15180, vol24h=$0
+10:54:31 [DEBUG] ✅ LTC-USD: X10=$221,372, Lighter=$15,180, Total=$236,552
+10:54:32 [INFO] Lighter: Found 1 open positions
+10:54:32 [INFO] ✅ Launched 1 trades this cycle
+10:54:33 [DEBUG] 📊 Market stats BTC-USD: price=$90381.300000, OI=$3023, vol24h=$0
+10:54:33 [DEBUG] ✅ BTC-USD: X10=$30,953,980, Lighter=$3,023, Total=$30,957,003
+10:54:34 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:34 [INFO] Lighter: Found 1 open positions
+10:54:35 [DEBUG] 💓 [lighter] Alive (uptime=50s, last_msg=0s, last_server_ping=50s, server_pings_answered=0)
+10:54:35 [DEBUG] 💓 [x10_funding] Alive (uptime=50s, last_msg=29s, last_pong=50s, pings=0, pongs=0)
+10:54:35 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:35 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:35 [DEBUG] 💓 [x10_trades] Alive (uptime=50s, last_msg=0s, last_pong=50s, pings=0, pongs=0)
+10:54:35 [DEBUG] 💓 [x10_account] Alive (uptime=50s, last_msg=25s, last_pong=50s, pings=1, pongs=0)
+10:54:35 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=50s, last_msg=0s, last_pong=50s, pings=0, pongs=0)
+10:54:35 [DEBUG] 📊 Market stats ASTER-USD: price=$0.946910, OI=$13224043, vol24h=$0
+10:54:35 [DEBUG] ✅ ASTER-USD: X10=$470,710, Lighter=$13,224,043, Total=$13,694,754
+10:54:35 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:35 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:35 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:35 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:35 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:35 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:35 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:35 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:35 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:35 [INFO] 🎯 Found 5 opportunities
+10:54:35 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:35 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:36 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:36 [INFO] Lighter: Found 1 open positions
+10:54:36 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:36 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:36 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:36 [INFO] 🚀 Launching 1 trades
+10:54:36 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:36 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:36 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:36 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:37 [INFO] ✅ Launched 1 trades this cycle
+10:54:38 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:38 [INFO] Lighter: Found 1 open positions
+10:54:38 [DEBUG] 📊 Market stats OP-USD: price=$0.312840, OI=$3392183, vol24h=$0
+10:54:38 [DEBUG] ✅ OP-USD: X10=$225,453, Lighter=$3,392,183, Total=$3,617,636
+10:54:40 [DEBUG] 💓 [lighter] Alive (uptime=55s, last_msg=0s, last_server_ping=55s, server_pings_answered=0)
+10:54:40 [DEBUG] 💓 [x10_trades] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+10:54:40 [DEBUG] 💓 [x10_account] Alive (uptime=55s, last_msg=30s, last_pong=55s, pings=1, pongs=0)
+10:54:40 [DEBUG] 💓 [x10_funding] Alive (uptime=55s, last_msg=34s, last_pong=55s, pings=0, pongs=0)
+10:54:40 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=55s, last_msg=0s, last_pong=55s, pings=0, pongs=0)
+10:54:40 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:40 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:40 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:40 [INFO] Lighter: Found 1 open positions
+10:54:40 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:40 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:40 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:40 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:40 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:40 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:40 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:40 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:40 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:40 [INFO] 🎯 Found 5 opportunities
+10:54:40 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:40 [DEBUG] 📊 Market stats TAO-USD: price=$292.436000, OI=$7559, vol24h=$0
+10:54:40 [DEBUG] ✅ TAO-USD: X10=$448,642, Lighter=$7,559, Total=$456,201
+10:54:40 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:41 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:41 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:41 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:41 [INFO] 🚀 Launching 1 trades
+10:54:41 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:41 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:41 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:41 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:42 [INFO] ✅ Launched 1 trades this cycle
+10:54:42 [DEBUG] 📊 Market stats POPCAT-USD: price=$0.099900, OI=$6120296, vol24h=$0
+10:54:42 [DEBUG] ✅ POPCAT-USD: X10=$98,598, Lighter=$6,120,296, Total=$6,218,894
+10:54:42 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0030, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:42 [INFO] Lighter: Found 1 open positions
+10:54:44 [DEBUG] 💓 [x10_account] Sent keepalive ping #2: 1765619684000
+10:54:44 [DEBUG] 💓 [x10_account] Health OK - last activity 34s ago
+10:54:44 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+10:54:44 [DEBUG] 📊 Market stats SOL-USD: price=$133.642000, OI=$343165, vol24h=$0
+10:54:44 [DEBUG] ✅ SOL-USD: X10=$4,792,215, Lighter=$343,165, Total=$5,135,380
+10:54:44 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:44 [INFO] Lighter: Found 1 open positions
+10:54:45 [INFO] 💓 [lighter] Received SERVER ping → sent pong (ping #1)
+10:54:45 [DEBUG] 💓 [lighter] Alive (uptime=60s, last_msg=0s, last_server_ping=0s, server_pings_answered=1)
+10:54:45 [DEBUG] 💓 [x10_trades] Alive (uptime=60s, last_msg=1s, last_pong=60s, pings=0, pongs=0)
+10:54:45 [DEBUG] 💓 [x10_account] Alive (uptime=60s, last_msg=35s, last_pong=60s, pings=2, pongs=0)
+10:54:45 [DEBUG] 💓 [x10_funding] Alive (uptime=60s, last_msg=39s, last_pong=60s, pings=0, pongs=0)
+10:54:45 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=60s, last_msg=0s, last_pong=60s, pings=0, pongs=0)
+10:54:45 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:45 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:45 [DEBUG] 🐕 Watchdog OK: Daten-Alter 0.2s
+10:54:45 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:45 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:45 [INFO] ✅ LINEA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.54h, APY: 71.0%)
+10:54:45 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:45 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:45 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:45 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:45 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:45 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:45 [INFO] 🎯 Found 5 opportunities
+10:54:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:45 [DEBUG] 📊 Market stats ZORA-USD: price=$0.048876, OI=$29428028, vol24h=$0
+10:54:45 [DEBUG] ✅ ZORA-USD: X10=$92,946, Lighter=$29,428,028, Total=$29,520,974
+10:54:46 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:46 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:46 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:46 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:47 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:47 [INFO] Lighter: Found 1 open positions
+10:54:47 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:47 [INFO] 🚀 Launching 1 trades
+10:54:47 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:47 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:47 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:47 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:47 [INFO] ✅ Launched 1 trades this cycle
+10:54:49 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:49 [INFO] Lighter: Found 1 open positions
+10:54:49 [DEBUG] 📊 X10 Funding Cache refresh (current=91)
+10:54:49 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+10:54:49 [DEBUG] 📊 Market stats LINEA-USD: price=$0.007625, OI=$118042029, vol24h=$0
+10:54:49 [DEBUG] ✅ LINEA-USD: X10=$70,110, Lighter=$118,042,029, Total=$118,112,139
+10:54:50 [DEBUG] 💓 [lighter] Alive (uptime=65s, last_msg=0s, last_server_ping=5s, server_pings_answered=1)
+10:54:50 [DEBUG] 💓 [x10_funding] Alive (uptime=65s, last_msg=44s, last_pong=65s, pings=0, pongs=0)
+10:54:50 [DEBUG] 💓 [x10_account] Alive (uptime=65s, last_msg=40s, last_pong=65s, pings=2, pongs=0)
+10:54:50 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=65s, last_msg=0s, last_pong=65s, pings=0, pongs=0)
+10:54:50 [DEBUG] 💓 [x10_trades] Alive (uptime=65s, last_msg=1s, last_pong=65s, pings=0, pongs=0)
+10:54:50 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:50 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:50 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 18.77h, APY: 34.2%)
+10:54:50 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.04h, APY: 27.2%)
+10:54:50 [INFO] ✅ LINEA-USD: Expected profit $0.0400 in 24.0h (breakeven: 5.92h, APY: 71.0%)
+10:54:50 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 13.60h, APY: 41.2%)
+10:54:50 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.58h, APY: 34.2%)
+10:54:50 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 9.86h, APY: 48.2%)
+10:54:50 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 7.68h, APY: 67.5%)
+10:54:50 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 15.57h, APY: 34.2%)
+10:54:50 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:54:50 [INFO] 🎯 Found 5 opportunities
+10:54:50 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:51 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:51 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:51 [INFO] Lighter: Found 1 open positions
+10:54:51 [DEBUG] 📊 Market stats AVAX-USD: price=$13.377200, OI=$204906, vol24h=$0
+10:54:51 [DEBUG] ✅ AVAX-USD: X10=$379,179, Lighter=$204,906, Total=$584,085
+10:54:51 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 81 Preise
+10:54:51 [DEBUG] X10: Funding Refresh OK, cache=91
+10:54:51 [DEBUG] 📊 Lighter Funding Cache refresh (current=112)
+10:54:51 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:51 [DEBUG] Lighter: Loaded 388 funding rates
+10:54:51 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:51 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:52 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:52 [INFO] 🚀 Launching 1 trades
+10:54:52 [INFO] 🚀 Launching ZEC-USD (APY=41.2%)
+10:54:52 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:52 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:52 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.1630, min_qty_usd=$45.22, min_notional_api=$10.00, final=$49.74
+10:54:52 [INFO] ✅ Launched 1 trades this cycle
+10:54:53 [DEBUG] Lighter: Loaded 117 prices via REST
+10:54:53 [DEBUG] Lighter: Funding Refresh OK, cache=115
+10:54:53 [DEBUG] 📊 Market stats AERO-USD: price=$0.608610, OI=$2317176, vol24h=$0
+10:54:53 [DEBUG] ✅ AERO-USD: X10=$369,885, Lighter=$2,317,176, Total=$2,687,060
+10:54:53 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:53 [INFO] Lighter: Found 1 open positions
+10:54:55 [DEBUG] 📊 Market stats BNB-USD: price=$889.776800, OI=$14871, vol24h=$0
+10:54:55 [DEBUG] ✅ BNB-USD: X10=$1,558,196, Lighter=$14,871, Total=$1,573,067
+10:54:55 [DEBUG] 💓 [lighter] Alive (uptime=70s, last_msg=0s, last_server_ping=10s, server_pings_answered=1)
+10:54:55 [DEBUG] 💓 [x10_funding] Alive (uptime=70s, last_msg=49s, last_pong=70s, pings=0, pongs=0)
+10:54:55 [DEBUG] 💓 [x10_account] Alive (uptime=70s, last_msg=45s, last_pong=70s, pings=2, pongs=0)
+10:54:55 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=70s, last_msg=0s, last_pong=70s, pings=0, pongs=0)
+10:54:55 [DEBUG] 💓 [x10_trades] Alive (uptime=70s, last_msg=3s, last_pong=70s, pings=0, pongs=0)
+10:54:55 [WARNING] ⏰ [RETRY] LINEA-USD: Retry order timeout after 30.0s (attempt 1/2)
+10:54:55 [INFO] 🔍 Lighter: Attempting to resolve Hash 734a054182edaaa7deec7b9279e7fe394955f8fefd4c99212bdb1aaa0a91787799808c8116b8b73d to Order ID for LINEA-USD...
+10:54:55 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:54:55 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:54:55 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:55 [INFO] Lighter: Found 1 open positions
+10:54:56 [WARNING] ⏰ [RETRY] CRV-USD: Retry order timeout after 30.0s (attempt 1/2)
+10:54:56 [INFO] 🔍 Lighter: Attempting to resolve Hash 82bae4cf717ffd0c668dd173b2a166da86a9a87a89a9178ae6e21db3e851dd8db4a5cfe1d8b1f02f to Order ID for CRV-USD...
+10:54:56 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.40h, APY: 34.2%)
+10:54:56 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.57h, APY: 27.2%)
+10:54:56 [INFO] ✅ LINEA-USD: Expected profit $0.0400 in 24.0h (breakeven: 5.92h, APY: 71.0%)
+10:54:56 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.31h, APY: 38.5%)
+10:54:56 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.77h, APY: 32.4%)
+10:54:56 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 11.00h, APY: 48.2%)
+10:54:56 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 6.09h, APY: 66.6%)
+10:54:56 [INFO] ✅ Found 7 opportunities from 62 valid pairs
+10:54:56 [INFO] 🎯 Found 5 opportunities
+10:54:56 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:54:56 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:54:56 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:56 [INFO] ℹ️ Lighter Cancel: Hash 734a054182... not found in open orders. Assuming closed.
+10:54:56 [DEBUG] 📊 Market stats 1000SHIB-USD: price=$0.008362, OI=$185799119, vol24h=$0
+10:54:56 [DEBUG] ✅ 1000SHIB-USD: X10=$90,850, Lighter=$185,799,119, Total=$185,889,969
+10:54:56 [WARNING] ⏰ [RETRY] TIA-USD: Retry order timeout after 30.0s (attempt 1/2)
+10:54:56 [INFO] 🔍 Lighter: Attempting to resolve Hash 304067e694068704237aa669aca48a134283f55b79d4d38631194535b0069057e85bcd48f6f363da to Order ID for TIA-USD...
+10:54:57 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:57 [INFO] ℹ️ Lighter Cancel: Hash 304067e694... not found in open orders. Assuming closed.
+10:54:57 [DEBUG] Lighter REST GET /api/v1/orders returned 404 (no data - OK)
+10:54:57 [INFO] ℹ️ Lighter Cancel: Hash 82bae4cf71... not found in open orders. Assuming closed.
+10:54:57 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:54:57 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:54:57 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:54:57 [INFO] 📊 Positions: X10=1, Lighter=1
+10:54:57 [INFO] 🚀 Launching 1 trades
+10:54:57 [INFO] 🚀 Launching ZEC-USD (APY=38.5%)
+10:54:57 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:54:57 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:54:57 [INFO] Lighter: Found 1 open positions
+10:54:57 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:54:57 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.2910, min_qty_usd=$45.23, min_notional_api=$10.00, final=$49.75
+10:54:57 [INFO] ✅ Launched 1 trades this cycle
+10:55:00 [DEBUG] 💓 [lighter] Alive (uptime=75s, last_msg=0s, last_server_ping=15s, server_pings_answered=1)
+10:55:00 [DEBUG] 💓 [x10_account] Alive (uptime=75s, last_msg=50s, last_pong=75s, pings=2, pongs=0)
+10:55:00 [DEBUG] 💓 [x10_trades] Alive (uptime=75s, last_msg=8s, last_pong=75s, pings=0, pongs=0)
+10:55:00 [DEBUG] 💓 [x10_funding] Alive (uptime=75s, last_msg=54s, last_pong=75s, pings=0, pongs=0)
+10:55:00 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=75s, last_msg=0s, last_pong=75s, pings=0, pongs=0)
+10:55:00 [INFO] 🔄 [RETRY] LINEA-USD: Attempt 2/2 (price adjustment: 0.200%)
+10:55:00 [DEBUG] 💰 [RETRY] LINEA-USD: Original price=0.007627, Adjusted price=0.007612 (SELL)
+10:55:00 [DEBUG] ⚠️ LINEA-USD Lighter orderbook stale (39.0s)
+10:55:00 [DEBUG] 📊 Market stats ZEC-USD: price=$452.291000, OI=$17548, vol24h=$0
+10:55:00 [DEBUG] ✅ ZEC-USD: X10=$1,499,792, Lighter=$17,548, Total=$1,517,340
+10:55:00 [DEBUG] 📚 LINEA-USD Lighter orderbook refreshed via REST
+10:55:00 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619700.7542937
+10:55:00 [DEBUG] ✅ LINEA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $66184 depth, 0.01% spread
+10:55:00 [DEBUG] 📚 LINEA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619700.7542937
+10:55:00 [DEBUG] ⏱️ LINEA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=2511.33, base=60.0s)
+10:55:00 [INFO] 🚀 LIGHTER OPEN LINEA-USD: side=SELL, size_usd=$24.40, amount=3200.0, price=$0.007625, TIF=None
+10:55:00 [DEBUG] 🔍 DEBUG: LINEA-USD market_id = 76 (raw=76, type=<class 'int'>)
+10:55:00 [INFO] 🛡️ Maker Price LINEA-USD SELL: $0.007627 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.007626, Ask=$0.007627, Tick=1e-06)
+10:55:00 [DEBUG] QUANTIZE LINEA-USD: Notional=$24.4 -> RawAmt=3200.000000 -> QuantAmt=3200.000000 (x0.0001) -> BaseInt=3200
+10:55:00 [DEBUG] 📋 [TIF] LINEA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:55:00 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:55:00 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:55:01 [INFO] 🔄 [RETRY] TIA-USD: Attempt 2/2 (price adjustment: 0.200%)
+10:55:01 [DEBUG] 💰 [RETRY] TIA-USD: Original price=0.583050, Adjusted price=0.581884 (SELL)
+10:55:01 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (38.1s)
+10:55:01 [INFO] 🔄 [RETRY] CRV-USD: Attempt 2/2 (price adjustment: 0.200%)
+10:55:01 [DEBUG] 💰 [RETRY] CRV-USD: Original price=0.399450, Adjusted price=0.398651 (SELL)
+10:55:01 [DEBUG] ⚠️ CRV-USD Lighter orderbook stale (38.9s)
+10:55:01 [DEBUG] 🔄 Fetched fresh nonce: 7345 (cached next: 7346)
+10:55:01 [INFO] 🔒 Locked execution for LINEA-USD SELL (Nonce: 7345)...
+10:55:01 [DEBUG] ✅ [ORDER_TYPE] LINEA-USD: Using ORDER_TYPE_LIMIT = 0
+10:55:01 [DEBUG] ℹ️ [ORDER_TYPE] LINEA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:55:01 [DEBUG] ✅ [REDUCE_ONLY] LINEA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:55:01 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":76,"ClientOrderIndex":1765619777254,"BaseAmount":3200,"Price":7627,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038901107,"ExpiredAt":1765620300107,"Nonce":7345,"Sig":"PF8B6rexOJxox2GZ+1Ww6hRqFmadHpw7XS3Wb2roNZR2jfsyQrbkHfUWI9gShZrHlJi5QMZED/MwtyQtgOBa6neyGw0LlGhYTysyOLcbcjw="}
+10:55:01 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.40h, APY: 34.2%)
+10:55:01 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.57h, APY: 27.2%)
+10:55:01 [INFO] ✅ LINEA-USD: Expected profit $0.0400 in 24.0h (breakeven: 5.92h, APY: 71.0%)
+10:55:01 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.31h, APY: 38.5%)
+10:55:01 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.77h, APY: 32.4%)
+10:55:01 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 11.00h, APY: 48.2%)
+10:55:01 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 6.09h, APY: 66.6%)
+10:55:01 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.18h, APY: 35.0%)
+10:55:01 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:55:01 [INFO] 🎯 Found 5 opportunities
+10:55:01 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:55:01 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+10:55:01 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619701.3641257
+10:55:01 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $149356 depth, 0.03% spread
+10:55:01 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619701.3641257
+10:55:01 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=1614.25, base=60.0s)
+10:55:01 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$24.48, amount=42.0, price=$0.582870, TIF=None
+10:55:01 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+10:55:01 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.582910 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.58276, Ask=$0.58291, Tick=1e-05)
+10:55:01 [DEBUG] QUANTIZE TIA-USD: Notional=$24.48054 -> RawAmt=42.000000 -> QuantAmt=42.000000 (x0.0001) -> BaseInt=420
+10:55:01 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='334e4dadba627821a3df7d36cd0f019da7899ba41d7dce10e6963d287be2b0676d2c242675a54bed' predicted_execution_time_ms=1765619687537 additional_properties={}
+10:55:01 [INFO] ✅ Lighter Order Sent: 334e4dadba627821a3df7d36cd0f019da7899ba41d7dce10e6963d287be2b0676d2c242675a54bed
+10:55:01 [INFO] ✅ [RETRY] LINEA-USD: Retry order placed: 334e4dadba627821a3df7d36cd0f019da7899ba4...
+10:55:01 [DEBUG] 📚 CRV-USD Lighter orderbook refreshed via REST
+10:55:01 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619701.4609878
+10:55:01 [DEBUG] ✅ CRV-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $240562 depth, 0.07% spread
+10:55:01 [DEBUG] 📚 CRV-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619701.4609878
+10:55:01 [DEBUG] ⏱️ CRV-USD: Dynamic timeout calculated: 30.0s (depth_ratio=4196.82, base=60.0s)
+10:55:01 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:55:01 [DEBUG] ⚡ Using cached nonce: 7346 (age: 0.6s)
+10:55:01 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7346)...
+10:55:01 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+10:55:01 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:55:01 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:55:01 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765619763391,"BaseAmount":420,"Price":58291,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038901467,"ExpiredAt":1765620300467,"Nonce":7346,"Sig":"Yhur9UHNSLeYkSx1bGVGPZUNETcY9CP4FRbsp1wlPh/m1CIxH5cOHD346DmxZLaoD0k5LyD9kRvj61TDu0WcuzCEv906h6QemW9qw//4vWA="}
+10:55:01 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:55:01 [INFO] 🚀 LIGHTER OPEN CRV-USD: side=SELL, size_usd=$24.76, amount=62.0, price=$0.399400, TIF=None
+10:55:01 [DEBUG] 🔍 DEBUG: CRV-USD market_id = 36 (raw=36, type=<class 'int'>)
+10:55:01 [INFO] 🛡️ Maker Price CRV-USD SELL: $0.399670 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.3994, Ask=$0.39967, Tick=1e-05)
+10:55:01 [DEBUG] QUANTIZE CRV-USD: Notional=$24.7628 -> RawAmt=62.000000 -> QuantAmt=62.000000 (x0.0001) -> BaseInt=620
+10:55:01 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='1b072d3b0bd9ba8cc6d6d6e9fc46436146cfbcfff7ec8a683bd7eb2b6b691c1bf7d511156d1cf640' predicted_execution_time_ms=1765619687897 additional_properties={}
+10:55:01 [INFO] ✅ Lighter Order Sent: 1b072d3b0bd9ba8cc6d6d6e9fc46436146cfbcfff7ec8a683bd7eb2b6b691c1bf7d511156d1cf640
+10:55:01 [INFO] ✅ [RETRY] TIA-USD: Retry order placed: 1b072d3b0bd9ba8cc6d6d6e9fc46436146cfbcff...
+10:55:01 [DEBUG] 📋 [TIF] CRV-USD: Using TIF=1, expiry=-1 (not IOC)
+10:55:01 [DEBUG] ⚡ Using cached nonce: 7347 (age: 1.0s)
+10:55:01 [INFO] 🔒 Locked execution for CRV-USD SELL (Nonce: 7347)...
+10:55:01 [DEBUG] ✅ [ORDER_TYPE] CRV-USD: Using ORDER_TYPE_LIMIT = 0
+10:55:01 [DEBUG] ℹ️ [ORDER_TYPE] CRV-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:55:01 [DEBUG] ✅ [REDUCE_ONLY] CRV-USD: Limit Order reduce_only=False (will be 0 in API)
+10:55:01 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":36,"ClientOrderIndex":1765619718644,"BaseAmount":620,"Price":39967,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038901878,"ExpiredAt":1765620300878,"Nonce":7347,"Sig":"BWH7Xn0A21Hg/LW8zVSs7Xc1uNkeeuUhudm0SJzsK2IfyL5bQZBdX7owjdWYEiFu2rxGXT691JCuegP7q7Bf1kJy3I6IdIwAm5pJrs5sDz8="}
+10:55:02 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:02 [INFO] Lighter: Found 1 open positions
+10:55:02 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='10894394a1589c1afe4609383f3481bdfb377c46ed72d855089cba208676047038c158421734eb69' predicted_execution_time_ms=1765619688311 additional_properties={}
+10:55:02 [INFO] ✅ Lighter Order Sent: 10894394a1589c1afe4609383f3481bdfb377c46ed72d855089cba208676047038c158421734eb69
+10:55:02 [INFO] ✅ [RETRY] CRV-USD: Retry order placed: 10894394a1589c1afe4609383f3481bdfb377c46...
+10:55:02 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:55:02 [DEBUG] 📊 Market stats NEAR-USD: price=$1.662490, OI=$780665, vol24h=$0
+10:55:02 [DEBUG] ✅ NEAR-USD: X10=$270,857, Lighter=$780,665, Total=$1,051,522
+10:55:02 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:55:02 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:55:02 [INFO] 📊 Positions: X10=1, Lighter=1
+10:55:02 [INFO] 🚀 Launching 1 trades
+10:55:02 [INFO] 🚀 Launching ZEC-USD (APY=38.5%)
+10:55:02 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:55:02 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:55:02 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.2910, min_qty_usd=$45.23, min_notional_api=$10.00, final=$49.75
+10:55:03 [INFO] ✅ Launched 1 trades this cycle
+10:55:03 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:03 [INFO] Lighter: Found 1 open positions
+10:55:04 [DEBUG] 📊 Market stats EIGEN-USD: price=$0.450620, OI=$1298775, vol24h=$0
+10:55:04 [DEBUG] ✅ EIGEN-USD: X10=$102,877, Lighter=$1,298,775, Total=$1,401,651
+10:55:05 [DEBUG] 💓 [lighter] Alive (uptime=80s, last_msg=0s, last_server_ping=20s, server_pings_answered=1)
+10:55:05 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=80s, last_msg=0s, last_pong=80s, pings=0, pongs=0)
+10:55:05 [DEBUG] 💓 [x10_funding] Alive (uptime=80s, last_msg=59s, last_pong=80s, pings=0, pongs=0)
+10:55:05 [DEBUG] 💓 [x10_trades] Alive (uptime=80s, last_msg=3s, last_pong=80s, pings=0, pongs=0)
+10:55:05 [DEBUG] 💓 [x10_account] Alive (uptime=80s, last_msg=55s, last_pong=80s, pings=2, pongs=0)
+10:55:05 [DEBUG] 📊 Market stats TON-USD: price=$1.613420, OI=$748084, vol24h=$0
+10:55:05 [DEBUG] ✅ TON-USD: X10=$97,390, Lighter=$748,084, Total=$845,474
+10:55:05 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0020, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:05 [INFO] Lighter: Found 1 open positions
+10:55:06 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:55:06 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:55:06 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.40h, APY: 34.2%)
+10:55:06 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.57h, APY: 27.2%)
+10:55:06 [INFO] ✅ LINEA-USD: Expected profit $0.0400 in 24.0h (breakeven: 5.92h, APY: 71.0%)
+10:55:06 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.31h, APY: 38.5%)
+10:55:06 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.93h, APY: 33.3%)
+10:55:06 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.81h, APY: 49.1%)
+10:55:06 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 6.01h, APY: 67.5%)
+10:55:06 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.18h, APY: 35.0%)
+10:55:06 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:55:06 [INFO] 🎯 Found 5 opportunities
+10:55:06 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:55:06 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:55:07 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:55:07 [DEBUG] 📊 Market stats XRP-USD: price=$2.032855, OI=$5102188, vol24h=$0
+10:55:07 [DEBUG] ✅ XRP-USD: X10=$874,717, Lighter=$5,102,188, Total=$5,976,905
+10:55:07 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:55:07 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:55:08 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:08 [INFO] Lighter: Found 1 open positions
+10:55:08 [INFO] 📊 Positions: X10=1, Lighter=1
+10:55:08 [INFO] 🚀 Launching 1 trades
+10:55:08 [INFO] 🚀 Launching ZEC-USD (APY=38.5%)
+10:55:08 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+10:55:08 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:55:08 [DEBUG] MIN_NOTIONAL ZEC-USD: min_base=0.10000000 coins, price=$452.2910, min_qty_usd=$45.23, min_notional_api=$10.00, final=$49.75
+10:55:08 [INFO] ✅ Launched 1 trades this cycle
+10:55:10 [DEBUG] 💓 [lighter] Alive (uptime=85s, last_msg=0s, last_server_ping=25s, server_pings_answered=1)
+10:55:10 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:10 [INFO] Lighter: Found 1 open positions
+10:55:10 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=85s, last_msg=0s, last_pong=85s, pings=0, pongs=0)
+10:55:10 [DEBUG] 💓 [x10_funding] Alive (uptime=85s, last_msg=4s, last_pong=85s, pings=0, pongs=0)
+10:55:10 [DEBUG] 💓 [x10_trades] Alive (uptime=85s, last_msg=1s, last_pong=85s, pings=0, pongs=0)
+10:55:10 [DEBUG] 💓 [x10_account] Alive (uptime=85s, last_msg=60s, last_pong=85s, pings=2, pongs=0)
+10:55:11 [DEBUG] 📊 Market stats 1000BONK-USD: price=$0.009220, OI=$84239232, vol24h=$0
+10:55:11 [DEBUG] ✅ 1000BONK-USD: X10=$119,119, Lighter=$84,239,232, Total=$84,358,351
+10:55:11 [DEBUG] Price cache status: X10=81/65, Lighter=117/65
+10:55:11 [DEBUG] 🔍 Scanning 65 pairs. Lighter markets: 116, X10 markets: 91
+10:55:11 [INFO] ✅ PENDLE-USD: Expected profit $0.0100 in 24.0h (breakeven: 16.40h, APY: 34.2%)
+10:55:11 [INFO] ✅ JUP-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.12h, APY: 28.0%)
+10:55:11 [INFO] ✅ LINEA-USD: Expected profit $0.0400 in 24.0h (breakeven: 5.92h, APY: 71.0%)
+10:55:11 [INFO] ✅ ZEC-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.31h, APY: 38.5%)
+10:55:11 [INFO] ✅ EIGEN-USD: Expected profit $0.0100 in 24.0h (breakeven: 11.93h, APY: 33.3%)
+10:55:11 [INFO] ✅ CRV-USD: Expected profit $0.0200 in 24.0h (breakeven: 10.81h, APY: 49.1%)
+10:55:11 [INFO] ✅ TIA-USD: Expected profit $0.0300 in 24.0h (breakeven: 6.01h, APY: 67.5%)
+10:55:11 [INFO] ✅ AVNT-USD: Expected profit $0.0100 in 24.0h (breakeven: 14.18h, APY: 35.0%)
+10:55:11 [INFO] ✅ Found 8 opportunities from 62 valid pairs
+10:55:11 [INFO] 🎯 Found 5 opportunities
+10:55:11 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+10:55:12 [DEBUG] 📊 TRX Lighter PnL: uPnL=$0.0010, rPnL=$0.0000, entry=$0.273050, funding=$0.0000
+10:55:12 [INFO] Lighter: Found 1 open positions
+10:55:12 [INFO] 💰 X10 verfügbare Balance: $206.09 USDC
+10:55:12 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+10:55:12 [DEBUG] Lighter Balance: Raw=$252.07, Safe=$239.47
+10:55:12 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+10:55:13 [INFO] 🛑 Initiating shutdown...
+10:55:13 [INFO] 🛑 ParallelExecutionManager: Stopping 3 active executions...
+10:55:13 [INFO] ⏳ Waiting up to 30.0s for 3 executions to complete...
+10:55:13 [DEBUG] 📊 Market stats TRX-USD: price=$0.273040, OI=$5897629, vol24h=$0
+10:55:13 [DEBUG] ✅ TRX-USD: X10=$334,193, Lighter=$5,897,629, Total=$6,231,822
+10:55:13 [WARNING] ⚡ [RETRY] CRV-USD: SHUTDOWN detected - aborting retry wait!
+10:55:13 [WARNING] ⏰ [RETRY] CRV-USD: Retry order timeout after 30.0s (attempt 2/2)
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 10894394a1589c1afe4609383f3481bdfb377c46ed72d855089cba208676047038c158421734eb69
+10:55:13 [WARNING] ❌ [RETRY] CRV-USD: All 2 retry attempts failed
+10:55:13 [WARNING] ⏰ [MAKER STRATEGY] CRV-USD: Wait timeout! Cancelling Lighter order a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea...
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping get_order for a326522012745bc441097b153464d827bd87fdd6823b4e33788f625c421c6590ab92235be9bf0cea
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping fetch_my_trades for CRV-USD
+10:55:13 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+10:55:13 [WARNING] ⚡ [MAKER STRATEGY] CRV-USD: SHUTDOWN - skipping extended ghost fill checks!
+10:55:13 [INFO] ✓ [MAKER STRATEGY] CRV-USD: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [INFO] 📊 TRADE SUMMARY:  CRV-USD
+10:55:13 [INFO]    Result: TIMEOUT
+10:55:13 [INFO]    Reason:  Lighter order not filled (no retries available)
+10:55:13 [INFO]    Total Time: 81.89s
+10:55:13 [INFO]    State: LEG1_SENT
+10:55:13 [INFO]    Phase Times:
+10:55:13 [INFO]       - orderbook_validation: 0.27s
+10:55:13 [INFO]       - lighter_order_placement: 0.38s
+10:55:13 [INFO]       - lighter_fill_wait: 30.05s
+10:55:13 [INFO]    Lighter Order:  a326522012745bc441097b153464d827bd87fdd6...
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [WARNING] ❌ Trade execution failed for CRV-USD
+10:55:13 [WARNING] ⚡ [RETRY] TIA-USD: SHUTDOWN detected - aborting retry wait!
+10:55:13 [WARNING] ⏰ [RETRY] TIA-USD: Retry order timeout after 30.0s (attempt 2/2)
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 1b072d3b0bd9ba8cc6d6d6e9fc46436146cfbcfff7ec8a683bd7eb2b6b691c1bf7d511156d1cf640
+10:55:13 [WARNING] ❌ [RETRY] TIA-USD: All 2 retry attempts failed
+10:55:13 [WARNING] ⏰ [MAKER STRATEGY] TIA-USD: Wait timeout! Cancelling Lighter order 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825...
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping get_order for 68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e8acbbb47443be5f49bc414e9cf29e1df2d9a7825
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping fetch_my_trades for TIA-USD
+10:55:13 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+10:55:13 [WARNING] ⚡ [MAKER STRATEGY] TIA-USD: SHUTDOWN - skipping extended ghost fill checks!
+10:55:13 [INFO] ✓ [MAKER STRATEGY] TIA-USD: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [INFO] 📊 TRADE SUMMARY:  TIA-USD
+10:55:13 [INFO]    Result: TIMEOUT
+10:55:13 [INFO]    Reason:  Lighter order not filled (no retries available)
+10:55:13 [INFO]    Total Time: 81.83s
+10:55:13 [INFO]    State: LEG1_SENT
+10:55:13 [INFO]    Phase Times:
+10:55:13 [INFO]       - orderbook_validation: 0.27s
+10:55:13 [INFO]       - lighter_order_placement: 0.66s
+10:55:13 [INFO]       - lighter_fill_wait: 30.44s
+10:55:13 [INFO]    Lighter Order:  68ad6b40c0fdc3843c351b2fb95e8f6d0fc3fa0e...
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [WARNING] ❌ Trade execution failed for TIA-USD
+10:55:13 [INFO] 📊 Positions: X10=1, Lighter=1
+10:55:13 [INFO] 🚀 Launching 1 trades
+10:55:13 [INFO] 🚀 Launching TIA-USD (APY=67.5%)
+10:55:13 [DEBUG] [X10] Shutdown active - returning cached positions
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:13 [DEBUG] ✅ Exposure Check: 0.12x <= 5.0x
+10:55:13 [DEBUG] MIN_NOTIONAL TIA-USD: min_base=3.00000000 coins, price=$0.5829, min_qty_usd=$1.75, min_notional_api=$10.00, final=$11.00
+10:55:13 [INFO] 🎰 KELLY TIA-USD: win_rate=50.0%, kelly_fraction=1.0000
+10:55:13 [DEBUG] 🔍 Liquidity Check: Skipping depth check for TIA-USD (Maker Order)
+10:55:13 [INFO] 🚀 Opening TIA-USD: Size=$25.0
+10:55:13 [INFO] ═══════════════════════════════════════════════════════════
+10:55:13 [INFO] 🚀 HEDGED TRADE START: TIA-USD
+10:55:13 [INFO]    Lighter: SELL $25.00 @ $0.582870
+10:55:13 [INFO]    X10:     BUY $25.00 @ $0.582885
+10:55:13 [INFO]    Strategy: MAKER (Lighter first, then X10 hedge)
+10:55:13 [INFO] ═══════════════════════════════════════════════════════════
+10:55:13 [DEBUG] [X10] Shutdown active - skipping get_open_orders for TIA-USD
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping get_open_orders for TIA-USD
+10:55:13 [INFO] ⚖️ Size Alignment TIA-USD: 25.00$ -> 24.48$ (42.000000 Coins) to match both exchanges (X10 Step: 1.0, Lighter Step: 0.0001)
+10:55:13 [INFO] 📋 [PHASE 0] TIA-USD:  Validating orderbook...
+10:55:13 [DEBUG] ⚠️ TIA-USD Lighter orderbook stale (11.9s)
+10:55:13 [DEBUG] 📚 TIA-USD Lighter orderbook refreshed via REST
+10:55:13 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619713.493265
+10:55:13 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $149356 depth, 0.03% spread
+10:55:13 [INFO] ✅ [PHASE 0] TIA-USD: Orderbook validation PASSED (0.25s)
+10:55:13 [INFO] 📤 [PHASE 1] TIA-USD: Placing Lighter SELL order...
+10:55:13 [INFO]    Size: $24.48 (42.000000 coins)
+10:55:13 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$24.48, amount=42.0, price=$0.582870, TIF=None
+10:55:13 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+10:55:13 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.582910 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.58276, Ask=$0.58291, Tick=1e-05)
+10:55:13 [DEBUG] 🔄 TIA-USD: Shutdown detected - using passed price as mark (mark=$0.582870)
+10:55:13 [DEBUG] QUANTIZE TIA-USD: Notional=$24.48054 -> RawAmt=42.000000 -> QuantAmt=42.000000 (x0.0001) -> BaseInt=420
+10:55:13 [WARNING] ⚡ [RETRY] LINEA-USD: SHUTDOWN detected - aborting retry wait!
+10:55:13 [WARNING] ⏰ [RETRY] LINEA-USD: Retry order timeout after 30.0s (attempt 2/2)
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 334e4dadba627821a3df7d36cd0f019da7899ba41d7dce10e6963d287be2b0676d2c242675a54bed
+10:55:13 [WARNING] ❌ [RETRY] LINEA-USD: All 2 retry attempts failed
+10:55:13 [WARNING] ⏰ [MAKER STRATEGY] LINEA-USD: Wait timeout! Cancelling Lighter order ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415...
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping get_order for ab4c2549b20f1461028b7a45592783cd27e5291c205e03f151dd36eb316191823ff4324b7b351415
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping fetch_my_trades for LINEA-USD
+10:55:13 [INFO] ✓ 404 Double-Check: No fills found in history. Confirmed Cancelled.
+10:55:13 [WARNING] ⚡ [MAKER STRATEGY] LINEA-USD: SHUTDOWN - skipping extended ghost fill checks!
+10:55:13 [INFO] ✓ [MAKER STRATEGY] LINEA-USD: Cancel confirmed (Clean Exit - extended checks skipped during shutdown).
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [INFO] 📊 TRADE SUMMARY:  LINEA-USD
+10:55:13 [INFO]    Result: TIMEOUT
+10:55:13 [INFO]    Reason:  Lighter order not filled (no retries available)
+10:55:13 [INFO]    Total Time: 85.23s
+10:55:13 [INFO]    State: LEG1_SENT
+10:55:13 [INFO]    Phase Times:
+10:55:13 [INFO]       - orderbook_validation: 1.02s
+10:55:13 [INFO]       - lighter_order_placement: 1.50s
+10:55:13 [INFO]       - lighter_fill_wait: 30.39s
+10:55:13 [INFO]    Lighter Order:  ab4c2549b20f1461028b7a45592783cd27e5291c...
+10:55:13 [INFO] ════════════════════════════════════════════════════════════
+10:55:13 [WARNING] ❌ Trade execution failed for LINEA-USD
+10:55:13 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:55:13 [DEBUG] ⚡ Using cached nonce: 7348 (age: 12.8s)
+10:55:13 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7348)...
+10:55:13 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+10:55:13 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:55:13 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:55:13 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765619797892,"BaseAmount":420,"Price":58291,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038913612,"ExpiredAt":1765620312612,"Nonce":7348,"Sig":"C92JYUetfcHyPlID0fWjvR6JVI1Y1eZTVoouksB5FQloA+SY3BTFD4HWPXOvkPE+Zp1mHcJAQBXMbYY9Y/Zp35GNzrtxj6hexFO6z3aFqTw="}
+10:55:13 [INFO] ✅ Launched 1 trades this cycle
+10:55:13 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='862ad3247e55ebd1232b2ced028058f159d04b592f2b5e32014e092b42ce10754c3a0806d8a1077f' predicted_execution_time_ms=1765619700059 additional_properties={}
+10:55:13 [INFO] ✅ Lighter Order Sent: 862ad3247e55ebd1232b2ced028058f159d04b592f2b5e32014e092b42ce10754c3a0806d8a1077f
+10:55:13 [INFO] ✅ [PHASE 1] TIA-USD: Lighter order placed (0.41s)
+10:55:13 [INFO]    Order ID: 862ad3247e55ebd1232b2ced028058f159d04b59...
+10:55:13 [INFO] ⏳ [PHASE 1.5] TIA-USD: Waiting for Lighter fill (max 2.0s, dynamic timeout)...
+10:55:13 [WARNING] ⚡ [PHASE 1.5] TIA-USD:  SHUTDOWN detected - aborting wait!
+10:55:13 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619713.493265
+10:55:13 [WARNING] ⏰ [PHASE 1.5] TIA-USD: Fill timeout after 0.00s (orderbook: bid_depth=$149356.16, ask_depth=$38068.39, spread=2.574%)
+10:55:13 [INFO] 🔄 [RETRY] TIA-USD: Cancelling original order 862ad3247e55ebd1232b2ced028058f159d04b59...
+10:55:13 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for 862ad3247e55ebd1232b2ced028058f159d04b592f2b5e32014e092b42ce10754c3a0806d8a1077f
+10:55:14 [DEBUG] 💓 [x10_account] Sent keepalive ping #3: 1765619714014
+10:55:14 [DEBUG] 💓 [x10_account] Health OK - last activity 64s ago
+10:55:14 [DEBUG] 💓 [x10_account] Health OK - msgs=8 (ORDER:2, TRADE:1, POSITION:2, BALANCE:3)
+10:55:14 [DEBUG] ParallelExec stop: 
+10:55:14 [DEBUG] Cancelled task: maintenance_loop
+10:55:14 [DEBUG] Cancelled task: cleanup_finished_tasks
+10:55:14 [DEBUG] Cancelled task: health_reporter
+10:55:14 [DEBUG] Cancelled task: farm_loop
+10:55:14 [DEBUG] Cancelled task: logic_loop
+10:55:14 [DEBUG] Cancelled task: trade_management_loop
+10:55:14 [DEBUG] Cancelled task: connection_watchdog
+10:55:14 [INFO] Farm loop cancelled
+10:55:14 [INFO] Logic loop cancelled
+10:55:14 [INFO] Connection watchdog cancelled
+10:55:14 [INFO] 🛑 Shutdown orchestrator start (reason=bot_event_loop)
+10:55:14 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+10:55:14 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+10:55:14 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+10:55:14 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+10:55:14 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:14 [DEBUG] [X10] Shutdown active - returning cached positions
+10:55:14 [INFO] 📸 Position snapshot: X10=1, Lighter=1
+10:55:14 [INFO] ⏳ Waiting for 1 active executions to complete or rollback...
+10:55:14 [INFO] ✅ ParallelExecutionManager: Already stopping
+10:55:14 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:14 [DEBUG] [X10] Shutdown active - returning cached positions
+10:55:14 [INFO] ⚡ Attempting global Lighter cancel...
+10:55:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:14 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7349)...
+10:55:14 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765620313280,"Nonce":7349,"Sig":"Yuc1biGDw39zvVsTG8mYtdiJFxYbYLne/GccZ244Iw07IPzSbVI7e7gv03amDKNDgn6vZ8fufFe2j5yoPwuTW6BMGMQ/nQp45N9xlORfz34="}
+10:55:14 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='61638ce92a33495ef2a043cdaae6ca7d956ac2e7a674d47d7bb245fc06147ce912d4990fd88e44f5' predicted_execution_time_ms=1765619700509 additional_properties={}
+10:55:14 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765620313280,"Nonce":7349,"Sig":"Yuc1biGDw39zvVsTG8mYtdiJFxYbYLne/GccZ244Iw07IPzSbVI7e7gv03amDKNDgn6vZ8fufFe2j5yoPwuTW6BMGMQ/nQp45N9xlORfz34="})
+10:55:14 [DEBUG] 🔄 Nonce cache invalidated
+10:55:14 [INFO] 🛑 Cancelling open orders for 2 symbols (LighterGlobal=True)...
+10:55:14 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TRX-USD
+10:55:14 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TIA-USD
+10:55:14 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:14 [DEBUG] [X10] Shutdown active - returning cached positions
+10:55:14 [INFO] 🔻 Close attempt 1/3 | x10=1, lighter=1
+10:55:14 [INFO] 🛑 Closing X10 TRX-USD (SELL 100.0)
+10:55:14 [INFO] 📊 TRX-USD Pre-Close PnL: uPnL=$0.0010, rPnL=$0.0000, funding=$0.0000, entry=$0.273050
+10:55:14 [INFO] 🛑 Closing Lighter TRX-USD: BUY 100.0 (IOC reduce_only, price=0.27304)
+10:55:14 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TRX-USD
+10:55:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:14 [DEBUG] close_live_position: symbol=TRX-USD, side=SELL, notional=$27.304000000000002
+10:55:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:14 [INFO] ✅ Lighter: ImmediateCancelAll already executed (deduplicated)
+10:55:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:14 [DEBUG] [LIGHTER] Rate limiter cancelled during fetch_market_stats for FIL-USD
+10:55:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:14 [DEBUG] ✅ FIL-USD: X10=$0, Lighter=$371,032, Total=$371,032
+10:55:15 [DEBUG] [X10] Shutdown active - returning cached positions
+10:55:15 [INFO] 🔻 X10 CLOSE TRX-USD: size=100.000000, side=SELL
+10:55:15 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+10:55:15 [DEBUG] [X10] Rate limiter cancelled during open_live_position (reduce_only=True) - continuing for position close
+10:55:15 [DEBUG] ✅ [ORDER_TYPE] TRX-USD: Using TimeInForce.IOC for Market Order (reduce_only)
+10:55:15 [DEBUG] ℹ️ [TIF] TRX-USD: Available TimeInForce values: GTT=GTT, IOC=IOC, FOK=FOK
+10:55:15 [DEBUG] ✅ [TIF] TRX-USD: Selected TimeInForce=IOC (post_only=False, reduce_only=True, is_market=True)
+10:55:15 [DEBUG] [X10] Rate limiter acquire() skipped - shutdown active
+10:55:15 [DEBUG] [X10] Rate limiter cancelled during place_order (reduce_only=True) - continuing for position close
+10:55:15 [DEBUG] Placing an order: id=3097886932140162486446269978608110977096244176714886530906569672017035674529
+10:55:15 [DEBUG] Sending POST https://api.starknet.extended.exchange/api/v1/user/order, headers={<RequestHeader.ACCEPT: 'Accept'>: 'application/json', <RequestHeader.CONTENT_TYPE: 'Content-Type'>: 'application/json', <RequestHeader.USER_AGENT: 'User-Agent'>: 'X10PythonTradingClient/0.0.17', <RequestHeader.API_KEY: 'X-Api-Key'>: '***MASKED***'}
+10:55:15 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:15 [DEBUG] MIN_NOTIONAL TRX-USD: min_base=40.00000000 coins, price=$0.2730, min_qty_usd=$10.92, min_notional_api=$10.00, final=$12.01
+10:55:15 [INFO] 🔻 LIGHTER CLOSE TRX-USD: size=-100.000000 coins, side=BUY, price=$0.2730, notional=$27.30, dust=False
+10:55:15 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:15 [DEBUG] ⚡ Skipping validation for reduce_only order TRX-USD ($27.30)
+10:55:15 [INFO] 🚀 LIGHTER OPEN TRX-USD: side=BUY, size_usd=$27.30, amount=100.0, price=$0.273040, TIF=IOC
+10:55:15 [DEBUG] 🔍 DEBUG: TRX-USD market_id = 43 (raw=43, type=<class 'int'>)
+10:55:15 [DEBUG] 🔄 TRX-USD: Shutdown detected - using passed price as mark (mark=$0.273040)
+10:55:15 [DEBUG] QUANTIZE TRX-USD: Notional=$27.304000000000002 -> RawAmt=100.000000 -> QuantAmt=100.000000 (x0.0001) -> BaseInt=1000
+10:55:15 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:15 [DEBUG] 🔍 [TIF] TRX-USD: Processing time_in_force='IOC' (raw='IOC')
+10:55:15 [DEBUG] ✅ [TIF] TRX-USD: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = 0
+10:55:15 [DEBUG] 🔧 [TIF] TRX-USD: Set expiry=0 for IOC order
+10:55:15 [INFO] ⚡ [TIF] TRX-USD: Using IOC order (tif=0, expiry=0, ioc_attr=0)
+10:55:15 [DEBUG] 💓 [lighter] Alive (uptime=90s, last_msg=0s, last_server_ping=30s, server_pings_answered=1)
+10:55:15 [DEBUG] 💓 [x10_trades] Alive (uptime=90s, last_msg=1s, last_pong=90s, pings=0, pongs=0)
+10:55:15 [DEBUG] ⚠️ [x10_account] No messages for 65s (expected every 60s)
+10:55:15 [DEBUG] 💓 [x10_account] Alive (uptime=90s, last_msg=65s, last_pong=90s, pings=3, pongs=0)
+10:55:15 [DEBUG] 💓 [x10_funding] Alive (uptime=90s, last_msg=9s, last_pong=90s, pings=0, pongs=0)
+10:55:15 [DEBUG] 💓 [x10_orderbooks] Alive (uptime=90s, last_msg=0s, last_pong=90s, pings=0, pongs=0)
+10:55:15 [DEBUG] 🔄 Fetched fresh nonce: 7350 (cached next: 7351)
+10:55:15 [INFO] 🔒 Locked execution for TRX-USD BUY (Nonce: 7350)...
+10:55:15 [INFO] ⚡ MARKET ORDER TRX-USD: BUY 1000 @ avg_price=28825 (shutdown fast-close)
+10:55:15 [DEBUG] ✅ [REDUCE_ONLY] TRX-USD: Market Order reduce_only=True (will be 1 in API)
+10:55:15 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":43,"ClientOrderIndex":1765619720712,"BaseAmount":1000,"Price":28825,"IsAsk":0,"Type":1,"TimeInForce":0,"ReduceOnly":1,"TriggerPrice":0,"OrderExpiry":0,"ExpiredAt":1765620314337,"Nonce":7350,"Sig":"pOq2Rh5BOK0iODtViEw21O3A/3tIfXbWvCcOj35Ihs7YyhrrDGfqSA2llOMHL02M3i84w5DE5cj/r+UnSwINrceaaPymMgiG1udlL4DrZlo="}
+10:55:15 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='7078e8fcea5a9351d34914db43022ea2956092c07096f6023e74a10949e4e92151c69052664b2742' predicted_execution_time_ms=1765619701773 additional_properties={}
+10:55:15 [INFO] ✅ Lighter Order Sent: 7078e8fcea5a9351d34914db43022ea2956092c07096f6023e74a10949e4e92151c69052664b2742
+10:55:15 [INFO] ✅ Lighter close TRX-USD: Erfolgreich ($27.30)
+10:55:15 [DEBUG] [LIGHTER] Removed TRX-USD from _positions_cache after successful close
+10:55:15 [INFO] ✅ Lighter TRX-USD closed and tracked
+10:55:15 [INFO] 🔄 [RETRY] TIA-USD: Attempt 1/2 (price adjustment: 0.100%)
+10:55:15 [DEBUG] 💰 [RETRY] TIA-USD: Original price=0.582870, Adjusted price=0.582287 (SELL)
+10:55:15 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619713.493265
+10:55:15 [DEBUG] ✅ TIA-USD Orderbook excellent for SELL Maker (profile=lighter): Orderbook healthy: 20 bids, $149356 depth, 0.03% spread
+10:55:15 [DEBUG] 📚 TIA-USD Orderbook state: 20 bids, 20 asks, timestamp=1765619713.493265
+10:55:15 [DEBUG] ⏱️ TIA-USD: Dynamic timeout calculated: 30.0s (depth_ratio=1555.05, base=60.0s)
+10:55:15 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:15 [INFO] 🚀 LIGHTER OPEN TIA-USD: side=SELL, size_usd=$24.48, amount=42.0, price=$0.582870, TIF=None
+10:55:15 [DEBUG] 🔍 DEBUG: TIA-USD market_id = 67 (raw=67, type=<class 'int'>)
+10:55:15 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:16 [DEBUG] ✅ [ORDER_TYPE] TRX-USD: Market Order placed (TimeInForce=IOC, post_only=False, reduce_only=True)
+10:55:16 [INFO]  X10 Order: 1999780088921575424
+10:55:16 [INFO] 🛡️ Maker Price TIA-USD SELL: $0.582950 (Best Ask (POST_ONLY - Immediate Fill) | Bid=$0.58277, Ask=$0.58295, Tick=1e-05)
+10:55:16 [DEBUG] 🔄 TIA-USD: Shutdown detected - using passed price as mark (mark=$0.582870)
+10:55:16 [DEBUG] QUANTIZE TIA-USD: Notional=$24.48054 -> RawAmt=42.000000 -> QuantAmt=42.000000 (x0.0001) -> BaseInt=420
+10:55:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:16 [DEBUG] 📋 [TIF] TIA-USD: Using TIF=1, expiry=-1 (not IOC)
+10:55:16 [DEBUG] ⚡ Using cached nonce: 7351 (age: 1.1s)
+10:55:16 [INFO] 🔒 Locked execution for TIA-USD SELL (Nonce: 7351)...
+10:55:16 [DEBUG] ✅ [ORDER_TYPE] TIA-USD: Using ORDER_TYPE_LIMIT = 0
+10:55:16 [DEBUG] ℹ️ [ORDER_TYPE] TIA-USD: ORDER_TYPE_MARKET = 1 (available but not used for limit orders)
+10:55:16 [DEBUG] ✅ [REDUCE_ONLY] TIA-USD: Limit Order reduce_only=False (will be 0 in API)
+10:55:16 [DEBUG] Create Order Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"MarketIndex":67,"ClientOrderIndex":1765619764359,"BaseAmount":420,"Price":58295,"IsAsk":1,"Type":0,"TimeInForce":1,"ReduceOnly":0,"TriggerPrice":0,"OrderExpiry":1768038916146,"ExpiredAt":1765620315146,"Nonce":7351,"Sig":"vYaU4LUbC6MVwMTy47ujojfY7vcczuF7TptA8zlrk12wFUdvPL4aWV3X5bgFsCdhhOiG6cYfaasOAp0xx/2S8d4zH1IOwBgyJhsOQGnofAo="}
+10:55:16 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': False, 'orders': [{'id': 1999780088921575424, 'accountId': 127074, 'externalId': '3097886932140162486446269978608110977096244176714886530906569672017035674529'
+10:55:16 [INFO] ✅ [x10_account] ORDER UPDATE: TRX-USD SELL FILLED qty=100 filled=100 @ $0.27131 (id=1999780088921575424)
+10:55:16 [DEBUG] X10 Adapter: Order update processed - TRX-USD #1999780088921575424 FILLED
+10:55:16 [DEBUG] 📨 [x10_account] RAW: TRADE - {'type': 'TRADE', 'data': {'isSnapshot': False, 'trades': [{'id': 1999780089759272960, 'accountId': 127074, 'market': 'TRX-USD', 'orderId': 1999780088921575424, 'externalOrderId': '3097886932140162486
+10:55:16 [INFO] 💰💰💰 [x10_account] FILL/TRADE: TRX-USD SELL 100.0 @ $0.2727 (Trade: 1999780089759272960, Order: 1999780088921575424, Fee: $0.0061, Taker: True)
+10:55:16 [DEBUG] X10 Adapter: Fill update processed - TRX-USD order=1999780088921575424
+10:55:16 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '208.815281', 'status': 'ACTIVE', 'equity': '208.822418', 'availableForTrade': '208.822418', 'availabl
+10:55:16 [DEBUG] 💰 [x10_account] BALANCE: equity=$208.822418, available=$208.822418, uPnL=$0.007137
+10:55:16 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": false,
+    "positions": [
+      {
+        "id": 1999779813635653632,
+        "accountId": 127074,
+        "market": "TRX-USD",
+        "status": "CLOSED",
+        "side": "LONG",
+        "leverage": "10",
+        "size": "100",
+        "value": "27.301137",
+        "openPrice": "0.27294",
+        "markPrice": "0.2730113797",
+        "liquidationPrice": "0",
+        "margin": "0",
+        "unrealisedPnl": "0",
+        "midPriceUnrealisedPnl": "-0.009500",
+        "realisedPnl": "-0.039276",
+        "createdAt": 1765619636344,
+        "updatedAt": 1765619702178
+      }
+    ]
+  },
+  "ts": 1765619702178,
+  "seq": 12
+}
+10:55:16 [DEBUG] 📊 [x10_account] POSITION FIELDS: {
+  "id": 1999779813635653632,
+  "accountId": 127074,
+  "market": "TRX-USD",
+  "status": "CLOSED",
+  "side": "LONG",
+  "leverage": "10",
+  "size": "100",
+  "value": "27.301137",
+  "openPrice": "0.27294",
+  "markPrice": "0.2730113797",
+  "liquidationPrice": "0",
+  "margin": "0",
+  "unrealisedPnl": "0",
+  "midPriceUnrealisedPnl": "-0.009500",
+  "realisedPnl": "-0.039276",
+  "createdAt": 1765619636344,
+  "updatedAt": 1765619702178
+}
+10:55:16 [DEBUG] [X10] Removed TRX-USD from _positions_cache (status=CLOSED, size=100.0)
+10:55:16 [DEBUG] X10 Adapter: Position update processed - TRX-USD
+10:55:16 [INFO] 📈 [x10_account] POSITION UPDATE: TRX-USD LONG size=100 entry=$0.27294 mark=$0.2730113797 uPnL=$0
+10:55:16 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': False, 'balance': {'collateralName': 'USD', 'balance': '208.782146', 'status': 'ACTIVE', 'equity': '208.782146', 'availableForTrade': '208.782146', 'availabl
+10:55:16 [DEBUG] 💰 [x10_account] BALANCE: equity=$208.782146, available=$208.782146, uPnL=$0.000000
+10:55:16 [DEBUG] Lighter REST GET /api/v1/accountTrades returned 404 (no data - OK)
+10:55:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:16 [DEBUG] [LIGHTER] Rate limiter cancelled during fetch_market_stats for CRV-USD
+10:55:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:16 [DEBUG] Create Order Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='ca2be206aced1c8c3a1f082d5f3dadba617ce393b35dd99854535bc1078ae99cb2ea922e1d3d37e8' predicted_execution_time_ms=1765619702576 additional_properties={}
+10:55:16 [INFO] ✅ Lighter Order Sent: ca2be206aced1c8c3a1f082d5f3dadba617ce393b35dd99854535bc1078ae99cb2ea922e1d3d37e8
+10:55:16 [INFO] ✅ [RETRY] TIA-USD: Retry order placed: ca2be206aced1c8c3a1f082d5f3dadba617ce393...
+10:55:16 [WARNING] ⚡ [RETRY] TIA-USD: SHUTDOWN detected - aborting retry wait!
+10:55:16 [WARNING] ⏰ [RETRY] TIA-USD: Retry order timeout after 30.0s (attempt 1/2)
+10:55:16 [DEBUG] [LIGHTER] Shutdown active - skipping cancel_limit_order for ca2be206aced1c8c3a1f082d5f3dadba617ce393b35dd99854535bc1078ae99cb2ea922e1d3d37e8
+10:55:16 [DEBUG] ✅ CRV-USD: X10=$91,939, Lighter=$2,048,745, Total=$2,140,684
+10:55:18 [INFO] ✅ X10 TRX-USD closed and tracked
+10:55:18 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:18 [DEBUG] [LIGHTER] Rate limiter cancelled during fetch_market_stats for BERA-USD
+10:55:18 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+10:55:18 [DEBUG] ✅ BERA-USD: X10=$136,705, Lighter=$990,860, Total=$1,127,565
+10:55:19 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:19 [INFO] ✅ No open positions remaining
+10:55:19 [INFO] 🔍 Final position sweep...
+10:55:19 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:19 [INFO] ✅ Final sweep: No positions found
+10:55:19 [INFO] 💰 Shutdown PnL for TRX-USD: PnL=$0.0010, Funding=$0.0000
+10:55:19 [INFO] 📝 StateManager.close_trade(TRX-USD): PnL=$0.0010, Funding=$0.0000
+10:55:19 [DEBUG] 📝 StateManager.close_trade(TRX-USD): update_trade returned True
+10:55:19 [INFO] 📝 Shutdown: Marked TRX-USD as closed in DB (PnL=$0.0010, Funding=$0.0000)
+10:55:19 [INFO] 📝 Shutdown: Marked 1 trades as closed in DB | Session Total: PnL=$0.0010, Funding=$0.0000
+10:55:19 [INFO] 🛑 Stopping InMemoryStateManager...
+10:55:19 [INFO] 📝 DB close_trade(TRX-USD): PnL=$0.0010, Funding=$0.0000
+10:55:19 [DEBUG] 📝 DB close_trade(TRX-USD): Execute returned 531
+10:55:19 [DEBUG] 📝 Flushed 1 writes
+10:55:19 [INFO] 📝 State writer loop stopped
+10:55:19 [DEBUG] 📝 Flushed 1 writes in 16.0ms
+10:55:19 [INFO] ✅ InMemoryStateManager stopped
+10:55:19 [INFO] 🛑 FeeManager stopped
+10:55:19 [INFO] 🔒 Closing database...
+10:55:19 [INFO] 🖊️ Database write loop stopped
+10:55:19 [INFO] ✅ Database closed
+10:55:19 [INFO] 💾 Persist phase complete
+10:55:19 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+10:55:19 [INFO] 💓 [x10_account] Keepalive loop stopped
+10:55:19 [INFO] 🔌 [lighter] WebSocket stopped
+10:55:20 [DEBUG] [x10_orderbooks] WebSocket closed (server slow to respond)
+10:55:20 [INFO] 🔌 [x10_orderbooks] WebSocket stopped
+10:55:20 [DEBUG] [x10_trades] WebSocket closed (server slow to respond)
+10:55:20 [INFO] 🔌 [x10_trades] WebSocket stopped
+10:55:20 [DEBUG] [x10_account] WebSocket closed (server slow to respond)
+10:55:20 [INFO] 🔌 [x10_account] WebSocket stopped
+10:55:20 [DEBUG] [x10_funding] WebSocket closed (server slow to respond)
+10:55:20 [INFO] 🔌 [x10_funding] WebSocket stopped
+10:55:20 [INFO] ✅ WebSocketManager stopped
+10:55:20 [INFO] ✅ Lighter Adapter closed
+10:55:20 [INFO] ✅ X10 Adapter geschlossen.
+10:55:20 [INFO] ✅ Teardown complete
+10:55:20 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+10:55:20 [INFO] ✅ All positions closed. Bye! (elapsed=6.31s)
+10:55:20 [INFO] ✅ Shutdown complete
+10:55:20 [INFO] 🛑 Shutting down...
+10:55:20 [INFO] 🛑 Shutdown requested...
+10:55:20 [INFO] 🛑 Stopping Dashboard API...
+10:55:20 [INFO] ✅ ParallelExecutionManager: Already stopping
+10:55:20 [INFO] 🛑 Stopping OpenInterestTracker...
+10:55:20 [INFO] ✅ OpenInterestTracker stopped
+10:55:20 [INFO] 🛑 Funding tracker: Cancelled
+10:55:20 [INFO] ✅ Funding Tracker stopped
+10:55:20 [INFO] 🔌 Closing adapters...
+10:55:20 [INFO] ✅ Bot V5 shutdown complete
+10:55:20 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+10:55:20 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+10:55:20 [INFO] ✅ Shutdown already completed (reason=funding_bot), returning cached result
+10:55:20 [INFO] ✅ All positions closed. Bye!
+10:55:20 [INFO] 🛑 Stopping Infrastructure...

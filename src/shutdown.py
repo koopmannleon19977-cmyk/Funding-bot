@@ -57,6 +57,12 @@ class ShutdownOrchestrator:
         # This prevents "Position is missing for reduce-only order" (1137)
         # ═══════════════════════════════════════════════════════════════
         self._closed_positions: Dict[str, set] = {"x10": set(), "lighter": set()}
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PNL FIX: Store Lighter PnL data when positions are closed
+        # This data is then passed to state_manager.close_trade()
+        # ═══════════════════════════════════════════════════════════════
+        self._position_pnl_data: Dict[str, Dict[str, float]] = {}
 
     def configure(self, **components: Any) -> None:
         """Register/override components lazily; ignore None."""
@@ -284,6 +290,29 @@ class ShutdownOrchestrator:
                 errors.append(f"final_close_no_adapter:{exchange_name}:{symbol}")
                 continue
             
+            # ═══════════════════════════════════════════════════════════════
+            # PNL FIX: Also extract PnL data in final sweep for Lighter positions
+            # ═══════════════════════════════════════════════════════════════
+            if exchange_name == "lighter" and symbol not in self._position_pnl_data:
+                unrealized_pnl = self._safe_float(pos.get("unrealized_pnl", 0))
+                realized_pnl = self._safe_float(pos.get("realized_pnl", 0))
+                total_funding = self._safe_float(pos.get("total_funding_paid", 0))
+                avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
+                
+                self._position_pnl_data[symbol] = {
+                    "unrealized_pnl": unrealized_pnl,
+                    "realized_pnl": realized_pnl,
+                    "total_pnl": unrealized_pnl + realized_pnl,
+                    "total_funding": total_funding,
+                    "avg_entry_price": avg_entry
+                }
+                
+                if unrealized_pnl != 0 or realized_pnl != 0:
+                    logger.info(
+                        f"📊 {symbol} Final Sweep PnL: uPnL=${unrealized_pnl:.4f}, "
+                        f"rPnL=${realized_pnl:.4f}, funding=${total_funding:.4f}"
+                    )
+            
             try:
                 # original_side is the side of the POSITION (BUY for long, SELL for short)
                 original_side = "BUY" if size > 0 else "SELL"
@@ -459,6 +488,30 @@ class ShutdownOrchestrator:
                     logger.debug(f"⏭️ Lighter {symbol} already closed this cycle, skipping")
                     continue
                 
+                # ═══════════════════════════════════════════════════════════════
+                # PNL FIX: Extract REAL PnL data from Lighter position BEFORE closing
+                # These values are calculated by Lighter and are accurate!
+                # ═══════════════════════════════════════════════════════════════
+                unrealized_pnl = self._safe_float(pos.get("unrealized_pnl", 0))
+                realized_pnl = self._safe_float(pos.get("realized_pnl", 0))
+                total_funding = self._safe_float(pos.get("total_funding_paid", 0))
+                avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
+                
+                # Store PnL data for this symbol (will be used in _persist_state)
+                self._position_pnl_data[symbol] = {
+                    "unrealized_pnl": unrealized_pnl,
+                    "realized_pnl": realized_pnl,
+                    "total_pnl": unrealized_pnl + realized_pnl,  # Combined PnL
+                    "total_funding": total_funding,
+                    "avg_entry_price": avg_entry
+                }
+                
+                if unrealized_pnl != 0 or realized_pnl != 0:
+                    logger.info(
+                        f"📊 {symbol} Pre-Close PnL: uPnL=${unrealized_pnl:.4f}, "
+                        f"rPnL=${realized_pnl:.4f}, funding=${total_funding:.4f}, entry=${avg_entry:.6f}"
+                    )
+                
                 close_side = "SELL" if size > 0 else "BUY"
                 price = self._get_cached_price(symbol)
 
@@ -605,6 +658,78 @@ class ShutdownOrchestrator:
                 # Mark as closed
                 self._closed_positions["lighter"].add(symbol)
                 logger.info(f"✅ Lighter {symbol} closed and tracked")
+                
+                # ═══════════════════════════════════════════════════════════════
+                # PNL FIX: Fetch ACTUAL realized PnL AFTER the close
+                # Wait briefly for the exchange to process, then get trade history
+                # ═══════════════════════════════════════════════════════════════
+                try:
+                    await asyncio.sleep(0.5)  # Wait for exchange to settle
+                    
+                    # Fetch recent trades for this symbol (force=True bypasses shutdown check)
+                    if hasattr(lighter, 'fetch_my_trades'):
+                        trades = await lighter.fetch_my_trades(symbol, limit=50, force=True)
+                        
+                        if trades:
+                            # Get the pre-close PnL data we captured (for entry price)
+                            pre_close_data = self._position_pnl_data.get(symbol, {})
+                            entry_price = pre_close_data.get("avg_entry_price", 0.0)
+                            expected_size = abs(size)  # The size we're trying to close
+                            
+                            # Calculate closed PnL from the close trades
+                            # For a SHORT position: PnL = (entry_price - exit_price) * size
+                            # The close trades are BUY trades for a SHORT position
+                            closed_pnl = 0.0
+                            total_closed_size = 0.0
+                            
+                            # Trades come sorted by timestamp (newest first typically)
+                            # Take trades until we reach the expected close size
+                            for trade in trades:
+                                trade_side = trade.get("side", "")
+                                trade_price = trade.get("price", 0.0)
+                                trade_size = trade.get("size", 0.0)
+                                
+                                # Close trades for a SHORT are BUYs
+                                # Close trades for a LONG are SELLs
+                                # close_side tells us what side we used to close
+                                if trade_side.upper() == close_side.upper() and trade_size > 0:
+                                    if entry_price > 0 and trade_price > 0:
+                                        # For SHORT (close_side=BUY): 
+                                        # PnL = (entry - exit) * size (positive if price went down)
+                                        # For LONG (close_side=SELL):
+                                        # PnL = (exit - entry) * size (positive if price went up)
+                                        if close_side.upper() == "BUY":  # Closing a SHORT
+                                            trade_pnl = (entry_price - trade_price) * trade_size
+                                        else:  # close_side == SELL, closing a LONG
+                                            trade_pnl = (trade_price - entry_price) * trade_size
+                                        
+                                        closed_pnl += trade_pnl
+                                        total_closed_size += trade_size
+                                        
+                                        # Stop once we've accounted for the full position size
+                                        # (with some tolerance for rounding)
+                                        if total_closed_size >= expected_size * 0.95:
+                                            break
+                            
+                            # Update the PnL data with the ACTUAL closed PnL
+                            if total_closed_size > 0 and abs(closed_pnl) > 0.00001:
+                                old_pnl = pre_close_data.get("total_pnl", 0.0)
+                                self._position_pnl_data[symbol] = {
+                                    **pre_close_data,
+                                    "total_pnl": closed_pnl,
+                                    "unrealized_pnl": 0.0,  # Now realized
+                                    "realized_pnl": closed_pnl,
+                                    "closed_size": total_closed_size,
+                                    "source": "trade_history"
+                                }
+                                logger.info(
+                                    f"💰 {symbol} ACTUAL Closed PnL: ${closed_pnl:.4f} "
+                                    f"(was pre-close estimate: ${old_pnl:.4f}, "
+                                    f"entry=${entry_price:.6f}, closed={total_closed_size:.4f} coins)"
+                                )
+                            
+                except Exception as pnl_err:
+                    logger.debug(f"⚠️ {symbol} Could not fetch post-close PnL: {pnl_err}")
             
             return success, order_id
             
@@ -649,14 +774,40 @@ class ShutdownOrchestrator:
             
             for symbol in closed_on_both:
                 try:
-                    # Mark trade as closed in DB with PnL=0 (actual PnL calculated at close time)
-                    await state_manager.close_trade(symbol, pnl=0.0, funding=0.0)
-                    logger.info(f"📝 Shutdown: Marked {symbol} as closed in DB")
+                    # ═══════════════════════════════════════════════════════════════
+                    # PNL FIX: Use REAL PnL data from Lighter position
+                    # The _position_pnl_data dict was populated in _close_and_verify_positions
+                    # ═══════════════════════════════════════════════════════════════
+                    pnl_data = self._position_pnl_data.get(symbol, {})
+                    total_pnl = pnl_data.get("total_pnl", 0.0)  # unrealized_pnl + realized_pnl
+                    total_funding = pnl_data.get("total_funding", 0.0)
+                    
+                    # Log the actual PnL being recorded
+                    if total_pnl != 0.0 or total_funding != 0.0:
+                        logger.info(
+                            f"💰 Shutdown PnL for {symbol}: "
+                            f"PnL=${total_pnl:.4f}, Funding=${total_funding:.4f}"
+                        )
+                    
+                    await state_manager.close_trade(symbol, pnl=total_pnl, funding=total_funding)
+                    logger.info(f"📝 Shutdown: Marked {symbol} as closed in DB (PnL=${total_pnl:.4f}, Funding=${total_funding:.4f})")
                 except Exception as e:
                     logger.warning(f"⚠️ Shutdown: Could not mark {symbol} as closed: {e}")
             
             if closed_on_both:
-                logger.info(f"📝 Shutdown: Marked {len(closed_on_both)} trades as closed in DB")
+                # Log summary of all PnL data
+                total_session_pnl = sum(
+                    self._position_pnl_data.get(s, {}).get("total_pnl", 0.0) 
+                    for s in closed_on_both
+                )
+                total_session_funding = sum(
+                    self._position_pnl_data.get(s, {}).get("total_funding", 0.0) 
+                    for s in closed_on_both
+                )
+                logger.info(
+                    f"📝 Shutdown: Marked {len(closed_on_both)} trades as closed in DB | "
+                    f"Session Total: PnL=${total_session_pnl:.4f}, Funding=${total_session_funding:.4f}"
+                )
 
         if state_manager and hasattr(state_manager, "stop"):
             try:
@@ -694,6 +845,7 @@ class ShutdownOrchestrator:
         telegram_bot = self._components.get("telegram_bot")
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
+        oi_tracker = self._components.get("oi_tracker")  # FIX: Get OI Tracker
 
         async def _safe_call(coro_factory, label: str, timeout: float = 5.0) -> None:
             try:
@@ -703,6 +855,13 @@ class ShutdownOrchestrator:
                 errors.append(f"{label}_timeout")
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{label}_error:{e}")
+
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Stop OI Tracker FIRST - it makes API calls, so stop before adapters
+        # ═══════════════════════════════════════════════════════════════
+        if oi_tracker and hasattr(oi_tracker, "stop"):
+            logger.info("🛑 Stopping OI Tracker...")
+            await _safe_call(oi_tracker.stop, "oi_tracker_stop", timeout=5.0)
 
         if ws_manager and hasattr(ws_manager, "stop"):
             await _safe_call(ws_manager.stop, "ws_stop", timeout=5.0)

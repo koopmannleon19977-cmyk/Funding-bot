@@ -416,16 +416,20 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"REST GET (internal) {path} error: {e}")
             return None
 
-    async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict]:
+    async def _rest_get(self, path: str, params: Optional[Dict[str, Any]] = None, force: bool = False) -> Optional[Dict]:
         """REST GET with rate limiting and proper cancellation handling.
         
         IMPORTANT: 404 responses are handled specially for certain endpoints
         because Lighter returns 404 when no data exists (e.g., no open orders).
+        
+        Args:
+            force: If True, bypass the shutdown check (used for PnL calculation after close)
         """
         # ═══════════════════════════════════════════════════════════════
         # FIX: Shutdown check - return None during shutdown
+        # UNLESS force=True (needed for post-close PnL calculation)
         # ═══════════════════════════════════════════════════════════════
-        if getattr(config, 'IS_SHUTTING_DOWN', False):
+        if not force and getattr(config, 'IS_SHUTTING_DOWN', False):
             logger.debug(f"[LIGHTER] Shutdown active - skipping _rest_get for {path}")
             return None
         
@@ -433,11 +437,13 @@ class LighterAdapter(BaseAdapter):
         url = f"{base.rstrip('/')}{path}"
 
         try:
-            result = await self.rate_limiter.acquire()
-            # Check if rate limiter was cancelled (shutdown)
-            if result < 0:
-                logger.debug(f"[LIGHTER] Rate limiter cancelled - skipping _rest_get for {path}")
-                return None
+            # Skip rate limiter if force=True (for critical PnL operations during shutdown)
+            if not force:
+                result = await self.rate_limiter.acquire()
+                # Check if rate limiter was cancelled (shutdown)
+                if result < 0:
+                    logger.debug(f"[LIGHTER] Rate limiter cancelled - skipping _rest_get for {path}")
+                    return None
             session = await self._get_session()
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 429:
@@ -910,7 +916,7 @@ class LighterAdapter(BaseAdapter):
             return None
 
 
-    async def fetch_my_trades(self, symbol: str, limit: int = 20) -> List[dict]:
+    async def fetch_my_trades(self, symbol: str, limit: int = 20, force: bool = False) -> List[dict]:
         """
         Fetch account trade history for a symbol (fills).
         
@@ -918,11 +924,15 @@ class LighterAdapter(BaseAdapter):
         
         IMPORTANT: /api/v1/trades is for PUBLIC market trades (requires market_index)
                    /api/v1/accountTrades is for YOUR account's trades
+                   
+        Args:
+            force: If True, bypass the shutdown check (used for PnL calculation after close)
         """
         # ═══════════════════════════════════════════════════════════════
         # FIX: Shutdown check - return empty list during shutdown
+        # UNLESS force=True (needed for post-close PnL calculation)
         # ═══════════════════════════════════════════════════════════════
-        if getattr(config, 'IS_SHUTTING_DOWN', False):
+        if not force and getattr(config, 'IS_SHUTTING_DOWN', False):
             logger.debug(f"[LIGHTER] Shutdown active - skipping fetch_my_trades for {symbol}")
             return []
         
@@ -954,7 +964,7 @@ class LighterAdapter(BaseAdapter):
             if market_index is not None:
                 params["market_index"] = int(market_index)
             
-            resp = await self._rest_get("/api/v1/accountTrades", params=params)
+            resp = await self._rest_get("/api/v1/accountTrades", params=params, force=force)
             
             if not resp:
                 return []
@@ -2415,6 +2425,26 @@ class LighterAdapter(BaseAdapter):
                 multiplier = 1 if sign_int == 0 else -1
                 size = safe_float(position_qty, 0.0) * multiplier
 
+                # ═══════════════════════════════════════════════════════════════
+                # PNL FIX: Extract REAL PnL data from Lighter API
+                # These values are calculated by Lighter and are more accurate
+                # than our own estimations!
+                # ═══════════════════════════════════════════════════════════════
+                unrealized_pnl = safe_float(getattr(p, "unrealized_pnl", None), 0.0)
+                realized_pnl = safe_float(getattr(p, "realized_pnl", None), 0.0)
+                avg_entry_price = safe_float(getattr(p, "avg_entry_price", None), 0.0)
+                position_value = safe_float(getattr(p, "position_value", None), 0.0)
+                total_funding_paid = safe_float(getattr(p, "total_funding_paid_out", None), 0.0)
+                liquidation_price = safe_float(getattr(p, "liquidation_price", None), 0.0)
+                
+                # Log if we have real PnL data from Lighter
+                if unrealized_pnl != 0.0 or realized_pnl != 0.0:
+                    logger.debug(
+                        f"📊 {symbol_raw} Lighter PnL: uPnL=${unrealized_pnl:.4f}, "
+                        f"rPnL=${realized_pnl:.4f}, entry=${avg_entry_price:.6f}, "
+                        f"funding=${total_funding_paid:.4f}"
+                    )
+
                 if abs(size) > 1e-8:
                     symbol = f"{symbol_raw}-USD" if not symbol_raw.endswith("-USD") else symbol_raw
                     
@@ -2449,12 +2479,22 @@ class LighterAdapter(BaseAdapter):
                     # ═══════════════════════════════════════════════════════════════
                     # ALWAYS APPEND: Never filter positions, always return them
                     # Consumers (trade management, shutdown, etc.) can filter if needed
+                    # PNL FIX: Include REAL PnL data from Lighter for accurate tracking
                     # ═══════════════════════════════════════════════════════════════
                     positions.append({
                         "symbol": symbol,
                         "size": size,
                         "is_dust": is_dust,
-                        "notional_est": notional_est if price else None
+                        "notional_est": notional_est if price else None,
+                        # ═══════════════════════════════════════════════════════════════
+                        # Lighter API PnL Data (accurate, calculated by exchange)
+                        # ═══════════════════════════════════════════════════════════════
+                        "unrealized_pnl": unrealized_pnl,
+                        "realized_pnl": realized_pnl,
+                        "avg_entry_price": avg_entry_price,
+                        "position_value": position_value,
+                        "total_funding_paid": total_funding_paid,
+                        "liquidation_price": liquidation_price,
                     })
 
             logger.info(f"Lighter: Found {len(positions)} open positions")

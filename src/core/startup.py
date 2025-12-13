@@ -363,6 +363,7 @@ async def run_bot_v5(bot_instance=None):
         parallel_exec=parallel_exec,
         state_manager=state_manager,
         telegram_bot=telegram_bot,
+        oi_tracker=oi_tracker,  # FIX: Add OI Tracker for proper shutdown
         close_database_fn=close_database,
         stop_fee_manager_fn=stop_fee_manager,
     )

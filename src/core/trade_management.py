@@ -99,10 +99,43 @@ def parse_iso_time(entry_time) -> Optional[datetime]:
     return entry_time
 
 
-async def calculate_realized_pnl(trade: Dict, fee_manager, gross_pnl: float = 0.0) -> Decimal:
-    """Calculate realized PnL including all entry and exit fees."""
+async def calculate_realized_pnl(
+    trade: Dict, 
+    fee_manager, 
+    gross_pnl: float = 0.0,
+    lighter_position: Optional[Dict] = None
+) -> Decimal:
+    """
+    Calculate realized PnL including all entry and exit fees.
+    
+    PNL FIX: If lighter_position is provided, use the REAL unrealized_pnl
+    and total_funding_paid values from Lighter API instead of estimations.
+    """
     entry_value = float(trade.get('notional_usd', 0.0))
     exit_value = entry_value
+    
+    # ═══════════════════════════════════════════════════════════════
+    # PNL FIX: Use REAL Lighter API data if available
+    # The Lighter API provides accurate, exchange-calculated values
+    # ═══════════════════════════════════════════════════════════════
+    lighter_upnl = 0.0
+    lighter_funding = 0.0
+    
+    if lighter_position:
+        lighter_upnl = safe_float(lighter_position.get('unrealized_pnl'), 0.0)
+        lighter_funding = safe_float(lighter_position.get('total_funding_paid'), 0.0)
+        
+        if abs(lighter_upnl) > 0.0001:
+            # Use real Lighter unrealized PnL as base (this is accurate!)
+            # This includes price movement PnL calculated by Lighter
+            logger.debug(
+                f"📊 Using Lighter API PnL: uPnL=${lighter_upnl:.4f}, "
+                f"funding=${lighter_funding:.4f} (instead of gross=${gross_pnl:.4f})"
+            )
+            # Override gross_pnl with Lighter's accurate calculation
+            # Note: Lighter's unrealized_pnl already includes the position's
+            # price movement, so we only need to add fees
+            gross_pnl = lighter_upnl
     
     entry_fee_lighter = trade.get('entry_fee_lighter')
     entry_fee_x10 = trade.get('entry_fee_x10')
@@ -605,6 +638,25 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             init_funding = t.get('initial_funding_rate_hourly')
             init_funding = float(init_funding) if init_funding is not None else 0.0
             
+            # ═══════════════════════════════════════════════════════════════
+            # PNL FIX: Extract Lighter position with REAL PnL data
+            # The Lighter API provides accurate unrealized_pnl, realized_pnl,
+            # avg_entry_price, and total_funding_paid values
+            # ═══════════════════════════════════════════════════════════════
+            lighter_position = None
+            for pos in p_lit:
+                if pos.get('symbol') == sym:
+                    lighter_position = pos
+                    break
+            
+            # Log if we have real Lighter PnL data
+            if lighter_position and lighter_position.get('unrealized_pnl', 0.0) != 0.0:
+                logger.debug(
+                    f"📊 {sym} Lighter Position: uPnL=${lighter_position.get('unrealized_pnl', 0):.4f}, "
+                    f"funding=${lighter_position.get('total_funding_paid', 0):.4f}, "
+                    f"entry=${lighter_position.get('avg_entry_price', 0):.6f}"
+                )
+            
             # Calculate age
             age_seconds, hold_hours = calculate_trade_age(t)
             
@@ -673,9 +725,12 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             gross_pnl = funding_pnl + spread_pnl
             
             # Calculate Net PnL with proper fees
+            # PNL FIX: Pass lighter_position to use REAL Lighter API PnL data
             try:
                 fee_manager = get_fee_manager()
-                net_pnl_decimal = await calculate_realized_pnl(t, fee_manager, gross_pnl)
+                net_pnl_decimal = await calculate_realized_pnl(
+                    t, fee_manager, gross_pnl, lighter_position=lighter_position
+                )
                 total_pnl = float(net_pnl_decimal)
                 
                 # Calculate total fees
