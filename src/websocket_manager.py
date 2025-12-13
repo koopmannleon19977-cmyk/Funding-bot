@@ -795,29 +795,25 @@ class ManagedWebSocket:
         check_interval = 5.0  # Reduced from 10.0 for faster detection
         
         # ═══════════════════════════════════════════════════════════════════════════
-        # LIGHTER 1006 PREVENTION: Use config-based JSON ping interval
-        # Lighter Server schließt idle Connections nach ~20s ohne Close-Frame (1006)
+        # LIGHTER /stream: Passive mode - we wait for server pings
+        # For /jsonapi (Order API): Active client pings would be needed (TS SDK pattern)
         # ═══════════════════════════════════════════════════════════════════════════
-        json_ping_interval = self.config.json_ping_interval  # None for Lighter!
-        json_pong_timeout = self.config.json_pong_timeout    # 90s for Lighter
-        
-        # WICHTIG: Für Lighter ist json_ping_interval=None!
-        # Der Server sendet UNS Pings, nicht umgekehrt.
-        # Kein Fallback auf 10.0 mehr!
+        json_ping_interval = self.config.json_ping_interval  # None for Lighter /stream!
+        json_pong_timeout = self.config.json_pong_timeout    # 120s relaxed threshold
         
         connect_time = time.time()
-        last_json_ping = 0.0  # Not used for Lighter (we don't send pings)
+        last_json_ping = 0.0  # Track when we last sent a ping (not used for Lighter /stream)
         
         # ═══════════════════════════════════════════════════════════════════════════
-        # LIGHTER: KEIN sofortiger Ping mehr! 
-        # Der SERVER sendet uns Pings und WIR antworten - nicht umgekehrt!
-        # Wir warten einfach auf den ersten Server-Ping (~60s nach Connect).
+        # OPTIONAL: Immediate ping on connect (only for endpoints that support it)
+        # Lighter /stream does NOT respond to client pings - so we skip this!
         # ═══════════════════════════════════════════════════════════════════════════
         if self.config.send_ping_on_connect and self.config.name != "lighter":
-            # Nur für nicht-Lighter Connections (falls konfiguriert)
+            # Only for non-Lighter connections (e.g., if X10 needs it)
             if self._ws and self.is_connected:
                 try:
-                    await self._ws.send(json.dumps({"type": "ping"}))
+                    ping_msg = {"type": "ping"}
+                    await self._ws.send(json.dumps(ping_msg))
                     self._metrics.pings_sent += 1
                     self._metrics.last_ping_sent_time = time.time()
                     last_json_ping = time.time()
@@ -825,7 +821,7 @@ class ManagedWebSocket:
                 except Exception as e:
                     logger.warning(f"[{self.config.name}] Failed to send immediate ping: {e}")
         elif self.config.name == "lighter":
-            logger.info(f"💓 [{self.config.name}] Waiting for SERVER ping (Lighter sends pings every ~60s)")
+            logger.info(f"💓 [{self.config.name}] Passive mode - waiting for SERVER pings (every ~60-90s)")
         
         logger.debug(
             f"💓 [{self.config.name}] Heartbeat started "
@@ -840,7 +836,8 @@ class ManagedWebSocket:
                 uptime = now - connect_time
                 
                 # ═══════════════════════════════════════════════════════════════════
-                # JSON HEARTBEAT für Lighter (1006 Prevention)
+                # JSON HEARTBEAT - For non-Lighter connections that need active pings
+                # Lighter /stream uses passive mode (server sends pings to us)
                 # ═══════════════════════════════════════════════════════════════════
                 if (
                     json_ping_interval
@@ -860,22 +857,23 @@ class ManagedWebSocket:
                         break
                 
                 # ═══════════════════════════════════════════════════════════════════
-                # SERVER PING MONITORING (Lighter-specific)
-                # Der Server sendet uns Pings alle ~60s. Wenn >90s kein Ping kam,
-                # könnte die Connection tot sein.
-                # WICHTIG: Wir senden KEINE eigenen Pings, wir warten auf Server-Pings!
+                # LIGHTER /stream: Server Ping Monitoring (Passive Mode)
+                # The server sends us pings, we respond with pongs (handled in _process_single_message)
+                # We just monitor if server pings are arriving - no action if they don't
                 # ═══════════════════════════════════════════════════════════════════
                 if self.config.name == "lighter" and self._metrics.last_pong_time > 0:
                     time_since_last_server_ping = now - self._metrics.last_pong_time
                     
-                    # Warnung wenn >90s kein Server-Ping kam (normal ist ~60s)
+                    # Info-level warning only if server pings are very stale (>120s)
+                    # This is just monitoring, not a trigger for action
                     if time_since_last_server_ping > json_pong_timeout:
-                        logger.warning(
-                            f"⚠️ [{self.config.name}] No server ping for {time_since_last_server_ping:.0f}s "
-                            f"(expected every ~60s). Connection may be stale."
-                        )
-                        # Nicht automatisch reconnecten - nur warnen
-                        # Die Connection könnte noch aktiv sein wenn Daten fließen
+                        # Only log occasionally to avoid spam (every 60s)
+                        if not hasattr(self, '_last_stale_warning_time') or now - self._last_stale_warning_time > 60.0:
+                            logger.info(
+                                f"ℹ️ [{self.config.name}] No server ping for {time_since_last_server_ping:.0f}s "
+                                f"(threshold: {json_pong_timeout:.0f}s). Connection active via data stream."
+                            )
+                            self._last_stale_warning_time = now
                 
                 # Für nicht-Lighter: Original Pong-Timeout-Logik
                 elif json_ping_interval and self._metrics.last_ping_sent_time > 0:
@@ -1380,30 +1378,29 @@ class WebSocketManager:
         self._running = True
         
         # 1. Create Lighter connection with enhanced 1006 handling
-        # ═══════════════════════════════════════════════════════════════════════════
-        # LIGHTER PING/PONG STRATEGY (Based on Discord community info):
         # 
-        # KRITISCH: Der Server sendet UNS {"type":"ping"} und WIR müssen antworten!
-        # - Server sendet Pings alle ~60 Sekunden
-        # - Wir müssen mit {"type":"pong"} antworten
-        # - Wenn wir nicht antworten → "no pong" / connection rejected
+        # WICHTIG: Das TS SDK Pattern (ws-order-client.ts mit aktiven Client-Pings) gilt nur für 
+        # den /jsonapi Order-Endpoint, NICHT für den /stream Market-Data-Endpoint!
         # 
-        # WIR SENDEN KEINE EIGENEN PINGS! Der Server antwortet nicht darauf.
-        # Die Connection wird aktiv gehalten durch:
+        # Für /stream (Market Data):
+        # - Der SERVER sendet uns {"type":"ping"} alle ~60-90s
+        # - WIR antworten mit {"type":"pong"} (automatisch in _process_single_message)
+        # - Wir senden KEINE eigenen Pings (Server antwortet nicht darauf!)
+        # 
+        # Die Connection bleibt aktiv durch:
         # 1. Unsere Pong-Antworten auf Server-Pings
-        # 2. Die regelmäßigen Daten-Messages (Orderbook, etc.)
-        # 3. Unsere Subscriptions
+        # 2. Die kontinuierlichen Market-Daten (Orderbook, Prices, etc.)
         # ═══════════════════════════════════════════════════════════════════════════
         lighter_ping_interval = None  # Keine WebSocket-Protokoll-Pings
         lighter_ping_timeout = None
         
         # Load Lighter-specific settings from config with fallbacks
-        # WICHTIG: json_ping_interval=None da Server nicht auf unsere Pings antwortet!
-        lighter_json_ping_interval = None  # DEAKTIVIERT - Server sendet UNS Pings!
-        lighter_json_pong_timeout = 90.0   # Warnung wenn >90s kein Server-Ping kam
+        # WICHTIG: json_ping_interval=None da /stream-Endpoint nicht auf Client-Pings antwortet!
+        lighter_json_ping_interval = None   # DEAKTIVIERT - Server sendet UNS Pings!
+        lighter_json_pong_timeout = 120.0   # 120s - Server pingt alle ~60-90s, relaxed threshold
         lighter_1006_extended_delay = getattr(config, 'WS_1006_EXTENDED_DELAY', 30)
         lighter_1006_threshold = getattr(config, 'WS_1006_ERROR_THRESHOLD', 3)
-        lighter_ping_on_connect = False    # DEAKTIVIERT - Server startet Ping/Pong!
+        lighter_ping_on_connect = False     # DEAKTIVIERT - Server startet Ping/Pong!
         
         lighter_config = WSConfig(
             url=self.LIGHTER_WS_URL,
@@ -1416,11 +1413,11 @@ class WebSocketManager:
             extended_delay_1006=lighter_1006_extended_delay,  # From config (default 30s)
             health_check_interval=30.0,            # Check health every 30s
             # ═══════════════════════════════════════════════════════════════════════
-            # LIGHTER 1006 PREVENTION - Server sendet UNS Pings!
+            # LIGHTER /stream: Passive mode - Server pings us, we respond with pong
             # ═══════════════════════════════════════════════════════════════════════
-            json_ping_interval=lighter_json_ping_interval,  # None! Server sendet UNS Pings
-            json_pong_timeout=lighter_json_pong_timeout,    # 90s - Warnung wenn kein Server-Ping
-            send_ping_on_connect=lighter_ping_on_connect,   # False! Server initiiert Ping/Pong
+            json_ping_interval=lighter_json_ping_interval,  # None - we wait for server pings
+            json_pong_timeout=lighter_json_pong_timeout,    # 120s - relaxed threshold for warnings
+            send_ping_on_connect=lighter_ping_on_connect,   # False - server initiates ping/pong
         )
         self._connections["lighter"] = ManagedWebSocket(
             lighter_config, 
