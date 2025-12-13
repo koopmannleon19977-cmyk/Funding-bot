@@ -15,17 +15,21 @@ load_dotenv()
 # 1. POSITIONSGRÖSSE & KAPITAL
 # ------------------------------------------------------------------------------
 # Wie viel $ soll JEDER Trade groß sein? (Hebel wird automatisch berechnet)
-# Beispiel: $500 pro Trade bei $270 Kapital = 10x Hebel nötig
-# Beispiel: $1000 pro Trade bei $270 Kapital = ~4x Hebel (Nee, das klappt nicht, brauchst mehr Kapital!)
-#
-# Faustregel: (Position Size * Max Trades) / Dein Kapital = Benötigter Hebel
-# $500 * 5 Trades = $2500 Total Exposure. Bei $270 Kapital -> 9.25x Hebel (OK)
-# $1000 * 5 Trades = $5000 Total Exposure. Bei $500 Kapital -> 10x Hebel (OK)
-DESIRED_NOTIONAL_USD = 25.0       # Position size per trade in USD
-MAX_OPEN_TRADES = 5               # Max concurrent positions (5 * $50 = $250 total exposure)
+# ═══════════════════════════════════════════════════════════════════════════════
+# WICHTIG: Min Notional auf beiden Exchanges beachten!
+# - X10: Meist $10 min, aber manche Pairs brauchen $50+
+# - Lighter: Meist $10-50 je nach Pair (via API: min_base_amount * price)
+# 
+# EMPFEHLUNG: Mindestens $60-100 pro Trade für zuverlässige Fills!
+# Bei deinem Kapital ($208 X10 + $239 Lighter = ~$447 total):
+# - $80 * 5 Trades = $400 Total Exposure = ~0.9x Leverage ✅ SAFE
+# - $100 * 4 Trades = $400 Total Exposure = ~0.9x Leverage ✅ SAFE
+# ═══════════════════════════════════════════════════════════════════════════════
+DESIRED_NOTIONAL_USD = 80.0       # Position size per trade in USD (MUST be >= MIN_POSITION_SIZE_USD!)
+MAX_OPEN_TRADES = 4               # Max concurrent positions (4 * $80 = $320 total exposure)
 LEVERAGE_MULTIPLIER = 5.0         # Maximum allowed leverage multiplier
-# Burs Limit (New)
-FARM_MAX_CONCURRENT_ORDERS = 5    # Max concurrent order launches per cycle
+# Burst Limit (New)
+FARM_MAX_CONCURRENT_ORDERS = 3    # Max concurrent order launches per cycle (reduced to avoid rate limits)
 
 # 🔴 CIRCUIT BREAKER (NOT-AUS)
 # ------------------------------------------------------------------------------
@@ -37,9 +41,17 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 
 # 2. STRATEGIE & PROFIT
 # ------------------------------------------------------------------------------
-MIN_APY_FILTER = 0.05       # 5% APY Minimum (Aggressive Volume)
-MIN_APY_FALLBACK = 0.05     # Absolutes Minimum
-MIN_PROFIT_EXIT_USD = 0.01  # Relaxed to $0.01 for small position sizes
+# ═══════════════════════════════════════════════════════════════════════════════
+# APY FILTER ERKLÄRT:
+# - 5% APY auf $80 Trade = $80 * 0.05 / 365 = $0.011/Tag = NICHT PROFITABEL nach Fees!
+# - 15% APY auf $80 Trade = $80 * 0.15 / 365 = $0.033/Tag = Breakeven mit Fees
+# - 25% APY auf $80 Trade = $80 * 0.25 / 365 = $0.055/Tag = PROFITABEL! ✅
+# 
+# EMPFEHLUNG: Mindestens 15% APY für profitable Trades!
+# ═══════════════════════════════════════════════════════════════════════════════
+MIN_APY_FILTER = 0.10       # 10% APY Minimum - balanced for opportunity finding
+MIN_APY_FALLBACK = 0.08     # 8% Absolutes Minimum (allows BTC/ETH rebate pairs)
+MIN_PROFIT_EXIT_USD = 0.05  # $0.05 minimum profit to close (was $0.01 - too small)
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
@@ -49,11 +61,23 @@ BALANCE_RESERVE_PCT = 0.03         # 3% des Kapitals immer frei lassen
 MAX_TOTAL_EXPOSURE_PCT = 18.0      # Max 1800% exposure (18x Real Leverage)
 
 # Blacklist (Coins die NIE getradet werden sollen)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Gründe für Blacklist:
+# - Invalid Margin Mode: Lighter unterstützt Cross/Isolated nicht für alle Assets
+# - Ghost Positions: Orders fillen auf einer Exchange, aber nicht auf der anderen
+# - Excessive Lag: X10 Updates viel langsamer → Arb Risk
+# - Low Liquidity: Zu wenig Tiefe für zuverlässige Fills
+# ═══════════════════════════════════════════════════════════════════════════════
 BLACKLIST_SYMBOLS = {
-    "XAU-USD", "XAG-USD", "USDJPY-USD", # Invalid Margin Mode on Lighter
-    "MEGA-USD", # Ghost Position / Excessive Lag
-    "S-USD", # Frequent failures seen
-    # "AERO-USD", 
+    # Invalid Margin Mode on Lighter
+    "XAU-USD", "XAG-USD", "USDJPY-USD",
+    # Ghost Position / Excessive Lag
+    "MEGA-USD",
+    # Frequent failures / Low liquidity
+    "S-USD",
+    "LINEA-USD",  # Sehr kleine Fills in Trade Export (0.007628) = zu niedrige Liquidität
+    # High Volatility Memes (optional - können profitabel sein, aber riskant)
+    # "HYPE-USD", "MEME-USD", "PEPE-USD", "DOGE-USD",
 }
 
 # ==============================================================================
@@ -84,24 +108,35 @@ TAKER_FEE = TAKER_FEE_X10
 MAKER_FEE = MAKER_FEE_X10
 
 # --- Advanced Limits ---
-MIN_POSITION_SIZE_USD = 50.0
-MIN_TRADE_SIZE_USD = 50.0  
-MAX_NOTIONAL_USD = DESIRED_NOTIONAL_USD * 1.2  # Buffer +20%
-MAX_TRADE_SIZE_USD = MAX_NOTIONAL_USD
-MIN_SAFE_THRESHOLD = 0.03
+# ═══════════════════════════════════════════════════════════════════════════════
+# WICHTIG: DESIRED_NOTIONAL_USD MUSS >= MIN_POSITION_SIZE_USD sein!
+# Sonst werden alle Trades mit "too small" abgelehnt!
+# ═══════════════════════════════════════════════════════════════════════════════
+MIN_POSITION_SIZE_USD = 50.0      # Hard minimum for any position (exchange limits)
+MIN_TRADE_SIZE_USD = 50.0         # Hard minimum for any trade  
+MAX_NOTIONAL_USD = DESIRED_NOTIONAL_USD * 1.5  # Buffer +50%
+MAX_TRADE_SIZE_USD = 150.0        # Hard cap per single trade
+MIN_SAFE_THRESHOLD = 0.05         # 5% minimum threshold (was 3%)
 
 # --- Farm Mode Settings ---
-VOLUME_FARM_MODE = False
+# ═══════════════════════════════════════════════════════════════════════════════
+# VOLUME FARM MODE: Sinnvoll für Rebates/Points auf beiden Exchanges!
+# - X10: Trading Points für Volume
+# - Lighter: Fee Rebates für Maker Volume
+# 
+# EMPFEHLUNG: True wenn du Rebate Tiers aufbauen willst
+# ═══════════════════════════════════════════════════════════════════════════════
+VOLUME_FARM_MODE = False          # DISABLED - using regular arb trades only
 FARM_POSITION_SIZE_USD = DESIRED_NOTIONAL_USD
 FARM_NOTIONAL_USD = DESIRED_NOTIONAL_USD
-FARM_RANDOM_SIZE_PCT = 0.05
-FARM_HOLD_SECONDS = 14400  # 4h hold (was 2h - increased for profitability)
+FARM_RANDOM_SIZE_PCT = 0.10       # 10% size variation (was 5% - more natural)
+FARM_HOLD_SECONDS = 7200          # 2h hold (was 4h - faster rotation = more volume)
 FARM_MAX_CONCURRENT = MAX_OPEN_TRADES
 FARM_MIN_APY = MIN_APY_FILTER
 FARM_MAX_SPREAD_PCT = MAX_SPREAD_FILTER_PERCENT
-FARM_MAX_VOLATILITY_24H = 15.0
-FARM_MIN_INTERVAL_SECONDS = 15
-FARM_BURST_LIMIT = 10
+FARM_MAX_VOLATILITY_24H = 12.0    # Stricter (was 15% - avoid volatile coins)
+FARM_MIN_INTERVAL_SECONDS = 30    # 30s minimum between farm trades (was 15s - rate limit friendly)
+FARM_BURST_LIMIT = 5              # Max 5 trades per burst (was 10 - rate limit friendly)
 
 # --- Dynamic & Adaptive Settings ---
 DYNAMIC_MIN_APY_ENABLED = True
@@ -173,15 +208,20 @@ LIGHTER_WS_PING_ON_CONNECT = False
 LIGHTER_WS_MAX_SYMBOLS = 99
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MAKER ORDER TIMEOUT & RETRY SETTINGS (Fix #13)
+# MAKER ORDER TIMEOUT & RETRY SETTINGS
 # ═══════════════════════════════════════════════════════════════════════════════
-LIGHTER_ORDER_TIMEOUT_SECONDS = 60.0      # Default timeout for Maker orders
-MAKER_ORDER_MAX_RETRIES = 2               # Max retry attempts for Maker orders
-MAKER_ORDER_RETRY_DELAY_SECONDS = 2.0     # Delay between retries
-MAKER_ORDER_PRICE_ADJUSTMENT_PCT = 0.001  # 0.1% price adjustment per retry (aggressive)
-MAKER_ORDER_MIN_TIMEOUT_SECONDS = 30.0    # Minimum timeout (for high liquidity)
-MAKER_ORDER_MAX_TIMEOUT_SECONDS = 90.0    # Maximum timeout (for low liquidity)
-MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on liquidity depth  # With Option 3, we can track up to 99 symbols (99 + 1 = 100)
+# Problem: POST_ONLY Orders fillen nicht → Timeouts → kein Trade Entry
+# 
+# LÖSUNG: Aggressivere Price Adjustments + kürzere Timeouts
+# Bei Retry wird Price näher an Midprice bewegt (aggressiver = schnellerer Fill)
+# ═══════════════════════════════════════════════════════════════════════════════
+LIGHTER_ORDER_TIMEOUT_SECONDS = 30.0      # Reduced from 60s (faster feedback)
+MAKER_ORDER_MAX_RETRIES = 3               # 3 retries (was 2)
+MAKER_ORDER_RETRY_DELAY_SECONDS = 1.0     # 1s delay (was 2s - faster iteration)
+MAKER_ORDER_PRICE_ADJUSTMENT_PCT = 0.002  # 0.2% adjustment per retry (was 0.1% - more aggressive)
+MAKER_ORDER_MIN_TIMEOUT_SECONDS = 15.0    # Minimum timeout (was 30s - faster for liquid pairs)
+MAKER_ORDER_MAX_TIMEOUT_SECONDS = 45.0    # Maximum timeout (was 90s - cap total wait)
+MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on liquidity depth
 LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
 
 # --- Prediction & Confidence ---
@@ -231,8 +271,16 @@ TELEGRAM_ENABLED = False
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-# Arbitrage Disable
-ENABLE_LATENCY_ARB = False
+# Latency Arbitrage Settings
+# ═══════════════════════════════════════════════════════════════════════════════
+# LATENCY ARB: Nutzt Verzögerung bei X10 Funding Rate Updates
+# X10 updated Funding Rates langsamer als Lighter (~3-10s Lag typisch)
+# Wenn Lighter Rate schon geändert hat, X10 aber noch nicht = Opportunity!
+# ═══════════════════════════════════════════════════════════════════════════════
+ENABLE_LATENCY_ARB = True         # Enable latency arbitrage (was False)
+LATENCY_ARB_MIN_LAG_SECONDS = 5.0 # Minimum lag threshold (seconds)
+LATENCY_ARB_MAX_LAG_SECONDS = 30.0 # Maximum lag (stale data = skip)
+LATENCY_ARB_MIN_RATE_DIFF = 0.0002 # 0.02% minimum rate difference for entry
 
 # Shutdown
 CLOSE_ALL_ON_SHUTDOWN = True
@@ -442,12 +490,38 @@ def validate_runtime_config(logger=None):
     if X10_VAULT_ID and vault_int is None: _logger.warning(f"CONFIG: X10_VAULT_ID invalid")
     elif vault_int is None: _logger.info("CONFIG: Missing X10_VAULT_ID")
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CRITICAL VALIDATION: Position Size Sanity Checks
+    # ═══════════════════════════════════════════════════════════════════════════
     if DESIRED_NOTIONAL_USD < MIN_POSITION_SIZE_USD:
-        _logger.warning(f"CONFIG: DESIRED_NOTIONAL_USD too small ({DESIRED_NOTIONAL_USD})")
-
+        _logger.error(
+            f"🚨 CONFIG ERROR: DESIRED_NOTIONAL_USD (${DESIRED_NOTIONAL_USD}) < MIN_POSITION_SIZE_USD (${MIN_POSITION_SIZE_USD})\n"
+            f"   → Alle Trades werden abgelehnt! Erhöhe DESIRED_NOTIONAL_USD auf mindestens ${MIN_POSITION_SIZE_USD + 10}"
+        )
+    
+    if MAX_NOTIONAL_USD < DESIRED_NOTIONAL_USD:
+        _logger.warning(f"CONFIG: MAX_NOTIONAL_USD (${MAX_NOTIONAL_USD}) < DESIRED_NOTIONAL_USD (${DESIRED_NOTIONAL_USD}) - limitiert Trade Size")
+    
+    # APY Filter Sanity Check
+    if MIN_APY_FILTER < 0.10:
+        _logger.warning(
+            f"⚠️ CONFIG: MIN_APY_FILTER ({MIN_APY_FILTER*100:.1f}%) ist sehr niedrig.\n"
+            f"   → Trades mit APY < 10% sind nach Fees meist unprofitabel!"
+        )
+    
+    # Leverage Check
+    estimated_exposure = DESIRED_NOTIONAL_USD * MAX_OPEN_TRADES
+    estimated_capital = 200.0  # Approximate from typical balances
+    estimated_leverage = estimated_exposure / estimated_capital if estimated_capital > 0 else 0
+    if estimated_leverage > LEVERAGE_MULTIPLIER:
+        _logger.warning(
+            f"⚠️ CONFIG: Geschätzte Leverage ({estimated_leverage:.1f}x) > LEVERAGE_MULTIPLIER ({LEVERAGE_MULTIPLIER}x)\n"
+            f"   → Erhöhe Kapital oder reduziere DESIRED_NOTIONAL_USD / MAX_OPEN_TRADES"
+        )
+    
     if LIVE_TRADING:
         missing = [k for k, v in [("X10_PRIVATE_KEY", X10_PRIVATE_KEY), ("X10_PUBLIC_KEY", X10_PUBLIC_KEY), 
                                   ("X10_API_KEY", X10_API_KEY), ("X10_VAULT_ID", X10_VAULT_ID)] if not v]
         if missing: _logger.error(f"CONFIG: Missing keys for LIVE_TRADING: {missing}")
 
-    _logger.info("CONFIG VALIDATION COMPLETED.")
+    _logger.info("✅ CONFIG VALIDATION COMPLETED.")

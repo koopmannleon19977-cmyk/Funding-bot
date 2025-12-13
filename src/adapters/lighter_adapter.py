@@ -627,47 +627,55 @@ class LighterAdapter(BaseAdapter):
             price_tick = safe_float(market.get('tick_size', market.get('price_increment', 0.0001))) if market else 0.0001
 
             # ═══════════════════════════════════════════════════════════════
-            # DYNAMIC TICK SIZE LOGIC (Penny Jumping)
+            # AGGRESSIVE MAKER PRICING (Penny Jumping INSIDE the Spread)
             # ═══════════════════════════════════════════════════════════════
-            # Ziel: Exakt 1 Tick vor der Konkurrenz, ohne den Spread zu kreuzen.
+            # Problem: Placing at Best Bid/Ask joins the queue = slow fills
+            # Solution: Place INSIDE the spread (1 tick better) = queue priority!
+            #
+            # For BUY: Place at Best Bid + 1 Tick (still below Best Ask = Maker)
+            # For SELL: Place at Best Ask - 1 Tick (still above Best Bid = Maker)
+            #
+            # This is "Penny Jumping" - we get filled before orders at Best Bid/Ask!
+            # ═══════════════════════════════════════════════════════════════
+            
+            spread = best_ask - best_bid
+            min_safe_spread = price_tick * 2  # Need at least 2 ticks for safe penny jump
             
             if side == 'BUY':
-                # ═══════════════════════════════════════════════════════════════
-                # FIX: For POST_ONLY BUY orders (parallel with Market orders),
-                # use Best Bid (not Best Bid + 1 Tick) to maximize chance of immediate fill
-                # If we're at Best Bid, we're Maker and can fill immediately when Market SELL comes
-                # Using Best Bid + 1 Tick puts us above the current bid, so we won't fill immediately
-                # ═══════════════════════════════════════════════════════════════
-                # Wir wollen KAUFEN -> Best Bid (nicht +1 Tick)
-                # Bei Best Bid sind wir Maker und können sofort füllen, wenn Market SELL kommt
-                target_price = best_bid
-                
-                # Check: Dürfen nicht Ask erreichen/kreuzen (sollte nie passieren)
-                if target_price >= best_ask:
-                    final_price = best_bid
-                    strategy = "Join Bid (Spread Tight - Fallback)"
+                # BUY: Want to be filled when taker SELLS → place above current best bid
+                if spread >= min_safe_spread:
+                    # Safe to penny jump: place 1 tick above best bid (inside spread)
+                    target_price = best_bid + price_tick
+                    # Safety check: must not cross or touch best ask
+                    if target_price >= best_ask - price_tick:
+                        target_price = best_bid  # Fallback to best bid
+                        strategy = "Best Bid (Spread Too Tight)"
+                    else:
+                        strategy = "Bid+1 Tick (Penny Jump - Priority Fill!)"
                 else:
-                    final_price = target_price
-                    strategy = "Best Bid (POST_ONLY - Immediate Fill)"
+                    # Tight spread: just join best bid
+                    target_price = best_bid
+                    strategy = "Best Bid (Tight Spread)"
+                
+                final_price = target_price
                     
             else: # SELL
-                # ═══════════════════════════════════════════════════════════════
-                # FIX: For POST_ONLY SELL orders (parallel with Market orders),
-                # use Best Ask (not Best Ask - 1 Tick) to maximize chance of immediate fill
-                # If we're at Best Ask, we're Maker and can fill immediately when Market BUY comes
-                # Using Best Ask - 1 Tick puts us below the current ask, so we won't fill immediately
-                # ═══════════════════════════════════════════════════════════════
-                # Wir wollen VERKAUFEN -> Best Ask (nicht -1 Tick)
-                # Bei Best Ask sind wir Maker und können sofort füllen, wenn Market BUY kommt
-                target_price = best_ask
-                
-                # Check: Dürfen nicht Bid erreichen/kreuzen (sollte nie passieren)
-                if target_price <= best_bid:
-                    final_price = best_ask
-                    strategy = "Join Ask (Spread Tight - Fallback)"
+                # SELL: Want to be filled when taker BUYS → place below current best ask
+                if spread >= min_safe_spread:
+                    # Safe to penny jump: place 1 tick below best ask (inside spread)
+                    target_price = best_ask - price_tick
+                    # Safety check: must not cross or touch best bid
+                    if target_price <= best_bid + price_tick:
+                        target_price = best_ask  # Fallback to best ask
+                        strategy = "Best Ask (Spread Too Tight)"
+                    else:
+                        strategy = "Ask-1 Tick (Penny Jump - Priority Fill!)"
                 else:
-                    final_price = target_price
-                    strategy = "Best Ask (POST_ONLY - Immediate Fill)"
+                    # Tight spread: just join best ask
+                    target_price = best_ask
+                    strategy = "Best Ask (Tight Spread)"
+                
+                final_price = target_price
 
             # WICHTIG: Endgültigen Preis runden (HALF_UP um Float-Fehler zu vermeiden)
             quantized_price = quantize_value(final_price, price_tick, rounding=ROUND_HALF_UP)
@@ -3112,32 +3120,61 @@ class LighterAdapter(BaseAdapter):
                 if not market_data:
                     return False
                 
-                # Manually fetch orders via REST to inspect 'tx_hash'
-                params = {
-                    "account_index": self._resolved_account_index,
-                    "market_index": market_data.get('i'),
-                    "status": 10, # Open
-                    "limit": 50
-                }
-                
-                resp = await self._rest_get("/api/v1/orders", params=params)
-                raw_orders = []
-                if resp:
-                    raw_orders = resp if isinstance(resp, list) else resp.get('orders', [])
+                # Manually fetch orders via REST to inspect 'tx_hash'.
+                # IMPORTANT: Lighter's documented status codes are 0=Open, 1=Filled, 2=Cancelled, 3=Expired.
+                # Using wrong status here can make us blind and cause retries to stack up extra open orders.
+                market_index = (
+                    market_data.get('i')
+                    or market_data.get('market_id')
+                    or market_data.get('market_index')
+                )
 
-                # Look for matching hash
-                for o in raw_orders:
-                    # API fields might be 'tx_hash', 'hash' or even matches inside 'id' if confusing
-                    if str(o.get('tx_hash')) == order_id or str(o.get('hash')) == order_id:
-                        oid_int = int(o.get('id'))
-                        logger.info(f"✅ Lighter: Resolved Hash {order_id[:10]}... -> Order ID {oid_int}")
+                # Try a small set of queries to resolve tx_hash -> order id.
+                # 1) Open orders (status=0) is the most relevant for cancellation.
+                # 2) Fallback: query other statuses / no-status in case the API behaves differently.
+                candidate_params = []
+                base_params = {
+                    "account_index": int(self._resolved_account_index),
+                    "market_index": int(market_index) if market_index is not None else None,
+                    "limit": 50,
+                }
+                if base_params["market_index"] is not None:
+                    candidate_params.append({**base_params, "status": 0})
+                    candidate_params.append({**base_params, "status": 1})
+                    candidate_params.append({**base_params, "status": 2})
+                    candidate_params.append({**base_params, "status": 3})
+                    candidate_params.append({k: v for k, v in base_params.items() if k != "market_index" and v is not None})
+                else:
+                    candidate_params.append({k: v for k, v in base_params.items() if v is not None})
+
+                for params in candidate_params:
+                    # Remove any None values (defensive)
+                    params = {k: v for k, v in params.items() if v is not None}
+                    resp = await self._rest_get("/api/v1/orders", params=params)
+                    raw_orders = []
+                    if resp:
+                        raw_orders = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+
+                    for o in raw_orders or []:
+                        try:
+                            if str(o.get('tx_hash')) == order_id or str(o.get('hash')) == order_id:
+                                oid_int = int(o.get('id') or o.get('order_index') or o.get('order_id'))
+                                logger.info(f"✅ Lighter: Resolved Hash {order_id[:10]}... -> Order ID {oid_int}")
+                                break
+                        except Exception:
+                            continue
+                    if oid_int is not None:
                         break
-                
+
                 if oid_int is None:
-                    # If we can't find the open order by hash, it's effectively closed/gone.
-                    # Returning True here prevents the caller from retrying or thinking it failed.
-                    logger.info(f"ℹ️ Lighter Cancel: Hash {order_id[:10]}... not found in open orders. Assuming closed.")
-                    return True
+                    # DO NOT assume closed: failing to resolve can happen due to API errors, wrong filters,
+                    # or eventual consistency. Returning True here can leave the order open and cause
+                    # retry logic to create extra open orders.
+                    logger.warning(
+                        f"⚠️ Lighter Cancel: Could not resolve Hash {order_id[:10]}... to an Order ID for {symbol}. "
+                        "Treating as NOT cancelled. Consider cancel_all_orders if this persists."
+                    )
+                    return False
             else:
                 # Try basic conversion for other cases
                 try:

@@ -18,7 +18,6 @@ from typing import Optional, Dict, Any
 import config
 from src.utils import safe_float
 from src.volatility_monitor import get_volatility_monitor
-from src.kelly_sizing import get_kelly_sizer
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
 
@@ -197,6 +196,47 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         try:
             x10_positions = await x10.fetch_open_positions()
             lighter_positions = await lighter.fetch_open_positions()
+
+            # ═══════════════════════════════════════════════════════════════
+            # HARD LIMIT: Do not open new trades if max open positions reached
+            # This is intentionally placed here (not only in process_symbol)
+            # because the monitoring/farm loop can call execute_trade_parallel
+            # directly and would otherwise bypass MAX_OPEN_TRADES.
+            # We count by SYMBOL (positions), not by order legs.
+            # ═══════════════════════════════════════════════════════════════
+            max_positions = int(getattr(config, 'MAX_OPEN_POSITIONS', getattr(config, 'MAX_OPEN_TRADES', 40)))
+            if max_positions > 0:
+                open_symbols_real = {
+                    p.get('symbol') for p in (x10_positions or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                } | {
+                    p.get('symbol') for p in (lighter_positions or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                }
+
+                # Also include DB open trades and in-flight executions/tasks
+                existing = await get_open_trades()
+                open_symbols_db = {t.get('symbol') for t in (existing or []) if t.get('symbol')}
+
+                active_symbols = set()
+                try:
+                    # ACTIVE_TASKS can store asyncio.Tasks or placeholder strings like "RESERVED"
+                    active_symbols |= set(ACTIVE_TASKS.keys())
+                except Exception:
+                    pass
+                try:
+                    if hasattr(parallel_exec, 'active_executions') and isinstance(parallel_exec.active_executions, dict):
+                        active_symbols |= set(parallel_exec.active_executions.keys())
+                except Exception:
+                    pass
+
+                total_active_symbols = {s for s in (open_symbols_real | open_symbols_db | active_symbols) if s}
+                if len(total_active_symbols) >= max_positions:
+                    logger.info(
+                        f"⛔ {opp.get('symbol')}: Max open positions reached "
+                        f"({len(total_active_symbols)}/{max_positions}) - skip new entry"
+                    )
+                    return False
             
             # ═══════════════════════════════════════════════════════════════
             # FIX: Check both position lists more carefully - also check size
@@ -248,40 +288,22 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 bal_x10_real = max(0.0, raw_x10 - IN_FLIGHT_MARGIN.get('X10', 0.0))
                 bal_lit_real = max(0.0, raw_lit - IN_FLIGHT_MARGIN.get('Lighter', 0.0))
 
-            # Kelly sizing
+            # Position sizing (FIXED - using DESIRED_NOTIONAL_USD)
             available_capital = min(bal_x10_real, bal_lit_real)
-            apy = opp.get('apy', 0.0)
-            apy_decimal = apy / 100.0 if apy > 1 else apy
             
-            kelly_sizer = get_kelly_sizer()
-            kelly_result = kelly_sizer.calculate_position_size(
-                symbol=symbol,
-                available_capital=available_capital,
-                current_apy=apy_decimal
-            )
+            desired_size = float(getattr(config, 'DESIRED_NOTIONAL_USD', 80.0))
+            final_usd = max(desired_size, min_req)
             
-            logger.info(
-                f"🎰 KELLY {symbol}: win_rate={kelly_result.win_rate:.1%}, "
-                f"kelly_fraction={kelly_result.kelly_fraction:.4f}"
-            )
-
-            # Calculate final size
-            if opp.get('is_farm_trade'):
-                target_farm = float(getattr(config, 'FARM_NOTIONAL_USD', 12.0))
-                if kelly_result.safe_fraction > 0.02:
-                    kelly_adjusted = min(float(kelly_result.recommended_size_usd), target_farm * 1.5)
-                    final_usd = max(target_farm, kelly_adjusted, min_req)
-                else:
-                    final_usd = max(target_farm, min_req)
-            else:
-                final_usd = float(kelly_result.recommended_size_usd)
-                if final_usd < min_req:
-                    can_afford = min_req <= available_capital * 0.9
-                    within_limits = min_req <= config.MAX_TRADE_SIZE_USD and min_req <= max_per_trade
-                    if can_afford and within_limits:
-                        final_usd = float(min_req)
-                    else:
-                        return False
+            # Check we can afford it
+            if final_usd > available_capital * 0.9:
+                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${final_usd:.2f}, have ${available_capital:.2f})")
+                return False
+            
+            # Check within limits
+            if final_usd > config.MAX_TRADE_SIZE_USD:
+                final_usd = config.MAX_TRADE_SIZE_USD
+            
+            logger.info(f"📏 SIZE {symbol}: ${final_usd:.2f} (DESIRED_NOTIONAL_USD=${desired_size:.2f})")
 
             # Liquidity check
             l_ex = opp.get('leg1_exchange', 'X10')

@@ -693,16 +693,97 @@ class ParallelExecutionManager:
             logger.debug(f"⏭️ {symbol}: Retries disabled (max_retries=0)")
             return False, None
         
-        # Cancel original order first
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Check MAX_OPEN_TRADES before placing retry order
+        # This prevents retries from exceeding the position limit
+        # ═══════════════════════════════════════════════════════════════
+        max_positions = int(getattr(config, 'MAX_OPEN_POSITIONS', getattr(config, 'MAX_OPEN_TRADES', 40)))
+        if max_positions > 0:
+            try:
+                # Get open positions from both exchanges
+                x10_positions = await self.x10.fetch_open_positions()
+                lighter_positions = await self.lighter.fetch_open_positions()
+                
+                open_symbols_real = {
+                    p.get('symbol') for p in (x10_positions or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                } | {
+                    p.get('symbol') for p in (lighter_positions or [])
+                    if abs(safe_float(p.get('size', 0))) > 1e-8
+                }
+                
+                # Also include DB open trades and in-flight executions/tasks
+                from src.core.state import get_open_trades
+                existing = await get_open_trades()
+                open_symbols_db = {t.get('symbol') for t in (existing or []) if t.get('symbol')}
+                
+                # Include active executions (pending orders) - but only those that are NOT failed
+                active_symbols = set()
+                try:
+                    if hasattr(self, 'active_executions') and isinstance(self.active_executions, dict):
+                        # Only count executions that are not in FAILED state
+                        for sym, exec_obj in self.active_executions.items():
+                            if hasattr(exec_obj, 'state') and exec_obj.state != ExecutionState.FAILED:
+                                active_symbols.add(sym)
+                            elif not hasattr(exec_obj, 'state'):
+                                # If no state attribute, assume it's active (backward compatibility)
+                                active_symbols.add(sym)
+                except Exception:
+                    pass
+                
+                # Count total active symbols (positions + pending orders)
+                total_active_symbols = {s for s in (open_symbols_real | open_symbols_db | active_symbols) if s}
+                
+                # Check if position already exists for this symbol (order might have filled)
+                if symbol in open_symbols_real:
+                    logger.info(
+                        f"✅ [RETRY] {symbol}: Position already exists - order likely filled, skipping retry"
+                    )
+                    return False, None
+                
+                # If we're already at max, don't place retry (unless this symbol is already counted)
+                if len(total_active_symbols) >= max_positions and symbol not in total_active_symbols:
+                    logger.info(
+                        f"⛔ [RETRY] {symbol}: Max open positions reached "
+                        f"({len(total_active_symbols)}/{max_positions}) - skipping retry"
+                    )
+                    return False, None
+            except Exception as e:
+                logger.warning(f"⚠️ [RETRY] {symbol}: Error checking MAX_OPEN_TRADES: {e}, proceeding with retry")
+        
+        # Cancel original order first.
+        # IMPORTANT: If we cannot confirm cancellation (e.g. hash can't be resolved),
+        # do NOT place a new retry order. Otherwise we can stack multiple live maker
+        # orders and effectively "nachkaufen" when both fill.
+        cancelled_ok = False
         try:
             logger.info(f"🔄 [RETRY] {symbol}: Cancelling original order {original_order_id[:40]}...")
             if hasattr(self.lighter, 'cancel_limit_order'):
-                await self.lighter.cancel_limit_order(original_order_id, symbol)
+                cancelled_ok = bool(await self.lighter.cancel_limit_order(original_order_id, symbol))
             else:
-                await self.lighter.cancel_all_orders(symbol)
+                cancelled_ok = bool(await self.lighter.cancel_all_orders(symbol))
         except Exception as e:
             logger.warning(f"⚠️ [RETRY] {symbol}: Error cancelling original order: {e}")
-            # Continue anyway - order might already be cancelled
+            cancelled_ok = False
+
+        if not cancelled_ok:
+            logger.warning(
+                f"🛑 [RETRY] {symbol}: Original order cancel NOT confirmed; skipping retry to prevent duplicate fills"
+            )
+            return False, None
+
+        # Extra safety: if we still see any open Lighter orders for this symbol, skip retry.
+        # (Prevents stacking orders in eventual-consistency windows.)
+        try:
+            if hasattr(self.lighter, 'get_open_orders'):
+                open_orders = await self.lighter.get_open_orders(symbol)
+                if open_orders:
+                    logger.warning(
+                        f"🛑 [RETRY] {symbol}: {len(open_orders)} open Lighter orders still present; skipping retry"
+                    )
+                    return False, None
+        except Exception as e:
+            logger.debug(f"[RETRY] {symbol}: open-order safety check failed: {e}")
         
         # Wait before retry
         await asyncio.sleep(retry_delay)

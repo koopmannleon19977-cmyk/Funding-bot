@@ -197,7 +197,15 @@ class FundingTracker:
             logger.warning(f"⚠️ X10 funding fetch error for {symbol}: {e}")
         
         # ═══════════════════════════════════════════════════════════════════════
-        # Lighter: Use position_funding API
+        # Lighter: Use position_funding from Position object
+        # ═══════════════════════════════════════════════════════════════════════
+        # WICHTIG: Lighter's `total_funding_paid_out` Semantik:
+        # - POSITIV = Du hast Funding BEZAHLT (an Gegenseite)
+        # - NEGATIV = Du hast Funding ERHALTEN (von Gegenseite)
+        #
+        # Für Net Funding Berechnung:
+        # - received = -total_funding_paid_out  (Invertieren!)
+        # - Wenn total_funding_paid_out = -5.0, dann received = +5.0 (Profit!)
         # ═══════════════════════════════════════════════════════════════════════
         try:
             positions = await self.lighter.fetch_open_positions()
@@ -208,11 +216,20 @@ class FundingTracker:
             
             if lighter_position:
                 # CUMULATIVE funding paid/received
-                funding_paid_out = lighter_position.get('total_funding_paid_out')
+                # Try multiple field names (API may vary)
+                funding_paid_out = (
+                    lighter_position.get('total_funding_paid_out') or
+                    lighter_position.get('funding_paid_out') or
+                    lighter_position.get('funding') or
+                    lighter_position.get('realized_funding') or
+                    0
+                )
                 if funding_paid_out:
                     try:
-                        lighter_funding = -float(funding_paid_out)  # Negative because paid OUT
-                        # logger.debug(f"🔍 Lighter {symbol}: funding_paid_out=${funding_paid_out}")
+                        # INVERT: paid_out > 0 means we paid, so funding received = -paid_out
+                        # paid_out < 0 means we received, so funding received = -paid_out = positive
+                        lighter_funding = -float(funding_paid_out)
+                        logger.debug(f"🔍 Lighter {symbol}: funding_paid_out={funding_paid_out}, received={lighter_funding:.4f}")
                     except (ValueError, TypeError):
                         pass
             

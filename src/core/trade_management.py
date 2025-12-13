@@ -19,7 +19,6 @@ from typing import Dict, List, Optional, Any
 import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
-from src.kelly_sizing import get_kelly_sizer
 from src.telegram_bot import get_telegram_bot
 
 logger = logging.getLogger(__name__)
@@ -856,18 +855,6 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                         'spread_pnl': spread_pnl, 
                         'fees': est_fees
                     })
-                    
-                    # Kelly Sizer recording
-                    try:
-                        kelly_sizer = get_kelly_sizer()
-                        kelly_sizer.record_trade(
-                            symbol=sym,
-                            pnl_usd=total_pnl,
-                            hold_time_seconds=hold_hours * 3600,
-                            entry_apy=t.get('apy', None)
-                        )
-                    except Exception as e:
-                        logger.error(f"Kelly Sizer error for {sym}: {e}")
                     
                     # Telegram notification
                     telegram = get_telegram_bot()

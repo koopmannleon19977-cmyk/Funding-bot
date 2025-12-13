@@ -16,21 +16,31 @@ class LatencyArbDetector:
     - If the 'fast' exchange moves significantly, we front-run the 'slow' one.
     """
     
-    def __init__(self, lag_threshold_seconds: float = 5.0):  # FIX: 1.0s → 5.0s für X10 Lag
-        self.lag_threshold = lag_threshold_seconds
+    def __init__(self, lag_threshold_seconds: float = 5.0):
+        # Load config values if available
+        try:
+            import config
+            self.lag_threshold = getattr(config, 'LATENCY_ARB_MIN_LAG_SECONDS', lag_threshold_seconds)
+            self.max_lag_threshold = getattr(config, 'LATENCY_ARB_MAX_LAG_SECONDS', 30.0)
+            self.min_rate_change = getattr(config, 'LATENCY_ARB_MIN_RATE_DIFF', 0.0002)  # 0.02% min diff
+        except ImportError:
+            self.lag_threshold = lag_threshold_seconds
+            self.max_lag_threshold = 30.0
+            self.min_rate_change = 0.0002
+        
         self.last_update_times: Dict[str, Dict[str, float]] = {}
         self.rate_history: Dict[str, deque] = {}
         self.opportunities_detected = 0
         self.opportunities_executed = 0
         
-        # NEU: Minimum rate change für Signal
-        self.min_rate_change = 0.00005  # 0.5 bps minimum movement
-        
-        # NEU: Cooldown pro Symbol
+        # Cooldown pro Symbol (verhindert zu viele Trades auf gleichem Symbol)
         self.last_opportunity_time: Dict[str, float] = {}
-        self.opportunity_cooldown = 30.0  # FIX: 60s → 30s für mehr Opportunities
+        self.opportunity_cooldown = 60.0  # 60s cooldown pro Symbol
         
-        logger.info(f"⚡ Latency Arb Detector initialized (threshold: {lag_threshold_seconds}s)")
+        logger.info(
+            f"⚡ Latency Arb Detector initialized "
+            f"(min_lag={self.lag_threshold}s, max_lag={self.max_lag_threshold}s, min_rate_diff={self.min_rate_change*100:.3f}%)"
+        )
     
     def _update_timestamps_from_adapters(self, symbol: str, x10_adapter, lighter_adapter):
         """
@@ -122,6 +132,11 @@ class LatencyArbDetector:
         
         lagging_exchange, lag_seconds = lag_info
         
+        # Skip if lag is too large (data is stale, not just delayed)
+        if lag_seconds > self.max_lag_threshold:
+            logger.debug(f"⚠️ Latency Arb {symbol}: Lag too large ({lag_seconds:.1f}s > {self.max_lag_threshold}s) - stale data, skip")
+            return None
+        
         # 4. Analyze Trend of the LEADING exchange
         history = list(self.rate_history[symbol])
         recent_samples = history[-5:] # Check last few updates
@@ -203,7 +218,12 @@ _detector = None
 def get_detector() -> LatencyArbDetector:
     global _detector
     if _detector is None:
-        _detector = LatencyArbDetector(lag_threshold_seconds=5.0)  # FIX: 5.0s für X10 Lag
+        try:
+            import config
+            lag_threshold = getattr(config, 'LATENCY_ARB_MIN_LAG_SECONDS', 5.0)
+        except ImportError:
+            lag_threshold = 5.0
+        _detector = LatencyArbDetector(lag_threshold_seconds=lag_threshold)
     return _detector
 
 def is_latency_arb_enabled() -> bool:
