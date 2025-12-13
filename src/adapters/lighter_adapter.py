@@ -105,11 +105,17 @@ class LighterAdapter(BaseAdapter):
         self.order_lock = asyncio.Lock()
         
         # ═══════════════════════════════════════════════════════════════
+        # FIXED: Position callback infrastructure for Ghost-Fill detection
+        # ═══════════════════════════════════════════════════════════════
+        self._position_callbacks: List[Any] = []
+        self._positions_cache: List[dict] = []  # Cache for fetch_open_positions deduplication
+        
+        # ═══════════════════════════════════════════════════════════════
         # NONCE CACHING: Pre-fetch and increment locally to avoid API calls
         # ═══════════════════════════════════════════════════════════════
         self._cached_nonce: Optional[int] = None
         self._nonce_fetch_time: float = 0.0
-        self._nonce_cache_ttl: float = 30.0  # Re-fetch nonce after 30s of no orders
+        self._nonce_cache_ttl: float = 10.0  # FIXED: Reduced from 30s to 10s for faster order cycles
         
         # Shutdown state
         self._shutdown_cancel_done = False
@@ -2539,6 +2545,13 @@ class LighterAdapter(BaseAdapter):
 
             # Cache for deduplication
             self._positions_cache = positions
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIXED: Trigger position callbacks for Ghost-Fill detection
+            # This enables ParallelExecutionManager to detect fills faster
+            # ═══════════════════════════════════════════════════════════════
+            await self._trigger_position_callbacks(positions)
+            
             return positions
 
         except asyncio.CancelledError:
@@ -3502,6 +3515,40 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"Lighter close {symbol}: Exception: {e}", exc_info=True)
             return False, None
+
+    # ═══════════════════════════════════════════════════════════════
+    # FIXED: Position callback infrastructure for Ghost-Fill detection
+    # ═══════════════════════════════════════════════════════════════
+    
+    def register_position_callback(self, callback):
+        """
+        Register a callback to be notified when positions are fetched.
+        Used by ParallelExecutionManager for faster Ghost-Fill detection.
+        
+        Args:
+            callback: Async or sync function that takes a position dict
+        """
+        if callback not in self._position_callbacks:
+            self._position_callbacks.append(callback)
+            logger.debug(f"✅ Registered Lighter position callback: {callback.__name__}")
+    
+    async def _trigger_position_callbacks(self, positions: List[dict]):
+        """
+        Trigger all registered position callbacks.
+        Called after fetch_open_positions returns.
+        """
+        if not self._position_callbacks or not positions:
+            return
+        
+        for pos in positions:
+            for callback in self._position_callbacks:
+                try:
+                    if asyncio.iscoroutinefunction(callback):
+                        await callback(pos)
+                    else:
+                        callback(pos)
+                except Exception as e:
+                    logger.debug(f"Lighter position callback error: {e}")
 
     async def aclose(self):
         """Cleanup all sessions and connections"""

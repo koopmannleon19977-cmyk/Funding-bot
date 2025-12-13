@@ -171,6 +171,11 @@ class ParallelExecutionManager:
             self.x10.register_position_callback(self._on_x10_position_update)
             logger.debug("✅ Registered X10 position update callback for fill detection")
         
+        # FIXED: Also register Lighter position callback for Ghost-Fill detection
+        if hasattr(self.lighter, 'register_position_callback'):
+            self.lighter.register_position_callback(self._on_lighter_position_update)
+            logger.debug("✅ Registered Lighter position update callback for fill detection")
+
         logger.info("✅ ParallelExecutionManager: Rollback processor started")
 
     async def stop(self, force: bool = False) -> None:
@@ -353,6 +358,37 @@ class ParallelExecutionManager:
         
         except Exception as e:
             logger.debug(f"Error processing X10 position update for fill detection: {e}")
+    
+    async def _on_lighter_position_update(self, data: dict):
+        """
+        Handle Lighter position update (from REST polling or WebSocket if available).
+        FIXED: Enables faster Ghost-Fill detection by triggering event when position appears.
+        """
+        try:
+            symbol = data.get("symbol") or data.get("market") or ""
+            if not symbol:
+                return
+            
+            # Check if we're waiting for a fill for this symbol
+            if symbol not in self._position_fill_events:
+                return
+            
+            size = safe_float(data.get("size") or data.get("quantity") or data.get("qty") or 0)
+            target_size = self._position_fill_sizes.get(symbol, 0)
+            is_ghost = data.get("is_ghost", False)
+            
+            # Position exists with at least 50% of target OR is Ghost Guardian position
+            if target_size > 0 and (is_ghost or abs(size) >= target_size * 0.50):
+                event = self._position_fill_events.get(symbol)
+                if event and not event.is_set():
+                    if is_ghost:
+                        logger.debug(f"🔔 [LIGHTER FILL EVENT] {symbol}: Ghost Guardian detected! Marking as filled.")
+                    else:
+                        logger.debug(f"🔔 [LIGHTER FILL EVENT] {symbol}: Position detected! size={size}, target={target_size}")
+                    event.set()
+        
+        except Exception as e:
+            logger.debug(f"Error processing Lighter position update for fill detection: {e}")
     
     def _setup_fill_event(self, symbol: str, target_size_coins: float):
         """
@@ -751,6 +787,22 @@ class ParallelExecutionManager:
             except Exception as e:
                 logger.warning(f"⚠️ [RETRY] {symbol}: Error checking MAX_OPEN_TRADES: {e}, proceeding with retry")
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Check if position already exists BEFORE trying to cancel
+        # If position exists, order was already filled - skip retry entirely
+        # ═══════════════════════════════════════════════════════════════
+        try:
+            positions = await self.lighter.fetch_open_positions()
+            pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+            if pos:
+                pos_size = safe_float(pos.get("size", 0))
+                is_ghost = pos.get("is_ghost", False)
+                if is_ghost or abs(pos_size) >= execution.quantity_coins * 0.50:
+                    logger.info(f"✅ [RETRY] {symbol}: Position already exists - order likely filled, skipping retry")
+                    return True, None  # Order was filled, no retry needed
+        except Exception as e:
+            logger.debug(f"[RETRY] {symbol}: Position pre-check error: {e}")
+
         # Cancel original order first.
         # IMPORTANT: If we cannot confirm cancellation (e.g. hash can't be resolved),
         # do NOT place a new retry order. Otherwise we can stack multiple live maker
@@ -932,6 +984,24 @@ class ParallelExecutionManager:
     async def _handle_maker_timeout(self, execution, lighter_order_id) -> bool:
         symbol = execution.symbol
         logger.warning(f"⏰ [MAKER STRATEGY] {symbol}: Wait timeout! Cancelling Lighter order {lighter_order_id}...")
+
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Check if position already exists BEFORE trying to cancel
+        # If position exists, order was already filled - skip cancel attempt
+        # This eliminates "Could not resolve Hash" warnings for filled orders
+        # ═══════════════════════════════════════════════════════════════
+        try:
+            positions = await self.lighter.fetch_open_positions()
+            pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+            if pos:
+                pos_size = safe_float(pos.get("size", 0))
+                is_ghost = pos.get("is_ghost", False)
+                if is_ghost or abs(pos_size) >= execution.quantity_coins * 0.50:
+                    logger.info(f"✅ [MAKER STRATEGY] {symbol}: Position already exists (size={pos_size:.6f}) - order was filled, skipping cancel")
+                    return True  # Order was filled, proceed to hedge
+        except Exception as e:
+            logger.debug(f"[MAKER STRATEGY] {symbol}: Position pre-check error: {e}")
+            # Continue with cancel attempt if check fails
 
         # 1. Cancel Order
         cancel_returned_404 = False
@@ -1393,151 +1463,164 @@ class ParallelExecutionManager:
     async def _wait_for_lighter_fill(
         self, symbol: str, execution: TradeExecution, lighter_order_id: str, max_wait_seconds: float
     ) -> bool:
-        """Wait for Lighter order to fill (polling-based)
+        """Wait for Lighter order to fill (hybrid: event-based + polling fallback)
         
-        Market orders (IOC) should fill immediately, so we use a shorter interval
-        for faster detection. POST_ONLY orders may take longer, so we use a longer interval.
-        Also checks if IOC order was cancelled (not in open orders).
+        FIXED: Reduced polling interval from 1.0s to 0.5s for faster Ghost-Fill detection.
+        Also uses event-based detection via _position_fill_events when available.
         """
         wait_start = time.time()
         check_count = 0
-        # Use longer polling interval for POST_ONLY orders (they may take time to fill)
-        # Check if order is POST_ONLY by checking if it's still in open orders after initial delay
-        polling_interval = 1.0  # Longer interval for POST_ONLY orders (can be adjusted based on order type)
+        # FIXED: Reduced from 1.0s to 0.5s for faster fill detection (matches X10 interval)
+        polling_interval = 0.5  # Faster polling to reduce Ghost-Fill window
         # For IOC orders, check order status early to detect cancellations
         order_status_checked = False
+        
+        # Setup event-based fill detection (if not already setup)
+        fill_event = None
+        if execution.quantity_coins > 0:
+            fill_event = self._setup_fill_event(symbol, execution.quantity_coins)
 
-        while time.time() - wait_start < max_wait_seconds:
-            if getattr(config, "IS_SHUTTING_DOWN", False):
-                logger.warning(f"⚡ [LIGHTER FILL] {symbol}: SHUTDOWN detected - aborting wait!")
-                return False
+        try:
+            while time.time() - wait_start < max_wait_seconds:
+                if getattr(config, "IS_SHUTTING_DOWN", False):
+                    logger.warning(f"⚡ [LIGHTER FILL] {symbol}: SHUTDOWN detected - aborting wait!")
+                    return False
 
-            check_count += 1
-            try:
-                # Check position first (fastest path)
-                pos = await self.lighter.fetch_open_positions()
-                p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
-                current_size = safe_float(p.get("size", 0)) if p else 0.0
-                is_ghost = p.get("is_ghost", False) if p else False
-
-                # Check if position exists:
-                # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
-                # 2. Real position with at least 50% of expected size (more lenient for faster detection)
-                if execution.quantity_coins > 0 and (is_ghost or abs(current_size) >= execution.quantity_coins * 0.50):
+                # FIXED: Check event first (fastest path - set by position callbacks)
+                if fill_event and fill_event.is_set():
                     fill_time = time.time() - wait_start
-                    if is_ghost:
-                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected via Ghost Guardian after {check_count} checks ({fill_time:.2f}s)! (Order pending, position will appear in API soon)")
-                    else:
-                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected after {check_count} checks ({fill_time:.2f}s)! (size={abs(current_size):.6f}, expected={execution.quantity_coins:.6f})")
+                    logger.info(f"🔔 [LIGHTER FILL] {symbol}: Fill detected via EVENT after {fill_time:.2f}s!")
                     return True
 
-                # For IOC orders, check if order still exists after initial delay
-                # IOC orders that don't fill immediately are cancelled
-                # BUT: If order is gone, it might be filled (position exists) OR cancelled (no position)
-                # We need to do a fresh fetch to bypass rate limiter deduplication
-                # However, positions may take time to appear in API, so we check multiple times
-                if not order_status_checked and time.time() - wait_start > 1.0:
-                    try:
-                        open_orders = await self.lighter.get_open_orders(symbol)
-                        # Extract order IDs (could be full hash or truncated)
-                        order_id_short = lighter_order_id[:20] if lighter_order_id else ""
-                        order_found = any(
-                            str(o.get("id", "")).startswith(order_id_short) or 
-                            str(o.get("id", "")).endswith(order_id_short[-20:])
-                            for o in open_orders
-                        )
-                        
-                        if not order_found:
-                            # Order is not in open orders - could be filled OR cancelled
-                            # Do multiple fresh position fetches with delays to account for API lag
-                            # Positions may take 1-3 seconds to appear after IOC order fills
-                            # For POST_ONLY orders, positions may take longer (5-10s), so we need more attempts
-                            # Check if this is a POST_ONLY order: if order was placed >5s ago and disappeared, likely POST_ONLY filled
-                            elapsed_so_far = time.time() - wait_start
-                            is_post_only_likely = elapsed_so_far > 5.0
-                            max_fresh_fetch_attempts = 10 if is_post_only_likely else 3  # More attempts for POST_ONLY
-                            fresh_fetch_attempts = 0
-                            fresh_fetch_delay = 0.5
-                            
-                            while fresh_fetch_attempts < max_fresh_fetch_attempts:
-                                cached_positions = None
-                                if hasattr(self.lighter, '_positions_cache'):
-                                    # Set cache to None temporarily to force fresh API call
-                                    cached_positions = self.lighter._positions_cache
-                                    self.lighter._positions_cache = None
-                                
-                                try:
-                                    await asyncio.sleep(fresh_fetch_delay * fresh_fetch_attempts)  # Delay increases with each attempt
-                                    fresh_pos = await self.lighter.fetch_open_positions()
-                                    fresh_p = next((x for x in (fresh_pos or []) if x.get("symbol") == symbol), None)
-                                    fresh_size = safe_float(fresh_p.get("size", 0)) if fresh_p else 0.0
-                                    is_ghost = fresh_p.get("is_ghost", False) if fresh_p else False
-                                    
-                                    # Check if position exists:
-                                    # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
-                                    # 2. Real position with at least 50% of expected size
-                                    if is_ghost:
-                                        # Ghost Guardian position = order is pending, consider it filled
-                                        fill_time = time.time() - wait_start
-                                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via Ghost Guardian (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared, Ghost Guardian detected pending position - will appear in API soon)!")
-                                        # Restore cache with fresh data
-                                        if hasattr(self.lighter, '_positions_cache'):
-                                            self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
-                                        return True  # Fill confirmed, exit immediately
-                                    elif abs(fresh_size) >= execution.quantity_coins * 0.50:
-                                        # Position exists with sufficient size! Order was filled
-                                        fill_time = time.time() - wait_start
-                                        logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via fresh fetch (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared but position exists)! (size={abs(fresh_size):.6f}, expected={execution.quantity_coins:.6f})")
-                                        # Restore cache with fresh data
-                                        if hasattr(self.lighter, '_positions_cache'):
-                                            self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
-                                        return True  # Fill confirmed, exit immediately
-                                    else:
-                                        fresh_fetch_attempts += 1
-                                        # Restore cache before next attempt
-                                        if hasattr(self.lighter, '_positions_cache'):
-                                            self.lighter._positions_cache = cached_positions
-                                        if fresh_fetch_attempts >= max_fresh_fetch_attempts:
-                                            # No position found after all fresh fetch attempts
-                                            # For POST_ONLY orders, continue polling instead of giving up immediately
-                                            # (POST_ONLY orders can take time to fill and appear in API)
-                                            elapsed = time.time() - wait_start
-                                            if is_post_only_likely:
-                                                # POST_ONLY order: continue polling instead of giving up
-                                                logger.debug(f"⏳ [LIGHTER FILL] {symbol}: POST_ONLY order not found in open orders and no position after {max_fresh_fetch_attempts} fresh fetch attempts ({elapsed:.2f}s) - continuing to poll (POST_ONLY may fill later)")
-                                                # Restore cache and continue polling
-                                                if hasattr(self.lighter, '_positions_cache'):
-                                                    self.lighter._positions_cache = cached_positions
-                                                order_status_checked = True  # Don't check again, just continue polling
-                                                break  # Exit fresh fetch loop, continue normal polling
-                                            else:
-                                                # IOC order: likely cancelled/rejected
-                                                logger.warning(f"❌ [LIGHTER FILL] {symbol}: IOC order not found in open orders and no position after {max_fresh_fetch_attempts} fresh fetch attempts ({elapsed:.2f}s) - cancelled/rejected")
-                                                return False
-                                except Exception as fresh_fetch_error:
-                                    logger.debug(f"[LIGHTER FILL] {symbol}: Fresh fetch attempt {fresh_fetch_attempts + 1} error: {fresh_fetch_error}")
-                                    # Restore cache on error
-                                    if hasattr(self.lighter, '_positions_cache') and cached_positions is not None:
-                                        self.lighter._positions_cache = cached_positions
-                                    fresh_fetch_attempts += 1
-                                    if fresh_fetch_attempts >= max_fresh_fetch_attempts:
-                                        # Continue polling if all fresh fetch attempts fail
-                                        break
+                check_count += 1
+                try:
+                    # Check position via REST (fallback path)
+                    pos = await self.lighter.fetch_open_positions()
+                    p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
+                    current_size = safe_float(p.get("size", 0)) if p else 0.0
+                    is_ghost = p.get("is_ghost", False) if p else False
+
+                    # Check if position exists:
+                    # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
+                    # 2. Real position with at least 50% of expected size (more lenient for faster detection)
+                    if execution.quantity_coins > 0 and (is_ghost or abs(current_size) >= execution.quantity_coins * 0.50):
+                        fill_time = time.time() - wait_start
+                        if is_ghost:
+                            logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected via Ghost Guardian after {check_count} checks ({fill_time:.2f}s)! (Order pending, position will appear in API soon)")
                         else:
-                            # Order still exists, continue normal polling
-                            order_status_checked = True
-                    except Exception as e:
-                        logger.debug(f"[LIGHTER FILL] {symbol}: Order status check error: {e}")
-                        # Continue polling if check fails
-                        order_status_checked = True  # Mark as checked to avoid repeated errors
+                            logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill detected after {check_count} checks ({fill_time:.2f}s)! (size={abs(current_size):.6f}, expected={execution.quantity_coins:.6f})")
+                        return True
 
-                await asyncio.sleep(polling_interval)
-            except Exception as e:
-                logger.debug(f"[LIGHTER FILL] {symbol}: Check #{check_count} error: {e}")
-                await asyncio.sleep(polling_interval)
+                    # For IOC orders, check if order still exists after initial delay
+                    # IOC orders that don't fill immediately are cancelled
+                    # BUT: If order is gone, it might be filled (position exists) OR cancelled (no position)
+                    # We need to do a fresh fetch to bypass rate limiter deduplication
+                    # However, positions may take time to appear in API, so we check multiple times
+                    if not order_status_checked and time.time() - wait_start > 1.0:
+                        try:
+                            open_orders = await self.lighter.get_open_orders(symbol)
+                            # Extract order IDs (could be full hash or truncated)
+                            order_id_short = lighter_order_id[:20] if lighter_order_id else ""
+                            order_found = any(
+                                str(o.get("id", "")).startswith(order_id_short) or 
+                                str(o.get("id", "")).endswith(order_id_short[-20:])
+                                for o in open_orders
+                            )
+                            
+                            if not order_found:
+                                # Order is not in open orders - could be filled OR cancelled
+                                # Do multiple fresh position fetches with delays to account for API lag
+                                # Positions may take 1-3 seconds to appear after IOC order fills
+                                # For POST_ONLY orders, positions may take longer (5-10s), so we need more attempts
+                                # Check if this is a POST_ONLY order: if order was placed >5s ago and disappeared, likely POST_ONLY filled
+                                elapsed_so_far = time.time() - wait_start
+                                is_post_only_likely = elapsed_so_far > 5.0
+                                max_fresh_fetch_attempts = 10 if is_post_only_likely else 3  # More attempts for POST_ONLY
+                                fresh_fetch_attempts = 0
+                                fresh_fetch_delay = 0.5
+                                
+                                while fresh_fetch_attempts < max_fresh_fetch_attempts:
+                                    cached_positions = None
+                                    if hasattr(self.lighter, '_positions_cache'):
+                                        # Set cache to None temporarily to force fresh API call
+                                        cached_positions = self.lighter._positions_cache
+                                        self.lighter._positions_cache = None
+                                    
+                                    try:
+                                        await asyncio.sleep(fresh_fetch_delay * fresh_fetch_attempts)  # Delay increases with each attempt
+                                        fresh_pos = await self.lighter.fetch_open_positions()
+                                        fresh_p = next((x for x in (fresh_pos or []) if x.get("symbol") == symbol), None)
+                                        fresh_size = safe_float(fresh_p.get("size", 0)) if fresh_p else 0.0
+                                        is_ghost = fresh_p.get("is_ghost", False) if fresh_p else False
+                                        
+                                        # Check if position exists:
+                                        # 1. Ghost Guardian position (is_ghost=True) means order is pending and will fill
+                                        # 2. Real position with at least 50% of expected size
+                                        if is_ghost:
+                                            # Ghost Guardian position = order is pending, consider it filled
+                                            fill_time = time.time() - wait_start
+                                            logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via Ghost Guardian (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared, Ghost Guardian detected pending position - will appear in API soon)!")
+                                            # Restore cache with fresh data
+                                            if hasattr(self.lighter, '_positions_cache'):
+                                                self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
+                                            return True  # Fill confirmed, exit immediately
+                                        elif abs(fresh_size) >= execution.quantity_coins * 0.50:
+                                            # Position exists with sufficient size! Order was filled
+                                            fill_time = time.time() - wait_start
+                                            logger.info(f"✅ [LIGHTER FILL] {symbol}: Fill confirmed via fresh fetch (attempt {fresh_fetch_attempts + 1}) after {fill_time:.2f}s (IOC order disappeared but position exists)! (size={abs(fresh_size):.6f}, expected={execution.quantity_coins:.6f})")
+                                            # Restore cache with fresh data
+                                            if hasattr(self.lighter, '_positions_cache'):
+                                                self.lighter._positions_cache = fresh_pos if fresh_pos else cached_positions
+                                            return True  # Fill confirmed, exit immediately
+                                        else:
+                                            fresh_fetch_attempts += 1
+                                            # Restore cache before next attempt
+                                            if hasattr(self.lighter, '_positions_cache'):
+                                                self.lighter._positions_cache = cached_positions
+                                            if fresh_fetch_attempts >= max_fresh_fetch_attempts:
+                                                # No position found after all fresh fetch attempts
+                                                # For POST_ONLY orders, continue polling instead of giving up immediately
+                                                # (POST_ONLY orders can take time to fill and appear in API)
+                                                elapsed = time.time() - wait_start
+                                                if is_post_only_likely:
+                                                    # POST_ONLY order: continue polling instead of giving up
+                                                    logger.debug(f"⏳ [LIGHTER FILL] {symbol}: POST_ONLY order not found in open orders and no position after {max_fresh_fetch_attempts} fresh fetch attempts ({elapsed:.2f}s) - continuing to poll (POST_ONLY may fill later)")
+                                                    # Restore cache and continue polling
+                                                    if hasattr(self.lighter, '_positions_cache'):
+                                                        self.lighter._positions_cache = cached_positions
+                                                    order_status_checked = True  # Don't check again, just continue polling
+                                                    break  # Exit fresh fetch loop, continue normal polling
+                                                else:
+                                                    # IOC order: likely cancelled/rejected
+                                                    logger.warning(f"❌ [LIGHTER FILL] {symbol}: IOC order not found in open orders and no position after {max_fresh_fetch_attempts} fresh fetch attempts ({elapsed:.2f}s) - cancelled/rejected")
+                                                    return False
+                                    except Exception as fresh_fetch_error:
+                                        logger.debug(f"[LIGHTER FILL] {symbol}: Fresh fetch attempt {fresh_fetch_attempts + 1} error: {fresh_fetch_error}")
+                                        # Restore cache on error
+                                        if hasattr(self.lighter, '_positions_cache') and cached_positions is not None:
+                                            self.lighter._positions_cache = cached_positions
+                                        fresh_fetch_attempts += 1
+                                        if fresh_fetch_attempts >= max_fresh_fetch_attempts:
+                                            # Continue polling if all fresh fetch attempts fail
+                                            break
+                            else:
+                                # Order still exists, continue normal polling
+                                order_status_checked = True
+                        except Exception as e:
+                            logger.debug(f"[LIGHTER FILL] {symbol}: Order status check error: {e}")
+                            # Continue polling if check fails
+                            order_status_checked = True  # Mark as checked to avoid repeated errors
 
-        logger.warning(f"⏰ [LIGHTER FILL] {symbol}: Fill timeout after {max_wait_seconds:.2f}s")
-        return False
+                    await asyncio.sleep(polling_interval)
+                except Exception as e:
+                    logger.debug(f"[LIGHTER FILL] {symbol}: Check #{check_count} error: {e}")
+                    await asyncio.sleep(polling_interval)
+
+            logger.warning(f"⏰ [LIGHTER FILL] {symbol}: Fill timeout after {max_wait_seconds:.2f}s")
+            return False
+        finally:
+            # FIXED: Cleanup fill event to prevent memory leaks
+            self._cleanup_fill_event(symbol)
 
     async def _wait_for_x10_fill(
         self, symbol: str, execution: TradeExecution, x10_order_id: str, max_wait_seconds: float = 60.0

@@ -215,12 +215,12 @@ LIGHTER_WS_MAX_SYMBOLS = 99
 # LÖSUNG: Aggressivere Price Adjustments + kürzere Timeouts
 # Bei Retry wird Price näher an Midprice bewegt (aggressiver = schnellerer Fill)
 # ═══════════════════════════════════════════════════════════════════════════════
-LIGHTER_ORDER_TIMEOUT_SECONDS = 30.0      # Reduced from 60s (faster feedback)
+LIGHTER_ORDER_TIMEOUT_SECONDS = 45.0      # FIXED: Increased from 30s to reduce Ghost-Fills on illiquid pairs
 MAKER_ORDER_MAX_RETRIES = 3               # 3 retries (was 2)
 MAKER_ORDER_RETRY_DELAY_SECONDS = 1.0     # 1s delay (was 2s - faster iteration)
 MAKER_ORDER_PRICE_ADJUSTMENT_PCT = 0.002  # 0.2% adjustment per retry (was 0.1% - more aggressive)
 MAKER_ORDER_MIN_TIMEOUT_SECONDS = 15.0    # Minimum timeout (was 30s - faster for liquid pairs)
-MAKER_ORDER_MAX_TIMEOUT_SECONDS = 45.0    # Maximum timeout (was 90s - cap total wait)
+MAKER_ORDER_MAX_TIMEOUT_SECONDS = 60.0    # FIXED: Increased from 45s to allow more fill time
 MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on liquidity depth
 LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
 
@@ -249,7 +249,7 @@ X10_MAX_SLIPPAGE_PCT = 0.6
 X10_PRICE_EPSILON_PCT = 0.15
 LIGHTER_MAX_SLIPPAGE_PCT = 0.05
 LIGHTER_PRICE_EPSILON_PCT = 0.10  # 10% tolerance for shutdown close orders (was 5%, caused accidental price errors)
-LIGHTER_ORDER_TIMEOUT_SECONDS = 60
+# NOTE: LIGHTER_ORDER_TIMEOUT_SECONDS is defined above in MAKER ORDER TIMEOUT section (45.0s)
 
 # API Keys
 LIGHTER_BASE_URL = "https://mainnet.zklighter.elliot.ai"
