@@ -598,6 +598,31 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     
                     LAST_ARBITRAGE_LAUNCH = time.time()
                     
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Check for existing open orders to prevent duplicate trades
+                    # This prevents starting a second trade while first one has partial fill
+                    # ═══════════════════════════════════════════════════════════════
+                    symbols_with_open_orders = set()
+                    try:
+                        if lighter and hasattr(lighter, 'get_open_orders'):
+                            for opp in trades_to_launch:
+                                sym = opp.get('symbol')
+                                if sym:
+                                    try:
+                                        open_orders = await asyncio.wait_for(
+                                            lighter.get_open_orders(sym),
+                                            timeout=2.0
+                                        )
+                                        if open_orders and len(open_orders) > 0:
+                                            symbols_with_open_orders.add(sym)
+                                            logger.warning(f"⚠️ {sym}: Skipping launch - {len(open_orders)} open order(s) already exist")
+                                    except asyncio.TimeoutError:
+                                        logger.debug(f"⏱️ {sym}: Open orders check timed out, assuming safe")
+                                    except Exception as e:
+                                        logger.debug(f"⚠️ {sym}: Failed to check open orders: {e}")
+                    except Exception as e:
+                        logger.debug(f"Failed to check open orders: {e}")
+                    
                     reserved_symbols = []
                     async with TASKS_LOCK:
                         total_active_count = len(open_symbols_db | set(ACTIVE_TASKS.keys()))
@@ -608,7 +633,7 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                                 break
                             
                             sym = opp.get('symbol')
-                            if sym and sym not in ACTIVE_TASKS:
+                            if sym and sym not in ACTIVE_TASKS and sym not in symbols_with_open_orders:
                                 ACTIVE_TASKS[sym] = "RESERVED"
                                 reserved_symbols.append(sym)
                     

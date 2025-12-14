@@ -240,15 +240,25 @@ class FundingTracker:
             # Fetch actual funding payments from X10 API
             if hasattr(self.x10, 'fetch_funding_payments'):
                 payments = await self.x10.fetch_funding_payments(symbol=symbol, from_time=from_time)
-                
+
                 if payments:
                     # Sum all funding fees for this symbol
                     x10_funding = sum(p.get('funding_fee', 0.0) for p in payments)
-                    
+
                     if abs(x10_funding) > 0.00001:
                         logger.debug(
                             f"💵 X10 {symbol}: API funding=${x10_funding:.6f} "
                             f"from {len(payments)} payments"
+                        )
+
+                    # Detailed per-payment debug (timestamp + fee)
+                    for p in payments:
+                        ts = p.get('timestamp') or p.get('time') or p.get('created_at')
+                        fee = p.get('funding_fee')
+                        rate = p.get('funding_rate')
+                        side = p.get('side') or p.get('position_side')
+                        logger.debug(
+                            f"🧾 X10 {symbol}: payment ts={ts} fee={fee} rate={rate} side={side}"
                         )
                 else:
                     logger.debug(f"ℹ️ X10 {symbol}: No funding payments found via API")

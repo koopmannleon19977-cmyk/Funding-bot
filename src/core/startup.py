@@ -533,10 +533,12 @@ async def main_entry():
     except asyncio.CancelledError:
         logger.info("Main bot task cancelled.")
     finally:
-        logger.info("🛑 STOPPING BOT: Initiating Graceful Shutdown...")
-        
-        if hasattr(bot, 'graceful_shutdown'):
-            await bot.graceful_shutdown()
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: run_bot_v5 already handles graceful shutdown in its finally block
+        # Calling graceful_shutdown() again here causes duplicate position close attempts
+        # The shutdown orchestrator now has a completion flag to prevent this
+        # ═══════════════════════════════════════════════════════════════
+        logger.info("🛑 Main entry: Bot task completed")
         
         # Final cleanup
         logger.info("🛑 Stopping Infrastructure...")

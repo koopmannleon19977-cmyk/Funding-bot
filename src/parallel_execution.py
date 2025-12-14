@@ -1545,9 +1545,40 @@ class ParallelExecutionManager:
                             logger.warning(f"⏰ [EXTENDED WAIT] {symbol}: Extended wait exhausted - cancelling order and closing position")
                             try:
                                 await self.lighter.cancel_all_orders(symbol)
-                            except Exception:
-                                pass
-                            # TODO: Could trigger rollback/close here if position exists
+                                logger.info(f"✅ [EXTENDED WAIT] {symbol}: Order cancelled")
+                            except Exception as cancel_err:
+                                logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Cancel failed: {cancel_err}")
+                            
+                            # ═══════════════════════════════════════════════════════════════
+                            # FIX: Close any partial fill position that exists
+                            # This prevents the position from staying open and blocking future trades
+                            # ═══════════════════════════════════════════════════════════════
+                            try:
+                                positions = await self.lighter.fetch_open_positions()
+                                lighter_pos = next((p for p in positions if p.get('symbol') == symbol), None)
+                                
+                                if lighter_pos:
+                                    pos_size = float(lighter_pos.get('size', 0))
+                                    if abs(pos_size) > 0:
+                                        logger.warning(f"🧹 [EXTENDED WAIT] {symbol}: Closing partial fill position (size={abs(pos_size):.6f})")
+                                        close_side = "BUY" if pos_size < 0 else "SELL"
+                                        
+                                        # Use close_live_position which handles reduce_only + IOC properly
+                                        original_side = "SELL" if close_side == "BUY" else "BUY"
+                                        notional_usd = abs(pos_size) * float(lighter_pos.get('mark_price', 0.1))
+                                        
+                                        success, _ = await self.lighter.close_live_position(
+                                            symbol,
+                                            original_side,
+                                            notional_usd
+                                        )
+                                        
+                                        if success:
+                                            logger.info(f"✅ [EXTENDED WAIT] {symbol}: Partial fill position closed successfully")
+                                        else:
+                                            logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Failed to close partial fill position")
+                            except Exception as close_err:
+                                logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Rollback close error: {close_err}")
 
                     if not filled:
                         self._log_trade_summary(

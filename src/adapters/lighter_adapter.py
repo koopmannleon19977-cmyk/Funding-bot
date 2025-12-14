@@ -2063,7 +2063,20 @@ class LighterAdapter(BaseAdapter):
             
             # Build auth token (required for private endpoint)
             signer = await self._get_signer()
-            auth_token = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            auth_result = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            
+            # Handle tuple return: (auth_str, error_str)
+            if isinstance(auth_result, tuple):
+                auth_token, auth_error = auth_result
+                if auth_error:
+                    logger.warning(f"Lighter PnL API: Auth token error: {auth_error}")
+                    return None
+            else:
+                auth_token = auth_result
+            
+            if not auth_token:
+                logger.warning("Lighter PnL API: Failed to create auth token")
+                return None
             
             now_ms = int(time.time() * 1000)
             # Calculate start time based on resolution and count_back
@@ -2183,7 +2196,20 @@ class LighterAdapter(BaseAdapter):
             
             # Build auth token (required for private endpoint)
             signer = await self._get_signer()
-            auth_token = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            auth_result = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            
+            # Handle tuple return: (auth_str, error_str)
+            if isinstance(auth_result, tuple):
+                auth_token, auth_error = auth_result
+                if auth_error:
+                    logger.warning(f"Lighter Position Funding API: Auth token error: {auth_error}")
+                    return []
+            else:
+                auth_token = auth_result
+            
+            if not auth_token:
+                logger.warning("Lighter Position Funding API: Failed to create auth token")
+                return []
             
             base_url = self._get_base_url()
             url = (
@@ -2228,6 +2254,14 @@ class LighterAdapter(BaseAdapter):
                                 "position_size": safe_float(f.get("position_size", 0), 0.0),
                                 "position_side": f.get("position_side", "unknown")
                             })
+
+                    # Detailed per-payment debug output
+                    for fp in fundings:
+                        logger.debug(
+                            f"🧾 Lighter {fp.get('symbol','UNKNOWN')}: payment ts={fp.get('timestamp')} "
+                            f"received={fp.get('funding_received')} rate={fp.get('rate')} "
+                            f"side={fp.get('position_side')} size={fp.get('position_size')}"
+                        )
                     
                     if fundings:
                         total_received = sum(f["funding_received"] for f in fundings)

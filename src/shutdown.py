@@ -78,6 +78,15 @@ class ShutdownOrchestrator:
             # FIX: If shutdown already completed, return cached result immediately
             # This prevents duplicate teardown/persist calls from multiple callers
             # ═══════════════════════════════════════════════════════════════
+            if self._shutdown_completed:
+                logger.info("✅ Shutdown already completed, skipping duplicate call")
+                return self._last_result or {
+                    "success": True,
+                    "errors": [],
+                    "remaining": {"x10": [], "lighter": []},
+                    "elapsed": 0.0,
+                    "reason": reason,
+                }
             if self._shutdown_completed and self._last_result:
                 logger.info(f"✅ Shutdown already completed (reason={reason}), returning cached result")
                 return self._last_result
@@ -276,6 +285,10 @@ class ShutdownOrchestrator:
             except Exception as e:
                 logger.warning(f"⚠️ [FINAL] ImmediateCancelAll error: {e}")
         
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Fetch FRESH positions from exchange for final sweep
+        # This prevents using stale cached positions
+        # ═══════════════════════════════════════════════════════════════
         positions = await self._fetch_positions()
         
         all_positions = []
@@ -484,6 +497,10 @@ class ShutdownOrchestrator:
             return
 
         for attempt in range(self.verify_retries):
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Always fetch FRESH positions from exchange on each retry
+            # This prevents using stale cached positions that were already closed
+            # ═══════════════════════════════════════════════════════════════
             positions = await self._fetch_positions()
             if not positions["x10"] and not positions["lighter"]:
                 if attempt == 0:
