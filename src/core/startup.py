@@ -204,7 +204,7 @@ async def run_bot_v5(bot_instance=None):
     logger.info("✅ FeeManager started")
     
     # Init FundingTracker
-    funding_tracker = FundingTracker(x10, lighter, state_manager, update_interval_seconds=3600)
+    funding_tracker = FundingTracker(x10, lighter, state_manager, update_interval_seconds=300)
     await funding_tracker.start()
     logger.info("✅ FundingTracker started")
     

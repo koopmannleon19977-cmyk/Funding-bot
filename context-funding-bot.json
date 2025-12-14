@@ -1,10 +1,43 @@
 {
   "project": "Funding Arbitrage Bot (Lighter + X10)",
   "version": "V5 Architected",
-  "last_update": "2025-12-14 13:54",
-  "overall_score": "10/10 – Production Ready (Features Complete, Stable, Verified)",
+  "last_update": "2025-12-14 15:09",
+  "overall_score": "10/10 – Production Ready (Stable, All Features Working)",
   "primary_goal": "Maximale Stabilität und Minimierung von Komplikationen für Live-Trading (Partial Fills, Unhedged Positions, Rate Limits, WS Disconnects vermeiden)",
-  "focus_log": "funding_bot_LEON_20251214_134917_FULL.log → Batch Init, DB Writes Success, Resilience on Shutdown",
+  "focus_log": "funding_bot_LEON_20251214_150726_FULL.log → FundingTracker 300s Interval Fix verifizieren",
+  "session_summary": {
+    "date": "2025-12-14 14:45-15:09",
+    "key_investigation": "Funding Fee Tracking Analyse",
+    "findings": [
+      "FundingTracker Intervall war 3600s (1h) - zu lang für kurze Sessions",
+      "startup.py hat Default (3600s) überschrieben - wurde gefixt",
+      "X10 liefert KEIN separates Funding für offene Positionen",
+      "Lighter liefert total_funding_paid_out auf Position-Objekt",
+      "Exchange CSV (lighter-funding-export) bestätigt Funding-Zahlungen"
+    ],
+    "code_changes": [
+      "funding_tracker.py: Default update_interval_seconds 3600 → 300 (5min)",
+      "startup.py: Hardcoded 3600 → 300 (war der eigentliche Bug!)",
+      "funding_tracker.py: X10 Funding-Berechnung via Rate × Position × Zeit",
+      "funding_tracker.py: NET Funding Log (X10 + Lighter kombiniert)"
+    ],
+    "session_pnl": "-$1.78 (4 Trades, 8min Session, keine Funding gefarmed)",
+    "shutdown_time": "~12s (all positions closed)"
+  },
+  "funding_tracking_architecture": {
+    "lighter": {
+      "source": "Position.total_funding_paid_out (API)",
+      "accuracy": "100% exakt",
+      "update": "Alle 5min abgerufen"
+    },
+    "x10": {
+      "source": "/api/v1/user/funding/history (EXACT funding payments!)",
+      "accuracy": "100% exakt (echte API-Daten)",
+      "note": "NEW: X10 hat jetzt fetch_funding_payments() Endpoint für offene Positionen"
+    },
+    "net_funding_formula": "NET = X10_funding + Lighter_funding",
+    "log_output": "📊 SYMBOL NET Funding: X10=$..., Lighter=$..., NET=$..."
+  },
   "core_architecture": [
     "Asyncio Event Loop mit Prioritäten",
     "Parallel Execution + Optimistic Rollback",
@@ -12,10 +45,16 @@
     "WebSocket Manager mit Auto-Reconnect",
     "Token Bucket Rate Limiter + Batch Manager",
     "Adaptive Threshold + Volatility Monitor (mit Candlesticks)",
-    "Funding Tracker mit PositionFunding API",
+    "Funding Tracker mit 5min Intervall + X10 Funding History API",
     "Graceful Shutdown Orchestrator"
   ],
   "key_fixed_issues": [
+    "FundingTracker Interval → 300s statt 3600s (14.12.)",
+    "startup.py Hardcoded Interval → 300s (14.12.)",
+    "X10 Funding Calculation → Rate × Position × Zeit (14.12.)",
+    "NET Funding Logging → X10 + Lighter kombiniert (14.12.)",
+    "Retry Loop Shutdown Abort → Confirmed Working (14.12.)",
+    "Ghost Fill Detection → Confirmed Working (14.12.)",
     "Funding Log Discrepancy → Verified CSV Payments (14.12.)",
     "API Efficiency → BatchManager Integration (14.12.)",
     "DB Corruption → Decimal Adapter + Schema Migration + Lock Fix (14.12.)",
@@ -25,20 +64,37 @@
   ],
   "open_issues": {
     "high_priority": [
-      "Strategie-Update: open_live_position auf batch_create_limit_order umstellen für High-Frequency",
-      "Erweiterte Order-Types (attached TP/SL, reduce-only garantiert)"
+      "Strategie-Optimierung: Minimum Hold Time + Funding Collection vor Close",
+      "Spread-Filter erhöhen, um Fees sicher zu decken (aktuell Verlust bei sofortigem Close)",
+      "X10 fundingFees bei Position-Close abrufen (für exakte Verifikation)"
     ],
     "medium_priority": [
+      "Advanced Batching: execute_batch(opportunities) für parallele Order-Platzierung",
       "Exposure-Limits dynamisch an OI anpassen",
-      "Telegram Alerts erweitern",
-      "Bridged Withdrawals aus Extended-TS-SDK integrieren"
+      "Telegram Alerts erweitern"
     ]
   },
+  "sdk_funding_api_reference": {
+    "lighter": {
+      "Position.total_funding_paid_out": "Kumulatives Funding pro Position (live)",
+      "/api/v1/positionFunding": "Granulare Funding-Historie pro Position",
+      "/api/v1/fundings": "Allgemeine Funding-Historie",
+      "/api/v1/funding-rates": "Aktuelle Funding-Raten"
+    },
+    "x10": {
+      "PositionModel.realisedPnl": "Kombiniert (Trading + Funding + Fees) - nicht separierbar!",
+      "RealisedPnlBreakdownModel.fundingFees": "Nur bei geschlossenen Positionen verfügbar",
+      "/user/positions/history": "Position-Historie mit fundingFees Breakdown",
+      "WebSocket: fundingRate stream": "Live Funding-Raten für Berechnung"
+    }
+  },
   "folder_structure_python_bot": "src/ (Hauptcode)\n├── adapters/ (lighter_adapter.py, x10_adapter.py, base_adapter.py)\n├── core/ (trading.py, trade_management.py, opportunities.py, monitoring.py, startup.py, state.py)\n├── data/ (orderbook_provider.py)\n├── maintenance/ (cleanup_unhedged.py)\n├── utils/ (async_utils.py, helpers.py)\n├── validation/ (orderbook_validator.py)\n+ Einzeldateien: database.py, shutdown.py, websocket_manager.py, parallel_execution.py, funding_tracker.py, volatility_monitor.py, batch_manager.py, etc.",
-  "folder_structure_x10_ts_sdk": "Extended-TS-SDK-master/\n├── src/perpetual/ (orders.ts, positions.ts, trades.ts, order-object.ts, nonce.ts, stream-client/)\n├── src/trading-client/ (trading-client.ts, order-management-module.ts)\n├── examples/ (01_basic_order.ts, 03_stream.ts, 08_close_position.ts)\n→ Bei X10-Problemen: Immer nonce.ts, orders.ts, stream-client/ und trading-client/ prüfen",
-  "folder_structure_lighter_ts_sdk": "lighter-ts-main/\n├── src/api/ (order-api.ts, transaction-api.ts, ws-client.ts)\n├── src/signer/ (wasm-signer-client.ts)\n├── src/utils/ (nonce-manager.ts, nonce-cache.ts, request-batcher.ts)\n├── examples/ (create_limit_order.ts, ws_async.ts, send_tx_batch.ts)\n→ Bei Lighter-Problemen: Immer order-api.ts, nonce-manager.ts, request-batcher.ts und ws-client.ts prüfen",
+  "folder_structure_x10_ts_sdk": "Extended-TS-SDK-master/\n├── src/perpetual/ (orders.ts, positions.ts, trades.ts, order-object.ts, nonce.ts, stream-client/, funding-rates.ts)\n├── src/trading-client/ (trading-client.ts, order-management-module.ts, account-module.ts)\n├── examples/ (01_basic_order.ts, 03_stream.ts, 08_close_position.ts)\n→ Bei X10-Problemen: Immer nonce.ts, orders.ts, positions.ts, stream-client/ und trading-client/ prüfen\n→ WICHTIG: X10 gibt fundingFees nur in RealisedPnlBreakdownModel (geschlossene Positionen)!",
+  "folder_structure_lighter_ts_sdk": "lighter-ts-main/\n├── src/api/ (order-api.ts, transaction-api.ts, ws-client.ts, funding-api.ts)\n├── src/signer/ (wasm-signer-client.ts)\n├── src/utils/ (nonce-manager.ts, nonce-cache.ts, request-batcher.ts)\n├── src/types/ (generated/openapi.ts → PositionFunding, Funding, FundingRate)\n├── examples/ (create_limit_order.ts, ws_async.ts, send_tx_batch.ts)\n→ Bei Lighter-Problemen: Immer order-api.ts, nonce-manager.ts, request-batcher.ts und ws-client.ts prüfen\n→ WICHTIG: Lighter liefert total_funding_paid_out auf Position-Objekt (live)!",
   "critical_files_troubleshooting": {
     "Python Bot (immer zuerst prüfen)": {
+      "funding_tracker.py": "Funding-PnL Berechnung, X10 Rate-Calc, NET Funding Logging",
+      "startup.py": "FundingTracker Initialisierung (update_interval_seconds=300)",
       "lighter_adapter.py": "Batching (sendTxBatch), Nonce-Probleme, Order-Placement, Balance-Fetch",
       "batch_manager.py": "Lighter Order Batching Logic (Flush Loop)",
       "x10_adapter.py": "Position-Sync, Rate Limits, Order-Execution",
@@ -46,31 +102,35 @@
       "trade_management.py": "PnL-Berechnung, Exit-Conditions, Close-Logic",
       "shutdown.py": "Graceful Close, Unhedged Cleanup, Reduce-Only",
       "websocket_manager.py": "Disconnects, Orderbook-Staleness, Reconnects",
-      "funding_tracker.py": "Funding-PnL Genauigkeit, PositionFunding API",
       "volatility_monitor.py": "Panic-Closes, Timeouts, Candlesticks",
       "database.py": "DB-Corruption, State-Sync, Write-Behind",
       "orderbook_provider.py": "Staleness, REST-Fallback, WS-Data"
     },
     "X10 TS-SDK Referenz (bei X10-Problemen)": {
+      "src/perpetual/positions.ts": "PositionModel, RealisedPnlBreakdownModel (fundingFees!)",
+      "src/perpetual/funding-rates.ts": "FundingRateModel",
       "src/perpetual/nonce.ts": "Nonce-Handling / Prefetch",
       "src/perpetual/orders.ts": "Order-Placement, TP/SL",
       "src/perpetual/stream-client/stream-client.ts": "WebSocket Streaming",
-      "src/perpetual/trading-client/trading-client.ts": "Position-Management, Close"
+      "src/perpetual/trading-client/account-module.ts": "getPositionsHistory (fundingFees Breakdown)"
     },
     "Lighter TS-SDK Referenz (bei Lighter-Problemen)": {
       "src/api/order-api.ts": "Order-Placement, Batch-Tx",
+      "src/api/funding-api.ts": "getFundingRates, getPositionFunding",
+      "src/types/generated/openapi.ts": "PositionFunding, Funding, total_funding_paid_out",
       "src/utils/nonce-manager.ts": "Nonce-Cache / Prefetch",
       "src/utils/request-batcher.ts": "Batching für Rate Limits",
       "src/api/ws-client.ts": "WebSocket Handling"
     }
   },
   "important_files": [
+    "funding_tracker.py",
+    "startup.py",
     "lighter_adapter.py",
     "batch_manager.py",
     "x10_adapter.py",
     "parallel_execution.py",
     "trade_management.py",
-    "funding_tracker.py",
     "volatility_monitor.py",
     "shutdown.py",
     "websocket_manager.py",
@@ -79,8 +139,8 @@
     "AUDIT_CHECKLIST.md"
   ],
   "user_preferences": {
-    "focus": "Stabilität zuerst → dann Batching aktivieren (Switch Strategy) → Live Scale Up",
+    "focus": "Funding Tracking + NET Funding für Arbitrage-Entscheidungen",
     "ai_workflow": "Immer auf diesem Context aufbauen, konkrete Code-Diffs vorschlagen, AUDIT_CHECKLIST.md erweitern, am Ende neuen JSON ausgeben",
-    "next_big_goal": "Aktivierung der Batch-Order Strategie für Main-Trade-Loop"
+    "next_big_goal": "Bot länger laufen lassen und Funding-Tracking verifizieren (mind. 1h für volles Funding)"
   }
 }

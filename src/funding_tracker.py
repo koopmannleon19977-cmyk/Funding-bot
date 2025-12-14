@@ -18,6 +18,7 @@ from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
 from src.pnl_utils import normalize_funding_sign
+from src.database import get_funding_repository
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ class FundingTracker:
         x10_adapter,
         lighter_adapter, 
         state_manager,
-        update_interval_seconds: int = 3600  # Default: 1 hour
+        update_interval_seconds: int = 300  # Default: 5 minutes (was 1h, but missed funding payments)
     ):
         self.x10 = x10_adapter
         self.lighter = lighter_adapter
@@ -67,6 +68,7 @@ class FundingTracker:
             "last_update_time": 0,
             "errors": 0
         }
+        self.funding_repo = None
 
     async def start(self):
         """Start background funding tracking loop"""
@@ -75,6 +77,7 @@ class FundingTracker:
                 self._tracking_loop(),
                 name="funding_tracker"
             )
+            self.funding_repo = await get_funding_repository()
             logger.info(f"✅ Funding Tracker started (updates every {self.update_interval}s)")
 
     async def stop(self):
@@ -154,6 +157,19 @@ class FundingTracker:
                             f"💰 {trade.symbol}: Collected ${funding_amount:.4f} funding "
                             f"(total: ${new_total:.4f})"
                         )
+                        
+                        # Persist to funding history table
+                        if self.funding_repo:
+                            try:
+                                await self.funding_repo.add_funding_record(
+                                    symbol=trade.symbol,
+                                    exchange="AGGREGATE",
+                                    rate=0.0,
+                                    timestamp=int(time.time() * 1000),
+                                    collected=funding_amount
+                                )
+                            except Exception as e:
+                                logger.error(f"❌ Failed to record funding history for {trade.symbol}: {e}")
                     
                 except Exception as e:
                     logger.error(f"❌ Error fetching funding for {trade.symbol}: {e}")
@@ -204,34 +220,47 @@ class FundingTracker:
         lighter_funding = 0.0
         
         # ═══════════════════════════════════════════════════════════════════════
-        # X10: Funding attribution (best-effort)
+        # X10: Fetch REAL Funding Payments from API
         # ═══════════════════════════════════════════════════════════════════════
-        # NOTE:
-        # - X10Adapter.fetch_open_positions currently normalizes only {symbol,size,entry_price}.
-        # - Until we wire a dedicated X10 funding-payments endpoint, we track X10 funding as 0.
-        # - Log at INFO level with clear fallback notice for visibility.
+        # Uses: GET /api/v1/user/funding/history
+        # This gives EXACT funding payments (not calculated from rate).
+        # ═══════════════════════════════════════════════════════════════════════
         try:
-            positions = await self.x10.fetch_open_positions()
-            x10_position = next(
-                (p for p in (positions or []) if p.get('symbol') == symbol),
-                None
-            )
+            # Get trade creation timestamp for filtering
+            created_at = getattr(trade, 'created_at', None)
+            if created_at:
+                if hasattr(created_at, 'timestamp'):
+                    from_time = int(created_at.timestamp() * 1000)
+                else:
+                    from_time = int(safe_float(created_at, 0) * 1000)
+            else:
+                # Default to 24h ago
+                from_time = int((time.time() - 86400) * 1000)
             
-            if x10_position:
-                # Try to extract funding from position data if available
-                x10_funding_raw = (
-                    x10_position.get('funding_received') or
-                    x10_position.get('funding_pnl') or
-                    x10_position.get('funding') or
-                    0.0
-                )
-                x10_funding = safe_float(x10_funding_raw, 0.0)
+            # Fetch actual funding payments from X10 API
+            if hasattr(self.x10, 'fetch_funding_payments'):
+                payments = await self.x10.fetch_funding_payments(symbol=symbol, from_time=from_time)
                 
-                if x10_funding == 0.0:
-                    logger.debug(f"ℹ️ X10 {symbol}: No funding API available, using 0")
+                if payments:
+                    # Sum all funding fees for this symbol
+                    x10_funding = sum(p.get('funding_fee', 0.0) for p in payments)
+                    
+                    if abs(x10_funding) > 0.00001:
+                        logger.debug(
+                            f"💵 X10 {symbol}: API funding=${x10_funding:.6f} "
+                            f"from {len(payments)} payments"
+                        )
+                else:
+                    logger.debug(f"ℹ️ X10 {symbol}: No funding payments found via API")
+            else:
+                # Fallback: Use get_funding_for_symbol helper if available
+                if hasattr(self.x10, 'get_funding_for_symbol'):
+                    x10_funding = await self.x10.get_funding_for_symbol(symbol, from_time)
+                else:
+                    logger.debug(f"ℹ️ X10 {symbol}: fetch_funding_payments not available")
             
         except Exception as e:
-            logger.info(f"ℹ️ X10 funding fetch failed for {symbol}: {e} (using fallback: 0)")
+            logger.debug(f"ℹ️ X10 funding fetch failed for {symbol}: {e}")
         
         # ═══════════════════════════════════════════════════════════════════════
         # Lighter: Use PositionFunding API or Position object funding fields
@@ -285,6 +314,13 @@ class FundingTracker:
         # Calculate INCREMENTAL funding since last update
         previous_funding = trade.funding_collected
         incremental_funding = total_current_funding - previous_funding
+        
+        # Log NET funding for arbitrage monitoring (only if there's data)
+        if abs(x10_funding) > 0.00001 or abs(lighter_funding) > 0.00001:
+            logger.info(
+                f"📊 {symbol} NET Funding: X10=${x10_funding:.4f}, Lighter=${lighter_funding:.4f}, "
+                f"NET=${total_current_funding:.4f} (incr=${incremental_funding:.4f})"
+            )
         
         return incremental_funding
 

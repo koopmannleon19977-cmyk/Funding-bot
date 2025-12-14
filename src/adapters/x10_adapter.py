@@ -2021,6 +2021,192 @@ class X10Adapter(BaseAdapter):
         """Alias für Kompatibilität – einfach weiterleiten"""
         return await self.get_real_available_balance()
 
+
+    async def get_funding_history(self, limit: int = 50) -> List[Dict]:
+        """
+        Fetch realized funding history from closed positions.
+        Based on Extended-TS-SDK: /user/positions/history -> realisedPnlBreakdown.fundingFees
+        """
+        try:
+            # Helper to access nested attributes or dict keys
+            def get_val(obj, key, default=None):
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                return getattr(obj, key, default)
+
+            client = await self._get_auth_client()
+            await self.rate_limiter.acquire()
+            
+            # Use raw request to ensure we get the history endpoint
+            # client.account.get_positions_history might not be exposed in the python sdk depending on version
+            # so we try both SDK method and direct fallback
+            
+            data = []
+            
+            # Try SDK first
+            if hasattr(client.account, 'get_positions_history'):
+                 resp = await client.account.get_positions_history(limit=limit)
+                 if resp and hasattr(resp, 'data'):
+                     data = resp.data
+            
+            # Fallback to direct REST if SDK method missing or empty
+            if not data:
+                base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+                url = f"{base_url}/api/v1/user/positions/history"
+                
+                headers = {
+                    "X-Api-Key": self.stark_account.api_key,
+                    "Accept": "application/json"
+                }
+                
+                async with aiohttp.ClientSession() as session:
+                    params = {"limit": str(limit)}
+                    async with session.get(url, headers=headers, params=params, timeout=5) as resp:
+                        if resp.status == 200:
+                            json_resp = await resp.json()
+                            data = json_resp.get('data', [])
+
+            funding_records = []
+            for p in data:
+                # Check for breakdown
+                breakdown = get_val(p, 'realised_pnl_breakdown') or get_val(p, 'realisedPnlBreakdown')
+                
+                if breakdown:
+                    funding = safe_float(get_val(breakdown, 'funding_fees') or get_val(breakdown, 'fundingFees'), 0.0)
+                    
+                    if funding != 0:
+                        symbol = get_val(p, 'market')
+                        ts = get_val(p, 'closed_time') or get_val(p, 'updated_at')
+                        
+                        funding_records.append({
+                            "symbol": symbol,
+                            "amount": funding,
+                            "timestamp": ts,
+                            "type": "REALIZED_FUNDING"
+                        })
+            
+            self.rate_limiter.on_success()
+            return funding_records
+            
+        except Exception as e:
+            logger.error(f"X10 get_funding_history failed: {e}")
+            return []
+
     async def get_free_balance(self) -> float:
         """Alias for get_collateral_balance to satisfy interface."""
         return await self.get_collateral_balance()
+
+    async def fetch_funding_payments(self, symbol: Optional[str] = None, from_time: Optional[int] = None) -> List[dict]:
+        """
+        Fetch funding payment history from X10 API.
+        
+        Uses: GET /api/v1/user/funding/history
+        
+        This gives EXACT funding payments (not calculated from rate).
+        Much more accurate than rate × position × time calculation.
+        
+        Args:
+            symbol: Optional market filter (e.g., "BTC-USD")
+            from_time: Starting timestamp in milliseconds (required by API, defaults to 24h ago)
+            
+        Returns:
+            List of funding payment records:
+            [
+                {
+                    "id": 8341,
+                    "symbol": "BNB-USD",
+                    "side": "LONG",
+                    "size": 1.116,
+                    "value": 560.77,
+                    "mark_price": 502.48,
+                    "funding_fee": 0.0123,  # Exact payment!
+                    "funding_rate": 0.0001,
+                    "paid_time": 1723147241346
+                }
+            ]
+        """
+        if not self.stark_account:
+            return []
+        
+        # Default to 24 hours ago if no from_time specified
+        if from_time is None:
+            from_time = int((time.time() - 86400) * 1000)  # 24h ago in ms
+        
+        try:
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            
+            # Build URL with query params
+            params = [f"fromTime={from_time}"]
+            if symbol:
+                params.append(f"market={symbol}")
+            
+            url = f"{base_url}/api/v1/user/funding/history?{'&'.join(params)}"
+            
+            headers = {
+                'X-Api-Key': self.stark_account.api_key,
+                'User-Agent': 'X10PythonTradingClient/0.4.5',
+                'Accept': 'application/json'
+            }
+            
+            await self.rate_limiter.acquire()
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.rate_limiter.on_success()
+                        
+                        if data.get("status") == "OK" and "data" in data:
+                            payments = []
+                            for item in data["data"]:
+                                payments.append({
+                                    "id": item.get("id"),
+                                    "symbol": item.get("market"),
+                                    "position_id": item.get("positionId"),
+                                    "side": item.get("side"),
+                                    "size": safe_float(item.get("size"), 0.0),
+                                    "value": safe_float(item.get("value"), 0.0),
+                                    "mark_price": safe_float(item.get("markPrice"), 0.0),
+                                    "funding_fee": safe_float(item.get("fundingFee"), 0.0),
+                                    "funding_rate": safe_float(item.get("fundingRate"), 0.0),
+                                    "paid_time": item.get("paidTime")
+                                })
+                            
+                            logger.debug(f"X10 Funding Payments: Retrieved {len(payments)} records")
+                            return payments
+                        else:
+                            logger.debug(f"X10 Funding History: Unexpected response format")
+                            return []
+                    elif resp.status == 404:
+                        # No funding history found - this is OK
+                        logger.debug(f"X10 Funding History: No records found")
+                        return []
+                    else:
+                        logger.warning(f"X10 Funding History: HTTP {resp.status}")
+                        return []
+                        
+        except asyncio.CancelledError:
+            return []
+        except Exception as e:
+            logger.error(f"X10 fetch_funding_payments error: {e}")
+            return []
+
+    async def get_funding_for_symbol(self, symbol: str, since_timestamp: Optional[int] = None) -> float:
+        """
+        Get total funding received/paid for a specific symbol since a timestamp.
+        
+        Args:
+            symbol: Market symbol (e.g., "BTC-USD")
+            since_timestamp: Start time in milliseconds (defaults to 24h ago)
+            
+        Returns:
+            Total funding in USD (positive = received, negative = paid)
+        """
+        payments = await self.fetch_funding_payments(symbol=symbol, from_time=since_timestamp)
+        
+        total_funding = sum(p.get("funding_fee", 0.0) for p in payments)
+        
+        if abs(total_funding) > 0.00001:
+            logger.info(f"💵 X10 {symbol}: Total funding=${total_funding:.6f} from {len(payments)} payments")
+        
+        return total_funding
