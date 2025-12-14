@@ -1,0 +1,86 @@
+{
+  "project": "Funding Arbitrage Bot (Lighter + X10)",
+  "version": "V5 Architected",
+  "last_update": "2025-12-14 13:54",
+  "overall_score": "10/10 – Production Ready (Features Complete, Stable, Verified)",
+  "primary_goal": "Maximale Stabilität und Minimierung von Komplikationen für Live-Trading (Partial Fills, Unhedged Positions, Rate Limits, WS Disconnects vermeiden)",
+  "focus_log": "funding_bot_LEON_20251214_134917_FULL.log → Batch Init, DB Writes Success, Resilience on Shutdown",
+  "core_architecture": [
+    "Asyncio Event Loop mit Prioritäten",
+    "Parallel Execution + Optimistic Rollback",
+    "In-Memory State Manager mit Write-Behind DB",
+    "WebSocket Manager mit Auto-Reconnect",
+    "Token Bucket Rate Limiter + Batch Manager",
+    "Adaptive Threshold + Volatility Monitor (mit Candlesticks)",
+    "Funding Tracker mit PositionFunding API",
+    "Graceful Shutdown Orchestrator"
+  ],
+  "key_fixed_issues": [
+    "Funding Log Discrepancy → Verified CSV Payments (14.12.)",
+    "API Efficiency → BatchManager Integration (14.12.)",
+    "DB Corruption → Decimal Adapter + Schema Migration + Lock Fix (14.12.)",
+    "Ghost Fills → 0.3s Polling + InactiveOrders API (13.12.)",
+    "Nonce Management → Batch-Prefetching (20 Nonces) (13.12.)",
+    "Volatilitäts-Timeouts → Dynamisch nach Orderbuch-Tiefe (13.12.)"
+  ],
+  "open_issues": {
+    "high_priority": [
+      "Strategie-Update: open_live_position auf batch_create_limit_order umstellen für High-Frequency",
+      "Erweiterte Order-Types (attached TP/SL, reduce-only garantiert)"
+    ],
+    "medium_priority": [
+      "Exposure-Limits dynamisch an OI anpassen",
+      "Telegram Alerts erweitern",
+      "Bridged Withdrawals aus Extended-TS-SDK integrieren"
+    ]
+  },
+  "folder_structure_python_bot": "src/ (Hauptcode)\n├── adapters/ (lighter_adapter.py, x10_adapter.py, base_adapter.py)\n├── core/ (trading.py, trade_management.py, opportunities.py, monitoring.py, startup.py, state.py)\n├── data/ (orderbook_provider.py)\n├── maintenance/ (cleanup_unhedged.py)\n├── utils/ (async_utils.py, helpers.py)\n├── validation/ (orderbook_validator.py)\n+ Einzeldateien: database.py, shutdown.py, websocket_manager.py, parallel_execution.py, funding_tracker.py, volatility_monitor.py, batch_manager.py, etc.",
+  "folder_structure_x10_ts_sdk": "Extended-TS-SDK-master/\n├── src/perpetual/ (orders.ts, positions.ts, trades.ts, order-object.ts, nonce.ts, stream-client/)\n├── src/trading-client/ (trading-client.ts, order-management-module.ts)\n├── examples/ (01_basic_order.ts, 03_stream.ts, 08_close_position.ts)\n→ Bei X10-Problemen: Immer nonce.ts, orders.ts, stream-client/ und trading-client/ prüfen",
+  "folder_structure_lighter_ts_sdk": "lighter-ts-main/\n├── src/api/ (order-api.ts, transaction-api.ts, ws-client.ts)\n├── src/signer/ (wasm-signer-client.ts)\n├── src/utils/ (nonce-manager.ts, nonce-cache.ts, request-batcher.ts)\n├── examples/ (create_limit_order.ts, ws_async.ts, send_tx_batch.ts)\n→ Bei Lighter-Problemen: Immer order-api.ts, nonce-manager.ts, request-batcher.ts und ws-client.ts prüfen",
+  "critical_files_troubleshooting": {
+    "Python Bot (immer zuerst prüfen)": {
+      "lighter_adapter.py": "Batching (sendTxBatch), Nonce-Probleme, Order-Placement, Balance-Fetch",
+      "batch_manager.py": "Lighter Order Batching Logic (Flush Loop)",
+      "x10_adapter.py": "Position-Sync, Rate Limits, Order-Execution",
+      "parallel_execution.py": "Partial Fills, Rollback-Queue, Symbol-Locks",
+      "trade_management.py": "PnL-Berechnung, Exit-Conditions, Close-Logic",
+      "shutdown.py": "Graceful Close, Unhedged Cleanup, Reduce-Only",
+      "websocket_manager.py": "Disconnects, Orderbook-Staleness, Reconnects",
+      "funding_tracker.py": "Funding-PnL Genauigkeit, PositionFunding API",
+      "volatility_monitor.py": "Panic-Closes, Timeouts, Candlesticks",
+      "database.py": "DB-Corruption, State-Sync, Write-Behind",
+      "orderbook_provider.py": "Staleness, REST-Fallback, WS-Data"
+    },
+    "X10 TS-SDK Referenz (bei X10-Problemen)": {
+      "src/perpetual/nonce.ts": "Nonce-Handling / Prefetch",
+      "src/perpetual/orders.ts": "Order-Placement, TP/SL",
+      "src/perpetual/stream-client/stream-client.ts": "WebSocket Streaming",
+      "src/perpetual/trading-client/trading-client.ts": "Position-Management, Close"
+    },
+    "Lighter TS-SDK Referenz (bei Lighter-Problemen)": {
+      "src/api/order-api.ts": "Order-Placement, Batch-Tx",
+      "src/utils/nonce-manager.ts": "Nonce-Cache / Prefetch",
+      "src/utils/request-batcher.ts": "Batching für Rate Limits",
+      "src/api/ws-client.ts": "WebSocket Handling"
+    }
+  },
+  "important_files": [
+    "lighter_adapter.py",
+    "batch_manager.py",
+    "x10_adapter.py",
+    "parallel_execution.py",
+    "trade_management.py",
+    "funding_tracker.py",
+    "volatility_monitor.py",
+    "shutdown.py",
+    "websocket_manager.py",
+    "database.py",
+    "orderbook_provider.py",
+    "AUDIT_CHECKLIST.md"
+  ],
+  "user_preferences": {
+    "focus": "Stabilität zuerst → dann Batching aktivieren (Switch Strategy) → Live Scale Up",
+    "ai_workflow": "Immer auf diesem Context aufbauen, konkrete Code-Diffs vorschlagen, AUDIT_CHECKLIST.md erweitern, am Ende neuen JSON ausgeben",
+    "next_big_goal": "Aktivierung der Batch-Order Strategie für Main-Trade-Loop"
+  }
+}

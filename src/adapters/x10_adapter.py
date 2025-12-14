@@ -738,69 +738,78 @@ class X10Adapter(BaseAdapter):
             return HARD_MIN_USD
 
     async def fetch_open_positions(self) -> list:
+        """
+        Optimized fetch_open_positions with Pure WebSocket Cache Strategy.
+        Eliminates REST Polling Lag in Main Loop.
+        """
         if not self.stark_account:
             logger.warning("X10: No stark_account configured")
             return []
 
         # ═══════════════════════════════════════════════════════════════
-        # FIX: Shutdown check - return cached data early during shutdown
+        # STRATEGY: WebSocket Cache Priority
+        # We trust the cache once it has been loaded (via REST or WS).
+        # This prevents polling loop for users with 0 positions.
         # ═══════════════════════════════════════════════════════════════
+
+        # 1. CACHE CHECK (with Loaded Flag)
+        is_loaded = getattr(self, '_positions_loaded', False)
+        
+        # If we have loaded data (even if empty), return it immediately (0ms latency!)
+        if is_loaded and hasattr(self, '_positions_cache'):
+            if random.random() < 0.001: # Debug rare
+                 logger.debug(f"[X10]Serving positions from WS Cache ({len(self._positions_cache)})")
+            return self._positions_cache
+            
+        # 2. SHUTDOWN SAFETY
         is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
         if is_shutting_down:
-            # Return cached positions if available, otherwise empty list
-            if hasattr(self, '_positions_cache') and self._positions_cache:
-                logger.debug("[X10] Shutdown active - returning cached positions")
-                return self._positions_cache
             return []
 
-        # ═══════════════════════════════════════════════════════════════
-        # DEDUPLICATION: Prevent API storms during shutdown
-        # ═══════════════════════════════════════════════════════════════
+        # 3. INITIAL LOAD (REST FALLBACK)
+        # Only reached if we have NEVER loaded positions
         if self.rate_limiter.is_duplicate("X10:fetch_open_positions"):
-            # Return cached positions if available
-            if hasattr(self, '_positions_cache') and self._positions_cache:
-                return self._positions_cache
-            # If no cache, allow the request through
+             return getattr(self, '_positions_cache', [])
 
         try:
+            logger.debug("[X10] Initial Load: Fetching positions via REST...")
             client = await self._get_auth_client()
             result = await self.rate_limiter.acquire()
-            # Check if rate limiter was cancelled (shutdown)
-            if result < 0:
-                logger.debug("[X10] Rate limiter cancelled during fetch_open_positions - returning cached data")
-                if hasattr(self, '_positions_cache') and self._positions_cache:
-                    return self._positions_cache
-                return []
+            
+            if result < 0: return [] 
+
             resp = await client.account.get_positions()
 
-            if not resp or not resp.data:
-                self._positions_cache = []
-                return []
-
             positions = []
-            for p in resp.data:
-                status = getattr(p, 'status', 'UNKNOWN')
-                size = float(getattr(p, 'size', 0))
-                symbol = getattr(p, 'market', 'UNKNOWN')
+            if resp and resp.data:
+                for p in resp.data:
+                    status = getattr(p, 'status', 'UNKNOWN')
+                    size = float(getattr(p, 'size', 0))
+                    symbol = getattr(p, 'market', 'UNKNOWN')
 
-                if status == "OPENED" and abs(size) > 1e-8:
-                    # Some SDK versions use open_price, others use openPrice (camelCase).
-                    # Prefer whichever is present to avoid missing entry price during shutdown PnL.
-                    try:
-                        raw_open = getattr(p, 'open_price', None)
-                        if raw_open is None:
-                            raw_open = getattr(p, 'openPrice', None)
-                        entry_price = float(raw_open) if raw_open else 0.0
-                    except Exception:
-                        entry_price = 0.0
-                    positions.append({
-                        "symbol": symbol,
-                        "size": size,
-                        "entry_price": entry_price
-                    })
+                    if status == "OPENED" and abs(size) > 1e-8:
+                        try:
+                            raw_open = getattr(p, 'open_price', None)
+                            if raw_open is None:
+                                raw_open = getattr(p, 'openPrice', None)
+                            entry_price = float(raw_open) if raw_open else 0.0
+                        except Exception:
+                            entry_price = 0.0
+                        positions.append({
+                            "symbol": symbol,
+                            "size": size,
+                            "entry_price": entry_price
+                        })
             
-            # Cache for deduplication
+            # Update Cache & Set Loaded Flag
             self._positions_cache = positions
+            self._positions_loaded = True
+            
+            if len(positions) > 0:
+                logger.info(f"[X10] Initial Positions loaded via REST: {len(positions)}")
+            else:
+                logger.debug(f"[X10] Initial Positions Check: 0 positions found.")
+                
             return positions
 
         except Exception as e:

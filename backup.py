@@ -33,6 +33,7 @@ IMPORTANT_FILES = [
     "requirements.txt",    # Dependencies
     "START_BOT2.bat",      # Startskript
     "backup.py",           # Dieses Tool
+    ".env",                # Environment Variables (IMPORTANT)
 ]
 
 IMPORTANT_DIRS = [
@@ -41,6 +42,7 @@ IMPORTANT_DIRS = [
     "tests",               # Tests
     "docs",                # Dokumentation
     "data",                # Datenbank & State
+    ".agent",              # Agent Workflows
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -188,10 +190,22 @@ def create_backup(include_logs: bool = False, description: str = None):
         total_files = sum(1 for f in dest_folder.rglob('*') if f.is_file())
         total_size = sum(f.stat().st_size for f in dest_folder.rglob('*') if f.is_file())
         
-        print(f"✅ Backup erfolgreich!")
+        print(f"✅ Ordner-Backup erfolgreich!")
         print(f"   Dateien: {total_files}")
         print(f"   Größe:   {total_size / 1024 / 1024:.2f} MB")
         print(f"   Pfad:    {dest_folder}")
+        print()
+        
+        # Create ZIP Archive
+        print("🗜️  Erstelle ZIP-Archiv für einfaches Kopieren...")
+        zip_filename = f"{folder_name}.zip"
+        zip_path = BACKUP_DIR / zip_filename
+        
+        shutil.make_archive(str(BACKUP_DIR / folder_name), 'zip', dest_folder)
+        
+        print(f"✅ ZIP-Archiv erstellt: {zip_path}")
+        print(f"   Größe:   {zip_path.stat().st_size / 1024 / 1024:.2f} MB")
+        print("   👉 Einfach Copy & Paste dieser Datei!")
         print()
         
         # Wichtige Dateien prüfen
@@ -385,6 +399,14 @@ def cleanup(dry_run: bool = False):
                 freed_space += size
         else:
             print(f"   ✅ Datums-basierte Backups OK (max {KEEP_BACKUPS})")
+            
+        # Zips Cleanup (alles was keine Ordner hat)
+        zips = sorted(
+            [f for f in BACKUP_DIR.glob("*.zip")],
+             key=lambda f: f.stat().st_mtime,
+             reverse=True
+        )
+        # Für Zips einfach alles behalten was auch einen Ordner hat, oder separate logic
     
     print()
     
