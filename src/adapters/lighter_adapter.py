@@ -111,11 +111,16 @@ class LighterAdapter(BaseAdapter):
         self._positions_cache: List[dict] = []  # Cache for fetch_open_positions deduplication
         
         # ═══════════════════════════════════════════════════════════════
-        # NONCE CACHING: Pre-fetch and increment locally to avoid API calls
+        # NONCE MANAGEMENT: Pattern from lighter-ts-main/src/utils/nonce-manager.ts
+        # Pre-fetch batch of nonces for faster order placement
         # ═══════════════════════════════════════════════════════════════
+        self._nonce_pool: List[int] = []
+        self._nonce_pool_fetch_time: float = 0.0
+        self._nonce_refill_in_progress: bool = False
+        # Legacy compatibility (for _invalidate_nonce_cache)
         self._cached_nonce: Optional[int] = None
         self._nonce_fetch_time: float = 0.0
-        self._nonce_cache_ttl: float = 10.0  # FIXED: Reduced from 30s to 10s for faster order cycles
+        self._nonce_cache_ttl: float = 10.0  # Legacy, not used by new pool
         
         # Shutdown state
         self._shutdown_cancel_done = False
@@ -167,31 +172,87 @@ class LighterAdapter(BaseAdapter):
             return False  # Return False instead of raising
 
     # ═══════════════════════════════════════════════════════════════
-    # NONCE CACHING: Reduces API calls for faster order placement
+    # NONCE MANAGEMENT: Pattern from lighter-ts-main/src/utils/nonce-manager.ts
+    # 
+    # Features:
+    # - Batch prefetch: Load 20 nonces at once (reduces API calls)
+    # - Auto-refill: Fetch more when pool < 2
+    # - acknowledge_failure(): Rollback nonce on TX failure
+    # - hard_refresh_nonce(): Force refetch on "invalid nonce" error
+    # - get_next_nonces(count): Get multiple nonces for batch operations
     # ═══════════════════════════════════════════════════════════════
+    
+    # Nonce pool configuration (matching TS SDK)
+    NONCE_BATCH_SIZE = 20  # Pre-fetch 20 nonces at a time
+    NONCE_REFILL_THRESHOLD = 2  # Refill when pool < 2
+    NONCE_MAX_CACHE_AGE = 30.0  # 30 seconds max cache age
+    
     async def _get_next_nonce(self, force_refresh: bool = False) -> Optional[int]:
         """
-        Get the next nonce, using cache when possible.
+        Get the next nonce from the pool.
         
-        Strategy:
-        - If we have a cached nonce and it's not too old, increment and return
-        - Otherwise, fetch a fresh nonce from the API
-        - This reduces API calls from 1 per order to ~1 per 30s
+        Strategy (matching TS SDK nonce-cache.ts):
+        - If nonce pool is empty or expired, fetch new batch from API
+        - Pop first nonce from pool
+        - Auto-refill pool when getting low
         
         MUST be called while holding self.order_lock!
         """
         now = time.time()
         
-        # Check if cache is valid (not expired and not forcing refresh)
-        cache_age = now - self._nonce_fetch_time
-        if not force_refresh and self._cached_nonce is not None and cache_age < self._nonce_cache_ttl:
-            # Use cached nonce and increment for next use
-            nonce_to_use = self._cached_nonce
-            self._cached_nonce += 1
-            logger.debug(f"⚡ Using cached nonce: {nonce_to_use} (age: {cache_age:.1f}s)")
-            return nonce_to_use
+        # Initialize pool if needed
+        if not hasattr(self, '_nonce_pool'):
+            self._nonce_pool: List[int] = []
+            self._nonce_pool_fetch_time: float = 0.0
+            self._nonce_refill_in_progress: bool = False
         
-        # Cache expired or not available - fetch fresh nonce
+        # Check if pool is empty, expired, or force refresh
+        pool_age = now - self._nonce_pool_fetch_time
+        pool_expired = pool_age > self.NONCE_MAX_CACHE_AGE
+        
+        if force_refresh or len(self._nonce_pool) == 0 or pool_expired:
+            await self._refill_nonce_pool()
+        
+        # Get nonce from pool
+        if len(self._nonce_pool) == 0:
+            logger.error("❌ Nonce pool empty after refill attempt")
+            return None
+        
+        nonce_to_use = self._nonce_pool.pop(0)
+        
+        # Auto-refill if pool is getting low (async, don't wait)
+        if len(self._nonce_pool) <= self.NONCE_REFILL_THRESHOLD and not self._nonce_refill_in_progress:
+            asyncio.create_task(self._refill_nonce_pool_async())
+        
+        logger.debug(f"⚡ Using nonce {nonce_to_use} (pool: {len(self._nonce_pool)} remaining)")
+        return nonce_to_use
+    
+    async def _refill_nonce_pool(self) -> None:
+        """
+        Refill the nonce pool with a batch of nonces from the API.
+        Synchronized to prevent concurrent fetches.
+        """
+        if self._nonce_refill_in_progress:
+            # Wait for existing refill to complete
+            while self._nonce_refill_in_progress:
+                await asyncio.sleep(0.05)
+            return
+        
+        self._nonce_refill_in_progress = True
+        try:
+            await self._do_refill_nonce_pool()
+        finally:
+            self._nonce_refill_in_progress = False
+    
+    async def _refill_nonce_pool_async(self) -> None:
+        """Async wrapper for background refill (fire-and-forget)."""
+        try:
+            await self._refill_nonce_pool()
+        except Exception as e:
+            logger.warning(f"⚠️ Background nonce refill failed: {e}")
+    
+    async def _do_refill_nonce_pool(self) -> None:
+        """Actually fetch and populate the nonce pool."""
         try:
             if self._resolved_account_index is None:
                 await self._resolve_account_index()
@@ -201,41 +262,93 @@ class LighterAdapter(BaseAdapter):
                 "api_key_index": self._resolved_api_key_index
             }
             
-            # Fetch fresh nonce from API (NO rate limiting - outer acquire handles it)
+            # Fetch the first nonce from API
             nonce_resp = await self._rest_get_internal("/api/v1/nextNonce", params=nonce_params)
             
             if nonce_resp is None:
-                logger.error("❌ Failed to fetch nonce from API")
-                return None
+                logger.error("❌ Failed to fetch nonce batch from API")
+                return
             
             # Parse nonce response
             if isinstance(nonce_resp, dict):
                 val = nonce_resp.get('nonce')
                 if val is not None:
-                    current_nonce = int(val)
+                    first_nonce = int(val)
                 else:
                     logger.error(f"❌ Nonce response dict has no 'nonce' key: {nonce_resp}")
-                    return None
+                    return
             else:
                 try:
-                    current_nonce = int(str(nonce_resp).strip())
+                    first_nonce = int(str(nonce_resp).strip())
                 except ValueError:
                     logger.error(f"❌ Invalid nonce format: {nonce_resp}")
-                    return None
+                    return
             
-            # Cache the NEXT nonce for subsequent orders
-            self._cached_nonce = current_nonce + 1
-            self._nonce_fetch_time = now
+            # Generate batch of nonces (TS SDK pattern: first_nonce + i for i in range(batch_size))
+            new_nonces = [first_nonce + i for i in range(self.NONCE_BATCH_SIZE)]
             
-            logger.debug(f"🔄 Fetched fresh nonce: {current_nonce} (cached next: {self._cached_nonce})")
-            return current_nonce
+            # Replace pool with fresh nonces
+            self._nonce_pool = new_nonces
+            self._nonce_pool_fetch_time = time.time()
+            
+            logger.debug(f"🔄 Nonce pool refilled: {len(new_nonces)} nonces starting at {first_nonce}")
             
         except Exception as e:
-            logger.error(f"❌ Nonce fetch error: {e}")
-            return None
+            logger.error(f"❌ Nonce pool refill error: {e}")
+    
+    async def get_next_nonces(self, count: int) -> List[int]:
+        """
+        Get multiple nonces for batch operations.
+        Pattern from TS SDK nonce-manager.ts:getNextNonces()
+        
+        MUST be called while holding self.order_lock!
+        """
+        nonces = []
+        for _ in range(count):
+            nonce = await self._get_next_nonce()
+            if nonce is None:
+                break
+            nonces.append(nonce)
+        return nonces
+    
+    def acknowledge_failure(self) -> None:
+        """
+        Acknowledge a transaction failure and rollback nonce.
+        Pattern from TS SDK nonce-cache.ts:acknowledgeFailure()
+        
+        This prevents nonce gaps when transactions fail.
+        Call this when a Lighter TX fails after getting a nonce.
+        """
+        if hasattr(self, '_nonce_pool') and len(self._nonce_pool) > 0:
+            # Get the last used nonce (it's one before the first in pool)
+            last_used = self._nonce_pool[0] - 1 if self._nonce_pool else None
+            if last_used is not None:
+                # Rollback by adding the failed nonce back to the front
+                self._nonce_pool.insert(0, last_used)
+                logger.debug(f"🔄 Nonce {last_used} rolled back after failure (pool size: {len(self._nonce_pool)})")
+    
+    async def hard_refresh_nonce(self) -> None:
+        """
+        Force a complete nonce pool refresh.
+        Pattern from TS SDK nonce-cache.ts:hardRefreshNonce()
+        
+        Use this when receiving "invalid nonce" errors from Lighter API.
+        """
+        # Clear current pool
+        if hasattr(self, '_nonce_pool'):
+            self._nonce_pool = []
+            self._nonce_pool_fetch_time = 0.0
+        
+        # Fetch fresh nonces
+        await self._refill_nonce_pool()
+        logger.info("🔄 Nonce pool hard-refreshed after invalid nonce error")
     
     def _invalidate_nonce_cache(self):
         """Invalidate nonce cache (call on nonce-related errors)."""
+        if hasattr(self, '_nonce_pool'):
+            self._nonce_pool = []
+            self._nonce_pool_fetch_time = 0.0
+        # Legacy compatibility
         self._cached_nonce = None
         self._nonce_fetch_time = 0.0
         logger.debug("🔄 Nonce cache invalidated")
@@ -3141,15 +3254,26 @@ class LighterAdapter(BaseAdapter):
                                     logger.warning(f"⚠️ POSITION MISSING ERROR for {symbol} - Position may have been liquidated or closed externally")
                                     logger.info(f"🔄 Triggering position sync for {symbol}...")
                                     
+                                    # TS SDK Pattern: acknowledge_failure() on any TX error
+                                    self.acknowledge_failure()
+                                    
                                     # Return special status to signal caller that position doesn't exist
                                     # This allows the caller to clean up DB state
                                     return False, "POSITION_MISSING_1137"
                                 
-                                # Existing nonce/rate limit handling
-                                if "nonce" in err_str:
-                                    # Nonce error - invalidate cache and it will be re-fetched on retry
-                                    self._invalidate_nonce_cache()
-                                    logger.warning(f"⚠️ Nonce error for {symbol} - cache invalidated")
+                                # ═══════════════════════════════════════════════════════════════
+                                # NONCE ERROR HANDLING (TS SDK Pattern)
+                                # - acknowledge_failure(): Rollback the used nonce
+                                # - hard_refresh_nonce(): Fetch fresh nonces from API
+                                # ═══════════════════════════════════════════════════════════════
+                                if "nonce" in err_str or "invalid nonce" in err_str:
+                                    # Nonce error - hard refresh the entire nonce pool
+                                    logger.warning(f"⚠️ Nonce error for {symbol} - triggering hard refresh (TS SDK pattern)")
+                                    await self.hard_refresh_nonce()
+                                else:
+                                    # Other errors - just acknowledge failure to rollback the nonce
+                                    self.acknowledge_failure()
+                                    
                                 if "429" in err_str or "too many requests" in err_str:
                                     # Rate limit hit - the rate limiter will handle penalty
                                     logger.warning(f"⚠️ Rate limit hit for {symbol}")

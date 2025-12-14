@@ -985,17 +985,20 @@ class ParallelExecutionManager:
                         
                         if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
                             filled = True
+                            fill_time = time.time() - wait_start
                             logger.info(
                                 f"✅ [RETRY] {symbol}: Fill detected after {check_count} checks "
-                                f"(attempt {retry_attempt}/{max_retries})!"
+                                f"(attempt {retry_attempt}/{max_retries}, {fill_time:.2f}s)!"
                             )
                             break
                         
-                        await asyncio.sleep(0.5)
+                        # FIX 7: Reduced from 0.5s to 0.3s for faster fill detection
+                        await asyncio.sleep(0.3)
                         
                     except Exception as e:
                         logger.debug(f"[RETRY] {symbol}: Check #{check_count} error: {e}")
-                        await asyncio.sleep(1)
+                        # FIX 7: Reduced from 1.0s to 0.5s for faster recovery
+                        await asyncio.sleep(0.5)
                 
                 if filled:
                     # Update phase times
@@ -1397,14 +1400,17 @@ class ParallelExecutionManager:
 
                     if execution.quantity_coins > 0 and abs(current_size) >= execution.quantity_coins * 0.95:
                         filled = True
-                        logger.info(f"✅ [PHASE 1.5] {symbol}: Fill detected after {check_count} checks!")
+                        fill_time = time.time() - wait_start
+                        logger.info(f"✅ [PHASE 1.5] {symbol}: Fill detected after {check_count} checks! ({fill_time:.2f}s - {'FAST' if fill_time < 5 else 'OK'}!)")
                         break
 
-                    await asyncio.sleep(0.5)
+                    # FIX 7: Reduced from 0.5s to 0.3s for faster fill detection (~40% improvement)
+                    await asyncio.sleep(0.3)
 
                 except Exception as e:
                     logger.debug(f"[PHASE 1.5] {symbol}: Check #{check_count} error: {e}")
-                    await asyncio.sleep(1)
+                    # FIX 7: Reduced from 1.0s to 0.5s for faster recovery
+                    await asyncio.sleep(0.5)
 
             phase_times["lighter_fill_wait"] = time.monotonic() - phase_start
 
@@ -1665,13 +1671,15 @@ class ParallelExecutionManager:
     ) -> bool:
         """Wait for Lighter order to fill (hybrid: event-based + polling fallback)
         
-        FIXED: Reduced polling interval from 1.0s to 0.5s for faster Ghost-Fill detection.
+        FIX 7 (2025-12-14): Reduced polling interval from 0.5s to 0.3s for ~40% faster Ghost-Fill detection.
+        Pattern from TS SDK: Faster polling reduces unhedged exposure window significantly.
         Also uses event-based detection via _position_fill_events when available.
         """
         wait_start = time.time()
         check_count = 0
-        # FIXED: Reduced from 1.0s to 0.5s for faster fill detection (matches X10 interval)
-        polling_interval = 0.5  # Faster polling to reduce Ghost-Fill window
+        # FIX 7: Reduced from 0.5s to 0.3s for faster fill detection (~40% improvement)
+        # TS SDK Pattern: Minimize detection latency to reduce unhedged exposure window
+        polling_interval = 0.3  # Faster polling to reduce Ghost-Fill window
         # For IOC orders, check order status early to detect cancellations
         order_status_checked = False
         
@@ -1735,9 +1743,10 @@ class ParallelExecutionManager:
                                 # Check if this is a POST_ONLY order: if order was placed >5s ago and disappeared, likely POST_ONLY filled
                                 elapsed_so_far = time.time() - wait_start
                                 is_post_only_likely = elapsed_so_far > 5.0
-                                max_fresh_fetch_attempts = 10 if is_post_only_likely else 3  # More attempts for POST_ONLY
+                                # FIX 7: More aggressive fresh-fetch with shorter delays
+                                max_fresh_fetch_attempts = 12 if is_post_only_likely else 5  # Increased attempts
                                 fresh_fetch_attempts = 0
-                                fresh_fetch_delay = 0.5
+                                fresh_fetch_delay = 0.2  # FIX 7: Reduced from 0.5s to 0.2s
                                 
                                 while fresh_fetch_attempts < max_fresh_fetch_attempts:
                                     cached_positions = None
