@@ -1,0 +1,376 @@
+11:41:33 [INFO] ✅ CONFIG VALIDATION COMPLETED.
+11:41:36 [INFO] 🛡️ Lighter Rate Limiter Tier: STANDARD
+11:41:36 [DEBUG] ✅ Decimal adapter registered for SQLite
+11:41:36 [INFO] 🔥 BOT V5 (Architected) STARTING...
+11:41:36 [INFO] 🚀 Starting InMemoryStateManager...
+11:41:36 [INFO] 📂 Initializing database: data/trades.db
+11:41:36 [INFO] ✅ Read pool created: 5 connections
+11:41:36 [INFO] ✅ WAL mode enabled
+11:41:36 [INFO] 🔄 Running database migrations...
+11:41:36 [INFO] ✅ Migrations complete (14 statements)
+11:41:36 [INFO] ✅ Database initialized
+11:41:36 [INFO] 🖊️ Database write loop started
+11:41:36 [DEBUG] Maintenance not due (Last: 17h ago)
+11:41:36 [INFO] 📂 Loaded 1 trades from database
+11:41:36 [INFO] ✅ InMemoryStateManager started (loaded 1 trades)
+11:41:36 [INFO] ✅ State Manager started
+11:41:36 [INFO]  Telegram Bot disabled (Token/ChatID missing).
+11:41:36 [INFO] ✅ Async database initialized
+11:41:36 [INFO] 📝 State writer loop started
+11:41:36 [DEBUG] ✅ Database schema up to date
+11:41:36 [INFO] Initialisiere X10 Adapter...
+11:41:36 [INFO]  X10 Account initialisiert.
+11:41:36 [INFO] Initialisiere Lighter Adapter...
+11:41:36 [INFO] ✅ Using SaferSignerClient subclass instead of Monkey-Patch
+11:41:36 [INFO] 💰 Checking exchange balances at startup...
+11:41:36 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/balance
+11:41:37 [INFO] 💰 X10 verfügbare Balance: $203.72 USDC
+11:41:37 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+11:41:39 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+11:41:40 [DEBUG] Lighter Balance: Raw=$249.26, Safe=$236.80
+11:41:40 [INFO] 💰 STARTUP BALANCE CHECK: X10=$203.72, Lighter=$236.80
+11:41:40 [INFO] ✅ Exchange balances OK - Bot can trade!
+11:41:40 [INFO] 💰 FeeManager initialized (Dynamic Fees: ENABLED)
+11:41:40 [DEBUG] FeeManager: Adapters set (X10=True, Lighter=True)
+11:41:41 [INFO] ✅ Lighter Fee Check OK: Maker=0.0, Taker=0.0
+11:41:41 [INFO] ✅ Lighter Fees updated: Maker=0.000000, Taker=0.000000 (source=api)
+11:41:41 [INFO] ✅ X10 Fee Schedule (REST /api/v1/user/fees): Maker=0.000000, Taker=0.000225
+11:41:41 [INFO] ✅ X10 Fees updated: Maker=0.000000, Taker=0.000225 (source=api)
+11:41:41 [INFO] ✅ FeeManager started with periodic refresh
+11:41:41 [INFO] ✅ FeeManager started
+11:41:41 [INFO] ✅ Funding Tracker started (updates every 3600s)
+11:41:41 [INFO] ✅ FundingTracker started
+11:41:41 [INFO] 📊 Loading Market Data via REST...
+11:41:41 [INFO] 🔄 Funding tracking loop started...
+11:41:41 [INFO] 📊 Updating funding for 1 open trades...
+11:41:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+11:41:41 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+11:41:43 [INFO] Lighter: Found 0 open positions
+11:41:43 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+11:41:43 [DEBUG] [X10] 🔄 Deduplicated: X10:fetch_open_positions (dedup window: 2.0s)
+11:41:43 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+11:41:43 [INFO] ✅ Lighter: Loaded 115 markets (base data)
+11:41:43 [DEBUG] 📸 PnL Snapshot saved: total=$89.6481, uPnL=$0.0000, rPnL=$89.6481
+11:41:43 [DEBUG] 📸 PnL Snapshot: total=$89.6481 (uPnL=$0.0000, rPnL=$89.6481, funding=$0.0000)
+11:41:43 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+11:41:43 [INFO] ✅ Lighter: Updated 114 markets with size_decimals from API
+11:41:43 [INFO] 📊 MARKET ADA-USD: size_decimals=1, price_decimals=5, min_base_amount=10.0
+11:41:43 [INFO] 📊 MARKET SEI-USD: size_decimals=1, price_decimals=5, min_base_amount=50.0
+11:41:43 [INFO] 📊 MARKET RESOLV-USD: size_decimals=0, price_decimals=6, min_base_amount=40.0
+11:41:43 [INFO] 📊 MARKET TIA-USD: size_decimals=1, price_decimals=5, min_base_amount=3.0
+11:41:44 [INFO]  X10: 91 Märkte geladen, 91 Funding Rates, 78 Preise
+11:41:44 [INFO] ✅ Markets loaded: X10=91, Lighter=115
+11:41:44 [INFO] 📈 Pre-loading Lighter prices...
+11:41:44 [DEBUG] Lighter: Loaded 111 funding rates
+11:41:45 [DEBUG] Lighter: Loaded 117 prices via REST
+11:41:45 [INFO] ✅ Lighter prices loaded: 117 symbols
+11:41:45 [INFO] 🔥 Warming up execution clients (Network Handshake)...
+11:41:45 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/info/markets?
+11:41:47 [INFO] ✅ Execution clients warmed up & NETWORK READY
+11:41:47 [INFO] 启动 OI Tracker für 64 Symbole...
+11:41:47 [INFO] ✅ OpenInterestTracker started (interval=15.0s)
+11:41:47 [INFO] 🌐 Starting WebSocket Manager...
+11:41:47 [INFO] 📚 OrderbookProvider connected to WebSocketManager
+11:41:47 [INFO] ✅ OrderbookProvider initialized and connected to WebSocketManager
+11:41:47 [INFO] 📊 OI Tracker: Starting cycle 1 (64 symbols)
+11:41:47 [INFO] 🔌 [lighter] WebSocket manager started
+11:41:47 [INFO] 🔌 [x10_account] WebSocket manager started
+11:41:47 [INFO] 🔌 [x10_trades] WebSocket manager started
+11:41:47 [INFO] 🔌 [x10_funding] WebSocket manager started
+11:41:47 [INFO] 🔌 [x10_orderbooks] WebSocket manager started
+11:41:47 [INFO] 🔌 [lighter] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': None, 'ping_timeout': None}
+11:41:47 [INFO] 🔌 [x10_account] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+11:41:47 [INFO] 🔌 [x10_trades] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+11:41:47 [INFO] 🔌 [x10_funding] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+11:41:47 [INFO] 🔌 [x10_orderbooks] Connecting with kwargs: {'close_timeout': 5.0, 'max_size': 4194304, 'ping_interval': 15.0, 'ping_timeout': None, 'additional_headers': {'X-Api-Key': '***MASKED***', 'User-Agent': 'X10PythonTradingClient/0.4.5'}}
+11:41:47 [INFO] ✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)
+11:41:47 [INFO] 📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)
+11:41:47 [INFO] 💓 [x10_account] Keepalive loop started
+11:41:47 [INFO] ✅ [lighter] Subscribed to 64 channels (1 market_stats/all + 63 order_books)
+11:41:47 [INFO] ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)
+11:41:47 [INFO] [x10] Connected to Firehose streams (Trades & Funding) for all markets.
+11:41:47 [INFO] 🔗 Components Wired: WS -> OI Tracker -> Prediction
+11:41:47 [INFO] 🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...
+11:41:47 [INFO] 🔍 DB meldet 1 offene Trades. Prüfe Exchange...
+11:41:47 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+11:41:47 [DEBUG] ✅ EIGEN-USD: X10=$153,323, Lighter=$1,172,217, Total=$1,325,540
+11:41:48 [INFO] ✅ [lighter] Connected to wss://mainnet.zklighter.elliot.ai/stream
+11:41:48 [INFO] [lighter] Resubscribing to 64 channels (paced)...
+11:41:48 [INFO] [lighter] Receive loop started (async iterator)
+11:41:48 [INFO] 💓 [lighter] Passive mode - waiting for SERVER pings (every ~60-90s)
+11:41:48 [DEBUG] 💓 [lighter] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+11:41:48 [INFO] ✅ [x10_funding] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/funding
+11:41:48 [INFO] ✅ [x10_funding] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+11:41:48 [INFO] [x10_funding] Receive loop started (async iterator)
+11:41:48 [DEBUG] 💓 [x10_funding] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+11:41:48 [INFO] ✅ [x10_orderbooks] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/orderbooks
+11:41:48 [INFO] ✅ [x10_orderbooks] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+11:41:48 [INFO] [x10_orderbooks] Receive loop started (async iterator)
+11:41:48 [DEBUG] 💓 [x10_orderbooks] Heartbeat started (stale_threshold=180.0s, json_ping_interval=Nones)
+11:41:48 [INFO] ✅ [x10_account] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account
+11:41:48 [INFO] ✅ [x10_account] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+11:41:48 [INFO] [x10_account] Receive loop started (async iterator)
+11:41:48 [DEBUG] 💓 [x10_account] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+11:41:48 [DEBUG] 📨 [x10_account] RAW: BALANCE - {'type': 'BALANCE', 'data': {'isSnapshot': True, 'balance': {'collateralName': 'USD', 'balance': '203.715603', 'status': 'ACTIVE', 'equity': '203.715603', 'availableForTrade': '203.715603', 'available
+11:41:48 [DEBUG] 💰 [x10_account] BALANCE: equity=$203.715603, available=$203.715603, uPnL=$0.000000
+11:41:48 [DEBUG] 📨 [x10_account] RAW: POSITION - {
+  "type": "POSITION",
+  "data": {
+    "isSnapshot": true,
+    "positions": []
+  },
+  "ts": 1765708892918,
+  "seq": 2
+}
+11:41:48 [DEBUG] 📨 [x10_account] RAW: ORDER - {'type': 'ORDER', 'data': {'isSnapshot': True, 'orders': []}, 'ts': 1765708892918, 'seq': 3}
+11:41:48 [DEBUG] [lighter] Resubscribed 10/64 channels
+11:41:48 [INFO] Lighter: Found 0 open positions
+11:41:48 [INFO] 🌍 Echte Positionen auf Exchanges: []
+11:41:48 [WARNING] ⚠️  ZOMBIE: HYPE-USD - closing in DB...
+11:41:48 [INFO] 📝 close_trade_in_state(HYPE-USD): PnL=$0.0000, Funding=$0.0000
+11:41:48 [INFO] 📝 StateManager.close_trade(HYPE-USD): PnL=$0.0000, Funding=$0.0000
+11:41:48 [DEBUG] 📝 StateManager.close_trade(HYPE-USD): update_trade returned True
+11:41:48 [DEBUG] 🧹 Removed closed trade HYPE-USD from memory
+11:41:48 [INFO] ✅ Trade HYPE-USD closed in state (PnL: $0.0000, Funding: $0.0000)
+11:41:48 [INFO] 🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...
+11:41:48 [DEBUG] Sending GET https://api.starknet.extended.exchange/api/v1/user/positions?
+11:41:48 [INFO] 📝 DB close_trade(HYPE-USD): PnL=$0.0000, Funding=$0.0000
+11:41:48 [DEBUG] 📝 DB close_trade(HYPE-USD): Execute returned 40
+11:41:48 [DEBUG] 📝 Flushed 1 writes
+11:41:48 [DEBUG] 📝 Flushed 1 writes in 0.0ms
+11:41:48 [INFO] ✅ [x10_trades] Connected to wss://api.starknet.extended.exchange/stream.extended.exchange/v1/publicTrades
+11:41:48 [INFO] ✅ [x10_trades] Keepalive enabled: ping_interval=15.0s, ping_timeout=None (auto-pong)
+11:41:48 [INFO] [x10_trades] Receive loop started (async iterator)
+11:41:48 [DEBUG] 💓 [x10_trades] Heartbeat started (stale_threshold=300.0s, json_ping_interval=Nones)
+11:41:48 [DEBUG] [lighter] Resubscribed 20/64 channels
+11:41:48 [DEBUG] [lighter] Resubscribed 30/64 channels
+11:41:48 [DEBUG] [LIGHTER] 🔄 Deduplicated: LIGHTER:fetch_open_positions (dedup window: 2.0s)
+11:41:48 [INFO] ✅ No orphaned positions found
+11:41:48 [INFO] ✅ ParallelExecutionManager started
+11:41:48 [INFO] ✅ ParallelExecutionManager started
+11:41:48 [INFO] 🌐 Starting Dashboard API at http://0.0.0.0:8080
+11:41:48 [INFO] 🛑 STOPPING BOT: Initiating Graceful Shutdown...
+11:41:48 [INFO] 🛑 GRACEFUL SHUTDOWN: Closing all positions...
+11:41:48 [INFO] 🛑 Shutdown orchestrator start (reason=funding_bot)
+11:41:48 [INFO] 🛑 [X10] Rate limiter shutdown - cancelled 0 waiters
+11:41:48 [INFO] 🛑 [LIGHTER] Rate limiter shutdown - cancelled 0 waiters
+11:41:48 [INFO] 🛑 All rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+11:41:48 [INFO] 🛑 Rate limiters shutdown: {'X10': {'waiters_cancelled': 0, 'shutdown': True}, 'LIGHTER': {'waiters_cancelled': 0, 'shutdown': True}}
+11:41:48 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:48 [INFO] 📸 Position snapshot: X10=0, Lighter=0
+11:41:48 [INFO] ℹ️ No ParallelExecutionManager registered
+11:41:48 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:48 [INFO] ⚡ Attempting global Lighter cancel...
+11:41:48 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:48 [DEBUG] [lighter] Resubscribed 40/64 channels
+11:41:48 [DEBUG] [lighter] Resubscribed 50/64 channels
+11:41:48 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7787)...
+11:41:48 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765709507796,"Nonce":7787,"Sig":"3cUKZzMUQ9s8l8tDQ9eGfMnFVR49K65cHdsdIlrXfVWKTCS3+8QqBWR1bBSXcivVegUuwicDR9dblLJuaPDXpM7l5Bi2gnSetGiIfMExhHA="}
+11:41:48 [DEBUG] [lighter] Resubscribed 60/64 channels
+11:41:48 [INFO] [lighter] Resubscribed to 64 channels
+11:41:49 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='5fcdf20ce60bb497427ddd93e237fbebcf22392c235841bc5369458c61d85b5bcffab9180c978161' predicted_execution_time_ms=1765708893838 additional_properties={}
+11:41:49 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765709507796,"Nonce":7787,"Sig":"3cUKZzMUQ9s8l8tDQ9eGfMnFVR49K65cHdsdIlrXfVWKTCS3+8QqBWR1bBSXcivVegUuwicDR9dblLJuaPDXpM7l5Bi2gnSetGiIfMExhHA="})
+11:41:49 [DEBUG] 🔄 Nonce cache invalidated
+11:41:49 [INFO] 🛑 Cancelling open orders for 142 symbols (LighterGlobal=True)...
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SUI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PENDLE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for STRK-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for FARTCOIN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ICP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for LDO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for STBL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AAVE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for EURUSD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XLM-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ASTER-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 4-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 0G-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for WIF-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MOG-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AVNT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XAU-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000SHIB-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for BERA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AMZN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for CAKE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000BONK-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SEI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for LTC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for NEAR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for BCH-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for GOAT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TIA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for POL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for EUR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 2Z-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for LINEA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for BTC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for HYPE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PROVE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ETH-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for KAITO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for RESOLV-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ETC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for DOLO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000000MOG-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ATOM-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for WLD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SNX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for DYDX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for HOOD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PYTH-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZRO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for FTM-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for DOGE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for USDCHF-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XRP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZORA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for USDKRW-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PAXG-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for CRO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for GMX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PLTR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MNT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for FF-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for CRV-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PLACE_2-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for NVDA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ADA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MYX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for DOT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ETH-USDC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZK-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SYRUP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AERO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TAO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SOL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for YZY-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ENA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SKY-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for CC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for EIGEN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SPX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for GRASS-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SPX500m-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for HBAR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MORPHO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for LINK-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MATIC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MELANIA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for WLFI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AAPL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for OP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MON-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AVAX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for INIT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PUMP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XAG-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XBR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AI16Z-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TON-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for POPCAT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XPL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ZEC-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for EDEN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for VVV-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for META-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TRUMP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000FLOKI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for USDJPY-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for SPX6900-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for WAL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ONDO-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for AUDUSD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for S-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TRX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for APEX-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000TOSHI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for IP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for NMR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ETHFI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for ARB-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PLACE_1-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for LAUNCHCOIN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for STABLE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MEGA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for JUP-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TECH100m-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for VIRTUAL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for USDCAD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for USELESS-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for GOOGL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for BNB-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for UNI-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for FIL-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MET-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for XMR-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for GBPUSD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for NZDUSD-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for PENGU-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for TSLA-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for COIN-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MSFT-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for 1000PEPE-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MOODENG-USD
+11:41:49 [DEBUG] [X10] Shutdown active - skipping cancel_all_orders for MKR-USD
+11:41:49 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:49 [INFO] ✅ No open positions to close
+11:41:49 [INFO] 🔍 Final position sweep...
+11:41:49 [INFO] ⚡ [FINAL] Executing FINAL ImmediateCancelAll before sweep...
+11:41:49 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:49 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:49 [INFO] ⚡ Executing ImmediateCancelAll (nonce=7788)...
+11:41:49 [DEBUG] Cancel All Orders Tx Info: {"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765709508368,"Nonce":7788,"Sig":"lJMNcseX5j4EnU+2AJ9oTqNjPR6F9PtFMVssnxVFrZL5CzheXFJKI5I3XHkdjR7YBM92up8PS/J1AP4ngeNqyz3JNut/QvsvITH//HaiNCg="}
+11:41:49 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:49 [DEBUG] Cancel All Orders Send Tx Response: code=200 message='{"ratelimit": "didn\'t use volume quota"}' tx_hash='895998b43f546e949c013af315c6e216d24d7a5291b37ed62dd04820c7a9835374321615b81dbd13' predicted_execution_time_ms=1765708894402 additional_properties={}
+11:41:49 [INFO] ✅ Lighter: ImmediateCancelAll executed (tx={"AccountIndex":60113,"ApiKeyIndex":3,"TimeInForce":0,"Time":0,"ExpiredAt":1765709508368,"Nonce":7788,"Sig":"lJMNcseX5j4EnU+2AJ9oTqNjPR6F9PtFMVssnxVFrZL5CzheXFJKI5I3XHkdjR7YBM92up8PS/J1AP4ngeNqyz3JNut/QvsvITH//HaiNCg="})
+11:41:49 [DEBUG] 🔄 Nonce cache invalidated
+11:41:49 [INFO] ✅ [FINAL] ImmediateCancelAll executed
+11:41:49 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:49 [INFO] ✅ Final sweep: No positions found
+11:41:49 [INFO] 🛑 Stopping InMemoryStateManager...
+11:41:49 [INFO] 📝 State writer loop stopped
+11:41:49 [INFO] ✅ InMemoryStateManager stopped
+11:41:49 [INFO] 🛑 FeeManager stopped
+11:41:49 [INFO] 🔒 Closing database...
+11:41:49 [INFO] 🖊️ Database write loop stopped
+11:41:49 [INFO] ✅ Database closed
+11:41:49 [INFO] 💾 Persist phase complete
+11:41:49 [INFO] ✅ Lighter Adapter closed
+11:41:49 [INFO] ✅ X10 Adapter geschlossen.
+11:41:49 [INFO] ✅ Teardown complete
+11:41:49 [DEBUG] [LIGHTER] Shutdown active - returning cached positions
+11:41:49 [INFO] ✅ All positions closed. Bye! (elapsed=1.12s)
+11:41:49 [INFO] ✅ All positions closed. Bye!
+11:41:49 [INFO] 🛑 Stopping Infrastructure...
+11:41:49 [DEBUG] 💓 [x10_account] Keepalive loop cancelled
+11:41:49 [INFO] 💓 [x10_account] Keepalive loop stopped
+11:41:49 [INFO] 🛑 Funding tracker: Cancelled
+11:41:49 [DEBUG] Lighter: fetch_open_interest SPX-USD cancelled during shutdown
+11:41:49 [DEBUG] ✅ SPX-USD: X10=$70,099, Lighter=$0, Total=$70,099
+11:41:51 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:51 [DEBUG] Starting new HTTPS connection (1): mainnet.zklighter.elliot.ai:443
+11:41:52 [DEBUG] https://mainnet.zklighter.elliot.ai:443 "GET /api/v1/nextNonce?account_index=60113&api_key_index=3 HTTP/1.1" 200 25
+11:41:53 [DEBUG] ✅ WLD-USD: X10=$63,228, Lighter=$1,967,656, Total=$2,030,884
+11:41:54 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:55 [DEBUG] ✅ GRASS-USD: X10=$79,855, Lighter=$1,866,502, Total=$1,946,357
+11:41:56 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:41:56 [DEBUG] ✅ SUI-USD: X10=$555,145, Lighter=$2,384,372, Total=$2,939,517
+11:42:00 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:00 [DEBUG] ✅ ZRO-USD: X10=$206,453, Lighter=$559,518, Total=$765,971
+11:42:02 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:02 [DEBUG] ✅ PENDLE-USD: X10=$108,893, Lighter=$1,226,571, Total=$1,335,464
+11:42:03 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:04 [DEBUG] ✅ STRK-USD: X10=$399,721, Lighter=$7,228,182, Total=$7,627,903
+11:42:05 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:05 [DEBUG] ✅ FARTCOIN-USD: X10=$526,053, Lighter=$9,808,618, Total=$10,334,672
+11:42:07 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:07 [DEBUG] ✅ ARB-USD: X10=$123,273, Lighter=$9,656,063, Total=$9,779,336
+11:42:11 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:11 [DEBUG] ✅ XRP-USD: X10=$910,793, Lighter=$5,358,852, Total=$6,269,645
+11:42:13 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:13 [DEBUG] ✅ DOGE-USD: X10=$450,240, Lighter=$21,018,169, Total=$21,468,409
+11:42:14 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
+11:42:15 [DEBUG] ✅ LDO-USD: X10=$190,902, Lighter=$2,162,617, Total=$2,353,519
+11:42:16 [DEBUG] [LIGHTER] Rate limiter acquire() skipped - shutdown active
