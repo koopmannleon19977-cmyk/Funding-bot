@@ -353,6 +353,173 @@ class LighterAdapter(BaseAdapter):
         self._nonce_fetch_time = 0.0
         logger.debug("🔄 Nonce cache invalidated")
 
+    # ═══════════════════════════════════════════════════════════════
+    # BATCH ORDER SUPPORT: Pattern from lighter-ts-main/src/api/transaction-api.ts
+    # 
+    # Features:
+    # - send_batch_orders(): Send multiple orders in one API call
+    # - close_all_positions_batch(): Close all positions in one TX
+    # - Reduces API calls and latency during shutdown
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def send_batch_orders(
+        self,
+        tx_types: List[int],
+        tx_infos: List[str]
+    ) -> Tuple[bool, List[Optional[str]]]:
+        """
+        Send multiple orders in a single batch transaction.
+        Pattern from lighter-ts-main/src/api/transaction-api.ts:sendTransactionBatch()
+        
+        Args:
+            tx_types: List of transaction types (e.g., [1, 1, 1] for create orders)
+            tx_infos: List of signed transaction JSON strings
+            
+        Returns:
+            Tuple[bool, List[Optional[str]]]: (success, list of tx hashes)
+        """
+        if not tx_types or not tx_infos or len(tx_types) != len(tx_infos):
+            logger.error("❌ send_batch_orders: Invalid inputs")
+            return False, []
+        
+        try:
+            base_url = self._get_base_url()
+            url = f"{base_url}/api/v1/sendTxBatch"
+            
+            # Format: tx_types and tx_infos as JSON arrays (stringified)
+            payload = {
+                "tx_types": json.dumps(tx_types),
+                "tx_infos": json.dumps(tx_infos)
+            }
+            
+            logger.info(f"📦 Sending batch of {len(tx_types)} transactions...")
+            
+            session = await self._get_session()
+            async with session.post(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"}
+            ) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.error(f"❌ Batch TX failed: {resp.status} - {text}")
+                    return False, []
+                
+                result = await resp.json()
+                
+                # API returns tx_hash as array
+                tx_hashes = result.get("tx_hash", []) or result.get("hashes", [])
+                
+                if tx_hashes:
+                    logger.info(f"✅ Batch TX success: {len(tx_hashes)} transactions")
+                    for i, h in enumerate(tx_hashes):
+                        if h:
+                            logger.debug(f"   TX {i+1}: {str(h)[:40]}...")
+                    return True, tx_hashes
+                else:
+                    # Check for error
+                    code = result.get("code")
+                    message = result.get("message", "Unknown error")
+                    if code and code != 200:
+                        logger.error(f"❌ Batch TX error: code={code}, msg={message}")
+                        return False, []
+                    logger.info(f"✅ Batch TX submitted (no hashes returned)")
+                    return True, []
+                    
+        except Exception as e:
+            logger.error(f"❌ send_batch_orders error: {e}")
+            return False, []
+    
+    async def close_all_positions_batch(self) -> Tuple[int, int]:
+        """
+        Close all open positions using concurrent close calls.
+        Optimized for shutdown - faster than fully sequential close calls.
+        
+        Note: True TX-batching via /api/v1/sendTxBatch requires raw signing
+        which the Python SDK doesn't expose. This uses parallelism instead.
+        
+        Returns:
+            Tuple[int, int]: (closed_count, failed_count)
+        """
+        positions = await self.fetch_open_positions()
+        if not positions:
+            logger.info("📦 No positions to batch-close")
+            return 0, 0
+        
+        # Filter positions with actual size
+        positions_to_close = [
+            p for p in positions 
+            if abs(safe_float(p.get("size", 0))) > 1e-8
+        ]
+        
+        if not positions_to_close:
+            logger.info("📦 No non-zero positions to batch-close")
+            return 0, 0
+        
+        logger.info(f"📦 Parallel-closing {len(positions_to_close)} Lighter positions...")
+        
+        closed_count = 0
+        failed_count = 0
+        
+        # Create close tasks for parallel execution
+        async def close_single_position(pos: dict) -> bool:
+            try:
+                symbol = pos.get("symbol", "")
+                size = safe_float(pos.get("size", 0))
+                
+                if abs(size) < 1e-8:
+                    return True  # Already closed
+                
+                # Determine close side (opposite of position)
+                original_side = "BUY" if size > 0 else "SELL"
+                
+                # Use close_live_position for proper handling
+                success, _ = await self.close_live_position(
+                    symbol=symbol,
+                    original_side=original_side,
+                    notional_usd=0  # Will be calculated from position size
+                )
+                
+                if success:
+                    logger.debug(f"✅ Closed {symbol}")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Failed to close {symbol}")
+                    return False
+                    
+            except Exception as e:
+                logger.warning(f"⚠️ Error closing {pos.get('symbol')}: {e}")
+                return False
+        
+        # Execute closes in parallel with limited concurrency
+        # Use batches of 3 to respect rate limits
+        batch_size = 3
+        for i in range(0, len(positions_to_close), batch_size):
+            batch = positions_to_close[i:i+batch_size]
+            tasks = [close_single_position(pos) for pos in batch]
+            
+            try:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                for result in results:
+                    if isinstance(result, Exception):
+                        failed_count += 1
+                    elif result:
+                        closed_count += 1
+                    else:
+                        failed_count += 1
+                        
+            except Exception as e:
+                logger.error(f"❌ Batch close error: {e}")
+                failed_count += len(batch)
+            
+            # Small delay between batches for rate limiting
+            if i + batch_size < len(positions_to_close):
+                await asyncio.sleep(0.3)
+        
+        logger.info(f"📦 Parallel close complete: {closed_count} closed, {failed_count} failed")
+        return closed_count, failed_count
+
     async def start_websocket(self):
         """Start the WebSocket connection task."""
         if self.ws_task and not self.ws_task.done():
