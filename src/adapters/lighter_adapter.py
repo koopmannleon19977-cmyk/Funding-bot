@@ -520,6 +520,218 @@ class LighterAdapter(BaseAdapter):
         logger.info(f"📦 Parallel close complete: {closed_count} closed, {failed_count} failed")
         return closed_count, failed_count
 
+    # ═══════════════════════════════════════════════════════════════
+    # CANDLESTICK API: Pattern from lighter-ts-main/src/api/candlestick-api.ts
+    # 
+    # Features:
+    # - get_candlesticks(): Fetch OHLCV data for a market
+    # - calculate_volatility(): ATR-based volatility calculation
+    # - Used for: Dynamic timeout optimization, trend detection
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def get_candlesticks(
+        self,
+        symbol: str,
+        resolution: str = "1h",
+        count_back: int = 24
+    ) -> List[Dict]:
+        """
+        Fetch candlestick (OHLCV) data for a market.
+        Pattern from lighter-ts-main/src/api/candlestick-api.ts
+        
+        Args:
+            symbol: Trading pair (e.g., "ETH-USD")
+            resolution: Candle interval (1m, 5m, 15m, 30m, 1h, 4h, 1d)
+            count_back: Number of candles to fetch (default: 24)
+            
+        Returns:
+            List of candlestick dicts with open, high, low, close, volume, timestamp
+        """
+        try:
+            # Get market_id from market_info (key 'i')
+            market_data = self.market_info.get(symbol, {})
+            market_id = market_data.get('i', -1)
+            if market_id is None or market_id < 0:
+                logger.debug(f"⚠️ get_candlesticks: No market_id for {symbol}")
+                return []
+            
+            base_url = self._get_base_url()
+            url = f"{base_url}/api/v1/candlesticks"
+            
+            # Map resolution to API format and duration in seconds
+            resolution_map = {
+                "1m": ("1m", 60),
+                "5m": ("5m", 300),
+                "15m": ("15m", 900),
+                "1h": ("1h", 3600),
+                "4h": ("4h", 14400),
+                "1d": ("1d", 86400)
+            }
+            api_resolution, interval_seconds = resolution_map.get(resolution, ("1h", 3600))
+            
+            # Calculate timestamps (required by the API)
+            end_timestamp = int(time.time())
+            start_timestamp = end_timestamp - (count_back * interval_seconds)
+            
+            params = {
+                "market_id": market_id,
+                "resolution": api_resolution,
+                "start_timestamp": start_timestamp,
+                "end_timestamp": end_timestamp,
+                "count_back": count_back
+            }
+            
+            session = await self._get_session()
+            async with session.get(url, params=params) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    logger.debug(f"⚠️ Candlesticks API {symbol}: {resp.status} - {text[:100]}")
+                    return []
+                
+                result = await resp.json()
+                candlesticks = result.get("candlesticks", [])
+                
+                if candlesticks:
+                    logger.debug(f"📊 {symbol}: Fetched {len(candlesticks)} candles ({resolution})")
+                
+                return candlesticks
+                
+        except Exception as e:
+            logger.debug(f"⚠️ get_candlesticks {symbol} error: {e}")
+            return []
+    
+    async def calculate_volatility(
+        self,
+        symbol: str,
+        resolution: str = "1h",
+        periods: int = 14
+    ) -> Optional[Dict]:
+        """
+        Calculate volatility metrics using Average True Range (ATR).
+        Used for dynamic timeout adjustment and risk assessment.
+        
+        Args:
+            symbol: Trading pair
+            resolution: Candle interval 
+            periods: ATR calculation period (default: 14)
+            
+        Returns:
+            Dict with volatility metrics or None if insufficient data
+        """
+        try:
+            candles = await self.get_candlesticks(symbol, resolution, periods + 1)
+            
+            if len(candles) < periods + 1:
+                logger.debug(f"📊 {symbol}: Insufficient candles for volatility ({len(candles)}/{periods + 1})")
+                return None
+            
+            # Calculate True Range for each candle
+            true_ranges = []
+            for i in range(1, len(candles)):
+                prev_close = safe_float(candles[i-1].get("close", 0))
+                high = safe_float(candles[i].get("high", 0))
+                low = safe_float(candles[i].get("low", 0))
+                
+                if prev_close > 0 and high > 0 and low > 0:
+                    tr = max(
+                        high - low,
+                        abs(high - prev_close),
+                        abs(low - prev_close)
+                    )
+                    true_ranges.append(tr)
+            
+            if len(true_ranges) < periods:
+                return None
+            
+            # Calculate ATR (Average True Range)
+            atr = sum(true_ranges[-periods:]) / periods
+            
+            # Get current price for percentage calculation
+            current_price = safe_float(candles[-1].get("close", 0))
+            if current_price <= 0:
+                return None
+            
+            # ATR as percentage of price
+            atr_percent = (atr / current_price) * 100
+            
+            # Volatility classification
+            if atr_percent < 1.0:
+                volatility_level = "LOW"
+            elif atr_percent < 3.0:
+                volatility_level = "MEDIUM"
+            else:
+                volatility_level = "HIGH"
+            
+            result = {
+                "symbol": symbol,
+                "atr": atr,
+                "atr_percent": atr_percent,
+                "volatility_level": volatility_level,
+                "current_price": current_price,
+                "periods": periods,
+                "resolution": resolution,
+                "timestamp": time.time()
+            }
+            
+            logger.info(
+                f"📊 {symbol} Volatility: ATR={atr:.4f} ({atr_percent:.2f}%) - {volatility_level}"
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.debug(f"⚠️ calculate_volatility {symbol} error: {e}")
+            return None
+    
+    async def get_volatility_adjusted_timeout(
+        self,
+        symbol: str,
+        base_timeout: float = 60.0
+    ) -> float:
+        """
+        Get timeout adjusted for current market volatility.
+        Higher volatility = longer timeout (more price movement expected).
+        
+        Args:
+            symbol: Trading pair
+            base_timeout: Base timeout in seconds
+            
+        Returns:
+            Adjusted timeout in seconds
+        """
+        try:
+            vol_data = await self.calculate_volatility(symbol, "1h", 14)
+            
+            if not vol_data:
+                return base_timeout
+            
+            volatility_level = vol_data.get("volatility_level", "MEDIUM")
+            
+            if volatility_level == "LOW":
+                # Low volatility - use shorter timeout
+                adjusted = base_timeout * 0.7
+            elif volatility_level == "HIGH":
+                # High volatility - use longer timeout
+                adjusted = base_timeout * 1.3
+            else:
+                # Medium volatility - use base timeout
+                adjusted = base_timeout
+            
+            # Clamp to reasonable range
+            adjusted = max(30.0, min(120.0, adjusted))
+            
+            logger.debug(
+                f"⏱️ {symbol}: Volatility-adjusted timeout: {adjusted:.1f}s "
+                f"(volatility={volatility_level}, base={base_timeout:.1f}s)"
+            )
+            
+            return adjusted
+            
+        except Exception as e:
+            logger.debug(f"⚠️ get_volatility_adjusted_timeout {symbol} error: {e}")
+            return base_timeout
+
+
     async def start_websocket(self):
         """Start the WebSocket connection task."""
         if self.ws_task and not self.ws_task.done():

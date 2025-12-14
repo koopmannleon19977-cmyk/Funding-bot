@@ -725,6 +725,28 @@ class ParallelExecutionManager:
                         # Low liquidity - use longer timeout
                         timeout = base_timeout * (1.0 + (1.0 - depth_ratio))
                     
+                    # FIX 9: Apply volatility adjustment if available
+                    try:
+                        if hasattr(self.lighter, 'calculate_volatility'):
+                            vol_data = await self.lighter.calculate_volatility(symbol, "1h", 14)
+                            if vol_data:
+                                volatility_level = vol_data.get("volatility_level", "MEDIUM")
+                                atr_percent = vol_data.get("atr_percent", 0)
+                                
+                                if volatility_level == "LOW":
+                                    # Low volatility - can reduce timeout slightly
+                                    timeout *= 0.9
+                                elif volatility_level == "HIGH":
+                                    # High volatility - increase timeout
+                                    timeout *= 1.2
+                                
+                                logger.debug(
+                                    f"📊 {symbol}: Volatility adjustment applied: "
+                                    f"ATR={atr_percent:.2f}% ({volatility_level})"
+                                )
+                    except Exception as vol_err:
+                        logger.debug(f"⚠️ {symbol}: Volatility check skipped: {vol_err}")
+                    
                     timeout = max(min_timeout, min(max_timeout, timeout))
                     logger.debug(
                         f"⏱️ {symbol}: Dynamic timeout calculated: {timeout:.1f}s "
