@@ -2022,6 +2022,292 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Failed to load Lighter funding rates: {e}")
         return False
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Direct PnL API - GET /api/v1/pnl
+    # Returns exchange-calculated PnL data for verification
+    # ═══════════════════════════════════════════════════════════════════════════
+    async def fetch_pnl_from_api(
+        self,
+        resolution: str = "1h",
+        count_back: int = 24,
+        ignore_transfers: bool = False
+    ) -> Optional[dict]:
+        """
+        Fetch account PnL data directly from Lighter API.
+        
+        API: GET /api/v1/pnl
+        
+        This provides exchange-calculated PnL which can be used
+        to verify bot's own PnL calculations.
+        
+        Args:
+            resolution: Time interval (1m, 5m, 15m, 1h, 4h, 1d)
+            count_back: Number of periods to fetch
+            ignore_transfers: If true, exclude deposit/withdrawal impact
+            
+        Returns:
+            Dict with PnL data or None if failed:
+            {
+                "entries": [{"timestamp": int, "pnl": float, ...}],
+                "total_pnl": float,
+                ...
+            }
+        """
+        try:
+            if self._resolved_account_index is None:
+                await self._resolve_account_index()
+            
+            if self._resolved_account_index is None:
+                logger.debug("Lighter PnL API: No account index resolved")
+                return None
+            
+            # Build auth token (required for private endpoint)
+            signer = await self._get_signer()
+            auth_token = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            
+            now_ms = int(time.time() * 1000)
+            # Calculate start time based on resolution and count_back
+            resolution_seconds = {
+                "1m": 60, "5m": 300, "15m": 900,
+                "1h": 3600, "4h": 14400, "1d": 86400
+            }.get(resolution, 3600)
+            start_timestamp = now_ms - (count_back * resolution_seconds * 1000)
+            
+            base_url = self._get_base_url()
+            url = (
+                f"{base_url}/api/v1/pnl"
+                f"?by=index"
+                f"&value={self._resolved_account_index}"
+                f"&resolution={resolution}"
+                f"&start_timestamp={start_timestamp}"
+                f"&end_timestamp={now_ms}"
+                f"&count_back={count_back}"
+                f"&ignore_transfers={str(ignore_transfers).lower()}"
+            )
+            
+            headers = {
+                "Accept": "application/json",
+                "Authorization": auth_token
+            }
+            
+            await self.rate_limiter.acquire()
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.rate_limiter.on_success()
+                    
+                    # Parse response
+                    result = {
+                        "code": data.get("code", 0),
+                        "entries": [],
+                        "total_pnl": 0.0
+                    }
+                    
+                    # Extract PnL entries if available
+                    if "pnl" in data and isinstance(data["pnl"], list):
+                        total = 0.0
+                        for entry in data["pnl"]:
+                            pnl_value = safe_float(entry.get("pnl", entry.get("value", 0)), 0.0)
+                            total += pnl_value
+                            result["entries"].append({
+                                "timestamp": entry.get("timestamp", 0),
+                                "pnl": pnl_value
+                            })
+                        result["total_pnl"] = total
+                    
+                    logger.info(
+                        f"📊 Lighter PnL API: Fetched {len(result['entries'])} entries, "
+                        f"total_pnl=${result['total_pnl']:.4f}"
+                    )
+                    return result
+                    
+                elif resp.status == 404:
+                    logger.debug("Lighter PnL API: No data found (404)")
+                    return {"code": 0, "entries": [], "total_pnl": 0.0}
+                else:
+                    body = await resp.text()
+                    logger.warning(f"Lighter PnL API: HTTP {resp.status} - {body[:200]}")
+                    return None
+                    
+        except asyncio.CancelledError:
+            return None
+        except Exception as e:
+            logger.warning(f"Lighter PnL API error: {e}")
+            return None
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEW: Position Funding History API - GET /api/v1/positionFunding
+    # Returns detailed funding payments per position
+    # ═══════════════════════════════════════════════════════════════════════════
+    async def fetch_position_funding(
+        self,
+        market_id: Optional[int] = None,
+        side: str = "all",
+        limit: int = 100
+    ) -> List[dict]:
+        """
+        Fetch position funding history from Lighter API.
+        
+        API: GET /api/v1/positionFunding
+        
+        This gives detailed funding payment history per position,
+        more accurate than just total_funding_paid_out from position object.
+        
+        Args:
+            market_id: Optional filter by market (default: 255 = all)
+            side: Filter by position side ("long", "short", "all")
+            limit: Max records to return (1-100)
+            
+        Returns:
+            List of funding payment records:
+            [
+                {
+                    "market_id": int,
+                    "timestamp": int,
+                    "funding_id": int,
+                    "change": float,        # Amount (+ = paid, - = received)
+                    "rate": float,          # Funding rate at the time
+                    "position_size": float, # Position size
+                    "position_side": str    # "long" or "short"
+                }
+            ]
+        """
+        try:
+            if self._resolved_account_index is None:
+                await self._resolve_account_index()
+            
+            if self._resolved_account_index is None:
+                logger.debug("Lighter Position Funding API: No account index resolved")
+                return []
+            
+            # Build auth token (required for private endpoint)
+            signer = await self._get_signer()
+            auth_token = signer.create_auth_token_with_expiry(600)  # 10 min expiry
+            
+            base_url = self._get_base_url()
+            url = (
+                f"{base_url}/api/v1/positionFunding"
+                f"?account_index={self._resolved_account_index}"
+                f"&market_id={market_id if market_id is not None else 255}"
+                f"&side={side}"
+                f"&limit={min(limit, 100)}"
+            )
+            
+            headers = {
+                "Accept": "application/json",
+                "Authorization": auth_token
+            }
+            
+            await self.rate_limiter.acquire()
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.rate_limiter.on_success()
+                    
+                    # Parse funding records
+                    fundings = []
+                    raw_fundings = data.get("fundings", data.get("position_fundings", data.get("data", [])))
+                    
+                    if isinstance(raw_fundings, list):
+                        for f in raw_fundings:
+                            # change: positive = paid, negative = received
+                            # We want profit-positive, so invert:
+                            change = safe_float(f.get("change", 0), 0.0)
+                            funding_received = -change  # Invert for profit-positive
+                            
+                            fundings.append({
+                                "market_id": f.get("market_id"),
+                                "symbol": f.get("symbol", self._market_id_to_symbol(f.get("market_id"))),
+                                "timestamp": f.get("timestamp"),
+                                "funding_id": f.get("funding_id"),
+                                "change": change,                    # Raw: + = paid
+                                "funding_received": funding_received, # Normalized: + = received
+                                "rate": safe_float(f.get("rate", 0), 0.0),
+                                "position_size": safe_float(f.get("position_size", 0), 0.0),
+                                "position_side": f.get("position_side", "unknown")
+                            })
+                    
+                    if fundings:
+                        total_received = sum(f["funding_received"] for f in fundings)
+                        logger.info(
+                            f"💵 Lighter Position Funding: {len(fundings)} payments, "
+                            f"total_received=${total_received:.6f}"
+                        )
+                    
+                    return fundings
+                    
+                elif resp.status == 404:
+                    logger.debug("Lighter Position Funding API: No data found (404)")
+                    return []
+                else:
+                    body = await resp.text()
+                    logger.warning(f"Lighter Position Funding API: HTTP {resp.status} - {body[:200]}")
+                    return []
+                    
+        except asyncio.CancelledError:
+            return []
+        except Exception as e:
+            logger.warning(f"Lighter Position Funding API error: {e}")
+            return []
+
+    def _market_id_to_symbol(self, market_id: Optional[int]) -> str:
+        """Convert market_id to symbol using cached market_info."""
+        if market_id is None:
+            return "UNKNOWN"
+        for symbol, info in self.market_info.items():
+            if info.get("i") == market_id:
+                return symbol
+        return f"MARKET_{market_id}"
+
+    async def get_funding_for_symbol(
+        self,
+        symbol: str,
+        since_timestamp: Optional[int] = None
+    ) -> float:
+        """
+        Get total funding received for a specific symbol since a timestamp.
+        Uses the positionFunding API for accurate data.
+        
+        Args:
+            symbol: Market symbol (e.g., "BTC-USD")
+            since_timestamp: Start time in milliseconds (defaults to 24h ago)
+            
+        Returns:
+            Total funding in USD (positive = received, negative = paid)
+        """
+        try:
+            # Get market_id for symbol
+            if symbol not in self.market_info:
+                await self.load_market_cache()
+            
+            market_id = self.market_info.get(symbol, {}).get("i")
+            
+            # Fetch all funding for this market
+            fundings = await self.fetch_position_funding(
+                market_id=market_id,
+                side="all",
+                limit=100
+            )
+            
+            # Filter by timestamp if provided
+            if since_timestamp:
+                since_ts = since_timestamp
+                fundings = [f for f in fundings if (f.get("timestamp") or 0) >= since_ts]
+            
+            # Sum funding_received (profit-positive)
+            total = sum(f.get("funding_received", 0.0) for f in fundings)
+            
+            if abs(total) > 0.00001:
+                logger.info(f"💵 Lighter {symbol}: Total funding=${total:.6f} from {len(fundings)} payments")
+            
+            return total
+            
+        except Exception as e:
+            logger.warning(f"Lighter get_funding_for_symbol error: {e}")
+            return 0.0
+
     async def load_market_cache(self, force: bool = False):
         """Load all market metadata from Lighter API - FIXED VERSION"""
         if self. market_info and not force:

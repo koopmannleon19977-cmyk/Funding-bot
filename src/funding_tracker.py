@@ -263,47 +263,62 @@ class FundingTracker:
             logger.debug(f"ℹ️ X10 funding fetch failed for {symbol}: {e}")
         
         # ═══════════════════════════════════════════════════════════════════════
-        # Lighter: Use PositionFunding API or Position object funding fields
+        # Lighter: Use NEW PositionFunding API (priority) or Position object (fallback)
         # ═══════════════════════════════════════════════════════════════════════
         # Priority:
-        # 1. Try Lighter PositionFunding API (most accurate)
+        # 1. Try Lighter get_funding_for_symbol() (uses /api/v1/positionFunding)
         # 2. Fall back to funding fields from Position object
         # 3. Log at INFO level if API fails with clear fallback notice
         # ═══════════════════════════════════════════════════════════════════════
         try:
-            positions = await self.lighter.fetch_open_positions()
-            lighter_position = next(
-                (p for p in (positions or []) if p.get('symbol') == symbol),
-                None
-            )
-            
-            if lighter_position:
-                # Try multiple sources for funding data
-                # Priority 1: funding_received (profit-positive, normalized by adapter)
-                fr = lighter_position.get('funding_received')
-                if fr is not None:
-                    lighter_funding = safe_float(fr, 0.0)
+            # Get trade creation timestamp for filtering
+            created_at = getattr(trade, 'created_at', None)
+            if created_at:
+                if hasattr(created_at, 'timestamp'):
+                    from_time = int(created_at.timestamp() * 1000)
                 else:
-                    # Priority 2: total_funding_paid_out (needs sign inversion)
-                    funding_paid_out = (
-                        lighter_position.get('total_funding_paid_out') or
-                        lighter_position.get('total_funding_paid') or
-                        lighter_position.get('funding_paid_out') or
-                        lighter_position.get('funding') or
-                        lighter_position.get('realized_funding') or
-                        0
-                    )
-                    # Use normalize_funding_sign for correct profit-positive value
-                    lighter_funding = normalize_funding_sign(
-                        safe_float(funding_paid_out, 0.0),
-                        is_profit_positive=False  # paid_out is cost-positive
-                    )
-
-                if abs(lighter_funding) > 0:
+                    from_time = int(safe_float(created_at, 0) * 1000)
+            else:
+                # Default to 24h ago
+                from_time = int((time.time() - 86400) * 1000)
+            
+            # Priority 1: NEW API - get_funding_for_symbol() uses /api/v1/positionFunding
+            if hasattr(self.lighter, 'get_funding_for_symbol'):
+                lighter_funding = await self.lighter.get_funding_for_symbol(symbol, from_time)
+                
+                if abs(lighter_funding) > 0.00001:
                     logger.debug(
-                        f"🔍 Lighter {symbol}: funding_received_total={lighter_funding:.6f} "
-                        f"(paid_out={safe_float(lighter_position.get('total_funding_paid_out'), 0.0):.6f})"
+                        f"💵 Lighter {symbol}: API funding=${lighter_funding:.6f} "
+                        f"(from positionFunding API)"
                     )
+            else:
+                # Priority 2 (Fallback): Position object funding fields
+                positions = await self.lighter.fetch_open_positions()
+                lighter_position = next(
+                    (p for p in (positions or []) if p.get('symbol') == symbol),
+                    None
+                )
+                
+                if lighter_position:
+                    # Try funding_received (profit-positive, normalized by adapter)
+                    fr = lighter_position.get('funding_received')
+                    if fr is not None:
+                        lighter_funding = safe_float(fr, 0.0)
+                    else:
+                        # total_funding_paid_out (needs sign inversion)
+                        funding_paid_out = (
+                            lighter_position.get('total_funding_paid_out') or
+                            lighter_position.get('total_funding_paid') or
+                            0
+                        )
+                        # Invert for profit-positive
+                        lighter_funding = -safe_float(funding_paid_out, 0.0)
+
+                    if abs(lighter_funding) > 0:
+                        logger.debug(
+                            f"🔍 Lighter {symbol}: funding_received_total={lighter_funding:.6f} "
+                            f"(from position object)"
+                        )
             
         except Exception as e:
             logger.info(f"ℹ️ Lighter funding fetch failed for {symbol}: {e} (using fallback: 0)")
