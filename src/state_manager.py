@@ -569,29 +569,58 @@ class InMemoryStateManager:
              known_symbols = set(self._trades.keys())
 
         for symbol, real_pos in real_map.items():
+            # Parse position data common to both paths
+            size = safe_float(real_pos.get('size'), 0.0)
+            price = safe_float(real_pos.get('entry_price') or real_pos.get('mark_price'), 0.0)
+            
+            if size == 0:
+                continue
+                
+            rec_side = "BUY" if size > 0 else "SELL"
+            
+            # Check if we already have this trade in memory
+            existing_trade = self._trades.get(symbol)
+            
+            if existing_trade:
+                # UPDATE EXISTING TRADE (Merge Leg)
+                updated = False
+                if exchange_name == 'X10' and existing_trade.side_x10 == "NONE":
+                    logger.info(f"🔄 Merging X10 leg into existing orphan trade {symbol}")
+                    existing_trade.side_x10 = rec_side
+                    existing_trade.entry_price_x10 = price
+                    existing_trade.size_usd = max(existing_trade.size_usd, abs(size) * price) # Take max size
+                    updated = True
+                elif exchange_name == 'Lighter' and existing_trade.side_lighter == "NONE":
+                    logger.info(f"🔄 Merging Lighter leg into existing orphan trade {symbol}")
+                    existing_trade.side_lighter = rec_side
+                    existing_trade.entry_price_lighter = price
+                    existing_trade.size_usd = max(existing_trade.size_usd, abs(size) * price)
+                    
+                    # Capture Lighter Funding if available
+                    funding_received = safe_float(real_pos.get('funding_received'), 0.0)
+                    if funding_received != 0:
+                        logger.info(f"💰 Merging Lighter funding: ${funding_received:.6f}")
+                        existing_trade.funding_collected += funding_received
+                    
+                    updated = True
+                
+                if updated:
+                    # If we now have both legs, ensure status is OPEN
+                    if existing_trade.side_x10 != "NONE" and existing_trade.side_lighter != "NONE":
+                        existing_trade.status = TradeStatus.OPEN
+                    await self.save_trade(existing_trade)
+                    continue
+
             if symbol not in known_symbols:
                 logger.warning(f"⚠️ DESYNC FIX: Found ORPHAN {symbol} on {exchange_name}. Adopting into DB...")
                 
                 try:
-                    # Parse position data
-                    size = safe_float(real_pos.get('size'), 0.0)
-                    price = safe_float(real_pos.get('entry_price') or real_pos.get('mark_price'), 0.0)
-                    
-                    if size == 0:
-                        continue
-                        
                     # Determine sides
                     side_x10 = "NONE"
                     side_lighter = "NONE"
                     entry_px_x10 = 0.0
                     entry_px_lit = 0.0
-                    
-                    # Lighter uses 'size' signed for side? Adapter usually provides abs in 'size' but let's check.
-                    # Lighter adapter 'fetch_open_positions':
-                    # positions.append({"symbol": symbol, "size": size}) where size is already signed!
-                    # X10 adapter 'fetch_open_positions' usually returns signed size too.
-                    
-                    rec_side = "BUY" if size > 0 else "SELL"
+                    initial_funding = 0.0
                     
                     if exchange_name == 'X10':
                         side_x10 = rec_side
@@ -599,6 +628,10 @@ class InMemoryStateManager:
                     elif exchange_name == 'Lighter':
                         side_lighter = rec_side
                         entry_px_lit = price
+                        # Capture Lighter Funding
+                        initial_funding = safe_float(real_pos.get('funding_received'), 0.0)
+                        if initial_funding != 0:
+                             logger.info(f"💰 Adopting Lighter position with existing funding: ${initial_funding:.6f}")
                         
                     # Estimate USD size
                     size_usd = abs(size) * price
@@ -617,7 +650,7 @@ class InMemoryStateManager:
                         # This means we might miss historical funding for this position.
                         created_at=int(time.time() * 1000),
                         pnl=0.0,
-                        funding_collected=0.0,
+                        funding_collected=initial_funding,
                         account_label="Recovery",
                         x10_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}",
                         lighter_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}"

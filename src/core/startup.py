@@ -23,6 +23,7 @@ import aiosqlite
 
 import config
 from src.utils import safe_float
+from src.reconciliation import reconcile_positions_atomic
 
 # Logger is obtained from main.py's setup
 logger = logging.getLogger(__name__)
@@ -250,92 +251,30 @@ async def run_bot_v5(bot_instance=None):
     ws_manager.set_oi_tracker(oi_tracker)
     logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
 
-    # Zombie check
-    logger.info("🧟 Starte Zombie-Check: Vergleiche DB mit echten Positionen...")
+    # ═══════════════════════════════════════════════════════════════
+    # RECONCILIATION (Zombie & Ghost Fix)
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("⚖️ Starting Atomic Reconciliation (Adoption Mode)...")
     try:
-        db_trades = await get_open_trades()
-    except Exception:
-        db_trades = []
-
-    if db_trades:
-        logger.info(f"🔍 DB meldet {len(db_trades)} offene Trades. Prüfe Exchange...")
-        try:
-            real_x10_pos = await x10.fetch_open_positions()
-            real_lighter_pos = await lighter.fetch_open_positions()
-            
-            def _get_sym(p):
-                return p.get('symbol') if isinstance(p, dict) else getattr(p, 'symbol', None)
-
-            real_symbols = []
-            if real_x10_pos:
-                real_symbols.extend([_get_sym(p) for p in real_x10_pos if _get_sym(p)])
-            if real_lighter_pos:
-                real_symbols.extend([_get_sym(p) for p in real_lighter_pos if _get_sym(p)])
-
-            logger.info(f"🌍 Echte Positionen auf Exchanges: {real_symbols}")
-
-            for trade in db_trades:
-                tsym = trade.get('symbol') if isinstance(trade, dict) else getattr(trade, 'symbol', None)
-                if tsym and tsym not in real_symbols:
-                    logger.warning(f"⚠️  ZOMBIE: {tsym} - closing in DB...")
-                    try:
-                        await close_trade_in_state(tsym)
-                    except Exception:
-                        pass
-        except Exception as e:
-            logger.error(f"Zombie-Check failed: {e}")
-
-    # Reverse ghost check
-    logger.info("🧟 Reverse Ghost Check: Suche Positionen auf Exchange ohne DB Entry...")
-    try:
-        x10_positions = await x10.fetch_open_positions()
-        lighter_positions = await lighter.fetch_open_positions()
+        recon_result = await reconcile_positions_atomic(
+            state_manager=state_manager,
+            x10_adapter=x10,
+            lighter_adapter=lighter,
+            auto_fix=True
+        )
         
-        x10_syms = {p.get('symbol') for p in (x10_positions or [])}
-        lighter_syms = {p.get('symbol') for p in (lighter_positions or [])}
-        all_exchange_syms = x10_syms | lighter_syms
-        
-        db_syms = {t.get('symbol') if isinstance(t, dict) else getattr(t, 'symbol', None) for t in db_trades}
-        orphaned = all_exchange_syms - db_syms
-        
-        if orphaned:
-            logger.warning(f"🚨 Found {len(orphaned)} ORPHANED positions: {orphaned}")
-            
-            # Fix #12: Automatically close orphan positions at startup
-            from src.utils import safe_float
-            for symbol in orphaned:
-                try:
-                    # Close Lighter position if exists
-                    lighter_pos = next((p for p in (lighter_positions or []) if p.get('symbol') == symbol), None)
-                    if lighter_pos:
-                        size = safe_float(lighter_pos.get('size', 0))
-                        if abs(size) > 0:
-                            logger.warning(f"🚨 Closing orphan Lighter position {symbol} (size={size}) at startup...")
-                            px = safe_float(lighter.fetch_mark_price(symbol))
-                            if px > 0:
-                                notional = abs(size) * px
-                                original_side = "BUY" if size < 0 else "SELL"
-                                await lighter.close_live_position(symbol, original_side, notional)
-                                logger.info(f"✅ Closed orphaned Lighter {symbol} at startup")
-                    
-                    # Close X10 position if exists
-                    x10_pos = next((p for p in (x10_positions or []) if p.get('symbol') == symbol), None)
-                    if x10_pos:
-                        size = safe_float(x10_pos.get('size', 0))
-                        if abs(size) > 0:
-                            logger.warning(f"🚨 Closing orphan X10 position {symbol} (size={size}) at startup...")
-                            px = safe_float(x10.fetch_mark_price(symbol))
-                            if px > 0:
-                                notional = abs(size) * px
-                                original_side = "BUY" if size < 0 else "SELL"
-                                await x10.close_live_position(symbol, original_side, notional)
-                                logger.info(f"✅ Closed orphaned X10 {symbol} at startup")
-                except Exception as e:
-                    logger.error(f"❌ Failed to close orphan position {symbol} at startup: {e}")
+        if recon_result.errors:
+            logger.error(f"❌ Reconciliation errors: {recon_result.errors}")
         else:
-            logger.info("✅ No orphaned positions found")
+            logger.info(
+                f"✅ Reconciliation Complete: "
+                f"Matched={len(recon_result.matched)}, "
+                f"ZombiesFixed={len(recon_result.zombies_found)}, "
+                f"GhostsAdopted={len(recon_result.ghosts_found)}"
+            )
+            
     except Exception as e:
-        logger.debug(f"Ghost check error: {e}")
+        logger.error(f"❌ Critical Reconciliation Failure: {e}", exc_info=True)
 
     # Init ParallelExecutionManager
     parallel_exec = ParallelExecutionManager(x10, lighter, state_manager)
