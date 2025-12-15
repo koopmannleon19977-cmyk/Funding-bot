@@ -18,7 +18,7 @@ mkdir logs 2>nul
 set "FULL_LOG=logs\funding_bot_%RUN_ID%_FULL.log"
 set "ERROR_LOG=logs\%RUN_ID%_ERRORS.log"
 
-REM === Feste Dateien für Git-Tracking ===
+REM === Feste Dateien (immer gleiche Namen, für schnellen Zugriff) ===
 set "LATEST_LOG=logs\latest_run.log"
 set "LATEST_ERROR=logs\latest_errors.log"
 
@@ -59,8 +59,8 @@ echo.
 echo Filtering full log for errors and warnings... 
 findstr /c:"[ERROR]" /c:"[CRITICAL]" /c:"[WARNING]" "%FULL_LOG%" > "%ERROR_LOG%" 2>NUL
 
-REM === Kopiere in feste Dateien für Git ===
-echo Copying to latest logs for Git tracking...
+REM === Kopiere in feste Dateien ===
+echo Copying to latest logs...
 copy /Y "%FULL_LOG%" "%LATEST_LOG%" >NUL
 if exist "%ERROR_LOG%" (
     copy /Y "%ERROR_LOG%" "%LATEST_ERROR%" >NUL 2>NUL
@@ -72,53 +72,17 @@ echo.
 echo Logs erstellt:
 echo   - Full Log:    %FULL_LOG%
 echo   - Error Log:   %ERROR_LOG%
-echo   - Git Latest:  %LATEST_LOG%
+echo   - Latest:      %LATEST_LOG%
 echo. 
 
-REM === AUTOMATISCHER GIT UPLOAD ===
+REM === AUTOMATISCHER GIT UPLOAD (DEAKTIVIERT) ===
 echo ========================================
-echo   GIT AUTO-UPLOAD
+echo   GIT AUTO-UPLOAD (DEAKTIVIERT)
 echo ========================================
-echo. 
-
-REM Prüfe ob Git verfügbar ist
-git --version >NUL 2>&1
-if errorlevel 1 (
-    echo ✗ Git ist nicht installiert! 
-    goto :skip_git
-)
-
-echo Adding logs to Git staging area... 
-
-REM WICHTIG: Beide Pfade hinzufügen! 
-REM Logs nur aus dem logs Ordner hinzufügen
-git add -f logs 2>NUL
-
-REM Zeige was staged wurde
 echo.
-echo Staged files:
-git diff --cached --name-only
-
-REM Nur committen wenn Aenderungen da sind
-git diff --cached --quiet
-if errorlevel 1 (
-    echo. 
-    echo Committing log changes...
-    git commit -m "Auto-upload: Bot log vom %date% %time%"
-    
-    echo Pushing to origin main...
-    git push origin main
-    
-    if errorlevel 1 (
-        echo ✗ Push fehlgeschlagen! 
-    ) else (
-        echo. 
-        echo ✓ Logs erfolgreich hochgeladen!
-    )
-) else (
-    echo.
-    echo Keine neuen Log-Aenderungen zum Committen. 
-)
+echo Hinweis: Logs/Exports/DBs bleiben lokal und werden nicht mehr automatisch nach Git gepusht.
+echo Wenn du wirklich committen willst, mach das manuell (gezielt) via git add/commit.
+echo.
 
 :skip_git
 
