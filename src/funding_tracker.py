@@ -17,6 +17,8 @@ import time
 from typing import List, Dict, Any, Optional
 from decimal import Decimal
 
+import config
+
 from src.pnl_utils import normalize_funding_sign
 from src.database import get_funding_repository
 
@@ -98,6 +100,15 @@ class FundingTracker:
         while not self._shutdown:
             try:
                 await self.update_all_trades()
+
+                if getattr(config, "FUNDING_TRACKER_DEBUG", False):
+                    next_run = time.time() + self.update_interval
+                    logger.debug(
+                        f"⏱️ FundingTracker sleeping {self.update_interval}s "
+                        f"(next_run_utc={time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(next_run))})"
+                    )
+                
+                logger.info(f"⏱️ [FUNDING_CYCLE] Sleeping {self.update_interval}s until next run...")
                 
                 # Wait for next update
                 await asyncio.sleep(self.update_interval)
@@ -123,15 +134,21 @@ class FundingTracker:
                 # Still save a snapshot even with no open trades
                 await self._save_pnl_snapshot(0, 0.0, 0.0, 0.0)
                 return
+
+            if getattr(config, "FUNDING_TRACKER_DEBUG", False):
+                symbols = [getattr(t, 'symbol', '?') for t in open_trades]
+                logger.debug(f"🔎 FundingTracker cycle: open_trades={symbols}")
             
-            logger.info(f"📊 Updating funding for {len(open_trades)} open trades...")
+            logger.info(f"� [FUNDING_CYCLE] Starting update for {len(open_trades)} trades. Time: {time.time()}")
             
             total_collected = 0.0
             updated_count = 0
             
             for trade in open_trades:
                 try:
+                    logger.info(f"🔍 [FUNDING_CYCLE] Trade {trade.symbol}: Current Collected={trade.funding_collected}")
                     funding_amount = await self._fetch_trade_funding(trade)
+                    logger.info(f"🔍 [FUNDING_CYCLE] Trade {trade.symbol}: New Incremental={funding_amount}")
                     
                     if abs(funding_amount) > 0.00000001:
                         # Update StateManager using the new funding amount
@@ -218,6 +235,34 @@ class FundingTracker:
         
         x10_funding = 0.0
         lighter_funding = 0.0
+
+        def _normalize_to_ms(ts: Any) -> int:
+            """Normalize timestamps to milliseconds.
+
+            Accepts datetime-like (has .timestamp()) or numeric seconds/ms.
+            """
+            if ts is None:
+                return 0
+            if hasattr(ts, 'timestamp'):
+                try:
+                    return int(ts.timestamp() * 1000)
+                except Exception:
+                    return 0
+            v = safe_float(ts, 0.0)
+            if v <= 0:
+                return 0
+            # Heuristic: >= 1e12 is already ms (2025 in ms ~ 1.7e12)
+            if v >= 1e12:
+                return int(v)
+            return int(v * 1000)
+
+        # Trade open timestamp (ms). Used for both exchanges.
+        created_at = getattr(trade, 'created_at', None)
+        from_time_ms = _normalize_to_ms(created_at)
+        if not from_time_ms:
+            from_time_ms = int((time.time() - 86400) * 1000)
+            
+        logger.info(f"🔍 [DEBUG_FUNDING] Checking {symbol} (created_at={created_at}, from_ms={from_time_ms})")
         
         # ═══════════════════════════════════════════════════════════════════════
         # X10: Fetch REAL Funding Payments from API
@@ -226,23 +271,14 @@ class FundingTracker:
         # This gives EXACT funding payments (not calculated from rate).
         # ═══════════════════════════════════════════════════════════════════════
         try:
-            # Get trade creation timestamp for filtering
-            created_at = getattr(trade, 'created_at', None)
-            if created_at:
-                if hasattr(created_at, 'timestamp'):
-                    from_time = int(created_at.timestamp() * 1000)
-                else:
-                    from_time = int(safe_float(created_at, 0) * 1000)
-            else:
-                # Default to 24h ago
-                from_time = int((time.time() - 86400) * 1000)
-            
             # Fetch actual funding payments from X10 API
             if hasattr(self.x10, 'fetch_funding_payments'):
-                payments = await self.x10.fetch_funding_payments(symbol=symbol, from_time=from_time)
+                payments = await self.x10.fetch_funding_payments(symbol=symbol, from_time=from_time_ms)
 
                 if payments:
                     # Sum all funding fees for this symbol
+                    # NOTE: x10_adapter.fetch_funding_payments returns "funding_fee" as PnL directly
+                    # (Negative = Cost, Positive = Profit)
                     x10_funding = sum(p.get('funding_fee', 0.0) for p in payments)
 
                     if abs(x10_funding) > 0.00001:
@@ -253,7 +289,7 @@ class FundingTracker:
 
                     # Detailed per-payment debug (timestamp + fee)
                     for p in payments:
-                        ts = p.get('timestamp') or p.get('time') or p.get('created_at')
+                        ts = p.get('paid_time') or p.get('timestamp') or p.get('time') or p.get('created_at')
                         fee = p.get('funding_fee')
                         rate = p.get('funding_rate')
                         side = p.get('side') or p.get('position_side')
@@ -265,7 +301,7 @@ class FundingTracker:
             else:
                 # Fallback: Use get_funding_for_symbol helper if available
                 if hasattr(self.x10, 'get_funding_for_symbol'):
-                    x10_funding = await self.x10.get_funding_for_symbol(symbol, from_time)
+                    x10_funding = await self.x10.get_funding_for_symbol(symbol, from_time_ms)
                 else:
                     logger.debug(f"ℹ️ X10 {symbol}: fetch_funding_payments not available")
             
@@ -281,20 +317,10 @@ class FundingTracker:
         # 3. Log at INFO level if API fails with clear fallback notice
         # ═══════════════════════════════════════════════════════════════════════
         try:
-            # Get trade creation timestamp for filtering
-            created_at = getattr(trade, 'created_at', None)
-            if created_at:
-                if hasattr(created_at, 'timestamp'):
-                    from_time = int(created_at.timestamp() * 1000)
-                else:
-                    from_time = int(safe_float(created_at, 0) * 1000)
-            else:
-                # Default to 24h ago
-                from_time = int((time.time() - 86400) * 1000)
-            
             # Priority 1: NEW API - get_funding_for_symbol() uses /api/v1/positionFunding
             if hasattr(self.lighter, 'get_funding_for_symbol'):
-                lighter_funding = await self.lighter.get_funding_for_symbol(symbol, from_time)
+                logger.debug(f"Calling get_funding_for_symbol for {symbol} with from_time_ms={from_time_ms}")
+                lighter_funding = await self.lighter.get_funding_for_symbol(symbol, from_time_ms)
                 
                 if abs(lighter_funding) > 0.00001:
                     logger.debug(

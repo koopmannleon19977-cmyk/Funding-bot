@@ -2157,7 +2157,9 @@ class LighterAdapter(BaseAdapter):
         self,
         market_id: Optional[int] = None,
         side: str = "all",
-        limit: int = 100
+        limit: int = 100,
+        cursor: Optional[str] = None,
+        max_pages: int = 10
     ) -> List[dict]:
         """
         Fetch position funding history from Lighter API.
@@ -2212,73 +2214,109 @@ class LighterAdapter(BaseAdapter):
                 return []
             
             base_url = self._get_base_url()
-            url = (
-                f"{base_url}/api/v1/positionFunding"
-                f"?account_index={self._resolved_account_index}"
-                f"&market_id={market_id if market_id is not None else 255}"
-                f"&side={side}"
-                f"&limit={min(limit, 100)}"
-            )
-            
             headers = {
                 "Accept": "application/json",
                 "Authorization": auth_token
             }
-            
-            await self.rate_limiter.acquire()
+
+            all_fundings: List[dict] = []
+            next_cursor: Optional[str] = cursor
+            pages = 0
+            total_received = 0.0
+
             session = await self._get_session()
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    self.rate_limiter.on_success()
-                    
-                    # Parse funding records
-                    fundings = []
-                    raw_fundings = data.get("fundings", data.get("position_fundings", data.get("data", [])))
-                    
-                    if isinstance(raw_fundings, list):
+            while pages < max_pages:
+                qs = (
+                    f"account_index={self._resolved_account_index}"
+                    f"&market_id={market_id if market_id is not None else 255}"
+                    f"&side={side}"
+                    f"&limit={min(limit, 100)}"
+                )
+                if next_cursor:
+                    qs += f"&cursor={next_cursor}"
+
+                url = f"{base_url}/api/v1/positionFunding?{qs}"
+                
+                logger.info(f"🔍 [LIGHTER_FUNDING_DEBUG] Requesting: {url}")
+
+                await self.rate_limiter.acquire()
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self.rate_limiter.on_success()
+                        
+                        # LOG RAW DATA (Truncated)
+                        raw_str = str(data)
+                        if len(raw_str) > 2000:
+                            raw_str = raw_str[:2000] + "... [TRUNCATED]"
+                        logger.info(f"🔍 [LIGHTER_FUNDING_DEBUG] Raw Response: {raw_str}")
+
+                        raw_fundings = data.get("fundings", data.get("position_fundings", data.get("data", [])))
+                        if not isinstance(raw_fundings, list) or len(raw_fundings) == 0:
+                            logger.info(f"🔍 [LIGHTER_FUNDING_DEBUG] No fundings in response list.")
+                            break
+
                         for f in raw_fundings:
-                            # change: positive = paid, negative = received
-                            # We want profit-positive, so invert:
+                            # change: positive = received, negative = paid (Balance Change)
+                            # AUDIT FIX: Lighter API returns Balance Change directly.
+                            # Positive = Profit (Received), Negative = Cost (Paid).
+                            # No inversion needed.
                             change = safe_float(f.get("change", 0), 0.0)
-                            funding_received = -change  # Invert for profit-positive
+                            funding_received = change
+                            total_received += funding_received
                             
-                            fundings.append({
+                            # Rate Unit Display Fix:
+                            # API returns Rate as DECIMAL (e.g. 0.000012).
+                            # CSV Export shows Rate as PERCENT (e.g. 0.0012%).
+                            # We log both to avoid confusion.
+                            rate_val = safe_float(f.get("rate", 0), 0.0)
+                            rate_pct = rate_val * 100.0
+                            
+                            logger.info(
+                                f"  👉 [LIGHTER_PAYMENT] {f.get('symbol')} Time={f.get('timestamp')} "
+                                f"Change={change:.6f} -> Received={funding_received:.6f} "
+                                f"Rate={rate_val:.8f} ({rate_pct:.6f}%) Size={f.get('position_size')}"
+                            )
+
+                            all_fundings.append({
                                 "market_id": f.get("market_id"),
                                 "symbol": f.get("symbol", self._market_id_to_symbol(f.get("market_id"))),
                                 "timestamp": f.get("timestamp"),
                                 "funding_id": f.get("funding_id"),
-                                "change": change,                    # Raw: + = paid
-                                "funding_received": funding_received, # Normalized: + = received
+                                "change": change,
+                                "funding_received": funding_received,
                                 "rate": safe_float(f.get("rate", 0), 0.0),
                                 "position_size": safe_float(f.get("position_size", 0), 0.0),
                                 "position_side": f.get("position_side", "unknown")
                             })
 
-                    # Detailed per-payment debug output
-                    for fp in fundings:
-                        logger.debug(
-                            f"🧾 Lighter {fp.get('symbol','UNKNOWN')}: payment ts={fp.get('timestamp')} "
-                            f"received={fp.get('funding_received')} rate={fp.get('rate')} "
-                            f"side={fp.get('position_side')} size={fp.get('position_size')}"
-                        )
-                    
-                    if fundings:
-                        total_received = sum(f["funding_received"] for f in fundings)
-                        logger.info(
-                            f"💵 Lighter Position Funding: {len(fundings)} payments, "
-                            f"total_received=${total_received:.6f}"
-                        )
-                    
-                    return fundings
-                    
-                elif resp.status == 404:
-                    logger.debug("Lighter Position Funding API: No data found (404)")
-                    return []
-                else:
-                    body = await resp.text()
-                    logger.warning(f"Lighter Position Funding API: HTTP {resp.status} - {body[:200]}")
-                    return []
+                        pages += 1
+                        next_cursor = data.get("next_cursor")
+                        if not next_cursor:
+                            break
+                    elif resp.status == 404:
+                        logger.info("🔍 [LIGHTER_FUNDING_DEBUG] HTTP 404 (No data found)")
+                        break
+                    else:
+                        body = await resp.text()
+                        logger.warning(f"🔍 [LIGHTER_FUNDING_DEBUG] HTTP {resp.status} - {body[:200]}")
+                        break
+
+            # Detailed per-payment debug output
+            for fp in all_fundings:
+                logger.debug(
+                    f"🧾 Lighter {fp.get('symbol','UNKNOWN')}: payment ts={fp.get('timestamp')} "
+                    f"received={fp.get('funding_received')} rate={fp.get('rate')} "
+                    f"side={fp.get('position_side')} size={fp.get('position_size')}"
+                )
+
+            if all_fundings:
+                logger.info(
+                    f"💵 Lighter Position Funding: {len(all_fundings)} payments ({pages} pages), "
+                    f"total_received=${total_received:.6f}"
+                )
+
+            return all_fundings
                     
         except asyncio.CancelledError:
             return []
@@ -2325,10 +2363,24 @@ class LighterAdapter(BaseAdapter):
                 limit=100
             )
             
-            # Filter by timestamp if provided
+            def _normalize_to_ms(ts: Any) -> int:
+                v = safe_float(ts, 0.0)
+                if v <= 0:
+                    return 0
+                # Lighter PositionFunding timestamps are seconds (example: 1640995200)
+                if v >= 1e12:
+                    return int(v)
+                return int(v * 1000)
+
+            # Filter by timestamp if provided (normalize both sides to ms)
             if since_timestamp:
-                since_ts = since_timestamp
-                fundings = [f for f in fundings if (f.get("timestamp") or 0) >= since_ts]
+                since_ms = _normalize_to_ms(since_timestamp)
+                pre = len(fundings)
+                fundings = [f for f in fundings if _normalize_to_ms(f.get("timestamp")) >= since_ms]
+                logger.debug(
+                    f"Lighter {symbol}: Filtering fundings since_ts_ms={since_ms} "
+                    f"(pre_filter={pre}) -> after_filter={len(fundings)}"
+                )
             
             # Sum funding_received (profit-positive)
             total = sum(f.get("funding_received", 0.0) for f in fundings)

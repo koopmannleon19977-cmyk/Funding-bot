@@ -613,6 +613,8 @@ class InMemoryStateManager:
                         entry_price_lighter=entry_px_lit,
                         status=TradeStatus.OPEN,
                         is_farm_trade=False,
+                        # NOTE: We use current time as created_at because we don't know the real open time.
+                        # This means we might miss historical funding for this position.
                         created_at=int(time.time() * 1000),
                         pnl=0.0,
                         funding_collected=0.0,

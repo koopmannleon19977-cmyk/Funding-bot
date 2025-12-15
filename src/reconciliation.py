@@ -134,6 +134,15 @@ async def reconcile_positions_atomic(
                     f"👻 GHOST: {symbol} - Position exists on exchange but not in DB! "
                     f"Manual review recommended."
                 )
+            
+            # Auto-adopt ghosts
+            if auto_fix:
+                logger.info("🔧 Auto-fixing GHOSTS by adopting them into DB...")
+                # Pass the full position lists to the state manager for adoption
+                if x10_positions:
+                    await state_manager.reconcile_with_exchange("X10", x10_positions)
+                if lighter_positions:
+                    await state_manager.reconcile_with_exchange("Lighter", lighter_positions)
 
         logger.info("✅ RECONCILE: Sync complete.")
         return result

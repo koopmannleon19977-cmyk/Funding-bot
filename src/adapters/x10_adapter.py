@@ -2131,6 +2131,17 @@ class X10Adapter(BaseAdapter):
         # Default to 24 hours ago if no from_time specified
         if from_time is None:
             from_time = int((time.time() - 86400) * 1000)  # 24h ago in ms
+
+        def _normalize_to_ms(ts: Any) -> int:
+            """Normalize seconds/ms timestamps to milliseconds."""
+            v = safe_float(ts, 0.0)
+            if v <= 0:
+                return 0
+            if v >= 1e12:
+                return int(v)
+            return int(v * 1000)
+
+        requested_from_ms = _normalize_to_ms(from_time)
         
         try:
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
@@ -2142,6 +2153,8 @@ class X10Adapter(BaseAdapter):
             
             url = f"{base_url}/api/v1/user/funding/history?{'&'.join(params)}"
             
+            logger.info(f"🔍 [X10_FUNDING_DEBUG] Requesting: {url}")
+
             headers = {
                 'X-Api-Key': self.stark_account.api_key,
                 'User-Agent': 'X10PythonTradingClient/0.4.5',
@@ -2156,6 +2169,12 @@ class X10Adapter(BaseAdapter):
                         data = await resp.json()
                         self.rate_limiter.on_success()
                         
+                        # LOG RAW DATA (Truncated if too long)
+                        raw_str = str(data)
+                        if len(raw_str) > 2000:
+                            raw_str = raw_str[:2000] + "... [TRUNCATED]"
+                        logger.info(f"🔍 [X10_FUNDING_DEBUG] Raw Response: {raw_str}")
+
                         if data.get("status") == "OK" and "data" in data:
                             payments = []
                             for item in data["data"]:
@@ -2167,22 +2186,48 @@ class X10Adapter(BaseAdapter):
                                     "size": safe_float(item.get("size"), 0.0),
                                     "value": safe_float(item.get("value"), 0.0),
                                     "mark_price": safe_float(item.get("markPrice"), 0.0),
+                                    # FIX: X10 returns PnL directly (Negative = Paid/Cost, Positive = Received/Rebate)
+                                    # No inversion needed.
                                     "funding_fee": safe_float(item.get("fundingFee"), 0.0),
                                     "funding_rate": safe_float(item.get("fundingRate"), 0.0),
                                     "paid_time": item.get("paidTime")
                                 })
+                                
+                                # DEBUG: Log raw funding fee to investigate sign issue
+                                raw_fee = item.get("fundingFee")
+                                parsed_fee = safe_float(raw_fee, 0.0)
+                                if raw_fee and str(raw_fee).startswith("-") and parsed_fee > 0:
+                                    logger.error(f"🚨 SIGN MISMATCH for {item.get('market')}: Raw='{raw_fee}' -> Parsed={parsed_fee}")
+
+                            # Defensive client-side filtering: some API responses may include older records
+                            # despite fromTime being provided (or timestamps may come back in seconds).
+                            pre_count = len(payments)
+                            filtered = [
+                                p for p in payments
+                                if _normalize_to_ms(p.get("paid_time")) >= requested_from_ms
+                            ]
+
+                            logger.info(
+                                f"🔍 [X10_FUNDING_DEBUG] Filtered {pre_count} -> {len(filtered)} payments "
+                                f"(fromTime={requested_from_ms})"
+                            )
                             
-                            logger.debug(f"X10 Funding Payments: Retrieved {len(payments)} records")
-                            return payments
+                            for p in filtered:
+                                logger.info(
+                                    f"  👉 [X10_PAYMENT] {p['symbol']} Time={p['paid_time']} "
+                                    f"Fee={p['funding_fee']:.6f} Rate={p['funding_rate']:.6f} Side={p['side']}"
+                                )
+
+                            return filtered
                         else:
-                            logger.debug(f"X10 Funding History: Unexpected response format")
+                            logger.warning(f"🔍 [X10_FUNDING_DEBUG] Unexpected response format: {data.keys()}")
                             return []
                     elif resp.status == 404:
                         # No funding history found - this is OK
-                        logger.debug(f"X10 Funding History: No records found")
+                        logger.info(f"🔍 [X10_FUNDING_DEBUG] HTTP 404 (No funding history found)")
                         return []
                     else:
-                        logger.warning(f"X10 Funding History: HTTP {resp.status}")
+                        logger.warning(f"🔍 [X10_FUNDING_DEBUG] HTTP {resp.status}")
                         return []
                         
         except asyncio.CancelledError:

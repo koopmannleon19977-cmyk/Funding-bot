@@ -118,6 +118,14 @@ MAX_NOTIONAL_USD = DESIRED_NOTIONAL_USD * 1.5  # Buffer +50%
 MAX_TRADE_SIZE_USD = 150.0        # Hard cap per single trade
 MIN_SAFE_THRESHOLD = 0.05         # 5% minimum threshold (was 3%)
 
+# --- Funding Tracking ---
+# FundingTracker runs periodically and fetches realized funding payments.
+# For debugging, reduce this to e.g. 30 to see cycles quickly.
+FUNDING_TRACK_INTERVAL_SECONDS = 30
+
+# Extra verbose FundingTracker logs (timestamps, scheduling, per-trade windows)
+FUNDING_TRACKER_DEBUG = True
+
 # --- Farm Mode Settings ---
 # ═══════════════════════════════════════════════════════════════════════════════
 # VOLUME FARM MODE: Sinnvoll für Rebates/Points auf beiden Exchanges!
