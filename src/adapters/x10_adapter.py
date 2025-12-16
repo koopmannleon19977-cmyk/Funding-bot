@@ -1271,10 +1271,18 @@ class X10Adapter(BaseAdapter):
         await self.cancel_all_orders(symbol)
         await asyncio.sleep(0.5)
 
-        # We try to close at the best executable price first (top-of-book),
-        # then become slightly more aggressive if IOC cancels without fully filling.
+        # ═══════════════════════════════════════════════════════════════
+        # FIX 2025-12-16: AGGRESSIVE PRICING FOR ILLIQUID MARKETS
+        # Problem: IOC orders at best_bid get cancelled on illiquid markets
+        # because the orderbook spread is too wide (e.g., EDEN-USD ~7% spread).
+        # 
+        # Solution: Use percentage-based slippage instead of tick-based:
+        # - Start with 2% slippage, then 5%, 8%, 10%, 15%
+        # - This ensures fills even on wide-spread markets
+        # ═══════════════════════════════════════════════════════════════
         max_retries = 5
-        aggress_ticks = [0, 1, 2, 4, 8]
+        slippage_pct_steps = [0.02, 0.05, 0.08, 0.10, 0.15]  # 2%, 5%, 8%, 10%, 15%
+        
         for attempt in range(max_retries):
             try:
                 positions = await self.fetch_open_positions()
@@ -1301,39 +1309,64 @@ class X10Adapter(BaseAdapter):
                 cfg = getattr(market, 'trading_config', None)
                 tick_size = safe_decimal(getattr(cfg, "min_price_change", "0.01")) if cfg else Decimal("0.01")
 
+                def _best_px(levels: list) -> Decimal:
+                    if not levels:
+                        return Decimal(0)
+                    top = levels[0]
+                    if isinstance(top, (list, tuple)) and len(top) > 0:
+                        return safe_decimal(top[0])
+                    if isinstance(top, dict):
+                        # WS cache formats often look like {"p": "0.123", "q": "45"}
+                        return safe_decimal(top.get("p", top.get("price", 0)))
+                    return safe_decimal(top) if isinstance(top, (int, float, str)) else Decimal(0)
+
                 best_bid = Decimal(0)
                 best_ask = Decimal(0)
                 try:
                     ob = await self.fetch_orderbook(symbol, limit=1)
                     bids = ob.get('bids', [])
                     asks = ob.get('asks', [])
-                    if bids:
-                        best_bid = safe_decimal(bids[0][0]) if isinstance(bids[0], (list, tuple)) else safe_decimal(bids[0])
-                    if asks:
-                        best_ask = safe_decimal(asks[0][0]) if isinstance(asks[0], (list, tuple)) else safe_decimal(asks[0])
+                    best_bid = _best_px(bids)
+                    best_ask = _best_px(asks)
                 except Exception:
                     pass
 
+                # ═══════════════════════════════════════════════════════════════
+                # FIX 2025-12-16: Use PERCENTAGE-BASED slippage for reliable fills
+                # on illiquid markets. Tick-based slippage is insufficient when
+                # the orderbook spread is wide (e.g., EDEN-USD has ~7% spread).
+                # ═══════════════════════════════════════════════════════════════
                 reference_price = Decimal(0)
-                tick_n = aggress_ticks[min(attempt, len(aggress_ticks) - 1)]
+                slippage_pct = Decimal(str(slippage_pct_steps[min(attempt, len(slippage_pct_steps) - 1)]))
 
-                if close_side == "SELL" and best_bid > 0:
-                    # Start at best bid (best executable sell price), then step down by ticks if needed
-                    reference_price = best_bid - (tick_size * Decimal(tick_n) if tick_size > 0 else Decimal(0))
-                elif close_side == "BUY" and best_ask > 0:
-                    # Start at best ask (best executable buy price), then step up by ticks if needed
-                    reference_price = best_ask + (tick_size * Decimal(max(1, tick_n)) if tick_size > 0 else Decimal(0))
+                # Prefer mark price as reference (more stable than orderbook for illiquid markets)
+                mark_px = safe_decimal(self.fetch_mark_price(symbol))
+                
+                if close_side == "SELL":
+                    # SELL to close LONG: Accept lower price (sell below mark)
+                    if mark_px > 0:
+                        reference_price = mark_px * (Decimal(1) - slippage_pct)
+                    elif best_bid > 0:
+                        reference_price = best_bid * (Decimal(1) - slippage_pct)
+                elif close_side == "BUY":
+                    # BUY to close SHORT: Accept higher price (buy above mark)
+                    if mark_px > 0:
+                        reference_price = mark_px * (Decimal(1) + slippage_pct)
+                    elif best_ask > 0:
+                        reference_price = best_ask * (Decimal(1) + slippage_pct)
 
-                # Fallback: mark price ± slippage
+                # Final fallback
                 if reference_price <= 0:
-                    mark_px = safe_decimal(self.fetch_mark_price(symbol))
                     if mark_px <= 0:
                         if attempt < max_retries - 1:
                             await asyncio.sleep(1 + attempt)
                             continue
                         return False, None
-                    slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
-                    reference_price = mark_px * (Decimal(1) + slippage if close_side == "BUY" else Decimal(1) - slippage)
+                    reference_price = mark_px * (Decimal(1) + slippage_pct if close_side == "BUY" else Decimal(1) - slippage_pct)
+
+                # Round to tick size
+                if tick_size > 0:
+                    reference_price = (reference_price / tick_size).quantize(Decimal('1'), rounding='ROUND_DOWN') * tick_size
 
                 try:
                     ref_price_f = float(reference_price)
@@ -1341,6 +1374,14 @@ class X10Adapter(BaseAdapter):
                     ref_price_f = 0.0
 
                 actual_notional = actual_size_abs * (ref_price_f if ref_price_f > 0 else safe_float(self.fetch_mark_price(symbol)))
+
+                # ═══════════════════════════════════════════════════════════════
+                # FIX 2025-12-16: Enhanced logging for shutdown close debugging
+                # ═══════════════════════════════════════════════════════════════
+                logger.info(
+                    f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}, "
+                    f"price=${ref_price_f:.5f} (mark=${float(mark_px):.5f}, slip={float(slippage_pct)*100:.1f}%, attempt={attempt+1}/{max_retries})"
+                )
 
                 # ═══════════════════════════════════════════════════════════════
                 # CRITICAL FIX: During shutdown, ALWAYS try to close positions
@@ -1368,8 +1409,6 @@ class X10Adapter(BaseAdapter):
                         # Normal operation: Block sub-minimum positions
                         logger.error(f"❌ X10 {symbol}: Value too low to close: ${actual_notional:.2f} < Limit ${hard_min:.2f}")
                         return False, None
-
-                logger.info(f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}")
 
                 success, order_id = await self.open_live_position(
                     symbol,

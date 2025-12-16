@@ -99,10 +99,11 @@ class ManagedWebSocket:
     Single WebSocket connection with auto-reconnect and health monitoring. 
     """
     
-    def __init__(self, config: WSConfig, message_handler: Callable, on_reconnect: Optional[Callable] = None):
+    def __init__(self, config: WSConfig, message_handler: Callable, on_reconnect: Optional[Callable] = None, on_pong: Optional[Callable] = None):
         self.config = config
         self.message_handler = message_handler
         self.on_reconnect = on_reconnect  # Callback when connection is reestablished
+        self.on_pong = on_pong  # Callback when pong is received (for manager-level tracking)
         
         self._ws: Optional[websockets. WebSocketClientProtocol] = None
         self._state = WSState. DISCONNECTED
@@ -574,7 +575,10 @@ class ManagedWebSocket:
                     if isinstance(message, (str, bytes)) and (b'"ping"' in message if isinstance(message, bytes) else '"ping"' in message or '"pong"' in message):
                         logger.debug(f"[{self.config.name}] RAW MSG: {preview}")
                 
-                # JSON ping handling (falls vorhanden)
+                # ═══════════════════════════════════════════════════════════════════
+                # JSON PING HANDLING: Server sends ping, we respond with pong
+                # X10 sends: {"ping": timestamp_ms} -> we respond: {"pong": timestamp_ms}
+                # ═══════════════════════════════════════════════════════════════════
                 if isinstance(message, str) and '"ping"' in message:
                     try:
                         data = json.loads(message)
@@ -588,13 +592,48 @@ class ManagedWebSocket:
                         pass
                 
                 # ═══════════════════════════════════════════════════════════════════
-                # ENHANCED PONG TRACKING for 1006 Prevention
-                # Handles: {"type": "pong"}, {"pong": value}, {"type":"pong"}
+                # JSON PONG HANDLING: Server responds to OUR keepalive pings
+                # X10 responds: {"pong": timestamp_ms} to our {"ping": timestamp_ms}
+                # CRITICAL: Handle x10_account pongs IMMEDIATELY in receive loop!
+                # ═══════════════════════════════════════════════════════════════════
+                if isinstance(message, str) and '"pong"' in message:
+                    try:
+                        data = json.loads(message)
+                        if "pong" in data:
+                            pong_value = data["pong"]
+                            self._metrics.last_pong_time = time.time()
+                            self._metrics.pongs_received += 1
+                            self._metrics.missed_pongs = 0
+                            self._metrics.is_healthy = True
+                            
+                            # CALL MANAGER's ON_PONG CALLBACK (if registered)
+                            # This updates manager-level tracking like _x10_account_last_pong_time
+                            if self.on_pong:
+                                try:
+                                    self.on_pong(data)
+                                except Exception as e:
+                                    logger.warning(f"[{self.config.name}] on_pong callback error: {e}")
+                            
+                            # Log with latency
+                            if self.config.name == "x10_account":
+                                logger.info(
+                                    f"💓 [x10_account] Received pong #{self._metrics.pongs_received}: "
+                                    f"{pong_value} (latency: {(time.time() - self._metrics.last_ping_sent_time)*1000:.0f}ms)"
+                                )
+                            else:
+                                logger.debug(f"[{self.config.name}] Pong received: {pong_value}")
+                            
+                            continue  # Don't queue pong messages, handled here
+                    except json.JSONDecodeError:
+                        pass
+                
+                # ═══════════════════════════════════════════════════════════════════
+                # ENHANCED PONG TRACKING for 1006 Prevention (legacy formats)
+                # Handles: {"type": "pong"}, {"type":"pong"}
                 # ═══════════════════════════════════════════════════════════════════
                 if isinstance(message, str):
                     msg_lower = message.lower()
                     is_pong = (
-                        '"pong"' in message or 
                         '"type": "pong"' in msg_lower or
                         '"type":"pong"' in msg_lower  # Without spaces
                     )
@@ -1090,7 +1129,13 @@ class WebSocketManager:
         # (no trades, position changes, etc.) - we need active keepalive
         # ═══════════════════════════════════════════════════════════════
         self._x10_account_stale_threshold = 180.0  # 3 minutes without ANY message triggers reconnect
-        self._x10_account_ping_interval = 30.0     # Send application-level ping every 30s
+        # ═══════════════════════════════════════════════════════════════════════════
+        # FIX: X10 Server trennt nach ~5 Minuten Inaktivität (1011 Ping Timeout).
+        # Der Account-Stream sendet nur bei Account-Aktivität Daten.
+        # Wir müssen AKTIV JSON-Pings senden um die Verbindung am Leben zu halten.
+        # Intervall: Alle 45s (4x unter dem 5-Min Timeout, gibt 4 Chancen vor Disconnect)
+        # ═══════════════════════════════════════════════════════════════════════════
+        self._x10_account_ping_interval = 45.0     # Send application-level ping every 45s
         self._x10_account_keepalive_task: Optional[asyncio.Task] = None
         self._x10_account_last_pong_time = 0.0     # Track when we last received a pong
         self._x10_account_last_msg_time = 0.0      # Track any message (incl. pong) for health logs
@@ -1181,8 +1226,11 @@ class WebSocketManager:
         X10 account stream may not send messages if no account activity,
         but we need to verify the connection is still alive by sending
         application-level pings and checking for pong responses.
+        
+        CRITICAL: X10 Server disconnects with 1011 after ~5 minutes of inactivity.
+        We send pings every 45s to ensure we stay well under this threshold.
         """
-        logger.info("💓 [x10_account] Keepalive loop started")
+        logger.info("💓 [x10_account] Keepalive loop started (interval={:.0f}s)".format(self._x10_account_ping_interval))
         
         while self._running:
             try:
@@ -1210,7 +1258,14 @@ class WebSocketManager:
                         # ═══════════════════════════════════════════════════════════════
                         conn._metrics.pings_sent += 1
                         conn._metrics.last_ping_sent_time = time.time()
-                        logger.debug(f"💓 [x10_account] Sent keepalive ping #{conn._metrics.pings_sent}: {timestamp_ms}")
+                        
+                        # Calculate time since last pong for health monitoring
+                        time_since_pong = time.time() - self._x10_account_last_pong_time if self._x10_account_last_pong_time > 0 else -1
+                        
+                        logger.info(
+                            f"💓 [x10_account] Sent keepalive ping #{conn._metrics.pings_sent} "
+                            f"(pongs_received={conn._metrics.pongs_received}, last_pong={time_since_pong:.0f}s ago)"
+                        )
                     else:
                         logger.warning(f"⚠️ [x10_account] Failed to send keepalive ping")
                         
@@ -1328,6 +1383,8 @@ class WebSocketManager:
         
         X10 pong format: {"pong": timestamp_ms}
         Also treats any pong-style message as proof of life.
+        
+        IMPORTANT: This is called for pong responses to OUR keepalive pings.
         """
         # Check for explicit pong payload
         if "pong" in msg:
@@ -1344,7 +1401,8 @@ class WebSocketManager:
                 conn._metrics.missed_pongs = 0
                 conn._metrics.is_healthy = True
             
-            logger.debug(f"💓 [x10_account] Received pong #{conn._metrics.pongs_received if conn else '?'}: {pong_value} - connection alive")
+            # LOG at INFO level to verify pongs are being received
+            logger.info(f"💓 [x10_account] Received pong #{conn._metrics.pongs_received if conn else '?'}: {pong_value}")
             return True
         
         # Fallback: legacy {"type": "pong"} format
@@ -1360,7 +1418,7 @@ class WebSocketManager:
                 conn._metrics.missed_pongs = 0
                 conn._metrics.is_healthy = True
             
-            logger.debug(f"💓 [x10_account] Received type:pong #{conn._metrics.pongs_received if conn else '?'} - connection alive")
+            logger.info(f"💓 [x10_account] Received type:pong #{conn._metrics.pongs_received if conn else '?'}")
             return True
         
         return False
@@ -1466,7 +1524,8 @@ class WebSocketManager:
         self._connections["x10_account"] = ManagedWebSocket(
             x10_account_config,
             self._handle_message,
-            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
+            on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
+            on_pong=self._handle_x10_account_pong       # Update manager-level pong tracking
         )
         
         # 3. X10 TRADES Connection (Public Firehose)

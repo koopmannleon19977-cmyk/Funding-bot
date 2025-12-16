@@ -27,8 +27,12 @@ load_dotenv()
 # - STRATEGIE: 2x Leverage reicht völlig aus! (Sicherer als 4x)
 # - RECHNUNG: $225 * 4 Trades = $900 Exposure. $900 * 60% APY = $540/Jahr = $45/Monat.
 # ═══════════════════════════════════════════════════════════════════════════════
-DESIRED_NOTIONAL_USD = 225.0      # Sweet Spot: 2x Leverage for 10% Monthly Return
-MAX_OPEN_TRADES = 4               # Max concurrent positions ($900 Total Exposure)
+# 🔥 PROFITABILITY FIX (16.12.2025):
+# - Größere Trades = weniger relativer Slippage
+# - Weniger Trades = Qualität > Quantität
+# ═══════════════════════════════════════════════════════════════════════════════
+DESIRED_NOTIONAL_USD = 150.0     # ERHÖHT: $150 pro Trade (vorher $80)
+MAX_OPEN_TRADES = 2               # REDUZIERT: Qualität > Quantität (vorher 4)
 LEVERAGE_MULTIPLIER = 5.0         # 5x Limit is plenty for 2x Real Leverage
 MAX_KRAKEN_TIME_DRIFT_SEC = 0.250
 
@@ -62,21 +66,56 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # 2. STRATEGIE & PROFIT
 # ------------------------------------------------------------------------------
 # ═══════════════════════════════════════════════════════════════════════════════
-# APY FILTER ERKLÄRT:
-# - Logs zeigen Top-Chancen mit 50-80% APY.
-# - Wir filtern alles unter 20% raus, um nur die "Sahne" abzuschöpfen.
-# ═══════════════════════════════════════════════════════════════════════════════
-MIN_APY_FILTER = 0.20       # 20% APY Minimum - Only High Quality Trades
-MIN_APY_FALLBACK = 0.15     # 15% Fallback
-MIN_PROFIT_EXIT_USD = 0.25  # $0.25 Minimum Profit (bei $225 Size)
-MIN_MAINTENANCE_APY = 0.10  # Exit if APY drops below 10% (Smart Rotation)
-MAX_HOLD_HOURS = 48.0       # Give trades time to overcome spread costs
-EXIT_SLIPPAGE_BUFFER_PCT = 0.001 # 0.1% Buffer for Bid/Ask Spread at Exit
+# PROFITABILITY FIX (16.12.2025):
+# APY muss hoch genug sein um Fees + Slippage zu kompensieren!
+# Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
+# ═════════════════════════════════════════════════════════════════════════════
+MIN_APY_FILTER = 0.35       # ERHÖHT: 35% APY Minimum (vorher 20%) - kompensiert Fees!
+MIN_APY_FALLBACK = 0.25     # ERHÖHT: 25% Fallback (vorher 15%)
+MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
+MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
+MAX_HOLD_HOURS = 72.0       # ERHÖHT: 72h max (vorher 48h) - mehr Zeit für Funding
+EXIT_SLIPPAGE_BUFFER_PCT = 0.0015 # 0.15% Buffer for Bid/Ask Spread at Exit (erhöht für Sicherheit)
+
+# ═════════════════════════════════════════════════════════════════════════════
+# NEU: MINIMUM HOLD TIME - Verhindert zu frühes Schließen!
+# Funding kommt alle 1h (BEIDE: Lighter + X10 zahlen stündlich)
+# Du MUSST mindestens 2h halten um 2 Funding Payments zu bekommen!
+# ═════════════════════════════════════════════════════════════════════════════
+MINIMUM_HOLD_SECONDS = 7200       # NEU: 2 Stunden Mindest-Haltezeit!
+MIN_FUNDING_BEFORE_EXIT_USD = 0.03  # NEU: Mindestens $0.03 Funding gesammelt
+
+# ═════════════════════════════════════════════════════════════════════════════
+# NEU: CROSS-EXCHANGE ARBITRAGE - Preisdifferenz-Profit!
+# Wenn Coin A auf Börse A teurer ist als auf Börse B,
+# kannst du durch die Preisdifferenz Profit machen (unabhängig von Funding)!
+# Beispiel: Du hattest 2-3€ Profit durch Preisdifferenz bei EDEN-USD
+# ═════════════════════════════════════════════════════════════════════════════
+PRICE_DIVERGENCE_EXIT_ENABLED = True   # NEU: Exit bei Preisdifferenz-Profit
+MIN_PRICE_DIVERGENCE_PROFIT_USD = 0.50 # NEU: Mindestens $0.50 Profit durch Preisdifferenz
+PRICE_DIVERGENCE_EXIT_PCT = 0.005      # NEU: 0.5% Preisdifferenz = Exit Signal
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ADVANCED EXIT OPTIMIZATION (16.12.2025)
+# Dynamische Slippage-Berechnung statt statischem Buffer
+# ═════════════════════════════════════════════════════════════════════════════
+USE_DYNAMIC_SLIPPAGE = True            # NEU: Berechne echten Spread aus Orderbook
+DYNAMIC_SLIPPAGE_FALLBACK_PCT = 0.002  # NEU: Fallback 0.2% wenn Orderbook nicht verfügbar
+MIN_ORDERBOOK_DEPTH_USD = 100.0        # NEU: Mindestens $100 Liquidität im Orderbook
+SMART_EXIT_ENABLED = True              # NEU: Nutze Orderbook für beste Exit-Preise
+MAKER_EXIT_ENABLED = False             # NEU: Versuche Maker-Exit (0% Fee auf Lighter!)
+
+# ═════════════════════════════════════════════════════════════════════════════
+# PROFIT PROTECTION (Anti-Loss Safety)
+# ═════════════════════════════════════════════════════════════════════════════
+REQUIRE_POSITIVE_EXPECTED_PNL = True   # NEU: Nur Exit wenn PnL nach Kosten positiv!
+MIN_NET_PROFIT_EXIT_USD = 0.05         # NEU: Mindestens $0.05 NET Profit nach allen Fees
+EXIT_COST_SAFETY_MARGIN = 1.1          # NEU: 10% Safety Buffer auf Exit-Kosten
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.003  # 0.3% TIGHT SPREAD (Crucial for profitability!)
-MAX_BREAKEVEN_HOURS = 12.0         # Trade muss in 12h profitabel sein
+MAX_SPREAD_FILTER_PERCENT = 0.002  # VERSCHÄRFT: 0.2% (vorher 0.3%) - weniger Slippage!
+MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein (vorher 12h)
 # Blacklist (Coins die NIE getradet werden sollen)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gründe für Blacklist:

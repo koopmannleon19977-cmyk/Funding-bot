@@ -38,6 +38,9 @@ TASKS_LOCK = asyncio.Lock()
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
 POSITION_CACHE_TTL = 5.0
 
+# Strict reconciliation throttle
+LAST_STRICT_RECONCILE_AT = 0.0
+
 
 # ============================================================
 # LAZY IMPORTS
@@ -685,6 +688,18 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
     3. If exchange has position but DB empty -> panic close (Orphan).
     """
     get_open_trades, close_trade_in_state, _, _ = _get_state_functions()
+
+    # Throttle: this is an expensive safety check (2x REST position fetch + DB scan).
+    # Running it every logic-loop tick can overload the event loop and the APIs.
+    global LAST_STRICT_RECONCILE_AT
+    try:
+        min_interval = float(getattr(config, 'STRICT_RECONCILE_MIN_INTERVAL_SECONDS', 30))
+    except Exception:
+        min_interval = 30.0
+    now = time.time()
+    if (now - LAST_STRICT_RECONCILE_AT) < min_interval:
+        return
+    LAST_STRICT_RECONCILE_AT = now
     
     try:
         # Skip if busy
@@ -1014,6 +1029,66 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     f"Gross=${gross_pnl:.4f}"
                 )
             
+            # ═══════════════════════════════════════════════════════════════
+            # ADVANCED EXIT OPTIMIZATION (16.12.2025)
+            # Dynamische Slippage-Berechnung aus echtem Orderbook
+            # ═══════════════════════════════════════════════════════════════
+            use_dynamic_slippage = getattr(config, 'USE_DYNAMIC_SLIPPAGE', True)
+            dynamic_slippage_cost = 0.0
+            actual_spread_pct = 0.0
+            orderbook_depth_ok = True
+            
+            if use_dynamic_slippage:
+                try:
+                    # Hole echte Spreads aus beiden Orderbooks
+                    x10_spread_pct = 0.0
+                    lighter_spread_pct = 0.0
+                    
+                    # X10 Orderbook Spread
+                    if hasattr(x10, 'fetch_orderbook'):
+                        x10_ob = await x10.fetch_orderbook(sym, limit=5)
+                        if x10_ob and x10_ob.get('bids') and x10_ob.get('asks'):
+                            x10_best_bid = float(x10_ob['bids'][0][0])
+                            x10_best_ask = float(x10_ob['asks'][0][0])
+                            if x10_best_bid > 0 and x10_best_ask > 0:
+                                x10_spread_pct = (x10_best_ask - x10_best_bid) / x10_best_bid
+                                # Check Depth für unsere Trade-Größe
+                                x10_depth = sum(float(b[0]) * float(b[1]) for b in x10_ob['bids'][:5])
+                                min_depth = getattr(config, 'MIN_ORDERBOOK_DEPTH_USD', 100.0)
+                                if x10_depth < min_depth:
+                                    orderbook_depth_ok = False
+                                    logger.debug(f"⚠️ {sym} X10: Niedrige Liquidität ${x10_depth:.0f} < ${min_depth:.0f}")
+                    
+                    # Lighter Orderbook Spread
+                    if hasattr(lighter, 'fetch_orderbook'):
+                        lit_ob = await lighter.fetch_orderbook(sym, limit=5)
+                        if lit_ob and lit_ob.get('bids') and lit_ob.get('asks'):
+                            lit_best_bid = float(lit_ob['bids'][0][0])
+                            lit_best_ask = float(lit_ob['asks'][0][0])
+                            if lit_best_bid > 0 and lit_best_ask > 0:
+                                lighter_spread_pct = (lit_best_ask - lit_best_bid) / lit_best_bid
+                                # Check Depth
+                                lit_depth = sum(float(b[0]) * float(b[1]) for b in lit_ob['bids'][:5])
+                                if lit_depth < min_depth:
+                                    orderbook_depth_ok = False
+                                    logger.debug(f"⚠️ {sym} Lighter: Niedrige Liquidität ${lit_depth:.0f} < ${min_depth:.0f}")
+                    
+                    # Kombinierter Exit-Spread (beide Seiten müssen gekreuzt werden)
+                    actual_spread_pct = (x10_spread_pct + lighter_spread_pct) / 2
+                    
+                    # Slippage = halber Spread pro Seite (wir kreuzen den Spread beim Exit)
+                    dynamic_slippage_cost = notional * actual_spread_pct * 0.5
+                    
+                    if actual_spread_pct > 0:
+                        logger.debug(
+                            f"📊 {sym} Dynamic Slippage: X10={x10_spread_pct*100:.3f}%, "
+                            f"Lighter={lighter_spread_pct*100:.3f}%, Combined=${dynamic_slippage_cost:.4f}"
+                        )
+                        
+                except Exception as e:
+                    logger.debug(f"Dynamic slippage calc error: {e}, using fallback")
+                    actual_spread_pct = 0.0
+            
             # Calculate Net PnL with proper fees
             # PNL FIX: Pass lighter_position to use REAL Lighter API PnL data
             try:
@@ -1043,9 +1118,20 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 
                 est_fees = entry_fees + exit_fees
                 
-                # Apply Slippage Buffer (Cost of crossing spread at exit)
-                slippage_buffer_pct = getattr(config, 'EXIT_SLIPPAGE_BUFFER_PCT', 0.001)
-                slippage_cost = notional * slippage_buffer_pct
+                # ═══════════════════════════════════════════════════════════════
+                # SMART SLIPPAGE: Use dynamic if available, else fallback
+                # ═══════════════════════════════════════════════════════════════
+                if dynamic_slippage_cost > 0:
+                    slippage_cost = dynamic_slippage_cost
+                else:
+                    # Fallback zu statischem Buffer
+                    slippage_buffer_pct = getattr(config, 'EXIT_SLIPPAGE_BUFFER_PCT', 0.0015)
+                    slippage_cost = notional * slippage_buffer_pct
+                
+                # Safety Margin auf Exit-Kosten
+                exit_cost_safety = getattr(config, 'EXIT_COST_SAFETY_MARGIN', 1.1)
+                slippage_cost *= exit_cost_safety
+                
                 total_pnl -= slippage_cost
                 
             except Exception as e:
@@ -1056,11 +1142,19 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 total_pnl = gross_pnl - est_fees
 
             # ═══════════════════════════════════════════════════════════════
-            # PROFIT-ONLY EXIT LOGIC
+            # PROFITABILITY FIX (16.12.2025): MINIMUM HOLD TIME + FUNDING CHECK
+            # Problem: 89.4% der Trades bekamen NULL Funding (zu schnell geschlossen)
+            # Lösung: Mindestens 2h halten + Mindest-Funding vor Exit
             # ═══════════════════════════════════════════════════════════════
-            min_profit_exit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
-            max_hold_hours = getattr(config, 'MAX_HOLD_HOURS', 24.0)
-            min_maintenance_apy = getattr(config, 'MIN_MAINTENANCE_APY', 0.10)
+            min_profit_exit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)
+            max_hold_hours = getattr(config, 'MAX_HOLD_HOURS', 72.0)
+            min_maintenance_apy = getattr(config, 'MIN_MAINTENANCE_APY', 0.20)
+            minimum_hold_seconds = getattr(config, 'MINIMUM_HOLD_SECONDS', 7200)  # 2h default
+            min_funding_before_exit = getattr(config, 'MIN_FUNDING_BEFORE_EXIT_USD', 0.03)
+            
+            # CROSS-EXCHANGE ARBITRAGE: Preisdifferenz-Profit nutzen!
+            price_divergence_enabled = getattr(config, 'PRICE_DIVERGENCE_EXIT_ENABLED', True)
+            min_divergence_profit = getattr(config, 'MIN_PRICE_DIVERGENCE_PROFIT_USD', 0.50)
             
             reason = None
             force_close = False
@@ -1068,6 +1162,79 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             # Calculate Current APY
             # current_net is hourly rate. APY = rate * 24 * 365
             current_apy = current_net * 24 * 365
+            
+            # ═══════════════════════════════════════════════════════════════
+            # NEU: MINIMUM HOLD TIME CHECK
+            # Du MUSST mindestens 2h halten um Funding zu bekommen!
+            # ═══════════════════════════════════════════════════════════════
+            if age_seconds < minimum_hold_seconds and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                # Ausnahme: Bei sehr hohem Preisdifferenz-Profit trotzdem schließen
+                if price_divergence_enabled and spread_pnl >= min_divergence_profit:
+                    logger.info(
+                        f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} >= ${min_divergence_profit:.2f} - "
+                        f"Geschenkter Profit durch Preisdifferenz! (ignoriere MINIMUM_HOLD)"
+                    )
+                    reason = "PRICE_DIVERGENCE_PROFIT"
+                    force_close = True
+                else:
+                    remaining_hold = (minimum_hold_seconds - age_seconds) / 60
+                    logger.debug(
+                        f"⏰ [HODL] {sym}: Minimum Hold nicht erreicht ({age_seconds/60:.0f}min < {minimum_hold_seconds/60:.0f}min). "
+                        f"Noch {remaining_hold:.0f}min warten für Funding!"
+                    )
+                    continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # NEU: FUNDING CHECK - Mindestens etwas Funding gesammelt?
+            # ═══════════════════════════════════════════════════════════════
+            if funding_collected < min_funding_before_exit and not force_close:
+                if not getattr(config, 'IS_SHUTTING_DOWN', False):
+                    # Ausnahme: Bei Preisdifferenz-Profit trotzdem erlauben
+                    if price_divergence_enabled and spread_pnl >= min_divergence_profit:
+                        logger.info(
+                            f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} kompensiert fehlendes Funding"
+                        )
+                    else:
+                        logger.debug(
+                            f"💸 [HODL] {sym}: Noch kein Funding (${funding_collected:.4f} < ${min_funding_before_exit:.2f}). "
+                            f"Warte auf nächstes Funding Payment!"
+                        )
+                        continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # PROFIT PROTECTION: Nur Exit wenn wirklich profitabel!
+            # Verhindert Verluste durch zu frühe Exits
+            # ═══════════════════════════════════════════════════════════════
+            require_positive = getattr(config, 'REQUIRE_POSITIVE_EXPECTED_PNL', True)
+            min_net_profit = getattr(config, 'MIN_NET_PROFIT_EXIT_USD', 0.05)
+            
+            # Berechne erwarteten Net-Profit nach allen Kosten
+            expected_exit_cost = est_fees + slippage_cost
+            expected_net_pnl = gross_pnl - expected_exit_cost
+            
+            if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                # Check: Ist der Trade nach allen Kosten wirklich profitabel?
+                if expected_net_pnl < min_net_profit:
+                    # Ausnahme: Price Divergence Profit überschreibt
+                    if not (price_divergence_enabled and spread_pnl >= min_divergence_profit):
+                        logger.debug(
+                            f"🛡️ [PROFIT PROTECTION] {sym}: Expected Net ${expected_net_pnl:.4f} < ${min_net_profit:.2f}. "
+                            f"Halte Trade bis profitabel! (Gross=${gross_pnl:.4f}, Costs=${expected_exit_cost:.4f})"
+                        )
+                        continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # LIQUIDITY CHECK: Genug Orderbook-Tiefe für Exit?
+            # ═══════════════════════════════════════════════════════════════
+            smart_exit = getattr(config, 'SMART_EXIT_ENABLED', True)
+            if smart_exit and not orderbook_depth_ok and not force_close:
+                logger.warning(
+                    f"⚠️ [LOW LIQUIDITY] {sym}: Orderbook zu dünn für ${notional:.0f} Exit. "
+                    f"Warte auf bessere Liquidität..."
+                )
+                # Trotzdem Exit erlauben wenn Trade sehr profitabel oder sehr alt
+                if total_pnl < notional * 0.02 and hold_hours < max_hold_hours * 0.8:
+                    continue
             
             # 1. Safety override: MAX_HOLD_HOURS
             if hold_hours >= max_hold_hours:
@@ -1078,8 +1245,20 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     f"({hold_hours:.1f}h >= {max_hold_hours}h)"
                 )
             
+            # ═══════════════════════════════════════════════════════════════
+            # NEU: CROSS-EXCHANGE ARBITRAGE EXIT
+            # Wenn du durch Preisdifferenz schon im Plus bist = GESCHENKTER PROFIT!
+            # ═══════════════════════════════════════════════════════════════
+            if not force_close and price_divergence_enabled:
+                if spread_pnl >= min_divergence_profit:
+                    reason = "PRICE_DIVERGENCE_PROFIT"
+                    logger.info(
+                        f"💎🎁 [GESCHENKT!] {sym}: Preisdifferenz-Profit ${spread_pnl:.2f}! "
+                        f"Closing für geschenkten Gewinn (unabhängig von Funding)"
+                    )
+            
             # 2. Profit check
-            if not force_close:
+            if not force_close and not reason:
                 if total_pnl < min_profit_exit:
                     logger.debug(
                         f"💎 [HODL] {sym}: Net PnL ${total_pnl:.4f} < ${min_profit_exit:.2f}"
@@ -1087,7 +1266,8 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     continue
                 
                 logger.info(
-                    f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f}"
+                    f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f} | "
+                    f"Funding=${funding_collected:.4f}, SpreadPnL=${spread_pnl:.4f}"
                 )
 
                 # Smart Rotation: Exit if APY drops below maintenance threshold

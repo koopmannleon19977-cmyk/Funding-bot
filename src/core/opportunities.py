@@ -363,6 +363,24 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             rejected_breakeven += 1
             continue
         
+        # ═══════════════════════════════════════════════════════════════
+        # NEU: LIQUIDITY CHECK - Genug Orderbook-Tiefe für Entry?
+        # Verhindert Trades in illiquiden Markets
+        # ═══════════════════════════════════════════════════════════════
+        min_depth = getattr(config, 'MIN_ORDERBOOK_DEPTH_USD', 100.0)
+        try:
+            # Check Lighter Liquidity (nur wenn Adapter verfügbar)
+            if hasattr(lighter, 'check_liquidity'):
+                lighter_liquid = await lighter.check_liquidity(
+                    s, 'BUY' if rl > rx else 'SELL', 
+                    notional, max_slippage_pct=0.01, is_maker=True
+                )
+                if not lighter_liquid:
+                    logger.debug(f"🚫 {s}: Lighter Orderbook zu dünn für ${notional:.0f}")
+                    continue
+        except Exception as e:
+            logger.debug(f"Liquidity check skipped for {s}: {e}")
+        
         # ✅ Trade is profitable!
         logger.info(
             f"✅ {s}: Expected profit ${expected_profit:.4f} in {hold_hours:.1f}h "
