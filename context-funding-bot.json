@@ -734,6 +734,288 @@
   "user_preferences": {
     "focus": "Funding Tracking + NET Funding für Arbitrage-Entscheidungen",
     "ai_workflow": "Immer auf diesem Context aufbauen, konkrete Code-Diffs vorschlagen, AUDIT_CHECKLIST.md erweitern, am Ende neuen JSON ausgeben",
-    "next_big_goal": "Bot länger laufen lassen und Funding-Tracking verifizieren (mind. 1h für volles Funding)"
+    "next_big_goal": "TS SDK Parity implementieren für 10/10 Score"
+  },
+  "ts_sdk_improvements_roadmap": {
+    "phase_1_quick_wins": {
+      "estimated_time": "1-2 Stunden",
+      "items": [
+        {
+          "id": "Q1",
+          "title": "Transaction Status Enums",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "TransactionStatus Enum (PENDING=0, QUEUED=1, COMMITTED=2, EXECUTED=3, FAILED=4, REJECTED=5) wie in lighter-ts-main",
+          "impact": "Cleaner Code, weniger Magic Numbers",
+          "effort": "5 min",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "funding_bot_LEON_20251216_134152_FULL.log"
+        },
+        {
+          "id": "Q2",
+          "title": "CancelAll TimeInForce Enums",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "CANCEL_ALL_TIF_IMMEDIATE=0, CANCEL_ALL_TIF_SCHEDULED=1, CANCEL_ALL_TIF_ABORT=2",
+          "impact": "Sauberere Shutdown-Sequenz möglich",
+          "effort": "5 min",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "funding_bot_LEON_20251216_134152_FULL.log"
+        },
+        {
+          "id": "Q3",
+          "title": "Self-Trade Protection Enum (X10)",
+          "file": "src/adapters/x10_adapter.py",
+          "description": "SelfTradeProtectionLevel Enum aus Extended-TS-SDK (NONE, MARKET, ACCOUNT)",
+          "impact": "Verhindert Order Rejects bei gleichzeitigen Orders",
+          "effort": "10 min",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "funding_bot_LEON_20251216_134152_FULL.log"
+        },
+        {
+          "id": "Q4",
+          "title": "Order Status Reason Enum (X10)",
+          "file": "src/adapters/x10_adapter.py",
+          "description": "OrderStatusReason Enum (POST_ONLY_FAILED, REDUCE_ONLY_FAILED, SELF_TRADE_PROTECTION, etc.)",
+          "impact": "Besseres Error Handling",
+          "effort": "15 min",
+          "status": "VERIFIED",
+          "verification_log": "funding_bot_LEON_20251216_134152_FULL.log",
+          "implementation_date": "2025-12-16"
+        },
+        {
+          "id": "Q5",
+          "title": "Maker Rebate in APY Calculation",
+          "file": "src/core/opportunities.py",
+          "description": "Lighter 0% Maker Fee in Profit-Berechnung einbeziehen",
+          "impact": "+0.01-0.02% effektive APY",
+          "effort": "10 min",
+          "status": "ALREADY_CORRECT",
+          "note": "Code bereits korrekt: Lighter=0% Fee, X10=0.0225% Taker × 2 (Entry+Exit). Keine Rebates verfügbar."
+        },
+        {
+          "id": "Q6",
+          "title": "Order Type Enums",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "OrderType Enum (LIMIT=0, MARKET=1, STOP_LOSS=2, TAKE_PROFIT=4, TWAP=6)",
+          "impact": "Type Safety",
+          "effort": "5 min",
+          "status": "IMPLEMENTED",
+          "implementation_date": "2025-12-16"
+        },
+        {
+          "id": "Q7",
+          "title": "TimeInForce Enums",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "TimeInForce Enum (IOC=0, GTT=1, POST_ONLY=2)",
+          "impact": "Type Safety",
+          "effort": "5 min",
+          "status": "IMPLEMENTED",
+          "implementation_date": "2025-12-16"
+        },
+        {
+          "id": "Q8",
+          "title": "Margin Mode Enums",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "CROSS_MARGIN_MODE=0, ISOLATED_MARGIN_MODE=1",
+          "impact": "Type Safety",
+          "effort": "5 min",
+          "status": "IMPLEMENTED",
+          "implementation_date": "2025-12-16"
+        }
+      ]
+    },
+    "phase_2_high_impact": {
+      "estimated_time": "4-8 Stunden",
+      "items": [
+        {
+          "id": "H1",
+          "title": "Batch Orders für Creation nutzen",
+          "file": "src/batch_manager.py",
+          "description": "LighterBatchManager auch für Order Creation nutzen, nicht nur Cancels. Pattern aus lighter-ts-main/src/utils/request-batcher.ts",
+          "impact": "-20% API Calls, schnellere Execution",
+          "effort": "2h"
+        },
+        {
+          "id": "H2",
+          "title": "Health Check Callbacks für WebSocket",
+          "file": "src/websocket_manager.py",
+          "description": "on_health_change Callback an Bot-Level melden für proaktive Reconnects",
+          "impact": "Zero Downtime bei WS Issues",
+          "effort": "1h"
+        },
+        {
+          "id": "H3",
+          "title": "Kelly Sizing aus OI/Liquidity",
+          "file": "src/core/opportunities.py",
+          "description": "Position Sizing basierend auf Open Interest History und Orderbook Liquidity",
+          "impact": "Optimales Risk/Reward Ratio",
+          "effort": "2h"
+        },
+        {
+          "id": "H4",
+          "title": "RealisedPnlBreakdown von X10 API",
+          "file": "src/adapters/x10_adapter.py + src/core/trade_management.py",
+          "description": "X10 liefert tradePnl, fundingFees, openFees, closeFees separat - nutzen statt selbst berechnen",
+          "impact": "100% exakte PnL",
+          "effort": "1h",
+          "status": "IMPLEMENTED_PENDING_VERIFICATION",
+          "implementation": {
+            "date": "2025-12-16",
+            "changes": [
+              "x10_adapter.py: Neue Funktion get_realised_pnl_breakdown(symbol) für exakte PnL von /user/positions/history",
+              "trade_management.py: calculate_realized_close_pnl() nutzt jetzt X10 Breakdown für Funding-Korrektur",
+              "trade_management.py: Cross-check warnt bei >$0.01 Abweichung zwischen Bot-Berechnung und X10 API"
+            ],
+            "verification_note": "Log 133257: Trade wurde während SHUTDOWN geschlossen - H4 nur in trade_management.py (normale Exits), nicht in shutdown.py. Needs normal trade close to verify."
+          }
+        },
+        {
+          "id": "H5",
+          "title": "Decimal überall intern",
+          "file": "src/state_manager.py, src/pnl_utils.py",
+          "description": "Alle Financial Fields intern als Decimal (wie BigNumber in TS), Float nur an API-Grenzen",
+          "impact": "Keine Float Precision Bugs",
+          "effort": "2h"
+        },
+        {
+          "id": "H6",
+          "title": "Cursor Pagination komplett",
+          "file": "src/adapters/lighter_adapter.py",
+          "description": "ALLE Lighter Funding Requests mit vollständiger Cursor-Pagination",
+          "impact": "Keine verpassten Funding Payments",
+          "effort": "30 min",
+          "status": "ALREADY_IMPLEMENTED",
+          "note": "fetch_position_funding() hat bereits max_pages=10 + next_cursor handling. X10 nutzt fromTime Filter statt Pagination (API Design)."
+        },
+        {
+          "id": "H7",
+          "title": "Price Impact Simulation",
+          "file": "src/validation/orderbook_validator.py",
+          "description": "Echte Slippage-Simulation über mehrere Orderbook-Ebenen",
+          "impact": "Genauere Profit-Prognose",
+          "effort": "2h"
+        },
+        {
+          "id": "H8",
+          "title": "Dynamic Spread Threshold",
+          "file": "src/adaptive_threshold.py",
+          "description": "Spread-Threshold dynamisch an Volatilität anpassen",
+          "impact": "Bessere Entry-Selektion",
+          "effort": "1h"
+        }
+      ]
+    },
+    "phase_3_big_rewrites": {
+      "estimated_time": "2-3 Tage",
+      "items": [
+        {
+          "id": "B1",
+          "title": "WebSocket Order Client",
+          "file": "src/adapters/lighter_adapter.py (NEU: ws_order_client.py)",
+          "description": "Orders über WebSocket senden statt REST - Pattern aus lighter-ts-main/src/api/ws-order-client.ts",
+          "impact": "+50-100ms schnellere Order Execution",
+          "effort": "8h"
+        },
+        {
+          "id": "B2",
+          "title": "Request Batcher Class",
+          "file": "src/utils/request_batcher.py (NEU)",
+          "description": "Generischer Request Batcher wie lighter-ts-main/src/utils/request-batcher.ts",
+          "impact": "Wiederverwendbar für alle API Calls",
+          "effort": "4h"
+        },
+        {
+          "id": "B3",
+          "title": "Unit Tests für Nonce Manager",
+          "file": "tests/test_nonce_manager.py (NEU)",
+          "description": "Tests für Batch Prefetch, Rollback, Hard Refresh basierend auf lighter-ts-main/tests",
+          "impact": "Regression Prevention",
+          "effort": "4h"
+        },
+        {
+          "id": "B4",
+          "title": "Integration Tests für Funding",
+          "file": "tests/test_funding_integration.py (NEU)",
+          "description": "E2E Tests für Funding Tracking (X10 + Lighter)",
+          "impact": "Garantierte Korrektheit",
+          "effort": "4h"
+        },
+        {
+          "id": "B5",
+          "title": "Structured JSON Logging",
+          "file": "src/utils/logger.py (NEU)",
+          "description": "JSON Format Logging für Grafana/ELK Integration",
+          "impact": "Besseres Monitoring",
+          "effort": "2h"
+        }
+      ]
+    },
+    "phase_4_polish": {
+      "estimated_time": "Ongoing",
+      "items": [
+        {
+          "id": "P1",
+          "title": "Type Hints vervollständigen",
+          "files": "Alle Python Files",
+          "description": "100% Type Coverage für Mypy",
+          "effort": "4h"
+        },
+        {
+          "id": "P2",
+          "title": "Docstrings im Google Style",
+          "files": "Alle Public Functions",
+          "description": "Konsistente Dokumentation",
+          "effort": "3h"
+        },
+        {
+          "id": "P3",
+          "title": "Error Messages standardisieren",
+          "files": "Alle Adapter",
+          "description": "Einheitliches Error Format mit Codes",
+          "effort": "2h"
+        },
+        {
+          "id": "P4",
+          "title": "Config Validation erweitern",
+          "file": "config.py",
+          "description": "Runtime Validation für alle Config Values",
+          "effort": "1h"
+        },
+        {
+          "id": "P5",
+          "title": "Logging Level pro Module",
+          "file": "config.py + alle Module",
+          "description": "Granulare Log Level Kontrolle",
+          "effort": "1h"
+        }
+      ]
+    }
+  },
+  "python_vs_ts_comparison": {
+    "python_advantages": [
+      "SaferSignerClient: Eleganterer API-Key Switch Bugfix als TS",
+      "Nonce Pool: Identische Implementierung mit Python Async-Optimierungen",
+      "Multi-Endpoint Fee Fallback: Robuster als TS SDK",
+      "Ghost Position Detection: TS SDK hat das nicht",
+      "Adaptive Threshold: Dynamische APY-Anpassung"
+    ],
+    "ts_features_missing_in_python": {
+      "lighter_ts_main": [
+        "WebSocketOrderClient - Orders über WS statt REST",
+        "RequestBatcher - Generisches Batching",
+        "CancelAllTimeInForce Enums",
+        "TransactionStatus Enums",
+        "OrderType/TimeInForce Enums"
+      ],
+      "extended_ts_sdk": [
+        "SelfTradeProtectionLevel Enum",
+        "OrderStatusReason Enum (20+ Gründe)",
+        "RealisedPnlBreakdownModel",
+        "StarkSettlementModel",
+        "TradingFeeModel mit builderFee"
+      ]
+    }
   }
 }

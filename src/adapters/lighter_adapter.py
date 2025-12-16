@@ -8,10 +8,74 @@ import random
 import websockets
 from typing import Dict, Tuple, Optional, List, Any
 from decimal import Decimal, ROUND_DOWN, ROUND_UP, ROUND_HALF_UP, ROUND_FLOOR, ROUND_CEILING
+from enum import IntEnum
 
 # Module initialization
 
 import config
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Q1: Transaction Status Enums (from lighter-ts-main/src/signer/wasm-signer-client.ts)
+# ═══════════════════════════════════════════════════════════════════════════════
+class TransactionStatus(IntEnum):
+    """Lighter transaction status codes."""
+    PENDING = 0
+    QUEUED = 1
+    COMMITTED = 2
+    EXECUTED = 3
+    FAILED = 4
+    REJECTED = 5
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Q2: CancelAll TimeInForce Enums (from lighter-ts-main API)
+# ═══════════════════════════════════════════════════════════════════════════════
+class CancelAllTimeInForce(IntEnum):
+    """TimeInForce options for CancelAllOrders."""
+    IMMEDIATE = 0      # Cancel immediately
+    SCHEDULED = 1      # Schedule cancellation
+    ABORT = 2          # Abort pending scheduled cancellation
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Additional Lighter Enums for completeness (Q6, Q7, Q8)
+# ═══════════════════════════════════════════════════════════════════════════════
+class LighterOrderType(IntEnum):
+    """Lighter order types."""
+    LIMIT = 0
+    MARKET = 1
+    STOP_LOSS = 2
+    TAKE_PROFIT = 4
+    TWAP = 6
+
+
+class LighterTimeInForce(IntEnum):
+    """Lighter TimeInForce options."""
+    IOC = 0           # Immediate or Cancel
+    GTT = 1           # Good Till Time
+    POST_ONLY = 2     # Post Only (Maker)
+
+
+class LighterMarginMode(IntEnum):
+    """Lighter margin modes."""
+    CROSS = 0         # Cross Margin
+    ISOLATED = 1      # Isolated Margin
+
+
+class LighterTransactionType(IntEnum):
+    """Lighter transaction types."""
+    TRANSFER = 12
+    WITHDRAW = 13
+    CREATE_ORDER = 14
+    CANCEL_ORDER = 15
+    CANCEL_ALL_ORDERS = 16
+    MODIFY_ORDER = 17
+    MINT_SHARES = 18
+    BURN_SHARES = 19
+    UPDATE_LEVERAGE = 20
+    CREATE_GROUPED_ORDERS = 28
+    UPDATE_MARGIN = 29
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Korrekte Imports für das offizielle Lighter SDK

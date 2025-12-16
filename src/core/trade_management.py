@@ -231,6 +231,8 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
     Returns a dict with breakdown fields (price_pnl, fees, funding, total).
     
     Uses compute_hedge_pnl from pnl_utils for accurate, sign-correct calculations.
+    
+    H4 Enhancement: Also fetches EXACT PnL breakdown from X10 API for verification.
     """
     symbol = trade.get("symbol")
     notional = safe_float(trade.get("notional_usd") or trade.get("size_usd") or 0.0, 0.0)
@@ -248,6 +250,33 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
 
     # Funding: we store profit-positive net funding in trade.funding_collected (best-effort)
     funding_total = safe_float(trade.get("funding_collected") or 0.0, 0.0)
+    
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # H4: Fetch EXACT X10 PnL Breakdown from API (wenn verfügbar)
+    # Gibt uns tradePnl, fundingFees, openFees, closeFees exakt von der Börse
+    # ═══════════════════════════════════════════════════════════════════════════════
+    x10_breakdown = None
+    if x10 and hasattr(x10, "get_realised_pnl_breakdown"):
+        try:
+            # Wait a bit for position to be fully closed on X10 side
+            await asyncio.sleep(0.5)
+            x10_breakdown = await x10.get_realised_pnl_breakdown(symbol, limit=5)
+            
+            if x10_breakdown:
+                # Use X10's EXACT funding if available (more accurate than our tracking)
+                x10_funding = x10_breakdown.get("funding_fees", 0.0)
+                if abs(x10_funding) > 0:
+                    funding_diff = abs(funding_total - x10_funding)
+                    if funding_diff > 0.001:  # More than $0.001 difference
+                        logger.info(
+                            f"📊 {symbol} Funding Correction: "
+                            f"Bot tracked ${funding_total:.4f}, X10 API says ${x10_funding:.4f} "
+                            f"(diff=${funding_diff:.4f}) - using X10 value"
+                        )
+                    funding_total = x10_funding
+                    
+        except Exception as e:
+            logger.debug(f"{symbol}: X10 PnL breakdown fetch failed (non-critical): {e}")
 
     # Exit snapshots
     x10_exit_px = 0.0
@@ -350,6 +379,27 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
         f"total=${hedge_result['total_pnl']:.4f}"
     )
 
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # H4: Cross-check with X10's exact breakdown (if available)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    if x10_breakdown:
+        x10_exact_total = x10_breakdown.get("total_realised_pnl", 0.0)
+        x10_exact_trade_pnl = x10_breakdown.get("trade_pnl", 0.0)
+        x10_exact_fees = x10_breakdown.get("open_fees", 0.0) + x10_breakdown.get("close_fees", 0.0)
+        
+        # Compare our X10 leg calculation with their exact value
+        our_x10_pnl = hedge_result["x10_pnl"]
+        pnl_diff = abs(our_x10_pnl - x10_exact_trade_pnl)
+        
+        if pnl_diff > 0.01:  # More than $0.01 difference
+            logger.warning(
+                f"⚠️ {symbol} X10 PnL Mismatch: "
+                f"Bot calculated ${our_x10_pnl:.4f}, X10 API says tradePnL=${x10_exact_trade_pnl:.4f} "
+                f"(diff=${pnl_diff:.4f})"
+            )
+        else:
+            logger.debug(f"✅ {symbol} X10 PnL verified: Bot=${our_x10_pnl:.4f} ≈ API=${x10_exact_trade_pnl:.4f}")
+
     return {
         "price_pnl_x10": hedge_result["x10_pnl"],
         "price_pnl_lighter": hedge_result["lighter_pnl"],
@@ -363,6 +413,7 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
         "exit_qty_lighter": qty_lit,
         "exit_fee_x10": x10_exit_fee_usd,
         "exit_fee_lighter": lit_exit_fee_usd,
+        "x10_breakdown": x10_breakdown,  # H4: Include exact breakdown for audit
     }
 
 

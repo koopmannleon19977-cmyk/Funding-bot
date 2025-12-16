@@ -10,6 +10,7 @@ import time
 from decimal import Decimal, ROUND_UP, ROUND_DOWN
 from datetime import datetime, timedelta, timezone
 from typing import Tuple, Optional, List, Any, Dict, Callable
+from enum import Enum
 
 from src.rate_limiter import X10_RATE_LIMITER, get_rate_limiter, Exchange
 import config
@@ -26,6 +27,90 @@ from x10.perpetual.accounts import StarkPerpetualAccount
 from .base_adapter import BaseAdapter
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Q3: Self-Trade Protection Level (from Extended-TS-SDK/src/perpetual/orders.ts)
+# ═══════════════════════════════════════════════════════════════════════════════
+class SelfTradeProtectionLevel(str, Enum):
+    """
+    Self-trade protection levels for X10.
+    Prevents order rejects when placing orders that could match your own orders.
+    """
+    NONE = "NONE"       # No self-trade protection
+    MARKET = "MARKET"   # Cancel incoming order if it would match own order in same market
+    ACCOUNT = "ACCOUNT" # Cancel incoming order if it would match any own order
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Q4: Order Status Reason (from Extended-TS-SDK/src/perpetual/orders.ts)
+# ═══════════════════════════════════════════════════════════════════════════════
+class OrderStatusReason(str, Enum):
+    """
+    Detailed reasons why an order was rejected, cancelled, or expired.
+    Essential for proper error handling and debugging.
+    """
+    UNKNOWN = "UNKNOWN"
+    NONE = "NONE"
+    UNKNOWN_MARKET = "UNKNOWN_MARKET"
+    DISABLED_MARKET = "DISABLED_MARKET"
+    NOT_ENOUGH_FUNDS = "NOT_ENOUGH_FUNDS"
+    NO_LIQUIDITY = "NO_LIQUIDITY"
+    INVALID_FEE = "INVALID_FEE"
+    INVALID_QTY = "INVALID_QTY"
+    INVALID_PRICE = "INVALID_PRICE"
+    INVALID_VALUE = "INVALID_VALUE"
+    UNKNOWN_ACCOUNT = "UNKNOWN_ACCOUNT"
+    SELF_TRADE_PROTECTION = "SELF_TRADE_PROTECTION"
+    POST_ONLY_FAILED = "POST_ONLY_FAILED"
+    REDUCE_ONLY_FAILED = "REDUCE_ONLY_FAILED"
+    INVALID_EXPIRE_TIME = "INVALID_EXPIRE_TIME"
+    POSITION_TPSL_CONFLICT = "POSITION_TPSL_CONFLICT"
+    INVALID_LEVERAGE = "INVALID_LEVERAGE"
+    PREV_ORDER_NOT_FOUND = "PREV_ORDER_NOT_FOUND"
+    PREV_ORDER_TRIGGERED = "PREV_ORDER_TRIGGERED"
+    TPSL_OTHER_SIDE_FILLED = "TPSL_OTHER_SIDE_FILLED"
+    PREV_ORDER_CONFLICT = "PREV_ORDER_CONFLICT"
+    ORDER_REPLACED = "ORDER_REPLACED"
+    POST_ONLY_MODE = "POST_ONLY_MODE"
+    REDUCE_ONLY_MODE = "REDUCE_ONLY_MODE"
+    TRADING_OFF_MODE = "TRADING_OFF_MODE"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Additional X10 Enums for completeness
+# ═══════════════════════════════════════════════════════════════════════════════
+class X10OrderStatus(str, Enum):
+    """X10 order status values."""
+    UNKNOWN = "UNKNOWN"
+    NEW = "NEW"
+    UNTRIGGERED = "UNTRIGGERED"
+    PARTIALLY_FILLED = "PARTIALLY_FILLED"
+    FILLED = "FILLED"
+    CANCELLED = "CANCELLED"
+    EXPIRED = "EXPIRED"
+    REJECTED = "REJECTED"
+
+
+class X10OrderType(str, Enum):
+    """X10 order types."""
+    LIMIT = "LIMIT"
+    CONDITIONAL = "CONDITIONAL"
+    MARKET = "MARKET"
+    TPSL = "TPSL"
+
+
+class X10PositionSide(str, Enum):
+    """X10 position sides."""
+    LONG = "LONG"
+    SHORT = "SHORT"
+
+
+class X10ExitType(str, Enum):
+    """X10 position exit types."""
+    TRADE = "TRADE"
+    LIQUIDATION = "LIQUIDATION"
+    ADL = "ADL"
 
 
 from src.utils import safe_float, safe_decimal, quantize_value
@@ -2179,6 +2264,111 @@ class X10Adapter(BaseAdapter):
     async def get_collateral_balance(self, account_index: int = 0) -> float:
         """Alias für Kompatibilität – einfach weiterleiten"""
         return await self.get_real_available_balance()
+
+
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # H4: REALISED PNL BREAKDOWN - Exakte PnL von X10 API
+    # Basiert auf Extended-TS-SDK: RealisedPnlBreakdownModel (positions.ts)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    
+    async def get_realised_pnl_breakdown(self, symbol: str, limit: int = 10) -> Optional[Dict]:
+        """
+        Get exact PnL breakdown for a recently closed position.
+        
+        X10 provides EXACT breakdown:
+        - tradePnl: Price movement profit/loss
+        - fundingFees: Accumulated funding payments
+        - openFees: Entry trading fees
+        - closeFees: Exit trading fees
+        
+        Args:
+            symbol: Market symbol (e.g., "BTC-USD")
+            limit: How many recent closed positions to check
+            
+        Returns:
+            Dict with exact PnL breakdown or None if not found:
+            {
+                "symbol": "BTC-USD",
+                "trade_pnl": 1.23,
+                "funding_fees": 0.05,
+                "open_fees": 0.02,
+                "close_fees": 0.02,
+                "total_realised_pnl": 1.24,
+                "side": "LONG",
+                "size": 0.01,
+                "open_price": 100000.0,
+                "exit_price": 100123.0,
+                "closed_time": 1702728000000
+            }
+        """
+        try:
+            def get_val(obj, key, default=None):
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                return getattr(obj, key, default)
+
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/user/positions/history"
+            
+            headers = {
+                "X-Api-Key": self.stark_account.api_key,
+                "Accept": "application/json"
+            }
+            
+            await self.rate_limiter.acquire()
+            
+            async with aiohttp.ClientSession() as session:
+                params = {"market": symbol, "limit": str(limit)}
+                async with session.get(url, headers=headers, params=params, timeout=5) as resp:
+                    if resp.status != 200:
+                        logger.debug(f"X10 positions/history returned {resp.status}")
+                        return None
+                    
+                    json_resp = await resp.json()
+                    data = json_resp.get('data', [])
+            
+            self.rate_limiter.on_success()
+            
+            if not data:
+                logger.debug(f"No closed positions found for {symbol}")
+                return None
+            
+            # Get most recent closed position for this symbol
+            pos = data[0]
+            
+            breakdown = get_val(pos, 'realised_pnl_breakdown') or get_val(pos, 'realisedPnlBreakdown')
+            
+            if not breakdown:
+                logger.debug(f"No PnL breakdown in position history for {symbol}")
+                return None
+            
+            result = {
+                "symbol": symbol,
+                "trade_pnl": safe_float(get_val(breakdown, 'trade_pnl') or get_val(breakdown, 'tradePnl'), 0.0),
+                "funding_fees": safe_float(get_val(breakdown, 'funding_fees') or get_val(breakdown, 'fundingFees'), 0.0),
+                "open_fees": safe_float(get_val(breakdown, 'open_fees') or get_val(breakdown, 'openFees'), 0.0),
+                "close_fees": safe_float(get_val(breakdown, 'close_fees') or get_val(breakdown, 'closeFees'), 0.0),
+                "total_realised_pnl": safe_float(get_val(pos, 'realised_pnl') or get_val(pos, 'realisedPnl'), 0.0),
+                "side": get_val(pos, 'side'),
+                "size": safe_float(get_val(pos, 'size'), 0.0),
+                "open_price": safe_float(get_val(pos, 'open_price') or get_val(pos, 'openPrice'), 0.0),
+                "exit_price": safe_float(get_val(pos, 'exit_price') or get_val(pos, 'exitPrice'), 0.0),
+                "closed_time": get_val(pos, 'closed_time') or get_val(pos, 'closedTime')
+            }
+            
+            logger.info(
+                f"📊 X10 {symbol} PnL Breakdown: "
+                f"tradePnL=${result['trade_pnl']:.4f}, "
+                f"funding=${result['funding_fees']:.4f}, "
+                f"fees=${result['open_fees'] + result['close_fees']:.4f}, "
+                f"total=${result['total_realised_pnl']:.4f}"
+            )
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"X10 get_realised_pnl_breakdown failed for {symbol}: {e}")
+            return None
 
 
     async def get_funding_history(self, limit: int = 50) -> List[Dict]:
