@@ -245,21 +245,37 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     now_ts = time.time()
     valid_pairs = 0
     
+    # Rejection counters
+    rejected_open = 0
+    rejected_blacklist = 0
+    rejected_tradfi = 0
+    rejected_cooldown = 0
+    rejected_volatility = 0
+    rejected_data = 0
+    rejected_spread = 0
+    rejected_apy = 0
+    rejected_profit = 0
+    rejected_breakeven = 0
+
     for s, rl, rx, px, pl in clean_results:
         # Skip already open
         if s in open_syms:
+            rejected_open += 1
             continue
             
         # Skip blacklisted
         if s in config.BLACKLIST_SYMBOLS:
+            rejected_blacklist += 1
             continue
             
         # Skip TradFi/FX
         if is_tradfi_or_fx(s):
+            rejected_tradfi += 1
             continue
 
         # Skip failed coins in cooldown
         if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 60):
+            rejected_cooldown += 1
             continue
 
         # Volatility filter
@@ -268,6 +284,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             vol_24h = vol_monitor.get_volatility_24h(s)
             max_vol = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
             if vol_24h > max_vol:
+                rejected_volatility += 1
                 continue
         except Exception:
             pass
@@ -279,6 +296,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if has_rates and has_prices:
             valid_pairs += 1
         else:
+            rejected_data += 1
             continue
 
         # Price parsing
@@ -286,9 +304,11 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             px_float = safe_float(px)
             pl_float = safe_float(pl)
             if px_float <= 0 or pl_float <= 0:
+                rejected_data += 1
                 continue
             spread = abs(px_float - pl_float) / px_float
         except:
+            rejected_data += 1
             continue
 
         # Calculate funding metrics
@@ -297,6 +317,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
         req_apy = threshold_manager.get_threshold(s, is_maker=True)
         if apy < req_apy:
+            # logger.debug(f"🚫 {s}: APY {apy*100:.2f}% < Min {req_apy*100:.2f}%")
+            rejected_apy += 1
             continue
 
         # Dynamic spread check
@@ -305,6 +327,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         final_spread_limit = min(max(base_spread_limit, funding_boosted_limit), 0.03)
         
         if spread > final_spread_limit:
+            # logger.debug(f"🚫 {s}: Spread {spread*100:.2f}% > Limit {final_spread_limit*100:.2f}%")
+            rejected_spread += 1
             continue
 
         # Profitability check
@@ -330,10 +354,13 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         min_threshold = 0.0 if farm_mode else min_profit
         
         if expected_profit < min_threshold:
+            # logger.debug(f"🚫 {s}: Profit ${expected_profit:.4f} < ${min_threshold} (Cost: Spread+Fees)")
+            rejected_profit += 1
             continue
         
         max_be = hold_hours if farm_mode else max_breakeven
         if hours_to_breakeven > max_be:
+            rejected_breakeven += 1
             continue
         
         # ✅ Trade is profitable!
@@ -379,5 +406,21 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     final_opps.sort(key=lambda x: x['apy'], reverse=True)
 
     logger.info(f"✅ Found {len(final_opps)} opportunities from {valid_pairs} valid pairs")
+    
+    # Log rejection summary if no opportunities found (or periodically)
+    if len(final_opps) == 0:
+        logger.info(
+            f"🚫 Filter Summary: "
+            f"Open={rejected_open}, "
+            f"Blacklist={rejected_blacklist}, "
+            f"TradFi={rejected_tradfi}, "
+            f"Cooldown={rejected_cooldown}, "
+            f"Vol={rejected_volatility}, "
+            f"Data={rejected_data}, "
+            f"APY={rejected_apy}, "
+            f"Spread={rejected_spread}, "
+            f"Profit={rejected_profit}, "
+            f"BE={rejected_breakeven}"
+        )
 
     return final_opps[:config.MAX_OPEN_TRADES]

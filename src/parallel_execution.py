@@ -1299,6 +1299,85 @@ class ParallelExecutionManager:
                 logger.info(f"✓ [MAKER STRATEGY] {symbol}: Cancel confirmed (Clean Exit - no extended verification needed).")
             return False, None, False  # Not filled, no size, wait_more=False
 
+    def _get_x10_min_trade_size_coins(self, symbol: str) -> float:
+        """Best-effort retrieval of X10 minimum order size for a market in COINS."""
+        x10_min_trade_size = 0.001
+        try:
+            x10_m = self.x10.market_info.get(symbol) if hasattr(self, "x10") else None
+            if x10_m:
+                if hasattr(x10_m, "trading_config"):
+                    x10_min_trade_size = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                elif isinstance(x10_m, dict):
+                    x10_min_trade_size = float(x10_m.get("lot_size", x10_m.get("min_order_qty", 0.001)))
+        except Exception:
+            pass
+        return float(x10_min_trade_size)
+
+    def _estimate_unhedged_usd_from_partial_fill(self, execution: TradeExecution, partial_fill_coins: float) -> float:
+        """Estimate unhedged USD exposure from partial fill fraction vs planned execution size."""
+        try:
+            planned_coins = float(execution.quantity_coins or 0.0)
+            planned_usd = float(abs(execution.size_lighter or 0.0))
+            if planned_usd <= 0 or planned_coins <= 0:
+                return 0.0
+            fraction = min(1.0, max(0.0, float(abs(partial_fill_coins)) / planned_coins))
+            return planned_usd * fraction
+        except Exception:
+            return 0.0
+
+    async def _abort_maker_microfill_and_cleanup(
+        self,
+        execution: TradeExecution,
+        lighter_order_id: str,
+        partial_fill_coins: float,
+        x10_min_trade_coins: float,
+        reason: str,
+    ) -> None:
+        """Cancel remaining maker order parts and immediately close any partial Lighter position."""
+        symbol = execution.symbol
+
+        logger.warning(
+            f"🧹 [MICROFILL] {symbol}: Aborting maker entry ({reason}) | "
+            f"partial={abs(partial_fill_coins):.6f} < x10_min={x10_min_trade_coins:.6f}"
+        )
+
+        # 1) Cancel remaining order parts (best-effort)
+        try:
+            if hasattr(self.lighter, "cancel_limit_order") and lighter_order_id:
+                await self.lighter.cancel_limit_order(lighter_order_id, symbol)
+            else:
+                await self.lighter.cancel_all_orders(symbol)
+        except Exception as cancel_err:
+            logger.warning(f"⚠️ [MICROFILL] {symbol}: Cancel failed: {cancel_err}")
+
+        # 2) Close any partial position on Lighter (best-effort)
+        try:
+            positions = await self.lighter.fetch_open_positions()
+            lighter_pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+            if not lighter_pos:
+                return
+
+            pos_size = float(lighter_pos.get("size", 0) or 0)
+            if abs(pos_size) <= 0:
+                return
+
+            original_side = "BUY" if pos_size > 0 else "SELL"  # long=BUY, short=SELL
+            est_unhedged_usd = self._estimate_unhedged_usd_from_partial_fill(execution, abs(pos_size))
+            notional_usd = max(est_unhedged_usd, 0.01)  # allow dust closes
+
+            logger.warning(
+                f"🧹 [MICROFILL] {symbol}: Closing partial Lighter position "
+                f"(pos_size={abs(pos_size):.6f} coins, notional≈${notional_usd:.2f})"
+            )
+
+            ok, _ = await self.lighter.close_live_position(symbol, original_side, notional_usd)
+            if ok:
+                logger.info(f"✅ [MICROFILL] {symbol}: Partial position closed")
+            else:
+                logger.warning(f"⚠️ [MICROFILL] {symbol}: Failed to close partial position")
+        except Exception as close_err:
+            logger.warning(f"⚠️ [MICROFILL] {symbol}: Close error: {close_err}")
+
     async def _execute_parallel_internal(
         self, 
         execution: TradeExecution,
@@ -1454,7 +1533,7 @@ class ParallelExecutionManager:
                         depth_info = (
                             f"bid_depth=${float(validation_result.bid_depth_usd):.2f}, "
                             f"ask_depth=${float(validation_result.ask_depth_usd):.2f}, "
-                            f"spread={validation_result.spread_percent*100 if validation_result.spread_percent else 0:.3f}%"
+                            f"spread={float(validation_result.spread_percent) if validation_result.spread_percent is not None else 0:.3f}%"
                         )
                     else:
                         depth_info = f"validation_failed: {validation_result.reason}"
@@ -1492,93 +1571,120 @@ class ParallelExecutionManager:
                     # ═══════════════════════════════════════════════════════════════
                     if wait_more:
                         logger.info(f"⏳ [PHASE 1.5] {symbol}: Extending wait - partial fill too small for X10 hedge")
-                        
-                        # Extended wait loop - additional 60 seconds max
-                        extended_wait_start = time.monotonic()
-                        extended_wait_max = 60.0  # Wait up to 60 more seconds for fills
-                        extended_check_interval = 2.0  # Check every 2 seconds
-                        
-                        while time.monotonic() - extended_wait_start < extended_wait_max:
-                            # Check for shutdown
+
+                        micro_wait_start = time.monotonic()
+                        micro_wait_grace_s = float(getattr(config, "MAKER_MICROFILL_GRACE_SECONDS", 8.0))
+                        micro_wait_max_s = float(getattr(config, "MAKER_MICROFILL_MAX_WAIT_SECONDS", 20.0))
+                        micro_check_interval_s = float(
+                            getattr(config, "MAKER_MICROFILL_CHECK_INTERVAL_SECONDS", 1.0)
+                        )
+                        micro_max_unhedged_usd = float(
+                            getattr(config, "MAKER_MICROFILL_MAX_UNHEDGED_USD", 5.0)
+                        )
+
+                        x10_min = self._get_x10_min_trade_size_coins(symbol)
+                        logger.info(
+                            f"⏳ [MICROFILL] {symbol}: policy grace={micro_wait_grace_s:.1f}s, "
+                            f"max_wait={micro_wait_max_s:.1f}s, max_unhedged=${micro_max_unhedged_usd:.2f}, "
+                            f"x10_min={x10_min:.6f}"
+                        )
+
+                        while time.monotonic() - micro_wait_start < micro_wait_max_s:
                             if getattr(config, "IS_SHUTTING_DOWN", False):
-                                logger.warning(f"⚡ [PHASE 1.5] {symbol}: SHUTDOWN during extended wait - will close position")
-                                break
-                            
-                            await asyncio.sleep(extended_check_interval)
-                            
-                            # Check position again
+                                await self._abort_maker_microfill_and_cleanup(
+                                    execution,
+                                    lighter_order_id,
+                                    float(actual_filled_size or 0.0),
+                                    x10_min,
+                                    reason="shutdown_during_microfill_wait",
+                                )
+                                self._log_trade_summary(
+                                    symbol,
+                                    "ABORTED",
+                                    "Shutdown during microfill wait",
+                                    trade_start_time,
+                                    phase_times,
+                                    execution,
+                                )
+                                execution.state = ExecutionState.FAILED
+                                execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
+                                return False, None, lighter_order_id
+
+                            await asyncio.sleep(micro_check_interval_s)
+
                             try:
                                 positions = await self.lighter.fetch_open_positions()
                                 pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
-                                if pos:
-                                    current_size = abs(safe_float(pos.get("size", 0)))
-                                    
-                                    # Get X10 min size again
-                                    x10_min = 0.001
-                                    x10_m = self.x10.market_info.get(symbol) if hasattr(self, 'x10') else None
-                                    if x10_m:
-                                        if hasattr(x10_m, 'trading_config'):
-                                            x10_min = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
-                                        elif isinstance(x10_m, dict):
-                                            x10_min = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
-                                    
-                                    elapsed = time.monotonic() - extended_wait_start
-                                    logger.debug(f"⏳ [EXTENDED WAIT] {symbol}: Current fill={current_size:.6f}, X10 min={x10_min:.6f}, elapsed={elapsed:.1f}s")
-                                    
-                                    if current_size >= x10_min:
-                                        logger.info(f"✅ [EXTENDED WAIT] {symbol}: Fill now sufficient ({current_size:.6f} >= {x10_min:.6f})!")
-                                        filled = True
-                                        actual_filled_size = current_size
-                                        # Cancel remaining order parts
-                                        try:
-                                            await self.lighter.cancel_all_orders(symbol)
-                                            logger.info(f"🧹 [EXTENDED WAIT] {symbol}: Cancelled remaining order parts")
-                                        except Exception as cancel_e:
-                                            logger.debug(f"🧹 [EXTENDED WAIT] {symbol}: Cancel error: {cancel_e}")
-                                        break
-                                        
+                                if not pos:
+                                    continue
+
+                                current_size = abs(safe_float(pos.get("size", 0)))
+                                actual_filled_size = current_size
+
+                                elapsed = time.monotonic() - micro_wait_start
+                                est_unhedged_usd = self._estimate_unhedged_usd_from_partial_fill(
+                                    execution, current_size
+                                )
+                                logger.debug(
+                                    f"⏳ [MICROFILL] {symbol}: fill={current_size:.6f}, x10_min={x10_min:.6f}, "
+                                    f"unhedged≈${est_unhedged_usd:.2f}, elapsed={elapsed:.1f}s"
+                                )
+
+                                if current_size >= x10_min:
+                                    logger.info(
+                                        f"✅ [MICROFILL] {symbol}: Fill now hedgeable ({current_size:.6f} >= {x10_min:.6f})"
+                                    )
+                                    filled = True
+                                    try:
+                                        await self.lighter.cancel_all_orders(symbol)
+                                        logger.info(f"🧹 [MICROFILL] {symbol}: Cancelled remaining order parts")
+                                    except Exception as cancel_e:
+                                        logger.debug(f"🧹 [MICROFILL] {symbol}: Cancel error: {cancel_e}")
+                                    break
+
+                                if elapsed >= micro_wait_grace_s and est_unhedged_usd >= micro_max_unhedged_usd:
+                                    await self._abort_maker_microfill_and_cleanup(
+                                        execution,
+                                        lighter_order_id,
+                                        current_size,
+                                        x10_min,
+                                        reason=f"unhedged_usd>{micro_max_unhedged_usd} after {elapsed:.1f}s",
+                                    )
+                                    self._log_trade_summary(
+                                        symbol,
+                                        "ABORTED",
+                                        "Microfill unhedgeable (unhedged limit)",
+                                        trade_start_time,
+                                        phase_times,
+                                        execution,
+                                    )
+                                    execution.state = ExecutionState.FAILED
+                                    execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
+                                    return False, None, lighter_order_id
+
                             except Exception as e:
-                                logger.debug(f"[EXTENDED WAIT] {symbol}: Check error: {e}")
-                        
-                        # If still not enough fills, cancel the order and fail
+                                logger.debug(f"[MICROFILL] {symbol}: Check error: {e}")
+
                         if not filled:
-                            logger.warning(f"⏰ [EXTENDED WAIT] {symbol}: Extended wait exhausted - cancelling order and closing position")
-                            try:
-                                await self.lighter.cancel_all_orders(symbol)
-                                logger.info(f"✅ [EXTENDED WAIT] {symbol}: Order cancelled")
-                            except Exception as cancel_err:
-                                logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Cancel failed: {cancel_err}")
-                            
-                            # ═══════════════════════════════════════════════════════════════
-                            # FIX: Close any partial fill position that exists
-                            # This prevents the position from staying open and blocking future trades
-                            # ═══════════════════════════════════════════════════════════════
-                            try:
-                                positions = await self.lighter.fetch_open_positions()
-                                lighter_pos = next((p for p in positions if p.get('symbol') == symbol), None)
-                                
-                                if lighter_pos:
-                                    pos_size = float(lighter_pos.get('size', 0))
-                                    if abs(pos_size) > 0:
-                                        logger.warning(f"🧹 [EXTENDED WAIT] {symbol}: Closing partial fill position (size={abs(pos_size):.6f})")
-                                        close_side = "BUY" if pos_size < 0 else "SELL"
-                                        
-                                        # Use close_live_position which handles reduce_only + IOC properly
-                                        original_side = "SELL" if close_side == "BUY" else "BUY"
-                                        notional_usd = abs(pos_size) * float(lighter_pos.get('mark_price', 0.1))
-                                        
-                                        success, _ = await self.lighter.close_live_position(
-                                            symbol,
-                                            original_side,
-                                            notional_usd
-                                        )
-                                        
-                                        if success:
-                                            logger.info(f"✅ [EXTENDED WAIT] {symbol}: Partial fill position closed successfully")
-                                        else:
-                                            logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Failed to close partial fill position")
-                            except Exception as close_err:
-                                logger.warning(f"⚠️ [EXTENDED WAIT] {symbol}: Rollback close error: {close_err}")
+                            elapsed = time.monotonic() - micro_wait_start
+                            await self._abort_maker_microfill_and_cleanup(
+                                execution,
+                                lighter_order_id,
+                                float(actual_filled_size or 0.0),
+                                x10_min,
+                                reason=f"microfill_wait_timeout after {elapsed:.1f}s",
+                            )
+                            self._log_trade_summary(
+                                symbol,
+                                "TIMEOUT",
+                                "Microfill wait timeout (unhedgeable)",
+                                trade_start_time,
+                                phase_times,
+                                execution,
+                            )
+                            execution.state = ExecutionState.FAILED
+                            execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
+                            return False, None, lighter_order_id
 
                     if not filled:
                         self._log_trade_summary(
@@ -2401,6 +2507,40 @@ class ParallelExecutionManager:
                 asks=asks,
                 orderbook_timestamp=orderbook_timestamp,
             )
+
+            # ═══════════════════════════════════════════════════════════════
+            # STEP 4.5: Entry spread gate (align Maker validation with
+            # MAX_SPREAD_FILTER_PERCENT used in opportunity filtering).
+            #
+            # Notes on units:
+            # - config.MAX_SPREAD_FILTER_PERCENT is a fraction (e.g. 0.003 = 0.3%)
+            # - OrderbookValidationResult.spread_percent is in percent units (e.g. 0.3)
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                max_spread_fraction = getattr(config, "MAX_SPREAD_FILTER_PERCENT", None)
+                if max_spread_fraction is not None and result.spread_percent is not None:
+                    max_spread_pct = Decimal(str(max_spread_fraction)) * Decimal("100")
+                    if max_spread_pct > 0 and result.spread_percent > max_spread_pct:
+                        return OrderbookValidationResult(
+                            is_valid=False,
+                            quality=OrderbookQuality.INSUFFICIENT,
+                            reason=(
+                                f"Entry spread gate tripped ({result.spread_percent:.2f}% > {max_spread_pct:.2f}%)"
+                            ),
+                            bid_depth_usd=result.bid_depth_usd,
+                            ask_depth_usd=result.ask_depth_usd,
+                            spread_percent=result.spread_percent,
+                            best_bid=result.best_bid,
+                            best_ask=result.best_ask,
+                            bid_levels=result.bid_levels,
+                            ask_levels=result.ask_levels,
+                            staleness_seconds=result.staleness_seconds,
+                            recommended_action="wait",
+                            profile_used=result.profile_used,
+                        )
+            except Exception:
+                # Never fail validation due to gating logic errors
+                pass
             
             return result
             

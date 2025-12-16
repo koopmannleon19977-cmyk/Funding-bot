@@ -73,6 +73,45 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         output.append(f"Total Funding Collected: ${results['total_funding']:.4f}")
         
         # ═══════════════════════════════════════════════════════════════
+        # OPEN TRADES DETAIL
+        # ═══════════════════════════════════════════════════════════════
+        output.append("\n" + "=" * 60)
+        output.append("🟢 CURRENT OPEN POSITIONS")
+        output.append("=" * 60)
+        
+        cur.execute("""
+            SELECT symbol, funding_collected, created_at, pnl
+            FROM trades 
+            WHERE status = 'open'
+            ORDER BY created_at DESC
+        """)
+        open_rows = cur.fetchall()
+        
+        if not open_rows:
+            output.append("No open positions.")
+        else:
+            import time
+            now_ms = time.time() * 1000
+            
+            # Header
+            output.append(f"{'SYMBOL':<15} | {'AGE':<10} | {'FUNDING':<12} | {'EST. PNL':<12}")
+            output.append("-" * 55)
+            
+            for row in open_rows:
+                # Calculate age
+                created_at = row['created_at'] or now_ms
+                age_ms = now_ms - created_at
+                age_hours = age_ms / (1000 * 3600)
+                age_str = f"{age_hours:.1f}h"
+                
+                funding = row['funding_collected'] or 0.0
+                pnl = row['pnl'] or 0.0 # Note: PnL in DB for open trades might be 0 or stale snapshot
+                
+                output.append(
+                    f"{row['symbol']:<15} | {age_str:<10} | ${funding:<11.4f} | ${pnl:<11.4f}"
+                )
+
+        # ═══════════════════════════════════════════════════════════════
         # Find closed trades with PnL = 0
         # ═══════════════════════════════════════════════════════════════
         output.append("\n" + "=" * 60)

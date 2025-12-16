@@ -2249,11 +2249,11 @@ class LighterAdapter(BaseAdapter):
                         raw_str = str(data)
                         if len(raw_str) > 2000:
                             raw_str = raw_str[:2000] + "... [TRUNCATED]"
-                        logger.info(f"🔍 [LIGHTER_FUNDING_DEBUG] Raw Response: {raw_str}")
+                        logger.debug(f"🔍 [LIGHTER_FUNDING_DEBUG] Raw Response: {raw_str}")
 
                         raw_fundings = data.get("fundings", data.get("position_fundings", data.get("data", [])))
                         if not isinstance(raw_fundings, list) or len(raw_fundings) == 0:
-                            logger.info(f"🔍 [LIGHTER_FUNDING_DEBUG] No fundings in response list.")
+                            logger.debug(f"🔍 [LIGHTER_FUNDING_DEBUG] No fundings in response list.")
                             break
 
                         for f in raw_fundings:
@@ -2272,7 +2272,7 @@ class LighterAdapter(BaseAdapter):
                             rate_val = safe_float(f.get("rate", 0), 0.0)
                             rate_pct = rate_val * 100.0
                             
-                            logger.info(
+                            logger.debug(
                                 f"  👉 [LIGHTER_PAYMENT] {f.get('symbol')} Time={f.get('timestamp')} "
                                 f"Change={change:.6f} -> Received={funding_received:.6f} "
                                 f"Rate={rate_val:.8f} ({rate_pct:.6f}%) Size={f.get('position_size')}"
@@ -2968,6 +2968,33 @@ class LighterAdapter(BaseAdapter):
         except asyncio.CancelledError:
             logger.debug(f"{self.name}: fetch_orderbook {symbol} cancelled during shutdown")
             return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
+
+    async def get_orderbook_mid_price(self, symbol: str) -> Optional[float]:
+        """
+        Get the mid price from the orderbook (Best Bid + Best Ask) / 2.
+        This is more accurate than Mark Price for arbitrage/PnL calculations.
+        """
+        try:
+            # Fetch top of book (limit=5 is enough)
+            ob = await self.fetch_orderbook(symbol, limit=5)
+            
+            bids = ob.get('bids', [])
+            asks = ob.get('asks', [])
+            
+            if not bids or not asks:
+                return None
+                
+            best_bid = float(bids[0][0])
+            best_ask = float(asks[0][0])
+            
+            if best_bid <= 0 or best_ask <= 0:
+                return None
+                
+            return (best_bid + best_ask) / 2.0
+            
+        except Exception as e:
+            logger.error(f"Error calculating mid price for {symbol}: {e}")
+            return None
         except Exception as e:
             err_str = str(e).lower()
             if "429" in err_str or "rate limit" in err_str:
@@ -3398,8 +3425,16 @@ class LighterAdapter(BaseAdapter):
 
                 # SAFE CONVERSION: API may return strings
                 sign_int = safe_int(sign, 0)
-                multiplier = 1 if sign_int == 0 else -1
-                size = safe_float(position_qty, 0.0) * multiplier
+                raw_qty = safe_float(position_qty, 0.0)
+                
+                # FIX: Robust sign handling
+                if sign_int != 0:
+                    # Trust explicit sign field (1=Long, -1=Short)
+                    multiplier = sign_int
+                    size = abs(raw_qty) * multiplier
+                else:
+                    # Fallback: Trust sign of position_qty if sign field is 0/missing
+                    size = raw_qty
 
                 # ═══════════════════════════════════════════════════════════════
                 # PNL FIX: Extract REAL PnL data from Lighter API
@@ -3490,6 +3525,7 @@ class LighterAdapter(BaseAdapter):
             # ═══════════════════════════════════════════════════════════════
             now = time.time()
             api_symbols = {p['symbol'] for p in positions}
+            ghost_positions_for_callbacks = []
             
             # Clean old pending (> 15s -> 15s KEEP)
             self._pending_positions = {s: t for s, t in self._pending_positions.items() if now - t < 15.0}
@@ -3507,13 +3543,15 @@ class LighterAdapter(BaseAdapter):
                         else:
                             logger.debug(f"👻 Ghost pending: {sym} ({age:.1f}s)")
                         
-                        # Inject synthetic position
-                        positions.append({
+                        # Ghost positions should ONLY be used for fill-detection callbacks.
+                        # They must NOT be returned as real open positions, otherwise
+                        # reconciliation / trade management can treat them as real exposure.
+                        ghost_positions_for_callbacks.append({
                             "symbol": sym,
-                            "size": 0.0001, # Dummy non-zero size
-                            "is_ghost": True
+                            "size": 0.0001,  # Dummy non-zero size
+                            "is_ghost": True,
                         })
-                        api_symbols.add(sym) # Prevent duplicates if multiple pending
+                        api_symbols.add(sym)  # Prevent duplicates if multiple pending
 
             # Cache for deduplication
             self._positions_cache = positions
@@ -3522,7 +3560,7 @@ class LighterAdapter(BaseAdapter):
             # FIXED: Trigger position callbacks for Ghost-Fill detection
             # This enables ParallelExecutionManager to detect fills faster
             # ═══════════════════════════════════════════════════════════════
-            await self._trigger_position_callbacks(positions)
+            await self._trigger_position_callbacks(positions + ghost_positions_for_callbacks)
             
             return positions
 

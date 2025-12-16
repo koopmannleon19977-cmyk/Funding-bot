@@ -263,6 +263,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         # Volatility check
         vol_monitor = get_volatility_monitor()
         if not vol_monitor.can_enter_trade(symbol):
+            logger.info(f"⛔ {symbol}: Volatility too high (Regime: {vol_monitor.current_regimes.get(symbol, 'UNKNOWN')}) - skip entry")
             return False
 
         # Exposure check
@@ -294,16 +295,19 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             desired_size = float(getattr(config, 'DESIRED_NOTIONAL_USD', 80.0))
             final_usd = max(desired_size, min_req)
             
-            # Check we can afford it
-            if final_usd > available_capital * 0.9:
-                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${final_usd:.2f}, have ${available_capital:.2f})")
+            # Check we can afford it (WITH LEVERAGE)
+            leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 1.0)
+            required_margin_check = (final_usd / leverage) * 1.05  # 5% buffer
+            
+            if required_margin_check > available_capital:
+                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${required_margin_check:.2f} margin, have ${available_capital:.2f})")
                 return False
             
             # Check within limits
             if final_usd > config.MAX_TRADE_SIZE_USD:
                 final_usd = config.MAX_TRADE_SIZE_USD
             
-            logger.info(f"📏 SIZE {symbol}: ${final_usd:.2f} (DESIRED_NOTIONAL_USD=${desired_size:.2f})")
+            logger.info(f"📏 SIZE {symbol}: ${final_usd:.2f} (Lev {leverage}x, Margin ${required_margin_check:.2f})")
 
             # Liquidity check
             l_ex = opp.get('leg1_exchange', 'X10')

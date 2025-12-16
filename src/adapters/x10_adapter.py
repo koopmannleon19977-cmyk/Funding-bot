@@ -539,6 +539,33 @@ class X10Adapter(BaseAdapter):
         
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
+    async def get_orderbook_mid_price(self, symbol: str) -> Optional[float]:
+        """
+        Get the mid price from the orderbook (Best Bid + Best Ask) / 2.
+        This is more accurate than Mark Price for arbitrage/PnL calculations.
+        """
+        try:
+            # Fetch top of book (limit=5 is enough)
+            ob = await self.fetch_orderbook(symbol, limit=5)
+            
+            bids = ob.get('bids', [])
+            asks = ob.get('asks', [])
+            
+            if not bids or not asks:
+                return None
+                
+            best_bid = float(bids[0][0])
+            best_ask = float(asks[0][0])
+            
+            if best_bid <= 0 or best_ask <= 0:
+                return None
+                
+            return (best_bid + best_ask) / 2.0
+            
+        except Exception as e:
+            logger.error(f"Error calculating mid price for {symbol}: {e}")
+            return None
+
     def handle_orderbook_snapshot(self, symbol: str, bids: List[List[float]], asks: List[List[float]]):
         """
         Process incoming orderbook snapshot from X10 WebSocket.
@@ -945,6 +972,7 @@ class X10Adapter(BaseAdapter):
         reduce_only: bool = False, 
         post_only: bool = True,
         amount: Optional[float] = None,
+        price: Optional[float] = None,
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
@@ -983,8 +1011,15 @@ class X10Adapter(BaseAdapter):
         # For Market orders: Use mark price + slippage as before
         # ═══════════════════════════════════════════════════════════════
         raw_price = None
+
+        # Explicit price override (used for shutdown reduce-only closes)
+        if price is not None:
+            try:
+                raw_price = safe_decimal(price)
+            except Exception:
+                raw_price = None
         
-        if post_only:
+        if raw_price is None and post_only:
             # Get orderbook prices for POST_ONLY orders
             try:
                 orderbook = await self.fetch_orderbook(symbol, limit=1)
@@ -1026,6 +1061,36 @@ class X10Adapter(BaseAdapter):
                         logger.debug(f"[X10 POST_ONLY SELL] {symbol}: Using orderbook ask=${best_ask} + 1 tick = ${raw_price} for POST_ONLY limit order (ensures Maker)")
             except Exception as e:
                 logger.debug(f"[X10 POST_ONLY] {symbol}: Failed to get orderbook prices: {e}, falling back to mark price")
+
+        # For reduce-only IOC closes without explicit price, prefer top-of-book executable price.
+        # This is a better default than mark±slippage and reduces spurious IOC cancellations.
+        if raw_price is None and reduce_only and not post_only:
+            try:
+                orderbook = await self.fetch_orderbook(symbol, limit=1)
+                bids = orderbook.get("bids", [])
+                asks = orderbook.get("asks", [])
+                tick_size = safe_decimal(getattr(market.trading_config, "min_price_change", "0.01"))
+
+                def _best_px(levels: list) -> Decimal:
+                    if not levels:
+                        return Decimal(0)
+                    top = levels[0]
+                    if isinstance(top, (list, tuple)) and len(top) > 0:
+                        return safe_decimal(top[0])
+                    if isinstance(top, dict):
+                        return safe_decimal(top.get("p", top.get("price", 0)))
+                    return safe_decimal(top) if isinstance(top, (int, float, str)) else Decimal(0)
+
+                best_bid = _best_px(bids)
+                best_ask = _best_px(asks)
+
+                if side == "SELL" and best_bid > 0:
+                    raw_price = best_bid  # best immediately executable sell price
+                elif side == "BUY" and best_ask > 0:
+                    # Add one tick to avoid rounding down below ask (would not execute)
+                    raw_price = best_ask + (tick_size if tick_size > 0 else Decimal(0))
+            except Exception as e:
+                logger.debug(f"[X10 REDUCE_ONLY] {symbol}: Failed top-of-book price: {e}, falling back to mark price")
         
         # Fallback to mark price + slippage if orderbook not available or not POST_ONLY
         if raw_price is None or raw_price <= 0:
@@ -1206,7 +1271,10 @@ class X10Adapter(BaseAdapter):
         await self.cancel_all_orders(symbol)
         await asyncio.sleep(0.5)
 
-        max_retries = 3
+        # We try to close at the best executable price first (top-of-book),
+        # then become slightly more aggressive if IOC cancels without fully filling.
+        max_retries = 5
+        aggress_ticks = [0, 1, 2, 4, 8]
         for attempt in range(max_retries):
             try:
                 positions = await self.fetch_open_positions()
@@ -1227,14 +1295,52 @@ class X10Adapter(BaseAdapter):
                 else:
                     close_side = "BUY"
 
-                price = safe_float(self.fetch_mark_price(symbol))
-                if price <= 0:
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(2)
-                        continue
-                    return False, None
+                # Determine a reference price for the IOC reduce-only close.
+                # Prefer top-of-book executable price (best bid for sells, best ask for buys).
+                market = self.market_info.get(symbol)
+                cfg = getattr(market, 'trading_config', None)
+                tick_size = safe_decimal(getattr(cfg, "min_price_change", "0.01")) if cfg else Decimal("0.01")
 
-                actual_notional = actual_size_abs * price
+                best_bid = Decimal(0)
+                best_ask = Decimal(0)
+                try:
+                    ob = await self.fetch_orderbook(symbol, limit=1)
+                    bids = ob.get('bids', [])
+                    asks = ob.get('asks', [])
+                    if bids:
+                        best_bid = safe_decimal(bids[0][0]) if isinstance(bids[0], (list, tuple)) else safe_decimal(bids[0])
+                    if asks:
+                        best_ask = safe_decimal(asks[0][0]) if isinstance(asks[0], (list, tuple)) else safe_decimal(asks[0])
+                except Exception:
+                    pass
+
+                reference_price = Decimal(0)
+                tick_n = aggress_ticks[min(attempt, len(aggress_ticks) - 1)]
+
+                if close_side == "SELL" and best_bid > 0:
+                    # Start at best bid (best executable sell price), then step down by ticks if needed
+                    reference_price = best_bid - (tick_size * Decimal(tick_n) if tick_size > 0 else Decimal(0))
+                elif close_side == "BUY" and best_ask > 0:
+                    # Start at best ask (best executable buy price), then step up by ticks if needed
+                    reference_price = best_ask + (tick_size * Decimal(max(1, tick_n)) if tick_size > 0 else Decimal(0))
+
+                # Fallback: mark price ± slippage
+                if reference_price <= 0:
+                    mark_px = safe_decimal(self.fetch_mark_price(symbol))
+                    if mark_px <= 0:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(1 + attempt)
+                            continue
+                        return False, None
+                    slippage = safe_decimal(config.X10_MAX_SLIPPAGE_PCT) / 100
+                    reference_price = mark_px * (Decimal(1) + slippage if close_side == "BUY" else Decimal(1) - slippage)
+
+                try:
+                    ref_price_f = float(reference_price)
+                except Exception:
+                    ref_price_f = 0.0
+
+                actual_notional = actual_size_abs * (ref_price_f if ref_price_f > 0 else safe_float(self.fetch_mark_price(symbol)))
 
                 # ═══════════════════════════════════════════════════════════════
                 # CRITICAL FIX: During shutdown, ALWAYS try to close positions
@@ -1271,7 +1377,8 @@ class X10Adapter(BaseAdapter):
                     actual_notional,
                     reduce_only=True,
                     post_only=False,
-                    amount=actual_size_abs
+                    amount=actual_size_abs,
+                    price=ref_price_f if ref_price_f > 0 else None,
                 )
 
                 if not success:
@@ -1295,7 +1402,7 @@ class X10Adapter(BaseAdapter):
                     except Exception:
                         pass
 
-                await asyncio.sleep(2 + attempt)
+                await asyncio.sleep(1.0 + (0.5 * attempt))
                 updated_positions = await self.fetch_open_positions()
                 still_open = any(
                     p['symbol'] == symbol and abs(safe_float(p.get('size', 0))) > 1e-8
@@ -1329,11 +1436,11 @@ class X10Adapter(BaseAdapter):
     
     async def cancel_all_orders(self, symbol: str = None) -> bool:
         # ═══════════════════════════════════════════════════════════════
-        # FIX: Shutdown check - skip during shutdown
+        # Shutdown behavior: best-effort + bounded.
+        # We still try to cancel because open orders can block reduce-only closes,
+        # but we must NOT block shutdown if the exchange / rate limiter is unhappy.
         # ═══════════════════════════════════════════════════════════════
-        if getattr(config, 'IS_SHUTTING_DOWN', False):
-            logger.debug(f"[X10] Shutdown active - skipping cancel_all_orders for {symbol}")
-            return True  # Return True to avoid blocking shutdown
+        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
         
         try:
             if not self.stark_account:
@@ -1357,14 +1464,20 @@ class X10Adapter(BaseAdapter):
                             if result < 0:
                                 logger.debug(f"[X10] Rate limiter cancelled during cancel_all_orders - skipping")
                                 return True
-                            orders_resp = await method(market_name=symbol)
+                            if is_shutting_down:
+                                orders_resp = await asyncio.wait_for(method(market_name=symbol), timeout=2.0)
+                            else:
+                                orders_resp = await method(market_name=symbol)
                         except TypeError:
                             # Need to check rate limiter again for fallback call
                             result = await self.rate_limiter.acquire()
                             if result < 0:
                                 logger.debug(f"[X10] Rate limiter cancelled during cancel_all_orders (fallback) - skipping")
                                 return True
-                            orders_resp = await method()
+                            if is_shutting_down:
+                                orders_resp = await asyncio.wait_for(method(), timeout=2.0)
+                            else:
+                                orders_resp = await method()
                         break
                     except Exception:
                         continue
@@ -1380,12 +1493,19 @@ class X10Adapter(BaseAdapter):
                         if result < 0:
                             logger.debug(f"[X10] Rate limiter cancelled during cancel_order - skipping remaining orders")
                             break
-                        await client.cancel_order(getattr(order, 'id', order))
+                        if is_shutting_down:
+                            await asyncio.wait_for(client.cancel_order(getattr(order, 'id', order)), timeout=2.0)
+                        else:
+                            await client.cancel_order(getattr(order, 'id', order))
                         await asyncio.sleep(0.1)
                     except Exception:
                         pass
             return True
         except Exception as e:
+            # Never block shutdown because cancels failed.
+            if is_shutting_down:
+                logger.debug(f"[X10] cancel_all_orders shutdown best-effort failed: {e}")
+                return True
             logger.debug(f"X10 cancel_all_orders error: {e}")
             return False
     

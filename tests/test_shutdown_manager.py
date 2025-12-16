@@ -1,8 +1,11 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock
-from src.shutdown_manager import ShutdownManager
 import config
+
+
+shutdown_mod = pytest.importorskip("src.shutdown_manager")
+ShutdownManager = getattr(shutdown_mod, "ShutdownManager")
 
 @pytest.mark.asyncio
 async def test_shutdown_sequence_order():

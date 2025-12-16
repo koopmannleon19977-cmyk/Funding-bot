@@ -1,10 +1,10 @@
 {
   "project": "Funding Arbitrage Bot (Lighter + X10)",
   "version": "V5 Architected",
-  "last_update": "2025-12-15 15:30",
-  "overall_score": "9.8/10 – Funding Signs & Amounts FULLY VERIFIED; Ready for Extended Live Run",
+  "last_update": "2025-12-16",
+  "overall_score": "9.8/10 – Funding Signs & Amounts VERIFIED; Orphan/Ghost + Shutdown Reliability Hardened; X10 Best-Price Shutdown Close VERIFIED (post-fix log); Maker Micro-Fill Policy IMPLEMENTED (verification pending: needs microfill log); Spread/Entry-Gating Hardened (wide-spread maker entries blocked)",
   "primary_goal": "Maximale Stabilität und Minimierung von Komplikationen für Live-Trading (Partial Fills, Unhedged Positions, Rate Limits, WS Disconnects vermeiden)",
-  "focus_log": "logs/funding_bot_LEON_20251215_140617_FULL.log",
+  "focus_log": "logs/funding_bot_LEON_20251216_104039_FULL.log",
   "session_summaries": [
     {
       "date": "2025-12-14 14:45-15:09",
@@ -163,6 +163,97 @@
         "src/state_manager.py: Enhanced `reconcile_with_exchange` to merge legs and capture Lighter funding.",
         "src/core/startup.py: Replaced manual checks with `reconcile_positions_atomic` call."
       ]
+    },
+    {
+      "date": "2025-12-15 (Log Cleanup & Latency Investigation)",
+      "key_investigation": "Missing Lighter Funding at 16:00 & Log Noise Reduction",
+      "findings": [
+        "Missing Lighter Funding: Caused by API latency (5-15min) vs Bot Shutdown (16:05). Data simply hadn't arrived yet.",
+        "X10 Funding: Confirmed received at 16:00:40 ($0.0113).",
+        "Log Noise: identified verbose INFO logs in lighter_adapter (historical funding) and funding_tracker (heartbeats)."
+      ],
+      "code_changes": [
+        "src/adapters/lighter_adapter.py: Downgraded historical funding logs from INFO to DEBUG.",
+        "src/funding_tracker.py: Downgraded heartbeat logs (Sleeping/Starting) from INFO to DEBUG."
+      ],
+      "session_pnl": "N/A (Post-run analysis)"
+    },
+    {
+      "date": "2025-12-16 (Mark Price Divergence Fix)",
+      "key_investigation": "Why EDEN-USD trade was not closing despite visible profit (Arbitrage/Price Divergence)",
+      "findings": [
+        "Detected massive divergence on X10: Mark Price ($0.083) vs Orderbook Mid-Price ($0.070).",
+        "Bot was using Mark Price for PnL, resulting in a false negative PnL calculation.",
+        "Real liquidity (Orderbook) offered a profitable exit, but Bot ignored it due to Mark Price reliance.",
+        "Solution: Switch PnL calculation to use Orderbook Mid-Price (Real Liquidity) instead of Mark Price."
+      ],
+      "code_changes": [
+        "src/adapters/x10_adapter.py: Implemented get_orderbook_mid_price (fetches top 5 bids/asks).",
+        "src/adapters/lighter_adapter.py: Implemented get_orderbook_mid_price.",
+        "src/core/trade_management.py: Updated manage_open_trades to prioritize Mid-Price over Mark Price."
+      ],
+      "session_pnl": "Pending verification (Restart required)"
+    },
+    {
+      "date": "2025-12-16 (Orphan/Ghost + Shutdown Reliability Fixes)",
+      "key_investigation": "EDEN orphan churn, Ghost Guardian leakage, and X10 shutdown close failures",
+      "findings": [
+        "Root cause identified: Lighter Ghost Guardian injected synthetic positions (size=0.0001, is_ghost=True) into fetch_open_positions() return, contaminating reconciliation and trade management.",
+        "Observed symptom: repeated ORPHAN POSITION closes and 'already open on Lighter' skips for EDEN-USD, plus dust quantization failure ('base amount is 0 after quantization').",
+        "Observed symptom: Shutdown incomplete for EDEN-USD on X10 with repeated CANCELLED close orders (final_close_failed:x10:EDEN-USD).",
+        "Contributing factor: X10 cancel_all_orders previously skipped during shutdown, increasing the chance reduce-only closes conflict with resting orders.",
+        "Hardening: trade management now checks close_live_position return values to avoid false 'closed' logs and reduce retry churn."
+      ],
+      "code_changes": [
+        "src/adapters/lighter_adapter.py: Ghost positions no longer returned as open positions; still emitted to callbacks for fill detection.",
+        "src/core/trade_management.py: Ignore is_ghost positions; check (ok, order_id) from close_live_position before logging success; skip dust orphan closes during normal operation.",
+        "src/adapters/x10_adapter.py: cancel_all_orders now runs best-effort + bounded during shutdown instead of skipping entirely.",
+        "audit_20251216.md: Added audit write-up for these findings and fixes."
+      ],
+      "session_pnl": "N/A (Reliability hardening + evidence mapping)"
+    },
+    {
+      "date": "2025-12-16 (X10 Best-Price Shutdown Close Fix)",
+      "key_investigation": "X10 shutdown close orders were repeatedly CANCELLED; implement top-of-book repricing + fix shutdown close semantics",
+      "findings": [
+        "TS reference (Extended-TS-SDK-master/examples/08_close_position.ts + 09_close_all_positions.ts) uses reduceOnly + IOC with a reference price; Python needed a more deterministic executable reference price.",
+        "Python shutdown orchestration previously called X10 close with ambiguous (side,size) semantics; X10Adapter.close_live_position expects (original_side, notional_usd) and re-fetches the live position internally.",
+        "Implemented best-executable price selection for close: SELL closes start at best bid; BUY closes start at best ask; then bounded tick-aggressive repricing to reduce IOC cancellations.",
+        "Added explicit price override path so shutdown can pass a chosen reference price into order placement.",
+        "Validation: compileall OK; module import smoke check OK. pytest collection currently fails due to duplicate tests under backups/ and missing modules unrelated to this change."
+      ],
+      "code_changes": [
+        "src/shutdown.py: Pass correct original_side (position side) + best-effort notional_usd into X10 close path.",
+        "src/adapters/x10_adapter.py: close_live_position uses orderbook top-of-book + bounded repricing loop; open_live_position accepts optional price override and prefers top-of-book for reduce_only IOC closes."
+      ],
+      "session_pnl": "Verified: shutdown completed with all positions closed (see logs/funding_bot_LEON_20251216_104039_FULL.log)"
+    },
+    {
+      "date": "2025-12-16 (Maker Micro-Fill Policy)",
+      "key_investigation": "Prevent unhedged exposure when Lighter maker partially fills below X10 minimum size",
+      "findings": [
+        "Implemented bounded micro-fill policy: short grace, bounded max wait, unhedged USD cap, cancel + dust close.",
+        "Verification note: logs/funding_bot_LEON_20251216_110119_FULL.log did not produce a micro partial fill (1000PEPE-USD timed out then retry filled), so the policy was not exercised in that run."
+      ],
+      "code_changes": [
+        "src/parallel_execution.py: replaced 60s extended-wait behavior with config-driven microfill abort+cleanup.",
+        "config.py: added MAKER_MICROFILL_* knobs with conservative defaults."
+      ],
+      "session_pnl": "N/A (Safety hardening; verification pending on microfill scenario)"
+    },
+    {
+      "date": "2025-12-16 (Spread/Entry-Gating Hardening)",
+      "key_investigation": "Wide spreads (e.g., ~5%) caused Maker timeouts/retries; harden entry gating to avoid hanging orders and operational risk",
+      "findings": [
+        "Observed behavior: wide-spread markets can trigger Maker fill timeouts and retry loops, increasing time-in-flight and operational risk.",
+        "Fix: enforce a strict entry spread gate in Maker validation aligned with MAX_SPREAD_FILTER_PERCENT so wide-spread entries are blocked early (PHASE 0).",
+        "Fix: corrected spread timeout diagnostic logging (previously double-multiplied %)."
+      ],
+      "code_changes": [
+        "src/parallel_execution.py: _validate_orderbook_for_maker now enforces entry spread gate using MAX_SPREAD_FILTER_PERCENT (fraction→percent).",
+        "src/parallel_execution.py: PHASE 1.5 timeout diagnostics now logs spread_percent in correct units."
+      ],
+      "session_pnl": "N/A (Risk control hardening)"
     }
   ],
   "funding_tracking_architecture": {
@@ -206,12 +297,22 @@
       "Lighter Funding Normalisierung: Side/Sign Konvention (Verified via Code & CSV)",
       "Lighter Rate Unit Display: API liefert Decimal, CSV liefert Percent. Logging angepasst, um beides anzuzeigen.",
       "Lighter Sign Inversion: Removed manual inversion (-change) to match API behavior.",
-      "Orphan Position Handling: Implemented Option B (Adoption) to ensure funding tracking for all exchange positions."
+      "Orphan Position Handling: Implemented Option B (Adoption) to ensure funding tracking for all exchange positions.",
+      "Mark Price Divergence: Bot used Index Price instead of Real Liquidity Price (Fixed via Orderbook Mid-Price)",
+      "Ghost Guardian Leakage: Synthetic Lighter positions (is_ghost) were treated as real open positions in reconciliation/trade management (Fixed by restricting ghosts to callbacks only)",
+      "False Success Logging: Orphan/zombie cleanup logged 'closed' without validating close_live_position return values (Fixed)",
+      "Shutdown Cancel Skip (X10): cancel_all_orders skipped during shutdown (Fixed to best-effort bounded cancels)",
+      "Shutdown→X10 Close Semantics: Shutdown code passed close-side/size into close_live_position; fixed to pass original_side (position side) + notional_usd",
+      "X10 Shutdown Close Strategy: reduce_only IOC closes now use top-of-book price (best bid/ask) with bounded tick-aggressive repricing to reduce CANCELLED closes",
+      "Maker Micro-Fill Policy (Lighter): bounded grace/max-wait + max unhedged USD threshold; abort cancels maker and dust-closes partial Lighter position (Implemented; needs log-based verification)",
+      "Spread/Entry-Gating: Maker orderbook validation now enforces MAX_SPREAD_FILTER_PERCENT to block wide-spread entries early",
+      "Spread Diagnostics: Fixed incorrect spread percent logging in maker timeout diagnostics"
     ],
     "newly_discovered": [],
     "remaining": [
       "TradeState Lifecycle: PENDING schon beim ersten Leg anlegen (Option C) wäre noch robuster für die Zukunft, aber Option B deckt das Risiko jetzt ab.",
-      "Strategie-Optimierung: Minimum Hold Time + Funding Collection vor Close"
+      "Strategie-Optimierung: Minimum Hold Time + Funding Collection vor Close",
+      "X10 WS Stability: recurring 1011 Ping timeout disconnects need profiling/mitigation"
     ]
   },
   "evidence_from_audits": {
@@ -230,14 +331,21 @@
     ]
   },
   "evidence_from_logs": {
-    "log_file": "logs/funding_bot_LEON_20251215_140617_FULL.log",
+    "log_file": "logs/funding_bot_LEON_20251216_104039_FULL.log",
+    "secondary_log_files": [
+      "logs/funding_bot_LEON_20251216_101027_FULL.log",
+      "logs/funding_bot_LEON_20251216_110119_FULL.log"
+    ],
     "signals": [
-      "📊 Positions: X10=0, Lighter=2 (Positionen existieren)",
-      "📊 No open trades to track (FundingTracker überspringt, weil keine Trades im State)",
-      "Lighter PositionFunding: payments/pages/total_received sichtbar, aber after_filter=0 wenn since_ts_ms zu neu ist",
-      "X10 Funding Payments: pre_filter>0 aber after_filter=0 (alte Records wurden korrekt verworfen)",
-      "Verified Match: X10 FARTCOIN Payment -0.007041 matches CSV exactly",
-      "Verified Parsing: X10 negative strings parsed correctly as negative floats"
+      "Startup reconcile mismatch: DB=1, Exchange=0 → ZOMBIE EDEN-USD closed in DB (see logs/funding_bot_LEON_20251216_101027_FULL.log#L115-L120)",
+      "Partial zombie: EDEN-USD Lighter=True, X10=False during strict reconcile (see logs/funding_bot_LEON_20251216_101027_FULL.log#L318)",
+      "Orphan churn: EDEN-USD repeatedly detected as ORPHAN (L=-3010, X=0) and auto-close attempted in a loop (see logs/funding_bot_LEON_20251216_101027_FULL.log#L340-L447)",
+      "Ghost Guardian injection: pending EDEN-USD size=0.0001 treated as open → orphan close attempts hit dust/quantization failures (see logs/funding_bot_LEON_20251216_101027_FULL.log#L458-L472)",
+      "X10 WebSocket instability: recurring 1011 Ping timeout disconnects and reconnects (see logs/funding_bot_LEON_20251216_101027_FULL.log#L886-L887)",
+      "Pre-fix failure: Shutdown incomplete with repeated X10 EDEN-USD close order CANCELLED events; final_close_failed:x10:EDEN-USD (see logs/funding_bot_LEON_20251216_101027_FULL.log#L2404-L2541)",
+      "Post-fix verification: Shutdown completed with all positions closed; X10 EDEN-USD eventually FILLED on a repriced reduce-only IOC close (see logs/funding_bot_LEON_20251216_104039_FULL.log#L468-L661)",
+      "1000PEPE-USD: In logs/funding_bot_LEON_20251216_110119_FULL.log the maker leg timed out and then the retry filled; no micro partial fill occurred, so microfill policy was not triggered in that run (see logs/funding_bot_LEON_20251216_110119_FULL.log#L219-L317)",
+      "Entry-gating hardening: wide-spread maker entries are now blocked in PHASE 0 (prevents future timeout/retry cycles on ~5% spread markets)"
     ],
     "user_reported_exchange_funding": [
       "AVNT Short: 2025-12-15 12:00:00, size=0.2, funding=-$0.000002",
@@ -276,19 +384,23 @@
     "Nonce Management → Batch-Prefetching (20 Nonces) (13.12.)",
     "Volatilität-Timeouts → Dynamisch nach Orderbuch-Tiefe (13.12.)",
     "X10 Funding Sign Inversion (Verified via CSV) (15.12.)",
-    "Lighter Funding Sign Inversion (Fixed in Code) (15.12.)"
+    "Lighter Funding Sign Inversion (Fixed in Code) (15.12.)",
+    "Log Noise Reduction: Lighter Adapter & Funding Tracker INFO -> DEBUG (15.12.)",
+    "Shutdown→X10 close call semantics fixed (position-side + notional) (16.12.)",
+    "X10 reduce-only shutdown closes use top-of-book + bounded repricing (16.12.)"
   ],
   "open_issues": {
     "high_priority": [
       "Orphan-Position Handling: Position existiert ohne TradeState → Funding geht verloren (Adoption oder Auto-Close definieren)",
       "TradeState Lifecycle: PENDING schon beim ersten Leg anlegen, um Funding nicht zu verlieren",
       "Strategie-Optimierung: Minimum Hold Time + Funding Collection vor Close",
-      "Spread-Filter erhöhen, um Fees sicher zu decken (aktuell Verlust bei sofortigem Close)"
+      "X10 WS Stability: recurring 1011 Ping timeout disconnects cause stale state/caches"
     ],
     "medium_priority": [
       "Advanced Batching: execute_batch(opportunities) für parallele Order-Platzierung",
       "Exposure-Limits dynamisch an OI anpassen",
-      "Telegram Alerts erweitern"
+      "Telegram Alerts erweitern",
+      "Dev/Test hygiene: pytest collection fails due to duplicate tests under backups/ and file name collisions under scripts/audit (ImportPathMismatch)"
     ]
   },
   "sdk_funding_api_reference": {

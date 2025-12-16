@@ -869,6 +869,21 @@ class InMemoryStateManager:
                                     write.data.get('funding_collected', 0)
                                 )
                         
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX: Handle generic updates (like funding_collected)
+                        # Previously, updates without 'status' were ignored!
+                        # ═══════════════════════════════════════════════════════════════
+                        elif 'funding_collected' in write.data:
+                            # If we have funding_collected but NOT status='closed', update it
+                            # Note: write.data contains the NEW TOTAL value
+                            new_total = write.data['funding_collected']
+                            
+                            # We need to set the absolute value, but repo only has update_trade_funding (incremental)
+                            # So we execute raw SQL here to set the absolute value
+                            sql = "UPDATE trades SET funding_collected = ? WHERE symbol = ? AND status = 'open'"
+                            await repo.db.execute(sql, (new_total, write.key))
+                            logger.debug(f"📝 DB Updated funding for {write.key} to ${new_total:.4f}")
+
                         if write.callback and not write.callback.done():
                             write.callback.set_result(True)
                             

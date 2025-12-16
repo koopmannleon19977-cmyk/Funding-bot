@@ -17,7 +17,7 @@ async def test_successful_execution(mock_x10, mock_lighter, mock_db):
     success, x10_id, lighter_id = await manager.execute_trade_parallel(
         symbol="BTC-USD",
         side_x10="BUY", side_lighter="SELL",
-        size_x10=0.1, size_lighter=0.1
+        size_x10=10.0, size_lighter=10.0
     )
     
     assert success is True
@@ -48,7 +48,7 @@ async def test_x10_fail_rollback_lighter(mock_x10, mock_lighter, mock_db):
     success, x10_id, lighter_id = await manager.execute_trade_parallel(
         symbol="BTC-USD",
         side_x10="BUY", side_lighter="SELL",
-        size_x10=0.1, size_lighter=0.1
+        size_x10=10.0, size_lighter=10.0
     )
     
     assert success is False

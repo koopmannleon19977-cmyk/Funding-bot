@@ -108,7 +108,7 @@ class FundingTracker:
                         f"(next_run_utc={time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(next_run))})"
                     )
                 
-                logger.info(f"⏱️ [FUNDING_CYCLE] Sleeping {self.update_interval}s until next run...")
+                logger.debug(f"⏱️ [FUNDING_CYCLE] Sleeping {self.update_interval}s until next run...")
                 
                 # Wait for next update
                 await asyncio.sleep(self.update_interval)
@@ -139,7 +139,7 @@ class FundingTracker:
                 symbols = [getattr(t, 'symbol', '?') for t in open_trades]
                 logger.debug(f"🔎 FundingTracker cycle: open_trades={symbols}")
             
-            logger.info(f"� [FUNDING_CYCLE] Starting update for {len(open_trades)} trades. Time: {time.time()}")
+            logger.debug(f"🔄 [FUNDING_CYCLE] Starting update for {len(open_trades)} trades. Time: {time.time()}")
             
             total_collected = 0.0
             updated_count = 0
@@ -288,14 +288,14 @@ class FundingTracker:
                         )
 
                     # Detailed per-payment debug (timestamp + fee)
-                    for p in payments:
-                        ts = p.get('paid_time') or p.get('timestamp') or p.get('time') or p.get('created_at')
-                        fee = p.get('funding_fee')
-                        rate = p.get('funding_rate')
-                        side = p.get('side') or p.get('position_side')
-                        logger.debug(
-                            f"🧾 X10 {symbol}: payment ts={ts} fee={fee} rate={rate} side={side}"
-                        )
+                    # for p in payments:
+                    #     ts = p.get('paid_time') or p.get('timestamp') or p.get('time') or p.get('created_at')
+                    #     fee = p.get('funding_fee')
+                    #     rate = p.get('funding_rate')
+                    #     side = p.get('side') or p.get('position_side')
+                    #     logger.debug(
+                    #         f"🧾 X10 {symbol}: payment ts={ts} fee={fee} rate={rate} side={side}"
+                    #     )
                 else:
                     logger.debug(f"ℹ️ X10 {symbol}: No funding payments found via API")
             else:

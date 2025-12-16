@@ -512,8 +512,11 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                         px = safe_float(x10.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
-                            await x10.close_live_position(sym, original_side, notional)
-                            logger.info(f"✅ Closed orphaned X10 {sym}")
+                            ok, _ = await x10.close_live_position(sym, original_side, notional)
+                            if ok:
+                                logger.info(f"✅ Closed orphaned X10 {sym}")
+                            else:
+                                logger.warning(f"⚠️ Failed to close orphaned X10 {sym} (close_live_position returned False)")
                 except Exception as e:
                     logger.error(f"Failed to close X10 orphan {sym}: {e}")
         
@@ -539,8 +542,11 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                             px = safe_float(lighter.fetch_mark_price(sym))
                             if px > 0:
                                 notional = abs(size) * px
-                                await lighter.close_live_position(sym, original_side, notional)
-                                logger.info(f"✅ Closed orphaned Lighter {sym}")
+                                ok, _ = await lighter.close_live_position(sym, original_side, notional)
+                                if ok:
+                                    logger.info(f"✅ Closed orphaned Lighter {sym}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to close orphaned Lighter {sym} (close_live_position returned False)")
                     except Exception as e:
                         logger.error(f"Failed to close Lighter orphan {sym}: {e}")
         
@@ -587,8 +593,11 @@ async def cleanup_zombie_positions(lighter, x10):
                             continue
                         
                         try:
-                            await x10.close_live_position(sym, original_side, size_usd)
-                            logger.info(f"✅ Closed X10 zombie {sym}")
+                            ok, _ = await x10.close_live_position(sym, original_side, size_usd)
+                            if ok:
+                                logger.info(f"✅ Closed X10 zombie {sym}")
+                            else:
+                                logger.warning(f"⚠️ Failed to close X10 zombie {sym} (close_live_position returned False)")
                         except Exception as e:
                             logger.error(f"Failed to close X10 zombie {sym}: {e}")
 
@@ -601,8 +610,11 @@ async def cleanup_zombie_positions(lighter, x10):
                         if px > 0:
                             size_usd = abs(position_size) * px
                             try:
-                                await lighter.close_live_position(sym, original_side, size_usd)
-                                logger.info(f"✅ Closed Lighter zombie {sym}")
+                                ok, _ = await lighter.close_live_position(sym, original_side, size_usd)
+                                if ok:
+                                    logger.info(f"✅ Closed Lighter zombie {sym}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to close Lighter zombie {sym} (close_live_position returned False)")
                             except Exception as e:
                                 logger.error(f"Failed to close Lighter zombie {sym}: {e}")
                                 
@@ -697,7 +709,7 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         real_lighter = {
             p.get('symbol'): float(p.get('size', 0)) 
             for p in lighter_pos 
-            if abs(safe_float(p.get('size', 0))) > 1e-8
+            if (not p.get('is_ghost')) and abs(safe_float(p.get('size', 0))) > 1e-8
         }
         real_x10 = {
             p.get('symbol'): float(p.get('size', 0)) 
@@ -774,12 +786,23 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                         logger.warning(f"🚨 Closing orphan Lighter position {symbol} (size={l_size})...")
                         lighter_position = next((p for p in (lighter_pos or []) if p.get('symbol') == symbol), None)
                         if lighter_position:
+                            if lighter_position.get('is_ghost'):
+                                logger.debug(f"👻 Skipping orphan close for {symbol}: Ghost Guardian synthetic position")
+                                lighter_position = None
+                        if lighter_position:
                             px = safe_float(lighter.fetch_mark_price(symbol))
                             if px > 0:
                                 notional = abs(l_size) * px
                                 original_side = "BUY" if l_size < 0 else "SELL"
-                                await lighter.close_live_position(symbol, original_side, notional)
-                                logger.info(f"✅ Closed orphaned Lighter {symbol}")
+                                # Avoid infinite loops on uncloseable dust lots
+                                if lighter_position.get('is_dust') and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                                    logger.warning(f"🧹 Orphan Lighter {symbol} is dust (notional≈${notional:.4f}) - skipping close attempt")
+                                else:
+                                    ok, _ = await lighter.close_live_position(symbol, original_side, notional)
+                                    if ok:
+                                        logger.info(f"✅ Closed orphaned Lighter {symbol}")
+                                    else:
+                                        logger.warning(f"⚠️ Failed to close orphaned Lighter {symbol} (close_live_position returned False)")
                     
                     # Close X10 position if exists
                     if abs(x_size) > 0:
@@ -790,8 +813,11 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                             if px > 0:
                                 notional = abs(x_size) * px
                                 original_side = "BUY" if x_size < 0 else "SELL"
-                                await x10.close_live_position(symbol, original_side, notional)
-                                logger.info(f"✅ Closed orphaned X10 {symbol}")
+                                ok, _ = await x10.close_live_position(symbol, original_side, notional)
+                                if ok:
+                                    logger.info(f"✅ Closed orphaned X10 {symbol}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to close orphaned X10 {symbol} (close_live_position returned False)")
                 except Exception as e:
                     logger.error(f"❌ Failed to close orphan position {symbol}: {e}")
                     
@@ -870,8 +896,25 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             # ═══════════════════════════════════════════════════════════════
             # Get prices for PnL calculation
             # ═══════════════════════════════════════════════════════════════
-            raw_px = x10.fetch_mark_price(sym)
-            raw_pl = lighter.fetch_mark_price(sym)
+            # FIX: Use Orderbook Mid-Price instead of Mark Price if available
+            # Mark Price can lag or be manipulated, leading to false PnL.
+            # Mid Price (avg of best bid/ask) reflects real liquidity.
+            # ═══════════════════════════════════════════════════════════════
+            
+            # X10 Price
+            raw_px = None
+            if hasattr(x10, 'get_orderbook_mid_price'):
+                raw_px = await x10.get_orderbook_mid_price(sym)
+            if raw_px is None or raw_px <= 0:
+                raw_px = x10.fetch_mark_price(sym)
+            
+            # Lighter Price
+            raw_pl = None
+            if hasattr(lighter, 'get_orderbook_mid_price'):
+                raw_pl = await lighter.get_orderbook_mid_price(sym)
+            if raw_pl is None or raw_pl <= 0:
+                raw_pl = lighter.fetch_mark_price(sym)
+                
             px = safe_float(raw_px) if raw_px is not None else None
             pl = safe_float(raw_pl) if raw_pl is not None else None
 
@@ -921,7 +964,21 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 # Fallback for older records missing sides
                 base_net = rl - rx
                 current_net = -base_net if t.get('leg1_exchange') == 'X10' else base_net
-            funding_pnl = current_net * hold_hours * notional
+            
+            funding_pnl_est = current_net * hold_hours * notional
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Use ACTUAL collected funding from FundingTracker if available
+            # The estimate (current_net * hours) assumes constant rate, which is often wrong.
+            # FundingTracker provides the sum of actual payments received.
+            # ═══════════════════════════════════════════════════════════════
+            funding_collected = float(t.get('funding_collected') or 0.0)
+            
+            if abs(funding_collected) > 0.0001:
+                funding_pnl = funding_collected
+                # Add accrued estimate for current hour? (Optional, keeping it simple for now)
+            else:
+                funding_pnl = funding_pnl_est
 
             # Price/Basis PnL estimate (profit-positive)
             ep_x10 = float(t.get('entry_price_x10') or px)
@@ -945,6 +1002,17 @@ async def manage_open_trades(lighter, x10, state_manager=None):
 
             # Gross PnL (before fees)
             gross_pnl = funding_pnl + spread_pnl
+            
+            # ═══════════════════════════════════════════════════════════════
+            # DEBUG LOGGING: Show exactly what the bot sees
+            # ═══════════════════════════════════════════════════════════════
+            if abs(gross_pnl) > 0.1:
+                logger.info(
+                    f"🔍 {sym} PnL Check: "
+                    f"X10=${px:.5f}, Lit=${pl:.5f} | "
+                    f"SpreadPnL=${spread_pnl:.4f}, Funding=${funding_pnl:.4f} | "
+                    f"Gross=${gross_pnl:.4f}"
+                )
             
             # Calculate Net PnL with proper fees
             # PNL FIX: Pass lighter_position to use REAL Lighter API PnL data
@@ -975,6 +1043,11 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 
                 est_fees = entry_fees + exit_fees
                 
+                # Apply Slippage Buffer (Cost of crossing spread at exit)
+                slippage_buffer_pct = getattr(config, 'EXIT_SLIPPAGE_BUFFER_PCT', 0.001)
+                slippage_cost = notional * slippage_buffer_pct
+                total_pnl -= slippage_cost
+                
             except Exception as e:
                 logger.debug(f"FeeManager error, using fallback: {e}")
                 fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
@@ -987,9 +1060,14 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             # ═══════════════════════════════════════════════════════════════
             min_profit_exit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
             max_hold_hours = getattr(config, 'MAX_HOLD_HOURS', 24.0)
+            min_maintenance_apy = getattr(config, 'MIN_MAINTENANCE_APY', 0.10)
             
             reason = None
             force_close = False
+            
+            # Calculate Current APY
+            # current_net is hourly rate. APY = rate * 24 * 365
+            current_apy = current_net * 24 * 365
             
             # 1. Safety override: MAX_HOLD_HOURS
             if hold_hours >= max_hold_hours:
@@ -1011,6 +1089,11 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 logger.info(
                     f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f}"
                 )
+
+                # Smart Rotation: Exit if APY drops below maintenance threshold
+                if not reason and current_apy < min_maintenance_apy:
+                    reason = f"LOW_APY_EXIT ({current_apy*100:.1f}% < {min_maintenance_apy*100:.1f}%)"
+                    logger.info(f"📉 [SMART ROTATION] {sym}: APY dropped to {current_apy*100:.1f}%. Exiting to free capital.")
                 
                 # Farm Mode Quick Exit
                 if not reason and t.get('is_farm_trade') and getattr(config, 'VOLUME_FARM_MODE', False):

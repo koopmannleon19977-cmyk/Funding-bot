@@ -521,9 +521,25 @@ class ShutdownOrchestrator:
                 if size == 0:
                     continue
                 symbol = pos.get("symbol")
-                side = "BUY" if size < 0 else "SELL" if size > 0 else None
-                if not symbol or not side:
+                if not symbol:
                     continue
+
+                # X10Adapter.close_live_position expects the POSITION side (original_side), not the close side.
+                original_side = "BUY" if size > 0 else "SELL"
+
+                # Best-effort notional (used for logging / future semantics; adapter re-checks live position anyway)
+                px = (
+                    self._get_cached_price(symbol)
+                    or self._safe_float(
+                        pos.get("markPrice")
+                        or pos.get("mark_price")
+                        or pos.get("indexPrice")
+                        or pos.get("index_price")
+                        or pos.get("price")
+                        or 0
+                    )
+                )
+                notional_usd = abs(size) * px if px else abs(size) * 100
                 
                 # ═══════════════════════════════════════════════════════════════
                 # FIX: Skip if already closed in this shutdown cycle
@@ -550,8 +566,8 @@ class ShutdownOrchestrator:
                     pass
                 
                 try:
-                    logger.info(f"🛑 Closing X10 {symbol} ({side} {abs(size)})")
-                    x10_tasks.append(self._close_x10_with_tracking(x10, symbol, side, abs(size), errors))
+                    logger.info(f"🛑 Closing X10 {symbol} (pos={original_side} size={abs(size)} notional≈${notional_usd:.2f})")
+                    x10_tasks.append(self._close_x10_with_tracking(x10, symbol, original_side, notional_usd, errors))
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"x10_close_prepare:{symbol}:{e}")
 
@@ -642,8 +658,8 @@ class ShutdownOrchestrator:
         self, 
         x10, 
         symbol: str, 
-        side: str, 
-        size: float, 
+        original_side: str,
+        notional_usd: float,
         errors: List[str]
     ) -> Tuple[bool, Optional[str]]:
         """
@@ -661,7 +677,7 @@ class ShutdownOrchestrator:
             return True, None
         
         try:
-            success, order_id = await x10.close_live_position(symbol, side, size)
+            success, order_id = await x10.close_live_position(symbol, original_side, notional_usd)
             
             if success:
                 # Mark as closed
@@ -952,6 +968,18 @@ class ShutdownOrchestrator:
         state_manager = self._components.get("state_manager")
         close_database_fn = self._components.get("close_database_fn")
         stop_fee_manager_fn = self._components.get("stop_fee_manager_fn")
+        funding_tracker = self._components.get("funding_tracker")
+
+        # ═══════════════════════════════════════════════════════════════
+        # FIX: Force final funding update before closing trades in DB
+        # This ensures we capture any last-minute funding payments
+        # ═══════════════════════════════════════════════════════════════
+        if funding_tracker and hasattr(funding_tracker, "update_all_trades"):
+            try:
+                logger.info("💰 [SHUTDOWN] Forcing final funding update...")
+                await funding_tracker.update_all_trades()
+            except Exception as e:
+                logger.warning(f"⚠️ [SHUTDOWN] Final funding update failed: {e}")
 
         # ═══════════════════════════════════════════════════════════════
         # FIX: Mark closed positions in DB BEFORE stopping state manager
@@ -982,6 +1010,16 @@ class ShutdownOrchestrator:
                         # Direct access to internal dict as fallback
                         trade_obj = state_manager._trades.get(symbol)
                     
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX: Use funding from trade object if available (it has the latest update)
+                    # ═══════════════════════════════════════════════════════════════
+                    if trade_obj:
+                        funding_from_state = getattr(trade_obj, 'funding_collected', 0.0)
+                        # If state has more data (or non-zero when pnl_data is zero), use it
+                        if abs(funding_from_state) > abs(total_funding):
+                            total_funding = funding_from_state
+                            logger.info(f"💰 {symbol}: Using funding from StateManager: ${total_funding:.4f}")
+
                     # Extract Lighter data
                     lighter_entry_price = self._safe_float(pnl_data.get("avg_entry_price", 0.0))
                     lighter_close_price = self._safe_float(pnl_data.get("close_price", 0.0))

@@ -22,12 +22,32 @@ load_dotenv()
 # 
 # EMPFEHLUNG: Mindestens $60-100 pro Trade für zuverlässige Fills!
 # Bei deinem Kapital ($208 X10 + $239 Lighter = ~$447 total):
-# - $80 * 5 Trades = $400 Total Exposure = ~0.9x Leverage ✅ SAFE
-# - $100 * 4 Trades = $400 Total Exposure = ~0.9x Leverage ✅ SAFE
+# - ZIEL: 10% Gewinn/Monat ($45)
+# - REALITÄT: Logs zeigen ~60% APY Opportunities (TAO, CRV, RESOLV)
+# - STRATEGIE: 2x Leverage reicht völlig aus! (Sicherer als 4x)
+# - RECHNUNG: $225 * 4 Trades = $900 Exposure. $900 * 60% APY = $540/Jahr = $45/Monat.
 # ═══════════════════════════════════════════════════════════════════════════════
-DESIRED_NOTIONAL_USD = 80.0       # Position size per trade in USD (MUST be >= MIN_POSITION_SIZE_USD!)
-MAX_OPEN_TRADES = 4               # Max concurrent positions (4 * $80 = $320 total exposure)
-LEVERAGE_MULTIPLIER = 5.0         # Maximum allowed leverage multiplier
+DESIRED_NOTIONAL_USD = 225.0      # Sweet Spot: 2x Leverage for 10% Monthly Return
+MAX_OPEN_TRADES = 4               # Max concurrent positions ($900 Total Exposure)
+LEVERAGE_MULTIPLIER = 5.0         # 5x Limit is plenty for 2x Real Leverage
+MAX_KRAKEN_TIME_DRIFT_SEC = 0.250
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Maker micro-fill policy (Lighter maker leg)
+#
+# Problem: If Lighter maker partially fills below X10 min order size, the bot
+# cannot hedge on X10 and is temporarily unhedged. These defaults aim to keep
+# unhedged exposure bounded and resolve deterministically.
+#
+# Behavior:
+# - Allow a short grace window to complete the fill.
+# - If still unhedgeable and unhedged USD exceeds threshold, abort.
+# - Always abort if max wait is exceeded.
+# ─────────────────────────────────────────────────────────────────────────────
+MAKER_MICROFILL_GRACE_SECONDS = 8.0
+MAKER_MICROFILL_MAX_WAIT_SECONDS = 20.0
+MAKER_MICROFILL_CHECK_INTERVAL_SECONDS = 1.0
+MAKER_MICROFILL_MAX_UNHEDGED_USD = 5.0
 # Burst Limit (New)
 FARM_MAX_CONCURRENT_ORDERS = 3    # Max concurrent order launches per cycle (reduced to avoid rate limits)
 
@@ -43,23 +63,20 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # ------------------------------------------------------------------------------
 # ═══════════════════════════════════════════════════════════════════════════════
 # APY FILTER ERKLÄRT:
-# - 5% APY auf $80 Trade = $80 * 0.05 / 365 = $0.011/Tag = NICHT PROFITABEL nach Fees!
-# - 15% APY auf $80 Trade = $80 * 0.15 / 365 = $0.033/Tag = Breakeven mit Fees
-# - 25% APY auf $80 Trade = $80 * 0.25 / 365 = $0.055/Tag = PROFITABEL! ✅
-# 
-# EMPFEHLUNG: Mindestens 15% APY für profitable Trades!
+# - Logs zeigen Top-Chancen mit 50-80% APY.
+# - Wir filtern alles unter 20% raus, um nur die "Sahne" abzuschöpfen.
 # ═══════════════════════════════════════════════════════════════════════════════
-MIN_APY_FILTER = 0.10       # 10% APY Minimum - balanced for opportunity finding
-MIN_APY_FALLBACK = 0.08     # 8% Absolutes Minimum (allows BTC/ETH rebate pairs)
-MIN_PROFIT_EXIT_USD = 0.05  # $0.05 minimum profit to close (was $0.01 - too small)
+MIN_APY_FILTER = 0.20       # 20% APY Minimum - Only High Quality Trades
+MIN_APY_FALLBACK = 0.15     # 15% Fallback
+MIN_PROFIT_EXIT_USD = 0.25  # $0.25 Minimum Profit (bei $225 Size)
+MIN_MAINTENANCE_APY = 0.10  # Exit if APY drops below 10% (Smart Rotation)
+MAX_HOLD_HOURS = 48.0       # Give trades time to overcome spread costs
+EXIT_SLIPPAGE_BUFFER_PCT = 0.001 # 0.1% Buffer for Bid/Ask Spread at Exit
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.006  # Relaxed to 0.6% Spread allowed
-MAX_BREAKEVEN_HOURS = 4.0          # Trade muss in 4h profitabel sein
-BALANCE_RESERVE_PCT = 0.03         # 3% des Kapitals immer frei lassen
-MAX_TOTAL_EXPOSURE_PCT = 18.0      # Max 1800% exposure (18x Real Leverage)
-
+MAX_SPREAD_FILTER_PERCENT = 0.003  # 0.3% TIGHT SPREAD (Crucial for profitability!)
+MAX_BREAKEVEN_HOURS = 12.0         # Trade muss in 12h profitabel sein
 # Blacklist (Coins die NIE getradet werden sollen)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gründe für Blacklist:
@@ -115,10 +132,10 @@ MAKER_FEE = MAKER_FEE_X10
 MIN_POSITION_SIZE_USD = 50.0      # Hard minimum for any position (exchange limits)
 MIN_TRADE_SIZE_USD = 50.0         # Hard minimum for any trade  
 MAX_NOTIONAL_USD = DESIRED_NOTIONAL_USD * 1.5  # Buffer +50%
-MAX_TRADE_SIZE_USD = 150.0        # Hard cap per single trade
+MAX_TRADE_SIZE_USD = 600.0        # Hard cap per single trade (increased for leverage)
 MIN_SAFE_THRESHOLD = 0.05         # 5% minimum threshold (was 3%)
 
-# --- Funding Tracking ---
+# --- Funding Trackin300.0        # Hard cap per single trade
 # FundingTracker runs periodically and fetches realized funding payments.
 # For debugging, reduce this to e.g. 30 to see cycles quickly.
 FUNDING_TRACK_INTERVAL_SECONDS = 30
@@ -160,10 +177,16 @@ MAX_VOLATILITY_PCT_24H = 50.0
 MIN_OPEN_INTEREST_USD = 50000
 MAX_OI_FRACTION = 0.05
 
+# --- Latency Arbitrage (Experimental) ---
+LATENCY_ARB_ENABLED = True
+LATENCY_ARB_MIN_LAG_SECONDS = 5.0
+LATENCY_ARB_MAX_LAG_SECONDS = 60.0    # Increased to 60s to tolerate quiet markets
+LATENCY_ARB_MIN_RATE_DIFF = 0.0002    # 0.02% rate diff required
+
 # --- System & API ---
 DB_FILE = "funding.db"
 LOG_FILE = "funding_bot.log"
-LOG_LEVEL = logging.DEBUG
+LOG_LEVEL = logging.INFO  # Changed from DEBUG to INFO to reduce log spam
 CONCURRENT_REQUEST_LIMIT = 10
 REFRESH_DELAY_SECONDS = 3
 TRADE_COOLDOWN_SECONDS = 120

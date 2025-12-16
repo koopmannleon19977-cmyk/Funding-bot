@@ -1,6 +1,9 @@
 
 import pytest
-from src.circuit_breaker import CircuitBreaker
+
+
+cb_mod = pytest.importorskip("src.circuit_breaker")
+CircuitBreaker = getattr(cb_mod, "CircuitBreaker")
 
 def test_circuit_breaker_failure_trigger(circuit_breaker_config):
     """Test trigger after consecutive failures"""

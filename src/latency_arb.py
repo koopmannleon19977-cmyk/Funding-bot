@@ -134,7 +134,9 @@ class LatencyArbDetector:
         
         # Skip if lag is too large (data is stale, not just delayed)
         if lag_seconds > self.max_lag_threshold:
-            logger.debug(f"⚠️ Latency Arb {symbol}: Lag too large ({lag_seconds:.1f}s > {self.max_lag_threshold}s) - stale data, skip")
+            # Only log every 60s to avoid spam
+            if int(time.time()) % 60 == 0:
+                logger.debug(f"⚠️ Latency Arb {symbol}: Lag too large ({lag_seconds:.1f}s > {self.max_lag_threshold}s) - stale data, skip")
             return None
         
         # 4. Analyze Trend of the LEADING exchange
@@ -230,6 +232,6 @@ def is_latency_arb_enabled() -> bool:
     """Check if latency arbitrage is enabled in config."""
     try:
         import config
-        return getattr(config, 'ENABLE_LATENCY_ARB', True)
+        return getattr(config, 'LATENCY_ARB_ENABLED', True)
     except Exception:
         return True  # Default: enabled
