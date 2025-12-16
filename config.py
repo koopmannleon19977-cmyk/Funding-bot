@@ -115,7 +115,12 @@ EXIT_COST_SAFETY_MARGIN = 1.1          # NEU: 10% Safety Buffer auf Exit-Kosten
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
 MAX_SPREAD_FILTER_PERCENT = 0.002  # VERSCHÄRFT: 0.2% (vorher 0.3%) - weniger Slippage!
+MAX_PRICE_IMPACT_PCT = 0.5         # H7: Max erlaubte Slippage aus Price Impact Simulation (0.5%)
 MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein (vorher 12h)
+
+# H8: Dynamic Spread Threshold (Volatility-based adjustments)
+# Bei niedriger Vol: 0.75x stricter, bei hoher Vol: 1.5x relaxed (max 1%)
+DYNAMIC_SPREAD_ENABLED = True      # H8: Aktiviert volatilitätsbasierte Spread-Limits
 # Blacklist (Coins die NIE getradet werden sollen)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gründe für Blacklist:

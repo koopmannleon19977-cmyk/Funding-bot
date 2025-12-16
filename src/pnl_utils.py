@@ -65,7 +65,7 @@ def compute_realized_pnl(
     entry_fills: List[Dict[str, Any]],
     close_fills: List[Dict[str, Any]],
     fee_currency: str = "USD",
-) -> Dict[str, float]:
+) -> Dict[str, Decimal]:
     """
     Compute realized PnL from entry and close fills.
     
@@ -73,6 +73,8 @@ def compute_realized_pnl(
     1. Computing volume-weighted average entry and close prices
     2. Computing price PnL based on position side
     3. Subtracting total fees from both entry and close
+    
+    ALL RETURNS ARE DECIMAL for precision-critical financial calculations.
     
     Args:
         symbol: Trading pair symbol (e.g., "BTC-USD")
@@ -82,14 +84,14 @@ def compute_realized_pnl(
         fee_currency: Currency for fee normalization (default: "USD")
     
     Returns:
-        Dict with {price_pnl, fee_total, total_pnl}
+        Dict[str, Decimal] with {price_pnl, fee_total, total_pnl, entry_vwap, close_vwap, qty}
         
     Example:
         >>> entry_fills = [{"price": 0.4054, "qty": 197, "fee": 0.000225, "is_taker": True}]
         >>> close_fills = [{"price": 0.4052, "qty": 197, "fee": 0.000225, "is_taker": True}]
         >>> result = compute_realized_pnl("TAO-USD", "LONG", entry_fills, close_fills)
-        >>> result["price_pnl"]  # (0.4052 - 0.4054) * 197 = -0.0394
-        >>> result["total_pnl"]  # -0.0394 - 0.00045 = -0.03985
+        >>> result["price_pnl"]  # Decimal('-0.0394')
+        >>> result["total_pnl"]  # Decimal('-0.03985')
     """
     sign = _side_sign(side)
     
@@ -156,13 +158,14 @@ def compute_realized_pnl(
         f"fees=${float(fee_total):.6f}, total=${float(total_pnl):.6f}"
     )
     
+    # Return Decimal values for precision-critical calculations
     return {
-        "price_pnl": float(price_pnl),
-        "fee_total": float(fee_total),
-        "total_pnl": float(total_pnl),
-        "entry_vwap": float(entry_vwap),
-        "close_vwap": float(close_vwap),
-        "qty": float(qty_for_pnl),
+        "price_pnl": price_pnl,
+        "fee_total": fee_total,
+        "total_pnl": total_pnl,
+        "entry_vwap": entry_vwap,
+        "close_vwap": close_vwap,
+        "qty": qty_for_pnl,
     }
 
 
@@ -179,7 +182,7 @@ def compute_hedge_pnl(
     lighter_fees: float = 0.0,
     x10_fees: float = 0.0,
     funding_collected: float = 0.0,
-) -> Dict[str, float]:
+) -> Dict[str, Decimal]:
     """
     Compute combined realized PnL for a hedged position (Lighter + X10).
     
@@ -187,6 +190,8 @@ def compute_hedge_pnl(
     - LONG on one exchange, SHORT on the other
     
     This function computes the TOTAL PnL across both legs.
+    
+    ALL RETURNS ARE DECIMAL for precision-critical financial calculations.
     
     Args:
         symbol: Trading pair symbol
@@ -203,37 +208,48 @@ def compute_hedge_pnl(
         funding_collected: Net funding collected (profit-positive)
     
     Returns:
-        Dict with {lighter_pnl, x10_pnl, price_pnl_total, fee_total, funding, total_pnl}
+        Dict[str, Decimal] with {lighter_pnl, x10_pnl, price_pnl_total, fee_total, funding, total_pnl}
     """
+    # Convert all inputs to Decimal for precision
+    d_lighter_entry = _safe_decimal(lighter_entry_price)
+    d_lighter_close = _safe_decimal(lighter_close_price)
+    d_lighter_qty = _safe_decimal(lighter_qty)
+    d_x10_entry = _safe_decimal(x10_entry_price)
+    d_x10_close = _safe_decimal(x10_close_price)
+    d_x10_qty = _safe_decimal(x10_qty)
+    d_lighter_fees = _safe_decimal(abs(lighter_fees))
+    d_x10_fees = _safe_decimal(abs(x10_fees))
+    d_funding = _safe_decimal(funding_collected)
+    
     # Compute Lighter leg PnL
     lighter_sign = _side_sign(lighter_side)
     if lighter_sign > 0:  # LONG
-        lighter_price_pnl = (lighter_close_price - lighter_entry_price) * lighter_qty
+        lighter_price_pnl = (d_lighter_close - d_lighter_entry) * d_lighter_qty
     elif lighter_sign < 0:  # SHORT
-        lighter_price_pnl = (lighter_entry_price - lighter_close_price) * lighter_qty
+        lighter_price_pnl = (d_lighter_entry - d_lighter_close) * d_lighter_qty
     else:
-        lighter_price_pnl = 0.0
+        lighter_price_pnl = Decimal("0")
     
     # Compute X10 leg PnL
     x10_sign = _side_sign(x10_side)
     if x10_sign > 0:  # LONG
-        x10_price_pnl = (x10_close_price - x10_entry_price) * x10_qty
+        x10_price_pnl = (d_x10_close - d_x10_entry) * d_x10_qty
     elif x10_sign < 0:  # SHORT
-        x10_price_pnl = (x10_entry_price - x10_close_price) * x10_qty
+        x10_price_pnl = (d_x10_entry - d_x10_close) * d_x10_qty
     else:
-        x10_price_pnl = 0.0
+        x10_price_pnl = Decimal("0")
     
-    # Combined values
+    # Combined values (all Decimal)
     price_pnl_total = lighter_price_pnl + x10_price_pnl
-    fee_total = abs(lighter_fees) + abs(x10_fees)
-    total_pnl = price_pnl_total - fee_total + funding_collected
+    fee_total = d_lighter_fees + d_x10_fees
+    total_pnl = price_pnl_total - fee_total + d_funding
     
     logger.debug(
         f"[PNL] {symbol} Hedge: "
-        f"lighter_pnl=${lighter_price_pnl:.6f} ({lighter_side}), "
-        f"x10_pnl=${x10_price_pnl:.6f} ({x10_side}), "
-        f"fees=${fee_total:.6f}, funding=${funding_collected:.6f}, "
-        f"total=${total_pnl:.6f}"
+        f"lighter_pnl=${float(lighter_price_pnl):.6f} ({lighter_side}), "
+        f"x10_pnl=${float(x10_price_pnl):.6f} ({x10_side}), "
+        f"fees=${float(fee_total):.6f}, funding=${float(d_funding):.6f}, "
+        f"total=${float(total_pnl):.6f}"
     )
     
     return {
@@ -241,7 +257,7 @@ def compute_hedge_pnl(
         "x10_pnl": x10_price_pnl,
         "price_pnl_total": price_pnl_total,
         "fee_total": fee_total,
-        "funding": funding_collected,
+        "funding": d_funding,
         "total_pnl": total_pnl,
     }
 

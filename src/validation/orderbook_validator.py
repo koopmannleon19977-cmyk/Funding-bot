@@ -127,6 +127,44 @@ class OrderbookDepthLevel:
         return self.price * self.size
 
 
+@dataclass
+class PriceImpactResult:
+    """
+    Result of price impact simulation.
+    
+    Simulates walking through orderbook levels to calculate
+    actual execution price and slippage for a given order size.
+    """
+    # Input parameters
+    side: str                          # BUY or SELL
+    order_size_usd: Decimal            # Requested order size in USD
+    
+    # Execution simulation
+    can_fill: bool                     # Whether full order can be filled
+    filled_size_usd: Decimal           # How much could be filled
+    avg_execution_price: Decimal       # Volume-weighted average price
+    best_price: Decimal                # Best available price (top of book)
+    worst_price: Decimal               # Worst price used in fill
+    
+    # Impact metrics
+    slippage_percent: Decimal          # Slippage from best price to avg price
+    price_impact_percent: Decimal      # Impact from mid-price to avg execution price
+    levels_consumed: int               # How many orderbook levels consumed
+    
+    # Breakdown
+    fills_by_level: List[Tuple[Decimal, Decimal, Decimal]]  # [(price, size_coins, size_usd), ...]
+    
+    @property
+    def total_cost_usd(self) -> Decimal:
+        """Total USD cost for this execution"""
+        return self.filled_size_usd
+    
+    @property
+    def is_acceptable(self) -> bool:
+        """Quick check if execution is acceptable (can fill + reasonable slippage)"""
+        return self.can_fill and self.slippage_percent < Decimal("1.0")  # <1% slippage
+
+
 class OrderbookValidator:
     """
     Validates orderbook state before placing Maker orders.
@@ -470,6 +508,138 @@ class OrderbookValidator:
         """Clear validation cache"""
         self._validation_cache.clear()
         
+    def simulate_price_impact(
+        self,
+        side: str,
+        order_size_usd: Decimal,
+        bids: List[Tuple[Decimal, Decimal]],  # [(price, size), ...]
+        asks: List[Tuple[Decimal, Decimal]],  # [(price, size), ...]
+        mid_price: Optional[Decimal] = None,
+    ) -> PriceImpactResult:
+        """
+        Simulate price impact by walking through orderbook levels.
+        
+        For a BUY order: walks through ASK levels (sellers)
+        For a SELL order: walks through BID levels (buyers)
+        
+        Args:
+            side: "BUY" or "SELL"
+            order_size_usd: Order size in USD to simulate
+            bids: Bid levels [(price, size_in_coins), ...]
+            asks: Ask levels [(price, size_in_coins), ...]
+            mid_price: Optional mid-price for impact calculation
+            
+        Returns:
+            PriceImpactResult with detailed execution simulation
+        """
+        # Determine which side of the book we're consuming
+        # BUY = consume asks (we're buying from sellers)
+        # SELL = consume bids (we're selling to buyers)
+        if side.upper() == "BUY":
+            levels = [OrderbookDepthLevel(Decimal(str(p)), Decimal(str(s))) for p, s in asks]
+            is_buying = True
+        else:
+            levels = [OrderbookDepthLevel(Decimal(str(p)), Decimal(str(s))) for p, s in bids]
+            is_buying = False
+            
+        # Handle empty book
+        if not levels:
+            return PriceImpactResult(
+                side=side,
+                order_size_usd=order_size_usd,
+                can_fill=False,
+                filled_size_usd=Decimal("0"),
+                avg_execution_price=Decimal("0"),
+                best_price=Decimal("0"),
+                worst_price=Decimal("0"),
+                slippage_percent=Decimal("0"),
+                price_impact_percent=Decimal("0"),
+                levels_consumed=0,
+                fills_by_level=[],
+            )
+        
+        # Calculate mid-price if not provided
+        if mid_price is None:
+            best_bid = Decimal(str(bids[0][0])) if bids else None
+            best_ask = Decimal(str(asks[0][0])) if asks else None
+            if best_bid and best_ask:
+                mid_price = (best_bid + best_ask) / 2
+            elif best_bid:
+                mid_price = best_bid
+            elif best_ask:
+                mid_price = best_ask
+            else:
+                mid_price = levels[0].price
+        
+        # Walk through levels
+        remaining_usd = order_size_usd
+        total_coins = Decimal("0")
+        total_usd = Decimal("0")
+        fills_by_level: List[Tuple[Decimal, Decimal, Decimal]] = []
+        levels_consumed = 0
+        best_price = levels[0].price
+        worst_price = levels[0].price
+        
+        for level in levels:
+            if remaining_usd <= 0:
+                break
+                
+            # Calculate how much we can fill at this level
+            level_notional = level.notional
+            fill_usd = min(remaining_usd, level_notional)
+            fill_coins = fill_usd / level.price
+            
+            # Record fill
+            fills_by_level.append((level.price, fill_coins, fill_usd))
+            total_coins += fill_coins
+            total_usd += fill_usd
+            remaining_usd -= fill_usd
+            levels_consumed += 1
+            worst_price = level.price
+            
+        # Calculate metrics
+        can_fill = remaining_usd <= Decimal("0.01")  # Allow tiny remainder
+        filled_size_usd = total_usd
+        
+        if total_coins > 0:
+            avg_execution_price = total_usd / total_coins
+        else:
+            avg_execution_price = Decimal("0")
+        
+        # Calculate slippage from best price to avg execution price
+        if best_price > 0:
+            if is_buying:
+                # For buys, slippage is how much MORE we pay vs best ask
+                slippage_percent = ((avg_execution_price - best_price) / best_price) * 100
+            else:
+                # For sells, slippage is how much LESS we receive vs best bid
+                slippage_percent = ((best_price - avg_execution_price) / best_price) * 100
+        else:
+            slippage_percent = Decimal("0")
+            
+        # Calculate price impact from mid-price
+        if mid_price > 0:
+            if is_buying:
+                price_impact_percent = ((avg_execution_price - mid_price) / mid_price) * 100
+            else:
+                price_impact_percent = ((mid_price - avg_execution_price) / mid_price) * 100
+        else:
+            price_impact_percent = Decimal("0")
+        
+        return PriceImpactResult(
+            side=side,
+            order_size_usd=order_size_usd,
+            can_fill=can_fill,
+            filled_size_usd=filled_size_usd,
+            avg_execution_price=avg_execution_price,
+            best_price=best_price,
+            worst_price=worst_price,
+            slippage_percent=max(slippage_percent, Decimal("0")),  # Always positive
+            price_impact_percent=max(price_impact_percent, Decimal("0")),
+            levels_consumed=levels_consumed,
+            fills_by_level=fills_by_level,
+        )
+        
     def get_recommended_price(
         self,
         symbol: str,
@@ -632,4 +802,49 @@ def validate_orderbook_for_maker(
         bids=bids,
         asks=asks,
         orderbook_timestamp=orderbook_timestamp,
+    )
+
+
+def simulate_price_impact(
+    side: str,
+    order_size_usd: float,
+    bids: List[Tuple[float, float]],
+    asks: List[Tuple[float, float]],
+    mid_price: Optional[float] = None,
+    profile: ExchangeProfile = ExchangeProfile.LIGHTER,
+) -> PriceImpactResult:
+    """
+    Convenience function to simulate price impact for an order.
+    
+    Args:
+        side: "BUY" or "SELL"
+        order_size_usd: Order size in USD
+        bids: Bid levels [(price, size_coins), ...]
+        asks: Ask levels [(price, size_coins), ...]
+        mid_price: Optional mid-price for impact calculation
+        profile: Exchange profile (default: LIGHTER)
+        
+    Returns:
+        PriceImpactResult with execution simulation
+        
+    Example:
+        impact = simulate_price_impact(
+            side="BUY",
+            order_size_usd=150.0,
+            bids=[(100.0, 2.0), (99.5, 5.0)],
+            asks=[(100.5, 1.0), (101.0, 3.0), (101.5, 5.0)],
+        )
+        
+        if impact.can_fill and impact.slippage_percent < 0.5:
+            # Good execution expected
+            print(f"Avg price: ${impact.avg_execution_price:.4f}")
+            print(f"Slippage: {impact.slippage_percent:.3f}%")
+    """
+    validator = get_orderbook_validator(profile)
+    return validator.simulate_price_impact(
+        side=side,
+        order_size_usd=Decimal(str(order_size_usd)),
+        bids=[(Decimal(str(p)), Decimal(str(s))) for p, s in bids],
+        asks=[(Decimal(str(p)), Decimal(str(s))) for p, s in asks],
+        mid_price=Decimal(str(mid_price)) if mid_price else None,
     )

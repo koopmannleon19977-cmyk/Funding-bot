@@ -196,6 +196,40 @@ class VolatilityMonitor:
         vol = self._calculate_volatility(symbol)
         return vol if vol is not None else 0.0
 
+    def get_dynamic_spread_limit(self, symbol: str, base_limit: float = 0.002) -> float:
+        """
+        H8: Dynamic Spread Threshold based on volatility regime.
+        
+        Args:
+            symbol: Trading pair
+            base_limit: Base spread limit (default 0.2% = 0.002)
+            
+        Returns:
+            Adjusted spread limit as decimal (e.g., 0.003 = 0.3%)
+            
+        Adjustment Logic:
+            - LOW volatility: base * 0.75 (stricter - market is calm)
+            - NORMAL volatility: base * 1.0 (standard)
+            - HIGH volatility: base * 1.5 (relaxed - expect wider spreads)
+            - EXTREME volatility: base * 2.0 (very relaxed but still capped)
+        """
+        regime = self.current_regimes.get(symbol, "NORMAL")
+        
+        # Spread multipliers per regime
+        multipliers = {
+            'LOW': 0.75,      # Tighter spreads in calm markets
+            'NORMAL': 1.0,    # Standard
+            'HIGH': 1.5,      # Allow wider spreads
+            'EXTREME': 2.0,   # Emergency - still allow some trades
+        }
+        
+        multiplier = multipliers.get(regime, 1.0)
+        dynamic_limit = base_limit * multiplier
+        
+        # Cap at 1% max to prevent crazy entries
+        max_spread = 0.01
+        return min(dynamic_limit, max_spread)
+
     def get_stats(self) -> Dict:
         """Monitor stats"""
         regime_counts = {}

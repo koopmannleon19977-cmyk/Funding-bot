@@ -99,11 +99,19 @@ class ManagedWebSocket:
     Single WebSocket connection with auto-reconnect and health monitoring. 
     """
     
-    def __init__(self, config: WSConfig, message_handler: Callable, on_reconnect: Optional[Callable] = None, on_pong: Optional[Callable] = None):
+    def __init__(
+        self, 
+        config: WSConfig, 
+        message_handler: Callable, 
+        on_reconnect: Optional[Callable] = None, 
+        on_pong: Optional[Callable] = None,
+        on_health_change: Optional[Callable[[str, bool], None]] = None
+    ):
         self.config = config
         self.message_handler = message_handler
         self.on_reconnect = on_reconnect  # Callback when connection is reestablished
         self.on_pong = on_pong  # Callback when pong is received (for manager-level tracking)
+        self.on_health_change = on_health_change  # Callback when health state changes (name, is_healthy)
         
         self._ws: Optional[websockets. WebSocketClientProtocol] = None
         self._state = WSState. DISCONNECTED
@@ -137,6 +145,23 @@ class ManagedWebSocket:
         if self._state == WSState.CONNECTED and self._metrics.last_connect_time > 0:
             self._metrics.uptime_seconds = time.time() - self._metrics.last_connect_time
         return self._metrics
+    
+    def _set_health(self, healthy: bool) -> None:
+        """
+        Set health status and invoke callback if state changed.
+        
+        Args:
+            healthy: New health status
+        """
+        old_health = self._metrics.is_healthy
+        self._metrics.is_healthy = healthy
+        
+        # Only invoke callback if state actually changed
+        if old_health != healthy and self.on_health_change:
+            try:
+                self.on_health_change(self.config.name, healthy)
+            except Exception as e:
+                logger.warning(f"[{self.config.name}] Health callback error: {e}")
     
     def classify_error(self, code: int) -> Tuple[str, bool, float]:
         """
@@ -363,7 +388,7 @@ class ManagedWebSocket:
                 self._state = WSState.RECONNECTING
                 self._metrics.reconnect_count += 1
                 self._reconnect_attempts += 1
-                self._metrics.is_healthy = False
+                self._set_health(False)
                 
                 # Extract error code for classification
                 error_code = 0
@@ -531,7 +556,7 @@ class ManagedWebSocket:
             
             self._state = WSState.CONNECTED
             self._metrics.last_connect_time = time.time()
-            self._metrics.is_healthy = True
+            self._set_health(True)
             self._metrics.last_pong_time = time.time()  # Initialize for health tracking
             
             logger.info(f"✅ [{self.config.name}] Connected to {self.config.url}")
@@ -604,7 +629,7 @@ class ManagedWebSocket:
                             self._metrics.last_pong_time = time.time()
                             self._metrics.pongs_received += 1
                             self._metrics.missed_pongs = 0
-                            self._metrics.is_healthy = True
+                            self._set_health(True)
                             
                             # CALL MANAGER's ON_PONG CALLBACK (if registered)
                             # This updates manager-level tracking like _x10_account_last_pong_time
@@ -641,7 +666,7 @@ class ManagedWebSocket:
                         self._metrics.last_pong_time = time.time()
                         self._metrics.pongs_received += 1
                         self._metrics.missed_pongs = 0  # Reset missed counter on successful pong
-                        self._metrics.is_healthy = True
+                        self._set_health(True)
                         if self.config.name == "lighter":
                             logger.debug(
                                 f"💓 [{self.config.name}] Received pong #{self._metrics.pongs_received} - "
@@ -663,13 +688,13 @@ class ManagedWebSocket:
             # Capture error code for classification in reconnect logic
             self._metrics.last_error = f"ConnectionClosed: {e.code} {e.reason}"
             self._metrics.last_error_code = e.code
-            self._metrics.is_healthy = False
+            self._set_health(False)
             logger.warning(f"[{self.config.name}] Connection closed: {e.code} {e.reason}")
         except asyncio.CancelledError:
             raise
         except Exception as e:
             self._metrics.last_error = str(e)
-            self._metrics.is_healthy = False
+            self._set_health(False)
             logger.error(f"[{self.config.name}] Receive error: {e}")
             raise
     
@@ -773,7 +798,7 @@ class ManagedWebSocket:
                         self._metrics.last_pong_time = time.time()  # Track server ping time
                         self._metrics.pongs_received += 1  # Count as "server pings received"
                         self._metrics.missed_pongs = 0  # Reset missed counter
-                        self._metrics.is_healthy = True
+                        self._set_health(True)
                         logger.info(f"💓 [{self.config.name}] Received SERVER ping → sent pong (ping #{self._metrics.pongs_received})")
                     except Exception as e:
                         logger.warning(f"⚠️ [{self.config.name}] Failed to respond to server ping: {e}")
@@ -892,7 +917,7 @@ class ManagedWebSocket:
                         logger.debug(f"💓 [{self.config.name}] Sent JSON ping #{self._metrics.pings_sent}")
                     except Exception as e:
                         logger.warning(f"[{self.config.name}] Failed to send JSON ping: {e}")
-                        self._metrics.is_healthy = False
+                        self._set_health(False)
                         break
                 
                 # ═══════════════════════════════════════════════════════════════════
@@ -936,7 +961,7 @@ class ManagedWebSocket:
                                 f"🔴 [{self.config.name}] Connection unhealthy - "
                                 f"{self._metrics.missed_pongs} missed pongs, triggering reconnect"
                             )
-                            self._metrics.is_healthy = False
+                            self._set_health(False)
                             break
                 
                 if self._metrics.last_message_time > 0:
@@ -955,7 +980,7 @@ class ManagedWebSocket:
                         logger.warning(
                             f"🔴 [{self.config.name}] Stream stale ({silence:.0f}s), reconnecting..."
                         )
-                        self._metrics.is_healthy = False
+                        self._set_health(False)
                         break
                     else:
                         # Periodic health log mit erweiterten Metriken
@@ -1202,6 +1227,24 @@ class WebSocketManager:
         else:
             logger.warning(f"🔄 [{ws_name}] No OrderbookProvider set - manual cooldown not applied")
     
+    def _on_health_change(self, ws_name: str, is_healthy: bool):
+        """
+        Handle WebSocket health state changes.
+        
+        Called when a connection transitions between healthy/unhealthy states.
+        Useful for proactive monitoring, alerts, and trading decisions.
+        
+        Args:
+            ws_name: Name of the WebSocket (lighter, x10_account, etc.)
+            is_healthy: New health state
+        """
+        if is_healthy:
+            logger.info(f"✅ [{ws_name}] Connection became healthy")
+        else:
+            logger.warning(f"⚠️ [{ws_name}] Connection became unhealthy")
+        
+        # Future: Can trigger alerts, pause trading, etc.
+    
     def set_adapters(self, x10_adapter, lighter_adapter):
         """Set exchange adapters for data updates"""
         self. x10_adapter = x10_adapter
@@ -1399,7 +1442,7 @@ class WebSocketManager:
                 conn._metrics.pongs_received += 1
                 conn._metrics.last_pong_time = time.time()
                 conn._metrics.missed_pongs = 0
-                conn._metrics.is_healthy = True
+                conn._set_health(True)
             
             # LOG at INFO level to verify pongs are being received
             logger.info(f"💓 [x10_account] Received pong #{conn._metrics.pongs_received if conn else '?'}: {pong_value}")
@@ -1416,7 +1459,7 @@ class WebSocketManager:
                 conn._metrics.pongs_received += 1
                 conn._metrics.last_pong_time = time.time()
                 conn._metrics.missed_pongs = 0
-                conn._metrics.is_healthy = True
+                conn._set_health(True)
             
             logger.info(f"💓 [x10_account] Received type:pong #{conn._metrics.pongs_received if conn else '?'}")
             return True
@@ -1480,7 +1523,8 @@ class WebSocketManager:
         self._connections["lighter"] = ManagedWebSocket(
             lighter_config, 
             self._handle_message,
-            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
+            on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
+            on_health_change=self._on_health_change     # H2: Health state callbacks
         )
         
         # X10 Header Setup
@@ -1525,7 +1569,8 @@ class WebSocketManager:
             x10_account_config,
             self._handle_message,
             on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
-            on_pong=self._handle_x10_account_pong       # Update manager-level pong tracking
+            on_pong=self._handle_x10_account_pong,      # Update manager-level pong tracking
+            on_health_change=self._on_health_change    # H2: Health state callbacks
         )
         
         # 3. X10 TRADES Connection (Public Firehose)
@@ -1544,7 +1589,8 @@ class WebSocketManager:
         self._connections["x10_trades"] = ManagedWebSocket(
             x10_trades_config,
             self._handle_message,
-            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
+            on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
+            on_health_change=self._on_health_change    # H2: Health state callbacks
         )
         
         # 4. X10 FUNDING Connection (Public Firehose)
@@ -1563,7 +1609,8 @@ class WebSocketManager:
         self._connections["x10_funding"] = ManagedWebSocket(
             x10_funding_config,
             self._handle_message,
-            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
+            on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
+            on_health_change=self._on_health_change    # H2: Health state callbacks
         )
 
         # 5. X10 ORDERBOOK Connection (Public, Delta Updates)
@@ -1581,7 +1628,8 @@ class WebSocketManager:
         self._connections["x10_orderbooks"] = ManagedWebSocket(
             x10_orderbook_config,
             self._handle_message,
-            on_reconnect=self._on_websocket_reconnect  # Invalidate orderbooks on reconnect
+            on_reconnect=self._on_websocket_reconnect,  # Invalidate orderbooks on reconnect
+            on_health_change=self._on_health_change    # H2: Health state callbacks
         )
 
         

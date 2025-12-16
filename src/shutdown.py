@@ -1144,15 +1144,16 @@ class ShutdownOrchestrator:
                         funding_collected=total_funding,
                     )
 
-                    total_pnl = hedge_result["total_pnl"]
+                    # Convert Decimal to float for storage/logging
+                    total_pnl = float(hedge_result["total_pnl"])
 
                     # Log the actual PnL being recorded (combined hedge)
                     if total_pnl != 0.0 or total_funding != 0.0:
                         logger.info(
                             f"💰 Shutdown PnL for {symbol}: "
                             f"PnL=${total_pnl:.4f}, Funding=${total_funding:.4f} "
-                            f"(lighter_pnl=${hedge_result['lighter_pnl']:.4f}, x10_pnl=${hedge_result['x10_pnl']:.4f}, "
-                            f"fees=${hedge_result['fee_total']:.4f})"
+                            f"(lighter_pnl=${float(hedge_result['lighter_pnl']):.4f}, x10_pnl=${float(hedge_result['x10_pnl']):.4f}, "
+                            f"fees=${float(hedge_result['fee_total']):.4f})"
                         )
                     
                     await state_manager.close_trade(symbol, pnl=total_pnl, funding=total_funding)

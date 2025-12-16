@@ -1,7 +1,7 @@
 {
   "project": "Funding Arbitrage Bot (Lighter + X10)",
   "version": "V5.1 Enhanced (TS SDK Parity)",
-  "last_update": "2025-12-16T14:30+01:00",
+  "last_update": "2025-12-16T14:15+01:00",
   "overall_score": "9.95/10 → 10/10 ROADMAP: 45+ Verbesserungen aus TS SDK Analyse identifiziert",
   "primary_goal": "Maximale Profitabilität durch TS SDK Feature Parity + Python-spezifische Optimierungen",
   "focus_log": "logs/funding_bot_LEON_20251216_130616_FULL.log",
@@ -838,7 +838,9 @@
           "file": "src/batch_manager.py",
           "description": "LighterBatchManager auch für Order Creation nutzen, nicht nur Cancels. Pattern aus lighter-ts-main/src/utils/request-batcher.ts",
           "impact": "-20% API Calls, schnellere Execution",
-          "effort": "2h"
+          "effort": "2h",
+          "status": "ALREADY_IMPLEMENTED",
+          "note": "BatchManager wird bereits in lighter_adapter.py initialisiert (Zeile 224), gestartet (Zeile 2757) und für create_order genutzt (Zeile 4279). add_create_order() queued Orders, flush() sendet als Batch via send_batch_orders()."
         },
         {
           "id": "H2",
@@ -846,7 +848,20 @@
           "file": "src/websocket_manager.py",
           "description": "on_health_change Callback an Bot-Level melden für proaktive Reconnects",
           "impact": "Zero Downtime bei WS Issues",
-          "effort": "1h"
+          "effort": "1h",
+          "status": "VERIFIED",
+          "implementation": {
+            "date": "2025-12-16",
+            "changes": [
+              "ManagedWebSocket.__init__: Added on_health_change: Optional[Callable[[str, bool], None]] parameter",
+              "ManagedWebSocket._set_health(): New helper method that sets is_healthy and invokes callback on state change",
+              "Replaced all direct self._metrics.is_healthy = X with self._set_health(X) calls",
+              "WebSocketManager._on_health_change(): New callback handler logs health transitions",
+              "Wired on_health_change to all 5 WebSocket connections (lighter, x10_account, x10_trades, x10_funding, x10_orderbooks)"
+            ],
+            "verification_log": "logs/funding_bot_LEON_20251216_140105_FULL.log",
+            "verification_evidence": "All 5 connections logged '✅ [name] Connection became healthy' on startup"
+          }
         },
         {
           "id": "H3",
@@ -854,7 +869,9 @@
           "file": "src/core/opportunities.py",
           "description": "Position Sizing basierend auf Open Interest History und Orderbook Liquidity",
           "impact": "Optimales Risk/Reward Ratio",
-          "effort": "2h"
+          "effort": "2h",
+          "status": "SKIPPED_BY_USER",
+          "note": "User will feste Position-Größen, kein dynamisches Kelly Sizing. DESIRED_NOTIONAL_USD = $150 bleibt fix."
         },
         {
           "id": "H4",
@@ -880,7 +897,17 @@
           "file": "src/state_manager.py, src/pnl_utils.py",
           "description": "Alle Financial Fields intern als Decimal (wie BigNumber in TS), Float nur an API-Grenzen",
           "impact": "Keine Float Precision Bugs",
-          "effort": "2h"
+          "effort": "2h",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "funding_bot_LEON_20251216_135334_FULL.log",
+          "changes": [
+            "pnl_utils.py: compute_realized_pnl() returns Dict[str, Decimal]",
+            "pnl_utils.py: compute_hedge_pnl() returns Dict[str, Decimal]",
+            "trade_management.py: float() conversion at API boundary",
+            "shutdown.py: float() conversion for logging/DB",
+            "test_pnl_utils.py: Updated 31 tests for Decimal returns"
+          ]
         },
         {
           "id": "H6",
@@ -898,7 +925,26 @@
           "file": "src/validation/orderbook_validator.py",
           "description": "Echte Slippage-Simulation über mehrere Orderbook-Ebenen",
           "impact": "Genauere Profit-Prognose",
-          "effort": "2h"
+          "effort": "2h",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "logs/funding_bot_H7_20251216_141146_FULL.log",
+          "changes": [
+            "orderbook_validator.py: Neue Dataclass PriceImpactResult mit allen Execution-Simulation-Feldern",
+            "orderbook_validator.py: simulate_price_impact() Methode in OrderbookValidator - walkt durch Orderbook-Levels",
+            "orderbook_validator.py: Convenience-Function simulate_price_impact() auf Modul-Ebene",
+            "opportunities.py: Import simulate_price_impact + PriceImpactResult",
+            "opportunities.py: H7 Block nach Liquidity Check - simuliert Price Impact vor Opportunity-Approval",
+            "opportunities.py: Verwendet lighter.fetch_orderbook() für Live-Orderbook-Daten",
+            "config.py: MAX_PRICE_IMPACT_PCT = 0.5 (0.5% max erlaubte Slippage)"
+          ],
+          "verification_signals": [
+            "📊 LTC-USD: Price impact simulation: slippage=0.0000%, levels=1, avg_price=$78.430000",
+            "📊 RESOLV-USD: Price impact simulation: slippage=0.0000%, levels=1, avg_price=$0.070800",
+            "📊 ADA-USD: Price impact simulation: slippage=0.0000%, levels=1, avg_price=$0.384890",
+            "📊 1000PEPE-USD: Price impact simulation: slippage=0.0000%, levels=1, avg_price=$0.004059"
+          ],
+          "note": "Slippage 0% = genug Liquidität auf 1 Level. Bei größeren Orders oder dünneren Büchern wird multi-Level-Slippage berechnet. Verifiziert mit echten Orderbook-Daten: ADA-USD BUY $150 = 0.0049% (3 Levels), 1000PEPE-USD SELL $150 = 0.0230% (2 Levels)."
         },
         {
           "id": "H8",
@@ -906,7 +952,27 @@
           "file": "src/adaptive_threshold.py",
           "description": "Spread-Threshold dynamisch an Volatilität anpassen",
           "impact": "Bessere Entry-Selektion",
-          "effort": "1h"
+          "effort": "1h",
+          "status": "VERIFIED",
+          "implementation_date": "2025-12-16",
+          "verification_log": "logs/funding_bot_H8_20251216_141914_FULL.log",
+          "changes": [
+            "volatility_monitor.py: Neue Methode get_dynamic_spread_limit(symbol, base_limit) mit Regime-Multiplikatoren",
+            "opportunities.py: H8 Block ersetzt statischen Spread-Check durch volatilitätsbasierten dynamischen Spread",
+            "config.py: DYNAMIC_SPREAD_ENABLED = True (Feature Flag)"
+          ],
+          "spread_multipliers": {
+            "LOW": "0.75x (strenger - ruhiger Markt)",
+            "NORMAL": "1.0x (standard)",
+            "HIGH": "1.5x (relaxed - volatile)",
+            "EXTREME": "2.0x (sehr relaxed, max 1%)"
+          },
+          "example_at_0.2%_base": {
+            "LOW": "0.15%",
+            "NORMAL": "0.20%",
+            "HIGH": "0.30%",
+            "EXTREME": "0.40%"
+          }
         }
       ]
     },

@@ -7,9 +7,13 @@ Tests:
 - sum_closed_pnl_from_csv: CSV parsing and PnL summation
 - reconcile_csv_vs_db: Comparison and mismatch detection
 - normalize_funding_sign: Funding sign normalization
+
+NOTE: compute_realized_pnl and compute_hedge_pnl return Decimal values (H5 migration).
+Tests use float() conversion for comparison assertions.
 """
 import sys
 from pathlib import Path
+from decimal import Decimal
 
 import pytest
 
@@ -85,9 +89,10 @@ class TestComputeRealizedPnL:
         result = compute_realized_pnl("TEST-USD", "LONG", entry, close)
         
         # (110 - 100) * 10 = 100, fees = 1.0
-        assert abs(result["price_pnl"] - 100.0) < 0.01
-        assert abs(result["fee_total"] - 1.0) < 0.01
-        assert abs(result["total_pnl"] - 99.0) < 0.01
+        # Results are Decimal, convert to float for comparison
+        assert abs(float(result["price_pnl"]) - 100.0) < 0.01
+        assert abs(float(result["fee_total"]) - 1.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 99.0) < 0.01
     
     def test_long_loss(self):
         """LONG position with loss."""
@@ -97,9 +102,9 @@ class TestComputeRealizedPnL:
         result = compute_realized_pnl("TEST-USD", "LONG", entry, close)
         
         # (90 - 100) * 10 = -100, fees = 1.0
-        assert abs(result["price_pnl"] - (-100.0)) < 0.01
-        assert abs(result["total_pnl"] - (-101.0)) < 0.01
-        assert result["total_pnl"] < 0
+        assert abs(float(result["price_pnl"]) - (-100.0)) < 0.01
+        assert abs(float(result["total_pnl"]) - (-101.0)) < 0.01
+        assert float(result["total_pnl"]) < 0
     
     def test_short_profit(self):
         """SHORT position with profit."""
@@ -109,9 +114,9 @@ class TestComputeRealizedPnL:
         result = compute_realized_pnl("TEST-USD", "SHORT", entry, close)
         
         # (100 - 90) * 10 = 100, fees = 1.0
-        assert abs(result["price_pnl"] - 100.0) < 0.01
-        assert abs(result["total_pnl"] - 99.0) < 0.01
-        assert result["total_pnl"] > 0
+        assert abs(float(result["price_pnl"]) - 100.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 99.0) < 0.01
+        assert float(result["total_pnl"]) > 0
     
     def test_short_loss(self):
         """SHORT position with loss."""
@@ -121,9 +126,9 @@ class TestComputeRealizedPnL:
         result = compute_realized_pnl("TEST-USD", "SHORT", entry, close)
         
         # (100 - 110) * 10 = -100, fees = 1.0
-        assert abs(result["price_pnl"] - (-100.0)) < 0.01
-        assert abs(result["total_pnl"] - (-101.0)) < 0.01
-        assert result["total_pnl"] < 0
+        assert abs(float(result["price_pnl"]) - (-100.0)) < 0.01
+        assert abs(float(result["total_pnl"]) - (-101.0)) < 0.01
+        assert float(result["total_pnl"]) < 0
     
     def test_multiple_entry_fills_vwap(self):
         """Test VWAP calculation with multiple entry fills."""
@@ -136,10 +141,10 @@ class TestComputeRealizedPnL:
         result = compute_realized_pnl("TEST-USD", "LONG", entry, close)
         
         # Entry VWAP: (100*5 + 110*5) / 10 = 105
-        assert abs(result["entry_vwap"] - 105.0) < 0.01
+        assert abs(float(result["entry_vwap"]) - 105.0) < 0.01
         # (120 - 105) * 10 = 150, fees = 1.0
-        assert abs(result["price_pnl"] - 150.0) < 0.01
-        assert abs(result["total_pnl"] - 149.0) < 0.01
+        assert abs(float(result["price_pnl"]) - 150.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 149.0) < 0.01
     
     def test_partial_close(self):
         """Test partial close (close qty < entry qty)."""
@@ -150,8 +155,8 @@ class TestComputeRealizedPnL:
         
         # Uses min(10, 5) = 5 for PnL
         # (110 - 100) * 5 = 50, fees = 0.75
-        assert abs(result["price_pnl"] - 50.0) < 0.01
-        assert abs(result["qty"] - 5.0) < 0.01
+        assert abs(float(result["price_pnl"]) - 50.0) < 0.01
+        assert abs(float(result["qty"]) - 5.0) < 0.01
     
     def test_zero_fee(self):
         """Test with zero fees (maker)."""
@@ -160,8 +165,8 @@ class TestComputeRealizedPnL:
         
         result = compute_realized_pnl("TEST-USD", "LONG", entry, close)
         
-        assert result["fee_total"] == 0
-        assert result["price_pnl"] == result["total_pnl"]
+        assert float(result["fee_total"]) == 0
+        assert float(result["price_pnl"]) == float(result["total_pnl"])
     
     def test_unknown_side(self):
         """Test with unknown side returns zeros."""
@@ -170,15 +175,15 @@ class TestComputeRealizedPnL:
         
         result = compute_realized_pnl("TEST-USD", "UNKNOWN", entry, close)
         
-        assert result["price_pnl"] == 0.0
-        assert result["total_pnl"] == 0.0
+        assert float(result["price_pnl"]) == 0.0
+        assert float(result["total_pnl"]) == 0.0
     
     def test_empty_fills(self):
         """Test with empty fills."""
         result = compute_realized_pnl("TEST-USD", "LONG", [], [])
         
-        assert result["price_pnl"] == 0.0
-        assert result["total_pnl"] == 0.0
+        assert float(result["price_pnl"]) == 0.0
+        assert float(result["total_pnl"]) == 0.0
 
 
 class TestComputeHedgePnL:
@@ -201,14 +206,15 @@ class TestComputeHedgePnL:
             funding_collected=5.0,
         )
         
+        # Results are Decimal, convert to float for comparison
         # X10 LONG: (102 - 100) * 10 = +20
-        assert abs(result["x10_pnl"] - 20.0) < 0.01
+        assert abs(float(result["x10_pnl"]) - 20.0) < 0.01
         # Lighter SHORT: (100 - 102) * 10 = -20
-        assert abs(result["lighter_pnl"] - (-20.0)) < 0.01
+        assert abs(float(result["lighter_pnl"]) - (-20.0)) < 0.01
         # Price total: 20 + (-20) = 0
-        assert abs(result["price_pnl_total"]) < 0.01
+        assert abs(float(result["price_pnl_total"])) < 0.01
         # Total: 0 - 1.0 + 5.0 = 4.0
-        assert abs(result["total_pnl"] - 4.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 4.0) < 0.01
     
     def test_reverse_funding_arb(self):
         """Test reverse funding arb: SHORT X10 / LONG Lighter."""
@@ -228,11 +234,11 @@ class TestComputeHedgePnL:
         )
         
         # Lighter LONG: (105 - 100) * 10 = +50
-        assert abs(result["lighter_pnl"] - 50.0) < 0.01
+        assert abs(float(result["lighter_pnl"]) - 50.0) < 0.01
         # X10 SHORT: (100 - 105) * 10 = -50
-        assert abs(result["x10_pnl"] - (-50.0)) < 0.01
+        assert abs(float(result["x10_pnl"]) - (-50.0)) < 0.01
         # Total: 0 - 1.0 + 3.0 = 2.0
-        assert abs(result["total_pnl"] - 2.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 2.0) < 0.01
     
     def test_basis_trade_profit(self):
         """Test basis trade where basis converges."""
@@ -254,11 +260,11 @@ class TestComputeHedgePnL:
         )
         
         # X10 LONG: (100 - 99) * 10 = +10
-        assert abs(result["x10_pnl"] - 10.0) < 0.01
+        assert abs(float(result["x10_pnl"]) - 10.0) < 0.01
         # Lighter SHORT: (100 - 100) * 10 = 0
-        assert abs(result["lighter_pnl"]) < 0.01
+        assert abs(float(result["lighter_pnl"])) < 0.01
         # Total: 10
-        assert abs(result["total_pnl"] - 10.0) < 0.01
+        assert abs(float(result["total_pnl"]) - 10.0) < 0.01
 
 
 class TestSumClosedPnLFromCSV:

@@ -7,6 +7,7 @@ This module handles:
 - Latency arbitrage detection
 - Profitability calculations
 - Filtering (blacklist, volatility, spread limits)
+- Price impact simulation (H7)
 """
 
 import asyncio
@@ -20,6 +21,7 @@ from src.utils import safe_float, safe_decimal, quantize_usd
 from src.adaptive_threshold import get_threshold_manager
 from src.volatility_monitor import get_volatility_monitor
 from src.latency_arb import get_detector, is_latency_arb_enabled
+from src.validation.orderbook_validator import simulate_price_impact, PriceImpactResult
 
 logger = logging.getLogger(__name__)
 
@@ -321,10 +323,19 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             rejected_apy += 1
             continue
 
-        # Dynamic spread check
+        # ═══════════════════════════════════════════════════════════════
+        # H8: DYNAMIC SPREAD CHECK - Volatility-adjusted spread threshold
+        # Low vol = stricter, High vol = relaxed (but still capped)
+        # ═══════════════════════════════════════════════════════════════
+        vol_monitor = get_volatility_monitor()
         base_spread_limit = config.MAX_SPREAD_FILTER_PERCENT
+        
+        # H8: Get volatility-adjusted spread limit
+        dynamic_spread_limit = vol_monitor.get_dynamic_spread_limit(s, base_spread_limit)
+        
+        # Also consider funding boost (high funding can justify wider spread)
         funding_boosted_limit = abs(net) * 12.0
-        final_spread_limit = min(max(base_spread_limit, funding_boosted_limit), 0.03)
+        final_spread_limit = min(max(dynamic_spread_limit, funding_boosted_limit), 0.03)
         
         if spread > final_spread_limit:
             # logger.debug(f"🚫 {s}: Spread {spread*100:.2f}% > Limit {final_spread_limit*100:.2f}%")
@@ -381,6 +392,53 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         except Exception as e:
             logger.debug(f"Liquidity check skipped for {s}: {e}")
         
+        # ═══════════════════════════════════════════════════════════════
+        # H7: PRICE IMPACT SIMULATION - Echte Slippage über Orderbook-Levels
+        # Berechnet tatsächliche Ausführungskosten statt geschätztem Spread
+        # ═══════════════════════════════════════════════════════════════
+        estimated_slippage_pct = spread * 100  # Default: use spread as estimate
+        price_impact_result = None
+        
+        max_slippage_pct = getattr(config, 'MAX_PRICE_IMPACT_PCT', 0.5)  # Default 0.5%
+        
+        try:
+            # Get orderbook for price impact simulation
+            if hasattr(lighter, 'fetch_orderbook'):
+                book = await lighter.fetch_orderbook(s, limit=20)
+                if book and 'bids' in book and 'asks' in book:
+                    leg1_side = 'SELL' if rl > rx else 'BUY'
+                    
+                    price_impact_result = simulate_price_impact(
+                        side=leg1_side,
+                        order_size_usd=notional,
+                        bids=book['bids'],
+                        asks=book['asks'],
+                        mid_price=(pl_float + px_float) / 2 if pl_float and px_float else None,
+                    )
+                    
+                    if price_impact_result.can_fill:
+                        estimated_slippage_pct = float(price_impact_result.slippage_percent)
+                        
+                        # Filter by max allowed slippage
+                        if estimated_slippage_pct > max_slippage_pct:
+                            logger.debug(
+                                f"🚫 {s}: Price impact too high ({estimated_slippage_pct:.3f}% > {max_slippage_pct}%)"
+                            )
+                            continue
+                        
+                        logger.debug(
+                            f"📊 {s}: Price impact simulation: "
+                            f"slippage={estimated_slippage_pct:.4f}%, "
+                            f"levels={price_impact_result.levels_consumed}, "
+                            f"avg_price=${float(price_impact_result.avg_execution_price):.6f}"
+                        )
+                    else:
+                        logger.debug(f"🚫 {s}: Cannot fill ${notional:.0f} in orderbook")
+                        continue
+                        
+        except Exception as e:
+            logger.debug(f"Price impact simulation skipped for {s}: {e}")
+        
         # ✅ Trade is profitable!
         logger.info(
             f"✅ {s}: Expected profit ${expected_profit:.4f} in {hold_hours:.1f}h "
@@ -399,7 +457,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'price_lighter': pl_float,
             'is_latency_arb': False,
             'expected_profit': expected_profit,
-            'hours_to_breakeven': hours_to_breakeven
+            'hours_to_breakeven': hours_to_breakeven,
+            'estimated_slippage_pct': estimated_slippage_pct,  # H7: Real slippage from simulation
         })
 
     # Apply farm flag

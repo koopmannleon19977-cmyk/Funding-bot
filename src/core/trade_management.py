@@ -374,9 +374,9 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
 
     logger.info(
         f"📊 {symbol} Realized PnL: "
-        f"lighter=${hedge_result['lighter_pnl']:.4f}, x10=${hedge_result['x10_pnl']:.4f}, "
-        f"fees=${hedge_result['fee_total']:.4f}, funding=${funding_total:.4f}, "
-        f"total=${hedge_result['total_pnl']:.4f}"
+        f"lighter=${float(hedge_result['lighter_pnl']):.4f}, x10=${float(hedge_result['x10_pnl']):.4f}, "
+        f"fees=${float(hedge_result['fee_total']):.4f}, funding=${funding_total:.4f}, "
+        f"total=${float(hedge_result['total_pnl']):.4f}"
     )
 
     # ═══════════════════════════════════════════════════════════════════════════════
@@ -388,7 +388,7 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
         x10_exact_fees = x10_breakdown.get("open_fees", 0.0) + x10_breakdown.get("close_fees", 0.0)
         
         # Compare our X10 leg calculation with their exact value
-        our_x10_pnl = hedge_result["x10_pnl"]
+        our_x10_pnl = float(hedge_result["x10_pnl"])
         pnl_diff = abs(our_x10_pnl - x10_exact_trade_pnl)
         
         if pnl_diff > 0.01:  # More than $0.01 difference
@@ -400,13 +400,14 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
         else:
             logger.debug(f"✅ {symbol} X10 PnL verified: Bot=${our_x10_pnl:.4f} ≈ API=${x10_exact_trade_pnl:.4f}")
 
+    # Convert Decimal values to float for return dict (API compatibility)
     return {
-        "price_pnl_x10": hedge_result["x10_pnl"],
-        "price_pnl_lighter": hedge_result["lighter_pnl"],
-        "price_pnl_total": hedge_result["price_pnl_total"],
-        "fees_total": hedge_result["fee_total"],
+        "price_pnl_x10": float(hedge_result["x10_pnl"]),
+        "price_pnl_lighter": float(hedge_result["lighter_pnl"]),
+        "price_pnl_total": float(hedge_result["price_pnl_total"]),
+        "fees_total": float(hedge_result["fee_total"]),
         "funding_total": funding_total,
-        "total_pnl": hedge_result["total_pnl"],
+        "total_pnl": float(hedge_result["total_pnl"]),
         "exit_price_x10": x10_exit_px,
         "exit_price_lighter": lit_exit_px,
         "exit_qty_x10": qty_x10,
