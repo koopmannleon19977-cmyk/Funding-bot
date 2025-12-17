@@ -20,6 +20,7 @@ import config
 from src.utils import safe_float
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
+from src.volatility_monitor import get_volatility_monitor
 from src.pnl_utils import compute_hedge_pnl, _side_sign
 
 logger = logging.getLogger(__name__)
@@ -1207,174 +1208,192 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             # CROSS-EXCHANGE ARBITRAGE: Preisdifferenz-Profit nutzen!
             price_divergence_enabled = getattr(config, 'PRICE_DIVERGENCE_EXIT_ENABLED', True)
             min_divergence_profit = getattr(config, 'MIN_PRICE_DIVERGENCE_PROFIT_USD', 0.50)
-            
-            reason = None
-            force_close = False
-            
             # Calculate Current APY
             # current_net is hourly rate. APY = rate * 24 * 365
             current_apy = current_net * 24 * 365
             
             # ═══════════════════════════════════════════════════════════════
-            # NEU: MINIMUM HOLD TIME CHECK
-            # Du MUSST mindestens 2h halten um Funding zu bekommen!
+            # NEW (2025-12-17 Audit): Volatility Panic Check
             # ═══════════════════════════════════════════════════════════════
-            if age_seconds < minimum_hold_seconds and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                # Ausnahme: Bei sehr hohem Preisdifferenz-Profit trotzdem schließen
-                if price_divergence_enabled and spread_pnl >= min_divergence_profit:
-                    logger.info(
-                        f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} >= ${min_divergence_profit:.2f} - "
-                        f"Geschenkter Profit durch Preisdifferenz! (ignoriere MINIMUM_HOLD)"
+            reason = None
+            force_close = False
+            try:
+                vol_monitor = get_volatility_monitor()
+                # Update with current price
+                vol_monitor.update_price(sym, px)
+                
+                if vol_monitor.should_close_due_to_volatility(sym):
+                    logger.warning(
+                        f"🚨 PANIC CLOSE {sym}: Extreme Volatility! "
+                        f"Regime: {vol_monitor.current_regimes.get(sym, 'UNKNOWN')}"
                     )
-                    reason = "PRICE_DIVERGENCE_PROFIT"
+                    reason = "VOLATILITY_PANIC"
                     force_close = True
-                else:
-                    remaining_hold = (minimum_hold_seconds - age_seconds) / 60
-                    logger.debug(
-                        f"⏰ [HODL] {sym}: Minimum Hold nicht erreicht ({age_seconds/60:.0f}min < {minimum_hold_seconds/60:.0f}min). "
-                        f"Noch {remaining_hold:.0f}min warten für Funding!"
-                    )
-                    continue
-            
-            # ═══════════════════════════════════════════════════════════════
-            # NEU: FUNDING CHECK - Mindestens etwas Funding gesammelt?
-            # ═══════════════════════════════════════════════════════════════
-            if funding_collected < min_funding_before_exit and not force_close:
-                if not getattr(config, 'IS_SHUTTING_DOWN', False):
-                    # Ausnahme: Bei Preisdifferenz-Profit trotzdem erlauben
+            except Exception as vol_err:
+                logger.debug(f"Volatility check error for {sym}: {vol_err}")
+
+            # 1. Force close criteria (Time, Safety)
+            if not reason:
+                # Du MUSST mindestens 2h halten um Funding zu bekommen!
+                # ═══════════════════════════════════════════════════════════════
+                if age_seconds < minimum_hold_seconds and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                    # Ausnahme: Bei sehr hohem Preisdifferenz-Profit trotzdem schließen
                     if price_divergence_enabled and spread_pnl >= min_divergence_profit:
                         logger.info(
-                            f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} kompensiert fehlendes Funding"
+                            f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} >= ${min_divergence_profit:.2f} - "
+                            f"Geschenkter Profit durch Preisdifferenz! (ignoriere MINIMUM_HOLD)"
                         )
+                        reason = "PRICE_DIVERGENCE_PROFIT"
+                        force_close = True
                     else:
+                        remaining_hold = (minimum_hold_seconds - age_seconds) / 60
                         logger.debug(
-                            f"💸 [HODL] {sym}: Noch kein Funding (${funding_collected:.4f} < ${min_funding_before_exit:.2f}). "
-                            f"Warte auf nächstes Funding Payment!"
+                            f"⏰ [HODL] {sym}: Minimum Hold nicht erreicht ({age_seconds/60:.0f}min < {minimum_hold_seconds/60:.0f}min). "
+                            f"Noch {remaining_hold:.0f}min warten für Funding!"
                         )
                         continue
             
-            # ═══════════════════════════════════════════════════════════════
-            # PROFIT PROTECTION: Nur Exit wenn wirklich profitabel!
-            # Verhindert Verluste durch zu frühe Exits
-            # ═══════════════════════════════════════════════════════════════
-            require_positive = getattr(config, 'REQUIRE_POSITIVE_EXPECTED_PNL', True)
-            min_net_profit = getattr(config, 'MIN_NET_PROFIT_EXIT_USD', 0.05)
-            
-            # Berechne erwarteten Net-Profit nach allen Kosten
-            expected_exit_cost = est_fees + slippage_cost
-            expected_net_pnl = gross_pnl - expected_exit_cost
-            
-            if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                # Check: Ist der Trade nach allen Kosten wirklich profitabel?
-                if expected_net_pnl < min_net_profit:
-                    # Ausnahme: Price Divergence Profit überschreibt
-                    if not (price_divergence_enabled and spread_pnl >= min_divergence_profit):
-                        logger.debug(
-                            f"🛡️ [PROFIT PROTECTION] {sym}: Expected Net ${expected_net_pnl:.4f} < ${min_net_profit:.2f}. "
-                            f"Halte Trade bis profitabel! (Gross=${gross_pnl:.4f}, Costs=${expected_exit_cost:.4f})"
-                        )
-                        continue
-            
-            # ═══════════════════════════════════════════════════════════════
-            # LIQUIDITY CHECK: Genug Orderbook-Tiefe für Exit?
-            # ═══════════════════════════════════════════════════════════════
-            smart_exit = getattr(config, 'SMART_EXIT_ENABLED', True)
-            if smart_exit and not orderbook_depth_ok and not force_close:
-                logger.warning(
-                    f"⚠️ [LOW LIQUIDITY] {sym}: Orderbook zu dünn für ${notional:.0f} Exit. "
-                    f"Warte auf bessere Liquidität..."
-                )
-                # Trotzdem Exit erlauben wenn Trade sehr profitabel oder sehr alt
-                if total_pnl < notional * 0.02 and hold_hours < max_hold_hours * 0.8:
-                    continue
-            
-            # 1. Safety override: MAX_HOLD_HOURS
-            if hold_hours >= max_hold_hours:
-                reason = "MAX_HOLD_EXPIRED"
-                force_close = True
-                logger.warning(
-                    f"⚠️ [FORCE CLOSE] {sym}: Max hold time reached "
-                    f"({hold_hours:.1f}h >= {max_hold_hours}h)"
-                )
-            
-            # ═══════════════════════════════════════════════════════════════
-            # NEU: CROSS-EXCHANGE ARBITRAGE EXIT
-            # Wenn du durch Preisdifferenz schon im Plus bist = GESCHENKTER PROFIT!
-            # ═══════════════════════════════════════════════════════════════
-            if not force_close and price_divergence_enabled:
-                if spread_pnl >= min_divergence_profit:
-                    reason = "PRICE_DIVERGENCE_PROFIT"
-                    logger.info(
-                        f"💎🎁 [GESCHENKT!] {sym}: Preisdifferenz-Profit ${spread_pnl:.2f}! "
-                        f"Closing für geschenkten Gewinn (unabhängig von Funding)"
-                    )
-            
-            # 2. Profit check
-            if not force_close and not reason:
-                if total_pnl < min_profit_exit:
-                    logger.debug(
-                        f"💎 [HODL] {sym}: Net PnL ${total_pnl:.4f} < ${min_profit_exit:.2f}"
-                    )
-                    continue
-                
-                logger.info(
-                    f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f} | "
-                    f"Funding=${funding_collected:.4f}, SpreadPnL=${spread_pnl:.4f}"
-                )
-
-                # Smart Rotation: Exit if APY drops below maintenance threshold
-                if not reason and current_apy < min_maintenance_apy:
-                    reason = f"LOW_APY_EXIT ({current_apy*100:.1f}% < {min_maintenance_apy*100:.1f}%)"
-                    logger.info(f"📉 [SMART ROTATION] {sym}: APY dropped to {current_apy*100:.1f}%. Exiting to free capital.")
-                
-                # Farm Mode Quick Exit
-                if not reason and t.get('is_farm_trade') and getattr(config, 'VOLUME_FARM_MODE', False):
-                    should_exit, exit_reason = should_farm_quick_exit(
-                        symbol=sym,
-                        trade=t,
-                        current_spread=current_spread_pct,
-                        gross_pnl=gross_pnl
-                    )
-                    
-                    if should_exit:
-                        if "FARM_PROFIT" in exit_reason:
-                            reason = "FARM_QUICK_PROFIT"
-                        elif "FARM_AGED_OUT" in exit_reason:
-                            reason = "FARM_AGED_OUT"
+                # ═══════════════════════════════════════════════════════════════
+                # NEU: FUNDING CHECK - Mindestens etwas Funding gesammelt?
+                # ═══════════════════════════════════════════════════════════════
+                if funding_collected < min_funding_before_exit and not force_close:
+                    if not getattr(config, 'IS_SHUTTING_DOWN', False):
+                        # Ausnahme: Bei Preisdifferenz-Profit trotzdem erlauben
+                        if price_divergence_enabled and spread_pnl >= min_divergence_profit:
+                            logger.info(
+                                f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} kompensiert fehlendes Funding"
+                            )
                         else:
-                            reason = "FARM_EXIT"
-                        logger.info(f"🚜 [FARM] Quick Exit {sym}: {exit_reason}")
+                            logger.debug(
+                                f"💸 [HODL] {sym}: Noch kein Funding (${funding_collected:.4f} < ${min_funding_before_exit:.2f}). "
+                                f"Warte auf nächstes Funding Payment!"
+                            )
+                            continue
                 
-                # Take Profit at high profit
-                if not reason and notional > 0:
-                    if total_pnl > notional * 0.05:
-                        reason = "TAKE_PROFIT"
+                # ═══════════════════════════════════════════════════════════════
+                # PROFIT PROTECTION: Nur Exit wenn wirklich profitabel!
+                # Verhindert Verluste durch zu frühe Exits
+                # ═══════════════════════════════════════════════════════════════
+                require_positive = getattr(config, 'REQUIRE_POSITIVE_EXPECTED_PNL', True)
+                min_net_profit = getattr(config, 'MIN_NET_PROFIT_EXIT_USD', 0.05)
                 
-                # Farm hold complete
-                if not reason and t.get('is_farm_trade') and getattr(config, 'VOLUME_FARM_MODE', False):
-                    farm_hold_seconds = getattr(config, 'FARM_HOLD_SECONDS', 3600)
-                    if age_seconds > farm_hold_seconds:
-                        reason = "FARM_HOLD_COMPLETE"
+                # Berechne erwarteten Net-Profit nach allen Kosten
+                expected_exit_cost = est_fees + slippage_cost
+                expected_net_pnl = gross_pnl - expected_exit_cost
+                
+                if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                    # Check: Ist der Trade nach allen Kosten wirklich profitabel?
+                    if expected_net_pnl < min_net_profit:
+                        # Ausnahme: Price Divergence Profit überschreibt
+                        if not (price_divergence_enabled and spread_pnl >= min_divergence_profit):
+                            logger.debug(
+                                f"🛡️ [PROFIT PROTECTION] {sym}: Expected Net ${expected_net_pnl:.4f} < ${min_net_profit:.2f}. "
+                                f"Halte Trade bis profitabel! (Gross=${gross_pnl:.4f}, Costs=${expected_exit_cost:.4f})"
+                            )
+                            continue
+                
+                # ═══════════════════════════════════════════════════════════════
+                # LIQUIDITY CHECK: Genug Orderbook-Tiefe für Exit?
+                # ═══════════════════════════════════════════════════════════════
+                smart_exit = getattr(config, 'SMART_EXIT_ENABLED', True)
+                if smart_exit and not orderbook_depth_ok and not force_close:
+                    logger.warning(
+                        f"⚠️ [LOW LIQUIDITY] {sym}: Orderbook zu dünn für ${notional:.0f} Exit. "
+                        f"Warte auf bessere Liquidität..."
+                    )
+                    # Trotzdem Exit erlauben wenn Trade sehr profitabel oder sehr alt
+                    if total_pnl < notional * 0.02 and hold_hours < max_hold_hours * 0.8:
+                        continue
+            
+            if not reason:
+                # 1. Safety override: MAX_HOLD_HOURS
+                if hold_hours >= max_hold_hours:
+                    reason = "MAX_HOLD_EXPIRED"
+                    force_close = True
+                    logger.warning(
+                        f"⚠️ [FORCE CLOSE] {sym}: Max hold time reached "
+                        f"({hold_hours:.1f}h >= {max_hold_hours}h)"
+                    )
+                
+                # ═══════════════════════════════════════════════════════════════
+                # NEU: CROSS-EXCHANGE ARBITRAGE EXIT
+                # Wenn du durch Preisdifferenz schon im Plus bist = GESCHENKTER PROFIT!
+                # ═══════════════════════════════════════════════════════════════
+                if not force_close and price_divergence_enabled:
+                    if spread_pnl >= min_divergence_profit:
+                        reason = "PRICE_DIVERGENCE_PROFIT"
                         logger.info(
-                            f"✅ [FARM COMPLETE] {sym}: Hold time reached AND profitable!"
+                            f"💎🎁 [GESCHENKT!] {sym}: Preisdifferenz-Profit ${spread_pnl:.2f}! "
+                            f"Closing für geschenkten Gewinn (unabhängig von Funding)"
                         )
                 
-                # Funding flip (only if profitable)
-                if not reason:
-                    if init_funding * current_net < 0:
-                        flip_hours_threshold = getattr(config, 'FUNDING_FLIP_HOURS_THRESHOLD', 4.0)
-                        if not t.get('funding_flip_start_time'):
-                            t['funding_flip_start_time'] = datetime.utcnow()
-                        else:
-                            flip_start = t['funding_flip_start_time']
-                            if isinstance(flip_start, str):
-                                try:
-                                    flip_start = datetime.fromisoformat(flip_start)
-                                except:
-                                    flip_start = datetime.utcnow()
+                # 2. Profit check
+                if not force_close and not reason:
+                    if total_pnl < min_profit_exit:
+                        logger.debug(
+                            f"💎 [HODL] {sym}: Net PnL ${total_pnl:.4f} < ${min_profit_exit:.2f}"
+                        )
+                        # Skip 'continue' here to allow other reason checks? 
+                        # No, usually if not profitable we wait.
+                    else:
+                        logger.info(
+                            f"💰 [PROFIT] {sym}: Net PnL ${total_pnl:.4f} >= ${min_profit_exit:.2f} | "
+                            f"Funding=${funding_collected:.4f}, SpreadPnL=${spread_pnl:.4f}"
+                        )
+
+                        # Smart Rotation: Exit if APY drops below maintenance threshold
+                        if not reason and current_apy < min_maintenance_apy:
+                            reason = f"LOW_APY_EXIT ({current_apy*100:.1f}% < {min_maintenance_apy*100:.1f}%)"
+                            logger.info(f"📉 [SMART ROTATION] {sym}: APY dropped to {current_apy*100:.1f}%. Exiting to free capital.")
+                        
+                        # Farm Mode Quick Exit
+                        if not reason and t.get('is_farm_trade') and getattr(config, 'VOLUME_FARM_MODE', False):
+                            should_exit, exit_reason = should_farm_quick_exit(
+                                symbol=sym,
+                                trade=t,
+                                current_spread=current_spread_pct,
+                                gross_pnl=gross_pnl
+                            )
                             
-                            if (datetime.utcnow() - flip_start).total_seconds() / 3600 > flip_hours_threshold:
-                                reason = "FUNDING_FLIP_PROFITABLE"
+                            if should_exit:
+                                if "FARM_PROFIT" in exit_reason:
+                                    reason = "FARM_QUICK_PROFIT"
+                                elif "FARM_AGED_OUT" in exit_reason:
+                                    reason = "FARM_AGED_OUT"
+                                else:
+                                    reason = "FARM_EXIT"
+                                logger.info(f"🚜 [FARM] Quick Exit {sym}: {exit_reason}")
+                        
+                        # Take Profit at high profit
+                        if not reason and notional > 0:
+                            if total_pnl > notional * 0.05:
+                                reason = "TAKE_PROFIT"
+                        
+                        # Farm hold complete
+                        if not reason and t.get('is_farm_trade') and getattr(config, 'VOLUME_FARM_MODE', False):
+                            farm_hold_seconds = getattr(config, 'FARM_HOLD_SECONDS', 3600)
+                            if age_seconds > farm_hold_seconds:
+                                reason = "FARM_HOLD_COMPLETE"
+                                logger.info(
+                                    f"✅ [FARM COMPLETE] {sym}: Hold time reached AND profitable!"
+                                )
+                        
+                        # Funding flip (only if profitable)
+                        if not reason:
+                            if init_funding * current_net < 0:
+                                flip_hours_threshold = getattr(config, 'FUNDING_FLIP_HOURS_THRESHOLD', 4.0)
+                                if not t.get('funding_flip_start_time'):
+                                    t['funding_flip_start_time'] = datetime.utcnow()
+                                else:
+                                    flip_start = t['funding_flip_start_time']
+                                    if isinstance(flip_start, str):
+                                        try:
+                                            flip_start = datetime.fromisoformat(flip_start)
+                                        except:
+                                            flip_start = datetime.utcnow()
+                                    
+                                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > flip_hours_threshold:
+                                        reason = "FUNDING_FLIP_PROFITABLE"
 
             if reason:
                 # Log exit details

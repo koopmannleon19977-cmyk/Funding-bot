@@ -13,9 +13,9 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 
-DB_PATH = Path("data/trades.db")
-HISTORY_EXPORT_FILE = "funding_history_export.csv"
-TOTALS_EXPORT_FILE = "funding_totals_export.csv"
+DB_PATH = Path("data/funding.db")
+HISTORY_EXPORT_FILE = "exports/funding_history_export.csv"
+TOTALS_EXPORT_FILE = "exports/funding_totals_export.csv"
 
 def export_funding():
     if not DB_PATH.exists():

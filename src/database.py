@@ -22,9 +22,13 @@ from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
 from pathlib import Path
 import json
+import os
+import shutil
+from datetime import datetime
+
+import config
 
 logger = logging.getLogger(__name__)
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DECIMAL ADAPTER/CONVERTER FOR SQLITE
@@ -55,7 +59,7 @@ logger.debug("✅ Decimal adapter registered for SQLite")
 @dataclass
 class DBConfig:
     """Database configuration"""
-    db_path: str = "data/trades.db"
+    db_path: str = config.DB_FILE
     pool_size: int = 5                    # Read connections
     write_queue_size: int = 1000          # Max pending writes
     write_batch_size: int = 50            # Writes per batch
@@ -179,8 +183,29 @@ class AsyncDatabase:
             if now - last_run > interval:
                 logger.info("🧹 Running database maintenance...")
                 
-                # 1. VACUUM (Reclaim space)
-                logger.info("🧹 Executing VACUUM...")
+                # 1. Integrity Check
+                async with self._write_conn.execute("PRAGMA integrity_check") as cursor:
+                    check_result = await cursor.fetchone()
+                    if check_result and check_result[0] != "ok":
+                        logger.error(f"🚨 DATABASE CORRUPT: {check_result[0]}")
+                        # Quarantine corrupted DB
+                        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        corrupt_path = f"{self.config.db_path}.corrupt_{ts}"
+                        logger.warning(f"☣️ Quarantining corrupted DB to {corrupt_path}")
+                        
+                        # Close connections (this will be messy since we are in a loop, but necessary)
+                        await self._write_conn.close()
+                        for conn in self._read_pool:
+                            await conn.close()
+                            
+                        shutil.move(self.config.db_path, corrupt_path)
+                        logger.info("♻️ Corrupted DB moved. Bot will recreate DB on next init.")
+                        # Force exit to allow clean restart
+                        os._exit(1)
+                        return
+
+                # 2. VACUUM (Reclaim space)
+                logger.info("🧹 Executing VACUUM (Integrity OK)...")
                 await self._write_conn.execute("VACUUM")
                 
                 # 2. Log action

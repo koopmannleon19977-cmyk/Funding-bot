@@ -251,8 +251,9 @@ class InMemoryStateManager:
     SYNC_INTERVAL = 60.0  # Full sync every 60s
     SNAPSHOT_INTERVAL = 300.0  # Snapshot every 5 min
     
-    def __init__(self, db_path: str = "data/trades.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        import config
+        self.db_path = db_path or config.DB_FILE
         
         # In-Memory State
         self._trades: Dict[str, TradeState] = {}

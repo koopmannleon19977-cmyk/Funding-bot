@@ -52,45 +52,60 @@ def calculate_expected_profit(
     hourly_funding_rate: float,
     hold_hours: float,
     spread_pct: float,
-    fee_rate: float = None
+    x10_fee_rate: float = None,
+    lighter_fee_rate: float = None
 ) -> tuple:
     """
     Calculate expected profit and hours to breakeven for a trade.
     
     ⚡ KRITISCH: Verhindert Trades die nie profitabel werden!
     
-    Uses Decimal internally for precision, returns float for compatibility.
-    
     Args:
         notional_usd: Trade size in USD
-        hourly_funding_rate: Net funding rate per hour (|lighter_rate - x10_rate|)
+        hourly_funding_rate: Net funding rate per hour (|rx - rl|)
         hold_hours: Expected hold duration in hours
-        spread_pct: Current spread as decimal (e.g., 0.003 for 0.3%)
-        fee_rate: Taker fee rate (default: X10 taker from config)
+        spread_pct: Current spread as decimal
+        x10_fee_rate: X10 fee rate (default from config)
+        lighter_fee_rate: Lighter fee rate (default from config)
         
     Returns:
         (expected_profit_usd: float, hours_to_breakeven: float)
     """
-    if fee_rate is None:
-        fee_rate = config.TAKER_FEE_X10
+    if x10_fee_rate is None:
+        # Default to Taker both ways for X10 (Entry + Exit)
+        x10_fee_rate = getattr(config, 'TAKER_FEE_X10', 0.000225)
+    
+    if lighter_fee_rate is None:
+        # Default to Maker on entry, but be conservative and assume Taker for exit?
+        # Actually, let's use Maker for entry and Taker for exit for maximum safety.
+        entry_fee_lit = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
+        exit_fee_lit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+    else:
+        entry_fee_lit = lighter_fee_rate
+        exit_fee_lit = lighter_fee_rate
         
     # Convert all inputs to Decimal for precision
     notional = safe_decimal(notional_usd)
     rate = safe_decimal(abs(hourly_funding_rate))
     hours = safe_decimal(hold_hours)
     spread = safe_decimal(spread_pct)
-    fee = safe_decimal(fee_rate)
     
     # Expected funding income over hold period
     funding_income = rate * hours * notional
     
     # Entry + Exit fees on both exchanges
-    # X10: Taker both ways (entry + exit) = fee_rate * 2
-    # Lighter: Maker = 0% (free)
-    total_fees = notional * fee * Decimal('2')  # Only X10 fees
+    # X10: Entry (Taker/Maker) + Exit (Taker)
+    # Lighter: Entry (Maker) + Exit (Taker)
+    fee_x10 = safe_decimal(x10_fee_rate) 
+    fee_lit_entry = safe_decimal(entry_fee_lit)
+    fee_lit_exit = safe_decimal(exit_fee_lit)
     
-    # Spread slippage cost (estimated as half the spread on entry)
-    slippage_cost = notional * spread * Decimal('0.5')
+    # We assume X10 Taker entry + Taker exit for conservatism
+    total_fees = notional * (fee_x10 * Decimal('2') + fee_lit_entry + fee_lit_exit)
+    
+    # Spread slippage cost (estimated as full spread across both legs)
+    # If mid-price is used, we pay half spread on each exchange.
+    slippage_cost = notional * spread
     
     # Total cost
     total_cost = total_fees + slippage_cost
@@ -98,14 +113,13 @@ def calculate_expected_profit(
     # Expected profit
     expected_profit = funding_income - total_cost
     
-    # Hours to breakeven (how long to hold to cover costs)
+    # Hours to breakeven
     hourly_income = rate * notional
     if hourly_income > Decimal('0'):
         hours_to_breakeven = total_cost / hourly_income
     else:
-        hours_to_breakeven = Decimal('999999')  # Never profitable
+        hours_to_breakeven = Decimal('999999')
     
-    # Return as float for compatibility with existing code
     return float(quantize_usd(expected_profit)), float(hours_to_breakeven)
 
 
@@ -343,17 +357,22 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             continue
 
         # Profitability check
-        notional = getattr(config, 'DESIRED_NOTIONAL_USD', 500)
+        notional = getattr(config, 'DESIRED_NOTIONAL_USD', 150.0)
         farm_mode = getattr(config, 'VOLUME_FARM_MODE', False)
+        
+        # Consistent hold hours for profit gate
+        min_hold_hours = getattr(config, 'MINIMUM_HOLD_SECONDS', 7200) / 3600
         
         if farm_mode:
             hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
-            max_breakeven = getattr(config, 'MAX_BREAKEVEN_HOURS', 2.0)
+            max_breakeven_limit = hold_hours
         else:
-            hold_hours = 24.0
-            max_breakeven = 48.0
+            # For standard arb, we use a conservative hold window for the entry gate
+            # but allow the breakeven to be up to MAX_BREAKEVEN_HOURS
+            hold_hours = max(min_hold_hours, 24.0) # We still use 24h for "expected" but check BE strictly
+            max_breakeven_limit = getattr(config, 'MAX_BREAKEVEN_HOURS', 8.0)
 
-        min_profit = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.02)
+        min_profit_usd = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)
         
         expected_profit, hours_to_breakeven = calculate_expected_profit(
             notional_usd=notional,
@@ -362,17 +381,22 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             spread_pct=spread
         )
         
-        min_threshold = 0.0 if farm_mode else min_profit
-        
-        if expected_profit < min_threshold:
-            # logger.debug(f"🚫 {s}: Profit ${expected_profit:.4f} < ${min_threshold} (Cost: Spread+Fees)")
-            rejected_profit += 1
-            continue
-        
-        max_be = hold_hours if farm_mode else max_breakeven
-        if hours_to_breakeven > max_be:
-            rejected_breakeven += 1
-            continue
+        # Rejection logic
+        if not farm_mode:
+            if hours_to_breakeven > max_breakeven_limit:
+                # logger.debug(f"🚫 {s}: Breakeven {hours_to_breakeven:.1f}h > Limit {max_breakeven_limit}h")
+                rejected_breakeven += 1
+                continue
+                
+            if expected_profit < min_profit_usd:
+                # logger.debug(f"🚫 {s}: Profit ${expected_profit:.4f} < ${min_profit_usd}")
+                rejected_profit += 1
+                continue
+        else:
+            # Farm mode: just require breakeven within farm hold time
+            if hours_to_breakeven > max_breakeven_limit:
+                rejected_breakeven += 1
+                continue
         
         # ═══════════════════════════════════════════════════════════════
         # NEU: LIQUIDITY CHECK - Genug Orderbook-Tiefe für Entry?

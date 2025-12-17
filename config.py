@@ -234,8 +234,8 @@ LATENCY_ARB_MAX_LAG_SECONDS = 60.0    # Increased to 60s to tolerate quiet marke
 LATENCY_ARB_MIN_RATE_DIFF = 0.0002    # 0.02% rate diff required
 
 # --- System & API ---
-DB_FILE = "funding.db"
-LOG_FILE = "funding_bot.log"
+DB_FILE = "data/funding.db"
+LOG_FILE = "logs/funding_bot.log"
 LOG_LEVEL = logging.INFO  # Changed from DEBUG to INFO to reduce log spam
 CONCURRENT_REQUEST_LIMIT = 10
 REFRESH_DELAY_SECONDS = 3
@@ -309,6 +309,12 @@ MAKER_ORDER_MIN_TIMEOUT_SECONDS = 15.0    # Minimum timeout (was 30s - faster fo
 MAKER_ORDER_MAX_TIMEOUT_SECONDS = 60.0    # FIXED: Increased from 45s to allow more fill time
 MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on liquidity depth
 LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
+
+# --- Maker-to-Taker Escalation ---
+# If enabled, bot will try a Taker (IOC) order after Maker retries fail
+TAKER_ESCALATION_ENABLED = True
+TAKER_ESCALATION_MAX_SLIPPAGE_PCT = 0.005 # 0.5% max slippage for taker escalation
+TAKER_ESCALATION_TIMEOUT_SECONDS = 5.0    # Wait up to 5s for taker fill (usually instant)
 
 # --- Prediction & Confidence ---
 SYMBOL_CONFIDENCE_BOOST = {

@@ -317,9 +317,10 @@ async def run_bot_v5(bot_instance=None):
         restart_on_failure=True
     )
     
+    from src.core.trade_management import manage_open_trades
     event_loop.register_task(
         "trade_management_loop",
-        lambda: trade_management_loop(lighter, x10),
+        lambda: trade_management_loop(lighter, x10, manage_open_trades),
         priority=TaskPriority.HIGH,
         restart_on_failure=True
     )

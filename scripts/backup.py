@@ -21,7 +21,7 @@ from typing import List, Set
 # KONFIGURATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 BACKUP_DIR = BASE_DIR / "backups"
 LOGS_DIR = BASE_DIR / "logs"
 
@@ -32,8 +32,13 @@ IMPORTANT_FILES = [
     "config.py",           # Konfiguration
     "requirements.txt",    # Dependencies
     "START_BOT2.bat",      # Startskript
-    "backup.py",           # Dieses Tool
+    "scripts/backup.py",   # Dieses Tool
     ".env",                # Environment Variables (IMPORTANT)
+    ".gitignore",          # Git Ignite
+    "funding.db",          # Primary Database (if in root)
+    "state_snapshot.json", # Current State Snapshot
+    "docs/summary.md",     # Project Summary
+    "pytest.ini",          # Pytest Config
 ]
 
 IMPORTANT_DIRS = [
@@ -43,6 +48,10 @@ IMPORTANT_DIRS = [
     "docs",                # Dokumentation
     "data",                # Datenbank & State
     ".agent",              # Agent Workflows
+    "exports",             # Exports/CSV Files
+    "lighter-ts-main",     # SDK
+    "Extended-TS-SDK-master", # SDK
+    "archive",             # Archived files
 ]
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -74,6 +83,7 @@ IGNORE_PATTERNS = [
     "*.tmp",
     "Thumbs.db",
     "*.bak",
+    "nul",
 ]
 
 
@@ -121,10 +131,9 @@ def create_backup(include_logs: bool = False, description: str = None):
                 return True
             
             # Prüfe Dateimuster
-            if path.is_file():
-                for pattern in IGNORE_PATTERNS:
-                    if path.match(pattern):
-                        return True
+            for pattern in IGNORE_PATTERNS:
+                if path.match(pattern):
+                    return True
             
             return False
         

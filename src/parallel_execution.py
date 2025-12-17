@@ -1687,16 +1687,50 @@ class ParallelExecutionManager:
                             return False, None, lighter_order_id
 
                     if not filled:
-                        self._log_trade_summary(
-                            symbol,
-                            "TIMEOUT",
-                            "Lighter order not filled (no retries available)",
-                            trade_start_time,
-                            phase_times,
-                            execution,
-                        )
-                        execution.state = ExecutionState.FAILED
-                        return False, None, lighter_order_id
+                        # ═══════════════════════════════════════════════════════════════
+                        # NEW: Taker Escalation (2025-12-17 Audit Fix)
+                        # ═══════════════════════════════════════════════════════════════
+                        if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                            logger.warning(f"🚀 [ESCALATION] {symbol}: Maker failed - Escalating to TAKER IOC...")
+                            
+                            # Place Taker IOC order
+                            taker_phase_start = time.monotonic()
+                            taker_success, taker_order_id = await self._execute_lighter_leg(
+                                symbol,
+                                execution.side_lighter,
+                                execution.size_lighter,
+                                post_only=False, # TAKER
+                                amount_coins=execution.quantity_coins,
+                            )
+                            
+                            if taker_success and taker_order_id:
+                                # Wait a moment for position to appear
+                                await asyncio.sleep(1.0)
+                                positions = await self.lighter.fetch_open_positions()
+                                p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
+                                current_size = safe_float(p.get("size", 0)) if p else 0.0
+                                
+                                if abs(current_size) >= execution.quantity_coins * 0.90:
+                                    filled = True
+                                    lighter_order_id = taker_order_id
+                                    phase_times["taker_escalation"] = time.monotonic() - taker_phase_start
+                                    logger.info(f"✅ [ESCALATION] {symbol}: Taker fill successful! Resulting size={current_size:.6f}")
+                                else:
+                                    logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placed but no sufficient position found ({current_size:.6f})")
+                            else:
+                                logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
+
+                        if not filled:
+                            self._log_trade_summary(
+                                symbol,
+                                "TIMEOUT",
+                                "Lighter order not filled after Maker retries and Taker escalation",
+                                trade_start_time,
+                                phase_times,
+                                execution,
+                            )
+                            execution.state = ExecutionState.FAILED
+                            return False, None, lighter_order_id
 
             execution.lighter_filled = True
             logger.info(f"✅ [PHASE 1.5] {symbol}: Lighter FILLED ({phase_times['lighter_fill_wait']:.2f}s)")
