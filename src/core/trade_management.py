@@ -1278,7 +1278,10 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 min_net_profit = getattr(config, 'MIN_NET_PROFIT_EXIT_USD', 0.05)
                 
                 # Berechne erwarteten Net-Profit nach allen Kosten
-                expected_exit_cost = est_fees + slippage_cost
+                # FIX (2025-12-17): Convert Decimal to float to prevent TypeError
+                est_fees_f = float(est_fees) if hasattr(est_fees, '__float__') else est_fees
+                slippage_cost_f = float(slippage_cost) if hasattr(slippage_cost, '__float__') else slippage_cost
+                expected_exit_cost = est_fees_f + slippage_cost_f
                 expected_net_pnl = gross_pnl - expected_exit_cost
                 
                 if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):

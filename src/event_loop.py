@@ -461,17 +461,30 @@ class BotEventLoop:
             try:
                 results = await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=shutdown_timeout)
                 
+                # ═══════════════════════════════════════════════════════════════
+                # FIX (2025-12-18): MUST consume all results to prevent
+                # "_GatheringFuture exception was never retrieved" error
+                # ═══════════════════════════════════════════════════════════════
                 for i, res in enumerate(results):
                     if isinstance(res, Exception):
-                        logger.error(f"❌ Shutdown Close Error (Task {i}): {res}")
+                        if isinstance(res, asyncio.CancelledError):
+                            logger.debug(f"Shutdown close task {i} cancelled (expected)")
+                        else:
+                            logger.error(f"❌ Shutdown Close Error (Task {i}): {res}")
                     else:
                         logger.info(f"✅ Position closed (Task {i}).")
             except asyncio.CancelledError:
                 logger.debug("Shutdown close tasks cancelled")
-                # Cancel any pending tasks
+                # Cancel any pending tasks and consume their exceptions
                 for task in tasks:
                     if hasattr(task, 'cancel'):
                         task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+                        except Exception:
+                            pass
 
         except asyncio.CancelledError:
             logger.debug("_close_all_trades_on_shutdown cancelled")

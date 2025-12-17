@@ -1147,6 +1147,20 @@ class ShutdownOrchestrator:
                     # Convert Decimal to float for storage/logging
                     total_pnl = float(hedge_result["total_pnl"])
 
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX (2025-12-18): Update _position_pnl_data with COMPUTED hedge PnL!
+                    # This ensures Session Total uses the correct combined hedge PnL,
+                    # not just Lighter-only PnL. Without this, Session Total is wrong.
+                    # ═══════════════════════════════════════════════════════════════
+                    self._position_pnl_data[symbol] = {
+                        **self._position_pnl_data.get(symbol, {}),
+                        "total_pnl": total_pnl,  # Combined hedge PnL
+                        "lighter_pnl": float(hedge_result["lighter_pnl"]),
+                        "x10_pnl": float(hedge_result["x10_pnl"]),
+                        "fee_total": float(hedge_result["fee_total"]),
+                        "total_funding": total_funding,
+                    }
+
                     # Log the actual PnL being recorded (combined hedge)
                     if total_pnl != 0.0 or total_funding != 0.0:
                         logger.info(

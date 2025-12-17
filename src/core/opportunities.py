@@ -8,6 +8,8 @@ This module handles:
 - Profitability calculations
 - Filtering (blacklist, volatility, spread limits)
 - Price impact simulation (H7)
+
+FIXED (2025-12-17): Uses FeeManager for real exchange fees instead of config defaults.
 """
 
 import asyncio
@@ -22,6 +24,7 @@ from src.adaptive_threshold import get_threshold_manager
 from src.volatility_monitor import get_volatility_monitor
 from src.latency_arb import get_detector, is_latency_arb_enabled
 from src.validation.orderbook_validator import simulate_price_impact, PriceImpactResult
+from src.fee_manager import get_fee_manager
 
 logger = logging.getLogger(__name__)
 
@@ -60,26 +63,35 @@ def calculate_expected_profit(
     
     ⚡ KRITISCH: Verhindert Trades die nie profitabel werden!
     
+    FIXED (2025-12-17): Now uses FeeManager for real exchange fees.
+    
     Args:
         notional_usd: Trade size in USD
         hourly_funding_rate: Net funding rate per hour (|rx - rl|)
         hold_hours: Expected hold duration in hours
         spread_pct: Current spread as decimal
-        x10_fee_rate: X10 fee rate (default from config)
-        lighter_fee_rate: Lighter fee rate (default from config)
+        x10_fee_rate: X10 fee rate (default from FeeManager)
+        lighter_fee_rate: Lighter fee rate (default from FeeManager)
         
     Returns:
         (expected_profit_usd: float, hours_to_breakeven: float)
     """
-    if x10_fee_rate is None:
-        # Default to Taker both ways for X10 (Entry + Exit)
-        x10_fee_rate = getattr(config, 'TAKER_FEE_X10', 0.000225)
-    
-    if lighter_fee_rate is None:
-        # Default to Maker on entry, but be conservative and assume Taker for exit?
-        # Actually, let's use Maker for entry and Taker for exit for maximum safety.
-        entry_fee_lit = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
-        exit_fee_lit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+    # Get real fees from FeeManager if not provided
+    if x10_fee_rate is None or lighter_fee_rate is None:
+        try:
+            fee_manager = get_fee_manager()
+            if x10_fee_rate is None:
+                # Conservative: assume Taker for both entry and exit on X10
+                x10_fee_rate = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False))
+            if lighter_fee_rate is None:
+                # Lighter: Maker entry, Taker exit (conservative)
+                entry_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=True))
+                exit_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=False))
+        except Exception:
+            # Fallback to config if FeeManager not available
+            x10_fee_rate = getattr(config, 'TAKER_FEE_X10', 0.000225)
+            entry_fee_lit = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
+            exit_fee_lit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
     else:
         entry_fee_lit = lighter_fee_rate
         exit_fee_lit = lighter_fee_rate

@@ -442,7 +442,8 @@ class InMemoryStateManager:
         Accepts both float and Decimal for pnl/funding.
         Internally converts to float for storage, using Decimal for precision.
         
-        FIXED: Removes trade from memory after successful close to prevent memory leak.
+        FIXED (2025-12-17): Wait for DB write to complete before removing from memory.
+        This prevents data loss if the bot crashes between queue and actual DB write.
         """
         # Convert to Decimal for precise calculation, then to float for storage
         # REMOVED quantize_usd to preserve precision for small PnL (e.g. < $0.01)
@@ -452,28 +453,46 @@ class InMemoryStateManager:
         # ✅ FIX: Enhanced logging to verify PnL values are being queued correctly
         logger.info(f"📝 StateManager.close_trade({symbol}): PnL=${pnl_value:.4f}, Funding=${funding_value:.4f}")
         
-        result = await self.update_trade(symbol, {
-            'status': TradeStatus.CLOSED,
-            'closed_at': int(time.time() * 1000),
-            'pnl': pnl_value,
-            'funding_collected': funding_value,
-        })
-        
-        logger.debug(f"📝 StateManager.close_trade({symbol}): update_trade returned {result}")
-        
         # ═══════════════════════════════════════════════════════════════
-        # MEMORY LEAK FIX: Remove closed trade from memory after DB write is queued
-        # This prevents memory growth during long bot sessions.
-        # The trade data is safely persisted in the database.
+        # FIX (2025-12-17): Use wait=True to ensure DB write completes
+        # before removing trade from memory. This prevents data loss
+        # if bot crashes between queue and persist.
         # ═══════════════════════════════════════════════════════════════
-        if result:
-            async with self._trade_lock:
-                if symbol in self._trades:
-                    del self._trades[symbol]
-                    self._dirty_trades.discard(symbol)
-                    logger.debug(f"🧹 Removed closed trade {symbol} from memory")
+        async with self._trade_lock:
+            trade = self._trades.get(symbol)
+            if not trade:
+                return False
+            
+            trade.status = TradeStatus.CLOSED
+            trade.closed_at = int(time.time() * 1000)
+            trade.pnl = pnl_value
+            trade.funding_collected = funding_value
+            self._dirty_trades.add(symbol)
         
-        return result
+        # Queue write and WAIT for completion
+        await self._queue_write(
+            WriteOperation.UPDATE,
+            "trades",
+            symbol,
+            {
+                'status': TradeStatus.CLOSED.value,
+                'closed_at': int(time.time() * 1000),
+                'pnl': pnl_value,
+                'funding_collected': funding_value,
+            },
+            wait=True  # CRITICAL: Wait for DB ack before memory removal
+        )
+        
+        logger.debug(f"📝 StateManager.close_trade({symbol}): DB write complete")
+        
+        # Now safe to remove from memory since DB has the data
+        async with self._trade_lock:
+            if symbol in self._trades:
+                del self._trades[symbol]
+                self._dirty_trades.discard(symbol)
+                logger.debug(f"🧹 Removed closed trade {symbol} from memory (after DB ack)")
+        
+        return True
 
     async def close_trade_verified(
         self,

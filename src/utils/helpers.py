@@ -212,15 +212,24 @@ def safe_int(val: Any, default: int = 0) -> int:
 
 def quantize_value(value: Any, step_size: Any, rounding: str = ROUND_FLOOR) -> float:
     """
-    Quantize value to a specific step size using Decimal arithmetic.
+    Quantize value to a specific step size using modulo-based Decimal arithmetic.
+    
+    FIXED (2025-12-17): Uses modulo division instead of Decimal.quantize(),
+    which only works for step sizes = 10^-N. This correctly handles
+    arbitrary step sizes like 0.05, 5, 100, etc.
     
     Args:
         value: The value to quantize
-        step_size: The step size (e.g. 0.01, 10, 0.0001)
+        step_size: The step size (e.g. 0.01, 10, 0.05, 100)
         rounding: Rounding mode (default: ROUND_FLOOR)
         
     Returns:
         float: The quantized value
+        
+    Examples:
+        quantize_value(123.47, 0.05) -> 123.45  (floor to nearest 0.05)
+        quantize_value(123, 5) -> 120  (floor to nearest 5)
+        quantize_value(1234, 100) -> 1200  (floor to nearest 100)
     """
     if value is None or step_size is None:
         return 0.0
@@ -231,8 +240,14 @@ def quantize_value(value: Any, step_size: Any, rounding: str = ROUND_FLOOR) -> f
         
         if d_step == 0:
             return float(d_val)
-            
-        quantized = d_val.quantize(d_step, rounding=rounding)
+        
+        # MODULO-BASED QUANTIZATION:
+        # Instead of d_val.quantize(d_step) which only works for 10^-N steps,
+        # divide by step, round to integer, multiply back by step
+        quotient = d_val / d_step
+        rounded_quotient = quotient.to_integral_value(rounding=rounding)
+        quantized = rounded_quotient * d_step
+        
         return float(quantized)
     except Exception:
         return 0.0

@@ -160,8 +160,9 @@ class AsyncDatabase:
         self._initialized = True
         logger.info("✅ Database initialized")
         
-        # Run startup maintenance
-        asyncio.create_task(self.run_maintenance())
+        # Run startup maintenance - AWAIT to ensure integrity check completes
+        # before trading starts (2025-12-17 Audit Fix)
+        await self.run_maintenance()
 
     async def run_maintenance(self):
         """Run database maintenance (VACUUM & Cleanup)"""

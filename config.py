@@ -127,6 +127,22 @@ DYNAMIC_SPREAD_ENABLED = True      # H8: Aktiviert volatilitätsbasierte Spread-
 # Format korrigiert per offizieller Lighter Python SDK utils.py
 LIGHTER_WS_ORDERS = True           # B1: WebSocket für Order Submission aktivieren
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAKER ESCALATION (2025-12-17 Audit Fix)
+# Nach Maker-Timeout zu Taker wechseln, ABER nur wenn EV noch positiv ist!
+# ═══════════════════════════════════════════════════════════════════════════════
+TAKER_ESCALATION_ENABLED = True              # Maker->Taker Escalation aktivieren
+TAKER_ESCALATION_MAX_SLIPPAGE_PCT = 0.001    # 0.1% max Slippage für Taker (konservativ)
+TAKER_ESCALATION_TIMEOUT_SECONDS = 10        # Timeout bevor Escalation (aktuell nicht verwendet)
+MIN_TAKER_ESCALATION_PROFIT = 0.01           # $0.01 Minimum Profit nach Taker-Kosten
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# VOLATILITY PANIC EXIT (2025-12-17 Audit Fix)
+# Bei extremer Volatilität Position sofort schließen (Flash-Crash Protection)
+# ═══════════════════════════════════════════════════════════════════════════════
+VOLATILITY_PANIC_THRESHOLD = 8.0             # 8% = Panic Close (24h Range Volatility)
+VOLATILITY_HARD_CAP_THRESHOLD = 50.0         # 50% = Absolutes Max (keine Entries)
+
 # Blacklist (Coins die NIE getradet werden sollen)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gründe für Blacklist:
@@ -311,10 +327,8 @@ MAKER_ORDER_LIQUIDITY_TIMEOUT_MULTIPLIER = 0.5  # Timeout multiplier based on li
 LIGHTER_WS_MAX_SUBSCRIPTIONS = 100  # Hard limit from Lighter API
 
 # --- Maker-to-Taker Escalation ---
-# If enabled, bot will try a Taker (IOC) order after Maker retries fail
-TAKER_ESCALATION_ENABLED = True
-TAKER_ESCALATION_MAX_SLIPPAGE_PCT = 0.005 # 0.5% max slippage for taker escalation
-TAKER_ESCALATION_TIMEOUT_SECONDS = 5.0    # Wait up to 5s for taker fill (usually instant)
+# NOTE: TAKER_ESCALATION_* parameters are defined earlier (lines 131-137)
+# DO NOT DUPLICATE HERE - the earlier definition is canonical
 
 # --- Prediction & Confidence ---
 SYMBOL_CONFIDENCE_BOOST = {

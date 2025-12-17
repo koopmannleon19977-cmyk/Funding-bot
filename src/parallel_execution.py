@@ -898,6 +898,28 @@ class ParallelExecutionManager:
         except Exception as e:
             logger.debug(f"[RETRY] {symbol}: open-order safety check failed: {e}")
         
+        # ═══════════════════════════════════════════════════════════════
+        # HARD-GUARD FIX (2025-12-18): After cancel confirmed, re-check position!
+        # If we already have a position (Size>0), the order FILLED during cancel.
+        # Do NOT retry - just return success. Otherwise we get hedge-mismatch
+        # (e.g., Lighter 1176 coins vs X10 392 coins = massive exposure)
+        # ═══════════════════════════════════════════════════════════════
+        try:
+            positions = await self.lighter.fetch_open_positions()
+            p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
+            current_size = safe_float(p.get("size", 0)) if p else 0.0
+            
+            if abs(current_size) > 0:
+                # Position exists = order was FILLED during cancel!
+                logger.warning(
+                    f"🛑 [RETRY] {symbol}: Position size={current_size:.6f} detected after cancel! "
+                    f"Order was filled - SKIP RETRY to prevent hedge-mismatch"
+                )
+                # Return True = "success" to trigger hedge with actual size
+                return True, None
+        except Exception as e:
+            logger.debug(f"[RETRY] {symbol}: Post-cancel position check error: {e}")
+        
         # Wait before retry
         await asyncio.sleep(retry_delay)
         
@@ -1554,11 +1576,15 @@ class ParallelExecutionManager:
                 )
                 
                 if retry_success and retry_order_id:
-                    # Retry succeeded - update order ID and continue
-                    # Retry orders typically fill completely, so use planned size (actual_filled_size stays None)
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX (2025-12-18): UPDATE execution.lighter_order_id!
+                    # Without this, trade summary shows old order ID, and
+                    # cancel/reconcile uses wrong ID (ghost orders/positions)
+                    # ═══════════════════════════════════════════════════════════════
                     lighter_order_id = retry_order_id
+                    execution.lighter_order_id = retry_order_id  # CRITICAL FIX
                     filled = True
-                    logger.info(f"✅ [PHASE 1.5] {symbol}: Retry order FILLED after timeout")
+                    logger.info(f"✅ [PHASE 1.5] {symbol}: Retry order FILLED (new ID: {retry_order_id[:40]}...)")
                 else:
                     # Check if original order was filled during cancel (race condition)
                     # This may return actual filled size if partial fill or ghost fill detected
@@ -1688,37 +1714,77 @@ class ParallelExecutionManager:
 
                     if not filled:
                         # ═══════════════════════════════════════════════════════════════
-                        # NEW: Taker Escalation (2025-12-17 Audit Fix)
+                        # NEW: Taker Escalation with EV-Recheck (2025-12-17 Audit Fix)
+                        # CRITICAL: Only escalate if trade is STILL PROFITABLE after
+                        # accounting for taker fees and current spread.
                         # ═══════════════════════════════════════════════════════════════
                         if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                            logger.warning(f"🚀 [ESCALATION] {symbol}: Maker failed - Escalating to TAKER IOC...")
                             
-                            # Place Taker IOC order
-                            taker_phase_start = time.monotonic()
-                            taker_success, taker_order_id = await self._execute_lighter_leg(
-                                symbol,
-                                execution.side_lighter,
-                                execution.size_lighter,
-                                post_only=False, # TAKER
-                                amount_coins=execution.quantity_coins,
-                            )
+                            # ═══════════════════════════════════════════════════════════════
+                            # EV-RECHECK: Is this trade still profitable as TAKER?
+                            # ═══════════════════════════════════════════════════════════════
+                            taker_fee_lighter = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+                            taker_fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
+                            max_taker_slippage = getattr(config, 'TAKER_ESCALATION_MAX_SLIPPAGE_PCT', 0.001)
                             
-                            if taker_success and taker_order_id:
-                                # Wait a moment for position to appear
-                                await asyncio.sleep(1.0)
-                                positions = await self.lighter.fetch_open_positions()
-                                p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
-                                current_size = safe_float(p.get("size", 0)) if p else 0.0
-                                
-                                if abs(current_size) >= execution.quantity_coins * 0.90:
-                                    filled = True
-                                    lighter_order_id = taker_order_id
-                                    phase_times["taker_escalation"] = time.monotonic() - taker_phase_start
-                                    logger.info(f"✅ [ESCALATION] {symbol}: Taker fill successful! Resulting size={current_size:.6f}")
-                                else:
-                                    logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placed but no sufficient position found ({current_size:.6f})")
+                            # Calculate total taker costs
+                            notional_usd = execution.size_lighter
+                            taker_entry_cost = notional_usd * taker_fee_lighter
+                            taker_hedge_cost = notional_usd * taker_fee_x10
+                            slippage_cost = notional_usd * max_taker_slippage
+                            total_taker_costs = taker_entry_cost + taker_hedge_cost + slippage_cost
+                            
+                            # Check if expected funding still covers taker costs
+                            # Assume minimum 2h hold to estimate funding income
+                            min_hold_hours = 2.0
+                            hourly_funding_rate = getattr(execution, 'hourly_rate', 0.0) or 0.0
+                            if hourly_funding_rate == 0:
+                                # Try to get from opportunity data if available
+                                hourly_funding_rate = abs(execution._opportunity.get('net_rate', 0)) if hasattr(execution, '_opportunity') else 0
+                            
+                            expected_funding = notional_usd * hourly_funding_rate * min_hold_hours
+                            expected_net_profit = expected_funding - total_taker_costs
+                            
+                            min_profit_threshold = getattr(config, 'MIN_TAKER_ESCALATION_PROFIT', 0.01)  # $0.01 minimum
+                            
+                            if expected_net_profit < min_profit_threshold:
+                                logger.warning(
+                                    f"🚫 [ESCALATION] {symbol}: REJECTED - Taker not profitable! "
+                                    f"Expected=${expected_net_profit:.4f} < ${min_profit_threshold:.2f} "
+                                    f"(Costs=${total_taker_costs:.4f}, Funding=${expected_funding:.4f})"
+                                )
                             else:
-                                logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
+                                logger.warning(
+                                    f"🚀 [ESCALATION] {symbol}: Maker failed - Escalating to TAKER IOC "
+                                    f"(EV Check: Expected=${expected_net_profit:.4f} > ${min_profit_threshold:.2f})"
+                                )
+                                
+                                # Place Taker IOC order
+                                taker_phase_start = time.monotonic()
+                                taker_success, taker_order_id = await self._execute_lighter_leg(
+                                    symbol,
+                                    execution.side_lighter,
+                                    execution.size_lighter,
+                                    post_only=False, # TAKER
+                                    amount_coins=execution.quantity_coins,
+                                )
+                                
+                                if taker_success and taker_order_id:
+                                    # Wait a moment for position to appear
+                                    await asyncio.sleep(1.0)
+                                    positions = await self.lighter.fetch_open_positions()
+                                    p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
+                                    current_size = safe_float(p.get("size", 0)) if p else 0.0
+                                    
+                                    if abs(current_size) >= execution.quantity_coins * 0.90:
+                                        filled = True
+                                        lighter_order_id = taker_order_id
+                                        phase_times["taker_escalation"] = time.monotonic() - taker_phase_start
+                                        logger.info(f"✅ [ESCALATION] {symbol}: Taker fill successful! Resulting size={current_size:.6f}")
+                                    else:
+                                        logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placed but no sufficient position found ({current_size:.6f})")
+                                else:
+                                    logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
 
                         if not filled:
                             self._log_trade_summary(

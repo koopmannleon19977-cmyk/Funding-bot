@@ -20,7 +20,7 @@ from typing import Dict, List, Set, Tuple, Optional
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from src.helpers import safe_float
+from src.utils import safe_float
 
 logger = logging.getLogger("cleanup_unhedged")
 
