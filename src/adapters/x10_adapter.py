@@ -2502,7 +2502,7 @@ class X10Adapter(BaseAdapter):
             
             url = f"{base_url}/api/v1/user/funding/history?{'&'.join(params)}"
             
-            logger.info(f"🔍 [X10_FUNDING_DEBUG] Requesting: {url}")
+            logger.debug(f"🔍 [X10_FUNDING_DEBUG] Requesting: {url}")
 
             headers = {
                 'X-Api-Key': self.stark_account.api_key,
@@ -2522,7 +2522,9 @@ class X10Adapter(BaseAdapter):
                         raw_str = str(data)
                         if len(raw_str) > 2000:
                             raw_str = raw_str[:2000] + "... [TRUNCATED]"
-                        logger.info(f"🔍 [X10_FUNDING_DEBUG] Raw Response: {raw_str}")
+                        # DEBUG only: dumping large payloads at INFO can starve the event loop and
+                        # indirectly cause WebSocket ping timeouts (observed in long sessions).
+                        logger.debug(f"🔍 [X10_FUNDING_DEBUG] Raw Response: {raw_str}")
 
                         if data.get("status") == "OK" and "data" in data:
                             payments = []
@@ -2556,13 +2558,13 @@ class X10Adapter(BaseAdapter):
                                 if _normalize_to_ms(p.get("paid_time")) >= requested_from_ms
                             ]
 
-                            logger.info(
+                            logger.debug(
                                 f"🔍 [X10_FUNDING_DEBUG] Filtered {pre_count} -> {len(filtered)} payments "
                                 f"(fromTime={requested_from_ms})"
                             )
                             
                             for p in filtered:
-                                logger.info(
+                                logger.debug(
                                     f"  👉 [X10_PAYMENT] {p['symbol']} Time={p['paid_time']} "
                                     f"Fee={p['funding_fee']:.6f} Rate={p['funding_rate']:.6f} Side={p['side']}"
                                 )

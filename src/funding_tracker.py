@@ -372,6 +372,22 @@ class FundingTracker:
                 f"📊 {symbol} NET Funding: X10=${x10_funding:.4f}, Lighter=${lighter_funding:.4f}, "
                 f"NET=${total_current_funding:.4f} (incr=${incremental_funding:.4f})"
             )
+            
+            # B5: JSON structured log for funding payment
+            try:
+                from src.utils.json_logger import get_json_logger
+                json_log = get_json_logger()
+                if json_log and json_log.enabled:
+                    json_log.funding_payment(
+                        symbol=symbol,
+                        x10_funding=x10_funding,
+                        lighter_funding=lighter_funding,
+                        net_funding=total_current_funding,
+                        incremental=incremental_funding,
+                        previous_total=previous_funding
+                    )
+            except ImportError:
+                pass
         
         return incremental_funding
 

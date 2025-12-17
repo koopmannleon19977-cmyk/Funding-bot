@@ -100,6 +100,7 @@ from .base_adapter import BaseAdapter
 from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
 from src.adapters.lighter_client_fix import SaferSignerClient
 from src.batch_manager import LighterBatchManager
+from src.ws_order_client import WebSocketOrderClient, WsOrderConfig
 
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,20 @@ class LighterAdapter(BaseAdapter):
         # BATCH ORDERS (New Implementation)
         # ═══════════════════════════════════════════════════════════════
         self.batch_manager = LighterBatchManager(self)
+        
+        # ═══════════════════════════════════════════════════════════════
+        # B1: WebSocket Order Client for low-latency order submission
+        # Pattern from lighter-ts-main/src/api/ws-order-client.ts
+        # Primary: Send orders via WS (~50-100ms faster)
+        # Fallback: REST API if WS not connected
+        # NOTE: Uses /stream endpoint (same as market data WS)
+        #       /jsonapi endpoint returns 404 on mainnet
+        # ═══════════════════════════════════════════════════════════════
+        ws_order_url = "wss://mainnet.zklighter.elliot.ai/stream"
+        if getattr(config, "LIGHTER_BASE_URL", "").startswith("https://testnet"):
+            ws_order_url = "wss://testnet.zklighter.elliot.ai/stream"
+        self.ws_order_client = WebSocketOrderClient(WsOrderConfig(url=ws_order_url))
+        self._ws_order_enabled = getattr(config, "LIGHTER_WS_ORDERS", True)
 
 
     async def _safe_acquire_rate_limit(self) -> bool:
@@ -441,6 +456,10 @@ class LighterAdapter(BaseAdapter):
     ) -> Tuple[bool, List[Optional[str]]]:
         """
         Send multiple orders in a single batch transaction.
+        
+        B1: Primary via WebSocket for lower latency (~50-100ms faster)
+        Fallback: REST API if WS not connected
+        
         Pattern from lighter-ts-main/src/api/transaction-api.ts:sendTransactionBatch()
         
         Args:
@@ -454,6 +473,30 @@ class LighterAdapter(BaseAdapter):
             logger.error("❌ send_batch_orders: Invalid inputs")
             return False, []
         
+        # ═══════════════════════════════════════════════════════════════
+        # B1: Try WebSocket first for lower latency
+        # ═══════════════════════════════════════════════════════════════
+        if (hasattr(self, 'ws_order_client') and 
+            self._ws_order_enabled and 
+            self.ws_order_client.is_connected):
+            try:
+                import time
+                start = time.time()
+                
+                results = await self.ws_order_client.send_batch_transactions(tx_types, tx_infos)
+                
+                latency_ms = (time.time() - start) * 1000
+                tx_hashes = [r.hash for r in results if r.hash]
+                
+                logger.info(f"✅ [WS-ORDER] Batch of {len(tx_types)} sent in {latency_ms:.0f}ms")
+                return True, tx_hashes
+                
+            except Exception as e:
+                logger.warning(f"⚠️ [WS-ORDER] Batch failed: {e} - falling back to REST")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # REST Fallback
+        # ═══════════════════════════════════════════════════════════════
         try:
             base_url = self._get_base_url()
             url = f"{base_url}/api/v1/sendTxBatch"
@@ -464,7 +507,7 @@ class LighterAdapter(BaseAdapter):
                 "tx_infos": json.dumps(tx_infos)
             }
             
-            logger.info(f"📦 Sending batch of {len(tx_types)} transactions...")
+            logger.info(f"📦 [REST] Sending batch of {len(tx_types)} transactions...")
             
             session = await self._get_session()
             async with session.post(
@@ -483,7 +526,7 @@ class LighterAdapter(BaseAdapter):
                 tx_hashes = result.get("tx_hash", []) or result.get("hashes", [])
                 
                 if tx_hashes:
-                    logger.info(f"✅ Batch TX success: {len(tx_hashes)} transactions")
+                    logger.info(f"✅ [REST] Batch TX success: {len(tx_hashes)} transactions")
                     for i, h in enumerate(tx_hashes):
                         if h:
                             logger.debug(f"   TX {i+1}: {str(h)[:40]}...")
@@ -1986,11 +2029,15 @@ class LighterAdapter(BaseAdapter):
                     self._resolved_api_key_index,
                 ) = await self._auto_resolve_indices()
             priv_key = str(getattr(config, "LIGHTER_API_PRIVATE_KEY", ""))
+            
+            # New SDK API: api_private_keys is Dict[int, str] instead of single private_key
+            api_key_index = self._resolved_api_key_index or 0
+            api_private_keys = {api_key_index: priv_key}
+            
             self._signer = SaferSignerClient(
                 url=self._get_base_url(),
-                private_key=priv_key,
-                api_key_index=self._resolved_api_key_index,
                 account_index=self._resolved_account_index,
+                api_private_keys=api_private_keys,
             )
         return self._signer
 
@@ -2726,6 +2773,25 @@ class LighterAdapter(BaseAdapter):
                     )
 
             await self._resolve_account_index()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # B1: Start WebSocket Order Client for low-latency orders
+            # Called once after first market cache load
+            # ═══════════════════════════════════════════════════════════════
+            if hasattr(self, 'ws_order_client') and self._ws_order_enabled:
+                if not self.ws_order_client.is_connected:
+                    try:
+                        connected = await self.ws_order_client.connect()
+                        if connected:
+                            logger.info("✅ [WS-ORDER] Connected for low-latency order submission")
+                        else:
+                            logger.warning("⚠️ [WS-ORDER] Failed to connect - using REST fallback")
+                    except Exception as e:
+                        logger.warning(f"⚠️ [WS-ORDER] Init error: {e} - using REST fallback")
+            
+            # Start Batch Manager if not already running
+            if hasattr(self, 'batch_manager') and not self.batch_manager._running:
+                await self.batch_manager.start()
 
         except Exception as e:
             logger.error(f"{self.name} load_market_cache error: {e}")
@@ -2755,6 +2821,17 @@ class LighterAdapter(BaseAdapter):
             # Start Batch Manager
             if hasattr(self, 'batch_manager'):
                 await self.batch_manager.start()
+            
+            # B1: Start WebSocket Order Client for low-latency orders
+            if hasattr(self, 'ws_order_client') and self._ws_order_enabled:
+                try:
+                    connected = await self.ws_order_client.connect()
+                    if connected:
+                        logger.info("✅ [WS-ORDER] Connected for low-latency order submission")
+                    else:
+                        logger.warning("⚠️ [WS-ORDER] Failed to connect - using REST fallback")
+                except Exception as e:
+                    logger.warning(f"⚠️ [WS-ORDER] Init error: {e} - using REST fallback")
             
         except ImportError as e:
             logger.error(f"❌ Lighter SDK import error: {e}")
@@ -4891,6 +4968,14 @@ class LighterAdapter(BaseAdapter):
         # Stop Batch Manager
         if hasattr(self, 'batch_manager'):
             await self.batch_manager.stop()
+        
+        # B1: Stop WebSocket Order Client
+        if hasattr(self, 'ws_order_client'):
+            try:
+                await self.ws_order_client.disconnect()
+                logger.info("✅ [WS-ORDER] Disconnected")
+            except Exception as e:
+                logger.debug(f"[WS-ORDER] Disconnect warning: {e}")
 
         logger.info("✅ Lighter Adapter closed")
 

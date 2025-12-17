@@ -604,17 +604,35 @@ class ManagedWebSocket:
                 # JSON PING HANDLING: Server sends ping, we respond with pong
                 # X10 sends: {"ping": timestamp_ms} -> we respond: {"pong": timestamp_ms}
                 # ═══════════════════════════════════════════════════════════════════
-                if isinstance(message, str) and '"ping"' in message:
+                # Some servers use different JSON keepalive formats:
+                # - {"ping": <ts>}                 -> respond {"pong": <ts>}
+                # - {"type": "ping"} / {"type":"PING"} -> respond {"type":"pong"/"PONG"} (optionally echo timestamp)
+                if isinstance(message, str) and '"ping"' in message.lower():
                     try:
                         data = json.loads(message)
+                    except json.JSONDecodeError:
+                        data = None
+
+                    if isinstance(data, dict):
                         if "ping" in data:
-                            ping_value = data["ping"]
+                            ping_value = data.get("ping")
                             await self._ws.send(json.dumps({"pong": ping_value}))
                             self._metrics.last_pong_time = time.time()  # Track pong sent
                             logger.debug(f"[{self.config.name}] JSON pong sent: {ping_value}")
                             continue
-                    except json.JSONDecodeError:
-                        pass
+
+                        msg_type = data.get("type") or data.get("event") or data.get("e")
+                        if isinstance(msg_type, str) and msg_type.lower() == "ping":
+                            pong_type = "PONG" if msg_type.isupper() else "pong"
+                            pong_payload = {"type": pong_type}
+                            for ts_key in ("timestamp", "ts", "time", "t"):
+                                if ts_key in data:
+                                    pong_payload[ts_key] = data[ts_key]
+                                    break
+                            await self._ws.send(json.dumps(pong_payload))
+                            self._metrics.last_pong_time = time.time()
+                            logger.debug(f"[{self.config.name}] Typed pong sent: {pong_payload}")
+                            continue
                 
                 # ═══════════════════════════════════════════════════════════════════
                 # JSON PONG HANDLING: Server responds to OUR keepalive pings
@@ -1153,14 +1171,14 @@ class WebSocketManager:
         # The account stream may not send messages if no account activity
         # (no trades, position changes, etc.) - we need active keepalive
         # ═══════════════════════════════════════════════════════════════
-        self._x10_account_stale_threshold = 180.0  # 3 minutes without ANY message triggers reconnect
+        self._x10_account_stale_threshold = 600.0  # 10 minutes without ANY message triggers reconnect
         # ═══════════════════════════════════════════════════════════════════════════
         # FIX: X10 Server trennt nach ~5 Minuten Inaktivität (1011 Ping Timeout).
         # Der Account-Stream sendet nur bei Account-Aktivität Daten.
         # Wir müssen AKTIV JSON-Pings senden um die Verbindung am Leben zu halten.
         # Intervall: Alle 45s (4x unter dem 5-Min Timeout, gibt 4 Chancen vor Disconnect)
         # ═══════════════════════════════════════════════════════════════════════════
-        self._x10_account_ping_interval = 45.0     # Send application-level ping every 45s
+        self._x10_account_ping_interval: Optional[float] = None  # Disable JSON keepalive pings; rely on protocol pings
         self._x10_account_keepalive_task: Optional[asyncio.Task] = None
         self._x10_account_last_pong_time = 0.0     # Track when we last received a pong
         self._x10_account_last_msg_time = 0.0      # Track any message (incl. pong) for health logs
@@ -1273,6 +1291,9 @@ class WebSocketManager:
         CRITICAL: X10 Server disconnects with 1011 after ~5 minutes of inactivity.
         We send pings every 45s to ensure we stay well under this threshold.
         """
+        if not self._x10_account_ping_interval:
+            logger.info("💓 [x10_account] Keepalive loop disabled (using protocol ping_interval only)")
+            return
         logger.info("💓 [x10_account] Keepalive loop started (interval={:.0f}s)".format(self._x10_account_ping_interval))
         
         while self._running:
@@ -1638,11 +1659,12 @@ class WebSocketManager:
             conn.start() for conn in self._connections.values()
         ], return_exceptions=True)
         
-        # Start X10 account keepalive loop (dedicated health monitoring)
-        self._x10_account_keepalive_task = asyncio.create_task(
-            self._x10_account_keepalive_loop(),
-            name="x10_account_keepalive"
-        )
+        # Start X10 account keepalive loop (dedicated health monitoring) if enabled
+        if self._x10_account_ping_interval:
+            self._x10_account_keepalive_task = asyncio.create_task(
+                self._x10_account_keepalive_loop(),
+                name="x10_account_keepalive"
+            )
         
         logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)")
     

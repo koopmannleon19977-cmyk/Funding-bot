@@ -121,6 +121,12 @@ MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein
 # H8: Dynamic Spread Threshold (Volatility-based adjustments)
 # Bei niedriger Vol: 0.75x stricter, bei hoher Vol: 1.5x relaxed (max 1%)
 DYNAMIC_SPREAD_ENABLED = True      # H8: Aktiviert volatilitätsbasierte Spread-Limits
+
+# B1: WebSocket Order Client (low-latency order submission)
+# Orders werden über WS statt REST gesendet (~50-100ms schneller)
+# Format korrigiert per offizieller Lighter Python SDK utils.py
+LIGHTER_WS_ORDERS = True           # B1: WebSocket für Order Submission aktivieren
+
 # Blacklist (Coins die NIE getradet werden sollen)
 # ═══════════════════════════════════════════════════════════════════════════════
 # Gründe für Blacklist:
@@ -234,6 +240,11 @@ LOG_LEVEL = logging.INFO  # Changed from DEBUG to INFO to reduce log spam
 CONCURRENT_REQUEST_LIMIT = 10
 REFRESH_DELAY_SECONDS = 3
 TRADE_COOLDOWN_SECONDS = 120
+
+# --- Structured JSON Logging (B5: For Grafana/ELK Integration) ---
+JSON_LOGGING_ENABLED = True                    # Master switch for JSON logging
+JSON_LOG_FILE = "logs/funding_bot_json.jsonl"  # JSON Lines format (one JSON per line)
+JSON_LOG_MIN_LEVEL = "INFO"                    # Minimum level: DEBUG, INFO, WARNING, ERROR
 
 # Reconnect / Watchdog (Enhanced for 1006 disconnect handling)
 WS_PING_INTERVAL = 15              # Default ping interval for X10

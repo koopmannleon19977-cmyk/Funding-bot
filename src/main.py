@@ -37,6 +37,20 @@ import config
 logger = config.setup_logging(per_run=True, run_id=os.getenv("RUN_ID"))
 config.validate_runtime_config(logger)
 
+# Initialize JSON Logger (B5: Structured logging for Grafana/ELK)
+from src.utils.json_logger import JSONLogger, LogLevel
+json_logger = None
+if getattr(config, 'JSON_LOGGING_ENABLED', False):
+    log_level_str = getattr(config, 'JSON_LOG_MIN_LEVEL', 'INFO')
+    log_level = LogLevel[log_level_str.upper()] if log_level_str else LogLevel.INFO
+    json_log_file = getattr(config, 'JSON_LOG_FILE', None)
+    json_logger = JSONLogger.get_instance(
+        log_file=json_log_file,
+        enabled=True,
+        min_level=log_level
+    )
+    logger.info(f"✅ JSON Logger initialized: {json_log_file or 'default'}")
+
 # Noise Reduction for verbose modules
 logging.getLogger("websockets").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)

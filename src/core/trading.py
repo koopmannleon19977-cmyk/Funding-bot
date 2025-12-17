@@ -21,6 +21,13 @@ from src.volatility_monitor import get_volatility_monitor
 from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
 
+# B5: JSON Logger for structured logging
+try:
+    from src.utils.json_logger import get_json_logger, LogCategory
+    json_logger = get_json_logger()
+except ImportError:
+    json_logger = None
+
 logger = logging.getLogger(__name__)
 
 # ============================================================
@@ -392,6 +399,22 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     logger.info(f"   Entry X10: ${entry_price_x10:.6f}")
                     logger.info(f"   Entry Lighter: ${entry_price_lighter:.6f}")
                     logger.info(f"   APY: {apy_value:.2f}%")
+
+                    # B5: JSON structured log for trade entry
+                    if json_logger:
+                        json_logger.trade_entry(
+                            symbol=symbol,
+                            side=x10_side,
+                            size=final_usd,
+                            price=entry_price_x10,
+                            exchange="BOTH",
+                            x10_order_id=str(x10_id) if x10_id else None,
+                            lighter_order_id=str(lit_id)[:30] if lit_id else None,
+                            entry_price_x10=entry_price_x10,
+                            entry_price_lighter=entry_price_lighter,
+                            apy=apy_value,
+                            leg1_exchange=leg1_ex
+                        )
 
                     # ═══════════════════════════════════════════════════════════════
                     # PNL DATA ENRICHMENT (best-effort):
