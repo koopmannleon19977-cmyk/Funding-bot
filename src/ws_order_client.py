@@ -479,59 +479,60 @@ class WebSocketOrderClient:
             
         if len(tx_types) > 50:
             raise ValueError("Batch size cannot exceed 50 transactions")
-            
-        req_id = self._generate_request_id()
-        
-        # Parse tx_infos to objects for the JSON array
-        # Per official Lighter SDK: batch uses JSON.stringify for tx_types AND tx_infos
+
+        # Parse tx_infos to objects
         tx_info_objs = []
         for ti in tx_infos:
             try:
                 tx_info_objs.append(json.loads(ti) if isinstance(ti, str) else ti)
             except json.JSONDecodeError:
                 tx_info_objs.append(ti)
-                
-        # Build batch message per official Lighter Python SDK:
-        # tx_types and tx_infos must be JSON strings (not arrays)
-        message = {
-            "type": "jsonapi/sendtxbatch",
-            "data": {
-                "id": req_id,
-                "tx_types": json.dumps(tx_types),      # JSON string of array
-                "tx_infos": json.dumps(tx_info_objs)   # JSON string of array
-            }
-        }
-        
-        # Create pending request
-        loop = asyncio.get_event_loop()
-        future = loop.create_future()
-        timeout_task = asyncio.create_task(self._request_timeout(req_id))
-        
-        self._pending_requests[req_id] = PendingRequest(
-            future=future,
-            timestamp=time.time(),
-            timeout_task=timeout_task
-        )
-        
-        try:
+
+        async def _send_batch(message: dict, req_id: str, fmt: str) -> List[WsTransaction]:
+            loop = asyncio.get_event_loop()
+            future = loop.create_future()
+            timeout_task = asyncio.create_task(self._request_timeout(req_id))
+            self._pending_requests[req_id] = PendingRequest(
+                future=future,
+                timestamp=time.time(),
+                timeout_task=timeout_task,
+            )
             start_time = time.time()
-            await self._ws.send(json.dumps(message))
-            
-            result = await future
-            latency_ms = (time.time() - start_time) * 1000
-            
-            logger.debug(f"[WS-ORDER] Batch of {len(tx_types)} sent in {latency_ms:.1f}ms")
-            
-            # Parse results
-            if isinstance(result, list):
-                return [WsTransaction.from_dict(r) for r in result]
-            else:
+            try:
+                await self._ws.send(json.dumps(message))
+                result = await future
+                latency_ms = (time.time() - start_time) * 1000
+                logger.debug(f"[WS-ORDER] Batch of {len(tx_types)} sent in {latency_ms:.1f}ms (format={fmt})")
+                if isinstance(result, list):
+                    return [WsTransaction.from_dict(r) for r in result]
                 return [WsTransaction.from_dict(result)]
-                
-        except asyncio.TimeoutError:
+            except Exception:
+                pending = self._pending_requests.pop(req_id, None)
+                if pending and pending.timeout_task:
+                    pending.timeout_task.cancel()
+                raise
+
+        last_error: Optional[Exception] = None
+        for fmt in ("array", "string"):
+            req_id = self._generate_request_id()
+            message = {
+                "type": "jsonapi/sendtxbatch",
+                "data": {
+                    "id": req_id,
+                    "tx_types": tx_types if fmt == "array" else json.dumps(tx_types),
+                    "tx_infos": tx_info_objs if fmt == "array" else json.dumps(tx_info_objs),
+                },
+            }
+            try:
+                return await _send_batch(message, req_id, fmt)
+            except asyncio.TimeoutError as e:
+                last_error = e
+            except Exception as e:
+                last_error = e
+
+        if isinstance(last_error, asyncio.TimeoutError):
             raise Exception(f"Batch request timeout after {self.config.request_timeout}s")
-        except Exception as e:
-            raise Exception(f"Failed to send batch: {e}")
+        raise Exception(f"Failed to send batch: {last_error}")
             
     def get_stats(self) -> Dict[str, Any]:
         """Get connection statistics"""

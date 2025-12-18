@@ -30,16 +30,15 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Q3: Self-Trade Protection Level (from Extended-TS-SDK/src/perpetual/orders.ts)
+# Q3: Self-Trade Protection Level (SDK enum)
+# Observed accepted values in logs:
+# - DISABLED / ACCOUNT / CLIENT
+# (see logs/funding_bot_LEON_20251218_115320_FULL.log:238)
 # ═══════════════════════════════════════════════════════════════════════════════
 class SelfTradeProtectionLevel(str, Enum):
-    """
-    Self-trade protection levels for X10.
-    Prevents order rejects when placing orders that could match your own orders.
-    """
-    NONE = "NONE"       # No self-trade protection
-    MARKET = "MARKET"   # Cancel incoming order if it would match own order in same market
-    ACCOUNT = "ACCOUNT" # Cancel incoming order if it would match any own order
+    DISABLED = "DISABLED"
+    ACCOUNT = "ACCOUNT"
+    CLIENT = "CLIENT"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1286,6 +1285,31 @@ class X10Adapter(BaseAdapter):
             # Parameter-Name: reduce_only (confirmed via SDK signature)
             # Boolean-Wert: True = 1 (ReduceOnly), False = 0 (normal order)
             # ═══════════════════════════════════════════════════════════════
+            place_kwargs = {}
+            try:
+                if getattr(config, "X10_STP_ENABLED", False):
+                    level_raw = getattr(config, "X10_STP_LEVEL", None)
+                    if level_raw:
+                        level = str(level_raw).upper()
+                        # Backward compatible aliases:
+                        # - NONE -> DISABLED
+                        # - MARKET -> CLIENT (closest available SDK option)
+                        alias = {
+                            "NONE": "DISABLED",
+                            "DISABLED": "DISABLED",
+                            "MARKET": "CLIENT",
+                            "CLIENT": "CLIENT",
+                            "ACCOUNT": "ACCOUNT",
+                        }
+                        stp_value = SelfTradeProtectionLevel(alias.get(level, level)).value
+                        params = set(inspect.signature(client.place_order).parameters)
+                        for key in ("self_trade_protection_level", "selfTradeProtectionLevel", "self_trade_protection"):
+                            if key in params:
+                                place_kwargs[key] = stp_value
+                                break
+            except Exception:
+                pass
+
             resp = await client.place_order(
                 market_name=symbol,
                 amount_of_synthetic=qty,
@@ -1295,6 +1319,7 @@ class X10Adapter(BaseAdapter):
                 time_in_force=tif,
                 expire_time=expire,
                 reduce_only=reduce_only,  # ✅ FIX #7: reduce_only parameter (True=1, False=0 in API)
+                **place_kwargs,
             )
             
             # ═══════════════════════════════════════════════════════════════
@@ -1366,7 +1391,14 @@ class X10Adapter(BaseAdapter):
         # - This ensures fills even on wide-spread markets
         # ═══════════════════════════════════════════════════════════════
         max_retries = 5
-        slippage_pct_steps = [0.02, 0.05, 0.08, 0.10, 0.15]  # 2%, 5%, 8%, 10%, 15%
+        is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
+        # In normal operation, start with low slippage and escalate slowly.
+        # During shutdown, prefer certainty of exit.
+        slippage_pct_steps = (
+            [0.002, 0.005, 0.01, 0.02, 0.03]  # 0.2%, 0.5%, 1%, 2%, 3%
+            if not is_shutting_down
+            else [0.02, 0.05, 0.08, 0.10, 0.15]  # 2%, 5%, 8%, 10%, 15%
+        )
         
         for attempt in range(max_retries):
             try:
@@ -1473,8 +1505,6 @@ class X10Adapter(BaseAdapter):
                 # We cannot leave positions open during shutdown just because they're
                 # below min notional. The exchange may reject, but we must try.
                 # ═══════════════════════════════════════════════════════════════
-                is_shutting_down = getattr(config, 'IS_SHUTTING_DOWN', False)
-                
                 # Calculate minimums for logging only (not for blocking)
                 buffered_min = self.min_notional_usd(symbol)
                 hard_min = buffered_min / 1.05
@@ -1504,6 +1534,16 @@ class X10Adapter(BaseAdapter):
                     amount=actual_size_abs,
                     price=ref_price_f if ref_price_f > 0 else None,
                 )
+
+                # ═══════════════════════════════════════════════════════════════
+                # FIX (2025-12-18): If open_live_position returns (True, None),
+                # it means the position was already closed (error 1137/1138).
+                # We should return immediately without further verification loops.
+                # This prevents unnecessary retries during shutdown.
+                # ═══════════════════════════════════════════════════════════════
+                if success and order_id is None:
+                    logger.info(f"✅ X10 {symbol}: Position confirmed closed (no order needed)")
+                    return True, None
 
                 if not success:
                     # FIX: Verify position state after error (handles 1138 race condition)

@@ -835,6 +835,12 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         all_exchange_symbols = set(real_lighter.keys()) | set(real_x10.keys())
         db_symbols = {t.symbol for t in db_trades}
         
+        # Throttle noisy orphan/dust handling to avoid log storms and wasted cycles.
+        # Stored on function object to persist across calls without globals.
+        if not hasattr(reconcile_state_with_exchange, "_orphan_throttle_next_ts"):
+            reconcile_state_with_exchange._orphan_throttle_next_ts = {}
+        orphan_throttle_next_ts = reconcile_state_with_exchange._orphan_throttle_next_ts
+
         for symbol in all_exchange_symbols:
             if symbol not in db_symbols:
                 if symbol in RECENTLY_OPENED_TRADES:
@@ -845,8 +851,14 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                 l_size = real_lighter.get(symbol, 0)
                 x_size = real_x10.get(symbol, 0)
                 
+                now_ts = time.time()
+                next_allowed = float(orphan_throttle_next_ts.get(symbol, 0.0) or 0.0)
+                if now_ts < next_allowed:
+                    continue
+
                 logger.error(f"👻 ORPHAN POSITION: {symbol} found (L={l_size}, X={x_size}) but NOT in DB!")
-                
+                orphan_throttle_next_ts[symbol] = now_ts + 30.0  # default backoff (overridden below)
+                 
                 # Fix #12: Automatically close orphan positions
                 try:
                     # Close Lighter position if exists
@@ -864,13 +876,17 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                                 original_side = "BUY" if l_size < 0 else "SELL"
                                 # Avoid infinite loops on uncloseable dust lots
                                 if lighter_position.get('is_dust') and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                                    logger.warning(f"🧹 Orphan Lighter {symbol} is dust (notional≈${notional:.4f}) - skipping close attempt")
+                                    logger.warning(
+                                        f"🧹 Orphan Lighter {symbol} is dust (notional≈${notional:.4f}) - skipping close attempt (throttled)"
+                                    )
+                                    orphan_throttle_next_ts[symbol] = now_ts + 600.0  # 10m backoff
                                 else:
                                     ok, _ = await lighter.close_live_position(symbol, original_side, notional)
                                     if ok:
                                         logger.info(f"✅ Closed orphaned Lighter {symbol}")
                                     else:
                                         logger.warning(f"⚠️ Failed to close orphaned Lighter {symbol} (close_live_position returned False)")
+                                    orphan_throttle_next_ts[symbol] = now_ts + 30.0
                     
                     # Close X10 position if exists
                     if abs(x_size) > 0:
@@ -886,8 +902,10 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                                     logger.info(f"✅ Closed orphaned X10 {symbol}")
                                 else:
                                     logger.warning(f"⚠️ Failed to close orphaned X10 {symbol} (close_live_position returned False)")
+                                orphan_throttle_next_ts[symbol] = now_ts + 30.0
                 except Exception as e:
                     logger.error(f"❌ Failed to close orphan position {symbol}: {e}")
+                    orphan_throttle_next_ts[symbol] = now_ts + 60.0
                     
         logger.info("✅ RECONCILE: Sync complete.")
         
@@ -1244,7 +1262,9 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                             f"Geschenkter Profit durch Preisdifferenz! (ignoriere MINIMUM_HOLD)"
                         )
                         reason = "PRICE_DIVERGENCE_PROFIT"
-                        force_close = True
+                        # Do NOT bypass profit-protection: this is only a candidate reason.
+                        # Net-profit after exit costs is validated below.
+                        force_close = False
                     else:
                         remaining_hold = (minimum_hold_seconds - age_seconds) / 60
                         logger.debug(
@@ -1287,13 +1307,11 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):
                     # Check: Ist der Trade nach allen Kosten wirklich profitabel?
                     if expected_net_pnl < min_net_profit:
-                        # Ausnahme: Price Divergence Profit überschreibt
-                        if not (price_divergence_enabled and spread_pnl >= min_divergence_profit):
-                            logger.debug(
-                                f"🛡️ [PROFIT PROTECTION] {sym}: Expected Net ${expected_net_pnl:.4f} < ${min_net_profit:.2f}. "
-                                f"Halte Trade bis profitabel! (Gross=${gross_pnl:.4f}, Costs=${expected_exit_cost:.4f})"
-                            )
-                            continue
+                        logger.debug(
+                            f"🛡️ [PROFIT PROTECTION] {sym}: Expected Net ${expected_net_pnl:.4f} < ${min_net_profit:.2f}. "
+                            f"Halte Trade bis profitabel! (Gross=${gross_pnl:.4f}, Costs=${expected_exit_cost:.4f})"
+                        )
+                        continue
                 
                 # ═══════════════════════════════════════════════════════════════
                 # LIQUIDITY CHECK: Genug Orderbook-Tiefe für Exit?

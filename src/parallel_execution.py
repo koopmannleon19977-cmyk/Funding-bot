@@ -1712,38 +1712,45 @@ class ParallelExecutionManager:
                             execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
                             return False, None, lighter_order_id
 
-                    if not filled:
-                        # ═══════════════════════════════════════════════════════════════
-                        # NEW: Taker Escalation with EV-Recheck (2025-12-17 Audit Fix)
-                        # CRITICAL: Only escalate if trade is STILL PROFITABLE after
-                        # accounting for taker fees and current spread.
-                        # ═══════════════════════════════════════════════════════════════
-                        if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                            
+                        if not filled:
                             # ═══════════════════════════════════════════════════════════════
-                            # EV-RECHECK: Is this trade still profitable as TAKER?
+                            # NEW: Taker Escalation with EV-Recheck (2025-12-17 Audit Fix)
+                            # CRITICAL: Only escalate if trade is STILL PROFITABLE after
+                            # accounting for taker fees and current spread.
                             # ═══════════════════════════════════════════════════════════════
-                            taker_fee_lighter = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
-                            taker_fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
-                            max_taker_slippage = getattr(config, 'TAKER_ESCALATION_MAX_SLIPPAGE_PCT', 0.001)
-                            
-                            # Calculate total taker costs
-                            notional_usd = execution.size_lighter
-                            taker_entry_cost = notional_usd * taker_fee_lighter
-                            taker_hedge_cost = notional_usd * taker_fee_x10
-                            slippage_cost = notional_usd * max_taker_slippage
-                            total_taker_costs = taker_entry_cost + taker_hedge_cost + slippage_cost
-                            
-                            # Check if expected funding still covers taker costs
-                            # Assume minimum 2h hold to estimate funding income
-                            min_hold_hours = 2.0
-                            hourly_funding_rate = getattr(execution, 'hourly_rate', 0.0) or 0.0
-                            if hourly_funding_rate == 0:
-                                # Try to get from opportunity data if available
-                                hourly_funding_rate = abs(execution._opportunity.get('net_rate', 0)) if hasattr(execution, '_opportunity') else 0
-                            
-                            expected_funding = notional_usd * hourly_funding_rate * min_hold_hours
-                            expected_net_profit = expected_funding - total_taker_costs
+                            if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                                
+                                # ═══════════════════════════════════════════════════════════════
+                                # EV-RECHECK: Is this trade still profitable as TAKER?
+                                # ═══════════════════════════════════════════════════════════════
+                                try:
+                                    from src.fee_manager import get_fee_manager
+                                    fee_manager = get_fee_manager()
+                                    taker_fee_lighter = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
+                                    taker_fee_x10 = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
+                                except Exception:
+                                    taker_fee_lighter = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+                                    taker_fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
+                                max_taker_slippage = getattr(config, 'TAKER_ESCALATION_MAX_SLIPPAGE_PCT', 0.001)
+                                
+                                # Calculate total taker costs
+                                notional_usd = execution.size_lighter
+                                taker_entry_cost = notional_usd * taker_fee_lighter
+                                taker_hedge_cost = notional_usd * taker_fee_x10
+                                slippage_cost = notional_usd * max_taker_slippage
+                                total_taker_costs = taker_entry_cost + taker_hedge_cost + slippage_cost
+                                
+                                # Check if expected funding still covers taker costs
+                                # Use configured minimum hold to estimate funding income
+                                min_hold_hours = float(getattr(config, "MINIMUM_HOLD_SECONDS", 7200)) / 3600.0
+                                hourly_funding_rate = getattr(execution, 'hourly_rate', 0.0) or 0.0
+                                if hourly_funding_rate == 0:
+                                    # Try to get from opportunity data if available
+                                    opp = getattr(execution, "_opportunity", {}) or {}
+                                    hourly_funding_rate = abs(opp.get("net_funding_hourly") or opp.get("net_rate") or 0.0)
+                                    
+                                expected_funding = notional_usd * hourly_funding_rate * min_hold_hours
+                                expected_net_profit = expected_funding - total_taker_costs
                             
                             min_profit_threshold = getattr(config, 'MIN_TAKER_ESCALATION_PROFIT', 0.01)  # $0.01 minimum
                             
@@ -1806,18 +1813,79 @@ class ParallelExecutionManager:
             # ═══════════════════════════════════════════════════════════════
             phase_start = time.monotonic()
             
-            # FIX (2025-12-13): Use actual filled size if available (e.g., from Ghost Fill detection)
-            # This prevents hedging more than actually filled (e.g., hedge 52 coins when only 0.2 were filled)
-            if actual_filled_size is not None:
-                filled_size_coins = actual_filled_size
-                logger.info(f"📊 [PHASE 2] {symbol}: Using ACTUAL filled size: {filled_size_coins:.6f} coins (from Ghost Fill/Partial Fill detection)")
-            else:
-                # Normal case: Use planned quantity (assumes full fill)
-                filled_size_coins = execution.quantity_coins
-                logger.info(f"📊 [PHASE 2] {symbol}: Using PLANNED size: {filled_size_coins:.6f} coins (no partial fill detected)")
+            # ═══════════════════════════════════════════════════════════════
+            # FIX (2025-12-18): CRITICAL - Re-fetch ACTUAL position size!
+            # Ghost-fill detection may have only seen a partial fill (e.g., 6.2 coins)
+            # but the order can continue filling in the background.
+            # We MUST use the TRUE current position size for the hedge!
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                positions = await self.lighter.fetch_open_positions()
+                pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+                real_position_size = abs(safe_float(pos.get("size", 0))) if pos else 0.0
+                
+                if real_position_size > 0:
+                    # Use REAL position size, not ghost-detected or planned
+                    filled_size_coins = real_position_size
+                    logger.info(f"📊 [PHASE 2] {symbol}: Using REAL position size: {filled_size_coins:.6f} coins (fresh fetch from Lighter)")
+                elif actual_filled_size is not None and actual_filled_size > 0:
+                    filled_size_coins = actual_filled_size
+                    logger.warning(f"📊 [PHASE 2] {symbol}: Using ghost-detected size: {filled_size_coins:.6f} coins (no position found in fresh fetch!)")
+                else:
+                    filled_size_coins = execution.quantity_coins
+                    logger.warning(f"📊 [PHASE 2] {symbol}: Using PLANNED size: {filled_size_coins:.6f} coins (fallback)")
+            except Exception as e:
+                logger.warning(f"⚠️ [PHASE 2] {symbol}: Error fetching position, using fallback: {e}")
+                filled_size_coins = actual_filled_size if actual_filled_size else execution.quantity_coins
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX (2025-12-18): X10 MIN NOTIONAL CHECK!
+            # X10 has minimum order size requirements (both coins AND USD notional)
+            # If size is too small, X10 will reject with Error 1120
+            # ═══════════════════════════════════════════════════════════════
+            x10_min_coins = self._get_x10_min_trade_size_coins(symbol)
+            price = self.x10.fetch_mark_price(symbol) or 0.0
+            x10_min_notional_usd = 10.0  # X10 minimum notional in USD (conservative estimate)
+            filled_size_usd = filled_size_coins * price if price > 0 else 0.0
+            
+            if filled_size_coins < x10_min_coins:
+                logger.error(
+                    f"❌ [PHASE 2] {symbol}: X10 hedge ABORTED - size too small! "
+                    f"{filled_size_coins:.6f} coins < min {x10_min_coins:.6f} coins"
+                )
+                # Rollback Lighter position immediately (synchronous)
+                logger.warning(f"🔄 {symbol}: Initiating IMMEDIATE rollback - size below X10 minimum!")
+                await self._execute_immediate_rollback(execution)
+                self._log_trade_summary(
+                    symbol,
+                    "ROLLBACK",
+                    f"X10 min size not met ({filled_size_coins:.4f} < {x10_min_coins:.4f} coins)",
+                    trade_start_time,
+                    phase_times,
+                    execution,
+                )
+                return False, None, lighter_order_id
+                
+            if filled_size_usd < x10_min_notional_usd:
+                logger.error(
+                    f"❌ [PHASE 2] {symbol}: X10 hedge ABORTED - notional too small! "
+                    f"${filled_size_usd:.2f} < min ${x10_min_notional_usd:.2f}"
+                )
+                # Rollback Lighter position immediately (synchronous)
+                logger.warning(f"🔄 {symbol}: Initiating IMMEDIATE rollback - notional below X10 minimum!")
+                await self._execute_immediate_rollback(execution)
+                self._log_trade_summary(
+                    symbol,
+                    "ROLLBACK",
+                    f"X10 min notional not met (${filled_size_usd:.2f} < ${x10_min_notional_usd:.2f})",
+                    trade_start_time,
+                    phase_times,
+                    execution,
+                )
+                return False, None, lighter_order_id
 
             logger.info(f"📤 [PHASE 2] {symbol}: Placing X10 {execution.side_x10} hedge...")
-            logger.info(f"   Size: {filled_size_coins:.6f} coins (matching Lighter fill)")
+            logger.info(f"   Size: {filled_size_coins:.6f} coins (${filled_size_usd:.2f}) - X10 min check PASSED")
 
             execution.state = ExecutionState.LEG2_SENT
 
@@ -1849,9 +1917,11 @@ class ParallelExecutionManager:
                 return True, x10_order_id, lighter_order_id
             else:
                 logger.error(f"❌ [PHASE 2] {symbol}: X10 hedge FAILED ({phase_times['x10_hedge']:.2f}s)")
-                logger.warning(f"🔄 {symbol}: Initiating rollback - Lighter position exposed!")
+                logger.warning(f"🔄 {symbol}: Initiating IMMEDIATE rollback - Lighter position exposed!")
 
-                await self._queue_rollback(execution)
+                # FIX (2025-12-18): Execute rollback IMMEDIATELY instead of queuing!
+                # Queued rollbacks allow the position to grow while waiting, causing massive exposure
+                await self._execute_immediate_rollback(execution)
                 self._log_trade_summary(
                     symbol,
                     "ROLLBACK",
@@ -2202,6 +2272,138 @@ class ParallelExecutionManager:
         self._stats["rollbacks_triggered"] += 1
         await self._rollback_queue.put(execution)
         logger.info(f"📤 [ROLLBACK] {execution.symbol}: Queued for background processing")
+
+    async def _execute_immediate_rollback(self, execution: TradeExecution) -> bool:
+        """
+        Execute rollback IMMEDIATELY (synchronous) instead of queuing.
+        
+        FIX (2025-12-18): Critical - when X10 hedge fails, we MUST close the Lighter
+        position immediately! If we queue it, the position can continue growing
+        (from continued order fills) while we wait, causing massive unhedged exposure.
+        
+        Example from logs: EIGEN-USD position grew from 6.2 to 391.0 coins while
+        "rollback queued" - $150 unhedged for 4 minutes!
+        """
+        symbol = execution.symbol
+        execution.state = ExecutionState.ROLLBACK_IN_PROGRESS
+        self._stats["rollbacks_triggered"] += 1
+        
+        logger.warning(f"═══════════════════════════════════════════════════════════")
+        logger.warning(f"🔄 IMMEDIATE ROLLBACK: {symbol}")
+        logger.warning(f"   Lighter Filled: {execution.lighter_filled}, X10 Filled: {execution.x10_filled}")
+        logger.warning(f"═══════════════════════════════════════════════════════════")
+        
+        try:
+            # Step 1: Cancel any remaining Lighter orders for this symbol
+            try:
+                if hasattr(self.lighter, 'cancel_all_orders'):
+                    await self.lighter.cancel_all_orders(symbol)
+                    logger.info(f"🧹 [IMMEDIATE ROLLBACK] {symbol}: Cancelled remaining orders")
+            except Exception as cancel_e:
+                logger.warning(f"⚠️ [IMMEDIATE ROLLBACK] {symbol}: Cancel error (continuing): {cancel_e}")
+            
+            # Step 2: Fetch actual position and close it
+            positions = await self.lighter.fetch_open_positions()
+            pos = next(
+                (p for p in (positions or []) 
+                 if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
+                None
+            )
+            
+            if not pos:
+                logger.warning(
+                    f"⚠️ [IMMEDIATE ROLLBACK] {symbol}: No Lighter position found via fetch_open_positions. "
+                    f"Attempting blind reduce_only IOC close using planned size to avoid late/orphan settlement."
+                )
+                try:
+                    planned_open_side = (execution.side_lighter or "").upper()
+                    close_side = "BUY" if planned_open_side == "SELL" else "SELL"
+                    mark_px = self.lighter.fetch_mark_price(symbol) or 0.0
+                    close_notional_usd = float(execution.size_lighter or 0.0)
+                    close_amount = float(execution.quantity_coins or 0.0) or None
+                    ok, _ = await self.lighter.open_live_position(
+                        symbol=symbol,
+                        side=close_side,
+                        notional_usd=close_notional_usd,
+                        amount=close_amount,
+                        price=mark_px,
+                        reduce_only=True,
+                        time_in_force="IOC",
+                    )
+                    if ok:
+                        logger.info(f"✅ [IMMEDIATE ROLLBACK] {symbol}: Blind reduce_only close submitted")
+                except Exception as blind_e:
+                    logger.warning(f"⚠️ [IMMEDIATE ROLLBACK] {symbol}: Blind reduce_only close failed: {blind_e}")
+
+                execution.state = ExecutionState.ROLLBACK_DONE
+                self._stats["rollbacks_successful"] += 1
+                return True
+            
+            actual_size = safe_float(pos.get('size', 0))
+            # Positive = LONG, Negative = SHORT
+            position_side = "BUY" if actual_size > 0 else "SELL"
+            close_side = "SELL" if actual_size > 0 else "BUY"
+            close_size = abs(actual_size)
+            
+            # Estimate notional for close
+            price = self.lighter.fetch_mark_price(symbol) or 0.0
+            close_notional = close_size * price if price > 0 else close_size * 1.0
+            
+            logger.warning(
+                f"🔻 [IMMEDIATE ROLLBACK] {symbol}: Closing Lighter {position_side} position "
+                f"({close_size:.6f} coins, ~${close_notional:.2f}) with {close_side} IOC order"
+            )
+
+            success = False
+            order_id = None
+            for attempt in range(3):
+                try:
+                    success, order_id = await self.lighter.close_live_position(
+                        symbol, position_side, close_notional
+                    )
+                except Exception as close_e:
+                    logger.warning(f"⚠️ [IMMEDIATE ROLLBACK] {symbol}: Close exception (attempt {attempt+1}/3): {close_e}")
+                    success = False
+
+                if success:
+                    break
+
+                await asyncio.sleep(0.5 * (attempt + 1))
+                try:
+                    positions = await self.lighter.fetch_open_positions()
+                    pos = next(
+                        (p for p in (positions or [])
+                         if p.get('symbol') == symbol and abs(safe_float(p.get('size', 0))) > 1e-8),
+                        None
+                    )
+                    if pos:
+                        actual_size = safe_float(pos.get('size', 0))
+                        position_side = "BUY" if actual_size > 0 else "SELL"
+                        close_size = abs(actual_size)
+                        price = self.lighter.fetch_mark_price(symbol) or 0.0
+                        close_notional = close_size * price if price > 0 else close_size * 1.0
+                except Exception:
+                    pass
+
+            if success:
+                logger.info(f"✅ [IMMEDIATE ROLLBACK] SUCCESS: Lighter position {symbol} closed (order: {order_id})")
+                execution.state = ExecutionState.ROLLBACK_DONE
+                self._stats["rollbacks_successful"] += 1
+                return True
+
+            logger.critical(f"🚨 [IMMEDIATE ROLLBACK] FAILED: Lighter {symbol} close returned False!")
+            logger.critical(f"🚨 MANUAL INTERVENTION MAY BE REQUIRED for {symbol}!")
+            execution.state = ExecutionState.ROLLBACK_FAILED
+            self._stats["rollbacks_failed"] += 1
+            return False
+                 
+        except Exception as e:
+            logger.critical(f"🚨 [IMMEDIATE ROLLBACK] EXCEPTION {symbol}: {e}")
+            logger.critical(f"🚨 MANUAL INTERVENTION REQUIRED for {symbol}!")
+            execution.state = ExecutionState.ROLLBACK_FAILED
+            self._stats["rollbacks_failed"] += 1
+            return False
+
 
     async def _execute_rollback_with_retry(self, execution: TradeExecution) -> bool:
         """Execute rollback with exponential backoff retry"""

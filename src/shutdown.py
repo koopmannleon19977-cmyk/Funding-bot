@@ -1187,7 +1187,7 @@ class ShutdownOrchestrator:
                 )
                 logger.info(
                     f"📝 Shutdown: Marked {len(closed_on_both)} trades as closed in DB | "
-                    f"Session Total: PnL=${total_session_pnl:.4f}, Funding=${total_session_funding:.4f}"
+                    f"Shutdown Total: PnL=${total_session_pnl:.4f}, Funding=${total_session_funding:.4f}"
                 )
 
         if state_manager and hasattr(state_manager, "stop"):

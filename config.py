@@ -243,6 +243,11 @@ MAX_VOLATILITY_PCT_24H = 50.0
 MIN_OPEN_INTEREST_USD = 50000
 MAX_OI_FRACTION = 0.05
 
+# --- X10 Self-Trade Protection (STP) ---
+# Best-effort: adapter applies this only if the SDK place_order() supports it.
+X10_STP_ENABLED = True
+X10_STP_LEVEL = "CLIENT"  # DISABLED / CLIENT / ACCOUNT (MARKET/NONE aliases supported)
+
 # --- Latency Arbitrage (Experimental) ---
 LATENCY_ARB_ENABLED = True
 LATENCY_ARB_MIN_LAG_SECONDS = 5.0
