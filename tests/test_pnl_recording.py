@@ -22,14 +22,14 @@ from src.pnl_utils import compute_realized_pnl, compute_hedge_pnl, sum_closed_pn
 
 class TestPnLRecording:
     """Test that PnL values are correctly persisted to the database."""
-    
+     
     @pytest.mark.asyncio
-    async def test_pnl_recording_basic(self):
+    async def test_pnl_recording_basic(self, tmp_path):
         """Test basic PnL recording to database."""
         # Import after path setup
         from src.state_manager import InMemoryStateManager, TradeState, TradeStatus
-        
-        db_path = "data/trades.db"
+         
+        db_path = str(tmp_path / "trades_test.db")
         sm = InMemoryStateManager(db_path=db_path)
         
         print("\n1. Starting State Manager...")
@@ -126,21 +126,21 @@ class TestPnLComputation:
         
         # Price PnL check
         expected_price_pnl = (0.4052 - 0.4054) * 197
-        assert abs(result["price_pnl"] - expected_price_pnl) < 0.0001, \
-            f"Price PnL: expected {expected_price_pnl}, got {result['price_pnl']}"
+        assert abs(float(result["price_pnl"]) - expected_price_pnl) < 0.0001, \
+            f"Price PnL: expected {expected_price_pnl}, got {float(result['price_pnl'])}"
         
         # Fee check
         expected_fees = 0.000225 + 0.000225
-        assert abs(result["fee_total"] - expected_fees) < 0.0001, \
-            f"Fees: expected {expected_fees}, got {result['fee_total']}"
+        assert abs(float(result["fee_total"]) - expected_fees) < 0.0001, \
+            f"Fees: expected {expected_fees}, got {float(result['fee_total'])}"
         
         # Total PnL check (should be negative)
         expected_total = expected_price_pnl - expected_fees
-        assert abs(result["total_pnl"] - expected_total) < 0.0001, \
-            f"Total PnL: expected {expected_total}, got {result['total_pnl']}"
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.0001, \
+            f"Total PnL: expected {expected_total}, got {float(result['total_pnl'])}"
         
         # Verify it's negative (loss)
-        assert result["total_pnl"] < 0, "Expected negative PnL (loss)"
+        assert float(result["total_pnl"]) < 0, "Expected negative PnL (loss)"
         
         print(f"\n✅ LONG loss test passed:")
         print(f"   Price PnL: ${result['price_pnl']:.6f}")
@@ -169,19 +169,19 @@ class TestPnLComputation:
         
         # Price PnL check (SHORT: entry - close)
         expected_price_pnl = (0.4053 - 0.40518) * 197
-        assert abs(result["price_pnl"] - expected_price_pnl) < 0.0001, \
-            f"Price PnL: expected {expected_price_pnl}, got {result['price_pnl']}"
+        assert abs(float(result["price_pnl"]) - expected_price_pnl) < 0.0001, \
+            f"Price PnL: expected {expected_price_pnl}, got {float(result['price_pnl'])}"
         
         # Fee check
-        assert result["fee_total"] == 0, f"Fees should be 0, got {result['fee_total']}"
+        assert float(result["fee_total"]) == 0.0, f"Fees should be 0, got {float(result['fee_total'])}"
         
         # Total PnL check (should be positive)
         expected_total = expected_price_pnl
-        assert abs(result["total_pnl"] - expected_total) < 0.0001, \
-            f"Total PnL: expected {expected_total}, got {result['total_pnl']}"
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.0001, \
+            f"Total PnL: expected {expected_total}, got {float(result['total_pnl'])}"
         
         # Verify it's positive (profit)
-        assert result["total_pnl"] > 0, "Expected positive PnL (profit)"
+        assert float(result["total_pnl"]) > 0, "Expected positive PnL (profit)"
         
         print(f"\n✅ SHORT profit test passed:")
         print(f"   Price PnL: ${result['price_pnl']:.6f}")
@@ -216,19 +216,19 @@ class TestPnLComputation:
         
         # X10 LONG: (0.4052 - 0.4054) * 197 = -0.0394
         expected_x10_pnl = (0.4052 - 0.4054) * 197
-        assert abs(result["x10_pnl"] - expected_x10_pnl) < 0.0001
+        assert abs(float(result["x10_pnl"]) - expected_x10_pnl) < 0.0001
         
         # Lighter SHORT: (0.4053 - 0.40518) * 197 = +0.02364
         expected_lighter_pnl = (0.4053 - 0.40518) * 197
-        assert abs(result["lighter_pnl"] - expected_lighter_pnl) < 0.0001
+        assert abs(float(result["lighter_pnl"]) - expected_lighter_pnl) < 0.0001
         
         # Combined price PnL
         expected_price_total = expected_x10_pnl + expected_lighter_pnl
-        assert abs(result["price_pnl_total"] - expected_price_total) < 0.0001
+        assert abs(float(result["price_pnl_total"]) - expected_price_total) < 0.0001
         
         # Total with fees
         expected_total = expected_price_total - 0.00045
-        assert abs(result["total_pnl"] - expected_total) < 0.0001
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.0001
         
         print(f"\n✅ Hedge PnL test passed:")
         print(f"   X10 LONG PnL: ${result['x10_pnl']:.6f}")
@@ -249,10 +249,10 @@ class TestPnLComputation:
         expected_fees = 1.0
         expected_total = 49.0
         
-        assert abs(result["price_pnl"] - expected_price) < 0.01
-        assert abs(result["fee_total"] - expected_fees) < 0.01
-        assert abs(result["total_pnl"] - expected_total) < 0.01
-        assert result["total_pnl"] > 0  # Profit
+        assert abs(float(result["price_pnl"]) - expected_price) < 0.01
+        assert abs(float(result["fee_total"]) - expected_fees) < 0.01
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.01
+        assert float(result["total_pnl"]) > 0  # Profit
     
     def test_short_position_loss(self):
         """Test SHORT position with loss."""
@@ -266,10 +266,10 @@ class TestPnLComputation:
         expected_fees = 1.0
         expected_total = -51.0
         
-        assert abs(result["price_pnl"] - expected_price) < 0.01
-        assert abs(result["fee_total"] - expected_fees) < 0.01
-        assert abs(result["total_pnl"] - expected_total) < 0.01
-        assert result["total_pnl"] < 0  # Loss
+        assert abs(float(result["price_pnl"]) - expected_price) < 0.01
+        assert abs(float(result["fee_total"]) - expected_fees) < 0.01
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.01
+        assert float(result["total_pnl"]) < 0  # Loss
     
     def test_multiple_fills(self):
         """Test PnL with multiple fills (averaging)."""
@@ -289,9 +289,9 @@ class TestPnLComputation:
         expected_fees = 1.0  # 0.25 + 0.25 + 0.5
         expected_total = 39.0
         
-        assert abs(result["entry_vwap"] - 101.0) < 0.01
-        assert abs(result["price_pnl"] - expected_price) < 0.01
-        assert abs(result["total_pnl"] - expected_total) < 0.01
+        assert abs(float(result["entry_vwap"]) - 101.0) < 0.01
+        assert abs(float(result["price_pnl"]) - expected_price) < 0.01
+        assert abs(float(result["total_pnl"]) - expected_total) < 0.01
 
 
 class TestCSVParsing:

@@ -166,6 +166,9 @@ class AsyncDatabase:
 
     async def run_maintenance(self):
         """Run database maintenance (VACUUM & Cleanup)"""
+        if not getattr(config, "DB_MAINTENANCE_ENABLED", True):
+            logger.debug("Database maintenance disabled by config.DB_MAINTENANCE_ENABLED=False")
+            return
         if not self._write_conn:
             return
 
@@ -664,12 +667,13 @@ class TradeRepository:
 
     async def get_open_trades(self) -> List[Dict[str, Any]]:
         """Get all open trades"""
-        sql = "SELECT * FROM trades WHERE status = 'open' ORDER BY created_at DESC"
+        # Treat 'pending' as open-risk (pre-hedge / in-flight) to avoid orphan exposure
+        sql = "SELECT * FROM trades WHERE status IN ('open','pending') ORDER BY created_at DESC"
         return await self.db.fetch_all(sql)
 
     async def get_trade_by_symbol(self, symbol: str) -> Optional[Dict[str, Any]]:
         """Get open trade by symbol"""
-        sql = "SELECT * FROM trades WHERE symbol = ?  AND status = 'open'"
+        sql = "SELECT * FROM trades WHERE symbol = ? AND status IN ('open','pending')"
         return await self.db. fetch_one(sql, (symbol,))
 
     async def close_trade(
@@ -688,7 +692,7 @@ class TradeRepository:
                 closed_at = ?, 
                 pnl = ?,
                 funding_collected = ?
-            WHERE symbol = ? AND status = 'open'
+            WHERE symbol = ? AND status IN ('open','pending')
         """
         result = await self.db.execute(
             sql, 
@@ -703,14 +707,57 @@ class TradeRepository:
         sql = """
             UPDATE trades 
             SET funding_collected = funding_collected + ? 
-            WHERE symbol = ?  AND status = 'open'
+            WHERE symbol = ? AND status IN ('open','pending')
         """
         await self. db.execute(sql, (funding_amount, symbol))
+
+    async def update_trade_fields(self, symbol: str, updates: Dict[str, Any]) -> None:
+        """Update mutable trade fields for the currently open/pending record."""
+        if not updates:
+            return
+
+        allowed = {
+            "side_x10",
+            "side_lighter",
+            "size_usd",
+            "entry_price_x10",
+            "entry_price_lighter",
+            "status",
+            "is_farm_trade",
+            "account_label",
+            "x10_order_id",
+            "lighter_order_id",
+            "closed_at",
+            "pnl",
+            "funding_collected",
+        }
+
+        set_cols = []
+        params: List[Any] = []
+
+        for k, v in updates.items():
+            if k not in allowed:
+                continue
+            if k == "is_farm_trade":
+                v = 1 if bool(v) else 0
+            set_cols.append(f"{k} = ?")
+            params.append(v)
+
+        if not set_cols:
+            return
+
+        sql = f"""
+            UPDATE trades
+            SET {", ".join(set_cols)}
+            WHERE symbol = ? AND status IN ('open','pending')
+        """
+        params.append(symbol)
+        await self.db.execute(sql, tuple(params), wait=True)
 
     async def get_trade_count(self) -> int:
         """Get count of open trades"""
         result = await self.db.fetch_one(
-            "SELECT COUNT(*) as count FROM trades WHERE status = 'open'"
+            "SELECT COUNT(*) as count FROM trades WHERE status IN ('open','pending')"
         )
         return result['count'] if result else 0
 
@@ -878,57 +925,91 @@ class ExecutionLogRepository:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# GLOBAL DATABASE INSTANCE
+# GLOBAL DATABASE INSTANCES (keyed by db_path)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_db: Optional[AsyncDatabase] = None
-_trade_repo: Optional[TradeRepository] = None
-_funding_repo: Optional[FundingRepository] = None
-_execution_repo: Optional[ExecutionLogRepository] = None
+_db_by_path: Dict[str, AsyncDatabase] = {}
+_trade_repo_by_path: Dict[str, TradeRepository] = {}
+_funding_repo_by_path: Dict[str, FundingRepository] = {}
+_execution_repo_by_path: Dict[str, ExecutionLogRepository] = {}
 
 
-async def get_database() -> AsyncDatabase:
-    """Get or create the global database instance"""
-    global _db
-    if _db is None:
-        _db = AsyncDatabase()
-        await _db.initialize()
-    return _db
+def _normalize_db_path(db_path: Optional[str]) -> str:
+    resolved = db_path or config.DB_FILE
+    try:
+        return str(Path(resolved).resolve())
+    except Exception:
+        return str(resolved)
 
 
-async def get_trade_repository() -> TradeRepository:
-    """Get or create the trade repository"""
-    global _trade_repo
-    if _trade_repo is None:
-        db = await get_database()
-        _trade_repo = TradeRepository(db)
-    return _trade_repo
+async def get_database(db_path: Optional[str] = None) -> AsyncDatabase:
+    """Get or create the global database instance for a given db_path."""
+    global _db_by_path
+    key = _normalize_db_path(db_path)
+    db = _db_by_path.get(key)
+    if db is None:
+        db = AsyncDatabase(DBConfig(db_path=key))
+        await db.initialize()
+        _db_by_path[key] = db
+    return db
 
 
-async def get_funding_repository() -> FundingRepository:
-    """Get or create the funding repository"""
-    global _funding_repo
-    if _funding_repo is None:
-        db = await get_database()
-        _funding_repo = FundingRepository(db)
-    return _funding_repo
+async def get_trade_repository(db_path: Optional[str] = None) -> TradeRepository:
+    """Get or create the trade repository for a given db_path."""
+    global _trade_repo_by_path
+    key = _normalize_db_path(db_path)
+    repo = _trade_repo_by_path.get(key)
+    if repo is None:
+        db = await get_database(db_path=key)
+        repo = TradeRepository(db)
+        _trade_repo_by_path[key] = repo
+    return repo
 
 
-async def get_execution_repository() -> ExecutionLogRepository:
-    """Get or create the execution log repository"""
-    global _execution_repo
-    if _execution_repo is None:
-        db = await get_database()
-        _execution_repo = ExecutionLogRepository(db)
-    return _execution_repo
+async def get_funding_repository(db_path: Optional[str] = None) -> FundingRepository:
+    """Get or create the funding repository for a given db_path."""
+    global _funding_repo_by_path
+    key = _normalize_db_path(db_path)
+    repo = _funding_repo_by_path.get(key)
+    if repo is None:
+        db = await get_database(db_path=key)
+        repo = FundingRepository(db)
+        _funding_repo_by_path[key] = repo
+    return repo
 
 
-async def close_database():
-    """Close the global database instance"""
-    global _db, _trade_repo, _funding_repo, _execution_repo
-    if _db:
-        await _db.close()
-        _db = None
-        _trade_repo = None
-        _funding_repo = None
-        _execution_repo = None
+async def get_execution_repository(db_path: Optional[str] = None) -> ExecutionLogRepository:
+    """Get or create the execution log repository for a given db_path."""
+    global _execution_repo_by_path
+    key = _normalize_db_path(db_path)
+    repo = _execution_repo_by_path.get(key)
+    if repo is None:
+        db = await get_database(db_path=key)
+        repo = ExecutionLogRepository(db)
+        _execution_repo_by_path[key] = repo
+    return repo
+
+
+async def close_database(db_path: Optional[str] = None):
+    """Close global database instance(s). If db_path is None, closes all."""
+    global _db_by_path, _trade_repo_by_path, _funding_repo_by_path, _execution_repo_by_path
+
+    if db_path is None:
+        for db in list(_db_by_path.values()):
+            try:
+                await db.close()
+            except Exception:
+                pass
+        _db_by_path.clear()
+        _trade_repo_by_path.clear()
+        _funding_repo_by_path.clear()
+        _execution_repo_by_path.clear()
+        return
+
+    key = _normalize_db_path(db_path)
+    db = _db_by_path.pop(key, None)
+    if db:
+        await db.close()
+    _trade_repo_by_path.pop(key, None)
+    _funding_repo_by_path.pop(key, None)
+    _execution_repo_by_path.pop(key, None)

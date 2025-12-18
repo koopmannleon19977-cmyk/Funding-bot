@@ -32,6 +32,17 @@ from src.validation.orderbook_validator import (
 from src.data.orderbook_provider import get_orderbook_provider, init_orderbook_provider
 import math
 
+def _scalar_float(value: Any) -> Optional[float]:
+    """Best-effort float conversion for real scalar values (avoid MagicMock -> 1.0 in tests)."""
+    try:
+        if value is None:
+            return None
+        if isinstance(value, (int, float, Decimal, str)):
+            return float(value)
+        return None
+    except Exception:
+        return None
+
 def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
     """
     Berechnet die exakte Anzahl Coins, die auf BEIDEN Börsen handelbar ist.
@@ -599,23 +610,39 @@ class ParallelExecutionManager:
                 if not maker_price_val or maker_price_val <= 0:
                     maker_price_val = self.lighter.fetch_mark_price(symbol)
                 
-                if maker_price_val and maker_price_val > 0:
-                    # 2. Get Step Sizes
-                    # X10
-                    x10_step = 0.001
-                    x10_m = self.x10.market_info.get(symbol)
-                    if x10_m:
-                        if hasattr(x10_m, 'trading_config'): # Object from SDK
-                            x10_step = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
-                        elif isinstance(x10_m, dict):
-                            x10_step = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
-                            
+                    if maker_price_val and maker_price_val > 0:
+                        # 2. Get Step Sizes
+                        # X10
+                        x10_step = 0.001
+                        x10_m = None
+                        x10_market_info = getattr(self.x10, "market_info", None)
+                        if isinstance(x10_market_info, dict):
+                            x10_m = x10_market_info.get(symbol)
+                        elif hasattr(self.x10, "get_market_info"):
+                            try:
+                                x10_m = self.x10.get_market_info(symbol)
+                            except Exception:
+                                x10_m = None
+
+                        if x10_m:
+                            if hasattr(x10_m, "trading_config"):  # Object from SDK
+                                candidate = getattr(getattr(x10_m, "trading_config", None), "min_order_size_change", None)
+                                candidate_f = _scalar_float(candidate)
+                                if candidate_f:
+                                    x10_step = candidate_f
+                            elif isinstance(x10_m, dict):
+                                candidate = x10_m.get("lot_size", x10_m.get("min_order_qty"))
+                                candidate_f = _scalar_float(candidate)
+                                if candidate_f:
+                                    x10_step = candidate_f
+                             
                     # Lighter
                     lighter_step = 0.01
                     lig_m = self.lighter.get_market_info(symbol) if hasattr(self.lighter, 'get_market_info') else None
                     if lig_m:
                         # Prioritize 'lot_size', then 'min_quantity', then 'size_increment'
-                        lighter_step = float(lig_m.get('lot_size', lig_m.get('size_increment', lig_m.get('min_quantity', 0.01))))
+                        candidate = lig_m.get('lot_size', lig_m.get('size_increment', lig_m.get('min_quantity', 0.01)))
+                        lighter_step = _scalar_float(candidate) or lighter_step
                     
                     # 3. Calculate aligned size
                     target_size_usd = float(size_lighter)
@@ -1098,9 +1125,15 @@ class ParallelExecutionManager:
             x10_m = self.x10.market_info.get(symbol) if hasattr(self, 'x10') else None
             if x10_m:
                 if hasattr(x10_m, 'trading_config'):  # Object from SDK
-                    x10_min_trade_size = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                    raw = getattr(x10_m.trading_config, "min_order_size_change", None)
+                    parsed = _scalar_float(raw)
+                    if parsed is not None:
+                        x10_min_trade_size = parsed
                 elif isinstance(x10_m, dict):
-                    x10_min_trade_size = float(x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001)))
+                    raw = x10_m.get('lot_size', x10_m.get('min_order_qty', 0.001))
+                    parsed = _scalar_float(raw)
+                    if parsed is not None:
+                        x10_min_trade_size = parsed
             logger.debug(f"📏 [MIN_SIZE] {symbol}: X10 min_trade_size = {x10_min_trade_size}")
         except Exception as e:
             logger.debug(f"[MIN_SIZE] {symbol}: Error getting X10 min_trade_size: {e}")
@@ -1328,9 +1361,15 @@ class ParallelExecutionManager:
             x10_m = self.x10.market_info.get(symbol) if hasattr(self, "x10") else None
             if x10_m:
                 if hasattr(x10_m, "trading_config"):
-                    x10_min_trade_size = float(getattr(x10_m.trading_config, "min_order_size_change", 0.001))
+                    raw = getattr(x10_m.trading_config, "min_order_size_change", None)
+                    parsed = _scalar_float(raw)
+                    if parsed is not None:
+                        x10_min_trade_size = parsed
                 elif isinstance(x10_m, dict):
-                    x10_min_trade_size = float(x10_m.get("lot_size", x10_m.get("min_order_qty", 0.001)))
+                    raw = x10_m.get("lot_size", x10_m.get("min_order_qty", 0.001))
+                    parsed = _scalar_float(raw)
+                    if parsed is not None:
+                        x10_min_trade_size = parsed
         except Exception:
             pass
         return float(x10_min_trade_size)
@@ -1506,9 +1545,20 @@ class ParallelExecutionManager:
 
             logger.info(f"⏳ [PHASE 1.5] {symbol}: Waiting for Lighter fill (max {max_wait_seconds:.1f}s, dynamic timeout)...")
 
+            # ═══════════════════════════════════════════════════════════════
+            # DYNAMIC PRICE CHASING: Update order price periodically if not filled
+            # ═══════════════════════════════════════════════════════════════
+            price_chasing_enabled = getattr(config, "MAKER_PRICE_UPDATE_ENABLED", False)
+            price_update_interval = float(getattr(config, "MAKER_PRICE_UPDATE_INTERVAL", 10.0))
+            max_price_updates = int(getattr(config, "MAX_PRICE_UPDATES", 3))
+            force_taker_after_timeout = getattr(config, "FORCE_TAKER_AFTER_TIMEOUT", False)
+
             filled = False
             wait_start = time.time()
             check_count = 0
+            price_updates_done = 0
+            last_price_update_time = wait_start
+            current_order_id = lighter_order_id  # Track current order ID (may change after updates)
 
             while time.time() - wait_start < max_wait_seconds:
                 if getattr(config, "IS_SHUTTING_DOWN", False):
@@ -1516,6 +1566,52 @@ class ParallelExecutionManager:
                     break
 
                 check_count += 1
+                current_time = time.time()
+
+                # ═══════════════════════════════════════════════════════════════
+                # PRICE UPDATE LOGIC: Check if it's time to update the order price
+                # ═══════════════════════════════════════════════════════════════
+                time_since_last_update = current_time - last_price_update_time
+                should_update_price = (
+                    price_chasing_enabled
+                    and not filled
+                    and price_updates_done < max_price_updates
+                    and time_since_last_update >= price_update_interval
+                )
+
+                if should_update_price:
+                    try:
+                        logger.info(f"🔄 [PRICE-CHASE] {symbol}: Updating order price (attempt {price_updates_done + 1}/{max_price_updates})...")
+
+                        # Get fresh maker price
+                        new_price = await self._get_fresh_maker_price(symbol, execution.side_lighter)
+
+                        if new_price and new_price > 0:
+                            # Use Lighter's modify_order (atomic)
+                            success, new_order_id = await self.lighter.modify_order(
+                                order_id=current_order_id,
+                                symbol=symbol,
+                                new_price=new_price,
+                                new_amount=None,  # Keep original size
+                            )
+
+                            if success and new_order_id:
+                                current_order_id = new_order_id
+                                execution.lighter_order_id = new_order_id
+                                price_updates_done += 1
+                                last_price_update_time = current_time
+                                logger.info(f"✅ [PRICE-CHASE] {symbol}: Order updated to ${new_price:.6f} (new ID: {new_order_id[:20]}...)")
+                            else:
+                                logger.warning(f"⚠️ [PRICE-CHASE] {symbol}: Update failed, keeping original order")
+                        else:
+                            logger.warning(f"⚠️ [PRICE-CHASE] {symbol}: Could not get fresh price, skipping update")
+
+                    except Exception as e:
+                        logger.warning(f"⚠️ [PRICE-CHASE] {symbol}: Update exception: {e}")
+
+                # ═══════════════════════════════════════════════════════════════
+                # FILL CHECK: Check if position exists (filled)
+                # ═══════════════════════════════════════════════════════════════
                 try:
                     pos = await self.lighter.fetch_open_positions()
                     p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
@@ -1542,144 +1638,141 @@ class ParallelExecutionManager:
             actual_filled_size: Optional[float] = None
 
             if not filled:
-                # Fix #13: Enhanced timeout logging with orderbook analysis
-                try:
-                    # Get orderbook state for better diagnostics
-                    validation_result = await self._validate_orderbook_for_maker(
-                        symbol=symbol,
-                        side=execution.side_lighter,
-                        trade_size_usd=execution.size_lighter,
+                # ═══════════════════════════════════════════════════════════════
+                # IOC TAKER FALLBACK: If we exhausted MAX_PRICE_UPDATES and still not filled,
+                # force an immediate IOC taker order to guarantee execution.
+                # ═══════════════════════════════════════════════════════════════
+                if force_taker_after_timeout and price_updates_done >= max_price_updates:
+                    logger.warning(
+                        f"⚡ [FORCE-TAKER] {symbol}: Max price updates ({max_price_updates}) reached without fill. "
+                        f"Cancelling maker order and placing IOC taker..."
                     )
-                    
-                    if validation_result.is_valid:
-                        depth_info = (
-                            f"bid_depth=${float(validation_result.bid_depth_usd):.2f}, "
-                            f"ask_depth=${float(validation_result.ask_depth_usd):.2f}, "
-                            f"spread={float(validation_result.spread_percent) if validation_result.spread_percent is not None else 0:.3f}%"
+
+                    try:
+                        # Cancel existing maker order
+                        await self.lighter.cancel_limit_order(current_order_id, symbol)
+                        await asyncio.sleep(0.3)  # Brief wait for cancel to propagate
+
+                        # Place IOC taker order with same size
+                        taker_success, taker_order_id = await self.lighter.open_live_position(
+                            symbol=symbol,
+                            side=execution.side_lighter,
+                            notional_usd=execution.size_lighter,
+                            post_only=False,
+                            reduce_only=False,
+                            time_in_force="IOC",  # Immediate-or-cancel
                         )
+
+                        if taker_success and taker_order_id:
+                            # Wait briefly for fill confirmation
+                            await asyncio.sleep(1.0)
+
+                            # Check if filled
+                            pos = await self.lighter.fetch_open_positions()
+                            p = next((x for x in (pos or []) if x.get("symbol") == symbol), None)
+                            current_size = safe_float(p.get("size", 0)) if p else 0.0
+
+                            if abs(current_size) >= execution.quantity_coins * 0.95:
+                                filled = True
+                                current_order_id = taker_order_id
+                                execution.lighter_order_id = taker_order_id
+                                logger.info(f"✅ [FORCE-TAKER] {symbol}: IOC taker FILLED (ID: {taker_order_id[:20]}...)")
+                            else:
+                                logger.warning(f"⚠️ [FORCE-TAKER] {symbol}: IOC returned success but position not found")
+                        else:
+                            logger.error(f"❌ [FORCE-TAKER] {symbol}: IOC taker order failed")
+
+                    except Exception as e:
+                        logger.error(f"❌ [FORCE-TAKER] {symbol}: Exception during IOC fallback: {e}")
+
+                # If still not filled after IOC attempt (or IOC disabled), proceed with existing retry logic
+                if not filled:
+                    # Fix #13: Enhanced timeout logging with orderbook analysis
+                    try:
+                        # Get orderbook state for better diagnostics
+                        validation_result = await self._validate_orderbook_for_maker(
+                            symbol=symbol,
+                            side=execution.side_lighter,
+                            trade_size_usd=execution.size_lighter,
+                        )
+
+                        if validation_result.is_valid:
+                            depth_info = (
+                                f"bid_depth=${float(validation_result.bid_depth_usd):.2f}, "
+                                f"ask_depth=${float(validation_result.ask_depth_usd):.2f}, "
+                                f"spread={float(validation_result.spread_percent) if validation_result.spread_percent is not None else 0:.3f}%"
+                            )
+                        else:
+                            depth_info = f"validation_failed: {validation_result.reason}"
+
+                        logger.warning(
+                            f"⏰ [PHASE 1.5] {symbol}: Fill timeout after {phase_times['lighter_fill_wait']:.2f}s "
+                            f"(orderbook: {depth_info})"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"⏰ [PHASE 1.5] {symbol}: Fill timeout after {phase_times['lighter_fill_wait']:.2f}s "
+                            f"(diagnostics error: {e})"
+                        )
+
+                    # Fix #13: Retry logic for Maker Orders
+                    retry_success, retry_order_id = await self._retry_maker_order_with_adjusted_price(
+                        execution, current_order_id, phase_times  # Use current_order_id (may have changed from price updates)
+                    )
+
+                    if retry_success and retry_order_id:
+                        # ═══════════════════════════════════════════════════════════════
+                        # FIX (2025-12-18): UPDATE execution.lighter_order_id!
+                        # Without this, trade summary shows old order ID, and
+                        # cancel/reconcile uses wrong ID (ghost orders/positions)
+                        # ═══════════════════════════════════════════════════════════════
+                        lighter_order_id = retry_order_id
+                        execution.lighter_order_id = retry_order_id  # CRITICAL FIX
+                        filled = True
+                        logger.info(f"✅ [PHASE 1.5] {symbol}: Retry order FILLED (new ID: {retry_order_id[:40]}...)")
                     else:
-                        depth_info = f"validation_failed: {validation_result.reason}"
-                    
-                    logger.warning(
-                        f"⏰ [PHASE 1.5] {symbol}: Fill timeout after {phase_times['lighter_fill_wait']:.2f}s "
-                        f"(orderbook: {depth_info})"
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"⏰ [PHASE 1.5] {symbol}: Fill timeout after {phase_times['lighter_fill_wait']:.2f}s "
-                        f"(diagnostics error: {e})"
-                    )
-                
-                # Fix #13: Retry logic for Maker Orders
-                retry_success, retry_order_id = await self._retry_maker_order_with_adjusted_price(
-                    execution, lighter_order_id, phase_times
-                )
-                
-                if retry_success and retry_order_id:
-                    # ═══════════════════════════════════════════════════════════════
-                    # FIX (2025-12-18): UPDATE execution.lighter_order_id!
-                    # Without this, trade summary shows old order ID, and
-                    # cancel/reconcile uses wrong ID (ghost orders/positions)
-                    # ═══════════════════════════════════════════════════════════════
-                    lighter_order_id = retry_order_id
-                    execution.lighter_order_id = retry_order_id  # CRITICAL FIX
-                    filled = True
-                    logger.info(f"✅ [PHASE 1.5] {symbol}: Retry order FILLED (new ID: {retry_order_id[:40]}...)")
-                else:
-                    # Check if original order was filled during cancel (race condition)
-                    # This may return actual filled size if partial fill or ghost fill detected
-                    # NEW: Also handles wait_more signal for small partial fills
-                    filled, actual_filled_size, wait_more = await self._handle_maker_timeout(execution, lighter_order_id)
-                    
-                    # ═══════════════════════════════════════════════════════════════
-                    # OPTION A FIX: If wait_more=True, partial fill is below X10 min size
-                    # Keep the order alive and wait for more fills!
-                    # ═══════════════════════════════════════════════════════════════
-                    if wait_more:
-                        logger.info(f"⏳ [PHASE 1.5] {symbol}: Extending wait - partial fill too small for X10 hedge")
+                        # Check if original order was filled during cancel (race condition)
+                        # This may return actual filled size if partial fill or ghost fill detected
+                        # NEW: Also handles wait_more signal for small partial fills
+                        filled, actual_filled_size, wait_more = await self._handle_maker_timeout(execution, lighter_order_id)
 
-                        micro_wait_start = time.monotonic()
-                        micro_wait_grace_s = float(getattr(config, "MAKER_MICROFILL_GRACE_SECONDS", 8.0))
-                        micro_wait_max_s = float(getattr(config, "MAKER_MICROFILL_MAX_WAIT_SECONDS", 20.0))
-                        micro_check_interval_s = float(
-                            getattr(config, "MAKER_MICROFILL_CHECK_INTERVAL_SECONDS", 1.0)
-                        )
-                        micro_max_unhedged_usd = float(
-                            getattr(config, "MAKER_MICROFILL_MAX_UNHEDGED_USD", 5.0)
-                        )
+                        # ═══════════════════════════════════════════════════════════════
+                        # OPTION A FIX: If wait_more=True, partial fill is below X10 min size
+                        # Keep the order alive and wait for more fills!
+                        # ═══════════════════════════════════════════════════════════════
+                        if wait_more:
+                            logger.info(f"⏳ [PHASE 1.5] {symbol}: Extending wait - partial fill too small for X10 hedge")
 
-                        x10_min = self._get_x10_min_trade_size_coins(symbol)
-                        logger.info(
-                            f"⏳ [MICROFILL] {symbol}: policy grace={micro_wait_grace_s:.1f}s, "
-                            f"max_wait={micro_wait_max_s:.1f}s, max_unhedged=${micro_max_unhedged_usd:.2f}, "
-                            f"x10_min={x10_min:.6f}"
-                        )
+                            micro_wait_start = time.monotonic()
+                            micro_wait_grace_s = float(getattr(config, "MAKER_MICROFILL_GRACE_SECONDS", 8.0))
+                            micro_wait_max_s = float(getattr(config, "MAKER_MICROFILL_MAX_WAIT_SECONDS", 20.0))
+                            micro_check_interval_s = float(
+                                getattr(config, "MAKER_MICROFILL_CHECK_INTERVAL_SECONDS", 1.0)
+                            )
+                            micro_max_unhedged_usd = float(
+                                getattr(config, "MAKER_MICROFILL_MAX_UNHEDGED_USD", 5.0)
+                            )
 
-                        while time.monotonic() - micro_wait_start < micro_wait_max_s:
-                            if getattr(config, "IS_SHUTTING_DOWN", False):
-                                await self._abort_maker_microfill_and_cleanup(
-                                    execution,
-                                    lighter_order_id,
-                                    float(actual_filled_size or 0.0),
-                                    x10_min,
-                                    reason="shutdown_during_microfill_wait",
-                                )
-                                self._log_trade_summary(
-                                    symbol,
-                                    "ABORTED",
-                                    "Shutdown during microfill wait",
-                                    trade_start_time,
-                                    phase_times,
-                                    execution,
-                                )
-                                execution.state = ExecutionState.FAILED
-                                execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
-                                return False, None, lighter_order_id
+                            x10_min = self._get_x10_min_trade_size_coins(symbol)
+                            logger.info(
+                                f"⏳ [MICROFILL] {symbol}: policy grace={micro_wait_grace_s:.1f}s, "
+                                f"max_wait={micro_wait_max_s:.1f}s, max_unhedged=${micro_max_unhedged_usd:.2f}, "
+                                f"x10_min={x10_min:.6f}"
+                            )
 
-                            await asyncio.sleep(micro_check_interval_s)
-
-                            try:
-                                positions = await self.lighter.fetch_open_positions()
-                                pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
-                                if not pos:
-                                    continue
-
-                                current_size = abs(safe_float(pos.get("size", 0)))
-                                actual_filled_size = current_size
-
-                                elapsed = time.monotonic() - micro_wait_start
-                                est_unhedged_usd = self._estimate_unhedged_usd_from_partial_fill(
-                                    execution, current_size
-                                )
-                                logger.debug(
-                                    f"⏳ [MICROFILL] {symbol}: fill={current_size:.6f}, x10_min={x10_min:.6f}, "
-                                    f"unhedged≈${est_unhedged_usd:.2f}, elapsed={elapsed:.1f}s"
-                                )
-
-                                if current_size >= x10_min:
-                                    logger.info(
-                                        f"✅ [MICROFILL] {symbol}: Fill now hedgeable ({current_size:.6f} >= {x10_min:.6f})"
-                                    )
-                                    filled = True
-                                    try:
-                                        await self.lighter.cancel_all_orders(symbol)
-                                        logger.info(f"🧹 [MICROFILL] {symbol}: Cancelled remaining order parts")
-                                    except Exception as cancel_e:
-                                        logger.debug(f"🧹 [MICROFILL] {symbol}: Cancel error: {cancel_e}")
-                                    break
-
-                                if elapsed >= micro_wait_grace_s and est_unhedged_usd >= micro_max_unhedged_usd:
+                            while time.monotonic() - micro_wait_start < micro_wait_max_s:
+                                if getattr(config, "IS_SHUTTING_DOWN", False):
                                     await self._abort_maker_microfill_and_cleanup(
                                         execution,
                                         lighter_order_id,
-                                        current_size,
+                                        float(actual_filled_size or 0.0),
                                         x10_min,
-                                        reason=f"unhedged_usd>{micro_max_unhedged_usd} after {elapsed:.1f}s",
+                                        reason="shutdown_during_microfill_wait",
                                     )
                                     self._log_trade_summary(
                                         symbol,
                                         "ABORTED",
-                                        "Microfill unhedgeable (unhedged limit)",
+                                        "Shutdown during microfill wait",
                                         trade_start_time,
                                         phase_times,
                                         execution,
@@ -1688,122 +1781,174 @@ class ParallelExecutionManager:
                                     execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
                                     return False, None, lighter_order_id
 
-                            except Exception as e:
-                                logger.debug(f"[MICROFILL] {symbol}: Check error: {e}")
+                                await asyncio.sleep(micro_check_interval_s)
 
-                        if not filled:
-                            elapsed = time.monotonic() - micro_wait_start
-                            await self._abort_maker_microfill_and_cleanup(
-                                execution,
-                                lighter_order_id,
-                                float(actual_filled_size or 0.0),
-                                x10_min,
-                                reason=f"microfill_wait_timeout after {elapsed:.1f}s",
-                            )
-                            self._log_trade_summary(
-                                symbol,
-                                "TIMEOUT",
-                                "Microfill wait timeout (unhedgeable)",
-                                trade_start_time,
-                                phase_times,
-                                execution,
-                            )
-                            execution.state = ExecutionState.FAILED
-                            execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
-                            return False, None, lighter_order_id
-
-                        if not filled:
-                            # ═══════════════════════════════════════════════════════════════
-                            # NEW: Taker Escalation with EV-Recheck (2025-12-17 Audit Fix)
-                            # CRITICAL: Only escalate if trade is STILL PROFITABLE after
-                            # accounting for taker fees and current spread.
-                            # ═══════════════════════════════════════════════════════════════
-                            if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                                
-                                # ═══════════════════════════════════════════════════════════════
-                                # EV-RECHECK: Is this trade still profitable as TAKER?
-                                # ═══════════════════════════════════════════════════════════════
                                 try:
-                                    from src.fee_manager import get_fee_manager
-                                    fee_manager = get_fee_manager()
-                                    taker_fee_lighter = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
-                                    taker_fee_x10 = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
-                                except Exception:
-                                    taker_fee_lighter = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
-                                    taker_fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
-                                max_taker_slippage = getattr(config, 'TAKER_ESCALATION_MAX_SLIPPAGE_PCT', 0.001)
-                                
-                                # Calculate total taker costs
-                                notional_usd = execution.size_lighter
-                                taker_entry_cost = notional_usd * taker_fee_lighter
-                                taker_hedge_cost = notional_usd * taker_fee_x10
-                                slippage_cost = notional_usd * max_taker_slippage
-                                total_taker_costs = taker_entry_cost + taker_hedge_cost + slippage_cost
-                                
-                                # Check if expected funding still covers taker costs
-                                # Use configured minimum hold to estimate funding income
-                                min_hold_hours = float(getattr(config, "MINIMUM_HOLD_SECONDS", 7200)) / 3600.0
-                                hourly_funding_rate = getattr(execution, 'hourly_rate', 0.0) or 0.0
-                                if hourly_funding_rate == 0:
-                                    # Try to get from opportunity data if available
-                                    opp = getattr(execution, "_opportunity", {}) or {}
-                                    hourly_funding_rate = abs(opp.get("net_funding_hourly") or opp.get("net_rate") or 0.0)
-                                    
-                                expected_funding = notional_usd * hourly_funding_rate * min_hold_hours
-                                expected_net_profit = expected_funding - total_taker_costs
-                            
-                            min_profit_threshold = getattr(config, 'MIN_TAKER_ESCALATION_PROFIT', 0.01)  # $0.01 minimum
-                            
-                            if expected_net_profit < min_profit_threshold:
-                                logger.warning(
-                                    f"🚫 [ESCALATION] {symbol}: REJECTED - Taker not profitable! "
-                                    f"Expected=${expected_net_profit:.4f} < ${min_profit_threshold:.2f} "
-                                    f"(Costs=${total_taker_costs:.4f}, Funding=${expected_funding:.4f})"
-                                )
-                            else:
-                                logger.warning(
-                                    f"🚀 [ESCALATION] {symbol}: Maker failed - Escalating to TAKER IOC "
-                                    f"(EV Check: Expected=${expected_net_profit:.4f} > ${min_profit_threshold:.2f})"
-                                )
-                                
-                                # Place Taker IOC order
-                                taker_phase_start = time.monotonic()
-                                taker_success, taker_order_id = await self._execute_lighter_leg(
-                                    symbol,
-                                    execution.side_lighter,
-                                    execution.size_lighter,
-                                    post_only=False, # TAKER
-                                    amount_coins=execution.quantity_coins,
-                                )
-                                
-                                if taker_success and taker_order_id:
-                                    # Wait a moment for position to appear
-                                    await asyncio.sleep(1.0)
                                     positions = await self.lighter.fetch_open_positions()
-                                    p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
-                                    current_size = safe_float(p.get("size", 0)) if p else 0.0
-                                    
-                                    if abs(current_size) >= execution.quantity_coins * 0.90:
-                                        filled = True
-                                        lighter_order_id = taker_order_id
-                                        phase_times["taker_escalation"] = time.monotonic() - taker_phase_start
-                                        logger.info(f"✅ [ESCALATION] {symbol}: Taker fill successful! Resulting size={current_size:.6f}")
-                                    else:
-                                        logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placed but no sufficient position found ({current_size:.6f})")
-                                else:
-                                    logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
+                                    pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+                                    if not pos:
+                                        continue
 
-                        if not filled:
-                            self._log_trade_summary(
-                                symbol,
-                                "TIMEOUT",
-                                "Lighter order not filled after Maker retries and Taker escalation",
-                                trade_start_time,
-                                phase_times,
-                                execution,
-                            )
-                            execution.state = ExecutionState.FAILED
-                            return False, None, lighter_order_id
+                                    current_size = abs(safe_float(pos.get("size", 0)))
+                                    actual_filled_size = current_size
+
+                                    elapsed = time.monotonic() - micro_wait_start
+                                    est_unhedged_usd = self._estimate_unhedged_usd_from_partial_fill(
+                                        execution, current_size
+                                    )
+                                    logger.debug(
+                                        f"⏳ [MICROFILL] {symbol}: fill={current_size:.6f}, x10_min={x10_min:.6f}, "
+                                        f"unhedged≈${est_unhedged_usd:.2f}, elapsed={elapsed:.1f}s"
+                                    )
+
+                                    if current_size >= x10_min:
+                                        logger.info(
+                                            f"✅ [MICROFILL] {symbol}: Fill now hedgeable ({current_size:.6f} >= {x10_min:.6f})"
+                                        )
+                                        filled = True
+                                        try:
+                                            await self.lighter.cancel_all_orders(symbol)
+                                            logger.info(f"🧹 [MICROFILL] {symbol}: Cancelled remaining order parts")
+                                        except Exception as cancel_e:
+                                            logger.debug(f"🧹 [MICROFILL] {symbol}: Cancel error: {cancel_e}")
+                                        break
+
+                                    if elapsed >= micro_wait_grace_s and est_unhedged_usd >= micro_max_unhedged_usd:
+                                        await self._abort_maker_microfill_and_cleanup(
+                                            execution,
+                                            lighter_order_id,
+                                            current_size,
+                                            x10_min,
+                                            reason=f"unhedged_usd>{micro_max_unhedged_usd} after {elapsed:.1f}s",
+                                        )
+                                        self._log_trade_summary(
+                                            symbol,
+                                            "ABORTED",
+                                            "Microfill unhedgeable (unhedged limit)",
+                                            trade_start_time,
+                                            phase_times,
+                                            execution,
+                                        )
+                                        execution.state = ExecutionState.FAILED
+                                        execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
+                                        return False, None, lighter_order_id
+
+                                except Exception as e:
+                                    logger.debug(f"[MICROFILL] {symbol}: Check error: {e}")
+
+                            if not filled:
+                                elapsed = time.monotonic() - micro_wait_start
+                                await self._abort_maker_microfill_and_cleanup(
+                                    execution,
+                                    lighter_order_id,
+                                    float(actual_filled_size or 0.0),
+                                    x10_min,
+                                    reason=f"microfill_wait_timeout after {elapsed:.1f}s",
+                                )
+                                self._log_trade_summary(
+                                    symbol,
+                                    "TIMEOUT",
+                                    "Microfill wait timeout (unhedgeable)",
+                                    trade_start_time,
+                                    phase_times,
+                                    execution,
+                                )
+                                execution.state = ExecutionState.FAILED
+                                execution.error = "MICRO_PARTIAL_UNHEDGEABLE"
+                                return False, None, lighter_order_id
+
+                            if not filled:
+                                # ═══════════════════════════════════════════════════════════════
+                                # NEW: Taker Escalation with EV-Recheck (2025-12-17 Audit Fix)
+                                # CRITICAL: Only escalate if trade is STILL PROFITABLE after
+                                # accounting for taker fees and current spread.
+                                # ═══════════════════════════════════════════════════════════════
+                                if getattr(config, 'TAKER_ESCALATION_ENABLED', False) and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                                
+                                    # ═══════════════════════════════════════════════════════════════
+                                    # EV-RECHECK: Is this trade still profitable as TAKER?
+                                    # ═══════════════════════════════════════════════════════════════
+                                    try:
+                                        from src.fee_manager import get_fee_manager
+                                        fee_manager = get_fee_manager()
+                                        taker_fee_lighter = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
+                                        taker_fee_x10 = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
+                                    except Exception:
+                                        taker_fee_lighter = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+                                        taker_fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
+                                    max_taker_slippage = getattr(config, 'TAKER_ESCALATION_MAX_SLIPPAGE_PCT', 0.001)
+                                
+                                    # Calculate total taker costs
+                                    notional_usd = execution.size_lighter
+                                    taker_entry_cost = notional_usd * taker_fee_lighter
+                                    taker_hedge_cost = notional_usd * taker_fee_x10
+                                    slippage_cost = notional_usd * max_taker_slippage
+                                    total_taker_costs = taker_entry_cost + taker_hedge_cost + slippage_cost
+                                
+                                    # Check if expected funding still covers taker costs
+                                    # Use configured minimum hold to estimate funding income
+                                    min_hold_hours = float(getattr(config, "MINIMUM_HOLD_SECONDS", 7200)) / 3600.0
+                                    hourly_funding_rate = getattr(execution, 'hourly_rate', 0.0) or 0.0
+                                    if hourly_funding_rate == 0:
+                                        # Try to get from opportunity data if available
+                                        opp = getattr(execution, "_opportunity", {}) or {}
+                                        hourly_funding_rate = abs(opp.get("net_funding_hourly") or opp.get("net_rate") or 0.0)
+                                    
+                                    expected_funding = notional_usd * hourly_funding_rate * min_hold_hours
+                                    expected_net_profit = expected_funding - total_taker_costs
+                            
+                                min_profit_threshold = getattr(config, 'MIN_TAKER_ESCALATION_PROFIT', 0.01)  # $0.01 minimum
+                            
+                                if expected_net_profit < min_profit_threshold:
+                                    logger.warning(
+                                        f"🚫 [ESCALATION] {symbol}: REJECTED - Taker not profitable! "
+                                        f"Expected=${expected_net_profit:.4f} < ${min_profit_threshold:.2f} "
+                                        f"(Costs=${total_taker_costs:.4f}, Funding=${expected_funding:.4f})"
+                                    )
+                                else:
+                                    logger.warning(
+                                        f"🚀 [ESCALATION] {symbol}: Maker failed - Escalating to TAKER IOC "
+                                        f"(EV Check: Expected=${expected_net_profit:.4f} > ${min_profit_threshold:.2f})"
+                                    )
+                                
+                                    # Place Taker IOC order
+                                    taker_phase_start = time.monotonic()
+                                    taker_success, taker_order_id = await self._execute_lighter_leg(
+                                        symbol,
+                                        execution.side_lighter,
+                                        execution.size_lighter,
+                                        post_only=False, # TAKER
+                                        amount_coins=execution.quantity_coins,
+                                    )
+                                
+                                    if taker_success and taker_order_id:
+                                        # Wait a moment for position to appear
+                                        await asyncio.sleep(1.0)
+                                        positions = await self.lighter.fetch_open_positions()
+                                        p = next((x for x in (positions or []) if x.get("symbol") == symbol), None)
+                                        current_size = safe_float(p.get("size", 0)) if p else 0.0
+                                    
+                                        if abs(current_size) >= execution.quantity_coins * 0.90:
+                                            filled = True
+                                            lighter_order_id = taker_order_id
+                                            phase_times["taker_escalation"] = time.monotonic() - taker_phase_start
+                                            logger.info(f"✅ [ESCALATION] {symbol}: Taker fill successful! Resulting size={current_size:.6f}")
+                                        else:
+                                            logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placed but no sufficient position found ({current_size:.6f})")
+                                    else:
+                                        logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
+
+                            if not filled:
+                                self._log_trade_summary(
+                                    symbol,
+                                    "TIMEOUT",
+                                    "Lighter order not filled after Maker retries and Taker escalation",
+                                    trade_start_time,
+                                    phase_times,
+                                    execution,
+                                )
+                                execution.state = ExecutionState.FAILED
+                                return False, None, lighter_order_id
 
             execution.lighter_filled = True
             logger.info(f"✅ [PHASE 1.5] {symbol}: Lighter FILLED ({phase_times['lighter_fill_wait']:.2f}s)")
@@ -1916,7 +2061,14 @@ class ParallelExecutionManager:
                 )
                 return True, x10_order_id, lighter_order_id
             else:
-                logger.error(f"❌ [PHASE 2] {symbol}: X10 hedge FAILED ({phase_times['x10_hedge']:.2f}s)")
+                # CRITICAL: Log why X10 hedge failed (order_id is None means place_order returned False)
+                fail_reason = "Unknown"
+                if x10_order_id is None:
+                    fail_reason = "X10 place_order returned (False, None) - check X10 adapter logs above for exception/validation error"
+                else:
+                    fail_reason = f"X10 order placed (ID={x10_order_id}) but not confirmed filled"
+
+                logger.error(f"❌ [PHASE 2] {symbol}: X10 hedge FAILED ({phase_times['x10_hedge']:.2f}s) | Reason: {fail_reason}")
                 logger.warning(f"🔄 {symbol}: Initiating IMMEDIATE rollback - Lighter position exposed!")
 
                 # FIX (2025-12-18): Execute rollback IMMEDIATELY instead of queuing!
@@ -2248,8 +2400,38 @@ class ParallelExecutionManager:
                 symbol, side, notional_usd=notional_usd, post_only=post_only, amount=amount_arg
             )
         except Exception as e:
-            logger.error(f"X10 leg error {symbol}: {e}")
+            logger.error(f"❌ X10 leg exception {symbol} ({side}, size={size_value} {size_type}): {e}", exc_info=True)
             return False, None
+
+    async def _get_fresh_maker_price(self, symbol: str, side: str) -> Optional[float]:
+        """
+        Get the current best maker price for an order.
+
+        Returns the price that would be used for a new maker order right now.
+        Uses get_maker_price from lighter_adapter if available.
+
+        Args:
+            symbol: Trading symbol
+            side: BUY or SELL
+
+        Returns:
+            float: Best maker price, or None if unavailable
+        """
+        try:
+            if hasattr(self.lighter, 'get_maker_price'):
+                price = await self.lighter.get_maker_price(symbol, side)
+                if price and price > 0:
+                    return float(price)
+
+            # Fallback: Use mark price
+            mark = self.lighter.fetch_mark_price(symbol)
+            if mark and mark > 0:
+                return float(mark)
+
+            return None
+        except Exception as e:
+            logger.debug(f"⚠️ _get_fresh_maker_price error for {symbol}: {e}")
+            return None
 
     def _parse_result(self, result: Any) -> Tuple[bool, Optional[str]]:
         """Parse execution result, handling exceptions"""
@@ -2821,13 +3003,53 @@ class ParallelExecutionManager:
             try:
                 max_spread_fraction = getattr(config, "MAX_SPREAD_FILTER_PERCENT", None)
                 if max_spread_fraction is not None and result.spread_percent is not None:
-                    max_spread_pct = Decimal(str(max_spread_fraction)) * Decimal("100")
-                    if max_spread_pct > 0 and result.spread_percent > max_spread_pct:
+                    # Compare using MID-based spread fraction to align with other parts of the bot
+                    # (e.g. opportunities use fractional spreads; bid-based % can slightly exceed mid-based at the boundary).
+                    best_bid = result.best_bid
+                    best_ask = result.best_ask
+                    max_spread_frac = Decimal(str(max_spread_fraction))
+                    epsilon_frac = Decimal("0.000001")  # 1e-6 = 0.0001%
+
+                    spread_frac_mid = None
+                    try:
+                        if best_bid is not None and best_ask is not None:
+                            mid = (best_bid + best_ask) / Decimal("2")
+                            if mid > 0:
+                                spread_frac_mid = (best_ask - best_bid) / mid
+                    except Exception:
+                        spread_frac_mid = None
+
+                    # Fall back to bid-based percent if mid-based cannot be computed
+                    if spread_frac_mid is None:
+                        max_spread_pct = max_spread_frac * Decimal("100")
+                        if max_spread_pct > 0 and result.spread_percent > (max_spread_pct + Decimal("0.0001")):
+                            return OrderbookValidationResult(
+                                is_valid=False,
+                                quality=OrderbookQuality.INSUFFICIENT,
+                                reason=(
+                                    f"Entry spread gate tripped ({result.spread_percent:.2f}% > {max_spread_pct:.2f}%)"
+                                ),
+                                bid_depth_usd=result.bid_depth_usd,
+                                ask_depth_usd=result.ask_depth_usd,
+                                spread_percent=result.spread_percent,
+                                best_bid=result.best_bid,
+                                best_ask=result.best_ask,
+                                bid_levels=result.bid_levels,
+                                ask_levels=result.ask_levels,
+                                staleness_seconds=result.staleness_seconds,
+                                recommended_action="wait",
+                                profile_used=result.profile_used,
+                            )
+                        return result
+
+                    if max_spread_frac > 0 and spread_frac_mid > (max_spread_frac + epsilon_frac):
+                        max_spread_pct_mid = max_spread_frac * Decimal("100")
+                        spread_pct_mid = spread_frac_mid * Decimal("100")
                         return OrderbookValidationResult(
                             is_valid=False,
                             quality=OrderbookQuality.INSUFFICIENT,
                             reason=(
-                                f"Entry spread gate tripped ({result.spread_percent:.2f}% > {max_spread_pct:.2f}%)"
+                                f"Entry spread gate tripped ({spread_pct_mid:.2f}% > {max_spread_pct_mid:.2f}%)"
                             ),
                             bid_depth_usd=result.bid_depth_usd,
                             ask_depth_usd=result.ask_depth_usd,

@@ -135,6 +135,120 @@ def calculate_expected_profit(
     return float(quantize_usd(expected_profit)), float(hours_to_breakeven)
 
 
+def _parse_best_price(level: Any) -> float:
+    """Parse a top-of-book level into a float price."""
+    try:
+        if level is None:
+            return 0.0
+        if isinstance(level, (list, tuple)) and len(level) > 0:
+            return safe_float(level[0], 0.0)
+        if isinstance(level, dict):
+            return safe_float(level.get("p") or level.get("price") or 0.0, 0.0)
+        return safe_float(level, 0.0)
+    except Exception:
+        return 0.0
+
+
+def _best_bid_ask_from_orderbook(book: Dict[str, Any]) -> tuple[float, float]:
+    bids = (book or {}).get("bids") or []
+    asks = (book or {}).get("asks") or []
+    best_bid = _parse_best_price(bids[0]) if bids else 0.0
+    best_ask = _parse_best_price(asks[0]) if asks else 0.0
+    return best_bid, best_ask
+
+
+def _derive_sides(leg1_exchange: str, leg1_side: str) -> tuple[str, str]:
+    """Match src/core/trading.py side derivation to keep entry/EV consistent."""
+    leg1_exchange = (leg1_exchange or "X10").strip()
+    leg1_side = (leg1_side or "BUY").upper()
+    x10_side = leg1_side if leg1_exchange == "X10" else ("SELL" if leg1_side == "BUY" else "BUY")
+    lit_side = leg1_side if leg1_exchange == "Lighter" else ("SELL" if leg1_side == "BUY" else "BUY")
+    return x10_side, lit_side
+
+
+def _estimate_entry_prices(
+    x10_bid: float,
+    x10_ask: float,
+    lit_bid: float,
+    lit_ask: float,
+    x10_side: str,
+    lit_side: str,
+) -> tuple[float, float]:
+    """
+    Entry pricing model aligned with current execution:
+    - Lighter entry is Maker: SELL hits best ask, BUY hits best bid
+    - X10 entry is Taker hedge: BUY hits best ask, SELL hits best bid
+    """
+    x10_side = (x10_side or "").upper()
+    lit_side = (lit_side or "").upper()
+    x10_entry = x10_ask if x10_side == "BUY" else x10_bid
+    lit_entry = lit_ask if lit_side == "SELL" else lit_bid
+    return safe_float(x10_entry, 0.0), safe_float(lit_entry, 0.0)
+
+
+def _estimate_exit_costs_usd(
+    notional_usd: float,
+    exit_slippage_buffer_pct: float,
+    exit_cost_safety: float,
+) -> float:
+    notional = safe_decimal(notional_usd)
+    slip = safe_decimal(exit_slippage_buffer_pct)
+    safety = safe_decimal(exit_cost_safety)
+    exit_slip = notional * slip * safety
+    return float(quantize_usd(exit_slip))
+
+
+def _estimate_roundtrip_fees_usd(
+    notional_usd: float,
+    x10_taker_fee: float,
+    lit_maker_fee: float,
+    lit_taker_fee: float,
+) -> float:
+    notional = safe_decimal(notional_usd)
+    fee_x10 = safe_decimal(x10_taker_fee)
+    fee_lit_m = safe_decimal(lit_maker_fee)
+    fee_lit_t = safe_decimal(lit_taker_fee)
+    total = notional * (fee_x10 * Decimal("2") + fee_lit_m + fee_lit_t)
+    return float(quantize_usd(total))
+
+
+def _estimate_price_pnl_to_basis_target_usd(
+    notional_usd: float,
+    entry_price_x10: float,
+    entry_price_lighter: float,
+    x10_side: str,
+    lit_side: str,
+    basis_target: float = 0.0,
+) -> tuple[float, float]:
+    """
+    Estimate the price PnL if the cross-exchange basis closes to a target.
+    Returns (basis_entry, expected_price_pnl_to_target_usd).
+    """
+    px = safe_float(entry_price_x10, 0.0)
+    pl = safe_float(entry_price_lighter, 0.0)
+    if px <= 0 or pl <= 0:
+        return 0.0, 0.0
+
+    basis_entry = pl - px
+    qty = safe_decimal(notional_usd) / safe_decimal(max(px, pl))
+    qty_f = float(qty) if qty > 0 else 0.0
+
+    x10_side = (x10_side or "").upper()
+    lit_side = (lit_side or "").upper()
+
+    # Hedge shapes:
+    # - BUY X10 / SELL Lighter profits when basis decreases (pl - px falls)
+    # - SELL X10 / BUY Lighter profits when basis increases
+    if x10_side == "BUY" and lit_side == "SELL":
+        pnl = qty_f * (basis_entry - basis_target)
+    elif x10_side == "SELL" and lit_side == "BUY":
+        pnl = qty_f * (basis_target - basis_entry)
+    else:
+        pnl = 0.0
+
+    return basis_entry, float(quantize_usd(safe_decimal(pnl)))
+
+
 # ============================================================
 # MAIN OPPORTUNITY FINDER
 # ============================================================
@@ -384,14 +498,103 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             hold_hours = max(min_hold_hours, 24.0) # We still use 24h for "expected" but check BE strictly
             max_breakeven_limit = getattr(config, 'MAX_BREAKEVEN_HOURS', 8.0)
 
-        min_profit_usd = getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)
-        
-        expected_profit, hours_to_breakeven = calculate_expected_profit(
-            notional_usd=notional,
-            hourly_funding_rate=abs(net),
-            hold_hours=hold_hours,
-            spread_pct=spread
+        # Entry EV gate: evaluate at the minimum realistic hold window.
+        min_hold_hours = getattr(config, 'MINIMUM_HOLD_SECONDS', 7200) / 3600
+        entry_eval_hours = float(getattr(config, "ENTRY_EVAL_HOURS", min_hold_hours))
+        entry_eval_hours = max(0.25, min(entry_eval_hours, hold_hours))
+
+        min_profit_usd = float(getattr(config, "MIN_EXPECTED_PROFIT_ENTRY_USD", getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)))
+
+        # Fee assumptions (execution-aligned)
+        try:
+            fee_manager = get_fee_manager()
+            x10_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
+            lit_fee_maker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=True))
+            lit_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
+        except Exception:
+            x10_fee_taker = float(getattr(config, "TAKER_FEE_X10", 0.000225))
+            lit_fee_maker = float(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
+            lit_fee_taker = float(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
+
+        # Orderbook-based entry basis (directed) to avoid "ignore spread" mistakes.
+        leg1_exchange = "Lighter" if rl > rx else "X10"
+        leg1_side = "SELL" if rl > rx else "BUY"
+        x10_side, lit_side = _derive_sides(leg1_exchange, leg1_side)
+
+        try:
+            x10_book, lit_book = await asyncio.gather(
+                x10.fetch_orderbook(s, limit=1),
+                lighter.fetch_orderbook(s, limit=1),
+                return_exceptions=True,
+            )
+            x10_book = {"bids": [], "asks": []} if isinstance(x10_book, Exception) else (x10_book or {})
+            lit_book = {"bids": [], "asks": []} if isinstance(lit_book, Exception) else (lit_book or {})
+            x10_bid, x10_ask = _best_bid_ask_from_orderbook(x10_book)
+            lit_bid, lit_ask = _best_bid_ask_from_orderbook(lit_book)
+        except Exception:
+            x10_bid = x10_ask = lit_bid = lit_ask = 0.0
+
+        entry_px_x10, entry_px_lit = _estimate_entry_prices(
+            x10_bid=x10_bid,
+            x10_ask=x10_ask,
+            lit_bid=lit_bid,
+            lit_ask=lit_ask,
+            x10_side=x10_side,
+            lit_side=lit_side,
         )
+
+        basis_target = float(getattr(config, "BASIS_EXIT_TARGET_USD", 0.0))
+        basis_entry, expected_price_pnl_to_target = _estimate_price_pnl_to_basis_target_usd(
+            notional_usd=notional,
+            entry_price_x10=entry_px_x10 or px_float,
+            entry_price_lighter=entry_px_lit or pl_float,
+            x10_side=x10_side,
+            lit_side=lit_side,
+            basis_target=basis_target,
+        )
+
+        # Basis direction check (Quantzilla: don't ignore price spread at entry.)
+        # Default: require favorable basis for the hedge shape (immediate edge if basis closes).
+        require_favorable_basis = getattr(config, "REQUIRE_FAVORABLE_BASIS_ENTRY", True)
+        basis_ok = (expected_price_pnl_to_target > 0.0) if require_favorable_basis else True
+
+        roundtrip_fees = _estimate_roundtrip_fees_usd(
+            notional_usd=notional,
+            x10_taker_fee=x10_fee_taker,
+            lit_maker_fee=lit_fee_maker,
+            lit_taker_fee=lit_fee_taker,
+        )
+        exit_slip_pct = float(getattr(config, "EXIT_SLIPPAGE_BUFFER_PCT", 0.0015))
+        exit_safety = float(getattr(config, "EXIT_COST_SAFETY_MARGIN", 1.1))
+        exit_slippage_cost = _estimate_exit_costs_usd(
+            notional_usd=notional,
+            exit_slippage_buffer_pct=exit_slip_pct,
+            exit_cost_safety=exit_safety,
+        )
+
+        # Funding income (profit-positive) at horizons
+        hourly_rate = abs(net)
+        funding_24h = safe_float(hourly_rate * 24.0 * notional, 0.0)
+        funding_eval = safe_float(hourly_rate * entry_eval_hours * notional, 0.0)
+
+        expected_profit_24h = float(
+            quantize_usd(
+                safe_decimal(funding_24h + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
+            )
+        )
+        expected_profit_eval = float(
+            quantize_usd(
+                safe_decimal(funding_eval + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
+            )
+        )
+
+        # Breakeven hours: how long funding needs to cover (fees+exit_costs - expected price edge)
+        hourly_income = safe_decimal(abs(hourly_rate)) * safe_decimal(notional)
+        remaining_cost = safe_decimal(roundtrip_fees + exit_slippage_cost) - safe_decimal(expected_price_pnl_to_target)
+        if hourly_income > 0 and remaining_cost > 0:
+            hours_to_breakeven = float(remaining_cost / hourly_income)
+        else:
+            hours_to_breakeven = 0.0
         
         # Rejection logic
         if not farm_mode:
@@ -400,8 +603,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 rejected_breakeven += 1
                 continue
                 
-            if expected_profit < min_profit_usd:
-                # logger.debug(f"🚫 {s}: Profit ${expected_profit:.4f} < ${min_profit_usd}")
+            if (not basis_ok) or (expected_profit_eval < min_profit_usd):
+                # Reject if entry basis is unfavorable or short-horizon EV doesn't clear minimum.
                 rejected_profit += 1
                 continue
         else:
@@ -477,8 +680,10 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         
         # ✅ Trade is profitable!
         logger.info(
-            f"✅ {s}: Expected profit ${expected_profit:.4f} in {hold_hours:.1f}h "
-            f"(breakeven: {hours_to_breakeven:.2f}h, APY: {apy*100:.1f}%)"
+            f"✅ {s}: Expected profit ${expected_profit_24h:.4f} in 24.0h "
+            f"(breakeven: {hours_to_breakeven:.2f}h, APY: {apy*100:.1f}%) | "
+            f"Eval{entry_eval_hours:.2f}h=${expected_profit_eval:.4f}, "
+            f"Basis=${basis_entry:.6f}, PriceEdge=${expected_price_pnl_to_target:.4f}, Fees=${roundtrip_fees:.4f}"
         )
 
         opps.append({
@@ -492,9 +697,17 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'price_x10': px_float,
             'price_lighter': pl_float,
             'is_latency_arb': False,
-            'expected_profit': expected_profit,
+            'expected_profit': expected_profit_24h,
+            'expected_profit_eval': expected_profit_eval,
             'hours_to_breakeven': hours_to_breakeven,
             'estimated_slippage_pct': estimated_slippage_pct,  # H7: Real slippage from simulation
+            # Entry basis/edge diagnostics (execution-aligned)
+            'entry_price_x10_est': entry_px_x10 or px_float,
+            'entry_price_lighter_est': entry_px_lit or pl_float,
+            'basis_entry': basis_entry,
+            'price_edge_to_basis_target': expected_price_pnl_to_target,
+            'roundtrip_fees_est': roundtrip_fees,
+            'exit_slippage_cost_est': exit_slippage_cost,
         })
 
     # Apply farm flag

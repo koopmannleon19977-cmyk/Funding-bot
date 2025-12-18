@@ -356,6 +356,38 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             async with RECENTLY_OPENED_LOCK:
                 RECENTLY_OPENED_TRADES[symbol] = time.time()
 
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Persist trade BEFORE execution (PENDING)
+            # Prevents orphan exposure when hedge fails or bot crashes mid-flight.
+            # ═══════════════════════════════════════════════════════════════
+            pending_recorded = False
+            try:
+                entry_price_x10_est = safe_float(
+                    opp.get("entry_price_x10_est") or x10.fetch_mark_price(symbol) or 0.0
+                )
+                entry_price_lighter_est = safe_float(
+                    opp.get("entry_price_lighter_est") or lighter.fetch_mark_price(symbol) or 0.0
+                )
+                await add_trade_to_state(
+                    {
+                        "symbol": symbol,
+                        "entry_time": datetime.now(timezone.utc),
+                        "notional_usd": final_usd,
+                        "status": "pending",
+                        "leg1_exchange": leg1_ex,
+                        "entry_price_x10": entry_price_x10_est,
+                        "entry_price_lighter": entry_price_lighter_est,
+                        "is_farm_trade": opp.get("is_farm_trade", False),
+                        "account_label": "Main/Main",
+                        "side_x10": x10_side,
+                        "side_lighter": lit_side,
+                    }
+                )
+                pending_recorded = True
+                logger.info(f"📝 Recorded PENDING trade {symbol} in state/DB")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to record PENDING trade for {symbol}: {e}")
+
             success, x10_id, lit_id = await parallel_exec.execute_trade_parallel(
                 symbol=symbol,
                 side_x10=x10_side,
@@ -378,7 +410,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                     'symbol': symbol,
                     'entry_time': datetime.now(timezone.utc),
                     'notional_usd': final_usd,
-                    'status': 'OPEN',
+                    'status': 'open',
                     'leg1_exchange': leg1_ex,
                     'entry_price_x10': entry_price_x10,
                     'entry_price_lighter': entry_price_lighter,
@@ -391,7 +423,26 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 }
                 
                 try:
-                    await add_trade_to_state(trade_data)
+                    # Prefer updating the existing PENDING record; fall back to insert if needed.
+                    from src.state_manager import get_state_manager
+                    sm = await get_state_manager()
+                    updated = await sm.update_trade(
+                        symbol,
+                        {
+                            "status": "open",
+                            "entry_price_x10": entry_price_x10,
+                            "entry_price_lighter": entry_price_lighter,
+                            "x10_order_id": str(x10_id) if x10_id else None,
+                            "lighter_order_id": str(lit_id) if lit_id else None,
+                            "side_x10": x10_side,
+                            "side_lighter": lit_side,
+                            "size_usd": final_usd,
+                            "is_farm_trade": opp.get("is_farm_trade", False),
+                            "account_label": "Main/Main",
+                        },
+                    )
+                    if not updated:
+                        await add_trade_to_state(trade_data)
                     logger.info(f"✅ Trade {symbol} recorded successfully")
                     logger.info(f"   X10 Order ID: {x10_id}")
                     logger.info(f"   Lighter Order ID: {lit_id[:30] if lit_id and len(lit_id) > 30 else lit_id}...")
@@ -514,6 +565,23 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 return True
             else:
                 logger.warning(f"❌ Trade execution failed for {symbol}")
+                # Mark pending/open record as rollback so it no longer counts as open-risk.
+                if pending_recorded:
+                    try:
+                        from src.state_manager import get_state_manager
+                        sm = await get_state_manager()
+                        await sm.update_trade(
+                            symbol,
+                            {
+                                "status": "rollback",
+                                "closed_at": int(time.time() * 1000),
+                                "x10_order_id": str(x10_id) if x10_id else None,
+                                "lighter_order_id": str(lit_id) if lit_id else None,
+                            },
+                        )
+                        logger.warning(f"📝 Marked {symbol} as ROLLBACK in state/DB")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to mark rollback for {symbol}: {e}")
                 FAILED_COINS[symbol] = time.time()
                 return False
 

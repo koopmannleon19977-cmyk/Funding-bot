@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Dict, Optional, List, Any
 
 import config
-from src.state_manager import get_state_manager, TradeState
+from src.state_manager import get_state_manager, TradeState, TradeStatus
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,13 @@ async def add_trade_to_state(trade_data: dict) -> str:
     # ═══════════════════════════════════════════════════════════════
     size_usd = trade_data.get('size_usd') or trade_data.get('notional_usd') or 0
     
+    status_raw = trade_data.get("status", TradeStatus.OPEN)
+    if isinstance(status_raw, str):
+        try:
+            status_raw = TradeStatus(status_raw)
+        except ValueError:
+            status_raw = TradeStatus.OPEN
+
     trade = TradeState(
         symbol=trade_data['symbol'],
         side_x10=trade_data.get('side_x10', 'BUY'),
@@ -68,6 +75,7 @@ async def add_trade_to_state(trade_data: dict) -> str:
         size_usd=size_usd,
         entry_price_x10=trade_data.get('entry_price_x10', 0),
         entry_price_lighter=trade_data.get('entry_price_lighter', 0),
+        status=status_raw,
         is_farm_trade=trade_data.get('is_farm_trade', False),
         account_label=trade_data.get('account_label', 'Main'),
         x10_order_id=trade_data.get('x10_order_id'),
@@ -217,14 +225,16 @@ async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: flo
         open_trades = await get_open_trades()
         current_exposure = sum(t.get('size_usd', 0) for t in open_trades)
         
-        # Get total balance (use X10 as primary)
+        # Total capital = X10 + Lighter (user goal is portfolio-level ROI).
         x10_balance = await x10_adapter.get_real_available_balance()
-        if x10_balance is None or x10_balance <= 0:
-            # Fallback to Lighter
-            lighter_balance = await lighter_adapter.get_real_available_balance()
-            total_balance = lighter_balance if lighter_balance else 100.0
-        else:
-            total_balance = x10_balance
+        lighter_balance = await lighter_adapter.get_real_available_balance()
+
+        x10_balance = float(x10_balance or 0.0)
+        lighter_balance = float(lighter_balance or 0.0)
+
+        total_balance = x10_balance + lighter_balance
+        if total_balance <= 0:
+            total_balance = 100.0
         
         # Calculate exposure with new trade
         new_total_exposure = current_exposure + new_trade_size

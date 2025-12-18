@@ -9,12 +9,13 @@ from unittest.mock import MagicMock, AsyncMock
 def _test_config_overrides(monkeypatch):
     """Keep unit tests isolated from live safety gates that require real adapters."""
     import config
-
+ 
     monkeypatch.setattr(config, "COMPLIANCE_CHECK_ENABLED", False, raising=False)
     monkeypatch.setattr(config, "IS_SHUTTING_DOWN", False, raising=False)
+    monkeypatch.setattr(config, "DB_MAINTENANCE_ENABLED", False, raising=False)
     # Keep enabled so tests exercise the PHASE 0 path, but we provide a mock orderbook.
     monkeypatch.setattr(config, "OB_VALIDATION_ENABLED", True, raising=False)
-
+ 
     return True
 
 @pytest.fixture

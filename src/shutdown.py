@@ -1108,9 +1108,11 @@ class ShutdownOrchestrator:
                     lighter_fees = 0.0
                     try:
                         import config as _cfg
-                        lighter_fee_rate = float(getattr(_cfg, "FEES_LIGHTER", 0.0))
+                        # Lighter config models entry as maker and exit as taker (conservative).
+                        lighter_fee_entry = float(getattr(_cfg, "MAKER_FEE_LIGHTER", 0.0))
+                        lighter_fee_exit = float(getattr(_cfg, "TAKER_FEE_LIGHTER", 0.0))
                         if lighter_entry_price > 0 and lighter_qty > 0:
-                            lighter_fees = (lighter_qty * lighter_entry_price) * lighter_fee_rate * 2  # entry + exit
+                            lighter_fees = (lighter_qty * lighter_entry_price) * (lighter_fee_entry + lighter_fee_exit)
                     except Exception:
                         pass
 

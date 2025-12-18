@@ -52,6 +52,7 @@ class BotEventLoop:
         self._running = False
         self._shutdown_event = asyncio.Event()
         self._shutdown_timeout = 5.0  # OPTIMIZED: Reduced from 30s to 5s for fast shutdown
+        self._shutdown_reason: str = ""
         
         # Components
         self. x10_adapter = None
@@ -151,6 +152,8 @@ class BotEventLoop:
         try:
             await self._supervision_loop()
         except asyncio.CancelledError:
+            if not self._shutdown_reason:
+                self._shutdown_reason = "cancelled"
             logger.info("Event loop cancelled")
         finally:
             await self._shutdown()
@@ -158,11 +161,15 @@ class BotEventLoop:
     async def stop(self):
         """Request graceful shutdown"""
         logger.info("🛑 Shutdown requested...")
+        if not self._shutdown_reason:
+            self._shutdown_reason = "manual_stop"
         self._running = False
         self._shutdown_event. set()
     
     def request_shutdown(self):
         """Non-async shutdown request (for signal handlers)"""
+        if not self._shutdown_reason:
+            self._shutdown_reason = "request_shutdown"
         self._running = False
         self._shutdown_event. set()
     
@@ -202,6 +209,8 @@ class BotEventLoop:
                 f"❌ Task {managed_task.name} crashed: {exc}",
                 exc_info=exc
             )
+            if not self._shutdown_reason:
+                self._shutdown_reason = f"task_crash:{managed_task.name}"
             
             # Notify via Telegram if available
             if self. telegram_bot and hasattr(self.telegram_bot, 'send_error'):
@@ -290,7 +299,8 @@ class BotEventLoop:
     
     async def _shutdown(self):
         """Graceful shutdown procedure - OPTIMIZED for fast shutdown"""
-        logger.info("🛑 Initiating shutdown...")
+        reason = self._shutdown_reason or "bot_event_loop"
+        logger.info(f"🛑 Initiating shutdown... (reason={reason})")
         self._running = False
         # Set global shutdown latch to block new orders IMMEDIATELY
         try:
@@ -365,7 +375,7 @@ class BotEventLoop:
             lighter=self.lighter_adapter,
             x10=self.x10_adapter,
         )
-        await asyncio.shield(shutdown.shutdown(reason="bot_event_loop"))
+        await asyncio.shield(shutdown.shutdown(reason=reason))
 
         logger.info("✅ Shutdown complete")
     

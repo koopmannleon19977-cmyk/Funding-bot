@@ -73,9 +73,30 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 MIN_APY_FILTER = 0.35       # ERHÖHT: 35% APY Minimum (vorher 20%) - kompensiert Fees!
 MIN_APY_FALLBACK = 0.25     # ERHÖHT: 25% Fallback (vorher 15%)
 MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
+MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
 MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
 MAX_HOLD_HOURS = 72.0       # ERHÖHT: 72h max (vorher 48h) - mehr Zeit für Funding
 EXIT_SLIPPAGE_BUFFER_PCT = 0.0015 # 0.15% Buffer for Bid/Ask Spread at Exit (erhöht für Sicherheit)
+EXIT_COST_SAFETY_MARGIN = 1.1      # Safety multiplier on estimated exit costs
+
+# Entry-Basis Engine (Quantzilla/DegeniusQ alignment)
+REQUIRE_FAVORABLE_BASIS_ENTRY = True  # Reject negative entry basis for the hedge shape
+ENTRY_EVAL_HOURS = 2.0  # Evaluate EV at realistic hold window (default: 2h)
+
+# Basis Exit Engine (DegeniusQ: "wait for spread to close")
+BASIS_EXIT_ENABLED = True
+BASIS_EXIT_TARGET_USD = 0.0      # Basis target in USD/coin (0 = full close)
+BASIS_CLOSE_FRACTION = 0.20      # Exit when remaining basis <= 20% of entry basis
+BASIS_STOP_LOSS_USD = 0.50       # Force-close if SpreadPnL <= -$0.50 (bypasses minimum hold)
+
+# ═════════════════════════════════════════════════════════════════════════════
+# DYNAMIC PRICE CHASING (Anti-Microfill + Maker Optimization)
+# ═════════════════════════════════════════════════════════════════════════════
+MAKER_PRICE_UPDATE_ENABLED = True            # Enable dynamic price updates while waiting for fill
+MAKER_PRICE_UPDATE_INTERVAL = 10.0           # Seconds between price updates (10s default)
+MAX_PRICE_UPDATES = 3                        # Max price updates before forcing taker (3 updates = 30s total wait)
+FORCE_TAKER_AFTER_TIMEOUT = True            # If order not filled after MAX_PRICE_UPDATES, use IOC taker
+PRICE_UPDATE_AGGRESSION = 1.0                # How many ticks to jump per update (1.0 = 1 tick, 2.0 = 2 ticks)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # NEU: MINIMUM HOLD TIME - Verhindert zu frühes Schließen!

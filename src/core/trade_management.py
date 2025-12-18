@@ -943,7 +943,22 @@ async def manage_open_trades(lighter, x10, state_manager=None):
     for t in trades:
         try:
             sym = t['symbol']
-            
+
+            # ═══════════════════════════════════════════════════════════════
+            # CRITICAL: Skip trades that are not fully hedged
+            # Prevents BASIS_CLOSING/PRICE_DIVERGENCE triggers on partial/pending trades.
+            # A trade is only considered "open & manageable" if BOTH legs are filled.
+            # ═══════════════════════════════════════════════════════════════
+            x10_order_id = t.get('x10_order_id')
+            lighter_order_id = t.get('lighter_order_id')
+
+            if not x10_order_id or not lighter_order_id:
+                logger.debug(
+                    f"⏭️ Skipping {sym}: Not fully hedged "
+                    f"(x10_id={x10_order_id}, lighter_id={lighter_order_id})"
+                )
+                continue
+
             # ═══════════════════════════════════════════════════════════════
             # Data sanitizing for all numeric fields
             # FIX: Accept both 'notional_usd' and 'size_usd' field names
@@ -1208,8 +1223,9 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             except Exception as e:
                 logger.debug(f"FeeManager error, using fallback: {e}")
                 fee_x10 = getattr(config, 'TAKER_FEE_X10', 0.000225)
-                fee_lit = getattr(config, 'FEES_LIGHTER', 0.0)
-                est_fees = notional * (fee_x10 + fee_lit) * 2.0
+                fee_lit_entry = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
+                fee_lit_exit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+                est_fees = notional * (fee_x10 * 2.0 + fee_lit_entry + fee_lit_exit)
                 total_pnl = gross_pnl - est_fees
 
             # ═══════════════════════════════════════════════════════════════
@@ -1249,6 +1265,37 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     force_close = True
             except Exception as vol_err:
                 logger.debug(f"Volatility check error for {sym}: {vol_err}")
+
+            # ═══════════════════════════════════════════════════════════════
+            # BASIS EXIT ENGINE (DegeniusQ): Wait for basis to close
+            # + basis stop-loss to avoid funding trades bleeding on price.
+            # Uses basis_entry/basis_curr computed above (profit-positive spread_pnl).
+            # ═══════════════════════════════════════════════════════════════
+            if not reason:
+                try:
+                    basis_exit_enabled = getattr(config, "BASIS_EXIT_ENABLED", True)
+                    basis_close_fraction = float(getattr(config, "BASIS_CLOSE_FRACTION", 0.20))
+                    basis_target = float(getattr(config, "BASIS_EXIT_TARGET_USD", 0.0))
+                    basis_stop_loss_usd = float(getattr(config, "BASIS_STOP_LOSS_USD", 0.50))
+
+                    if basis_exit_enabled and basis_close_fraction > 0 and basis_close_fraction < 1:
+                        # Exit when the remaining basis is <= fraction of entry basis (towards target).
+                        if sx == 1 and sl == -1 and (basis_entry - basis_target) > 0:
+                            threshold = basis_target + (basis_entry - basis_target) * basis_close_fraction
+                            if basis_curr <= threshold:
+                                reason = f"BASIS_CLOSING (basis={basis_curr:.6f}<=thr={threshold:.6f})"
+                        elif sx == -1 and sl == 1 and (basis_target - basis_entry) > 0:
+                            threshold = basis_target - (basis_target - basis_entry) * basis_close_fraction
+                            if basis_curr >= threshold:
+                                reason = f"BASIS_CLOSING (basis={basis_curr:.6f}>=thr={threshold:.6f})"
+
+                    # Stop-loss: bypass minimum-hold & profit-protection when basis drawdown is too large.
+                    if not reason and basis_stop_loss_usd > 0 and spread_pnl <= -basis_stop_loss_usd:
+                        reason = f"BASIS_STOPLOSS (SpreadPnL=${spread_pnl:.4f}<=-${basis_stop_loss_usd:.2f})"
+                        force_close = True
+                        logger.warning(f"🚨 {sym}: {reason}")
+                except Exception as basis_err:
+                    logger.debug(f"{sym}: Basis exit engine error: {basis_err}")
 
             # 1. Force close criteria (Time, Safety)
             if not reason:

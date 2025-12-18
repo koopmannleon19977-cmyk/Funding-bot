@@ -301,8 +301,8 @@ class InMemoryStateManager:
         logger.info("🚀 Starting InMemoryStateManager...")
         
         # Import here to avoid circular imports
-        from src. database import get_database
-        self._db = await get_database()
+        from src.database import get_database
+        self._db = await get_database(db_path=self.db_path)
         
         # Load initial state from database
         await self._load_from_db()
@@ -360,7 +360,15 @@ class InMemoryStateManager:
         
         # Final sync
         await self._flush_dirty()
-        
+
+        # Close the underlying DB connection(s) to avoid lingering aiosqlite threads.
+        # This also keeps unit tests deterministic when using a temp db_path.
+        try:
+            from src.database import close_database
+            await close_database(db_path=self.db_path)
+        except Exception as e:
+            logger.debug(f"Database close skipped/failed: {e}")
+         
         logger.info("✅ InMemoryStateManager stopped")
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -855,14 +863,32 @@ class InMemoryStateManager:
 
     async def _flush_batch(self, batch: List[PendingWrite]):
         """Flush a batch of writes to database"""
-        if not batch or not self._db:
+        if not batch:
             return
-        
+
+        # If DB is not initialized, resolve barrier callbacks and fail the rest (prevents deadlocks).
+        if not self._db:
+            for write in batch:
+                if write.table == "__barrier__":
+                    if write.callback and not write.callback.done():
+                        write.callback.set_result(True)
+                else:
+                    if write.callback and not write.callback.done():
+                        write.callback.set_exception(RuntimeError("StateManager DB not initialized"))
+            return
+         
         from src.database import get_trade_repository
-        repo = await get_trade_repository()
+        repo = await get_trade_repository(db_path=self.db_path)
         
         for write in batch:
             try:
+                # Barrier writes: allow callers/tests to wait until all prior writes have been committed.
+                # Implemented as a queue item with a dedicated table name that does not touch the DB.
+                if write.table == "__barrier__":
+                    if write.callback and not write.callback.done():
+                        write.callback.set_result(True)
+                    continue
+
                 if write.table == "trades":
                     if write.operation == WriteOperation.INSERT:
                         trade_data = write.data.copy()
@@ -878,31 +904,19 @@ class InMemoryStateManager:
                             write.callback.set_result(db_id)
                             
                     elif write.operation == WriteOperation.UPDATE:
-                        if 'status' in write.data:
-                            status = write.data['status']
-                            if isinstance(status, TradeStatus):
-                                status = status.value
-                            if status == 'closed':
-                                await repo.close_trade(
-                                    write. key,
-                                    write.data. get('pnl', 0),
-                                    write.data.get('funding_collected', 0)
-                                )
-                        
-                        # ═══════════════════════════════════════════════════════════════
-                        # FIX: Handle generic updates (like funding_collected)
-                        # Previously, updates without 'status' were ignored!
-                        # ═══════════════════════════════════════════════════════════════
-                        elif 'funding_collected' in write.data:
-                            # If we have funding_collected but NOT status='closed', update it
-                            # Note: write.data contains the NEW TOTAL value
-                            new_total = write.data['funding_collected']
-                            
-                            # We need to set the absolute value, but repo only has update_trade_funding (incremental)
-                            # So we execute raw SQL here to set the absolute value
-                            sql = "UPDATE trades SET funding_collected = ? WHERE symbol = ? AND status = 'open'"
-                            await repo.db.execute(sql, (new_total, write.key))
-                            logger.debug(f"📝 DB Updated funding for {write.key} to ${new_total:.4f}")
+                        status = write.data.get("status")
+                        if isinstance(status, TradeStatus):
+                            status = status.value
+
+                        if status == "closed":
+                            await repo.close_trade(
+                                write.key,
+                                write.data.get("pnl", 0),
+                                write.data.get("funding_collected", 0),
+                            )
+                        else:
+                            # Persist generic updates (order ids, entry prices, status transitions, funding totals, etc.)
+                            await repo.update_trade_fields(write.key, write.data)
 
                         if write.callback and not write.callback.done():
                             write.callback.set_result(True)
@@ -918,6 +932,30 @@ class InMemoryStateManager:
         
         self._stats["writes_flushed"] += len(batch)
         logger.debug(f"📝 Flushed {len(batch)} writes")
+
+    async def _flush_writes(self, timeout: float = 5.0) -> None:
+        """
+        Flush pending write-behind operations.
+
+        This is primarily a test/helper API to provide a deterministic "all writes committed"
+        synchronization point for callers that need to read from the DB immediately after updates.
+        """
+        # If not running (or writer not available), do a best-effort direct flush of remaining items.
+        if not getattr(self, "_running", False) or not getattr(self, "_writer_task", None):
+            await self._flush_dirty()
+            return
+
+        # Enqueue a barrier and wait for it to be processed by the writer loop.
+        await asyncio.wait_for(
+            self._queue_write(
+                WriteOperation.UPDATE,
+                "__barrier__",
+                "__barrier__",
+                {},
+                wait=True,
+            ),
+            timeout=timeout,
+        )
 
     async def _flush_dirty(self):
         """Flush all dirty state to database"""
@@ -938,9 +976,9 @@ class InMemoryStateManager:
         """Load initial state from database"""
         if not self._db:
             return
-        
+         
         from src.database import get_trade_repository
-        repo = await get_trade_repository()
+        repo = await get_trade_repository(db_path=self.db_path)
         
         try:
             db_trades = await repo.get_open_trades()
@@ -987,9 +1025,9 @@ class InMemoryStateManager:
         """Verify in-memory state matches database"""
         if not self._db:
             return
-        
+         
         from src.database import get_trade_repository
-        repo = await get_trade_repository()
+        repo = await get_trade_repository(db_path=self.db_path)
         
         try:
             db_trades = await repo.get_open_trades()
