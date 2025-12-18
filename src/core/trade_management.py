@@ -30,8 +30,10 @@ logger = logging.getLogger(__name__)
 # ============================================================
 SHUTDOWN_FLAG = False
 RECENTLY_OPENED_TRADES = {}
+RECENTLY_CLOSED_TRADES = {}  # FIX: Track recently closed trades to avoid orphan false positives
 RECENTLY_OPENED_LOCK = asyncio.Lock()
 RECENTLY_OPENED_PROTECTION_SECONDS = 60.0
+RECENTLY_CLOSED_PROTECTION_SECONDS = 15.0  # FIX: 15s grace period after close
 ACTIVE_TASKS = {}
 TASKS_LOCK = asyncio.Lock()
 
@@ -759,6 +761,12 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         if parallel_exec and hasattr(parallel_exec, 'is_busy') and parallel_exec.is_busy():
             return
 
+        # FIX: Cleanup old entries from RECENTLY_CLOSED_TRADES
+        current_time = time.time()
+        for sym in list(RECENTLY_CLOSED_TRADES.keys()):
+            if current_time - RECENTLY_CLOSED_TRADES[sym] > RECENTLY_CLOSED_PROTECTION_SECONDS:
+                RECENTLY_CLOSED_TRADES.pop(sym, None)
+
         logger.info("🔍 RECONCILE: Starting strict sync check...")
         
         # Fetch real positions
@@ -847,7 +855,13 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                     # Extended protection for POST_ONLY orders (see comment above)
                     if current_time - RECENTLY_OPENED_TRADES[symbol] < 120:  # Extended from 60s to 120s
                         continue
-                        
+
+                # FIX: Skip recently closed trades (Lighter API can lag showing closed positions)
+                if symbol in RECENTLY_CLOSED_TRADES:
+                    if current_time - RECENTLY_CLOSED_TRADES[symbol] < RECENTLY_CLOSED_PROTECTION_SECONDS:
+                        logger.debug(f"⏭️ Skipping {symbol}: Recently closed (grace period {RECENTLY_CLOSED_PROTECTION_SECONDS}s)")
+                        continue
+
                 l_size = real_lighter.get(symbol, 0)
                 x_size = real_x10.get(symbol, 0)
                 
@@ -1289,11 +1303,12 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                             if basis_curr >= threshold:
                                 reason = f"BASIS_CLOSING (basis={basis_curr:.6f}>=thr={threshold:.6f})"
 
-                    # Stop-loss: bypass minimum-hold & profit-protection when basis drawdown is too large.
-                    if not reason and basis_stop_loss_usd > 0 and spread_pnl <= -basis_stop_loss_usd:
-                        reason = f"BASIS_STOPLOSS (SpreadPnL=${spread_pnl:.4f}<=-${basis_stop_loss_usd:.2f})"
-                        force_close = True
-                        logger.warning(f"🚨 {sym}: {reason}")
+                    # BASIS_STOP_LOSS: DISABLED
+                    # Reason: Bei gehedgten Trades ist negative SpreadPnL normal (Execution Slippage, Basis Mean-Reversion)
+                    # Der Hedge schützt uns vor Preis-Risiko. Wir wollen nur profitieren von:
+                    # 1. Funding Collection (Hauptziel)
+                    # 2. Positive Preisdifferenz (PRICE_DIVERGENCE_PROFIT)
+                    # Stop-Loss würde profitable Trades zu früh schließen.
                 except Exception as basis_err:
                     logger.debug(f"{sym}: Basis exit engine error: {basis_err}")
 
@@ -1510,7 +1525,10 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                         'spread_pnl': realized_price,
                         'fees': realized_fees
                     })
-                    
+
+                    # FIX: Track recently closed trades to avoid orphan false positives
+                    RECENTLY_CLOSED_TRADES[sym] = time.time()
+
                     # Telegram notification
                     telegram = get_telegram_bot()
                     if telegram.enabled:

@@ -1064,7 +1064,7 @@ class X10Adapter(BaseAdapter):
         # FIX: Shutdown check - skip during shutdown (except reduce_only close orders)
         # ═══════════════════════════════════════════════════════════════
         if getattr(config, 'IS_SHUTTING_DOWN', False) and not reduce_only:
-            logger.debug(f"[X10] Shutdown active - skipping open_live_position for {symbol} (non-reduce_only)")
+            logger.warning(f"⚠️ [X10] SHUTDOWN ACTIVE - Rejecting {symbol} {side} order (non-reduce_only, size=${notional_usd:.2f})")
             return False, None
         
         if not config.LIVE_TRADING:
@@ -1086,6 +1086,7 @@ class X10Adapter(BaseAdapter):
         client = await self._get_trading_client()
         market = self.market_info.get(symbol)
         if not market:
+            logger.error(f"❌ [X10] Market info missing for {symbol} - cannot place order")
             return False, None
 
         # ═══════════════════════════════════════════════════════════════

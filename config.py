@@ -84,15 +84,20 @@ REQUIRE_FAVORABLE_BASIS_ENTRY = True  # Reject negative entry basis for the hedg
 ENTRY_EVAL_HOURS = 2.0  # Evaluate EV at realistic hold window (default: 2h)
 
 # Basis Exit Engine (DegeniusQ: "wait for spread to close")
-BASIS_EXIT_ENABLED = True
+# COMPLETELY DISABLED: Bei gehedgten Trades macht Basis-Stop-Loss keinen Sinn!
+# Der Hedge schützt uns vor Preis-Risiko. Negative SpreadPnL ist normal (Slippage, Mean-Reversion).
+# Wir profitieren von: 1) Funding Collection, 2) Positive Preisdifferenz (PRICE_DIVERGENCE_PROFIT)
+BASIS_EXIT_ENABLED = False       # DISABLED: Let trades run for funding collection
 BASIS_EXIT_TARGET_USD = 0.0      # Basis target in USD/coin (0 = full close)
 BASIS_CLOSE_FRACTION = 0.20      # Exit when remaining basis <= 20% of entry basis
-BASIS_STOP_LOSS_USD = 0.50       # Force-close if SpreadPnL <= -$0.50 (bypasses minimum hold)
+BASIS_STOP_LOSS_USD = 0.0        # DISABLED: Makes no sense for hedged trades (was $0.50, then $2.00)
 
 # ═════════════════════════════════════════════════════════════════════════════
 # DYNAMIC PRICE CHASING (Anti-Microfill + Maker Optimization)
+# TEMPORARILY DISABLED: modify_order needs Hash→ID resolution (Python SDK limitation)
+# Falls back to IOC taker after timeout instead
 # ═════════════════════════════════════════════════════════════════════════════
-MAKER_PRICE_UPDATE_ENABLED = True            # Enable dynamic price updates while waiting for fill
+MAKER_PRICE_UPDATE_ENABLED = False           # DISABLED: modify_order not working yet
 MAKER_PRICE_UPDATE_INTERVAL = 10.0           # Seconds between price updates (10s default)
 MAX_PRICE_UPDATES = 3                        # Max price updates before forcing taker (3 updates = 30s total wait)
 FORCE_TAKER_AFTER_TIMEOUT = True            # If order not filled after MAX_PRICE_UPDATES, use IOC taker

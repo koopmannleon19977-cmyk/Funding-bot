@@ -175,14 +175,50 @@ def _estimate_entry_prices(
     lit_side: str,
 ) -> tuple[float, float]:
     """
-    Entry pricing model aligned with current execution:
-    - Lighter entry is Maker: SELL hits best ask, BUY hits best bid
-    - X10 entry is Taker hedge: BUY hits best ask, SELL hits best bid
+    Entry pricing model aligned with ACTUAL execution:
+    - Lighter entry is Maker with PENNY JUMPING:
+      * SELL @ best_ask - 1 tick (inside spread, faster fills)
+      * BUY @ best_bid + 1 tick (inside spread, faster fills)
+    - X10 entry is Taker hedge:
+      * BUY hits best ask
+      * SELL hits best bid
+
+    FIX (2025-12-18): Match lighter_adapter.py get_maker_price penny jumping logic
+    to prevent negative entry edges.
     """
     x10_side = (x10_side or "").upper()
     lit_side = (lit_side or "").upper()
+
+    # X10 is always Taker (IOC): simple bid/ask
     x10_entry = x10_ask if x10_side == "BUY" else x10_bid
-    lit_entry = lit_ask if lit_side == "SELL" else lit_bid
+
+    # Lighter is Maker with Penny Jumping (matches lighter_adapter.py:1269-1294)
+    # Estimate tick size as 0.05% of mid price (conservative)
+    lit_mid = (lit_bid + lit_ask) / 2.0 if (lit_bid > 0 and lit_ask > 0) else 0.0
+    price_tick = max(0.0001, lit_mid * 0.0005) if lit_mid > 0 else 0.0001
+
+    spread = lit_ask - lit_bid
+    min_safe_spread = price_tick * 2
+
+    if lit_side == "SELL":
+        # SELL: Place 1 tick below best ask (penny jump inside spread)
+        if spread >= min_safe_spread:
+            lit_entry = lit_ask - price_tick
+            # Safety: don't cross bid
+            if lit_entry <= lit_bid + price_tick:
+                lit_entry = lit_ask  # Fallback
+        else:
+            lit_entry = lit_ask  # Tight spread: join best ask
+    else:  # BUY
+        # BUY: Place 1 tick above best bid (penny jump inside spread)
+        if spread >= min_safe_spread:
+            lit_entry = lit_bid + price_tick
+            # Safety: don't cross ask
+            if lit_entry >= lit_ask - price_tick:
+                lit_entry = lit_bid  # Fallback
+        else:
+            lit_entry = lit_bid  # Tight spread: join best bid
+
     return safe_float(x10_entry, 0.0), safe_float(lit_entry, 0.0)
 
 
@@ -572,6 +608,40 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             exit_cost_safety=exit_safety,
         )
 
+        # ═══════════════════════════════════════════════════════════════
+        # CRITICAL FIX (2025-12-18): Validate ENTRY EDGE > 0
+        # ═══════════════════════════════════════════════════════════════
+        # Entry edge = immediate PnL if basis closes to 0, minus entry fees
+        # This MUST be positive or we start with a loss!
+        #
+        # Example: AERO-USD from log 161019:
+        # - Opportunity filter claimed Basis=$0.001480, PriceEdge=$0.4400
+        # - But actual fills: Lighter SELL @ $0.502350, X10 BUY @ $0.502750
+        # - Actual basis_entry = $0.502350 - $0.502750 = -$0.0004
+        # - We paid $0.034 entry fees → Starting with -$0.30 SpreadPnL!
+        #
+        # Now with penny jumping fix, we use realistic entry prices.
+        # ═══════════════════════════════════════════════════════════════
+
+        # Entry fees only (X10 taker + Lighter maker)
+        entry_fees_usd = float(
+            safe_decimal(notional) * (safe_decimal(x10_fee_taker) + safe_decimal(lit_fee_maker))
+        )
+
+        # Entry edge must cover entry fees
+        entry_edge_usd = expected_price_pnl_to_target - entry_fees_usd
+
+        if entry_edge_usd < 0:
+            logger.debug(
+                f"🚫 {s}: Negative entry edge! "
+                f"PriceEdge=${expected_price_pnl_to_target:.4f}, "
+                f"EntryFees=${entry_fees_usd:.4f}, "
+                f"NetEdge=${entry_edge_usd:.4f} "
+                f"(Lighter: {lit_side} @ ${entry_px_lit:.6f}, X10: {x10_side} @ ${entry_px_x10:.6f})"
+            )
+            rejected_profit += 1
+            continue
+
         # Funding income (profit-positive) at horizons
         hourly_rate = abs(net)
         funding_24h = safe_float(hourly_rate * 24.0 * notional, 0.0)
@@ -683,7 +753,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             f"✅ {s}: Expected profit ${expected_profit_24h:.4f} in 24.0h "
             f"(breakeven: {hours_to_breakeven:.2f}h, APY: {apy*100:.1f}%) | "
             f"Eval{entry_eval_hours:.2f}h=${expected_profit_eval:.4f}, "
-            f"Basis=${basis_entry:.6f}, PriceEdge=${expected_price_pnl_to_target:.4f}, Fees=${roundtrip_fees:.4f}"
+            f"Basis=${basis_entry:.6f}, PriceEdge=${expected_price_pnl_to_target:.4f}, "
+            f"EntryEdge=${entry_edge_usd:.4f} (after entry fees), Fees=${roundtrip_fees:.4f}"
         )
 
         opps.append({
@@ -706,6 +777,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             'entry_price_lighter_est': entry_px_lit or pl_float,
             'basis_entry': basis_entry,
             'price_edge_to_basis_target': expected_price_pnl_to_target,
+            'entry_edge_usd': entry_edge_usd,  # FIX: Net edge after entry fees
             'roundtrip_fees_est': roundtrip_fees,
             'exit_slippage_cost_est': exit_slippage_cost,
         })
