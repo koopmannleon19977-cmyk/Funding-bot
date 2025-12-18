@@ -1085,12 +1085,22 @@ class ShutdownOrchestrator:
                     x10 = self._components.get("x10")
                     if x10 and hasattr(x10, 'get_last_close_price'):
                         try:
-                            x10_close_price, x10_close_qty, x10_fee_close = x10.get_last_close_price(symbol)
-                            x10_close_price = self._safe_float(x10_close_price)
-                            x10_close_qty = self._safe_float(x10_close_qty)
-                            x10_fee_close = self._safe_float(x10_fee_close)
+                            # WS fill updates can arrive slightly after the close completes.
+                            # Retry briefly so shutdown PnL uses actual avgFill/fee instead of 0.
+                            for _ in range(6):
+                                x10_close_price, x10_close_qty, x10_fee_close = x10.get_last_close_price(symbol)
+                                x10_close_price = self._safe_float(x10_close_price)
+                                x10_close_qty = self._safe_float(x10_close_qty)
+                                x10_fee_close = self._safe_float(x10_fee_close)
+                                if x10_close_price > 0 and x10_close_qty > 0:
+                                    break
+                                await asyncio.sleep(0.25)
                             if x10_close_qty > 0:
                                 x10_qty = x10_close_qty
+                            if x10_close_price > 0 and x10_close_qty > 0:
+                                logger.debug(
+                                    f"[PNL] {symbol}: Using X10 close fills avgFill=${x10_close_price:.6f} qty={x10_close_qty:.6f} fee=${x10_fee_close:.4f}"
+                                )
                         except Exception:
                             pass
 

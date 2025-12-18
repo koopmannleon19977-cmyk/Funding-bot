@@ -1498,7 +1498,7 @@ class X10Adapter(BaseAdapter):
                 # ═══════════════════════════════════════════════════════════════
                 logger.info(
                     f"🔻 X10 CLOSE {symbol}: size={actual_size_abs:.6f}, side={close_side}, "
-                    f"price=${ref_price_f:.5f} (mark=${float(mark_px):.5f}, slip={float(slippage_pct)*100:.1f}%, attempt={attempt+1}/{max_retries})"
+                    f"requested=${ref_price_f:.5f} (mark=${float(mark_px):.5f}, slip={float(slippage_pct)*100:.1f}%, attempt={attempt+1}/{max_retries})"
                 )
 
                 # ═══════════════════════════════════════════════════════════════
@@ -1575,6 +1575,20 @@ class X10Adapter(BaseAdapter):
                 )
 
                 if not still_open:
+                    # Best-effort: if we're shutting down, wait briefly for WS fill updates
+                    # so get_last_close_price() has the actual avg fill/fee.
+                    if is_shutting_down:
+                        try:
+                            for _ in range(5):
+                                px, qty, fee = self.get_last_close_price(symbol)
+                                if safe_float(px) > 0 and safe_float(qty) > 0:
+                                    logger.info(
+                                        f"✅ X10 CLOSE FILLED {symbol}: avgFill=${float(px):.5f}, qty={float(qty):.6f}, fee=${float(fee):.4f} (requested=${ref_price_f:.5f})"
+                                    )
+                                    break
+                                await asyncio.sleep(0.2)
+                        except Exception:
+                            pass
                     return True, order_id
                 else:
                     if attempt < max_retries - 1:

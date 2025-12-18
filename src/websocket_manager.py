@@ -2299,9 +2299,25 @@ class WebSocketManager:
                 status = order.get("status") or order.get("orderStatus") or order.get("s") or ""
                 order_id = order.get("id") or order.get("orderId") or order.get("order_id") or order.get("i")
                 side = order.get("side") or order.get("orderSide") or ""
-                price = order.get("price") or order.get("p") or "0"
+                order_price = order.get("price") or order.get("p") or "0"
                 qty = order.get("qty") or order.get("quantity") or order.get("amount") or order.get("q") or "0"
                 filled_qty = order.get("filledQty") or order.get("filled_qty") or order.get("executedQty") or order.get("fq") or "0"
+
+                # Some streams include an average fill price; keep order price separate from fill price.
+                avg_fill_price = (
+                    order.get("avgFillPrice")
+                    or order.get("avg_fill_price")
+                    or order.get("avgPrice")
+                    or order.get("averagePrice")
+                    or order.get("fillPrice")
+                )
+                avg_fill_str = ""
+                try:
+                    afp = float(avg_fill_price) if avg_fill_price is not None else 0.0
+                    if afp > 0:
+                        avg_fill_str = f" avgFill=${afp}"
+                except Exception:
+                    avg_fill_str = ""
                 
                 # Log with emoji based on status
                 status_upper = str(status).upper()
@@ -2317,7 +2333,7 @@ class WebSocketManager:
                 
                 logger.info(
                     f"{emoji} [x10_account] ORDER UPDATE: {market} {side} {status} "
-                    f"qty={qty} filled={filled_qty} @ ${price} (id={order_id})"
+                    f"qty={qty} filled={filled_qty} orderPrice=${order_price}{avg_fill_str} (id={order_id})"
                 )
                 
                 # Notify X10 Adapter if available
