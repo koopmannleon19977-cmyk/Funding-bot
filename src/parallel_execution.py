@@ -1939,6 +1939,15 @@ class ParallelExecutionManager:
                                         logger.warning(f"❌ [ESCALATION] {symbol}: Taker order placement failed")
 
                             if not filled:
+                                # FIX (2025-12-19): Cancel all remaining orders before TIMEOUT
+                                # Problem: Old orders stay in orderbook, causing duplicate trades later
+                                try:
+                                    logger.warning(f"🧹 [TIMEOUT] {symbol}: Cancelling remaining orders before exit...")
+                                    await self.lighter.cancel_all_orders(symbol)
+                                    logger.info(f"✅ [TIMEOUT] {symbol}: Orders cancelled successfully")
+                                except Exception as cancel_e:
+                                    logger.warning(f"⚠️ [TIMEOUT] {symbol}: Cancel error: {cancel_e}")
+
                                 self._log_trade_summary(
                                     symbol,
                                     "TIMEOUT",
@@ -1949,6 +1958,30 @@ class ParallelExecutionManager:
                                 )
                                 execution.state = ExecutionState.FAILED
                                 return False, None, lighter_order_id
+
+            # Safety: if we still don't have a confirmed fill at this point, abort.
+            # (The nested timeout-return above can be skipped when taker escalation is disabled.)
+            if not filled:
+                # FIX (2025-12-19): Cancel all remaining orders before TIMEOUT
+                # Problem: Old orders stay in orderbook, causing duplicate trades later
+                try:
+                    logger.warning(f"🧹 [TIMEOUT] {symbol}: Cancelling remaining orders before exit...")
+                    await self.lighter.cancel_all_orders(symbol)
+                    logger.info(f"✅ [TIMEOUT] {symbol}: Orders cancelled successfully")
+                except Exception as cancel_e:
+                    logger.warning(f"⚠️ [TIMEOUT] {symbol}: Cancel error: {cancel_e}")
+
+                self._log_trade_summary(
+                    symbol,
+                    "TIMEOUT",
+                    "Lighter order not filled (maker timeout; no hedge placed)",
+                    trade_start_time,
+                    phase_times,
+                    execution,
+                )
+                execution.state = ExecutionState.FAILED
+                execution.error = "LIGHTER_NOT_FILLED"
+                return False, None, lighter_order_id
 
             execution.lighter_filled = True
             logger.info(f"✅ [PHASE 1.5] {symbol}: Lighter FILLED ({phase_times['lighter_fill_wait']:.2f}s)")
@@ -1965,23 +1998,88 @@ class ParallelExecutionManager:
             # We MUST use the TRUE current position size for the hedge!
             # ═══════════════════════════════════════════════════════════════
             try:
-                positions = await self.lighter.fetch_open_positions()
-                pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
-                real_position_size = abs(safe_float(pos.get("size", 0))) if pos else 0.0
-                
-                if real_position_size > 0:
-                    # Use REAL position size, not ghost-detected or planned
+                # Re-fetch a few times: Lighter position visibility can lag by a few 100ms.
+                real_position_size = 0.0
+                for _ in range(3):
+                    positions = await self.lighter.fetch_open_positions()
+                    pos = next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+                    real_position_size = abs(safe_float(pos.get("size", 0))) if pos else 0.0
+                    if real_position_size > 1e-10:
+                        break
+                    await asyncio.sleep(0.3)
+
+                if real_position_size > 1e-10:
                     filled_size_coins = real_position_size
-                    logger.info(f"📊 [PHASE 2] {symbol}: Using REAL position size: {filled_size_coins:.6f} coins (fresh fetch from Lighter)")
+                    logger.info(
+                        f"📊 [PHASE 2] {symbol}: Using REAL position size: {filled_size_coins:.6f} coins (fresh fetch from Lighter)"
+                    )
                 elif actual_filled_size is not None and actual_filled_size > 0:
-                    filled_size_coins = actual_filled_size
-                    logger.warning(f"📊 [PHASE 2] {symbol}: Using ghost-detected size: {filled_size_coins:.6f} coins (no position found in fresh fetch!)")
+                    filled_size_coins = float(actual_filled_size)
+                    logger.warning(
+                        f"📊 [PHASE 2] {symbol}: Using detected filled size: {filled_size_coins:.6f} coins (no position visible yet)"
+                    )
                 else:
-                    filled_size_coins = execution.quantity_coins
-                    logger.warning(f"📊 [PHASE 2] {symbol}: Using PLANNED size: {filled_size_coins:.6f} coins (fallback)")
+                    # Last-chance: check order status for filledAmount before hedging.
+                    filled_amount = 0.0
+                    try:
+                        if hasattr(self.lighter, "get_order") and execution.lighter_order_id:
+                            order_info = await self.lighter.get_order(execution.lighter_order_id, symbol)
+                            if order_info:
+                                filled_amount = abs(
+                                    safe_float(
+                                        order_info.get("filledAmount", order_info.get("executedQty", 0))
+                                    )
+                                )
+                    except Exception:
+                        filled_amount = 0.0
+
+                    if filled_amount > 1e-10:
+                        filled_size_coins = filled_amount
+                        logger.warning(
+                            f"📊 [PHASE 2] {symbol}: Using order filledAmount={filled_size_coins:.6f} coins (position not visible)"
+                        )
+                    else:
+                        # CRITICAL SAFETY: Do NOT place X10 hedge if Lighter fill is not confirmed.
+                        logger.error(
+                            f"❌ [PHASE 2] {symbol}: ABORTING X10 hedge - no confirmed Lighter fill. "
+                            f"pos_size={real_position_size:.6f}, actual_filled_size={safe_float(actual_filled_size or 0):.6f}"
+                        )
+                        try:
+                            # Best-effort cleanup: cancel any resting maker orders so they can't fill later.
+                            if hasattr(self.lighter, "cancel_all_orders"):
+                                await self.lighter.cancel_all_orders(symbol)
+                        except Exception:
+                            pass
+                        self._log_trade_summary(
+                            symbol,
+                            "ABORTED",
+                            "No confirmed Lighter fill (blocked X10 hedge)",
+                            trade_start_time,
+                            phase_times,
+                            execution,
+                        )
+                        execution.state = ExecutionState.FAILED
+                        execution.error = "NO_CONFIRMED_LIGHTER_FILL"
+                        return False, None, lighter_order_id
+
             except Exception as e:
-                logger.warning(f"⚠️ [PHASE 2] {symbol}: Error fetching position, using fallback: {e}")
-                filled_size_coins = actual_filled_size if actual_filled_size else execution.quantity_coins
+                logger.error(f"❌ [PHASE 2] {symbol}: ABORTING X10 hedge - exception verifying Lighter fill: {e}")
+                try:
+                    if hasattr(self.lighter, "cancel_all_orders"):
+                        await self.lighter.cancel_all_orders(symbol)
+                except Exception:
+                    pass
+                self._log_trade_summary(
+                    symbol,
+                    "ABORTED",
+                    "Exception verifying Lighter fill (blocked X10 hedge)",
+                    trade_start_time,
+                    phase_times,
+                    execution,
+                )
+                execution.state = ExecutionState.FAILED
+                execution.error = "LIGHTER_FILL_VERIFY_ERROR"
+                return False, None, lighter_order_id
             
             # ═══════════════════════════════════════════════════════════════
             # FIX (2025-12-18): X10 MIN NOTIONAL CHECK!
@@ -2034,13 +2132,37 @@ class ParallelExecutionManager:
 
             execution.state = ExecutionState.LEG2_SENT
 
-            x10_success, x10_order_id = await self._execute_x10_leg(
-                symbol,
-                execution.side_x10,
-                size_type="COINS",
-                size_value=filled_size_coins,
-                post_only=False,
-            )
+            # ═══════════════════════════════════════════════════════════════
+            # X10 MAKER ENGINE (2025-12-18): POST_ONLY first → Taker fallback
+            # Saves 0.0225% Taker fees when Maker fills!
+            # 
+            # Speed-First Strategy (X10 is less liquid than Lighter):
+            # - 3s timeout per cycle
+            # - 1 requote max  
+            # - Always escalate to Taker (hedge completion > fee savings)
+            # ═══════════════════════════════════════════════════════════════
+            if getattr(config, 'X10_MAKER_ENABLED', True):
+                x10_success, x10_order_id, used_taker = await self._execute_x10_maker_with_escalation(
+                    symbol=symbol,
+                    side=execution.side_x10,
+                    size_coins=filled_size_coins,
+                )
+                
+                # Log fee savings info
+                if x10_success and not used_taker:
+                    taker_fee_saved = filled_size_usd * float(getattr(config, 'TAKER_FEE_X10', 0.000225))
+                    logger.info(f"💰 [FEE SAVINGS] {symbol}: Maker fill saved ${taker_fee_saved:.4f} in taker fees!")
+                elif x10_success and used_taker:
+                    logger.info(f"📊 [X10 HEDGE] {symbol}: Escalated to Taker (hedge complete, but used taker fees)")
+            else:
+                # Fallback: Old Taker-only behavior (if Maker Engine disabled)
+                x10_success, x10_order_id = await self._execute_x10_leg(
+                    symbol,
+                    execution.side_x10,
+                    size_type="COINS",
+                    size_value=filled_size_coins,
+                    post_only=False,
+                )
 
             phase_times["x10_hedge"] = time.monotonic() - phase_start
             execution.x10_order_id = x10_order_id
@@ -2402,6 +2524,287 @@ class ParallelExecutionManager:
         except Exception as e:
             logger.error(f"❌ X10 leg exception {symbol} ({side}, size={size_value} {size_type}): {e}", exc_info=True)
             return False, None
+
+    async def _execute_x10_maker_with_escalation(
+        self,
+        symbol: str,
+        side: str,
+        size_coins: float,
+        timeout_per_cycle: float = None,
+        max_requotes: int = None,
+        price_chase_pct: float = None,
+    ) -> Tuple[bool, Optional[str], bool]:
+        """
+        X10 MAKER ENGINE - Speed-First Strategy with Taker Escalation.
+        
+        IMPORTANT: X10 is LESS liquid than Lighter!
+        → Short Maker attempts, fast escalation to Taker
+        → Hedge completion is MORE important than fee savings
+        
+        Flow:
+        1. Place POST_ONLY order (0% fees)
+        2. Wait for fill (3s default)
+        3. If not filled: Cancel + Requote with more aggressive price (1 attempt)
+        4. If still not filled: Escalate to TAKER (IOC)
+        5. Ghost-Fill protection: Position-delta check before each Cancel/Replace
+        
+        Args:
+            symbol: Trading symbol
+            side: BUY or SELL
+            size_coins: Size in coins (already validated against X10 min)
+            timeout_per_cycle: Seconds to wait per attempt (default from config)
+            max_requotes: Max Cancel/Replace attempts (default from config)
+            price_chase_pct: How much more aggressive per requote (default from config)
+            
+        Returns:
+            Tuple[success, order_id, used_taker]:
+                - success: True if order filled (maker or taker)
+                - order_id: The filled order ID
+                - used_taker: True if had to escalate to Taker
+        """
+        # Load config with defaults
+        timeout = timeout_per_cycle or float(getattr(config, 'X10_MAKER_TIMEOUT_SECONDS', 3.0))
+        requotes = max_requotes or int(getattr(config, 'X10_MAKER_MAX_REQUOTES', 1))
+        chase_pct = price_chase_pct or float(getattr(config, 'X10_MAKER_PRICE_CHASE_PCT', 0.001))
+        check_interval = float(getattr(config, 'X10_MAKER_FILL_CHECK_INTERVAL', 0.3))
+        
+        # Shutdown mode: faster timeout
+        is_shutdown = getattr(config, 'IS_SHUTTING_DOWN', False)
+        if is_shutdown:
+            timeout = float(getattr(config, 'X10_MAKER_SHUTDOWN_TIMEOUT_SECONDS', 2.0))
+            requotes = 0  # Skip requotes during shutdown
+            logger.warning(f"⚡ [X10 MAKER] {symbol}: SHUTDOWN MODE - timeout={timeout}s, requotes=0")
+        
+        total_start = time.monotonic()
+        current_order_id: Optional[str] = None
+        filled = False
+        used_taker = False
+        requote_count = 0
+        
+        # Get initial position snapshot for ghost-fill detection
+        initial_position_size = 0.0
+        try:
+            positions = await self.x10.fetch_open_positions()
+            pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+            initial_position_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+        except Exception as e:
+            logger.debug(f"[X10 MAKER] {symbol}: Initial position check error: {e}")
+        
+        logger.info(
+            f"🎯 [X10 MAKER] {symbol} {side}: Starting Maker-First strategy | "
+            f"size={size_coins:.6f} coins, timeout={timeout}s, max_requotes={requotes}"
+        )
+        
+        # ═══════════════════════════════════════════════════════════════
+        # MAKER ATTEMPT LOOP (1 initial + N requotes)
+        # ═══════════════════════════════════════════════════════════════
+        for attempt in range(requotes + 1):
+            if getattr(config, 'IS_SHUTTING_DOWN', False) and attempt > 0:
+                logger.warning(f"⚡ [X10 MAKER] {symbol}: SHUTDOWN detected - skipping requote {attempt}")
+                break
+                
+            cycle_start = time.monotonic()
+            
+            # Calculate price (more aggressive with each requote)
+            price_adjustment = 1.0 + (chase_pct * attempt) if side == "BUY" else 1.0 - (chase_pct * attempt)
+            
+            # Place POST_ONLY order
+            try:
+                if attempt == 0:
+                    logger.info(f"📤 [X10 MAKER] {symbol}: Placing initial POST_ONLY {side} order...")
+                else:
+                    logger.info(
+                        f"🔄 [X10 MAKER] {symbol}: Requote {attempt}/{requotes} - "
+                        f"ATOMIC REPLACE (previous_order_id={current_order_id}) - "
+                        f"chasing price by {chase_pct * attempt * 100:.2f}%..."
+                    )
+
+                success, order_id = await self.x10.open_live_position(
+                    symbol=symbol,
+                    side=side,
+                    notional_usd=0,  # Use amount directly
+                    amount=size_coins,
+                    post_only=True,
+                    reduce_only=False,
+                    previous_order_id=current_order_id if attempt > 0 else None,  # FIX: Atomic replace!
+                )
+                
+                if not success or not order_id:
+                    logger.warning(f"⚠️ [X10 MAKER] {symbol}: POST_ONLY order placement failed (attempt {attempt})")
+                    if attempt < requotes:
+                        await asyncio.sleep(0.5)
+                        continue
+                    else:
+                        break
+                
+                current_order_id = order_id
+                logger.debug(f"✓ [X10 MAKER] {symbol}: Order placed: {order_id}")
+                
+            except Exception as e:
+                logger.error(f"❌ [X10 MAKER] {symbol}: Order placement exception: {e}")
+                if attempt < requotes:
+                    await asyncio.sleep(0.5)
+                    continue
+                else:
+                    break
+            
+            # ═══════════════════════════════════════════════════════════════
+            # WAIT FOR FILL (with position monitoring)
+            # ═══════════════════════════════════════════════════════════════
+            wait_start = time.time()
+            while time.time() - wait_start < timeout:
+                if getattr(config, 'IS_SHUTTING_DOWN', False):
+                    logger.warning(f"⚡ [X10 MAKER] {symbol}: SHUTDOWN during wait - breaking!")
+                    break
+                
+                try:
+                    # Check position (faster than checking order status)
+                    positions = await self.x10.fetch_open_positions()
+                    pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                    current_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+                    
+                    # Calculate position delta (detect fill)
+                    size_delta = abs(current_size - initial_position_size)
+                    
+                    # Check if filled (>= 90% of requested size appeared)
+                    if size_delta >= size_coins * 0.90:
+                        filled = True
+                        fill_time = time.time() - wait_start
+                        total_time = time.monotonic() - total_start
+                        logger.info(
+                            f"✅ [X10 MAKER] {symbol}: MAKER FILLED in {fill_time:.2f}s! "
+                            f"(attempt {attempt}, total={total_time:.2f}s, size_delta={size_delta:.6f})"
+                        )
+                        return True, current_order_id, False  # Success, Maker fill
+                    
+                    await asyncio.sleep(check_interval)
+                    
+                except Exception as e:
+                    logger.debug(f"[X10 MAKER] {symbol}: Fill check error: {e}")
+                    await asyncio.sleep(check_interval)
+            
+            # Timeout - check for ghost fill before cancel
+            if not filled and attempt < requotes:
+                # Ghost-Fill protection: Check position BEFORE cancel
+                try:
+                    positions = await self.x10.fetch_open_positions()
+                    pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                    current_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+                    size_delta = abs(current_size - initial_position_size)
+                    
+                    if size_delta >= size_coins * 0.50:
+                        # Partial fill large enough - count as success
+                        logger.warning(
+                            f"⚠️ [X10 MAKER] {symbol}: GHOST FILL detected before cancel! "
+                            f"size_delta={size_delta:.6f} >= 50% of {size_coins:.6f}"
+                        )
+                        return True, current_order_id, False  # Partial maker fill
+                        
+                except Exception as e:
+                    logger.debug(f"[X10 MAKER] {symbol}: Ghost check error: {e}")
+                
+                # Cancel and continue to next requote
+                try:
+                    logger.debug(f"🗑️ [X10 MAKER] {symbol}: Cancelling order for requote...")
+                    await self.x10.cancel_order(current_order_id, symbol)
+                    await asyncio.sleep(0.2)  # Brief settle time
+                except Exception as e:
+                    logger.debug(f"[X10 MAKER] {symbol}: Cancel error (may already be filled): {e}")
+                    
+                    # After cancel error, re-check for ghost fill
+                    try:
+                        positions = await self.x10.fetch_open_positions()
+                        pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                        current_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+                        size_delta = abs(current_size - initial_position_size)
+                        
+                        if size_delta >= size_coins * 0.50:
+                            logger.warning(f"⚠️ [X10 MAKER] {symbol}: Fill detected after cancel error!")
+                            return True, current_order_id, False
+                    except Exception:
+                        pass
+                
+                requote_count = attempt + 1
+        
+        # ═══════════════════════════════════════════════════════════════
+        # TAKER ESCALATION (if maker attempts exhausted)
+        # ═══════════════════════════════════════════════════════════════
+        if not filled and getattr(config, 'X10_MAKER_ESCALATION_ENABLED', True):
+            logger.warning(
+                f"🚀 [X10 MAKER→TAKER] {symbol}: Maker attempts exhausted ({requote_count} requotes) - "
+                f"Escalating to TAKER IOC!"
+            )
+            
+            # Cancel any remaining maker order
+            if current_order_id:
+                try:
+                    await self.x10.cancel_order(current_order_id, symbol)
+                    await asyncio.sleep(0.2)
+                except Exception:
+                    pass
+            
+            # Final ghost-fill check before taker
+            try:
+                positions = await self.x10.fetch_open_positions()
+                pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                current_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+                size_delta = abs(current_size - initial_position_size)
+                
+                if size_delta >= size_coins * 0.50:
+                    logger.warning(f"⚠️ [X10 TAKER] {symbol}: Fill detected before taker! (ghost fill)")
+                    return True, current_order_id, False
+            except Exception:
+                pass
+            
+            # Place TAKER (IOC) order
+            try:
+                taker_start = time.monotonic()
+                success, taker_order_id = await self.x10.open_live_position(
+                    symbol=symbol,
+                    side=side,
+                    notional_usd=0,
+                    amount=size_coins,
+                    post_only=False,  # TAKER
+                    reduce_only=False,
+                )
+                
+                if success and taker_order_id:
+                    # Wait briefly for fill
+                    await asyncio.sleep(0.5)
+                    
+                    # Verify fill
+                    positions = await self.x10.fetch_open_positions()
+                    pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                    current_size = abs(safe_float(pos.get('size', 0))) if pos else 0.0
+                    size_delta = abs(current_size - initial_position_size)
+                    
+                    if size_delta >= size_coins * 0.90:
+                        taker_time = time.monotonic() - taker_start
+                        total_time = time.monotonic() - total_start
+                        logger.info(
+                            f"✅ [X10 TAKER] {symbol}: TAKER FILLED in {taker_time:.2f}s! "
+                            f"(total={total_time:.2f}s, used_taker=True)"
+                        )
+                        return True, taker_order_id, True  # Success, Taker fill
+                    else:
+                        logger.warning(
+                            f"⚠️ [X10 TAKER] {symbol}: Taker order placed but fill not confirmed "
+                            f"(expected={size_coins:.6f}, delta={size_delta:.6f})"
+                        )
+                else:
+                    logger.error(f"❌ [X10 TAKER] {symbol}: Taker order placement failed!")
+                    
+            except Exception as e:
+                logger.error(f"❌ [X10 TAKER] {symbol}: Taker exception: {e}", exc_info=True)
+        
+        # All attempts failed
+        total_time = time.monotonic() - total_start
+        logger.error(
+            f"❌ [X10 MAKER] {symbol}: All attempts FAILED! "
+            f"(total_time={total_time:.2f}s, requotes={requote_count})"
+        )
+        return False, current_order_id, used_taker
+
 
     async def _get_fresh_maker_price(self, symbol: str, side: str) -> Optional[float]:
         """

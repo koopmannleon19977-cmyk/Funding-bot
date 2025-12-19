@@ -51,7 +51,9 @@ class BotEventLoop:
         self._tasks: Dict[str, ManagedTask] = {}
         self._running = False
         self._shutdown_event = asyncio.Event()
-        self._shutdown_timeout = 5.0  # OPTIMIZED: Reduced from 30s to 5s for fast shutdown
+        # NOTE: This timeout is for cancelling *background tasks*.
+        # The centralized ShutdownOrchestrator has its own longer timeout for closing positions safely.
+        self._shutdown_timeout = 15.0
         self._shutdown_reason: str = ""
         
         # Components
@@ -298,10 +300,22 @@ class BotEventLoop:
                 logger.warning("⚠️ WebSocket connections unhealthy")
     
     async def _shutdown(self):
-        """Graceful shutdown procedure - OPTIMIZED for fast shutdown"""
+        """Graceful shutdown procedure.
+
+        Critical ordering:
+        - Block new trading immediately
+        - Run ShutdownOrchestrator while WebSockets / adapters are still alive (so fills can be observed)
+        - Only then cancel remaining background tasks
+        """
         reason = self._shutdown_reason or "bot_event_loop"
         logger.info(f"🛑 Initiating shutdown... (reason={reason})")
         self._running = False
+        self._shutdown_event.set()
+
+        # Prevent supervisor from restarting tasks while we're shutting down
+        for mt in self._tasks.values():
+            mt.enabled = False
+
         # Set global shutdown latch to block new orders IMMEDIATELY
         try:
             import config
@@ -309,54 +323,14 @@ class BotEventLoop:
         except Exception:
             pass
 
-        # FAST SHUTDOWN: Stop ParallelExec immediately to abort pending maker orders
-        if self.parallel_exec and hasattr(self.parallel_exec, 'stop'):
-            try:
-                await asyncio.wait_for(self.parallel_exec.stop(), timeout=1.0)
-            except Exception as e:
-                logger.debug(f"ParallelExec stop: {e}")
+        # Stop new executions ASAP (but do NOT cancel/kill components yet; orchestrator needs them)
+        try:
+            if self.parallel_exec is not None:
+                setattr(self.parallel_exec, "is_running", False)
+        except Exception:
+            pass
 
-        # Cancel all tasks in reverse priority order to stop new activity
-        sorted_tasks = sorted(
-            self._tasks.values(),
-            key=lambda t: t.priority.value,
-            reverse=True
-        )
-
-        for managed_task in sorted_tasks:
-            if managed_task.task and not managed_task.task.done():
-                managed_task.task.cancel()
-                logger.debug(f"Cancelled task: {managed_task.name}")
-
-        # Wait for tasks to complete
-        tasks = [mt.task for mt in self._tasks.values() if mt.task]
-        if tasks:
-            done, pending = await asyncio.wait(
-                tasks,
-                timeout=self._shutdown_timeout
-            )
-
-            # CRITICAL: Retrieve exceptions from done tasks to prevent "never retrieved" error
-            for task in done:
-                try:
-                    task.result()
-                except asyncio.CancelledError:
-                    logger.debug(f"Task {task.get_name()} was cancelled (expected)")
-                except Exception as e:
-                    logger.debug(f"Task {task.get_name()} had exception: {e}")
-
-            if pending:
-                logger.warning(f"Force-killing {len(pending)} tasks")
-                for task in pending:
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception:
-                        pass
-
-        # Run shutdown callbacks
+        # Run shutdown callbacks early (best-effort)
         for callback in self._on_shutdown_callbacks:
             try:
                 result = callback()
@@ -375,7 +349,52 @@ class BotEventLoop:
             lighter=self.lighter_adapter,
             x10=self.x10_adapter,
         )
-        await asyncio.shield(shutdown.shutdown(reason=reason))
+
+        # Let the orchestrator do position closes + persistence before we tear down tasks.
+        try:
+            await asyncio.shield(shutdown.shutdown(reason=reason))
+        except Exception as e:
+            logger.error(f"Shutdown orchestrator error: {e}", exc_info=True)
+
+        # Cancel all remaining tasks in reverse priority order
+        current = asyncio.current_task()
+        sorted_tasks = sorted(
+            self._tasks.values(),
+            key=lambda t: t.priority.value,
+            reverse=True
+        )
+        for managed_task in sorted_tasks:
+            task = managed_task.task
+            if not task or task.done() or task is current:
+                continue
+            task.cancel()
+            logger.debug(f"Cancelled task: {managed_task.name}")
+
+        # Wait for tasks to complete
+        tasks = [mt.task for mt in self._tasks.values() if mt.task and mt.task is not current]
+        if tasks:
+            done, pending = await asyncio.wait(tasks, timeout=self._shutdown_timeout)
+
+            # Retrieve exceptions from done tasks to prevent "never retrieved"
+            for task in done:
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    logger.debug(f"Task {task.get_name()} had exception: {e}")
+
+            if pending:
+                pending_names = []
+                for task in pending:
+                    try:
+                        pending_names.append(task.get_name())
+                    except Exception:
+                        pending_names.append("<unnamed>")
+                logger.warning(f"Force-killing {len(pending)} tasks after orchestrator: {pending_names}")
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
 
         logger.info("✅ Shutdown complete")
     

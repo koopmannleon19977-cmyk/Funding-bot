@@ -163,6 +163,25 @@ TAKER_ESCALATION_TIMEOUT_SECONDS = 10        # Timeout bevor Escalation (aktuell
 MIN_TAKER_ESCALATION_PROFIT = 0.01           # $0.01 Minimum Profit nach Taker-Kosten
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# X10 MAKER ENGINE (2025-12-19) - DISABLED
+# REASON: previous_order_id implementation causes X10 API Error 1142 "Edit order not found"
+# All requotes fail → escalation to TAKER → paying 0.0225% fees anyway
+# SAFER APPROACH: Use X10 as TAKER only for reliable hedge execution
+#
+# Context: Lighter FIRST (Maker 0%) → X10 SECOND (Taker 0.0225%)
+# → Fast fills, no API errors, reliable hedging
+# → Trade-off: Pay X10 Taker fees (~$0.034 per $1500 trade) but ZERO ghost-fill risk
+# ═══════════════════════════════════════════════════════════════════════════════
+X10_MAKER_ENABLED = False                     # DISABLED - use X10 as TAKER only
+X10_MAKER_MAX_REQUOTES = 2                    # FIX: 2 Requotes (war 1) - bessere Fill-Rate
+X10_MAKER_TIMEOUT_SECONDS = 5.0               # FIX: 5s Timeout (war 3s) - X10 liquider
+X10_MAKER_PRICE_CHASE_PCT = 0.0005            # FIX: 0.05% (war 0.1%) - tighter spreads
+X10_MAKER_ESCALATION_ENABLED = True           # Eskalation zu Taker nach Timeout/Requotes
+X10_MAKER_MIN_APY_NO_ESCALATION = 0.0         # DISABLED: Immer eskalieren (Hedge > Fees)
+X10_MAKER_SHUTDOWN_TIMEOUT_SECONDS = 2.0      # SPEED: 2s bei Shutdown
+X10_MAKER_FILL_CHECK_INTERVAL = 0.3           # SPEED: 300ms zwischen Checks
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # VOLATILITY PANIC EXIT (2025-12-17 Audit Fix)
 # Bei extremer Volatilität Position sofort schließen (Flash-Crash Protection)
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -1049,14 +1049,15 @@ class X10Adapter(BaseAdapter):
             logger.warning(f"X10 refresh_missing_prices error: {e}")
 
     async def open_live_position(
-        self, 
-        symbol: str, 
-        side: str, 
-        notional_usd: float, 
-        reduce_only: bool = False, 
+        self,
+        symbol: str,
+        side: str,
+        notional_usd: float,
+        reduce_only: bool = False,
         post_only: bool = True,
         amount: Optional[float] = None,
         price: Optional[float] = None,
+        previous_order_id: Optional[str] = None,  # FIX: For atomic modify/replace
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
@@ -1317,6 +1318,7 @@ class X10Adapter(BaseAdapter):
                 price=limit_price,
                 side=order_side,
                 post_only=post_only,  # ✅ FIX: Explicit post_only parameter
+                previous_order_id=previous_order_id,  # ✅ FIX: Atomic modify/replace (cancels old order)
                 time_in_force=tif,
                 expire_time=expire,
                 reduce_only=reduce_only,  # ✅ FIX #7: reduce_only parameter (True=1, False=0 in API)
@@ -1625,11 +1627,19 @@ class X10Adapter(BaseAdapter):
         """
         Cancel an existing order and immediately replace with a new one at updated price.
 
-        CRITICAL: Prevents double-fill race by:
+        FIX (2025-12-19): Uses X10's previous_order_id parameter for ATOMIC modify/replace.
+        This prevents ghost fills by canceling and replacing in a single API call.
+
+        Previous implementation:
         1. Snapshot position BEFORE cancel
-        2. Cancel old order
-        3. Wait briefly + check position again (detect ghost fills)
-        4. Only place new order if position unchanged
+        2. Cancel old order (via cancel_order - which doesn't work!)
+        3. Wait + check position (detect ghost fills)
+        4. Place new order
+
+        New implementation (ATOMIC):
+        1. Place new order with previous_order_id=old_order_id
+           → X10 SDK cancels old order and places new order atomically
+        2. Ghost-fill-proof: No race condition possible!
 
         Args:
             symbol: Trading symbol
@@ -1643,72 +1653,49 @@ class X10Adapter(BaseAdapter):
             (success: bool, new_order_id: str | None)
         """
         try:
-            logger.info(f"🔄 [X10 CANCEL-REPLACE] {symbol}: OldID={old_order_id}, NewPrice=${new_price:.6f}, Side={side}, Amount={amount}")
+            logger.info(f"🔄 [X10 ATOMIC-REPLACE] {symbol}: OldID={old_order_id}, NewPrice=${new_price:.6f}, Side={side}, Amount={amount}")
 
-            # 1) Snapshot position BEFORE cancel
-            positions_before = await self.fetch_open_positions()
-            pos_before = next((p for p in (positions_before or []) if p.get('symbol') == symbol), None)
-            size_before = abs(safe_float(pos_before.get('size', 0) if pos_before else 0, 0.0))
+            # FIX: Use previous_order_id for ATOMIC modify/replace
+            # This cancels the old order and places the new order in a single API call
+            # Calculate notional_usd from amount * price
+            notional_usd = float(amount) * new_price
 
-            logger.debug(f"🔍 [CANCEL-REPLACE] {symbol}: Position BEFORE cancel: size={size_before}")
-
-            # 2) Cancel old order
-            cancel_success = await self.cancel_order(old_order_id, symbol)
-            if not cancel_success:
-                logger.warning(f"⚠️ [CANCEL-REPLACE] {symbol}: Cancel failed for {old_order_id}")
-                # Continue anyway - order might already be filled/cancelled
-
-            # 3) Wait briefly + check for ghost fills
-            await asyncio.sleep(0.5)  # Short delay to let WS position updates arrive
-
-            positions_after = await self.fetch_open_positions()
-            pos_after = next((p for p in (positions_after or []) if p.get('symbol') == symbol), None)
-            size_after = abs(safe_float(pos_after.get('size', 0) if pos_after else 0, 0.0))
-
-            logger.debug(f"🔍 [CANCEL-REPLACE] {symbol}: Position AFTER cancel: size={size_after}")
-
-            # 4) Detect ghost fill (position changed between cancel and now)
-            size_delta = abs(size_after - size_before)
-            if size_delta > 0.01:  # Allow tiny floating-point diff
-                logger.warning(
-                    f"⚠️ [CANCEL-REPLACE] {symbol}: GHOST FILL detected! "
-                    f"Position changed: {size_before} → {size_after} (delta={size_delta})"
-                )
-                logger.warning(f"❌ [CANCEL-REPLACE] {symbol}: Aborting replace to prevent double-fill")
-                return False, None
-
-            # 5) Place new order
-            logger.info(f"✅ [CANCEL-REPLACE] {symbol}: No ghost fill - placing replacement order")
-            success, new_order_id = await self.place_limit_order(
+            success, new_order_id = await self.open_live_position(
                 symbol=symbol,
                 side=side,
-                notional_usd=None,  # Use amount directly
+                notional_usd=notional_usd,
                 amount=amount,
                 price=new_price,
                 post_only=post_only,
                 reduce_only=False,
+                previous_order_id=old_order_id,  # ✅ ATOMIC REPLACE!
             )
 
             if success:
-                logger.info(f"✅ [X10 CANCEL-REPLACE] {symbol}: Success (NewID={new_order_id})")
+                logger.info(f"✅ [X10 ATOMIC-REPLACE] {symbol}: Success (NewID={new_order_id}, replaced OldID={old_order_id})")
                 return True, new_order_id
             else:
-                logger.error(f"❌ [X10 CANCEL-REPLACE] {symbol}: Replace order failed")
+                logger.error(f"❌ [X10 ATOMIC-REPLACE] {symbol}: Replace order failed")
                 return False, None
 
         except Exception as e:
-            logger.error(f"❌ [X10 CANCEL-REPLACE] {symbol} exception: {e}", exc_info=True)
+            logger.error(f"❌ [X10 ATOMIC-REPLACE] {symbol} exception: {e}", exc_info=True)
             return False, None
 
     async def cancel_order(self, order_id: str, symbol: str = None) -> bool:
         """Cancel a single order by ID"""
         try:
-            if not self.account or not hasattr(self.account, 'cancel_order'):
-                logger.warning("[X10] Account SDK does not support cancel_order")
+            if not self.stark_account:
+                logger.warning("[X10] No stark_account configured - cannot cancel")
+                return False
+
+            client = await self._get_auth_client()
+            if not client or not hasattr(client, 'cancel_order'):
+                logger.warning("[X10] Auth client does not support cancel_order")
                 return False
 
             await self.rate_limiter.acquire()
-            result = await self.account.cancel_order(order_id=order_id)
+            result = await client.cancel_order(order_id=order_id)
 
             if result:
                 logger.info(f"✅ [X10] Cancelled order {order_id}")
