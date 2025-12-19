@@ -88,6 +88,9 @@ Da X10 weniger liquid ist als Lighter, nutzen wir eine aggressive Maker-First St
 
 - **Typ**: Erst `POST_ONLY` (0% Fees) → dann Eskalation zu `TAKER/IOC` (0.0225%)
 - **Trigger**: Wird SOFORT nach bestätigtem Fill von Leg 1 ausgelöst.
+- **Spread-Protection (NEU 2025-12-19)**: VOR dem Hedge-Start prüfen, ob der Spread stabil geblieben ist.
+  - Wenn Spread sich signifikant verschlechtert (z.B. < 80% des erwarteten Spreads) -> **ABORT HEDGE & ROLLBACK LEG 1**.
+  - Verhindert negative Spread-PnL durch Slippage/Latency während des Lighter-Fills.
 - **Size**: Muss EXAKT der gefillten Quantity von Leg 1 entsprechen (angepasst an Lot-Size).
 - **Self-Trade Protection (STP)**: Muss aktiviert sein, um Eigenhandel zu verhindern.
 
@@ -121,7 +124,8 @@ Während eine Position offen ist:
    - ✅ **Profit erreicht**: Realisierter PnL + Funding > Target.
    - ⏰ **Zeit abgelaufen**: `MAX_HOLD_HOURS` (Standard: **72h**) erreicht -> Force Close.
    - 📉 **APY Crash**: APY fällt unter `MIN_MAINTENANCE_APY` (Standard: **20%**).
-   - 🚨 **Volatility Panic**: 24h Volatilität > `VOLATILITY_PANIC_THRESHOLD` (Standard: **8%**) -> Sofortiger Exit zur Sicherung des Kapitals.
+   - � **Funding Flip**: Net-Funding negativ (wir zahlen) für > `FUNDING_FLIP_HOURS_THRESHOLD` (Standard: **4h**).
+   - �🚨 **Volatility Panic**: 24h Volatilität > `VOLATILITY_PANIC_THRESHOLD` (Standard: **8%**) -> Sofortiger Exit zur Sicherung des Kapitals.
 
 ### 4. Technische Prinzipien (Code-Ebene)
 
@@ -275,4 +279,4 @@ Perfektion ist kein Zustand, sondern ein Prozess. Befolge diesen "Kaizen"-Zyklus
 
 ---
 
-_Version 2.2 - Aktualisiert am 18.12.2025 - X10 Maker Engine (POST_ONLY + Taker Escalation)_
+*Version 2.4 - Aktualisiert am 19.12.2025 - Spread Protection (Feature #1) & Funding-Flip (Feature #2) implementiert*

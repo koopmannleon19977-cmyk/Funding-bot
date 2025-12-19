@@ -40,7 +40,7 @@ IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
 RECENTLY_OPENED_TRADES = {}
 RECENTLY_OPENED_LOCK = asyncio.Lock()
-RECENTLY_OPENED_PROTECTION_SECONDS = 60.0
+RECENTLY_OPENED_PROTECTION_SECONDS = 120.0  # FIX (2025-12-19): Extended to 120s to match zombie check & allow for Exchange API latency (Lighter takes 3-5s to show new positions)
 
 
 # ============================================================
@@ -402,8 +402,51 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 # ═══════════════════════════════════════════════════════════════
                 logger.info(f"📝 Recording trade {symbol} in database...")
                 
-                entry_price_x10 = x10.fetch_mark_price(symbol) or 0.0
-                entry_price_lighter = lighter.fetch_mark_price(symbol) or 0.0
+                # FIX (2025-12-19): Fetch ACTUAL fill prices from POSITION API (not order API!)
+                # Order API returns limit price, Position API returns actual avg fill price
+                entry_price_x10 = 0.0
+                entry_price_lighter = 0.0
+                try:
+                    # Brief delay to let positions update on exchanges
+                    await asyncio.sleep(0.5)
+                    
+                    # Fetch positions from both exchanges
+                    px_pos, lit_pos = await asyncio.gather(
+                        x10.fetch_open_positions(),
+                        lighter.fetch_open_positions(),
+                        return_exceptions=True
+                    )
+                    px_pos = [] if isinstance(px_pos, Exception) else (px_pos or [])
+                    lit_pos = [] if isinstance(lit_pos, Exception) else (lit_pos or [])
+                    
+                    # X10: Get entry_price from position (NOT order!)
+                    x10_p = next((p for p in px_pos if p.get("symbol") == symbol), None)
+                    if x10_p:
+                        p = safe_float(x10_p.get("entry_price") or x10_p.get("avg_entry_price") or 0.0)
+                        if p > 0:
+                            entry_price_x10 = p
+                            logger.info(f"✅ X10 {symbol}: Got entry_price ${p:.6f} from position")
+                    
+                    # Lighter: Get avg_entry_price from position
+                    l_p = next((p for p in lit_pos if p.get("symbol") == symbol), None)
+                    if l_p:
+                        p = safe_float(l_p.get("avg_entry_price") or l_p.get("entry_price") or 0.0)
+                        if p > 0:
+                            entry_price_lighter = p
+                            logger.info(f"✅ Lighter {symbol}: Got avg_entry_price ${p:.6f} from position")
+                    
+                    # Fallback to mark price if position not found yet
+                    if entry_price_x10 <= 0:
+                        entry_price_x10 = x10.fetch_mark_price(symbol) or 0.0
+                        logger.warning(f"⚠️ X10 fill price not found in position, using mark price ${entry_price_x10:.6f}")
+                    if entry_price_lighter <= 0:
+                        entry_price_lighter = lighter.fetch_mark_price(symbol) or 0.0
+                        logger.warning(f"⚠️ Lighter fill price not found in position, using mark price ${entry_price_lighter:.6f}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Error fetching fill prices from positions: {e}")
+                    entry_price_x10 = x10.fetch_mark_price(symbol) or 0.0
+                    entry_price_lighter = lighter.fetch_mark_price(symbol) or 0.0
+                
                 apy_value = opp.get('apy', 0.0)
                 
                 trade_data = {

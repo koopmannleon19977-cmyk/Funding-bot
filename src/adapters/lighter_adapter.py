@@ -77,6 +77,39 @@ class LighterTransactionType(IntEnum):
     UPDATE_MARGIN = 29
 
 
+def _normalize_lighter_orders_response(resp) -> list:
+    """Normalize Lighter /api/v1/orders payloads into a flat list of order dicts.
+
+    Observed shapes:
+    - [Order, ...]
+    - {"orders": [Order, ...], ...}
+    - {"orders": {"<MARKET_INDEX>": [Order, ...]}, ...}
+    - {"data": [...]} / {"result": [...]} (fallbacks)
+    """
+    if not resp:
+        return []
+    if isinstance(resp, list):
+        return resp
+    if not isinstance(resp, dict):
+        return []
+
+    payload = resp.get("orders") or resp.get("data") or resp.get("result")
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        nested_list = payload.get("orders")
+        if isinstance(nested_list, list):
+            return nested_list
+
+        flattened = []
+        for v in payload.values():
+            if isinstance(v, list):
+                flattened.extend(v)
+        return flattened
+
+    return []
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Korrekte Imports für das offizielle Lighter SDK
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1364,6 +1397,8 @@ class LighterAdapter(BaseAdapter):
             
             acc_idx = getattr(self, '_resolved_account_index', None)
             if acc_idx is None:
+                return None
+            if acc_idx is None:
                 logger.warning(f"Lighter get_open_orders: No account index resolved")
                 return []
                 
@@ -1372,44 +1407,139 @@ class LighterAdapter(BaseAdapter):
                 logger.debug(f"Lighter get_open_orders: No market info for {symbol}")
                 return []
             
-            # Get market index with fallback chain
-            market_index = (
-                market.get('i')
-                or market.get('market_id')
-                or market.get('market_index')
+            # Resolve BOTH identifiers.
+            # Some endpoints use `market_id`, others use `market_index` (or `i`).
+            market_id_val = (
+                market.get('market_id')
+                if market.get('market_id') is not None
+                else market.get('marketId')
             )
-            if market_index is None:
-                logger.debug(f"Lighter get_open_orders: No market_index for {symbol}")
+            market_index_val = (
+                market.get('market_index')
+                if market.get('market_index') is not None
+                else market.get('marketIndex')
+            )
+            # Backwards-compatible fallback (older market_info stored only `i`)
+            if market_id_val is None and market_index_val is None:
+                market_id_val = market.get('id') if market.get('id') is not None else market.get('i')
+
+            if market_id_val is None and market_index_val is None:
+                logger.debug(f"Lighter get_open_orders: No market id/index for {symbol}")
                 return []
 
             # ═══════════════════════════════════════════════════════════════
-            # CORRECT API CALL per Lighter docs
-            # Status: 0=Open, 1=Filled, 2=Cancelled, 3=Expired
+            # CRITICAL FIX (2025-12-19): DO NOT filter by status in API call!
+            # Problem: API with status=0 might not return all "open" orders
+            # Solution: Fetch ALL orders and filter client-side by status
+            # Status values: 0=Open, 1=Filled, 2=Cancelled, 3=Expired, 4=Rejected
             # ═══════════════════════════════════════════════════════════════
-            params = {
-                "account_index": int(acc_idx),
-                "market_index": int(market_index),
-                "status": 0,  # 0 = Open orders per Lighter API docs
-                "limit": 50
-            }
+            resp = None
+            orders_data = []
+            used_param = None
+
+            # Try both param names with their correct values.
+            candidate_pairs = []
+            if market_id_val is not None:
+                candidate_pairs.append(("market_id", int(market_id_val)))
+            if market_index_val is not None:
+                candidate_pairs.append(("market_index", int(market_index_val)))
+
+            # If we only know one identifier, still try the alternate param name with same value.
+            if len(candidate_pairs) == 1:
+                param_name, value = candidate_pairs[0]
+                other_param = "market_index" if param_name == "market_id" else "market_id"
+                candidate_pairs.append((other_param, value))
+
+            # De-duplicate while preserving order
+            seen = set()
+            dedup_pairs = []
+            for pair in candidate_pairs:
+                if pair in seen:
+                    continue
+                seen.add(pair)
+                dedup_pairs.append(pair)
+
+            for market_param_name, market_ref in dedup_pairs:
+                used_param = market_param_name
+                params = {
+                    "account_index": int(acc_idx),
+                    market_param_name: int(market_ref),
+                    # DO NOT FILTER BY STATUS - get all and filter client-side
+                    "limit": 100,
+                }
+
+                logger.info(f"🔍 [API CALL] get_open_orders({symbol}): Calling /api/v1/orders with params={params}")
+                resp = await self._rest_get("/api/v1/orders", params=params)
+
+                # Handle empty/None response (404 is converted to empty dict by _rest_get)
+                if not resp:
+                    logger.info(f"🔍 [API DEBUG] get_open_orders({symbol}): Empty response for {market_param_name}, trying fallback...")
+                    continue
+
+                orders_data = _normalize_lighter_orders_response(resp)
+                if orders_data:
+                    break
+
+            # DEBUG: Log actual API response
+            logger.info(
+                f"🔍 [API RESPONSE] get_open_orders({symbol}): used_param={used_param}, type={type(resp)}, "
+                f"len={len(resp) if isinstance(resp, (list, dict)) else 'N/A'}, "
+                f"market_id={market_id_val}, market_index={market_index_val}"
+            )
+
+            # CRITICAL DEBUG: Log what we got from API
+            logger.info(
+                f"🔍 [API PARSE] get_open_orders({symbol}): used_param={used_param}, orders_data type={type(orders_data)}, "
+                f"len={len(orders_data) if isinstance(orders_data, list) else 'N/A'}"
+            )
             
-            resp = await self._rest_get("/api/v1/orders", params=params)
-            
-            # Handle empty/None response (404 is converted to empty dict by _rest_get)
-            if not resp:
-                return []
-            
-            # Extract orders from response
-            orders_data = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
             if not orders_data:
+                # No open orders is a valid outcome. Only warn if the payload shape is unexpected.
+                if isinstance(resp, dict):
+                    raw_orders_payload = resp.get("orders")
+                    if isinstance(raw_orders_payload, dict):
+                        nested_list_count = sum(
+                            len(v) for v in raw_orders_payload.values() if isinstance(v, list)
+                        )
+                        if nested_list_count > 0:
+                            logger.warning(
+                                f"⚠️ [API PARSE] get_open_orders({symbol}): Normalization returned 0 orders "
+                                f"but raw nested lists contain {nested_list_count} items. Response keys: {list(resp.keys())}"
+                            )
+                        else:
+                            logger.info(f"🔍 [API RESULT] get_open_orders({symbol}): Found 0 OPEN orders")
+                    elif isinstance(raw_orders_payload, list):
+                        logger.info(f"🔍 [API RESULT] get_open_orders({symbol}): Found 0 OPEN orders")
+                    else:
+                        logger.warning(
+                            f"⚠️ [API PARSE] get_open_orders({symbol}): Unexpected 'orders' payload type={type(raw_orders_payload)}. "
+                            f"Response keys: {list(resp.keys())}"
+                        )
+                        logger.info(f"🔍 [API RESULT] get_open_orders({symbol}): Found 0 OPEN orders")
+                else:
+                    logger.warning(
+                        f"⚠️ [API PARSE] get_open_orders({symbol}): Unexpected response type={type(resp)}"
+                    )
+                    logger.info(f"🔍 [API RESULT] get_open_orders({symbol}): Found 0 OPEN orders")
                 return []
             
             open_orders = []
+            all_statuses = {}  # Track status distribution
             for o in orders_data:
                 try:
                     # Parse order data according to Lighter API response format
                     order_id = o.get('order_index') or o.get('id') or o.get('order_id')
                     price = safe_float(o.get('price', 0))
+                    
+                    # CRITICAL: Get order status and filter client-side
+                    order_status = o.get('status', o.get('order_status', None))
+                    if order_status is not None:
+                        all_statuses[order_status] = all_statuses.get(order_status, 0) + 1
+                    
+                    # Only include orders with status=0 (Open)
+                    # Status: 0=Open, 1=Filled, 2=Cancelled, 3=Expired, 4=Rejected
+                    if order_status != 0:
+                        continue
                     
                     # Size can be in different fields
                     size = safe_float(
@@ -1449,6 +1579,8 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Error parsing order: {e}")
                     continue
             
+            logger.info(f"🔍 [API RESULT] get_open_orders({symbol}): Found {len(open_orders)} OPEN orders. Status distribution: {all_statuses}")
+            
             logger.debug(f"Lighter get_open_orders({symbol}): Found {len(open_orders)} orders")
             return open_orders
             
@@ -1479,30 +1611,52 @@ class LighterAdapter(BaseAdapter):
             
             acc_idx = getattr(self, '_resolved_account_index', None)
             
-            # Param construct
-            params = {
-                "account_index": acc_idx,
-            }
+            # Resolve both identifiers when symbol is provided.
+            market_id_val = None
+            market_index_val = None
             if symbol and symbol in self.market_info:
-                 m_idx = self.market_info[symbol].get('market_index')
-                 if m_idx is not None:
-                     params['market_index'] = m_idx
+                market = self.market_info.get(symbol) or {}
+                market_id_val = market.get("market_id") if market.get("market_id") is not None else market.get("marketId")
+                market_index_val = market.get("market_index") if market.get("market_index") is not None else market.get("marketIndex")
+                if market_id_val is None and market_index_val is None:
+                    market_id_val = market.get("id") if market.get("id") is not None else market.get("i")
 
-            # Try to pass order_id directly
-            params['order_id'] = order_id
-            
-            # API Call
-            resp = await self._rest_get("/api/v1/orders", params=params)
-             
-            if not resp:
-                return None
+            base_params = {
+                "account_index": acc_idx,
+                "order_id": order_id,
+            }
 
-            orders = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+            candidate_params = [base_params]
+            if market_id_val is not None:
+                candidate_params.insert(0, {**base_params, "market_id": int(market_id_val)})
+            if market_index_val is not None:
+                candidate_params.insert(0, {**base_params, "market_index": int(market_index_val)})
+
+            # De-dup while preserving order
+            seen = set()
+            dedup_params = []
+            for p in candidate_params:
+                key = tuple(sorted(p.items()))
+                if key in seen:
+                    continue
+                seen.add(key)
+                dedup_params.append(p)
+
+            resp = None
+            orders = []
+            for params in dedup_params:
+                resp = await self._rest_get("/api/v1/orders", params=params)
+                if not resp:
+                    continue
+                orders = _normalize_lighter_orders_response(resp)
+                if orders:
+                    break
             
             target_order = None
             for o in orders:
                 # Compare ID (string comparison for safety)
-                if str(o.get('id', '')) == str(order_id):
+                oid = o.get('order_index') or o.get('id') or o.get('order_id')
+                if oid is not None and str(oid) == str(order_id):
                     target_order = o
                     break
             
@@ -1524,14 +1678,32 @@ class LighterAdapter(BaseAdapter):
                 status_str = "UNKNOWN"
                 
                 if isinstance(s_raw, int):
-                    # Mapping based on common Lighter headers or observation
-                    # 10: Open, 30: Filled, 40: Cancelled ??
-                    # Safest: Use filled_amount to detect fill.
-                    if s_raw == 10: status_str = "OPEN"
-                    elif s_raw == 30: status_str = "FILLED" 
-                    elif s_raw == 40: status_str = "CANCELED"
+                    # Lighter REST /api/v1/orders status codes:
+                    # 0=Open, 1=Filled, 2=Cancelled, 3=Expired, 4=Rejected
+                    if s_raw == 0:
+                        status_str = "OPEN"
+                    elif s_raw == 1:
+                        status_str = "FILLED"
+                    elif s_raw == 2:
+                        status_str = "CANCELED"
+                    elif s_raw == 3:
+                        status_str = "EXPIRED"
+                    elif s_raw == 4:
+                        status_str = "REJECTED"
                 else:
-                    status_str = str(s_raw).upper()
+                    s_norm = str(s_raw or "").strip().lower()
+                    if s_norm in {"open", "0"}:
+                        status_str = "OPEN"
+                    elif s_norm in {"filled", "1"}:
+                        status_str = "FILLED"
+                    elif s_norm in {"cancelled", "canceled", "2"}:
+                        status_str = "CANCELED"
+                    elif s_norm in {"expired", "3"}:
+                        status_str = "EXPIRED"
+                    elif s_norm in {"rejected", "4"}:
+                        status_str = "REJECTED"
+                    elif s_norm:
+                        status_str = s_norm.upper()
                     
                 return {
                     "id": str(target_order.get('id', '')),
@@ -1539,7 +1711,10 @@ class LighterAdapter(BaseAdapter):
                     "filledAmount": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
                     "executedQty": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
                     "remaining_size": safe_float(target_order.get('remaining_size', 0)),
-                    "price": safe_float(target_order.get('price', 0))
+                    "price": safe_float(target_order.get('price', 0)),
+                    # FIX (Phantom Profit): Add average fill price for entry tracking
+                    "avg_price": safe_float(target_order.get('avg_price', target_order.get('average_price', target_order.get('price', 0)))),
+                    "average_price": safe_float(target_order.get('avg_price', target_order.get('average_price', target_order.get('price', 0)))),
                 }
 
             return None
@@ -1579,14 +1754,15 @@ class LighterAdapter(BaseAdapter):
             if acc_idx is None:
                 return []
             
-            # Get market index for the symbol (for filtering)
-            market = self.market_info.get(symbol)
-            market_index = None
-            if market:
-                market_index = market.get('i') or market.get('market_id') or market.get('market_index')
-            
-            if market_index is None:
-                logger.debug(f"[LIGHTER] No market_index found for {symbol}")
+            # Resolve both identifiers (API uses `market_id`, but some datasets differ).
+            market = self.market_info.get(symbol) or {}
+            market_id_val = market.get("market_id") if market.get("market_id") is not None else market.get("marketId")
+            market_index_val = market.get("market_index") if market.get("market_index") is not None else market.get("marketIndex")
+            if market_id_val is None and market_index_val is None:
+                market_id_val = market.get("id") if market.get("id") is not None else market.get("i")
+
+            if market_id_val is None and market_index_val is None:
+                logger.debug(f"[LIGHTER] No market_id/index found for {symbol}")
                 return []
             
             # ═══════════════════════════════════════════════════════════════
@@ -1617,17 +1793,34 @@ class LighterAdapter(BaseAdapter):
             # Use /api/v1/accountInactiveOrders - returns filled/cancelled orders
             # This is the CORRECT way to get trade history per Lighter TS SDK
             # ═══════════════════════════════════════════════════════════════
-            params = {
-                "account_index": acc_idx,
-                "market_id": int(market_index),
-                "limit": limit
-            }
-            
-            # Add auth token if available
-            if auth_token:
-                params["auth"] = auth_token
-            
-            resp = await self._rest_get("/api/v1/accountInactiveOrders", params=params, force=force)
+            def _build_params(market_id_for_api: int) -> dict:
+                p = {
+                    "account_index": acc_idx,
+                    "market_id": int(market_id_for_api),
+                    "limit": limit,
+                }
+                if auth_token:
+                    p["auth"] = auth_token
+                return p
+
+            # Primary attempt: use market_id if available, else fallback.
+            candidate_market_ids = []
+            if market_id_val is not None:
+                candidate_market_ids.append(int(market_id_val))
+            if market_index_val is not None:
+                candidate_market_ids.append(int(market_index_val))
+            # De-dup
+            candidate_market_ids = list(dict.fromkeys(candidate_market_ids))
+
+            resp = None
+            for mid in candidate_market_ids:
+                resp = await self._rest_get(
+                    "/api/v1/accountInactiveOrders",
+                    params=_build_params(mid),
+                    force=force,
+                )
+                if resp:
+                    break
             
             if not resp:
                 logger.debug(f"[LIGHTER] accountInactiveOrders returned empty for {symbol}")
@@ -2571,21 +2764,36 @@ class LighterAdapter(BaseAdapter):
                         continue
 
                     # FIX: Handle market_id=0 correctly (don't use 'or' chain)
-                    raw_id = m.get("market_id")
-                    if raw_id is None:
-                        raw_id = m.get("market_index")
-                    if raw_id is None:
-                        raw_id = m.get("marketId")
-                    if raw_id is None:
-                        raw_id = m.get("i")
+                    # Also preserve BOTH identifiers because some REST endpoints use `market_id`
+                    # while others use `market_index` (or `i`).
+                    raw_market_id = m.get("market_id")
+                    if raw_market_id is None:
+                        raw_market_id = m.get("marketId")
 
-                    try:
-                        real_id = int(float(str(raw_id))) if raw_id is not None else -1
-                    except (ValueError, TypeError):
-                        real_id = -1
+                    raw_market_index = m.get("market_index")
+                    if raw_market_index is None:
+                        raw_market_index = m.get("i")
+
+                    def _parse_int_or_none(v):
+                        if v is None:
+                            return None
+                        try:
+                            return int(float(str(v)))
+                        except (ValueError, TypeError):
+                            return None
+
+                    market_id_int = _parse_int_or_none(raw_market_id)
+                    market_index_int = _parse_int_or_none(raw_market_index)
+
+                    # Backwards compatible primary id used throughout the codebase
+                    # (historically stored under `i`). Prefer market_id when available.
+                    real_id = market_id_int if market_id_int is not None else (market_index_int if market_index_int is not None else -1)
                     
                     if real_id < 0:
-                        logger.warning(f"⚠️ Skipping {symbol}: market_id={raw_id} (parsed={real_id}) invalid < 0")
+                        logger.warning(
+                            f"⚠️ Skipping {symbol}: market_id={raw_market_id} (parsed={market_id_int}), "
+                            f"market_index={raw_market_index} (parsed={market_index_int}) invalid < 0"
+                        )
                         continue
 
                     # ═══════════════════════════════════════════════════════════════
@@ -2594,6 +2802,8 @@ class LighterAdapter(BaseAdapter):
                     # ═══════════════════════════════════════════════════════════════
                     self.market_info[symbol] = {
                         "i": real_id,
+                        "market_id": market_id_int,
+                        "market_index": market_index_int,
                         "sd": to_int(8, 8),  # size_decimals as int
                         "pd": to_int(6, 6),  # price_decimals as int
                         "min_notional": to_float(m.get("min_order_size_usd", m.get("min_notional", 10)), 10.0),
@@ -4596,37 +4806,67 @@ class LighterAdapter(BaseAdapter):
                 # Manually fetch orders via REST to inspect 'tx_hash'.
                 # IMPORTANT: Lighter's documented status codes are 0=Open, 1=Filled, 2=Cancelled, 3=Expired.
                 # Using wrong status here can make us blind and cause retries to stack up extra open orders.
-                market_index = (
-                    market_data.get('i')
-                    or market_data.get('market_id')
-                    or market_data.get('market_index')
+                market_id_val = (
+                    market_data.get('market_id')
+                    if market_data.get('market_id') is not None
+                    else market_data.get('marketId')
                 )
+                market_index_val = (
+                    market_data.get('market_index')
+                    if market_data.get('market_index') is not None
+                    else market_data.get('marketIndex')
+                )
+                if market_id_val is None and market_index_val is None:
+                    market_id_val = market_data.get('id') if market_data.get('id') is not None else market_data.get('i')
 
                 # Try a small set of queries to resolve tx_hash -> order id.
                 # 1) Open orders (status=0) is the most relevant for cancellation.
                 # 2) Fallback: query other statuses / no-status in case the API behaves differently.
+                # Also try both param names market_id / market_index (REST compatibility).
                 candidate_params = []
                 base_params = {
                     "account_index": int(self._resolved_account_index),
-                    "market_index": int(market_index) if market_index is not None else None,
                     "limit": 50,
                 }
-                if base_params["market_index"] is not None:
-                    candidate_params.append({**base_params, "status": 0})
-                    candidate_params.append({**base_params, "status": 1})
-                    candidate_params.append({**base_params, "status": 2})
-                    candidate_params.append({**base_params, "status": 3})
-                    candidate_params.append({k: v for k, v in base_params.items() if k != "market_index" and v is not None})
+
+                # Prefer correct param/value pairs.
+                candidate_pairs = []
+                if market_id_val is not None:
+                    candidate_pairs.append(("market_id", int(market_id_val)))
+                if market_index_val is not None:
+                    candidate_pairs.append(("market_index", int(market_index_val)))
+
+                # If we only know one identifier, still try the alternate param name with same value.
+                if len(candidate_pairs) == 1:
+                    p_name, p_val = candidate_pairs[0]
+                    other = "market_index" if p_name == "market_id" else "market_id"
+                    candidate_pairs.append((other, p_val))
+
+                # De-dup
+                seen_pairs = set()
+                dedup_pairs = []
+                for pair in candidate_pairs:
+                    if pair in seen_pairs:
+                        continue
+                    seen_pairs.add(pair)
+                    dedup_pairs.append(pair)
+
+                if dedup_pairs:
+                    for market_param_name, market_ref in dedup_pairs:
+                        mp = {**base_params, market_param_name: int(market_ref)}
+                        candidate_params.append({**mp, "status": 0})
+                        candidate_params.append({**mp, "status": 1})
+                        candidate_params.append({**mp, "status": 2})
+                        candidate_params.append({**mp, "status": 3})
+                        candidate_params.append(mp)
                 else:
-                    candidate_params.append({k: v for k, v in base_params.items() if v is not None})
+                    candidate_params.append(base_params)
 
                 for params in candidate_params:
                     # Remove any None values (defensive)
                     params = {k: v for k, v in params.items() if v is not None}
                     resp = await self._rest_get("/api/v1/orders", params=params)
-                    raw_orders = []
-                    if resp:
-                        raw_orders = resp if isinstance(resp, list) else resp.get('orders', resp.get('data', []))
+                    raw_orders = _normalize_lighter_orders_response(resp)
 
                     for o in raw_orders or []:
                         try:
@@ -5421,6 +5661,12 @@ class LighterAdapter(BaseAdapter):
                         logger.info(f"   🔪 Force cancelling {oid}...")
                         await self.cancel_limit_order(oid, symbol)
                         cleaned_orders_count += 1
+
+                # Re-verify after force-cancel.
+                still_open = await self.get_open_orders(symbol)
+                if still_open:
+                    logger.error(f"❌ {symbol}: CancelAll reported completion but {len(still_open)} open order(s) still remain")
+                    return False
             except Exception as e:
                 logger.error(f"Error in final cancel verification for {symbol}: {e}")
 

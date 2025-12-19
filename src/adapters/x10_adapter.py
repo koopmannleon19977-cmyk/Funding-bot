@@ -197,6 +197,112 @@ class X10Adapter(BaseAdapter):
         except Exception as e:
             logger.error(f" X10 Account Init Error: {e}")
 
+    async def get_order(self, order_id: str, symbol: Optional[str] = None) -> Optional[dict]:
+        """
+        Fetch order details - FIRST checks WebSocket cache (has avgFillPrice!), 
+        then falls back to REST API.
+        
+        FIX (2025-12-19): The REST API only returns the limit price, not the actual
+        fill price. The WebSocket cache contains the real avgFillPrice from FILL events.
+        """
+        if not order_id or order_id == "DRY_RUN_ORDER_123":
+            return None
+        
+        try:
+            order_id_str = str(order_id)
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FIX: Check WebSocket cache FIRST - it has the real avgFillPrice!
+            # The REST API only returns the limit order price, not the fill price.
+            # ═══════════════════════════════════════════════════════════════
+            if hasattr(self, '_order_cache') and order_id_str in self._order_cache:
+                cached = self._order_cache[order_id_str]
+                
+                # Extract avgFillPrice from WebSocket data
+                avg_fill = (
+                    cached.get("avgFillPrice") or
+                    cached.get("avg_fill_price") or
+                    cached.get("avgPrice") or
+                    cached.get("averagePrice") or
+                    cached.get("fillPrice") or
+                    None
+                )
+                
+                price = safe_float(cached.get("price"), 0.0)
+                avg_fill_price = safe_float(avg_fill, price)  # Fallback to limit price
+                
+                logger.debug(f"X10 get_order: Using cached WebSocket data (avgFillPrice=${avg_fill_price})")
+                
+                return {
+                    "id": order_id_str,
+                    "symbol": cached.get("market") or cached.get("symbol") or symbol,
+                    "price": price,
+                    "avgFillPrice": avg_fill_price,  # ← REAL fill price from WebSocket!
+                    "filledAmount": safe_float(cached.get("filledQty") or cached.get("filled_qty"), 0.0),
+                    "status": cached.get("status"),
+                    "side": cached.get("side"),
+                    "post_only": cached.get("post_only") or cached.get("postOnly") or False,
+                }
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Fallback: REST API (Note: only returns limit price, not fill price!)
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                order_id_int = int(order_id)
+            except ValueError:
+                logger.debug(f"X10: Invalid order_id format for get_order: {order_id}")
+                return None
+            
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/user/orders/{order_id_int}"
+            
+            if not self.stark_account:
+                return None
+            
+            headers = {
+                "X-Api-Key": self.stark_account.api_key,
+                "Accept": "application/json"
+            }
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        order = data.get("data", {})
+                        
+                        # REST API only has limit price - not the actual fill price!
+                        filled_amount = safe_float(order.get("filled_amount_of_synthetic"), 0.0)
+                        price = safe_float(order.get("price"), 0.0)
+                        
+                        # Try to get average execution price if available
+                        avg_exec_price = safe_float(
+                            order.get("average_price") or 
+                            order.get("avg_price") or 
+                            order.get("avgFillPrice") or
+                            price,  # Fallback to limit price
+                            0.0
+                        )
+                        
+                        logger.debug(f"X10 get_order: REST API returned price=${price}, avgFillPrice=${avg_exec_price}")
+                        
+                        return {
+                            "id": order_id,
+                            "symbol": order.get("market") or symbol,
+                            "price": price,
+                            "avgFillPrice": avg_exec_price,
+                            "filledAmount": filled_amount,
+                            "status": order.get("status"),
+                            "side": order.get("side"),
+                            "post_only": order.get("post_only") or order.get("postOnly") or False,
+                        }
+                    else:
+                        logger.debug(f"X10 get_order: HTTP {resp.status} for order {order_id}")
+                        return None
+                        
+        except Exception as e:
+            logger.debug(f"X10 get_order error for {order_id}: {e}")
+            return None
+
     async def get_order_fee(self, order_id: str) -> float:
         """Fetch real fee from X10 order"""
         if not order_id or order_id == "DRY_RUN_ORDER_123":
@@ -1006,18 +1112,146 @@ class X10Adapter(BaseAdapter):
             logger.error(f"X10 get_open_orders failed: {e}")
             return []
 
+    async def check_order_filled(
+        self,
+        symbol: str,
+        order_id: str,
+        timeout: float = 10.0,
+        check_interval: float = 0.5
+    ) -> Tuple[bool, Optional[dict]]:
+        """
+        Check if an X10 order is filled using WebSocket events (EVENT-DRIVEN, not polling!).
+
+        NEW (2025-12-19): Uses wait_for_order_update() to receive real-time WebSocket events
+        instead of polling REST API. This eliminates false CANCELLED detections for slow-filling
+        MAKER orders.
+
+        Args:
+            symbol: Market symbol (e.g. "ONDO-USD")
+            order_id: Order ID from place_order response
+            timeout: Max time to wait for fill (seconds)
+            check_interval: DEPRECATED (kept for backward compatibility, not used)
+
+        Returns:
+            (is_filled, fill_info) where fill_info contains:
+                - filled_qty: Amount filled
+                - avg_fill_price: Average fill price
+                - status: Order status (FILLED, CANCELLED, EXPIRED, etc.)
+        """
+        if not order_id:
+            logger.warning(f"⚠️ [X10] check_order_filled: No order_id provided for {symbol}")
+            return False, None
+
+        start_time = time.time()
+        logger.info(f"⏳ [X10 FILL CHECK] {symbol}: Waiting for WebSocket event (max {timeout}s, order_id={order_id[:16]}...)")
+        logger.info(f"   🔌 Using EVENT-DRIVEN detection (not polling!)")
+
+        # PHASE 1: Wait for WebSocket order update event
+        try:
+            update = await self.wait_for_order_update(order_id, timeout=timeout)
+        except Exception as e:
+            logger.error(f"❌ [X10 FILL CHECK] {symbol}: Error waiting for order update: {e}")
+            update = None
+
+        elapsed = time.time() - start_time
+
+        # PHASE 2: Process WebSocket event result
+        if update is None:
+            # Timeout - no WebSocket event received
+            logger.warning(f"⏳ [X10 FILL CHECK] {symbol}: WebSocket TIMEOUT after {elapsed:.1f}s")
+            logger.warning(f"   No FILLED/CANCELLED/EXPIRED event received")
+
+            # Fallback: Check position to be safe
+            logger.info(f"   🔍 Fallback: Checking position API...")
+            try:
+                positions = await self.fetch_open_positions()
+                has_position = any(p.get('symbol') == symbol for p in positions)
+
+                if has_position:
+                    logger.warning(f"⚠️ [X10 FILL CHECK] {symbol}: TIMEOUT but position exists! (WebSocket missed event?)")
+                    position = next((p for p in positions if p.get('symbol') == symbol), None)
+                    if position:
+                        fill_info = {
+                            'filled_qty': abs(float(position.get('size', 0))),
+                            'avg_fill_price': float(position.get('entryPrice', 0)),
+                            'status': 'FILLED',
+                            'position': position
+                        }
+                        return True, fill_info
+
+                # No position after timeout = order didn't fill
+                logger.error(f"❌ [X10 FILL CHECK] {symbol}: TIMEOUT and no position (order likely CANCELLED or EXPIRED)")
+                return False, {'status': 'TIMEOUT', 'filled_qty': 0, 'avg_fill_price': 0}
+
+            except Exception as e:
+                logger.error(f"❌ [X10 FILL CHECK] {symbol}: Fallback position check failed: {e}")
+                return False, {'status': 'TIMEOUT', 'filled_qty': 0, 'avg_fill_price': 0}
+
+        # PHASE 3: Parse WebSocket event
+        success = update.get('success', False)
+        event_data = update.get('data', {})
+        status = (event_data.get('status') or event_data.get('orderStatus') or '').upper()
+
+        logger.info(f"📨 [X10 FILL CHECK] {symbol}: WebSocket event received after {elapsed:.1f}s")
+        logger.info(f"   Status: {status} | Success: {success}")
+
+        if success and status in ["FILLED", "PARTIALLY_FILLED"]:
+            # Order FILLED!
+            logger.info(f"✅ [X10 FILL CHECK] {symbol}: Order FILLED (WebSocket event)")
+
+            # Extract fill info from event
+            filled_qty = float(event_data.get('filledQuantity') or event_data.get('filled_qty') or 0)
+            avg_price = float(event_data.get('avgFillPrice') or event_data.get('avg_fill_price') or 0)
+
+            # If WebSocket event doesn't have fill details, get from position API
+            if filled_qty == 0 or avg_price == 0:
+                logger.debug(f"   🔍 WebSocket event missing fill details - fetching from position API...")
+                try:
+                    positions = await self.fetch_open_positions()
+                    position = next((p for p in positions if p.get('symbol') == symbol), None)
+                    if position:
+                        filled_qty = abs(float(position.get('size', 0)))
+                        avg_price = float(position.get('entryPrice', 0))
+                except Exception as e:
+                    logger.error(f"❌ [X10 FILL CHECK] {symbol}: Failed to fetch position details: {e}")
+
+            fill_info = {
+                'filled_qty': filled_qty,
+                'avg_fill_price': avg_price,
+                'status': status,
+                'event_data': event_data
+            }
+            return True, fill_info
+
+        elif not success and status in ["CANCELLED", "REJECTED", "EXPIRED"]:
+            # Order CANCELLED/REJECTED/EXPIRED
+            logger.warning(f"❌ [X10 FILL CHECK] {symbol}: Order {status} (WebSocket event)")
+            fill_info = {
+                'filled_qty': 0,
+                'avg_fill_price': 0,
+                'status': status,
+                'event_data': event_data
+            }
+            return False, fill_info
+
+        else:
+            # Unknown status
+            logger.warning(f"⚠️ [X10 FILL CHECK] {symbol}: Unknown WebSocket status: {status}")
+            logger.debug(f"   Event data: {event_data}")
+            return False, {'status': status or 'UNKNOWN', 'filled_qty': 0, 'avg_fill_price': 0}
+
     async def refresh_missing_prices(self):
         try:
-            missing = [s for s in self.market_info.keys() 
+            missing = [s for s in self.market_info.keys()
                       if s not in self.price_cache or self.price_cache.get(s, 0) == 0.0]
-            
+
             if not missing:
                 return
-            
+
             await self.load_market_cache(force=True)
-            
+
             still_missing = [s for s in missing if self.price_cache.get(s, 0) == 0.0]
-            
+
             if still_missing and len(still_missing) <= 10:
                 client = PerpetualTradingClient(self.client_env)
                 try:
@@ -1149,8 +1383,9 @@ class X10Adapter(BaseAdapter):
                 logger.debug(f"[X10 POST_ONLY] {symbol}: Failed to get orderbook prices: {e}, falling back to mark price")
 
         # For reduce-only IOC closes without explicit price, prefer top-of-book executable price.
+        # ALSO for non-POST_ONLY (Taker/Market/Hedge) orders: use top-of-book to ensure execution!
         # This is a better default than mark±slippage and reduces spurious IOC cancellations.
-        if raw_price is None and reduce_only and not post_only:
+        if raw_price is None and ((reduce_only and not post_only) or (not post_only)):
             try:
                 orderbook = await self.fetch_orderbook(symbol, limit=1)
                 bids = orderbook.get("bids", [])
@@ -1175,8 +1410,12 @@ class X10Adapter(BaseAdapter):
                 elif side == "BUY" and best_ask > 0:
                     # Add one tick to avoid rounding down below ask (would not execute)
                     raw_price = best_ask + (tick_size if tick_size > 0 else Decimal(0))
+                
+                # Log for diagnostics
+                if not post_only:
+                    logger.info(f"✅ [TAKER PRICE] {symbol}: Using top-of-book ({side} @ {raw_price}) for Taker/Hedge order (post_only=False, IOC)")
             except Exception as e:
-                logger.debug(f"[X10 REDUCE_ONLY] {symbol}: Failed top-of-book price: {e}, falling back to mark price")
+                logger.debug(f"[X10 TOP-OF-BOOK] {symbol}: Failed to get top-of-book price: {e}, falling back to mark price")
         
         # Fallback to mark price + slippage if orderbook not available or not POST_ONLY
         if raw_price is None or raw_price <= 0:
@@ -1245,9 +1484,20 @@ class X10Adapter(BaseAdapter):
             tif = TimeInForce.IOC
             is_market_order = True
             logger.debug(f"✅ [ORDER_TYPE] {symbol}: Using TimeInForce.IOC for Market Order (reduce_only)")
+        elif not post_only:
+            # ═══════════════════════════════════════════════════════════════
+            # FIX (2025-12-19): CRITICAL BUG FIX!
+            # When post_only=False, this is a TAKER order (e.g., LEG2 hedge)
+            # It MUST use TimeInForce.IOC (Immediate Or Cancel) for guaranteed execution!
+            # Previously this was falling through to GTT (Limit), causing infinite waits!
+            # ═══════════════════════════════════════════════════════════════
+            tif = TimeInForce.IOC  # Taker/Hedge orders MUST be IOC, not GTT!
+            is_market_order = True
+            logger.info(f"✅ [TIF FIXED] {symbol}: post_only=False -> Using TimeInForce.IOC (TAKER/MARKET order)")
         else:
-            # Default: Limit Orders use GTT (Good Till Time)
+            # Default: Limit Orders use GTT (Good Till Time) - should not reach here
             tif = TimeInForce.GTT
+            logger.warning(f"⚠️ [TIF] {symbol}: Reached default GTT fallback (unexpected!)")
         
         # ═══════════════════════════════════════════════════════════════
         # FIX #4: Log all available TimeInForce enum values for verification
@@ -2594,6 +2844,38 @@ class X10Adapter(BaseAdapter):
     async def get_free_balance(self) -> float:
         """Alias for get_collateral_balance to satisfy interface."""
         return await self.get_collateral_balance()
+
+    async def fetch_funding_payments_batch(self, symbols: List[str], from_time: Optional[int] = None) -> Dict[str, float]:
+        """
+        Fetch funding payments for multiple symbols in a single call and return NET funding per symbol.
+        
+        FIX (2025-12-19): Prevents API-latch where individual calls miss funding payments.
+        This fetches ALL funding payments at once, then groups by symbol.
+        
+        Args:
+            symbols: List of symbols to fetch funding for
+            from_time: Starting timestamp in milliseconds (defaults to 24h ago)
+            
+        Returns:
+            Dict[symbol, net_funding_amount]
+            Example: {"BTC-USD": 0.0123, "ETH-USD": -0.0045}
+        """
+        if not symbols:
+            return {}
+        
+        # Fetch ALL funding payments (no symbol filter = get all)
+        all_payments = await self.fetch_funding_payments(symbol=None, from_time=from_time)
+        
+        # Group by symbol and sum funding fees
+        result: Dict[str, float] = {}
+        for payment in all_payments:
+            sym = payment.get("symbol")
+            if sym in symbols:
+                fee = safe_float(payment.get("funding_fee"), 0.0)
+                result[sym] = result.get(sym, 0.0) + fee
+        
+        logger.debug(f"🔍 [FUNDING BATCH] Processed {len(all_payments)} payments for {len(symbols)} symbols, found {len(result)} with funding")
+        return result
 
     async def fetch_funding_payments(self, symbol: Optional[str] = None, from_time: Optional[int] = None) -> List[dict]:
         """

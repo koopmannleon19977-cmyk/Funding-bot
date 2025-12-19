@@ -141,13 +141,44 @@ class FundingTracker:
             
             logger.debug(f"🔄 [FUNDING_CYCLE] Starting update for {len(open_trades)} trades. Time: {time.time()}")
             
+            # FIX (2025-12-19): BATCH FETCH X10 FUNDING FIRST
+            # This prevents API-latch where individual calls miss funding payments
+            x10_batch_funding: Dict[str, float] = {}
+            try:
+                if hasattr(self.x10, 'fetch_funding_payments_batch'):
+                    # Batch fetch all symbols at once
+                    symbols = [getattr(t, 'symbol', '') for t in open_trades]
+                    oldest_created_at = min(
+                        (getattr(t, 'created_at', None) for t in open_trades),
+                        default=None
+                    )
+                    
+                    def _normalize_to_ms(ts):
+                        if ts is None: return int((time.time() - 86400) * 1000)
+                        if hasattr(ts, 'timestamp'):
+                            try: return int(ts.timestamp() * 1000)
+                            except: return int((time.time() - 86400) * 1000)
+                        v = safe_float(ts, 0.0)
+                        return int(v) if v >= 1e12 else int(v * 1000)
+                    
+                    from_time_ms = _normalize_to_ms(oldest_created_at)
+                    logger.info(f"🔄 [FUNDING BATCH] Fetching funding for {len(symbols)} symbols from X10...")
+                    x10_batch_funding = await self.x10.fetch_funding_payments_batch(
+                        symbols=symbols, 
+                        from_time=from_time_ms
+                    )
+                    logger.info(f"✅ [FUNDING BATCH] X10 batch fetch complete: {len(x10_batch_funding)} symbols")
+            except Exception as e:
+                logger.debug(f"ℹ️ X10 batch fetch not available, falling back to individual calls: {e}")
+            
             total_collected = 0.0
             updated_count = 0
             
             for trade in open_trades:
                 try:
                     logger.info(f"🔍 [FUNDING_CYCLE] Trade {trade.symbol}: Current Collected={trade.funding_collected}")
-                    funding_amount = await self._fetch_trade_funding(trade)
+                    # FIX (2025-12-19): Pass batch funding to avoid API-latch
+                    funding_amount = await self._fetch_trade_funding(trade, x10_batch_funding=x10_batch_funding)
                     logger.info(f"🔍 [FUNDING_CYCLE] Trade {trade.symbol}: New Incremental={funding_amount}")
                     
                     if abs(funding_amount) > 0.00000001:
@@ -220,12 +251,17 @@ class FundingTracker:
             logger.error(f"❌ Error in update_all_trades: {e}", exc_info=True)
             self._stats["errors"] += 1
 
-    async def _fetch_trade_funding(self, trade: Any) -> float:
+    async def _fetch_trade_funding(
+        self, 
+        trade: Any,
+        x10_batch_funding: Optional[Dict[str, float]] = None
+    ) -> float:
         """
         Fetch funding payments for a single trade from both exchanges.
         
         Args:
             trade: TradeState object
+            x10_batch_funding: Optional pre-fetched batch funding from X10 (FIX 2025-12-19)
             
         Returns:
             INCREMENTAL funding collected in USD (can be negative if paying)
@@ -265,14 +301,18 @@ class FundingTracker:
         logger.info(f"🔍 [DEBUG_FUNDING] Checking {symbol} (created_at={created_at}, from_ms={from_time_ms})")
         
         # ═══════════════════════════════════════════════════════════════════════
-        # X10: Fetch REAL Funding Payments from API
+        # X10: Fetch REAL Funding Payments from API (with Batch Caching)
         # ═══════════════════════════════════════════════════════════════════════
-        # Uses: GET /api/v1/user/funding/history
-        # This gives EXACT funding payments (not calculated from rate).
+        # FIX (2025-12-19): Use pre-fetched batch data if available
+        # This prevents API-latch where individual calls miss updates
         # ═══════════════════════════════════════════════════════════════════════
         try:
-            # Fetch actual funding payments from X10 API
-            if hasattr(self.x10, 'fetch_funding_payments'):
+            # FIX (2025-12-19): Try batch cache first
+            if x10_batch_funding and symbol in x10_batch_funding:
+                x10_funding = x10_batch_funding[symbol]
+                logger.info(f"💵 X10 {symbol}: Using batch-cached funding=${x10_funding:.6f}")
+            elif hasattr(self.x10, 'fetch_funding_payments'):
+                # Fallback to individual fetch if batch not available
                 payments = await self.x10.fetch_funding_payments(symbol=symbol, from_time=from_time_ms)
 
                 if payments:
@@ -286,16 +326,6 @@ class FundingTracker:
                             f"💵 X10 {symbol}: API funding=${x10_funding:.6f} "
                             f"from {len(payments)} payments"
                         )
-
-                    # Detailed per-payment debug (timestamp + fee)
-                    # for p in payments:
-                    #     ts = p.get('paid_time') or p.get('timestamp') or p.get('time') or p.get('created_at')
-                    #     fee = p.get('funding_fee')
-                    #     rate = p.get('funding_rate')
-                    #     side = p.get('side') or p.get('position_side')
-                    #     logger.debug(
-                    #         f"🧾 X10 {symbol}: payment ts={ts} fee={fee} rate={rate} side={side}"
-                    #     )
                 else:
                     logger.debug(f"ℹ️ X10 {symbol}: No funding payments found via API")
             else:

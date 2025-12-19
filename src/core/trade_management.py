@@ -32,7 +32,7 @@ SHUTDOWN_FLAG = False
 RECENTLY_OPENED_TRADES = {}
 RECENTLY_CLOSED_TRADES = {}  # FIX: Track recently closed trades to avoid orphan false positives
 RECENTLY_OPENED_LOCK = asyncio.Lock()
-RECENTLY_OPENED_PROTECTION_SECONDS = 60.0
+RECENTLY_OPENED_PROTECTION_SECONDS = 120.0  # FIX (2025-12-19): Extended to 120s to match zombie check & allow for Exchange API latency (Lighter takes 3-5s to show new positions)
 RECENTLY_CLOSED_PROTECTION_SECONDS = 15.0  # FIX: 15s grace period after close
 ACTIVE_TASKS = {}
 TASKS_LOCK = asyncio.Lock()
@@ -1033,6 +1033,12 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             px = safe_float(raw_px) if raw_px is not None else None
             pl = safe_float(raw_pl) if raw_pl is not None else None
 
+            # FIX (2025-12-19): Track price source for critical calculations
+            # WebSocket prices are real-time and reliable
+            # REST prices are fallback only (may be stale)
+            px_source_ws = raw_px is not None and raw_px > 0
+            pl_source_ws = raw_pl is not None and raw_pl > 0
+            
             # REST Fallback if WebSocket has no prices
             if px is None or pl is None or px <= 0 or pl <= 0:
                 logger.debug(f"{sym}: WS prices missing, trying REST fallback...")
@@ -1040,19 +1046,24 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     if px is None or px <= 0:
                         if hasattr(x10, 'get_price_rest'):
                             px = safe_float(await x10.get_price_rest(sym))
+                            px_source_ws = False  # Mark as REST source
                         elif hasattr(x10, 'load_market_cache'):
                             await x10.load_market_cache(force=True)
                             px = safe_float(x10.fetch_mark_price(sym))
+                            px_source_ws = False
                     
                     if pl is None or pl <= 0:
                         if hasattr(lighter, 'get_price_rest'):
                             pl = safe_float(await lighter.get_price_rest(sym))
+                            pl_source_ws = False  # Mark as REST source
                         elif hasattr(lighter, 'load_funding_rates_and_prices'):
                             await lighter.load_funding_rates_and_prices()
                             pl = safe_float(lighter.fetch_mark_price(sym))
+                            pl_source_ws = False
                     
                     if px is not None and pl is not None and px > 0 and pl > 0:
-                        logger.info(f"✅ {sym}: REST Fallback success (X10=${px:.2f}, Lit=${pl:.2f})")
+                        source_info = f"X10={'WS' if px_source_ws else 'REST'}, Lit={'WS' if pl_source_ws else 'REST'}"
+                        logger.info(f"✅ {sym}: Price fetch success [{source_info}] (X10=${px:.2f}, Lit=${pl:.2f})")
                 except Exception as e:
                     logger.warning(f"{sym}: REST Fallback failed: {e}")
                 
@@ -1137,6 +1148,12 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             dynamic_slippage_cost = 0.0
             actual_spread_pct = 0.0
             orderbook_depth_ok = True
+            
+            # Init OB Prices dependent on dynamic slippage
+            x10_best_bid = 0.0
+            x10_best_ask = 0.0
+            lit_best_bid = 0.0
+            lit_best_ask = 0.0
             
             if use_dynamic_slippage:
                 try:
@@ -1314,43 +1331,42 @@ async def manage_open_trades(lighter, x10, state_manager=None):
 
             # 1. Force close criteria (Time, Safety)
             if not reason:
+                shutting_down = bool(getattr(config, 'IS_SHUTTING_DOWN', False))
+                divergence_candidate = bool(price_divergence_enabled and spread_pnl >= min_divergence_profit)
+
                 # Du MUSST mindestens 2h halten um Funding zu bekommen!
                 # ═══════════════════════════════════════════════════════════════
-                if age_seconds < minimum_hold_seconds and not getattr(config, 'IS_SHUTTING_DOWN', False):
-                    # Ausnahme: Bei sehr hohem Preisdifferenz-Profit trotzdem schließen
-                    if price_divergence_enabled and spread_pnl >= min_divergence_profit:
-                        logger.info(
-                            f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} >= ${min_divergence_profit:.2f} - "
-                            f"Geschenkter Profit durch Preisdifferenz! (ignoriere MINIMUM_HOLD)"
-                        )
-                        reason = "PRICE_DIVERGENCE_PROFIT"
-                        # Do NOT bypass profit-protection: this is only a candidate reason.
-                        # Net-profit after exit costs is validated below.
-                        force_close = False
-                    else:
-                        remaining_hold = (minimum_hold_seconds - age_seconds) / 60
-                        logger.debug(
-                            f"⏰ [HODL] {sym}: Minimum Hold nicht erreicht ({age_seconds/60:.0f}min < {minimum_hold_seconds/60:.0f}min). "
-                            f"Noch {remaining_hold:.0f}min warten für Funding!"
-                        )
-                        continue
+                hold_blocked = bool(age_seconds < minimum_hold_seconds and not shutting_down)
+                if hold_blocked and not divergence_candidate:
+                    remaining_hold = (minimum_hold_seconds - age_seconds) / 60
+                    logger.debug(
+                        f"⏰ [HODL] {sym}: Minimum Hold nicht erreicht ({age_seconds/60:.0f}min < {minimum_hold_seconds/60:.0f}min). "
+                        f"Noch {remaining_hold:.0f}min warten für Funding!"
+                    )
+                    continue
+                elif hold_blocked and divergence_candidate:
+                    # IMPORTANT: Do NOT exit just because mid-price spread_pnl looks good.
+                    # Only allow the later Realizable PnL (Bid/Ask) divergence check to run.
+                    logger.debug(
+                        f"💎🎁 [PRICE DIVERGENCE CANDIDATE] {sym}: SpreadPnL(mid)=${spread_pnl:.2f} >= ${min_divergence_profit:.2f} - "
+                        "checking realizable (Bid/Ask) profit before bypassing MINIMUM_HOLD"
+                    )
             
                 # ═══════════════════════════════════════════════════════════════
                 # NEU: FUNDING CHECK - Mindestens etwas Funding gesammelt?
                 # ═══════════════════════════════════════════════════════════════
-                if funding_collected < min_funding_before_exit and not force_close:
-                    if not getattr(config, 'IS_SHUTTING_DOWN', False):
-                        # Ausnahme: Bei Preisdifferenz-Profit trotzdem erlauben
-                        if price_divergence_enabled and spread_pnl >= min_divergence_profit:
-                            logger.info(
-                                f"💎🎁 [PRICE DIVERGENCE] {sym}: Spread PnL ${spread_pnl:.2f} kompensiert fehlendes Funding"
-                            )
-                        else:
-                            logger.debug(
-                                f"💸 [HODL] {sym}: Noch kein Funding (${funding_collected:.4f} < ${min_funding_before_exit:.2f}). "
-                                f"Warte auf nächstes Funding Payment!"
-                            )
-                            continue
+                funding_blocked = bool(funding_collected < min_funding_before_exit and not force_close and not shutting_down)
+                if funding_blocked and not divergence_candidate:
+                    logger.debug(
+                        f"💸 [HODL] {sym}: Noch kein Funding (${funding_collected:.4f} < ${min_funding_before_exit:.2f}). "
+                        f"Warte auf nächstes Funding Payment!"
+                    )
+                    continue
+                elif funding_blocked and divergence_candidate:
+                    logger.debug(
+                        f"💎🎁 [PRICE DIVERGENCE CANDIDATE] {sym}: SpreadPnL(mid)=${spread_pnl:.2f} may compensate missing funding - "
+                        "checking realizable (Bid/Ask) profit before bypassing FUNDING gate"
+                    )
                 
                 # ═══════════════════════════════════════════════════════════════
                 # PROFIT PROTECTION: Nur Exit wenn wirklich profitabel!
@@ -1366,7 +1382,7 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                 expected_exit_cost = est_fees_f + slippage_cost_f
                 expected_net_pnl = gross_pnl - expected_exit_cost
                 
-                if require_positive and not force_close and not getattr(config, 'IS_SHUTTING_DOWN', False):
+                if require_positive and not force_close and not shutting_down:
                     # Check: Ist der Trade nach allen Kosten wirklich profitabel?
                     if expected_net_pnl < min_net_profit:
                         logger.debug(
@@ -1399,16 +1415,109 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     )
                 
                 # ═══════════════════════════════════════════════════════════════
-                # NEU: CROSS-EXCHANGE ARBITRAGE EXIT
-                # Wenn du durch Preisdifferenz schon im Plus bist = GESCHENKTER PROFIT!
+                # NEU: CROSS-EXCHANGE ARBITRAGE EXIT (Realizable PnL Check)
+                # FIX (2025-12-19): Use ACTUAL REALIZABLE prices (Bid/Ask from OB)
+                # NOT mid-prices! We need to cross the spread to exit.
+                # FIX (2025-12-19): CRITICAL - Only divergence on WEBSOCKET prices!
+                # REST prices can be stale and cause false profit calculations
                 # ═══════════════════════════════════════════════════════════════
                 if not force_close and price_divergence_enabled:
-                    if spread_pnl >= min_divergence_profit:
-                        reason = "PRICE_DIVERGENCE_PROFIT"
-                        logger.info(
-                            f"💎🎁 [GESCHENKT!] {sym}: Preisdifferenz-Profit ${spread_pnl:.2f}! "
-                            f"Closing für geschenkten Gewinn (unabhängig von Funding)"
+                    # FIX (2025-12-19): Validate price sources for divergence
+                    if not px_source_ws or not pl_source_ws:
+                        source_info = f"X10={'WS' if px_source_ws else 'REST'}, Lit={'WS' if pl_source_ws else 'REST'}"
+                        logger.debug(
+                            f"⚠️ [DIVERGENCE SKIP] {sym}: Requires WS prices but got [{source_info}]. "
+                            f"Waiting for real-time prices..."
                         )
+                    # 1. Calculate Realizable PnL (Crossing the spread) - FIX: Use actual exit prices
+                    elif True:  # Only proceed with WS prices
+                        try:
+                            # ENSURE we have actual Bid/Ask prices from orderbooks
+                            # If dynamic slippage is enabled, these are fetched above.
+                            # If NOT, we use mid-prices as fallback (less accurate but safe)
+                            
+                            # Determine REALIZABLE Exit Prices (what we can actually get from orderbook)
+                            # Long X10 (sx=1) -> We SELL, so we get the BID price
+                            # Short X10 (sx=-1) -> We BUY, so we pay the ASK price
+                            
+                            if x10_best_bid > 0 and x10_best_ask > 0:
+                                exit_price_x10 = x10_best_bid if sx == 1 else x10_best_ask
+                            else:
+                                # Fallback: use mid-price if OB data missing
+                                exit_price_x10 = px
+                            
+                            # Long Lighter (sl=1) -> We SELL, so we get the BID price
+                            # Short Lighter (sl=-1) -> We BUY, so we pay the ASK price
+                            if lit_best_bid > 0 and lit_best_ask > 0:
+                                exit_price_lighter = lit_best_bid if sl == 1 else lit_best_ask
+                            else:
+                                # Fallback: use mid-price if OB data missing
+                                exit_price_lighter = pl
+                            
+                            # FIX (2025-12-19): STRICT VALIDATION - only use if prices are real
+                            if exit_price_x10 > 0 and exit_price_lighter > 0:
+                                # Recalculate PnL with ACTUAL exit prices (not mid-prices!)
+                                # Formula: (Exit - Entry) * Size * Sign
+                                pnl_x10_real = (exit_price_x10 - ep_x10) * sx * qty_est
+                                pnl_lit_real = (exit_price_lighter - ep_lit) * sl * qty_est
+                                
+                                # STRICT: Include ACTUAL slippage cost (dynamic or static)
+                                gross_pnl_real = pnl_x10_real + pnl_lit_real + funding_pnl
+                                # FIX (2025-12-19): Use float-converted versions to avoid Decimal TypeError
+                                net_pnl_real = gross_pnl_real - est_fees_f - slippage_cost_f
+                                
+                                logger.info(
+                                    f"💎🎁 [PRICE DIVERGENCE CHECK] {sym}: "
+                                    f"Entry(X10=${ep_x10:.5f}, Lit=${ep_lit:.5f}) -> "
+                                    f"Exit(X10=${exit_price_x10:.5f}, Lit=${exit_price_lighter:.5f}) | "
+                                    f"PnL Components: X10=${pnl_x10_real:.4f}, Lit=${pnl_lit_real:.4f}, "
+                                    f"Funding=${funding_pnl:.4f}, Fees=${est_fees_f:.4f}, Slippage=${slippage_cost_f:.4f} | "
+                                    f"Net=${net_pnl_real:.4f} vs Target=${min_divergence_profit:.4f}"
+                                )
+                                
+                                if net_pnl_real >= min_divergence_profit:
+                                    reason = "PRICE_DIVERGENCE_PROFIT"
+                                    logger.info(
+                                        f"✅ [PRICE DIVERGENCE] {sym}: Realizable Net Profit ${net_pnl_real:.2f} >= ${min_divergence_profit:.2f}! "
+                                        f"EXECUTING EXIT!"
+                                    )
+                                else:
+                                    logger.info(
+                                        f"❌ [PRICE DIVERGENCE] {sym}: Net PnL ${net_pnl_real:.2f} < Target ${min_divergence_profit:.2f}. "
+                                        f"Skipping exit."
+                                    )
+                            else:
+                                logger.debug(
+                                    f"⚠️ [PRICE DIVERGENCE] {sym}: Missing orderbook data. "
+                                    f"X10(bid={x10_best_bid}, ask={x10_best_ask}), "
+                                    f"Lighter(bid={lit_best_bid}, ask={lit_best_ask}). Using fallback check."
+                                )
+                                # Fallback: Conservative estimate using mid-prices + slippage
+                                fallback_net_pnl = gross_pnl - est_fees - slippage_cost
+                                if fallback_net_pnl >= min_divergence_profit:
+                                    reason = "PRICE_DIVERGENCE_PROFIT_FALLBACK"
+                                    logger.info(f"✅ [PRICE DIVERGENCE FALLBACK] {sym}: Est. Net Profit ${fallback_net_pnl:.2f} >= ${min_divergence_profit:.2f}")
+                                
+                        except Exception as div_e:
+                            logger.warning(f"{sym}: Divergence Calc Error: {div_e}", exc_info=True)
+                            # On error: don't exit, wait for next cycle
+                            pass
+
+                # If we were blocked by MINIMUM_HOLD or FUNDING, only allow exit
+                # if divergence has been CONFIRMED (reason set). Otherwise continue holding.
+                if not force_close and not reason and (hold_blocked or funding_blocked):
+                    if hold_blocked:
+                        remaining_hold = (minimum_hold_seconds - age_seconds) / 60
+                        logger.debug(
+                            f"⏰ [HODL] {sym}: MINIMUM_HOLD gate active (no confirmed divergence). "
+                            f"Noch {remaining_hold:.0f}min warten für Funding!"
+                        )
+                    elif funding_blocked:
+                        logger.debug(
+                            f"💸 [HODL] {sym}: FUNDING gate active (no confirmed divergence). "
+                            f"${funding_collected:.4f} < ${min_funding_before_exit:.2f}"
+                        )
+                    continue
                 
                 # 2. Profit check
                 if not force_close and not reason:
@@ -1462,21 +1571,71 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                                 )
                         
                         # Funding flip (only if profitable)
-                        if not reason:
-                            if init_funding * current_net < 0:
-                                flip_hours_threshold = getattr(config, 'FUNDING_FLIP_HOURS_THRESHOLD', 4.0)
-                                if not t.get('funding_flip_start_time'):
-                                    t['funding_flip_start_time'] = datetime.utcnow()
+                        # Funding flip (only if profitable)
+                        # ═══════════════════════════════════════════════════════════════
+                        # FEATURE #2: Funding-Flip Auto-Exit
+                        # ═══════════════════════════════════════════════════════════════
+                        if not reason and not force_close:
+                            # Are we PAYING funding? (current_net < 0 means paying)
+                            if current_net < 0:
+                                # Lazy load state manager
+                                if state_manager is None:
+                                    from src.state_manager import get_state_manager
+                                    state_manager = await get_state_manager()
+                                
+                                flip_key = f"funding_flip_start_{sym}"
+                                flip_start_ts = await state_manager.get_state(flip_key)
+                                
+                                now_ts = time.time()
+                                
+                                if flip_start_ts is None:
+                                    # Funding just flipped to negative. Start timer.
+                                    await state_manager.set_state(flip_key, now_ts)
+                                    logger.info(
+                                        f"📉 [FUNDING FLIP] {sym}: Rate flipped to NEGATIVE (Paying). "
+                                        f"Net Rate: {current_net*100:.4f}%/hr. Timer started."
+                                    )
                                 else:
-                                    flip_start = t['funding_flip_start_time']
-                                    if isinstance(flip_start, str):
-                                        try:
-                                            flip_start = datetime.fromisoformat(flip_start)
-                                        except:
-                                            flip_start = datetime.utcnow()
+                                    # Paying funding for some time... check duration.
+                                    try:
+                                        elapsed_hours = (now_ts - float(flip_start_ts)) / 3600.0
+                                    except (ValueError, TypeError):
+                                        elapsed_hours = 0.0
+                                        await state_manager.set_state(flip_key, now_ts) # Reset if corrupt
+                                        
+                                    flip_hours_threshold = getattr(config, 'FUNDING_FLIP_HOURS_THRESHOLD', 4.0)
                                     
-                                    if (datetime.utcnow() - flip_start).total_seconds() / 3600 > flip_hours_threshold:
-                                        reason = "FUNDING_FLIP_PROFITABLE"
+                                    if elapsed_hours > flip_hours_threshold:
+                                        reason = f"FUNDING_FLIP_PAYING (Duration {elapsed_hours:.1f}h > {flip_hours_threshold}h)"
+                                        force_close = True
+                                        logger.warning(
+                                            f"🚨 [FUNDING FLIP] {sym}: Paying funding for {elapsed_hours:.1f}h! "
+                                            f"Exiting to prevent drain. Net Rate: {current_net*100:.4f}%/hr"
+                                        )
+                                    else:
+                                        logger.debug(
+                                            f"📉 [FUNDING FLIP] {sym}: Paying funding for {elapsed_hours:.1f}h "
+                                            f"(Threshold: {flip_hours_threshold}h)"
+                                        )
+                            
+                            else:
+                                # We are Receiving (or Neutral) -> Clear timer if it exists
+                                # Optimization: Lazy load state manager only if we suspect we need to clear
+                                if state_manager:
+                                    flip_key = f"funding_flip_start_{sym}"
+                                    existing = await state_manager.get_state(flip_key)
+                                    if existing is not None:
+                                         await state_manager.set_state(flip_key, None)
+                                         logger.info(f"📈 [FUNDING FLIP] {sym}: Rate recovered to POSITIVE! Timer cleared.")
+                                         
+                                # Also ensure state_manager is loaded for next iteration if not already
+                                if state_manager is None:
+                                    from src.state_manager import get_state_manager
+                                    state_manager = await get_state_manager()
+                                    # Check again with loaded manager
+                                    flip_key = f"funding_flip_start_{sym}"
+                                    if await state_manager.get_state(flip_key) is not None:
+                                         await state_manager.set_state(flip_key, None)
 
             if reason:
                 # Log exit details

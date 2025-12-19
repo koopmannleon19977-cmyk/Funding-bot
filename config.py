@@ -70,7 +70,7 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # APY muss hoch genug sein um Fees + Slippage zu kompensieren!
 # Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
 # ═════════════════════════════════════════════════════════════════════════════
-MIN_APY_FILTER = 0.35       # ERHÖHT: 35% APY Minimum (vorher 20%) - kompensiert Fees!
+MIN_APY_FILTER = 0.20       # GESENKT für Testing: 20% APY Minimum (war 35%)
 MIN_APY_FALLBACK = 0.25     # ERHÖHT: 25% Fallback (vorher 15%)
 MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
 MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
@@ -112,6 +112,12 @@ MINIMUM_HOLD_SECONDS = 7200       # NEU: 2 Stunden Mindest-Haltezeit!
 MIN_FUNDING_BEFORE_EXIT_USD = 0.03  # NEU: Mindestens $0.03 Funding gesammelt
 
 # ═════════════════════════════════════════════════════════════════════════════
+# FEATURE #2: Funding-Flip Auto-Exit
+# Wenn Net-Funding negativ wird (wir zahlen Funding) für > 4h -> Close.
+# ═════════════════════════════════════════════════════════════════════════════
+FUNDING_FLIP_HOURS_THRESHOLD = 4.0   # NEU: Max 4h zahlen Funding bevor Exit
+
+# ═════════════════════════════════════════════════════════════════════════════
 # NEU: CROSS-EXCHANGE ARBITRAGE - Preisdifferenz-Profit!
 # Wenn Coin A auf Börse A teurer ist als auf Börse B,
 # kannst du durch die Preisdifferenz Profit machen (unabhängig von Funding)!
@@ -136,13 +142,36 @@ MAKER_EXIT_ENABLED = False             # NEU: Versuche Maker-Exit (0% Fee auf Li
 # ═════════════════════════════════════════════════════════════════════════════
 REQUIRE_POSITIVE_EXPECTED_PNL = True   # NEU: Nur Exit wenn PnL nach Kosten positiv!
 MIN_NET_PROFIT_EXIT_USD = 0.05         # NEU: Mindestens $0.05 NET Profit nach allen Fees
-EXIT_COST_SAFETY_MARGIN = 1.1          # NEU: 10% Safety Buffer auf Exit-Kosten
+
+# ═════════════════════════════════════════════════════════════════════════════
+# STRATEGY REVERSAL (19.12.2025) - X10 MAKER → Lighter MARKET
+# Based on @Quantzilla34 & @DegeniusQ recommendations
+# ═════════════════════════════════════════════════════════════════════════════
+# Benefits:
+# - X10 Maker Fee = 0% (vs 0.0225% Taker)
+# - No zombie risk (X10 is gate - if no fill, no trade)
+# - Lighter has better liquidity for Market orders
+# ═════════════════════════════════════════════════════════════════════════════
+
+# Entry Price Validation (Catch bad fills early!)
+MAX_ENTRY_SPREAD_PCT = 0.5              # Max 0.5% entry spread allowed (default)
+AUTO_CLOSE_BAD_ENTRIES = False          # Auto-close trades with bad entry spreads (DISABLED by default)
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
 MAX_SPREAD_FILTER_PERCENT = 0.002  # VERSCHÄRFT: 0.2% (vorher 0.3%) - weniger Slippage!
 MAX_PRICE_IMPACT_PCT = 0.5         # H7: Max erlaubte Slippage aus Price Impact Simulation (0.5%)
 MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein (vorher 12h)
+
+# H9: Spread Protection (Pre-Hedge)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Check if spread narrowed significantly during Lighter fill (Leg 1)
+# If spread < expected * 0.8 -> ABORT hedge & Atomic Rollback
+# ═══════════════════════════════════════════════════════════════════════════════
+SPREAD_PROTECTION_ENABLED = True
+SPREAD_PROTECTION_MIN_EXPECTED_SPREAD_PCT = 0.0005  # Only protect if initial spread > 0.05%
+SPREAD_PROTECTION_NARROW_FACTOR = 0.70              # Abort if spread shrinks to 70% of entry (dynamic: 0.40-0.70 based on volatility)
+
 
 # H8: Dynamic Spread Threshold (Volatility-based adjustments)
 # Bei niedriger Vol: 0.75x stricter, bei hoher Vol: 1.5x relaxed (max 1%)

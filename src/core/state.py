@@ -15,6 +15,8 @@ import time
 import aiosqlite
 from datetime import datetime
 from typing import Dict, Optional, List, Any
+import csv
+import os
 
 import config
 from src.state_manager import get_state_manager, TradeState, TradeStatus
@@ -125,9 +127,84 @@ async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data
             ))
             await conn.commit()
             logger.info(f" 💰 PnL {trade_data['symbol']}: ${pnl_data['total_net_pnl']:.2f} ({close_reason})")
+            
+            # ═══════════════════════════════════════════════════════════════
+            # CSV LOGGING (Added/Restored)
+            # ═══════════════════════════════════════════════════════════════
+            try:
+                await _append_to_realized_pnl_csv(trade_data, pnl_data)
+            except Exception as e:
+                logger.error(f"Failed to write realized_pnl.csv: {e}")
+
     except Exception as e:
         logger.error(f"Archive Error: {e}")
         return False
+
+
+async def _append_to_realized_pnl_csv(trade_data: Dict, pnl_data: Dict):
+    """
+    Append closed trade to realized_pnl.csv for detailed audit.
+    
+    Columns: market, size, entry_price, exit_price, trade_pnl, funding_fees, trading_fees, realised_pnl, closed_at
+    
+    Note: 'trade_pnl' in CSV context usually means 'Net Price PnL' (Price PnL - Fees),
+    so that Realized PnL = Trade PnL + Funding Fees.
+    """
+    file_path = "realized_pnl.csv"
+    
+    # Calculate derived values
+    # price_pnl_total (spread_pnl) is Gross Price PnL.
+    # fees is Total Fees.
+    # funding_pnl is Net Funding.
+    # total_net_pnl is Realized PnL.
+    
+    spread_pnl = float(pnl_data.get('spread_pnl', 0.0))
+    fees = float(pnl_data.get('fees', 0.0))
+    funding = float(pnl_data.get('funding_pnl', 0.0))
+    total_realized = float(pnl_data.get('total_net_pnl', 0.0))
+    
+    # trade_pnl = Price PnL - Fees (so matching detailed_analysis logic)
+    trade_pnl = spread_pnl - fees
+    
+    # Prices
+    entry_price = float(trade_data.get('entry_price_lighter') or trade_data.get('entry_price_x10') or 0.0)
+    # Estimate exit price if not present (simple inversion of PnL logic not possible without size/side)
+    exit_price = 0.0 
+    
+    # Row construction
+    row = {
+        'market': trade_data.get('symbol', 'UNKNOWN'),
+        'size': trade_data.get('size_usd') or trade_data.get('notional_usd') or 0.0,
+        'entry_price': f"{entry_price:.6f}",
+        'exit_price': f"{exit_price:.6f}",
+        'trade_pnl': f"{trade_pnl:.6f}",
+        'funding_fees': f"{funding:.6f}",
+        'trading_fees': f"{fees:.6f}",
+        'realised_pnl': f"{total_realized:.6f}",
+        'closed_at': datetime.utcnow().isoformat()
+    }
+    
+    file_exists = os.path.isfile(file_path)
+    
+    # Run in executor to avoid blocking event loop with file I/O
+    await asyncio.get_event_loop().run_in_executor(
+        None, 
+        lambda: _write_csv_row(file_path, row, file_exists)
+    )
+
+def _write_csv_row(file_path: str, row: Dict, file_exists: bool):
+    """Sync helper for CSV writing"""
+    fieldnames = [
+        'market', 'size', 'entry_price', 'exit_price', 
+        'trade_pnl', 'funding_fees', 'trading_fees', 
+        'realised_pnl', 'closed_at'
+    ]
+    
+    with open(file_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
 
 
 # ============================================================

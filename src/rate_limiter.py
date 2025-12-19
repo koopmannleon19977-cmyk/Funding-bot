@@ -23,9 +23,9 @@ class RateLimiterConfig:
     tokens_per_second: float = 10.0
     max_tokens: float = 100.0
     min_request_interval: float = 0.05
-    penalty_429_seconds: float = 30.0
-    penalty_multiplier: float = 2.0
-    max_penalty: float = 300.0
+    penalty_429_seconds: float = 60.0        # FIX (2025-12-19): ERHÖHT von 30s auf 60s - aggressivere Backoff
+    penalty_multiplier: float = 2.0          # FIX: Exponential backoff multiplier
+    max_penalty: float = 600.0               # FIX (2025-12-19): ERHÖHT von 300s auf 600s - max 10 Minuten Penalty
 
 
 class TokenBucketRateLimiter:
@@ -62,16 +62,20 @@ class TokenBucketRateLimiter:
         self._waiters_lock = asyncio.Lock()
         
         # ═══════════════════════════════════════════════════════════════
-        # REQUEST DEDUPLICATION (Prevents API storms during shutdown)
+        # REQUEST DEDUPLICATION + RESPONSE CACHING (FIX 2025-12-19)
+        # Prevents API storms during shutdown + reduces 429 errors
         # ═══════════════════════════════════════════════════════════════
         self._recent_requests: Dict[str, float] = {}
-        # FIX: Increased from 1.0s to 2.0s to reduce API calls when polling every 1.0s
-        # This prevents excessive deduplication while still providing good caching
-        self._dedup_window = 2.0  # 2000ms - skip duplicate requests within this window
+        # FIX (2025-12-19): Erhöht von 2.0s auf 5.0s für besseres Caching bei häufigen Position-Checks
+        self._dedup_window = 5.0  # 5000ms - skip duplicate requests within this window
         self._dedup_cleanup_interval = 60.0  # Cleanup old entries every 60s
         self._last_dedup_cleanup = time.monotonic()
         # Track last log time per key to reduce log spam
         self._last_dedup_log: Dict[str, float] = {}
+        
+        # FIX (2025-12-19): Response-Caching für häufige API-Calls (z.B. Position-Checks)
+        self._response_cache: Dict[str, tuple[Any, float]] = {}  # (response, timestamp)
+        self._cache_ttl = 5.0  # Cache responses for 5 seconds
         
         # Stats
         self._requests_total = 0

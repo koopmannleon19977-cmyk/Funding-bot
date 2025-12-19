@@ -108,7 +108,7 @@ LAST_DATA_UPDATE = time.time()
 WATCHDOG_TIMEOUT = 120
 RECENTLY_OPENED_TRADES: Dict[str, float] = {}
 RECENTLY_OPENED_LOCK = asyncio.Lock()
-RECENTLY_OPENED_PROTECTION_SECONDS = 60.0
+RECENTLY_OPENED_PROTECTION_SECONDS = 120.0  # FIX (2025-12-19): Extended to 120s to match zombie check & allow for Exchange API latency (Lighter takes 3-5s to show new positions)
 IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
 
