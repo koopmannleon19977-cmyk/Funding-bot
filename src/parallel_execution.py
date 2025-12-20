@@ -1911,18 +1911,28 @@ class ParallelExecutionManager:
                 execution.lighter_filled = True
                 execution.state = ExecutionState.COMPLETE
 
-                # Fetch actual Lighter fill price from position
+                # FIX (2025-12-19): Fetch actual Lighter fill price from position with retry
+                # Problem: Position API can lag 1-2s after fill, avg_entry_price might be 0 initially
+                # Solution: Retry up to 3 times with 0.5s delays
                 try:
-                    await asyncio.sleep(0.5)  # Let position update
-                    positions = await self.lighter.fetch_open_positions()
-                    lighter_pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-                    if lighter_pos:
-                        avg_price = safe_float(lighter_pos.get('avg_entry_price') or lighter_pos.get('entry_price', 0))
-                        if avg_price > 0:
-                            execution.entry_price_lighter = avg_price
-                            logger.info(f"   Lighter Fill Price: ${avg_price:.6f}")
+                    for attempt in range(3):
+                        await asyncio.sleep(0.5)  # Let position update
+                        positions = await self.lighter.fetch_open_positions()
+                        lighter_pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                        if lighter_pos:
+                            avg_price = safe_float(lighter_pos.get('avg_entry_price') or lighter_pos.get('entry_price', 0))
+                            if avg_price > 0:
+                                execution.entry_price_lighter = avg_price
+                                logger.info(f"   Lighter Fill Price: ${avg_price:.6f} (attempt {attempt+1})")
+                                break
+                            else:
+                                logger.debug(f"   Lighter position found but avg_entry_price=0 (attempt {attempt+1}/3)")
+                        else:
+                            logger.debug(f"   Lighter position not found yet (attempt {attempt+1}/3)")
+                    else:
+                        logger.warning(f"⚠️ [PHASE 2] {symbol}: Could not fetch Lighter fill price after 3 attempts - using mark price fallback")
                 except Exception as e:
-                    logger.warning(f"⚠️ [PHASE 2] {symbol}: Could not fetch Lighter fill price: {e}")
+                    logger.warning(f"⚠️ [PHASE 2] {symbol}: Error fetching Lighter fill price: {e}")
 
                 # ═══════════════════════════════════════════════════════════════
                 # ENTRY PRICE VALIDATION (NEW - Catch bad fills early!)

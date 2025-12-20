@@ -2303,6 +2303,17 @@ class WebSocketManager:
                 qty = order.get("qty") or order.get("quantity") or order.get("amount") or order.get("q") or "0"
                 filled_qty = order.get("filledQty") or order.get("filled_qty") or order.get("executedQty") or order.get("fq") or "0"
 
+                # FIX (2025-12-19): Extract statusReason for debugging REJECTEDs
+                status_reason = (
+                    order.get("statusReason")
+                    or order.get("status_reason")
+                    or order.get("rejectReason")
+                    or order.get("reject_reason")
+                    or order.get("cancelReason")
+                    or order.get("cancel_reason")
+                    or ""
+                )
+
                 # Some streams include an average fill price; keep order price separate from fill price.
                 avg_fill_price = (
                     order.get("avgFillPrice")
@@ -2318,7 +2329,12 @@ class WebSocketManager:
                         avg_fill_str = f" avgFill=${afp}"
                 except Exception:
                     avg_fill_str = ""
-                
+
+                # FIX: Add reason string for failed orders
+                reason_str = ""
+                if status_reason:
+                    reason_str = f" reason={status_reason}"
+
                 # Log with emoji based on status
                 status_upper = str(status).upper()
                 emoji = "📋"
@@ -2326,14 +2342,18 @@ class WebSocketManager:
                     emoji = "✅"
                 elif status_upper == "CANCELLED":
                     emoji = "❌"
+                elif status_upper == "REJECTED":
+                    emoji = "🚫"
+                elif status_upper == "EXPIRED":
+                    emoji = "⏰"
                 elif status_upper == "NEW":
                     emoji = "🆕"
                 elif "PARTIAL" in status_upper:
                     emoji = "⏳"
-                
+
                 logger.info(
                     f"{emoji} [x10_account] ORDER UPDATE: {market} {side} {status} "
-                    f"qty={qty} filled={filled_qty} orderPrice=${order_price}{avg_fill_str} (id={order_id})"
+                    f"qty={qty} filled={filled_qty} orderPrice=${order_price}{avg_fill_str}{reason_str} (id={order_id})"
                 )
                 
                 # Notify X10 Adapter if available
