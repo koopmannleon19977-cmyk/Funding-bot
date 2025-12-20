@@ -46,8 +46,8 @@ def _scalar_float(value: Any) -> Optional[float]:
 
 def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
     """
-    Berechnet die exakte Anzahl Coins, die auf BEIDEN Börsen handelbar ist.
-    FIX: Nutzt Decimal für Präzision, um Float-Fehler (0.1+0.2!=0.3) zu vermeiden.
+    Berechnet die exakte Anzahl Coins, die auf BEIDEN Boersen handelbar ist.
+    FIX: Nutzt Decimal fuer Praezision, um Float-Fehler (0.1+0.2!=0.3) zu vermeiden.
     """
     # 1. Inputs sicher zu Decimal konvertieren
     d_amount = safe_decimal(amount_usd)
@@ -60,21 +60,26 @@ def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
     # 2. Berechne theoretische Anzahl Coins
     raw_coins = d_amount / d_price
     
-    # 3. Finde den größeren Schritt (Step Size)
-    max_step = max(d_x10_step, d_lighter_step)
+    # 3. Compute a common step (LCM of decimal steps)
+    def _common_step(a: Decimal, b: Decimal) -> Decimal:
+        a = abs(a)
+        b = abs(b)
+        if a <= 0 or b <= 0:
+            return max(a, b)
+        scale = 10 ** max(-a.as_tuple().exponent, -b.as_tuple().exponent)
+        ai = int(a * scale)
+        bi = int(b * scale)
+        return Decimal(math.lcm(ai, bi)) / scale
     
-    if max_step <= 0: return float(raw_coins)
+    common_step = _common_step(d_x10_step, d_lighter_step)
+    if common_step <= 0: return float(raw_coins)
     
-    # 4. Runde AB auf das nächste Vielfache
-    # Decimal Quantize Verhalten bei 'ROUND_FLOOR' ist nicht exakt modulo-basiert für steps != 10^-N
-    # Besser: (raw // step) * step
-    
-    steps = raw_coins // max_step # Ganzzahlige Anzahl Schritte
-    coins = steps * max_step
+    # 4. Runde AB auf das naechste Vielfache
+    steps = raw_coins // common_step
+    coins = steps * common_step
     
     # Return as float for API compatibility
     return float(coins)
-
 
 class ExecutionState(Enum):
     """State machine states for trade execution tracking"""
@@ -1830,13 +1835,14 @@ class ParallelExecutionManager:
 
             logger.info(f"⏳ [PHASE 1.5] {symbol}: Waiting for X10 fill (max {max_wait_seconds:.1f}s)...")
 
-            # Use new check_order_filled function from x10_adapter
-            x10_filled, fill_info = await self.x10.check_order_filled(
+            x10_filled, fill_info, current_order_id = await self._wait_for_x10_maker_fill_with_reprice(
                 symbol=symbol,
+                side=execution.side_x10,
+                size_coins=execution.quantity_coins,
                 order_id=x10_order_id,
-                timeout=max_wait_seconds,
-                check_interval=0.5
+                max_wait_seconds=max_wait_seconds,
             )
+            execution.x10_order_id = current_order_id
 
             phase_times["x10_fill_wait"] = time.monotonic() - phase_start
 
@@ -1911,26 +1917,48 @@ class ParallelExecutionManager:
                 execution.lighter_filled = True
                 execution.state = ExecutionState.COMPLETE
 
-                # FIX (2025-12-19): Fetch actual Lighter fill price from position with retry
-                # Problem: Position API can lag 1-2s after fill, avg_entry_price might be 0 initially
-                # Solution: Retry up to 3 times with 0.5s delays
+                # ═══════════════════════════════════════════════════════════════
+                # FIX (2025-12-20): Fetch actual Lighter fill price - MULTI-STRATEGY
+                # Strategy 1: Get fill price from ORDER (instant, most accurate)
+                # Strategy 2: Get from position API with retry (fallback if order fetch fails)
+                # Strategy 3: Use mark price (last resort)
+                # ═══════════════════════════════════════════════════════════════
                 try:
-                    for attempt in range(3):
-                        await asyncio.sleep(0.5)  # Let position update
-                        positions = await self.lighter.fetch_open_positions()
-                        lighter_pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
-                        if lighter_pos:
-                            avg_price = safe_float(lighter_pos.get('avg_entry_price') or lighter_pos.get('entry_price', 0))
-                            if avg_price > 0:
-                                execution.entry_price_lighter = avg_price
-                                logger.info(f"   Lighter Fill Price: ${avg_price:.6f} (attempt {attempt+1})")
-                                break
+                    fill_price_found = False
+
+                    # STRATEGY 1: Fetch fill price directly from the order
+                    # This is INSTANT and available immediately after fill (no lag!)
+                    try:
+                        order_fill_price = await self.lighter.get_order_fill_price(lighter_order_id, symbol)
+                        if order_fill_price and order_fill_price > 0:
+                            execution.entry_price_lighter = order_fill_price
+                            logger.info(f"   Lighter Fill Price: ${order_fill_price:.6f} (from order)")
+                            fill_price_found = True
+                    except Exception as e:
+                        logger.debug(f"   Could not fetch fill price from order: {e}")
+
+                    # STRATEGY 2: Fallback to position API with retry if order fetch failed
+                    if not fill_price_found:
+                        logger.debug(f"   Falling back to position API for fill price...")
+                        for attempt in range(3):
+                            await asyncio.sleep(0.5)  # Let position update
+                            positions = await self.lighter.fetch_open_positions()
+                            lighter_pos = next((p for p in (positions or []) if p.get('symbol') == symbol), None)
+                            if lighter_pos:
+                                avg_price = safe_float(lighter_pos.get('avg_entry_price') or lighter_pos.get('entry_price', 0))
+                                if avg_price > 0:
+                                    execution.entry_price_lighter = avg_price
+                                    logger.info(f"   Lighter Fill Price: ${avg_price:.6f} (from position, attempt {attempt+1})")
+                                    fill_price_found = True
+                                    break
+                                else:
+                                    logger.debug(f"   Position found but avg_entry_price=0 (attempt {attempt+1}/3)")
                             else:
-                                logger.debug(f"   Lighter position found but avg_entry_price=0 (attempt {attempt+1}/3)")
-                        else:
-                            logger.debug(f"   Lighter position not found yet (attempt {attempt+1}/3)")
-                    else:
-                        logger.warning(f"⚠️ [PHASE 2] {symbol}: Could not fetch Lighter fill price after 3 attempts - using mark price fallback")
+                                logger.debug(f"   Position not found yet (attempt {attempt+1}/3)")
+
+                        if not fill_price_found:
+                            logger.warning(f"⚠️ [PHASE 2] {symbol}: Could not fetch fill price after all strategies - using mark price fallback")
+
                 except Exception as e:
                     logger.warning(f"⚠️ [PHASE 2] {symbol}: Error fetching Lighter fill price: {e}")
 
@@ -2332,6 +2360,271 @@ class ParallelExecutionManager:
         except Exception as e:
             logger.error(f"❌ X10 leg exception {symbol} ({side}, size={size_value} {size_type}): {e}", exc_info=True)
             return False, None
+
+    async def _get_x10_best_maker_price(
+        self,
+        symbol: str,
+        side: str,
+    ) -> Tuple[Optional[float], Optional[Decimal]]:
+        """Return best maker price and tick size from X10 orderbook."""
+        try:
+            if not hasattr(self.x10, "fetch_orderbook"):
+                return None, None
+
+            orderbook = await self.x10.fetch_orderbook(symbol, limit=1)
+            bids = orderbook.get("bids", [])
+            asks = orderbook.get("asks", [])
+
+            market = getattr(self.x10, "market_info", {}).get(symbol)
+            tick_size = safe_decimal(getattr(getattr(market, "trading_config", None), "min_price_change", "0.01"))
+            if tick_size <= 0:
+                tick_size = Decimal("0.01")
+
+            def _best(levels: list) -> Decimal:
+                if not levels:
+                    return Decimal("0")
+                top = levels[0]
+                if isinstance(top, (list, tuple)) and len(top) > 0:
+                    return safe_decimal(top[0])
+                if isinstance(top, dict):
+                    return safe_decimal(top.get("p", top.get("price", 0)))
+                return safe_decimal(top) if isinstance(top, (int, float, str)) else Decimal("0")
+
+            best_bid = _best(bids)
+            best_ask = _best(asks)
+
+            if side == "BUY":
+                if best_bid <= 0:
+                    return None, tick_size
+                if best_ask > 0 and best_bid >= best_ask:
+                    price = best_bid - tick_size
+                    if price <= 0:
+                        price = best_bid
+                else:
+                    price = best_bid
+            else:
+                if best_ask <= 0:
+                    return None, tick_size
+                if best_bid > 0 and best_ask <= best_bid:
+                    price = best_ask + tick_size
+                else:
+                    price = best_ask
+
+            if price <= 0:
+                return None, tick_size
+            return float(price), tick_size
+        except Exception as e:
+            logger.debug(f"[X10 MAKER] {symbol}: Best price lookup failed: {e}")
+            return None, None
+
+    async def _wait_for_x10_maker_fill_with_reprice(
+        self,
+        symbol: str,
+        side: str,
+        size_coins: float,
+        order_id: str,
+        max_wait_seconds: float,
+    ) -> Tuple[bool, Optional[dict], Optional[str]]:
+        """Wait for X10 maker fill and reprice to stay at top-of-book."""
+        start_time = time.monotonic()
+        current_order_id = order_id
+        last_price = None
+
+        reprice_enabled = getattr(config, "X10_MAKER_REPRICE_ENABLED", True)
+        reprice_interval = float(getattr(config, "X10_MAKER_REPRICE_INTERVAL_SECONDS", 2.0))
+        min_ticks = int(getattr(config, "X10_MAKER_REPRICE_MIN_TICKS", 1))
+        if min_ticks < 1:
+            min_ticks = 1
+
+        def _parse_status(data: dict) -> str:
+            return (data.get("status") or data.get("orderStatus") or "").upper()
+
+        def _parse_reason(data: dict) -> str:
+            reason = (
+                data.get("statusReason")
+                or data.get("status_reason")
+                or data.get("rejectReason")
+                or data.get("reject_reason")
+                or data.get("cancelReason")
+                or data.get("cancel_reason")
+                or ""
+            )
+            return str(reason).upper()
+
+        async def _position_snapshot() -> Optional[dict]:
+            if hasattr(self.x10, "get_cached_position"):
+                cached = self.x10.get_cached_position(symbol)
+                if cached:
+                    return cached
+            if hasattr(self.x10, "fetch_open_positions"):
+                positions = await self.x10.fetch_open_positions()
+                return next((p for p in (positions or []) if p.get("symbol") == symbol), None)
+            return None
+
+        reject_count = 0
+        max_rejects = int(getattr(config, "X10_MAKER_REPRICE_MAX_REJECTS", 0))
+
+        while time.monotonic() - start_time < max_wait_seconds:
+            cached = None
+            if hasattr(self.x10, "get_cached_order"):
+                cached = self.x10.get_cached_order(current_order_id)
+
+            if cached:
+                status = _parse_status(cached)
+                if status in ["FILLED", "PARTIALLY_FILLED"]:
+                    filled_qty = safe_float(
+                        cached.get("filledQuantity")
+                        or cached.get("filled_qty")
+                        or cached.get("filled")
+                        or cached.get("filledQty"),
+                        0.0,
+                    )
+                    avg_price = safe_float(
+                        cached.get("avgFillPrice")
+                        or cached.get("avg_fill_price")
+                        or cached.get("avgPrice")
+                        or cached.get("averagePrice")
+                        or cached.get("orderPrice")
+                        or cached.get("price"),
+                        0.0,
+                    )
+                    if filled_qty <= 0 or avg_price <= 0:
+                        pos = await _position_snapshot()
+                        if pos:
+                            filled_qty = abs(safe_float(pos.get("size", 0)))
+                            avg_price = safe_float(
+                                pos.get("entryPrice")
+                                or pos.get("entry_price")
+                                or pos.get("open_price"),
+                                0.0,
+                            )
+                    fill_info = {
+                        "filled_qty": filled_qty,
+                        "avg_fill_price": avg_price,
+                        "status": status,
+                        "event_data": cached,
+                    }
+                    return True, fill_info, current_order_id
+
+                if status in ["CANCELLED", "REJECTED", "EXPIRED"]:
+                    reason = _parse_reason(cached)
+                    if (
+                        status == "REJECTED"
+                        and reprice_enabled
+                        and reject_count < max_rejects
+                        and "POST_ONLY" in reason
+                    ):
+                        reject_count += 1
+                        best_price, _ = await self._get_x10_best_maker_price(symbol, side)
+                        if best_price:
+                            logger.info(
+                                f"[X10 MAKER] {symbol}: POST_ONLY_FAILED - retry {reject_count}/{max_rejects} "
+                                f"at ${best_price:.6f}"
+                            )
+                        else:
+                            logger.info(
+                                f"[X10 MAKER] {symbol}: POST_ONLY_FAILED - retry {reject_count}/{max_rejects}"
+                            )
+                        success, new_order_id = await self.x10.open_live_position(
+                            symbol=symbol,
+                            side=side,
+                            notional_usd=0,
+                            amount=size_coins,
+                            post_only=True,
+                            reduce_only=False,
+                        )
+                        if success and new_order_id:
+                            current_order_id = new_order_id
+                            last_price = best_price
+                            await asyncio.sleep(0.2)
+                            continue
+                        return (
+                            False,
+                            {
+                                "status": status,
+                                "reason": reason,
+                                "filled_qty": 0,
+                                "avg_fill_price": 0,
+                            },
+                            current_order_id,
+                        )
+
+                    return (
+                        False,
+                        {
+                            "status": status,
+                            "reason": reason,
+                            "filled_qty": 0,
+                            "avg_fill_price": 0,
+                        },
+                        current_order_id,
+                    )
+
+                if last_price is None:
+                    last_price = safe_float(cached.get("price") or cached.get("orderPrice"), 0.0)
+
+            if reprice_enabled and reprice_interval > 0:
+                best_price, tick_size = await self._get_x10_best_maker_price(symbol, side)
+                tick_size_f = float(tick_size) if tick_size else 0.0
+                if best_price and best_price > 0:
+                    if last_price is None:
+                        last_price = best_price
+                    price_gap = abs(best_price - last_price)
+                    if tick_size_f > 0:
+                        should_reprice = price_gap >= tick_size_f * min_ticks
+                    else:
+                        should_reprice = price_gap > 0
+
+                    if should_reprice:
+                        logger.info(
+                            f"[X10 MAKER] {symbol}: Reprice from ${last_price:.6f} to ${best_price:.6f}"
+                        )
+                        try:
+                            await self.x10.cancel_order(current_order_id, symbol)
+                            await asyncio.sleep(0.2)
+                        except Exception as e:
+                            logger.debug(f"[X10 MAKER] {symbol}: Cancel error: {e}")
+
+                        pos = await _position_snapshot()
+                        if pos and abs(safe_float(pos.get("size", 0))) > 0:
+                            fill_info = {
+                                "filled_qty": abs(safe_float(pos.get("size", 0))),
+                                "avg_fill_price": safe_float(
+                                    pos.get("entryPrice")
+                                    or pos.get("entry_price")
+                                    or pos.get("open_price"),
+                                    0.0,
+                                ),
+                                "status": "FILLED",
+                                "position": pos,
+                            }
+                            return True, fill_info, current_order_id
+
+                        success, new_order_id = await self.x10.open_live_position(
+                            symbol=symbol,
+                            side=side,
+                            notional_usd=0,
+                            amount=size_coins,
+                            post_only=True,
+                            reduce_only=False,
+                        )
+
+                        if not success or not new_order_id:
+                            return (
+                                False,
+                                {"status": "REPRICE_FAILED", "filled_qty": 0, "avg_fill_price": 0},
+                                current_order_id,
+                            )
+
+                        current_order_id = new_order_id
+                        last_price = best_price
+
+            remaining = max_wait_seconds - (time.monotonic() - start_time)
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(max(reprice_interval, 0.2), remaining))
+
+        return False, {"status": "TIMEOUT", "filled_qty": 0, "avg_fill_price": 0}, current_order_id
 
     async def _execute_x10_maker_with_escalation(
         self,

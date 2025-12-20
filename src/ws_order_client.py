@@ -428,7 +428,7 @@ class WebSocketOrderClient:
         }
         
         # Create pending request
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         future = loop.create_future()
         timeout_task = asyncio.create_task(self._request_timeout(req_id))
         
@@ -489,7 +489,7 @@ class WebSocketOrderClient:
                 tx_info_objs.append(ti)
 
         async def _send_batch(message: dict, req_id: str, fmt: str) -> List[WsTransaction]:
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             future = loop.create_future()
             timeout_task = asyncio.create_task(self._request_timeout(req_id))
             self._pending_requests[req_id] = PendingRequest(

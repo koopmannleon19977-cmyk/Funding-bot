@@ -81,7 +81,8 @@ class LighterBatchManager:
             
             # Using specific TX_TYPE constant for CREATE_ORDER
             # Safer to fetch from signer instance if available
-            tx_type = getattr(signer, 'TX_TYPE_CREATE_ORDER', 1) # Default to 1 if missing
+            # Use official TX_TYPE_CREATE_ORDER = 14 as safe fallback
+            tx_type = getattr(signer, 'TX_TYPE_CREATE_ORDER', 14)
             
             # Sign the transaction (Sync operation usually)
             # signer.sign_create_order returns the JSON string needed for sendTxBatch
@@ -115,7 +116,8 @@ class LighterBatchManager:
             if not signer:
                 return False
                 
-            tx_type = getattr(signer, 'TX_TYPE_CANCEL_ORDER', 4) # Default to 4 (verify)
+            # Use official TX_TYPE_CANCEL_ORDER = 15 as safe fallback
+            tx_type = getattr(signer, 'TX_TYPE_CANCEL_ORDER', 15)
             
             # Enforce types
             if 'market_index' in kwargs: kwargs['market_index'] = int(kwargs['market_index'])

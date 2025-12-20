@@ -1913,7 +1913,8 @@ class WebSocketManager:
             # Funding rate
             funding_rate = stats.get("current_funding_rate") or stats.get("funding_rate")
             if funding_rate:
-                self.lighter_adapter._funding_cache[symbol] = float(funding_rate) / 100
+                # Lighter WS funding rates are already decimals (per API examples).
+                self.lighter_adapter._funding_cache[symbol] = float(funding_rate)
                 self.lighter_adapter._funding_cache_time[symbol] = time.time()
             
             # Open interest

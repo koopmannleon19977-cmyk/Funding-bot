@@ -21,10 +21,12 @@ class AdaptiveThresholdManager:
 
     def __init__(self, window_size: int = 100):
         self.rate_history = deque(maxlen=window_size)
-        self.current_threshold = getattr(config, 'MIN_APY_FILTER', 0.10)
+        # TESTING: Hardcoded fallback auf 0.001 (extrem niedrig!)
+        self.current_threshold = getattr(config, 'MIN_APY_FILTER', 0.001)
         self.last_update = 0
         self.update_interval = getattr(config, 'THRESHOLD_UPDATE_INTERVAL', 300)
-        self.min_limit = getattr(config, 'MIN_APY_FALLBACK', 0.05)
+        # TESTING: Hardcoded fallback auf 0.0001 (extrem niedrig!)
+        self.min_limit = getattr(config, 'MIN_APY_FALLBACK', 0.0001)
 
         # Known rebate/high-liquidity symbols (can be overridden by config)
         self.rebate_pairs = set(getattr(config, 'REBATE_PAIRS', {"BTC-USD", "ETH-USD", "SOL-USD", "ARB-USD"}))

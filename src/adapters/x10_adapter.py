@@ -1349,8 +1349,9 @@ class X10Adapter(BaseAdapter):
                 # Get tick_size for price adjustment
                 tick_size = safe_decimal(getattr(market.trading_config, "min_price_change", "0.01"))
                 
-                if side == "BUY" and bids and len(bids) > 0:
-                    # For POST_ONLY BUY: Place ONE TICK BELOW best bid to ensure Maker fill
+                best_bid = Decimal(0)
+                best_ask = Decimal(0)
+                if bids and len(bids) > 0:
                     bid_data = bids[0]
                     if isinstance(bid_data, (list, tuple)) and len(bid_data) > 0:
                         best_bid = safe_decimal(bid_data[0])
@@ -1358,15 +1359,7 @@ class X10Adapter(BaseAdapter):
                         best_bid = safe_decimal(bid_data.get("p", bid_data.get("price", 0)))
                     else:
                         best_bid = safe_decimal(bid_data) if isinstance(bid_data, (int, float, str)) else Decimal(0)
-                    
-                    if best_bid > 0:
-                        # Place ONE TICK BELOW best bid - ensures Maker fill (or doesn't fill immediately)
-                        raw_price = best_bid - tick_size
-                        if raw_price <= 0:
-                            raw_price = best_bid  # Fallback if tick_size too large
-                        logger.debug(f"[X10 POST_ONLY BUY] {symbol}: Using orderbook bid=${best_bid} - 1 tick = ${raw_price} for POST_ONLY limit order (ensures Maker)")
-                elif side == "SELL" and asks and len(asks) > 0:
-                    # For POST_ONLY SELL: Place ONE TICK ABOVE best ask to ensure Maker fill
+                if asks and len(asks) > 0:
                     ask_data = asks[0]
                     if isinstance(ask_data, (list, tuple)) and len(ask_data) > 0:
                         best_ask = safe_decimal(ask_data[0])
@@ -1374,11 +1367,25 @@ class X10Adapter(BaseAdapter):
                         best_ask = safe_decimal(ask_data.get("p", ask_data.get("price", 0)))
                     else:
                         best_ask = safe_decimal(ask_data) if isinstance(ask_data, (int, float, str)) else Decimal(0)
-                    
-                    if best_ask > 0:
-                        # Place ONE TICK ABOVE best ask - ensures Maker fill (or doesn't fill immediately)
+
+                if side == "BUY" and best_bid > 0:
+                    # For POST_ONLY BUY: Place at best bid to be top-of-book (stay Maker)
+                    raw_price = best_bid
+                    if best_ask > 0 and best_bid >= best_ask:
+                        raw_price = best_bid - tick_size
+                        if raw_price <= 0:
+                            raw_price = best_bid
+                        logger.debug(f"[X10 POST_ONLY BUY] {symbol}: Crossed book, using bid - 1 tick = ${raw_price} for POST_ONLY limit order")
+                    else:
+                        logger.debug(f"[X10 POST_ONLY BUY] {symbol}: Using orderbook bid=${best_bid} for POST_ONLY limit order")
+                elif side == "SELL" and best_ask > 0:
+                    # For POST_ONLY SELL: Place at best ask to be top-of-book (stay Maker)
+                    raw_price = best_ask
+                    if best_bid > 0 and best_ask <= best_bid:
                         raw_price = best_ask + tick_size
-                        logger.debug(f"[X10 POST_ONLY SELL] {symbol}: Using orderbook ask=${best_ask} + 1 tick = ${raw_price} for POST_ONLY limit order (ensures Maker)")
+                        logger.debug(f"[X10 POST_ONLY SELL] {symbol}: Crossed book, using ask + 1 tick = ${raw_price} for POST_ONLY limit order")
+                    else:
+                        logger.debug(f"[X10 POST_ONLY SELL] {symbol}: Using orderbook ask=${best_ask} for POST_ONLY limit order")
             except Exception as e:
                 logger.debug(f"[X10 POST_ONLY] {symbol}: Failed to get orderbook prices: {e}, falling back to mark price")
 

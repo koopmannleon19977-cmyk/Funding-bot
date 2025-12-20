@@ -22,6 +22,7 @@ from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
 from src.volatility_monitor import get_volatility_monitor
 from src.pnl_utils import compute_hedge_pnl, _side_sign
+from src.state_manager import TradeStatus
 
 logger = logging.getLogger(__name__)
 
