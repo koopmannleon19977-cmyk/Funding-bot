@@ -66,12 +66,9 @@ async def batch_create_limit_order(
                 # ORDER_TYPE_LIMIT is usually 0
                 order_type_limit = getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)
                 
-                # TIF: Default to GTT per SDK constants
-                tif = getattr(
-                    SignerClient,
-                    'ORDER_TIME_IN_FORCE_GOOD_TILL_TIME',
-                    getattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC', 1),
-                )
+                # TIF: Default GTC unless specified (TODO: make params)
+                # For now using GTC
+                tif = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC', 0)
                 
                 success = await self.batch_manager.add_create_order(
                     market_index=int(market_id),

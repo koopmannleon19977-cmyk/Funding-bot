@@ -1,34 +1,17 @@
-# src/validation/__init__.py
-"""
-Validation module for trade execution safety checks.
-
-This module provides:
-- Orderbook validation for Maker orders
-- Depth and spread checks
-- Staleness detection
-- Exchange-specific validation profiles
-"""
-
-from src.validation.orderbook_validator import (
+# Compatibility shim - This package has been moved to domain/validation/
+# Import from new location for better organization
+from src.domain.validation import (
     OrderbookValidator,
     OrderbookValidationResult,
     OrderbookQuality,
-    OrderbookDepthLevel,
     ExchangeProfile,
-    ValidationProfile,
-    VALIDATION_PROFILES,
     get_orderbook_validator,
-    validate_orderbook_for_maker,
 )
 
 __all__ = [
-    "OrderbookValidator",
-    "OrderbookValidationResult",
-    "OrderbookQuality",
-    "OrderbookDepthLevel",
-    "ExchangeProfile",
-    "ValidationProfile",
-    "VALIDATION_PROFILES",
-    "get_orderbook_validator",
-    "validate_orderbook_for_maker",
+    'OrderbookValidator',
+    'OrderbookValidationResult',
+    'OrderbookQuality',
+    'ExchangeProfile',
+    'get_orderbook_validator',
 ]

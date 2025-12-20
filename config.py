@@ -32,7 +32,7 @@ load_dotenv()
 # - Weniger Trades = Qualität > Quantität
 # ═══════════════════════════════════════════════════════════════════════════════
 DESIRED_NOTIONAL_USD = 150.0     # ERHÖHT: $150 pro Trade (vorher $80)
-MAX_OPEN_TRADES = 4               # REDUZIERT: Qualität > Quantität (vorher 4)
+MAX_OPEN_TRADES = 2               # REDUZIERT: Qualität > Quantität (vorher 4)
 LEVERAGE_MULTIPLIER = 5.0         # 5x Limit is plenty for 2x Real Leverage
 MAX_KRAKEN_TIME_DRIFT_SEC = 0.250
 
@@ -70,14 +70,11 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # APY muss hoch genug sein um Fees + Slippage zu kompensieren!
 # Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
 # ═════════════════════════════════════════════════════════════════════════════
-MIN_APY_FILTER = 0.01       # TESTING: 1% APY Minimum (extrem niedrig für Testing!)
-MIN_APY_FALLBACK = 0.02     # TESTING: 2% Fallback
-MIN_PROFIT_EXIT_USD = 0.01  # TESTING: $0.01 Minimum (extrem niedrig!)
-MIN_EXPECTED_PROFIT_ENTRY_USD = 0.01  # TESTING: $0.01 Entry-EV Gate (extrem niedrig!)
-OPPORTUNITY_LOG_REJECTS = True        # Log per-symbol rejection reasons
-OPPORTUNITY_LOG_REJECTS_MAX = 200     # Max reject logs per cycle
-OPPORTUNITY_LOG_FILTER_SUMMARY_ALWAYS = True  # Always log filter summary
-MIN_MAINTENANCE_APY = 0.01  # TESTING: 1% (extrem niedrig!)
+MIN_APY_FILTER = 0.20       # GESENKT für Testing: 20% APY Minimum (war 35%)
+MIN_APY_FALLBACK = 0.25     # ERHÖHT: 25% Fallback (vorher 15%)
+MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
+MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
+MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
 MAX_HOLD_HOURS = 72.0       # ERHÖHT: 72h max (vorher 48h) - mehr Zeit für Funding
 EXIT_SLIPPAGE_BUFFER_PCT = 0.0015 # 0.15% Buffer for Bid/Ask Spread at Exit (erhöht für Sicherheit)
 EXIT_COST_SAFETY_MARGIN = 1.1      # Safety multiplier on estimated exit costs
@@ -85,7 +82,6 @@ EXIT_COST_SAFETY_MARGIN = 1.1      # Safety multiplier on estimated exit costs
 # Entry-Basis Engine (Quantzilla/DegeniusQ alignment)
 REQUIRE_FAVORABLE_BASIS_ENTRY = True  # Reject negative entry basis for the hedge shape
 ENTRY_EVAL_HOURS = 2.0  # Evaluate EV at realistic hold window (default: 2h)
-ENTRY_STRATEGY_MODE = "X10_MAKER_LIGHTER_TAKER"  # Reversed strategy: X10 maker entry, Lighter taker hedge
 
 # Basis Exit Engine (DegeniusQ: "wait for spread to close")
 # COMPLETELY DISABLED: Bei gehedgten Trades macht Basis-Stop-Loss keinen Sinn!
@@ -113,7 +109,7 @@ PRICE_UPDATE_AGGRESSION = 1.0                # How many ticks to jump per update
 # Du MUSST mindestens 2h halten um 2 Funding Payments zu bekommen!
 # ═════════════════════════════════════════════════════════════════════════════
 MINIMUM_HOLD_SECONDS = 7200       # NEU: 2 Stunden Mindest-Haltezeit!
-MIN_FUNDING_BEFORE_EXIT_USD = 0.001  # TESTING: $0.001 Funding (extrem niedrig!)
+MIN_FUNDING_BEFORE_EXIT_USD = 0.03  # NEU: Mindestens $0.03 Funding gesammelt
 
 # ═════════════════════════════════════════════════════════════════════════════
 # FEATURE #2: Funding-Flip Auto-Exit
@@ -128,8 +124,8 @@ FUNDING_FLIP_HOURS_THRESHOLD = 4.0   # NEU: Max 4h zahlen Funding bevor Exit
 # Beispiel: Du hattest 2-3€ Profit durch Preisdifferenz bei EDEN-USD
 # ═════════════════════════════════════════════════════════════════════════════
 PRICE_DIVERGENCE_EXIT_ENABLED = True   # NEU: Exit bei Preisdifferenz-Profit
-MIN_PRICE_DIVERGENCE_PROFIT_USD = 0.10 # TESTING: $0.10 Profit (sehr niedrig)
-PRICE_DIVERGENCE_EXIT_PCT = 0.001      # TESTING: 0.1% Preisdifferenz = Exit Signal
+MIN_PRICE_DIVERGENCE_PROFIT_USD = 0.50 # NEU: Mindestens $0.50 Profit durch Preisdifferenz
+PRICE_DIVERGENCE_EXIT_PCT = 0.005      # NEU: 0.5% Preisdifferenz = Exit Signal
 
 # ═════════════════════════════════════════════════════════════════════════════
 # ADVANCED EXIT OPTIMIZATION (16.12.2025)
@@ -145,7 +141,7 @@ MAKER_EXIT_ENABLED = False             # NEU: Versuche Maker-Exit (0% Fee auf Li
 # PROFIT PROTECTION (Anti-Loss Safety)
 # ═════════════════════════════════════════════════════════════════════════════
 REQUIRE_POSITIVE_EXPECTED_PNL = True   # NEU: Nur Exit wenn PnL nach Kosten positiv!
-MIN_NET_PROFIT_EXIT_USD = 0.01         # TESTING: $0.01 NET Profit (extrem niedrig!)
+MIN_NET_PROFIT_EXIT_USD = 0.05         # NEU: Mindestens $0.05 NET Profit nach allen Fees
 
 # ═════════════════════════════════════════════════════════════════════════════
 # STRATEGY REVERSAL (19.12.2025) - X10 MAKER → Lighter MARKET
@@ -163,9 +159,9 @@ AUTO_CLOSE_BAD_ENTRIES = False          # Auto-close trades with bad entry sprea
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.010  # TESTING: 1.0% (extrem relaxed für Testing!)
-MAX_PRICE_IMPACT_PCT = 5.0         # TESTING: 5% (extrem relaxed)
-MAX_BREAKEVEN_HOURS = 72.0         # TESTING: 72h (3 Tage - sehr relaxed)
+MAX_SPREAD_FILTER_PERCENT = 0.002  # VERSCHÄRFT: 0.2% (vorher 0.3%) - weniger Slippage!
+MAX_PRICE_IMPACT_PCT = 0.5         # H7: Max erlaubte Slippage aus Price Impact Simulation (0.5%)
+MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein (vorher 12h)
 
 # H9: Spread Protection (Pre-Hedge)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -213,10 +209,6 @@ X10_MAKER_ESCALATION_ENABLED = True           # Eskalation zu Taker nach Timeout
 X10_MAKER_MIN_APY_NO_ESCALATION = 0.0         # DISABLED: Immer eskalieren (Hedge > Fees)
 X10_MAKER_SHUTDOWN_TIMEOUT_SECONDS = 2.0      # SPEED: 2s bei Shutdown
 X10_MAKER_FILL_CHECK_INTERVAL = 0.3           # SPEED: 300ms zwischen Checks
-X10_MAKER_REPRICE_ENABLED = True              # Reprice X10 maker orders to stay at top-of-book
-X10_MAKER_REPRICE_INTERVAL_SECONDS = 2.0      # Check/reprice interval
-X10_MAKER_REPRICE_MIN_TICKS = 1               # Reprice if best price moves by >= N ticks
-X10_MAKER_REPRICE_MAX_REJECTS = 2             # Retry on POST_ONLY_FAILED rejections
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # VOLATILITY PANIC EXIT (2025-12-17 Audit Fix)
@@ -234,48 +226,15 @@ VOLATILITY_HARD_CAP_THRESHOLD = 50.0         # 50% = Absolutes Max (keine Entrie
 # - Low Liquidity: Zu wenig Tiefe für zuverlässige Fills
 # ═══════════════════════════════════════════════════════════════════════════════
 BLACKLIST_SYMBOLS = {
-    # ═══════════════════════════════════════════════════════════════════
-    # TRADFI ASSETS (Commodities, Forex, Indices) - KOMPLETT BLOCKIERT
-    # ═══════════════════════════════════════════════════════════════════
-    # Grund: Market disabled, schlechte Liquidität, untypische Trading-Zeiten
-
-    # Precious Metals (Edelmetalle)
-    "XAU-USD",      # Gold
-    "XAG-USD",      # Silver
-    "PAXG-USD",     # Paxos Gold
-
-    # Energy (Energie-Rohstoffe)
-    "WTI-USD",      # Crude Oil
-    "XBR-USD",      # Brent Oil
-    "CL-USD",       # Crude Oil (alternative ticker)
-    "NG-USD",       # Natural Gas
-
-    # Forex Pairs (Währungspaare)
-    "EURUSD-USD", "EUR-USD",
-    "GBPUSD-USD", "GBP-USD",
-    "USDJPY-USD", "JPY-USD",
-    "USDCHF-USD", "CHF-USD",
-    "USDCAD-USD", "CAD-USD",
-    "AUDUSD-USD", "AUD-USD",
-    "NZDUSD-USD", "NZD-USD",
-    "USDCNY-USD", "CNY-USD",
-    "USDTRY-USD", "TRY-USD",
-
-    # Stock Indices (Aktienindizes)
-    "SPX-USD",      # S&P 500
-    "NDX-USD",      # Nasdaq 100
-    "US30-USD",     # Dow Jones
-    "DJI-USD",      # Dow Jones Industrial
-    "NAS-USD",      # Nasdaq
-    "FTSE-USD",     # FTSE 100
-    "DAX-USD",      # DAX 40
-
-    # ═══════════════════════════════════════════════════════════════════
-    # PROBLEM COINS (Known Issues)
-    # ═══════════════════════════════════════════════════════════════════
-    "MEGA-USD",     # Ghost Positions
-    "S-USD",        # Invalid Margin Mode
-    "LINEA-USD",    # Excessive Lag
+    # Invalid Margin Mode on Lighter
+    "XAU-USD", "XAG-USD", "USDJPY-USD",
+    # Ghost Position / Excessive Lag
+    "MEGA-USD",
+    # Frequent failures / Low liquidity
+    "S-USD",
+    "LINEA-USD",  # Sehr kleine Fills in Trade Export (0.007628) = zu niedrige Liquidität
+    # High Volatility Memes (optional - können profitabel sein, aber riskant)
+    # "HYPE-USD", "MEME-USD", "PEPE-USD", "DOGE-USD",
 }
 
 # ==============================================================================
@@ -554,7 +513,7 @@ SYNC_CHECK_INTERVAL = 60        # Sync check every minute
 HEALTH_CHECK_INTERVAL = 60      # Health report every minute
 
 # Trading Thresholds (Aliases/New)
-MIN_PROFIT_THRESHOLD = 0.001    # TESTING: $0.001 Minimum profit (extrem niedrig!)
+MIN_PROFIT_THRESHOLD = 0.02     # Minimum profit in USD to hold/close
 SAFETY_MARGIN = 1.05            # Safety margin for calculations (5% buffer)
 
 # ==============================================================================

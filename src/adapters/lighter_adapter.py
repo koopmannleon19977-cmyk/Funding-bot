@@ -134,6 +134,7 @@ from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_
 from src.adapters.lighter_client_fix import SaferSignerClient
 from src.batch_manager import LighterBatchManager
 from src.ws_order_client import WebSocketOrderClient, WsOrderConfig
+from .lighter_stream_client import LighterStreamClient
 
 
 logger = logging.getLogger(__name__)
@@ -217,7 +218,6 @@ class LighterAdapter(BaseAdapter):
         self._nonce_pool: List[int] = []
         self._nonce_pool_fetch_time: float = 0.0
         self._nonce_refill_in_progress: bool = False
-        self._nonce_lock = asyncio.Lock()
         # Legacy compatibility (for _invalidate_nonce_cache)
         self._cached_nonce: Optional[int] = None
         self._nonce_fetch_time: float = 0.0
@@ -271,6 +271,21 @@ class LighterAdapter(BaseAdapter):
             ws_order_url = "wss://testnet.zklighter.elliot.ai/stream"
         self.ws_order_client = WebSocketOrderClient(WsOrderConfig(url=ws_order_url))
         self._ws_order_enabled = getattr(config, "LIGHTER_WS_ORDERS", True)
+        
+        # ═══════════════════════════════════════════════════════════════
+        # Lighter Stream Client for real-time updates
+        # ═══════════════════════════════════════════════════════════════
+        self._stream_client: Optional[LighterStreamClient] = None
+        self._stream_client_task: Optional[asyncio.Task] = None
+        self._stream_metrics: Dict[str, Any] = {
+            'orderbook_updates': 0,
+            'trade_updates': 0,
+            'funding_updates': 0,
+            'last_update_time': 0.0,
+            'connection_health': 'unknown',
+            'reconnect_count': 0
+        }
+        self._stream_health_check_task: Optional[asyncio.Task] = None
 
 
     async def _safe_acquire_rate_limit(self) -> bool:
@@ -326,34 +341,28 @@ class LighterAdapter(BaseAdapter):
             self._nonce_pool: List[int] = []
             self._nonce_pool_fetch_time: float = 0.0
             self._nonce_refill_in_progress: bool = False
-        if not hasattr(self, '_nonce_lock'):
-            self._nonce_lock = asyncio.Lock()
         
         # Check if pool is empty, expired, or force refresh
-        async with self._nonce_lock:
-            pool_age = now - self._nonce_pool_fetch_time
-            pool_expired = pool_age > self.NONCE_MAX_CACHE_AGE
-            needs_refill = force_refresh or len(self._nonce_pool) == 0 or pool_expired
+        pool_age = now - self._nonce_pool_fetch_time
+        pool_expired = pool_age > self.NONCE_MAX_CACHE_AGE
         
-        if needs_refill:
+        if force_refresh or len(self._nonce_pool) == 0 or pool_expired:
             await self._refill_nonce_pool()
         
         # Get nonce from pool
-        async with self._nonce_lock:
-            if len(self._nonce_pool) == 0:
-                logger.error("ERR Nonce pool empty after refill attempt")
-                return None
-            nonce_to_use = self._nonce_pool.pop(0)
+        if len(self._nonce_pool) == 0:
+            logger.error("❌ Nonce pool empty after refill attempt")
+            return None
+        
+        nonce_to_use = self._nonce_pool.pop(0)
         
         # Auto-refill if pool is getting low (async, don't wait)
-        async with self._nonce_lock:
-            pool_low = len(self._nonce_pool) <= self.NONCE_REFILL_THRESHOLD
-        if pool_low and not self._nonce_refill_in_progress:
+        if len(self._nonce_pool) <= self.NONCE_REFILL_THRESHOLD and not self._nonce_refill_in_progress:
             asyncio.create_task(self._refill_nonce_pool_async())
         
-        logger.debug(f"Using nonce {nonce_to_use} (pool: {len(self._nonce_pool)} remaining)")
+        logger.debug(f"⚡ Using nonce {nonce_to_use} (pool: {len(self._nonce_pool)} remaining)")
         return nonce_to_use
-
+    
     async def _refill_nonce_pool(self) -> None:
         """
         Refill the nonce pool with a batch of nonces from the API.
@@ -364,16 +373,13 @@ class LighterAdapter(BaseAdapter):
             while self._nonce_refill_in_progress:
                 await asyncio.sleep(0.05)
             return
-
+        
         self._nonce_refill_in_progress = True
         try:
-            if not hasattr(self, '_nonce_lock'):
-                self._nonce_lock = asyncio.Lock()
-            async with self._nonce_lock:
-                await self._do_refill_nonce_pool()
+            await self._do_refill_nonce_pool()
         finally:
             self._nonce_refill_in_progress = False
-
+    
     async def _refill_nonce_pool_async(self) -> None:
         """Async wrapper for background refill (fire-and-forget)."""
         try:
@@ -441,7 +447,7 @@ class LighterAdapter(BaseAdapter):
             nonces.append(nonce)
         return nonces
     
-    async def acknowledge_failure(self) -> None:
+    def acknowledge_failure(self) -> None:
         """
         Acknowledge a transaction failure and rollback nonce.
         Pattern from TS SDK nonce-cache.ts:acknowledgeFailure()
@@ -449,17 +455,14 @@ class LighterAdapter(BaseAdapter):
         This prevents nonce gaps when transactions fail.
         Call this when a Lighter TX fails after getting a nonce.
         """
-        if not hasattr(self, '_nonce_lock'):
-            self._nonce_lock = asyncio.Lock()
-        async with self._nonce_lock:
-            if hasattr(self, '_nonce_pool') and len(self._nonce_pool) > 0:
-                # Get the last used nonce (it's one before the first in pool)
-                last_used = self._nonce_pool[0] - 1 if self._nonce_pool else None
-                if last_used is not None:
-                    # Rollback by adding the failed nonce back to the front
-                    self._nonce_pool.insert(0, last_used)
-                    logger.debug(f"Nonce {last_used} rolled back after failure (pool size: {len(self._nonce_pool)})")
-
+        if hasattr(self, '_nonce_pool') and len(self._nonce_pool) > 0:
+            # Get the last used nonce (it's one before the first in pool)
+            last_used = self._nonce_pool[0] - 1 if self._nonce_pool else None
+            if last_used is not None:
+                # Rollback by adding the failed nonce back to the front
+                self._nonce_pool.insert(0, last_used)
+                logger.debug(f"🔄 Nonce {last_used} rolled back after failure (pool size: {len(self._nonce_pool)})")
+    
     async def hard_refresh_nonce(self) -> None:
         """
         Force a complete nonce pool refresh.
@@ -469,16 +472,13 @@ class LighterAdapter(BaseAdapter):
         """
         # Clear current pool
         if hasattr(self, '_nonce_pool'):
-            if not hasattr(self, '_nonce_lock'):
-                self._nonce_lock = asyncio.Lock()
-            async with self._nonce_lock:
-                self._nonce_pool = []
-                self._nonce_pool_fetch_time = 0.0
+            self._nonce_pool = []
+            self._nonce_pool_fetch_time = 0.0
         
         # Fetch fresh nonces
         await self._refill_nonce_pool()
-        logger.info("Nonce pool hard-refreshed after invalid nonce error")
-
+        logger.info("🔄 Nonce pool hard-refreshed after invalid nonce error")
+    
     def _invalidate_nonce_cache(self):
         """Invalidate nonce cache (call on nonce-related errors)."""
         if hasattr(self, '_nonce_pool'):
@@ -1721,40 +1721,14 @@ class LighterAdapter(BaseAdapter):
                     elif s_norm:
                         status_str = s_norm.upper()
                     
-                def _first_value(data: dict, keys: list, default=0.0) -> float:
-                    for key in keys:
-                        if key in data and data.get(key) is not None:
-                            return safe_float(data.get(key), default)
-                    return default
-
-                filled = _first_value(
-                    target_order,
-                    [
-                        "filled_size",
-                        "filled_base_amount",
-                        "filled_amount",
-                        "executedQty",
-                        "total_executed_size",
-                    ],
-                    0.0,
-                )
-                remaining = _first_value(
-                    target_order,
-                    [
-                        "remaining_size",
-                        "remaining_base_amount",
-                    ],
-                    0.0,
-                )
-
                 return {
                     "id": str(target_order.get('id', '')),
                     "status": status_str,
-                    "filledAmount": filled,
-                    "executedQty": filled,
-                    "remaining_size": remaining,
+                    "filledAmount": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
+                    "executedQty": safe_float(target_order.get('executedQty', target_order.get('filled_amount', target_order.get('total_executed_size', 0)))),
+                    "remaining_size": safe_float(target_order.get('remaining_size', 0)),
                     "price": safe_float(target_order.get('price', 0)),
-                    # Add average fill price for entry tracking
+                    # FIX (Phantom Profit): Add average fill price for entry tracking
                     "avg_price": safe_float(target_order.get('avg_price', target_order.get('average_price', target_order.get('price', 0)))),
                     "average_price": safe_float(target_order.get('avg_price', target_order.get('average_price', target_order.get('price', 0)))),
                 }
@@ -2144,6 +2118,344 @@ class LighterAdapter(BaseAdapter):
         while True:
             msg = await self._ws_message_queue. get()
             yield msg
+    
+    # ═══════════════════════════════════════════════════════════════
+    # Lighter Stream Client Methods (Real-time WebSocket Updates)
+    # ═══════════════════════════════════════════════════════════════
+    
+    async def initialize_stream_client(self, symbols: Optional[List[str]] = None) -> None:
+        """
+        Initialize and start the Lighter Stream Client for real-time updates.
+        
+        Subscribes to:
+        - Orderbooks (for specified symbols, better price data)
+        - Public trades (for specified symbols, trade analysis)
+        - Funding rates (if available)
+        
+        Args:
+            symbols: List of symbols to subscribe to for orderbooks and trades.
+                    If None, uses all common symbols from market_info.
+        """
+        stream_url = self._ws_url
+        if not stream_url:
+            logger.warning("⚠️ [Lighter Stream] Cannot initialize: Missing stream URL")
+            return
+        
+        # Determine symbols for orderbook/trade streams
+        if symbols is None:
+            symbols = list(self.market_info.keys())
+        
+        # Limit to top symbols to avoid too many connections
+        priority_symbols = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'TAO-USD', 'CRV-USD']
+        stream_symbols = [s for s in priority_symbols if s in symbols]
+        stream_symbols.extend([s for s in symbols if s not in stream_symbols][:10])  # Max 15 symbols
+        
+        try:
+            self._stream_client = LighterStreamClient(stream_url=stream_url)
+            
+            # Subscribe to orderbooks for key symbols
+            logger.info(f"📊 [Lighter Stream] Subscribing to orderbooks for {len(stream_symbols[:10])} symbols...")
+            for symbol in stream_symbols[:10]:  # Limit to 10
+                market_id = self.market_info.get(symbol, {}).get('i')
+                if market_id is not None:
+                    # Create closure to properly capture symbol and market_id
+                    def make_orderbook_handler(sym, m_id):
+                        async def handler(data):
+                            await self._handle_orderbook_stream_message(data, sym, m_id)
+                        return handler
+                    
+                    await self._stream_client.subscribe_to_orderbooks(
+                        message_handler=make_orderbook_handler(symbol, market_id),
+                        market_id=market_id
+                    )
+            
+            # Subscribe to public trades for key symbols
+            logger.info(f"📈 [Lighter Stream] Subscribing to public trades for {len(stream_symbols[:10])} symbols...")
+            for symbol in stream_symbols[:10]:  # Limit to 10
+                market_id = self.market_info.get(symbol, {}).get('i')
+                if market_id is not None:
+                    # Create closure to properly capture symbol and market_id
+                    def make_trade_handler(sym, m_id):
+                        async def handler(data):
+                            await self._handle_trade_stream_message(data, sym, m_id)
+                        return handler
+                    
+                    await self._stream_client.subscribe_to_trades(
+                        message_handler=make_trade_handler(symbol, market_id),
+                        market_id=market_id
+                    )
+            
+            # Start all streams
+            await self._stream_client.start()
+            
+            # Initialize metrics
+            self._stream_metrics['start_time'] = time.time()
+            self._stream_metrics['connection_health'] = 'healthy'
+            
+            # Start health check monitoring
+            self._stream_health_check_task = asyncio.create_task(self._stream_health_check_loop())
+            
+            logger.info(f"✅ [Lighter Stream Client] Initialized and started ({len(stream_symbols[:10])} symbols)")
+            
+        except Exception as e:
+            logger.error(f"❌ [Lighter Stream Client] Initialization failed: {e}")
+            self._stream_client = None
+    
+    async def stop_stream_client(self) -> None:
+        """Stop the Lighter Stream Client"""
+        # Stop health check task
+        if self._stream_health_check_task:
+            self._stream_health_check_task.cancel()
+            try:
+                await self._stream_health_check_task
+            except asyncio.CancelledError:
+                pass
+            self._stream_health_check_task = None
+        
+        if self._stream_client:
+            try:
+                await self._stream_client.stop()
+                logger.info("🛑 [Lighter Stream Client] Stopped")
+            except Exception as e:
+                logger.error(f"❌ [Lighter Stream Client] Stop error: {e}")
+            finally:
+                self._stream_client = None
+    
+    async def _handle_orderbook_stream_message(self, data: Dict[str, Any], symbol: str, market_id: int) -> None:
+        """
+        Handle orderbook updates from stream.
+        
+        Updates orderbook_cache with real-time orderbook data.
+        """
+        try:
+            self._stream_metrics['orderbook_updates'] += 1
+            self._stream_metrics['last_update_time'] = time.time()
+            
+            # Extract bids and asks
+            bids = data.get("bids", [])
+            asks = data.get("asks", [])
+            msg_type = data.get("type", "")
+            
+            # Parse bids and asks
+            parsed_bids = []
+            for b in bids:
+                try:
+                    if isinstance(b, dict):
+                        price = safe_float(b.get("price"), 0.0)
+                        size = safe_float(b.get("amount") or b.get("remaining_base_amount"), 0.0)
+                    else:
+                        price = safe_float(b[0], 0.0)
+                        size = safe_float(b[1], 0.0)
+                    
+                    if price > 0 and size > 0:
+                        parsed_bids.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            parsed_asks = []
+            for a in asks:
+                try:
+                    if isinstance(a, dict):
+                        price = safe_float(a.get("price"), 0.0)
+                        size = safe_float(a.get("amount") or a.get("remaining_base_amount"), 0.0)
+                    else:
+                        price = safe_float(a[0], 0.0)
+                        size = safe_float(a[1], 0.0)
+                    
+                    if price > 0 and size > 0:
+                        parsed_asks.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            # Sort
+            parsed_bids.sort(key=lambda x: x[0], reverse=True)
+            parsed_asks.sort(key=lambda x: x[0])
+            
+            # ═══════════════════════════════════════════════════════════════
+            # NOTE: handle_orderbook_snapshot is DISABLED for Lighter due to
+            # race conditions. We use streams only for price updates.
+            # ═══════════════════════════════════════════════════════════════
+            
+            # Update mark price from best bid/ask (primary use case)
+            if parsed_bids and parsed_asks:
+                try:
+                    best_bid = parsed_bids[0][0]
+                    best_ask = parsed_asks[0][0]
+                    if best_bid > 0 and best_ask > 0:
+                        mid_price = (best_bid + best_ask) / 2.0
+                        self._price_cache[symbol] = mid_price
+                        self._price_cache_time[symbol] = time.time()
+                        self.price_cache[symbol] = mid_price
+                        
+                        # Log occasional updates (1% sampling)
+                        if random.random() < 0.01:
+                            logger.debug(f"📊 [Lighter Stream] Price update: {symbol} = ${mid_price:.2f} (from orderbook)")
+                except (ValueError, IndexError):
+                    pass
+            
+            # Note: We don't call handle_orderbook_snapshot() because it's disabled
+            # to prevent race conditions. Price updates are sufficient for our use case.
+                    
+        except Exception as e:
+            logger.error(f"[Lighter Stream] Error handling orderbook message for {symbol}: {e}")
+    
+    async def _handle_trade_stream_message(self, data: Dict[str, Any], symbol: str, market_id: int) -> None:
+        """
+        Handle public trade updates from stream.
+        
+        Useful for:
+        - Trade analysis
+        - Volume tracking
+        - Price discovery
+        """
+        try:
+            self._stream_metrics['trade_updates'] += 1
+            self._stream_metrics['last_update_time'] = time.time()
+            
+            # Extract trade data
+            # Lighter trade format may vary - handle multiple formats
+            price = safe_float(
+                data.get("price") or 
+                data.get("p") or 
+                data.get("execution_price") or 
+                data.get("exec_price"),
+                0.0
+            )
+            size = safe_float(
+                data.get("size") or 
+                data.get("q") or 
+                data.get("quantity") or 
+                data.get("amount") or
+                data.get("base_amount"),
+                0.0
+            )
+            side = data.get("side") or data.get("direction") or ""
+            timestamp = data.get("timestamp") or data.get("ts") or int(time.time() * 1000)
+            
+            if price > 0 and size > 0:
+                # Update price cache with latest trade price
+                self._price_cache[symbol] = price
+                self._price_cache_time[symbol] = time.time()
+                self.price_cache[symbol] = price
+                
+                # Store in trade cache for analysis
+                if symbol not in self._trade_cache:
+                    self._trade_cache[symbol] = []
+                
+                trade_entry = {
+                    'price': price,
+                    'size': size,
+                    'side': side,
+                    'timestamp': timestamp,
+                    'symbol': symbol
+                }
+                
+                self._trade_cache[symbol].append(trade_entry)
+                
+                # Keep only last 100 trades per symbol
+                if len(self._trade_cache[symbol]) > 100:
+                    self._trade_cache[symbol] = self._trade_cache[symbol][-100:]
+                
+                # Log occasional trades (1% sampling)
+                if random.random() < 0.01:
+                    logger.debug(f"📈 [Lighter Stream] Trade: {symbol} {side} {size:.6f} @ ${price:.2f}")
+            
+        except Exception as e:
+            logger.error(f"[Lighter Stream] Error handling trade message for {symbol}: {e}")
+    
+    async def _stream_health_check_loop(self) -> None:
+        """
+        Background task to monitor stream health and metrics.
+        
+        Checks:
+        - Connection status
+        - Message rates
+        - Last update times
+        - Reconnect counts
+        """
+        while self._stream_client is not None:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                
+                if not self._stream_client:
+                    break
+                
+                # Get connection metrics
+                client_metrics = self._stream_client.get_metrics()
+                is_connected = self._stream_client.is_connected()
+                
+                # Calculate message rates
+                time_since_start = time.time() - (self._stream_metrics.get('start_time', time.time()))
+                if time_since_start > 0:
+                    orderbook_rate = self._stream_metrics['orderbook_updates'] / time_since_start
+                    trade_rate = self._stream_metrics['trade_updates'] / time_since_start
+                    funding_rate = self._stream_metrics['funding_updates'] / time_since_start
+                else:
+                    orderbook_rate = trade_rate = funding_rate = 0.0
+                
+                # Check health
+                time_since_last_update = time.time() - self._stream_metrics.get('last_update_time', time.time())
+                
+                if not is_connected:
+                    health = 'disconnected'
+                elif time_since_last_update > 120:  # No updates for 2 minutes
+                    health = 'stale'
+                elif time_since_last_update > 60:  # No updates for 1 minute
+                    health = 'degraded'
+                else:
+                    health = 'healthy'
+                
+                self._stream_metrics['connection_health'] = health
+                self._stream_metrics['is_connected'] = is_connected
+                self._stream_metrics['message_rates'] = {
+                    'orderbook': orderbook_rate,
+                    'trade': trade_rate,
+                    'funding': funding_rate
+                }
+                self._stream_metrics['time_since_last_update'] = time_since_last_update
+                
+                # Log health status periodically
+                if random.random() < 0.1:  # 10% chance to log
+                    logger.info(
+                        f"📊 [Lighter Stream Health] Status: {health} | "
+                        f"Connected: {is_connected} | "
+                        f"Rates: OB={orderbook_rate:.1f}/min, T={trade_rate:.1f}/min, "
+                        f"F={funding_rate:.1f}/min | "
+                        f"Last update: {time_since_last_update:.1f}s ago"
+                    )
+                
+                # Warn if unhealthy
+                if health in ['stale', 'disconnected']:
+                    logger.warning(f"⚠️ [Lighter Stream] Health check: {health} (last update: {time_since_last_update:.1f}s ago)")
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"[Lighter Stream] Health check error: {e}")
+                await asyncio.sleep(30)
+    
+    def get_stream_metrics(self) -> Optional[Dict[str, Any]]:
+        """Get comprehensive stream metrics"""
+        if not self._stream_client:
+            return None
+        
+        client_metrics = self._stream_client.get_metrics()
+        
+        return {
+            **self._stream_metrics,
+            'client_metrics': client_metrics,
+            'uptime_seconds': time.time() - self._stream_metrics.get('start_time', time.time())
+        }
+    
+    def is_stream_connected(self) -> bool:
+        """Check if stream client is connected"""
+        if self._stream_client:
+            return self._stream_client.is_connected()
+        return False
+    
+    def get_stream_health(self) -> str:
+        """Get current stream health status"""
+        return self._stream_metrics.get('connection_health', 'unknown')
 
     async def _rest_price_poller(self, interval: float = 2.0):
         """REST-basiertes Preis-Polling als WebSocket-Ersatz"""
@@ -4296,34 +4608,27 @@ class LighterAdapter(BaseAdapter):
                             expiry = 0  # FOK also requires expiry=0
                         elif key == "GTC" and hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_GTC
-                    # ═══════════════════════════════════════════════════════════════
-                    # FIX (2025-12-20): CRITICAL - Auto-detect IOC for ALL post_only=False orders
-                    # Bug: Opening positions with post_only=False were using GTT (LIMIT) instead of IOC (MARKET)
-                    # Root Cause: Only reduce_only orders were getting IOC, opening orders stayed at default GTT
-                    # Solution: Set IOC for ANY order with post_only=False (MARKET orders)
-                    # ═══════════════════════════════════════════════════════════════
-                    elif not post_only:
+                    elif reduce_only and not post_only:
                         # ═══════════════════════════════════════════════════════════════
-                        # FIX #6: Lighter IOC Order TimeInForce - Use IOC for ALL MARKET orders (post_only=False)
+                        # FIX #6: Lighter IOC Order TimeInForce - Use IOC for reduce_only
                         # Priority: IMMEDIATE_OR_CANCEL first (most common in Lighter SDK)
-                        # Applies to: Opening positions (MARKET hedge) + Closing positions (reduce_only)
                         # ═══════════════════════════════════════════════════════════════
                         is_ioc = True
                         if hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
-                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = {tif} (post_only=False)")
+                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL = {tif} (reduce_only)")
                         elif hasattr(SignerClient, 'ORDER_TIME_IN_FORCE_IOC'):
                             tif = SignerClient.ORDER_TIME_IN_FORCE_IOC
-                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif} (post_only=False)")
+                            logger.debug(f"✅ [TIF] {symbol}: Set IOC via ORDER_TIME_IN_FORCE_IOC = {tif} (reduce_only)")
                         else:
                             # Fallback: IOC is typically 0 in most exchanges (including Lighter)
                             tif = 0
-                            logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE constants not found, using fallback tif=0 (post_only=False)")
+                            logger.warning(f"⚠️ [TIF] {symbol}: ORDER_TIME_IN_FORCE constants not found, using fallback tif=0 (reduce_only)")
                         # ═══════════════════════════════════════════════════════════════
-                        # FIX: IOC orders require expiry=0 (not 28-day expiry)
+                        # FIX: IOC orders (reduce_only) require expiry=0
                         # ═══════════════════════════════════════════════════════════════
                         expiry = 0
-                        logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for IOC order (post_only=False)")
+                        logger.debug(f"🔧 [TIF] {symbol}: Set expiry=0 for reduce_only IOC order")
                     
                     # ═══════════════════════════════════════════════════════════════
                     # FIX #6: Check if IOC was set (by comparing with known IOC values)
@@ -4459,7 +4764,7 @@ class LighterAdapter(BaseAdapter):
                                     logger.info(f"🔄 Triggering position sync for {symbol}...")
                                     
                                     # TS SDK Pattern: acknowledge_failure() on any TX error
-                                    await self.acknowledge_failure()
+                                    self.acknowledge_failure()
                                     
                                     # Return special status to signal caller that position doesn't exist
                                     # This allows the caller to clean up DB state
@@ -4476,7 +4781,7 @@ class LighterAdapter(BaseAdapter):
                                     await self.hard_refresh_nonce()
                                 else:
                                     # Other errors - just acknowledge failure to rollback the nonce
-                                    await self.acknowledge_failure()
+                                    self.acknowledge_failure()
                                     
                                 if "429" in err_str or "too many requests" in err_str:
                                     # Rate limit hit - the rate limiter will handle penalty
@@ -4610,12 +4915,9 @@ class LighterAdapter(BaseAdapter):
                 # ORDER_TYPE_LIMIT is usually 0
                 order_type_limit = getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)
                 
-                # TIF: Default to GTT per SDK constants
-                tif = getattr(
-                    SignerClient,
-                    'ORDER_TIME_IN_FORCE_GOOD_TILL_TIME',
-                    getattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC', 1),
-                )
+                # TIF: Default GTC unless specified (TODO: make params)
+                # For now using GTC
+                tif = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_GTC', 0)
                 
                 success = await self.batch_manager.add_create_order(
                     market_index=int(market_id),
@@ -5064,117 +5366,6 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Lighter Status Check Error {order_id}: {e}")
             return "UNKNOWN"
 
-    async def get_order_fill_price(self, order_id: str, symbol: str) -> Optional[float]:
-        """
-        Get the average fill price for an order by fetching its trade executions.
-
-        This is the OPTIMAL way to get fill price - trades are available immediately
-        after fill (no lag like position API), and contain exact execution prices.
-
-        OPTIMIZED (2025-12-20): Added retry logic for API lag (trades take 50-200ms to appear)
-
-        Args:
-            order_id: Lighter order ID (hex string)
-            symbol: Symbol (e.g. "APT-USD")
-
-        Returns:
-            Average fill price, or None if not found
-        """
-        try:
-            if not HAVE_LIGHTER_SDK:
-                return None
-
-            # Get market_id for the symbol
-            market = self.market_info.get(symbol)
-            if not market:
-                logger.debug(f"get_order_fill_price: No market info for {symbol}")
-                return None
-
-            market_id = safe_int(market.get("i") or market.get("market_id"), -1)
-            if market_id < 0:
-                logger.debug(f"get_order_fill_price: Invalid market_id for {symbol}")
-                return None
-
-            # ═══════════════════════════════════════════════════════════════
-            # OPTIMIZATION #1: Retry logic for API lag (trades take 50-200ms)
-            # Try 3 times with 100ms delays to catch trades as they appear
-            # ═══════════════════════════════════════════════════════════════
-            for retry in range(3):
-                if retry > 0:
-                    await asyncio.sleep(0.1)  # 100ms delay between retries
-
-                try:
-                    # OPTIMIZATION #2: force=False to use cache and avoid rate limits
-                    trades = await self.fetch_my_trades(symbol, limit=50, force=False)
-                    if not trades:
-                        if retry < 2:
-                            logger.debug(f"get_order_fill_price: No trades yet (attempt {retry+1}/3)")
-                            continue
-                        logger.debug(f"get_order_fill_price: No trades found for {symbol} after {retry+1} attempts")
-                        return None
-
-                    # Filter trades matching this order_id
-                    order_trades = []
-                    for trade in trades:
-                        # Trades can have 'order_id', 'taker_order_id', or 'maker_order_id'
-                        trade_order_id = (
-                            trade.get('order_id')
-                            or trade.get('taker_order_id')
-                            or trade.get('maker_order_id')
-                        )
-
-                        # Match by order_id (normalize both to string for comparison)
-                        if trade_order_id and str(trade_order_id).lower() == str(order_id).lower():
-                            order_trades.append(trade)
-
-                    if not order_trades:
-                        if retry < 2:
-                            logger.debug(f"get_order_fill_price: No matching trades yet for order {order_id[:16]}... (attempt {retry+1}/3)")
-                            continue
-                        # OPTIMIZATION #3: Info level logging for better visibility
-                        logger.info(f"   Could not find trades for order {order_id[:16]}... after {retry+1} attempts")
-                        return None
-
-                    # Calculate volume-weighted average fill price
-                    total_size = 0.0
-                    weighted_price_sum = 0.0
-
-                    for trade in order_trades:
-                        price = safe_float(trade.get('price', 0), 0.0)
-                        size = safe_float(trade.get('size', 0), 0.0)
-
-                        if price > 0 and size > 0:
-                            weighted_price_sum += price * size
-                            total_size += size
-
-                    if total_size > 0:
-                        avg_fill_price = weighted_price_sum / total_size
-                        # OPTIMIZATION #3: Info level logging for success
-                        logger.info(
-                            f"   get_order_fill_price: ${avg_fill_price:.6f} "
-                            f"from {len(order_trades)} trade(s) (attempt {retry+1})"
-                        )
-                        return avg_fill_price
-                    else:
-                        if retry < 2:
-                            logger.debug(f"get_order_fill_price: No valid trades with size/price (attempt {retry+1}/3)")
-                            continue
-                        logger.debug(f"get_order_fill_price: No valid trades with size/price after {retry+1} attempts")
-                        return None
-
-                except Exception as e:
-                    if retry < 2:
-                        logger.debug(f"get_order_fill_price: Error on attempt {retry+1}/3: {e}")
-                        continue
-                    logger.info(f"   get_order_fill_price: Error fetching trades after {retry+1} attempts: {e}")
-                    return None
-
-            return None
-
-        except Exception as e:
-            logger.info(f"   get_order_fill_price: Error for {symbol} order {order_id[:16] if order_id else 'None'}...: {e}")
-            return None
-
     @rate_limited(Exchange.LIGHTER, 1.0)
     async def close_live_position(
         self, 
@@ -5431,13 +5622,19 @@ class LighterAdapter(BaseAdapter):
                     logger.debug(f"Lighter position callback error: {e}")
 
     async def aclose(self):
-        """Cleanup all sessions and connections"""
+        """Cleanup all resources including SDK clients and stream client"""
         # ═══════════════════════════════════════════════════════════════
         # FIX: Prevent duplicate close calls during shutdown
         # ═══════════════════════════════════════════════════════════════
         if hasattr(self, '_closed') and self._closed:
             return
         self._closed = True
+        
+        # Stop Stream Client first
+        try:
+            await self.stop_stream_client()
+        except Exception as e:
+            logger.debug(f"Lighter: Error stopping stream client: {e}")
         
         try:
             if hasattr(self, "_session") and self._session:

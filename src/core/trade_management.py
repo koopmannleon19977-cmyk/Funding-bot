@@ -22,7 +22,6 @@ from src.fee_manager import get_fee_manager
 from src.telegram_bot import get_telegram_bot
 from src.volatility_monitor import get_volatility_monitor
 from src.pnl_utils import compute_hedge_pnl, _side_sign
-from src.state_manager import TradeStatus
 
 logger = logging.getLogger(__name__)
 
@@ -803,39 +802,15 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         current_time = time.time()
         for trade in db_trades:
             symbol = trade.symbol
-
-            # ═══════════════════════════════════════════════════════════════
-            # FIX (2025-12-19): CRITICAL - Skip freshly created PENDING trades
-            # Problem: Reconciliation runs DURING active trade execution
-            # Example: Trade starts at 18:00:38, Reconciliation at 18:00:42 (4s later)
-            #          Trade is PENDING (no position yet) → false ZOMBIE detection!
-            #          → Trade closed in DB → X10 Order REJECTED
-            # Solution: ALWAYS skip PENDING trades < 10s old (independent of RECENTLY_OPENED_TRADES)
-            # ═══════════════════════════════════════════════════════════════
-            if hasattr(trade, 'status') and trade.status == TradeStatus.PENDING:
-                if hasattr(trade, 'created_at') and trade.created_at:
-                    try:
-                        created_timestamp = trade.created_at.timestamp() if hasattr(trade.created_at, 'timestamp') else trade.created_at
-                        age = current_time - created_timestamp
-                        if age < 10.0:
-                            logger.debug(f"⏭️ Skipping {symbol}: Fresh PENDING trade ({age:.1f}s old, no position expected yet)")
-                            continue
-                    except Exception as e:
-                        logger.debug(f"⏭️ Skipping {symbol}: PENDING trade (age check failed: {e})")
-                        continue
-
-            # ═══════════════════════════════════════════════════════════════
-            # FIX: POST_ONLY Orders need more time to fill (they're Maker orders that wait in orderbook)
-            # Extended protection to 120s to allow POST_ONLY orders time to fill before reconciliation
-            # ═══════════════════════════════════════════════════════════════
+            
             if symbol in RECENTLY_OPENED_TRADES:
-                age = current_time - RECENTLY_OPENED_TRADES[symbol]
-                if age < 120:  # Extended from 60s to 120s
-                    logger.debug(f"🛡️ Skipping {symbol}: Recently opened ({age:.1f}s < 120s)")
+                # ═══════════════════════════════════════════════════════════════
+                # FIX: POST_ONLY Orders need more time to fill (they're Maker orders that wait in orderbook)
+                # Extended protection to 120s to allow POST_ONLY orders time to fill before reconciliation
+                # ═══════════════════════════════════════════════════════════════
+                if current_time - RECENTLY_OPENED_TRADES[symbol] < 120:  # Extended from 60s to 120s
                     continue
-                else:
-                    logger.debug(f"⚠️ {symbol} in RECENTLY_OPENED_TRADES but age={age:.1f}s >= 120s (will check for zombie)")
-
+            
             has_lighter = symbol in real_lighter and abs(real_lighter[symbol]) > 0
             has_x10 = symbol in real_x10 and abs(real_x10[symbol]) > 0
 

@@ -237,29 +237,42 @@ async def run_bot_v5(bot_instance=None):
     except Exception as e:
         logger.warning(f"⚠️ Warmup warning: {e}")
 
-    # ═══════════════════════════════════════════════════════════════
-    # OPTIMIZATION (2025-12-20): OI Tracker Background Service DISABLED
-    # Reason: Saves 31,200 API calls/hour - redundant with WebSocket OI updates
-    # Trade execution still fetches OI directly for liquidity filter (trading.py:860)
-    # ═══════════════════════════════════════════════════════════════
     # Init OI Tracker
     common_symbols = list(set(x10.market_info.keys()) & set(lighter.market_info.keys()))
-    # logger.info(f"启动 OI Tracker für {len(common_symbols)} Symbole...")
-    # oi_tracker = await init_oi_tracker(x10, lighter, symbols=common_symbols)
-    oi_tracker = None  # DISABLED - WebSocket provides OI updates, trades fetch OI directly
-    logger.info(f"⚡ OI Tracker: DISABLED (saves ~31k API calls/hour, WebSocket provides OI)")
-
+    
+    # ═══════════════════════════════════════════════════════════════
+    # Initialize Stream Clients for real-time updates
+    # ═══════════════════════════════════════════════════════════════
+    logger.info("🌐 Initializing Stream Clients...")
+    
+    # Initialize X10 Stream Client
+    try:
+        await x10.initialize_stream_client(symbols=common_symbols)
+        logger.info("✅ X10 Stream Client initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ X10 Stream Client initialization failed: {e}")
+        logger.info("ℹ️ Continuing with polling fallback...")
+    
+    # Initialize Lighter Stream Client
+    try:
+        await lighter.initialize_stream_client(symbols=common_symbols)
+        logger.info("✅ Lighter Stream Client initialized")
+    except Exception as e:
+        logger.warning(f"⚠️ Lighter Stream Client initialization failed: {e}")
+        logger.info("ℹ️ Continuing with polling fallback...")
+    
+    # Init OI Tracker
+    logger.info(f"启动 OI Tracker für {len(common_symbols)} Symbole...")
+    oi_tracker = await init_oi_tracker(x10, lighter, symbols=common_symbols)
+    
     # Init WebSocket Manager
     logger.info("🌐 Starting WebSocket Manager...")
     ws_manager = await init_websocket_manager(
         x10, lighter, symbols=common_symbols,
         ping_interval=None, ping_timeout=None
     )
-    if oi_tracker:
-        ws_manager.set_oi_tracker(oi_tracker)
-        logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
-    else:
-        logger.info("🔗 WebSocket Manager started (OI from WebSocket only)")
+    ws_manager.set_oi_tracker(oi_tracker)
+    logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
 
     # ═══════════════════════════════════════════════════════════════
     # RECONCILIATION (Zombie & Ghost Fix)
@@ -415,6 +428,17 @@ async def run_bot_v5(bot_instance=None):
     await stop_fee_manager()
     
     logger.info("🔌 Closing adapters...")
+    # Stop Stream Clients before closing adapters
+    try:
+        await x10.stop_stream_client()
+    except Exception as e:
+        logger.warning(f"⚠️ Error stopping X10 Stream Client: {e}")
+    
+    try:
+        await lighter.stop_stream_client()
+    except Exception as e:
+        logger.warning(f"⚠️ Error stopping Lighter Stream Client: {e}")
+    
     await x10.aclose()
     await lighter.aclose()
     

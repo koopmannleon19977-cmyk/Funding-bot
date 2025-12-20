@@ -41,19 +41,12 @@ OPPORTUNITY_LOG_CACHE = {}
 def is_tradfi_or_fx(symbol: str) -> bool:
     """Check if symbol is TradFi or FX (excluded from trading)"""
     s = symbol.upper().replace("-USD", "").replace("/", "")
-
-    # Commodities (Gold, Silver, Oil, etc.)
-    if s.startswith(("XAU", "XAG", "XBR", "WTI", "PAXG", "CL", "NG")):
+    if s.startswith(("XAU", "XAG", "XBR", "WTI", "PAXG")): 
         return True
-
-    # Forex pairs (exclude stablecoins like EUROC)
-    if s.startswith(("EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY", "TRY")) and "EUROC" not in s:
+    if s.startswith(("EUR", "GBP", "JPY", "CHF", "CAD", "AUD", "NZD", "CNY", "TRY")) and "EUROC" not in s: 
         return True
-
-    # Stock indices
-    if s.startswith(("SPX", "NDX", "US30", "DJI", "NAS", "FTSE", "DAX")):
+    if s.startswith(("SPX", "NDX", "US30", "DJI", "NAS")): 
         return True
-
     return False
 
 
@@ -83,37 +76,25 @@ def calculate_expected_profit(
     Returns:
         (expected_profit_usd: float, hours_to_breakeven: float)
     """
-    entry_mode = getattr(config, "ENTRY_STRATEGY_MODE", "LIGHTER_MAKER_X10_TAKER").upper()
-
     # Get real fees from FeeManager if not provided
     if x10_fee_rate is None or lighter_fee_rate is None:
         try:
             fee_manager = get_fee_manager()
-
             if x10_fee_rate is None:
-                if entry_mode == "X10_MAKER_LIGHTER_TAKER":
-                    x10_fee_rate = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=True))
-                else:
-                    x10_fee_rate = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False))
-
+                # Conservative: assume Taker for both entry and exit on X10
+                x10_fee_rate = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False))
             if lighter_fee_rate is None:
-                if entry_mode == "X10_MAKER_LIGHTER_TAKER":
-                    entry_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=False))
-                else:
-                    entry_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=True))
+                # Lighter: Maker entry, Taker exit (conservative)
+                entry_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=True))
                 exit_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=False))
-
-            x10_exit_fee = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False))
         except Exception:
             # Fallback to config if FeeManager not available
             x10_fee_rate = getattr(config, 'TAKER_FEE_X10', 0.000225)
             entry_fee_lit = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
             exit_fee_lit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
-            x10_exit_fee = getattr(config, 'TAKER_FEE_X10', 0.000225)
     else:
         entry_fee_lit = lighter_fee_rate
         exit_fee_lit = lighter_fee_rate
-        x10_exit_fee = x10_fee_rate
         
     # Convert all inputs to Decimal for precision
     notional = safe_decimal(notional_usd)
@@ -125,14 +106,14 @@ def calculate_expected_profit(
     funding_income = rate * hours * notional
     
     # Entry + Exit fees on both exchanges
-    # X10: Entry (mode-dependent) + Exit (Taker)
-    # Lighter: Entry (mode-dependent) + Exit (Taker)
-    fee_x10_entry = safe_decimal(x10_fee_rate)
-    fee_x10_exit = safe_decimal(x10_exit_fee)
+    # X10: Entry (Taker/Maker) + Exit (Taker)
+    # Lighter: Entry (Maker) + Exit (Taker)
+    fee_x10 = safe_decimal(x10_fee_rate) 
     fee_lit_entry = safe_decimal(entry_fee_lit)
     fee_lit_exit = safe_decimal(exit_fee_lit)
     
-    total_fees = notional * (fee_x10_entry + fee_x10_exit + fee_lit_entry + fee_lit_exit)
+    # We assume X10 Taker entry + Taker exit for conservatism
+    total_fees = notional * (fee_x10 * Decimal('2') + fee_lit_entry + fee_lit_exit)
     
     # Spread slippage cost (estimated as full spread across both legs)
     # If mid-price is used, we pay half spread on each exchange.
@@ -192,25 +173,21 @@ def _estimate_entry_prices(
     lit_ask: float,
     x10_side: str,
     lit_side: str,
-    entry_mode: str,
 ) -> tuple[float, float]:
     """
-    Entry pricing model aligned with ACTUAL execution.
+    Entry pricing model aligned with ACTUAL execution:
+    - Lighter entry is Maker with PENNY JUMPING:
+      * SELL @ best_ask - 1 tick (inside spread, faster fills)
+      * BUY @ best_bid + 1 tick (inside spread, faster fills)
+    - X10 entry is Taker hedge:
+      * BUY hits best ask
+      * SELL hits best bid
 
-    Modes:
-    - X10_MAKER_LIGHTER_TAKER (reversed): X10 maker at top-of-book, Lighter taker hits bid/ask.
-    - LIGHTER_MAKER_X10_TAKER (legacy): Lighter maker with penny-jump, X10 taker hits bid/ask.
+    FIX (2025-12-18): Match lighter_adapter.py get_maker_price penny jumping logic
+    to prevent negative entry edges.
     """
     x10_side = (x10_side or "").upper()
     lit_side = (lit_side or "").upper()
-    entry_mode = (entry_mode or "LIGHTER_MAKER_X10_TAKER").upper()
-
-    if entry_mode == "X10_MAKER_LIGHTER_TAKER":
-        # X10 maker: join best bid/ask.
-        x10_entry = x10_bid if x10_side == "BUY" else x10_ask
-        # Lighter taker: cross the spread.
-        lit_entry = lit_ask if lit_side == "BUY" else lit_bid
-        return safe_float(x10_entry, 0.0), safe_float(lit_entry, 0.0)
 
     # X10 is always Taker (IOC): simple bid/ask
     x10_entry = x10_ask if x10_side == "BUY" else x10_bid
@@ -259,17 +236,15 @@ def _estimate_exit_costs_usd(
 
 def _estimate_roundtrip_fees_usd(
     notional_usd: float,
-    x10_entry_fee: float,
-    x10_exit_fee: float,
-    lit_entry_fee: float,
-    lit_exit_fee: float,
+    x10_taker_fee: float,
+    lit_maker_fee: float,
+    lit_taker_fee: float,
 ) -> float:
     notional = safe_decimal(notional_usd)
-    fee_x10_entry = safe_decimal(x10_entry_fee)
-    fee_x10_exit = safe_decimal(x10_exit_fee)
-    fee_lit_entry = safe_decimal(lit_entry_fee)
-    fee_lit_exit = safe_decimal(lit_exit_fee)
-    total = notional * (fee_x10_entry + fee_x10_exit + fee_lit_entry + fee_lit_exit)
+    fee_x10 = safe_decimal(x10_taker_fee)
+    fee_lit_m = safe_decimal(lit_maker_fee)
+    fee_lit_t = safe_decimal(lit_taker_fee)
+    total = notional * (fee_x10 * Decimal("2") + fee_lit_m + fee_lit_t)
     return float(quantize_usd(total))
 
 
@@ -447,7 +422,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
     now_ts = time.time()
     valid_pairs = 0
-    entry_mode = getattr(config, "ENTRY_STRATEGY_MODE", "LIGHTER_MAKER_X10_TAKER").upper()
     
     # Rejection counters
     rejected_open = 0
@@ -460,48 +434,26 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     rejected_apy = 0
     rejected_profit = 0
     rejected_breakeven = 0
-    rejected_liquidity = 0
-    rejected_price_impact = 0
-
-    reject_log_enabled = bool(getattr(config, "OPPORTUNITY_LOG_REJECTS", False))
-    reject_log_max = int(getattr(config, "OPPORTUNITY_LOG_REJECTS_MAX", 0))
-    reject_log_count = 0
-
-    def _log_reject(symbol: str, reason: str, detail: str = "") -> None:
-        nonlocal reject_log_count
-        if not reject_log_enabled:
-            return
-        if reject_log_max > 0 and reject_log_count >= reject_log_max:
-            return
-        msg = f"REJECT {symbol}: {reason}"
-        if detail:
-            msg = f"{msg} | {detail}"
-        logger.info(msg)
-        reject_log_count += 1
 
     for s, rl, rx, px, pl in clean_results:
         # Skip already open
         if s in open_syms:
             rejected_open += 1
-            _log_reject(s, "OPEN")
             continue
             
         # Skip blacklisted
         if s in config.BLACKLIST_SYMBOLS:
             rejected_blacklist += 1
-            _log_reject(s, "BLACKLIST")
             continue
             
         # Skip TradFi/FX
         if is_tradfi_or_fx(s):
             rejected_tradfi += 1
-            _log_reject(s, "TRADFI")
             continue
 
         # Skip failed coins in cooldown
         if s in FAILED_COINS and (now_ts - FAILED_COINS[s] < 60):
             rejected_cooldown += 1
-            _log_reject(s, "COOLDOWN")
             continue
 
         # Volatility filter
@@ -511,7 +463,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             max_vol = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
             if vol_24h > max_vol:
                 rejected_volatility += 1
-                _log_reject(s, "VOL", f"vol={vol_24h:.2f}% > max={max_vol:.2f}%")
                 continue
         except Exception:
             pass
@@ -524,7 +475,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             valid_pairs += 1
         else:
             rejected_data += 1
-            _log_reject(s, "DATA", f"rates={has_rates}, prices={has_prices}")
             continue
 
         # Price parsing
@@ -533,12 +483,10 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             pl_float = safe_float(pl)
             if px_float <= 0 or pl_float <= 0:
                 rejected_data += 1
-                _log_reject(s, "DATA", f"px={px_float:.6f}, pl={pl_float:.6f}")
                 continue
             spread = abs(px_float - pl_float) / px_float
         except:
             rejected_data += 1
-            _log_reject(s, "DATA", "price_parse_error")
             continue
 
         # Calculate funding metrics
@@ -549,7 +497,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if apy < req_apy:
             # logger.debug(f"🚫 {s}: APY {apy*100:.2f}% < Min {req_apy*100:.2f}%")
             rejected_apy += 1
-            _log_reject(s, "APY", f"apy={apy*100:.2f}% < min={req_apy*100:.2f}%")
             continue
 
         # ═══════════════════════════════════════════════════════════════
@@ -569,7 +516,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         if spread > final_spread_limit:
             # logger.debug(f"🚫 {s}: Spread {spread*100:.2f}% > Limit {final_spread_limit*100:.2f}%")
             rejected_spread += 1
-            _log_reject(s, "SPREAD", f"spread={spread*100:.2f}% > limit={final_spread_limit*100:.2f}%")
             continue
 
         # Profitability check
@@ -593,31 +539,18 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         entry_eval_hours = float(getattr(config, "ENTRY_EVAL_HOURS", min_hold_hours))
         entry_eval_hours = max(0.25, min(entry_eval_hours, hold_hours))
 
-        # TESTING: Hardcoded fallback auf 0.001 (extrem niedrig!)
-        min_profit_usd = float(getattr(config, "MIN_EXPECTED_PROFIT_ENTRY_USD", getattr(config, 'MIN_PROFIT_EXIT_USD', 0.001)))
+        min_profit_usd = float(getattr(config, "MIN_EXPECTED_PROFIT_ENTRY_USD", getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)))
 
         # Fee assumptions (execution-aligned)
         try:
             fee_manager = get_fee_manager()
-            x10_exit_fee = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
-            lit_exit_fee = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
-
-            if entry_mode == "X10_MAKER_LIGHTER_TAKER":
-                x10_entry_fee = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=True))
-                lit_entry_fee = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
-            else:
-                x10_entry_fee = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
-                lit_entry_fee = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=True))
+            x10_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
+            lit_fee_maker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=True))
+            lit_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
         except Exception:
-            x10_exit_fee = float(getattr(config, "TAKER_FEE_X10", 0.000225))
-            lit_exit_fee = float(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
-
-            if entry_mode == "X10_MAKER_LIGHTER_TAKER":
-                x10_entry_fee = float(getattr(config, "MAKER_FEE_X10", 0.0))
-                lit_entry_fee = float(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
-            else:
-                x10_entry_fee = float(getattr(config, "TAKER_FEE_X10", 0.000225))
-                lit_entry_fee = float(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
+            x10_fee_taker = float(getattr(config, "TAKER_FEE_X10", 0.000225))
+            lit_fee_maker = float(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
+            lit_fee_taker = float(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
 
         # Orderbook-based entry basis (directed) to avoid "ignore spread" mistakes.
         leg1_exchange = "Lighter" if rl > rx else "X10"
@@ -644,7 +577,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             lit_ask=lit_ask,
             x10_side=x10_side,
             lit_side=lit_side,
-            entry_mode=entry_mode,
         )
 
         basis_target = float(getattr(config, "BASIS_EXIT_TARGET_USD", 0.0))
@@ -664,10 +596,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
         roundtrip_fees = _estimate_roundtrip_fees_usd(
             notional_usd=notional,
-            x10_entry_fee=x10_entry_fee,
-            x10_exit_fee=x10_exit_fee,
-            lit_entry_fee=lit_entry_fee,
-            lit_exit_fee=lit_exit_fee,
+            x10_taker_fee=x10_fee_taker,
+            lit_maker_fee=lit_fee_maker,
+            lit_taker_fee=lit_fee_taker,
         )
         exit_slip_pct = float(getattr(config, "EXIT_SLIPPAGE_BUFFER_PCT", 0.0015))
         exit_safety = float(getattr(config, "EXIT_COST_SAFETY_MARGIN", 1.1))
@@ -692,9 +623,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         # Now with penny jumping fix, we use realistic entry prices.
         # ═══════════════════════════════════════════════════════════════
 
-        # Entry fees only (mode-dependent)
+        # Entry fees only (X10 taker + Lighter maker)
         entry_fees_usd = float(
-            safe_decimal(notional) * (safe_decimal(x10_entry_fee) + safe_decimal(lit_entry_fee))
+            safe_decimal(notional) * (safe_decimal(x10_fee_taker) + safe_decimal(lit_fee_maker))
         )
 
         # Entry edge must cover entry fees
@@ -709,11 +640,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 f"(Lighter: {lit_side} @ ${entry_px_lit:.6f}, X10: {x10_side} @ ${entry_px_x10:.6f})"
             )
             rejected_profit += 1
-            _log_reject(
-                s,
-                "ENTRY_EDGE",
-                f"net_edge=${entry_edge_usd:.4f}, fees=${entry_fees_usd:.4f}",
-            )
             continue
 
         # Funding income (profit-positive) at horizons
@@ -745,23 +671,16 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             if hours_to_breakeven > max_breakeven_limit:
                 # logger.debug(f"🚫 {s}: Breakeven {hours_to_breakeven:.1f}h > Limit {max_breakeven_limit}h")
                 rejected_breakeven += 1
-                _log_reject(s, "BREAKEVEN", f"be={hours_to_breakeven:.2f}h > max={max_breakeven_limit:.2f}h")
                 continue
                 
             if (not basis_ok) or (expected_profit_eval < min_profit_usd):
                 # Reject if entry basis is unfavorable or short-horizon EV doesn't clear minimum.
                 rejected_profit += 1
-                _log_reject(
-                    s,
-                    "PROFIT",
-                    f"eval=${expected_profit_eval:.4f} < min=${min_profit_usd:.4f}, basis_ok={basis_ok}",
-                )
                 continue
         else:
             # Farm mode: just require breakeven within farm hold time
             if hours_to_breakeven > max_breakeven_limit:
                 rejected_breakeven += 1
-                _log_reject(s, "BREAKEVEN", f"be={hours_to_breakeven:.2f}h > max={max_breakeven_limit:.2f}h")
                 continue
         
         # ═══════════════════════════════════════════════════════════════
@@ -773,13 +692,11 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             # Check Lighter Liquidity (nur wenn Adapter verfügbar)
             if hasattr(lighter, 'check_liquidity'):
                 lighter_liquid = await lighter.check_liquidity(
-                    s, lit_side or ('BUY' if rl > rx else 'SELL'),
-                    notional, max_slippage_pct=0.01, is_maker=(entry_mode != "X10_MAKER_LIGHTER_TAKER")
+                    s, 'BUY' if rl > rx else 'SELL', 
+                    notional, max_slippage_pct=0.01, is_maker=True
                 )
                 if not lighter_liquid:
                     logger.debug(f"🚫 {s}: Lighter Orderbook zu dünn für ${notional:.0f}")
-                    rejected_liquidity += 1
-                    _log_reject(s, "LIQUIDITY", f"notional=${notional:.0f}")
                     continue
         except Exception as e:
             logger.debug(f"Liquidity check skipped for {s}: {e}")
@@ -798,10 +715,10 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             if hasattr(lighter, 'fetch_orderbook'):
                 book = await lighter.fetch_orderbook(s, limit=20)
                 if book and 'bids' in book and 'asks' in book:
-                    impact_side = lit_side or ('SELL' if rl > rx else 'BUY')
+                    leg1_side = 'SELL' if rl > rx else 'BUY'
                     
                     price_impact_result = simulate_price_impact(
-                        side=impact_side,
+                        side=leg1_side,
                         order_size_usd=notional,
                         bids=book['bids'],
                         asks=book['asks'],
@@ -816,12 +733,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                             logger.debug(
                                 f"🚫 {s}: Price impact too high ({estimated_slippage_pct:.3f}% > {max_slippage_pct}%)"
                             )
-                            rejected_price_impact += 1
-                            _log_reject(
-                                s,
-                                "IMPACT",
-                                f"slip={estimated_slippage_pct:.3f}% > max={max_slippage_pct:.3f}%",
-                            )
                             continue
                         
                         logger.debug(
@@ -832,8 +743,6 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                         )
                     else:
                         logger.debug(f"🚫 {s}: Cannot fill ${notional:.0f} in orderbook")
-                        rejected_price_impact += 1
-                        _log_reject(s, "IMPACT", f"cannot_fill ${notional:.0f}")
                         continue
                         
         except Exception as e:
@@ -896,24 +805,20 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
 
     logger.info(f"✅ Found {len(final_opps)} opportunities from {valid_pairs} valid pairs")
     
-    summary_msg = (
-        f"🚫 Filter Summary: "
-        f"Open={rejected_open}, "
-        f"Blacklist={rejected_blacklist}, "
-        f"TradFi={rejected_tradfi}, "
-        f"Cooldown={rejected_cooldown}, "
-        f"Vol={rejected_volatility}, "
-        f"Data={rejected_data}, "
-        f"APY={rejected_apy}, "
-        f"Spread={rejected_spread}, "
-        f"Profit={rejected_profit}, "
-        f"BE={rejected_breakeven}, "
-        f"Liquidity={rejected_liquidity}, "
-        f"Impact={rejected_price_impact}"
-    )
-
-    # Log rejection summary (always if configured)
-    if len(final_opps) == 0 or getattr(config, "OPPORTUNITY_LOG_FILTER_SUMMARY_ALWAYS", False):
-        logger.info(summary_msg)
+    # Log rejection summary if no opportunities found (or periodically)
+    if len(final_opps) == 0:
+        logger.info(
+            f"🚫 Filter Summary: "
+            f"Open={rejected_open}, "
+            f"Blacklist={rejected_blacklist}, "
+            f"TradFi={rejected_tradfi}, "
+            f"Cooldown={rejected_cooldown}, "
+            f"Vol={rejected_volatility}, "
+            f"Data={rejected_data}, "
+            f"APY={rejected_apy}, "
+            f"Spread={rejected_spread}, "
+            f"Profit={rejected_profit}, "
+            f"BE={rejected_breakeven}"
+        )
 
     return final_opps[:config.MAX_OPEN_TRADES]
