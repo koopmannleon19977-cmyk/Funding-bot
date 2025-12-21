@@ -527,6 +527,10 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
         # Check DB trades
         try:
             open_trades = await get_open_trades()
+            if not open_trades and not active_symbols:
+                if not getattr(config, "LIGHTER_STARTUP_REST_FALLBACK", True):
+                    logger.info("Skipping sync check: no open trades and Lighter REST disabled")
+                    return
             for trade in open_trades:
                 symbol = trade.get('symbol')
                 if not symbol:

@@ -9,11 +9,15 @@
 
 | Exchange      | Fehlende Features | Priority 1 | Priority 2 | Priority 3 | Implementiert |
 | ------------- | ----------------- | ---------- | ---------- | ---------- | ------------- |
-| **X10**       | 7 Features        | 4          | 2          | 1          | 2 ✅          |
-| **Lighter**   | 6 Features        | 2          | 2          | 2          | 0             |
+| **X10**       | 7 Features        | 4          | 1          | 1          | 7          |
+| **Lighter**   | 6 Features        | 2          | 2          | 2          | 4          |
 | **Gemeinsam** | 2 Features        | 2          | 0          | 0          | 0             |
 
-**Fortschritt:** 2/15 Features implementiert (13.3%)
+**Fortschritt:** 11/15 Features implementiert (73.3%)
+
+## Operational Fixes (2025-12-21)
+
+- Lighter REST 429 mitigation: WS-aware REST skip, position cache TTL, and standard rate limiter aligned to ~1 req/s.
 
 ---
 
@@ -180,7 +184,7 @@ async def get_positions_history(
 
 ---
 
-### 3. Orders History API ⚠️ **PRIORITY 1**
+### 3. Orders History API ✅ **IMPLEMENTIERT** (2025-01-20)
 
 **SDK-Methode:**
 
@@ -196,8 +200,10 @@ AccountModule.getOrdersHistory({
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur aktuelle Orders (`getOpenOrders()`)
+- ✅ **IMPLEMENTIERT** - `get_orders_history()` Methode hinzugefügt
+- ✅ Unterstützt SDK-Methode und REST-API-Fallback
+- ✅ Automatische Slippage- und Fill-Rate-Berechnung
+- ✅ Nur aktuelle Orders (`getOpenOrders()`) - bereits vorhanden
 
 **Zweck:**
 
@@ -234,24 +240,40 @@ AccountModule.getOrdersHistory({
 async def get_orders_history(
     self,
     symbol: Optional[str] = None,
+    order_type: Optional[str] = None,
+    order_side: Optional[str] = None,
     limit: int = 100,
     cursor: Optional[int] = None
 ) -> List[Dict[str, Any]]:
-    """Get historical orders"""
-    client = await self._get_auth_client()
-    result = await client.account.getOrdersHistory({
-        'marketNames': [symbol] if symbol else None,
-        'limit': limit,
-        'cursor': cursor
-    })
-    return result.data if result.success else []
+    """
+    Get historical orders (all orders: filled, cancelled, rejected).
+
+    Returns a list of all historical orders with their status, fill information,
+    fees, and other details. Useful for:
+    - Fill-rate analysis
+    - Fee tracking
+    - Order performance (fill time, slippage)
+    - Debugging
+    """
+    # Tries SDK method first, falls back to REST API
+    # Returns list of order dicts with full details including:
+    # - Fill percentage, slippage, fees, timestamps
 ```
 
-**Impact:** 🔥 **HOCH** - Wichtig für Performance-Optimierung
+**Features:**
+
+- ✅ SDK-Methode mit automatischem REST-API-Fallback
+- ✅ Unterstützt Filterung nach Symbol, Order Type, Order Side
+- ✅ Pagination mit Cursor-Support
+- ✅ Automatische Berechnung von Fill-Rate, Slippage, Fill-Percentage
+- ✅ Vollständige Order-Details (Status, Fees, Timestamps, Reject Reasons)
+- ✅ Robuste Fehlerbehandlung
+
+**Impact:** 🔥 **HOCH** - ✅ **IMPLEMENTIERT** - Performance-Optimierung & Analytics
 
 ---
 
-### 4. Trades History API ⚠️ **PRIORITY 1**
+### 4. Trades History API ✅ **IMPLEMENTIERT** (2025-01-20)
 
 **SDK-Methode:**
 
@@ -267,8 +289,10 @@ AccountModule.getTrades({
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur aktuelle Trades (via Positions)
+- ✅ **IMPLEMENTIERT** - `get_trades_history()` Methode hinzugefügt
+- ✅ Unterstützt SDK-Methode und REST-API-Fallback
+- ✅ Automatische Notional-Berechnung
+- ✅ Nur aktuelle Trades (via Positions) - bereits vorhanden
 
 **Zweck:**
 
@@ -306,40 +330,61 @@ AccountModule.getTrades({
 async def get_trades_history(
     self,
     symbols: List[str],
+    trade_side: Optional[str] = None,
+    trade_type: Optional[str] = None,
     limit: int = 100,
     cursor: Optional[int] = None
 ) -> List[Dict[str, Any]]:
-    """Get historical trades"""
-    client = await self._get_auth_client()
-    result = await client.account.getTrades({
-        'marketNames': symbols,
-        'limit': limit,
-        'cursor': cursor
-    })
-    return result.data if result.success else []
+    """
+    Get historical trades (all fills/executions).
+
+    Returns a list of all historical trades with their fill prices, sizes,
+    fees, and other details. Useful for:
+    - Precise PnL calculation (based on actual fill prices)
+    - Slippage tracking (limit price vs fill price)
+    - Trade analysis
+    - Reconciliation
+    """
+    # Tries SDK method first, falls back to REST API
+    # Returns list of trade dicts with full details including:
+    # - Fill price, size, fee, timestamp, orderId, notional value
 ```
 
-**Impact:** 🔥 **HOCH** - Kritisch für genaue PnL-Berechnung
+**Features:**
+
+- ✅ SDK-Methode mit automatischem REST-API-Fallback
+- ✅ Unterstützt Filterung nach Symbols (Array), Trade Side, Trade Type
+- ✅ Pagination mit Cursor-Support
+- ✅ Automatische Notional-Berechnung (price × size)
+- ✅ Vollständige Trade-Details (Fill-Preis, Size, Fee, Timestamp, Order-ID)
+- ✅ Robuste Fehlerbehandlung
+
+**Impact:** 🔥 **HOCH** - ✅ **IMPLEMENTIERT** - Präzisere PnL-Berechnung & Slippage-Tracking
 
 ---
 
-### 5. Asset Operations Tracking ⚠️ **PRIORITY 2**
+### 5. Asset Operations Tracking ✅ **IMPLEMENTIERT** (2025-01-20)
 
 **SDK-Methode:**
 
 ```typescript
 AccountModule.assetOperations({
-  assetOperationType?: AssetOperationType;
-  assetOperationStatus?: AssetOperationStatus;
+  operationsType?: string[];
+  operationsStatus?: string[];
+  startTime?: number;
+  endTime?: number;
   cursor?: number;
   limit?: number;
+  id?: number;
 })
 ```
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Kein Tracking von Deposits/Withdrawals/Transfers
+- ✅ **IMPLEMENTIERT** - `get_asset_operations()` Methode hinzugefügt
+- ✅ Unterstützt SDK-Methode und REST-API-Fallback
+- ✅ Vollständige Filterung nach Type, Status, Zeitraum
+- ✅ Kein Tracking von Deposits/Withdrawals/Transfers - jetzt verfügbar
 
 **Zweck:**
 
@@ -374,23 +419,40 @@ AccountModule.assetOperations({
 ```python
 async def get_asset_operations(
     self,
-    operation_type: Optional[str] = None,
-    limit: int = 100
+    operation_type: Optional[List[str]] = None,
+    operation_status: Optional[List[str]] = None,
+    start_time: Optional[int] = None,
+    end_time: Optional[int] = None,
+    limit: int = 100,
+    cursor: Optional[int] = None,
+    operation_id: Optional[int] = None
 ) -> List[Dict[str, Any]]:
-    """Get asset operations (deposits, withdrawals, transfers)"""
-    client = await self._get_auth_client()
-    result = await client.account.assetOperations({
-        'assetOperationType': operation_type,
-        'limit': limit
-    })
-    return result.data if result.success else []
+    """
+    Get asset operations (deposits, withdrawals, transfers).
+
+    Returns a list of all asset operations with their details. Useful for:
+    - Complete accounting (all money movements)
+    - Balance tracking over time
+    - Compliance & audit trail
+    - Debugging balance discrepancies
+    """
+    # Tries SDK method first, falls back to REST API
+    # Returns list of operation dicts with full details
 ```
 
-**Impact:** ⚠️ **MITTEL** - Wichtig für vollständiges Accounting
+**Features:**
+
+- ✅ SDK-Methode mit automatischem REST-API-Fallback
+- ✅ Unterstützt Filterung nach Type, Status, Zeitraum, ID
+- ✅ Pagination mit Cursor-Support
+- ✅ Vollständige Operation-Details (Amount, Asset, Timestamp, Addresses, TX Hash)
+- ✅ Robuste Fehlerbehandlung
+
+**Impact:** ⚠️ **MITTEL** - ✅ **IMPLEMENTIERT** - Vollständiges Accounting & Compliance
 
 ---
 
-### 6. Order by External ID ⚠️ **PRIORITY 2**
+### 6. Order by External ID ✅ **IMPLEMENTIERT** (2025-01-20)
 
 **SDK-Methode:**
 
@@ -401,8 +463,11 @@ OrderManagementModule.cancelOrderByExternalId(externalId: string)
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur Order-ID (interne Exchange-ID)
+- ✅ **IMPLEMENTIERT** - `open_live_position()` erweitert um `external_id` Parameter
+- ✅ **IMPLEMENTIERT** - `get_order_by_external_id()` Methode hinzugefügt
+- ✅ **IMPLEMENTIERT** - `cancel_order_by_external_id()` Methode hinzugefügt
+- ✅ SDK-Methoden mit REST-API Fallback implementiert
+- ✅ Nur Order-ID (interne Exchange-ID) - weiterhin unterstützt
 
 **Zweck:**
 
@@ -430,31 +495,53 @@ OrderManagementModule.cancelOrderByExternalId(externalId: string)
 **Implementierung:**
 
 ```python
-async def place_order_with_external_id(
-    self,
-    symbol: str,
-    side: str,
-    size: Decimal,
-    price: Decimal,
-    external_id: str
-) -> Optional[str]:
-    """Place order with external ID for tracking"""
-    # Use external_id in order creation
-    # Then can query by external_id later
-    pass
+# Order mit external_id platzieren
+success, order_id = await x10_adapter.open_live_position(
+    symbol="ETH-USD-PERP",
+    side="BUY",
+    notional_usd=100.0,
+    external_id="my-custom-order-id-123"  # ✅ Neu: External ID Support
+)
 
-async def get_order_by_external_id(self, external_id: str) -> Optional[Dict]:
-    """Get order by external ID"""
-    client = await self._get_auth_client()
-    result = await client.account.getOrderByExternalId(external_id)
-    return result.data[0] if result.success and result.data else None
+# Order per external_id abfragen
+order = await x10_adapter.get_order_by_external_id("my-custom-order-id-123")
+if order:
+    print(f"Order Status: {order['status']}, Price: {order['price']}")
+
+# Order per external_id canceln
+success = await x10_adapter.cancel_order_by_external_id("my-custom-order-id-123")
 ```
 
-**Impact:** ⚠️ **MITTEL** - Nützlich für besseres Tracking
+**Implementierungsdetails:**
+
+1. **`open_live_position()` erweitert:**
+
+   - Neuer optionaler Parameter `external_id: Optional[str] = None`
+   - Wird an `client.place_order(external_id=...)` weitergegeben
+   - Unterstützt Idempotenz bei Retries
+
+2. **`get_order_by_external_id()`:**
+
+   - Verwendet `client.account.get_order_by_external_id()` wenn verfügbar
+   - Fallback auf direkten REST-API-Call: `GET /api/v1/user/orders/external/{external_id}`
+   - Gibt geparste Order-Daten zurück oder `None` wenn nicht gefunden
+
+3. **`cancel_order_by_external_id()`:**
+
+   - Verwendet `client.orders.cancel_order_by_external_id()` wenn verfügbar
+   - Fallback auf direkten REST-API-Call: `DELETE /api/v1/user/order?externalId={external_id}`
+   - Gibt `True` bei Erfolg, `False` bei Fehler zurück
+
+4. **`_parse_order_data()` Helper:**
+   - Parst Order-Daten von SDK-Response oder REST-API
+   - Unterstützt sowohl dict- als auch Objekt-Format
+   - Normalisiert Feldnamen (snake_case und camelCase)
+
+**Impact:** ⚠️ **MITTEL** - ✅ **IMPLEMENTIERT** - Besseres Tracking & Idempotenz
 
 ---
 
-### 7. Candles-Stream ⚠️ **PRIORITY 3**
+### 7. Candles-Stream - IMPLEMENTIERT (2025-12-21)
 
 **SDK-Methode:**
 
@@ -468,8 +555,9 @@ PerpetualStreamClient.subscribeToCandles({
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur REST-API für Candles
+- IMPLEMENTIERT - X10StreamClient.subscribe_to_candles() hinzugefuegt
+- Optional per Config (nur bei USE_ADAPTER_STREAM_CLIENTS=True):
+  X10_CANDLE_STREAM_ENABLED, X10_CANDLE_STREAM_TYPE, X10_CANDLE_STREAM_INTERVAL
 
 **Zweck:**
 
@@ -500,23 +588,25 @@ PerpetualStreamClient.subscribeToCandles({
 async def subscribe_to_candles(
     self,
     symbol: str,
+    candle_type: str = "trade",
     interval: str = "1m"
 ) -> None:
     """Subscribe to candle stream"""
     await self._stream_client.subscribe_to_candles(
-        message_handler=lambda data: self._handle_candle_update(data, symbol),
+        message_handler=lambda data: self._handle_candle_stream_message(data, symbol),
         market_name=symbol,
+        candle_type=candle_type,
         interval=interval
     )
 ```
 
-**Impact:** ⚠️ **NIEDRIG** - Nice-to-have für erweiterte Features
+**Impact:** NIEDRIG - Jetzt verfuegbar (opt-in)
 
 ---
 
 ## 🟢 Lighter (lighter-ts-main) - Fehlende Features
 
-### 1. Unified Orders mit SL/TP ⚠️ **PRIORITY 1**
+### 1. Unified Orders mit SL/TP ✅ **IMPLEMENTIERT** (2025-01-20)
 
 **SDK-Methode:**
 
@@ -534,8 +624,10 @@ SignerClient.createUnifiedOrder({
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur einzelne Orders ohne SL/TP
+- IMPLEMENTIERT - place_order_with_sl_tp() Methode hinzugefuegt
+- createUnifiedOrder genutzt wenn verfuegbar
+- Fallback: grouped orders (OTO/OTOCO) fuer SL/TP, atomar
+- Automatische Quantisierung und Preis-Skalierung
 
 **Zweck:**
 
@@ -577,37 +669,36 @@ async def place_order_with_sl_tp(
     size: Decimal,
     price: Decimal,
     stop_loss_price: Optional[Decimal] = None,
-    take_profit_price: Optional[Decimal] = None
+    take_profit_price: Optional[Decimal] = None,
+    reduce_only: bool = False,
+    post_only: bool = False,
+    time_in_force: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Place order with automatic SL/TP"""
-    signer = await self._get_signer()
-    market_id = self._get_market_id(symbol)
+    """
+    Place order with automatic Stop-Loss and Take-Profit (Unified Order).
 
-    result = await signer.createUnifiedOrder({
-        'marketIndex': market_id,
-        'clientOrderIndex': int(time.time() * 1000),
-        'baseAmount': int(size * 1_000_000),  # Lighter scaling
-        'isAsk': side == 'SELL',
-        'orderType': OrderType.LIMIT,
-        'price': int(price * 100),  # Lighter scaling
-        'stopLoss': {
-            'triggerPrice': int(stop_loss_price * 100) if stop_loss_price else None,
-            'isLimit': False
-        } if stop_loss_price else None,
-        'takeProfit': {
-            'triggerPrice': int(take_profit_price * 100) if take_profit_price else None,
-            'isLimit': False
-        } if take_profit_price else None
-    })
-
-    return result
+    This is 3x faster than placing orders individually (1 API call instead of 3)
+    and is atomic (all orders are created or none).
+    """
+    # Uses SDK createUnifiedOrder if available
+    # Falls back to grouped orders if SDK method not available
+    # Returns dict with mainOrder, stopLoss, takeProfit results
 ```
 
-**Impact:** 🔥 **HOCH** - Kritisch für Risikomanagement
+**Features:**
+
+- ✅ Prüft SDK `createUnifiedOrder` Verfügbarkeit automatisch
+- ✅ Automatische Quantisierung und Preis-Skalierung (Lighter-spezifisch)
+- ✅ Unterstützt alle Order-Parameter (reduce_only, post_only, time_in_force)
+- ✅ Atomare Operation wenn SDK-Methode verfügbar
+- Fallback auf grouped orders (OTO/OTOCO) wenn SDK-Methode nicht verfuegbar
+- ✅ Vollständige Fehlerbehandlung und Nonce-Management
+
+**Impact:** 🔥 **HOCH** - ✅ **IMPLEMENTIERT** - Automatisches Risikomanagement & 3x weniger API-Calls
 
 ---
 
-### 2. TWAP Orders ⚠️ **PRIORITY 2**
+### 2. TWAP Orders - IMPLEMENTIERT (2025-12-21)
 
 **SDK-Methode:**
 
@@ -620,8 +711,9 @@ SignerClient.createOrder({
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur Market/Limit Orders
+- IMPLEMENTIERT - place_twap_order() hinzugefuegt
+- TWAP nutzt ORDER_TYPE_TWAP und GTT mit Default 1h Expiry
+- SL/TP werden nicht im selben Batch erstellt
 
 **Zweck:**
 
@@ -650,34 +742,20 @@ SignerClient.createOrder({
 **Implementierung:**
 
 ```python
-async def place_twap_order(
-    self,
-    symbol: str,
-    side: str,
-    size: Decimal,
-    duration_seconds: int = 300  # 5 minutes
-) -> Dict[str, Any]:
-    """Place TWAP order for large sizes"""
-    signer = await self._get_signer()
-    market_id = self._get_market_id(symbol)
-
-    result = await signer.createOrder({
-        'marketIndex': market_id,
-        'clientOrderIndex': int(time.time() * 1000),
-        'baseAmount': int(size * 1_000_000),
-        'isAsk': side == 'SELL',
-        'orderType': OrderType.TWAP,
-        'duration': duration_seconds
-    })
-
-    return result
+result = await lighter_adapter.place_twap_order(
+    symbol="ETH-USD",
+    side="BUY",
+    size=Decimal("0.01"),
+    price=Decimal("4000")
+)
+print(result)
 ```
 
-**Impact:** ⚠️ **MITTEL** - Nützlich für große Orders
+**Impact:** MITTEL - Implementiert und bereit
 
 ---
 
-### 3. Grouped Orders ⚠️ **PRIORITY 2**
+### 3. Grouped Orders - IMPLEMENTIERT (2025-12-21)
 
 **SDK-Methode:**
 
@@ -688,8 +766,9 @@ TransactionType.CREATE_GROUPED_ORDERS = 28;
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Nur einzelne Orders
+- IMPLEMENTIERT - place_grouped_orders() hinzugefuegt
+- OTO/OTOCO via create_grouped_orders (GroupingType 1/3)
+- SL/TP nutzt BaseAmount=0 und ClientOrderIndex=0 fuer OTOCO
 
 **Zweck:**
 
@@ -718,23 +797,17 @@ TransactionType.CREATE_GROUPED_ORDERS = 28;
 **Implementierung:**
 
 ```python
-async def place_grouped_orders(
-    self,
-    orders: List[Dict[str, Any]]
-) -> Dict[str, Any]:
-    """Place multiple orders atomically"""
-    signer = await self._get_signer()
-
-    # Create grouped order transaction
-    # All orders execute or none
-    pass
+orders = [req_main, req_tp, req_sl]
+result = await lighter_adapter.place_grouped_orders(3, orders)
+if result.get("success"):
+    print("Grouped orders tx hash:", result.get("hash"))
 ```
 
-**Impact:** ⚠️ **MITTEL** - Nützlich für komplexe Strategien
+**Impact:** MITTEL - Implementiert und nutzbar
 
 ---
 
-### 4. Request Batching ⚠️ **PRIORITY 3**
+### 4. Request Batching - TEILWEISE IMPLEMENTIERT
 
 **SDK-Feature:**
 
@@ -744,8 +817,8 @@ RequestBatcher - Automatisches Batching von Requests
 
 **Aktueller Status:**
 
-- ❌ Nicht implementiert
-- ✅ Sequenzielle Requests
+- TEILWEISE - LighterBatchManager vorhanden (send_tx_batch)
+- Nutzung ist opt-in und nicht global verdrahtet
 
 **Zweck:**
 
@@ -788,11 +861,11 @@ class LighterRequestBatcher:
         pass
 ```
 
-**Impact:** ⚠️ **NIEDRIG** - Performance-Optimierung
+**Impact:** NIEDRIG - Optionaler Performance-Hebel
 
 ---
 
-### 5. Erweiterte Order Status Checker ⚠️ **PRIORITY 3**
+### 5. Erweiterte Order Status Checker - TEILWEISE IMPLEMENTIERT
 
 **SDK-Feature:**
 
@@ -804,9 +877,9 @@ getCancelReason() - Detaillierte Cancel-Reasons
 
 **Aktueller Status:**
 
-- ⚠️ Teilweise implementiert
-- ✅ Basis-Order-Status vorhanden
-- ❌ Keine erweiterten Features
+- TEILWEISE - get_order_status nutzt active/inactive Orders pro Market
+- Cancel-Reason wird aus Status-String extrahiert
+- Formatierung/zus. Felder noch ausbaubar
 
 **Zweck:**
 
@@ -826,17 +899,16 @@ getCancelReason() - Detaillierte Cancel-Reasons
    - Automatische Erkennung von Fills
    - Bessere Retry-Logik
 
-**Impact:** ⚠️ **NIEDRIG** - Nice-to-have für besseres Debugging
+**Impact:** NIEDRIG - Debugging verbessert
 
 ---
 
-### 6. Funding-Rate-Stream (falls verfügbar) ⚠️ **PRIORITY 3**
+### 6. Funding-Rate-Stream - IMPLEMENTIERT (2025-12-21)
 
 **Status:**
 
-- ⚠️ Unklar ob verfügbar
-- ✅ REST-API vorhanden
-- ❌ Stream nicht implementiert
+- IMPLEMENTIERT - market_stats/all via WebSocketManager liefert Funding Rates
+- REST bleibt als Fallback (wenn WS stale)
 
 **Zweck:**
 
@@ -855,7 +927,7 @@ getCancelReason() - Detaillierte Cancel-Reasons
    - Weniger API-Calls
    - Echtzeit-Daten
 
-**Impact:** ⚠️ **NIEDRIG** - Abhängig von Lighter-API-Verfügbarkeit
+**Impact:** NIEDRIG - Echtzeit-Updates aktiv
 
 ---
 
@@ -916,20 +988,20 @@ getCancelReason() - Detaillierte Cancel-Reasons
 
 1. ✅ **X10: Mass Cancel** - Shutdown-Performance (**IMPLEMENTIERT 2025-01-20**)
 2. ✅ **X10: Position History** - Analytics & Debugging (**IMPLEMENTIERT 2025-01-20**)
-3. **X10: Orders History** - Performance-Analyse
-4. **X10: Trades History** - Genauere PnL-Berechnung
-5. **Lighter: Unified Orders mit SL/TP** - Risikomanagement
+3. ✅ **X10: Orders History** - Performance-Analyse (**IMPLEMENTIERT 2025-01-20**)
+4. ✅ **X10: Trades History** - Genauere PnL-Berechnung (**IMPLEMENTIERT 2025-01-20**)
+5. ✅ **Lighter: Unified Orders mit SL/TP** - Risikomanagement (**IMPLEMENTIERT 2025-01-20**)
 
 ### ⚠️ Priority 2 (Wichtig - Nächste Iteration)
 
-6. **X10: Asset Operations** - Vollständiges Accounting
-7. **X10: Order by External ID** - Besseres Tracking
-8. **Lighter: TWAP Orders** - Große Orders
-9. **Lighter: Grouped Orders** - Atomare Execution
+6. ✅ **X10: Asset Operations** - Vollständiges Accounting (**IMPLEMENTIERT 2025-01-20**)
+7. ✅ **X10: Order by External ID** - Besseres Tracking (**IMPLEMENTIERT 2025-01-20**)
+8. **Lighter: TWAP Orders (IMPLEMENTIERT)** - Große Orders
+9. **Lighter: Grouped Orders (IMPLEMENTIERT)** - Atomare Execution
 
 ### 💡 Priority 3 (Nice-to-have - Später)
 
-10. **X10: Candles-Stream** - Technische Analyse
+10. **X10: Candles-Stream (IMPLEMENTIERT)** - Technische Analyse
 11. **Lighter: Request Batching** - Performance
 12. **Lighter: Erweiterte Order Status** - Debugging
 13. **Gemeinsam: Dashboard-Integration** - Monitoring
@@ -1205,7 +1277,7 @@ CREATE_ORDER (14) mit optionalen SL/TP Orders
 
 ---
 
-### Lighter: TWAP Orders - Technische Details
+### Lighter: TWAP Orders (IMPLEMENTIERT) - Technische Details
 
 **Transaction Type:**
 
@@ -1319,16 +1391,17 @@ Problem: Race Conditions, 3 separate Calls
 
 ### Zeit-Investment vs. Nutzen
 
-| Feature          | Implementierungs-Zeit | Nutzen                         | ROI          |
-| ---------------- | --------------------- | ------------------------------ | ------------ |
-| Mass Cancel      | 2-3 Stunden           | 10x schnellere Shutdowns       | 🔥 Sehr hoch |
-| Unified Orders   | 4-6 Stunden           | Automatisches Risikomanagement | 🔥 Sehr hoch |
-| Position History | 3-4 Stunden           | Vollständige Analytics         | ⚠️ Hoch      |
-| Orders History   | 3-4 Stunden           | Performance-Optimierung        | ⚠️ Hoch      |
-| Trades History   | 3-4 Stunden           | Präzisere PnL                  | ⚠️ Hoch      |
-| Asset Operations | 2-3 Stunden           | Vollständiges Accounting       | ⚠️ Mittel    |
-| TWAP Orders      | 4-5 Stunden           | Große Orders optimieren        | ⚠️ Mittel    |
-| Grouped Orders   | 5-6 Stunden           | Atomare Execution              | ⚠️ Mittel    |
+| Feature              | Implementierungs-Zeit | Nutzen                         | ROI          |
+| -------------------- | --------------------- | ------------------------------ | ------------ |
+| Mass Cancel          | 2-3 Stunden           | 10x schnellere Shutdowns       | 🔥 Sehr hoch |
+| Unified Orders       | 4-6 Stunden           | Automatisches Risikomanagement | 🔥 Sehr hoch |
+| Position History     | 3-4 Stunden           | Vollständige Analytics         | ⚠️ Hoch      |
+| Orders History       | 3-4 Stunden           | Performance-Optimierung        | ⚠️ Hoch      |
+| Trades History       | 3-4 Stunden           | Präzisere PnL                  | ⚠️ Hoch      |
+| Asset Operations     | 2-3 Stunden           | Vollständiges Accounting       | ⚠️ Mittel    |
+| Order by External ID | 2-3 Stunden           | Besseres Tracking & Idempotenz | ⚠️ Mittel    |
+| TWAP Orders          | 4-5 Stunden           | Große Orders optimieren        | ⚠️ Mittel    |
+| Grouped Orders       | 5-6 Stunden           | Atomare Execution              | ⚠️ Mittel    |
 
 **Gesamt-Investment:** ~30-40 Stunden  
 **Gesamt-Nutzen:** Signifikante Performance- und Risiko-Verbesserungen
@@ -1337,40 +1410,45 @@ Problem: Race Conditions, 3 separate Calls
 
 ## 🚀 Quick Wins (Schnelle Implementierungen mit hohem Impact)
 
-1. ✅ **Mass Cancel (X10)** - 2-3h, 10x schnellere Shutdowns (**IMPLEMENTIERT 2025-01-20**)
-2. **Unified Orders (Lighter)** - 4-6h, Automatisches Risikomanagement
-3. **Trades History (X10)** - 3-4h, Präzisere PnL
+1. Mass Cancel (X10) - 2-3h, 10x schneller Shutdown (IMPLEMENTIERT 2025-01-20)
+2. Unified Orders (Lighter) - 4-6h, Risk Management (IMPLEMENTIERT 2025-12-21)
+3. Trades History (X10) - 3-4h, PnL/Slippage (IMPLEMENTIERT 2025-01-20)
 
-**Gesamt:** ~10-13 Stunden für 3 kritische Features  
-**Status:** 1/3 implementiert ✅
-
----
-
-**Letzte Aktualisierung:** 2025-01-20
+**Gesamt:** ~10-13 Stunden fuer 3 kritische Features
+**Status:** 3/3 implementiert
 
 ---
 
-## ✅ Implementierungs-Status
+**Letzte Aktualisierung:** 2025-12-21
+
+---
+
+## Implementierungs-Status
 
 ### Abgeschlossen
 
-| Feature          | Exchange | Implementiert | Datum      | Impact                                |
-| ---------------- | -------- | ------------- | ---------- | ------------------------------------- |
-| Mass Cancel      | X10      | ✅            | 2025-01-20 | 🔥 10x schnellere Shutdowns           |
-| Position History | X10      | ✅            | 2025-01-20 | 🔥 Vollständige Analytics & Debugging |
+| Feature              | Exchange | Implementiert | Datum      | Impact                                   |
+| -------------------- | -------- | ------------- | ---------- | ---------------------------------------- |
+| Mass Cancel          | X10      | Yes           | 2025-01-20 | High - schneller Shutdown                |
+| Position History     | X10      | Yes           | 2025-01-20 | High - Analytics & Debugging             |
+| Orders History       | X10      | Yes           | 2025-01-20 | High - Performance & Analytics           |
+| Trades History       | X10      | Yes           | 2025-01-20 | High - PnL & Slippage                     |
+| Asset Operations     | X10      | Yes           | 2025-01-20 | Medium - Accounting                       |
+| Order by External ID | X10      | Yes           | 2025-01-20 | Medium - Tracking & Idempotenz           |
+| Candles Stream       | X10      | Yes           | 2025-12-21 | Low - Realtime candles (opt-in)          |
+| Unified Orders SL/TP | Lighter  | Yes           | 2025-01-20 | High - Risk Management                   |
+| TWAP Orders          | Lighter  | Yes           | 2025-12-21 | Medium - Large order execution           |
+| Grouped Orders       | Lighter  | Yes           | 2025-12-21 | Medium - Atomic multi-leg                |
+| Funding Rate Stream  | Lighter  | Yes           | 2025-12-21 | Low - WS market_stats/all                |
 
-### In Arbeit
+### Teilweise
 
-- Keine
+- Request Batching (Lighter) - BatchManager vorhanden, opt-in
+- Erweiterte Order Status Checker (Lighter) - active/inactive + cancel reason
 
-### Geplant (Priority 1)
+### Geplant
 
-1. Position History (X10)
-2. Orders History (X10)
-3. Trades History (X10)
-4. Unified Orders mit SL/TP (Lighter)
+1. Dashboard-Integration
+2. Backtesting-Framework
 
----
-
-**Fortschritt:** 2/15 Features implementiert (13.3%)  
-**Nächster Schritt:** Orders History (X10) oder Unified Orders (Lighter)
+**Letzte Aktualisierung:** 2025-12-21

@@ -357,11 +357,24 @@ else:
     # FIX: Increase rate to allow faster order cycles while staying
     # within the rate limit over time (token bucket naturally smooths)
     # ═══════════════════════════════════════════════════════════════
+    standard_tokens_per_second = float(
+        getattr(config, "LIGHTER_RATE_LIMIT_TOKENS_PER_SECOND", 1.0)
+    )
+    standard_max_tokens = float(
+        getattr(config, "LIGHTER_RATE_LIMIT_MAX_TOKENS", 8.0)
+    )
+    standard_min_interval = float(
+        getattr(config, "LIGHTER_RATE_LIMIT_MIN_INTERVAL", 0.2)
+    )
+    standard_penalty_seconds = float(
+        getattr(config, "LIGHTER_RATE_LIMIT_PENALTY_SECONDS", 60.0)
+    )
+
     lighter_config = RateLimiterConfig(
-        tokens_per_second=2.5,    # 2.5 tokens/sec (was 1.0) - allows faster order cycles
-        max_tokens=20.0,          # Burst of 20 requests (was 10) - covers 3-4 parallel trades
-        min_request_interval=0.1, # 100ms min interval (was 150ms) - faster bursts
-        penalty_429_seconds=30.0  # Keep strict penalty for Standard
+        tokens_per_second=standard_tokens_per_second,
+        max_tokens=standard_max_tokens,
+        min_request_interval=standard_min_interval,
+        penalty_429_seconds=standard_penalty_seconds
     )
 
 LIGHTER_RATE_LIMITER = TokenBucketRateLimiter(

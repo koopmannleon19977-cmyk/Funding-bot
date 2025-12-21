@@ -182,6 +182,19 @@ DYNAMIC_SPREAD_ENABLED = True      # H8: Aktiviert volatilitätsbasierte Spread-
 # Format korrigiert per offizieller Lighter Python SDK utils.py
 LIGHTER_WS_ORDERS = True           # B1: WebSocket für Order Submission aktivieren
 
+# Stream routing: use WebSocketManager for market data by default.
+# Adapter stream clients (X10/Lighter) are legacy and can cause duplicate streams.
+USE_ADAPTER_STREAM_CLIENTS = False
+
+# Lighter WS/REST alignment: skip REST polling when WS market_stats is fresh.
+LIGHTER_WS_MARKET_STATS_STALE_SECONDS = 15.0
+LIGHTER_SKIP_REST_POLL_WHEN_WS_HEALTHY = True
+
+# X10 candles stream (optional, only when adapter stream clients are enabled).
+X10_CANDLE_STREAM_ENABLED = False
+X10_CANDLE_STREAM_TYPE = "trade"
+X10_CANDLE_STREAM_INTERVAL = "1m"
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAKER ESCALATION (2025-12-17 Audit Fix)
 # Nach Maker-Timeout zu Taker wechseln, ABER nur wenn EV noch positiv ist!
@@ -445,6 +458,17 @@ LIGHTER_API_KEY_INDEX = 3
 LIGHTER_AUTO_ACCOUNT_INDEX = False
 LIGHTER_MAX_API_KEY_INDEX = -1
 LIGHTER_ACCOUNT_TIER = "STANDARD" # Options: "STANDARD" (1 req/s) or "PREMIUM" (50 req/s)
+# Lighter REST rate limiting (Standard tier defaults to ~1 req/s).
+LIGHTER_RATE_LIMIT_TOKENS_PER_SECOND = 1.0
+LIGHTER_RATE_LIMIT_MAX_TOKENS = 8.0
+LIGHTER_RATE_LIMIT_MIN_INTERVAL = 0.2
+LIGHTER_RATE_LIMIT_PENALTY_SECONDS = 60.0
+# Lighter REST caching
+LIGHTER_POSITIONS_CACHE_SECONDS = 5.0
+LIGHTER_WS_STARTUP_GRACE_SECONDS = 15.0
+LIGHTER_WAIT_FOR_WS_MARKET_STATS_SECONDS = 60.0
+LIGHTER_STARTUP_REST_FALLBACK = False
+LIGHTER_REST_REFRESH_MIN_SECONDS = 60.0
 
 X10_API_BASE_URL = "https://api.starknet.extended.exchange"
 X10_PRIVATE_KEY = os.getenv("X10_PRIVATE_KEY")

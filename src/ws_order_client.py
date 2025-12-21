@@ -48,7 +48,7 @@ class WsOrderConfig:
     url: str = "wss://mainnet.zklighter.elliot.ai/stream"
     reconnect_interval: float = 5.0
     max_reconnect_attempts: int = 10
-    heartbeat_interval: float = 30.0
+    heartbeat_interval: float = 0.0
     request_timeout: float = 10.0
 
 
@@ -177,7 +177,8 @@ class WebSocketOrderClient:
             
             # Start background tasks
             self._receive_task = asyncio.create_task(self._receive_loop())
-            self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+            if self.config.heartbeat_interval and self.config.heartbeat_interval > 0:
+                self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             
             logger.info(f"✅ [WS-ORDER] Connected to {self.config.url}")
             return True
@@ -223,6 +224,9 @@ class WebSocketOrderClient:
         
     async def _receive_loop(self):
         """Background task to receive and process messages"""
+        if not self.config.heartbeat_interval or self.config.heartbeat_interval <= 0:
+            return
+
         while self._running and self._ws:
             try:
                 message = await self._ws.recv()

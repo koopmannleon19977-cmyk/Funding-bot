@@ -55,6 +55,8 @@ class BotEventLoop:
         # The centralized ShutdownOrchestrator has its own longer timeout for closing positions safely.
         self._shutdown_timeout = 15.0
         self._shutdown_reason: str = ""
+        self._signal_handlers_installed = False
+        self._prev_signal_handlers: Dict[int, Any] = {}
         
         # Components
         self. x10_adapter = None
@@ -111,18 +113,47 @@ class BotEventLoop:
     
     async def start(self):
         """Start the event loop and all tasks"""
+        # #region agent log
+        import json, time
+        DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H2", "location": "event_loop.py:112", "message": "start() entry", "data": {"_running": self._running, "shutdown_event_set": self._shutdown_event.is_set()}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         if self._running:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H2", "location": "event_loop.py:115", "message": "start() early return - already running", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
             logger.warning("Event loop already running")
             return
         
+        # FIX: Reset state completely before starting
+        # This ensures that if the singleton is reused from a previous run,
+        # it starts in a clean state
+        self._running = False
+        self._shutdown_event.clear()
+        self._shutdown_reason = ""
+        
+        # Now set running to True
         self._running = True
-        self._shutdown_event. clear()
         # Reset global shutdown latch
         try:
             import config
             setattr(config, "IS_SHUTTING_DOWN", False)
         except Exception:
             pass
+        
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H2", "location": "event_loop.py:127", "message": "About to log BotEventLoop starting", "data": {"_running": self._running, "tasks_count": len(self._tasks)}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
         
         logger.info("🚀 BotEventLoop starting...")
         
@@ -144,41 +175,131 @@ class BotEventLoop:
             key=lambda t: t.priority. value
         )
         
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H3", "location": "event_loop.py:147", "message": "Before starting tasks", "data": {"tasks_count": len(sorted_tasks), "enabled_tasks": sum(1 for t in sorted_tasks if t.enabled)}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         for managed_task in sorted_tasks:
             if managed_task.enabled:
                 await self._start_task(managed_task)
         
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H3", "location": "event_loop.py:156", "message": "After starting tasks", "data": {"tasks_count": len(self._tasks)}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         logger.info(f"✅ Started {len(self._tasks)} tasks")
+        
+        # FIX: Double-check that _running is still True before entering supervision loop
+        if not self._running:
+            logger.error(f"❌ CRITICAL: _running became False after starting tasks! Re-setting to True.")
+            self._running = True
+            self._shutdown_event.clear()
+            self._shutdown_reason = ""
+        
+        logger.info(f"🔍 Pre-supervision check: _running={self._running}, _shutdown_event={self._shutdown_event.is_set()}, _shutdown_reason='{self._shutdown_reason}', tasks={len(self._tasks)}")
         
         # Main supervision loop
         try:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "A", "location": "event_loop.py:154", "message": "Before _supervision_loop", "data": {"_running": self._running, "shutdown_event_set": self._shutdown_event.is_set(), "tasks_count": len(self._tasks)}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
             await self._supervision_loop()
-        except asyncio.CancelledError:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "A", "location": "event_loop.py:156", "message": "After _supervision_loop", "data": {"_running": self._running, "shutdown_reason": self._shutdown_reason}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
+        except asyncio.CancelledError as e:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H5", "location": "event_loop.py:170", "message": "CancelledError in supervision loop", "data": {"error": str(e)}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
             if not self._shutdown_reason:
                 self._shutdown_reason = "cancelled"
             logger.info("Event loop cancelled")
+        except Exception as e:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H5", "location": "event_loop.py:178", "message": "Exception in supervision loop", "data": {"error": str(e), "error_type": type(e).__name__}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
+            logger.error(f"❌ Exception in supervision loop: {e}", exc_info=True)
+            raise
         finally:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H6", "location": "event_loop.py:186", "message": "Before _shutdown()", "data": {"_running": self._running, "shutdown_reason": self._shutdown_reason}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
             await self._shutdown()
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H6", "location": "event_loop.py:192", "message": "After _shutdown()", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
     
     async def stop(self):
         """Request graceful shutdown"""
-        logger.info("🛑 Shutdown requested...")
+        logger.info(f"🛑 stop() called - current _running={self._running}, _shutdown_reason='{self._shutdown_reason}'")
         if not self._shutdown_reason:
             self._shutdown_reason = "manual_stop"
         self._running = False
-        self._shutdown_event. set()
+        self._shutdown_event.set()
+        logger.info(f"🛑 stop() completed - _running={self._running}, _shutdown_event={self._shutdown_event.is_set()}")
     
     def request_shutdown(self):
         """Non-async shutdown request (for signal handlers)"""
+        logger.info(f"🛑 request_shutdown() called - current _running={self._running}, _shutdown_reason='{self._shutdown_reason}'")
         if not self._shutdown_reason:
             self._shutdown_reason = "request_shutdown"
         self._running = False
-        self._shutdown_event. set()
+        self._shutdown_event.set()
+        logger.info(f"🛑 request_shutdown() completed - _running={self._running}, _shutdown_event={self._shutdown_event.is_set()}")
     
     def _setup_signal_handlers(self):
-        """Setup OS signal handlers - Disabled for Windows compatibility"""
-        # We rely on the Main Loop to catch KeyboardInterrupt
-        pass
+        """Setup OS signal handlers (SIGINT, SIGTERM) for graceful shutdown."""
+        if self._signal_handlers_installed:
+            return
+
+        self._signal_handlers_installed = True
+
+        def _handle_signal(signum, frame):
+            try:
+                sig_name = signal.Signals(signum).name
+            except Exception:
+                sig_name = str(signum)
+            logger.info(f"[signal] Received {sig_name}; requesting shutdown")
+            self.request_shutdown()
+            prev_handler = self._prev_signal_handlers.get(signum)
+            if callable(prev_handler):
+                try:
+                    prev_handler(signum, frame)
+                except Exception as e:
+                    logger.debug(f"[signal] Previous handler error: {e}")
+
+        for sig in (signal.SIGINT, getattr(signal, "SIGTERM", None)):
+            if sig is None:
+                continue
+            try:
+                self._prev_signal_handlers[sig] = signal.getsignal(sig)
+                signal.signal(sig, _handle_signal)
+            except Exception as e:
+                logger.debug(f"[signal] handler setup failed for {sig}: {e}")
     
     async def _start_task(self, managed_task: ManagedTask):
         """Start a single managed task"""
@@ -197,6 +318,15 @@ class BotEventLoop:
     
     def _task_done_callback(self, managed_task: ManagedTask, task: asyncio.Task):
         """Handle task completion/failure"""
+        # #region agent log
+        import json, time
+        DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H", "location": "event_loop.py:198", "message": "_task_done_callback", "data": {"task_name": managed_task.name, "_running": self._running, "task_done": task.done()}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
         if not self._running:
             return
         
@@ -207,6 +337,12 @@ class BotEventLoop:
             return
         
         if exc:
+            # #region agent log
+            try:
+                with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                    f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H", "location": "event_loop.py:209", "message": "Task exception detected", "data": {"task_name": managed_task.name, "error": str(exc), "error_type": type(exc).__name__}, "timestamp": int(time.time() * 1000)}) + "\n")
+            except: pass
+            # #endregion
             logger.error(
                 f"❌ Task {managed_task.name} crashed: {exc}",
                 exc_info=exc
@@ -255,30 +391,190 @@ class BotEventLoop:
         health_interval = 30.0
         last_health_check = 0.0
         
+        # #region agent log
+        import json
+        DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "B", "location": "event_loop.py:258", "message": "_supervision_loop entry", "data": {"_running": self._running, "shutdown_event_set": self._shutdown_event.is_set()}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
+        # FIX: Ensure shutdown event is cleared at the start of supervision loop
+        # This prevents immediate exit if the event was set from a previous run
+        if self._shutdown_event.is_set():
+            logger.warning("⚠️ Shutdown event was set at start of supervision loop - clearing it")
+            self._shutdown_event.clear()
+        
+        logger.info(f"🔄 Supervision loop starting (running={self._running}, shutdown_event={self._shutdown_event.is_set()})")
+        
+        # FIX: Ensure _running is True before entering the loop
+        if not self._running:
+            logger.error(f"❌ CRITICAL: _running is False at start of supervision loop! This should never happen.")
+            logger.error(f"   _shutdown_reason: {self._shutdown_reason}")
+            logger.error(f"   _shutdown_event.is_set(): {self._shutdown_event.is_set()}")
+            # Force it to True to keep the bot running
+            self._running = True
+            logger.warning("⚠️ Forced _running to True to prevent immediate exit")
+        
+        loop_iterations = 0
         while self._running:
+            loop_iterations += 1
+            if loop_iterations == 1:
+                logger.info(f"✅ Supervision loop entered successfully (iteration {loop_iterations})")
+            elif loop_iterations % 10 == 0:
+                logger.debug(f"🔄 Supervision loop iteration {loop_iterations} (running={self._running})")
+            
+            # Double-check _running at start of each iteration
+            if not self._running:
+                logger.warning(f"⚠️ _running became False during loop (iteration {loop_iterations}) - breaking")
+                break
+                
             try:
                 # Wait for shutdown or health check interval
                 try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(),
-                        timeout=health_interval
-                    )
-                    # Shutdown requested
-                    break
-                except asyncio. TimeoutError:
+                    # #region agent log
+                    try:
+                        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                            f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "C", "location": "event_loop.py:263", "message": "Before wait_for shutdown_event", "data": {"_running": self._running, "shutdown_event_set": self._shutdown_event.is_set(), "timeout": health_interval}, "timestamp": int(time.time() * 1000)}) + "\n")
+                    except: pass
+                    # #endregion
+                    
+                    # CRITICAL: Check state BEFORE wait() to prevent immediate return
+                    event_before_wait = self._shutdown_event.is_set()
+                    running_before_wait = self._running
+                    reason_before_wait = self._shutdown_reason
+                    
+                    logger.info(f"🔍 [Iteration {loop_iterations}] Before wait(): _running={running_before_wait}, event_set={event_before_wait}, reason='{reason_before_wait}'")
+                    
+                    # If event is already set, we need to handle it BEFORE wait()
+                    if event_before_wait:
+                        logger.warning(f"⚠️ [Iteration {loop_iterations}] Shutdown event is ALREADY SET before wait()!")
+                        # Only break if we're actually shutting down
+                        if not running_before_wait or reason_before_wait:
+                            logger.info(f"🛑 [Iteration {loop_iterations}] Breaking: _running={running_before_wait}, reason='{reason_before_wait}'")
+                            break
+                        else:
+                            # Event set but still running - clear it and continue
+                            logger.warning(f"⚠️ [Iteration {loop_iterations}] Clearing unexpected shutdown event and continuing")
+                            self._shutdown_event.clear()
+                            # Skip wait() and continue loop
+                            await asyncio.sleep(0.1)  # Small delay to prevent tight loop
+                            continue
+                    
+                    # Only wait if event is not already set
+                    try:
+                        logger.info(f"⏳ [Iteration {loop_iterations}] Waiting for shutdown event (timeout={health_interval}s)...")
+                        await asyncio.wait_for(
+                            self._shutdown_event.wait(),
+                            timeout=health_interval
+                        )
+                        logger.info(f"✅ [Iteration {loop_iterations}] wait_for() returned (event was set or timeout)")
+                    except asyncio.TimeoutError:
+                        # Normal timeout - continue loop
+                        logger.debug(f"⏱️ [Iteration {loop_iterations}] wait_for() timeout (normal - continuing)")
+                        pass
+                    except asyncio.CancelledError:
+                        # If we are still running, treat this as a spurious cancellation.
+                        if self._running and not self._shutdown_reason:
+                            logger.debug(
+                                f"[Iteration {loop_iterations}] wait_for cancelled while running; continuing"
+                            )
+                            await asyncio.sleep(0.1)
+                            continue
+                        logger.info(
+                            f"[Iteration {loop_iterations}] Cancelled and shutting down - breaking"
+                        )
+                        raise
+                    
+                    # Check state AFTER wait()
+                    event_after_wait = self._shutdown_event.is_set()
+                    running_after_wait = self._running
+                    reason_after_wait = self._shutdown_reason
+                    
+                    logger.info(f"🔍 [Iteration {loop_iterations}] After wait(): _running={running_after_wait}, event_set={event_after_wait}, reason='{reason_after_wait}'")
+                    
+                    # CRITICAL FIX: Check _running FIRST before breaking
+                    # If _running is False, we MUST break (shutdown was requested)
+                    if not running_after_wait:
+                        logger.info(f"🛑 [Iteration {loop_iterations}] Breaking supervision loop: _running={running_after_wait} (shutdown requested)")
+                        break
+                    
+                    # If shutdown_reason is set, we MUST break (shutdown was requested)
+                    if reason_after_wait:
+                        logger.info(f"🛑 [Iteration {loop_iterations}] Breaking supervision loop: _shutdown_reason='{reason_after_wait}' (shutdown requested)")
+                        break
+                    
+                    # If event was set but we're still running and no shutdown reason, clear it and continue
+                    # This handles the case where the event was set by mistake or from a previous run
+                    if event_after_wait:
+                        logger.warning(f"⚠️ [Iteration {loop_iterations}] Shutdown event set but bot still running - clearing event and continuing")
+                        logger.warning(f"   _running={running_after_wait}, _shutdown_reason='{reason_after_wait}'")
+                        self._shutdown_event.clear()
+                        # Continue the loop - don't break!
+                        continue
+                        
+                except asyncio.TimeoutError:
+                    # This should not happen here, but handle it anyway
+                    logger.debug(f"⏱️ [Iteration {loop_iterations}] Outer TimeoutError (unexpected)")
                     pass
                 
                 # Periodic health check
                 now = time.time()
                 if now - last_health_check >= health_interval:
+                    logger.info(f"🏥 [Iteration {loop_iterations}] Running health check...")
                     await self._health_check()
                     last_health_check = now
+                    logger.info(f"✅ [Iteration {loop_iterations}] Health check complete")
                 
             except asyncio.CancelledError:
-                break
+                # #region agent log
+                try:
+                    with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "E", "location": "event_loop.py:277", "message": "CancelledError in supervision loop", "data": {"_running": self._running}, "timestamp": int(time.time() * 1000)}) + "\n")
+                except: pass
+                # #endregion
+                # CRITICAL FIX: Only break if we're actually shutting down
+                # If we're cancelled but still supposed to be running, continue the loop
+                if self._running and not self._shutdown_reason:
+                    logger.warning(f"⚠️ [Iteration {loop_iterations}] CancelledError but _running=True - this is unexpected!")
+                    logger.warning(f"   Attempting to continue the loop...")
+                    # Try to continue - don't break
+                    # But first, check if we can actually continue
+                    # If the task itself is cancelled, we can't continue
+                    try:
+                        # Create a new task to continue the loop
+                        # Actually, we can't do that - the task is already cancelled
+                        # So we need to break, but log it as unexpected
+                        logger.error(f"❌ [Iteration {loop_iterations}] Cannot continue after CancelledError - task is cancelled")
+                        logger.error(f"   This indicates the supervision loop task was cancelled externally")
+                        logger.error(f"   _running={self._running}, _shutdown_reason='{self._shutdown_reason}'")
+                        break
+                    except Exception as e:
+                        logger.error(f"❌ Error trying to continue after CancelledError: {e}")
+                        break
+                else:
+                    logger.warning(f"⚠️ [Iteration {loop_iterations}] CancelledError in supervision loop - breaking (shutdown requested)")
+                    break
             except Exception as e:
-                logger.error(f"Supervision loop error: {e}")
+                # #region agent log
+                try:
+                    with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                        f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "F", "location": "event_loop.py:279", "message": "Exception in supervision loop", "data": {"error": str(e), "error_type": type(e).__name__}, "timestamp": int(time.time() * 1000)}) + "\n")
+                except: pass
+                # #endregion
+                logger.error(f"❌ [Iteration {loop_iterations}] Supervision loop error: {e}", exc_info=True)
+                # Don't break the loop on exception - continue running
                 await asyncio.sleep(1.0)
+        
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "G", "location": "event_loop.py:281", "message": "_supervision_loop exit", "data": {"_running": self._running, "shutdown_reason": self._shutdown_reason, "loop_iterations": loop_iterations}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        
+        logger.warning(f"⚠️ Supervision loop exited! _running={self._running}, _shutdown_reason='{self._shutdown_reason}', iterations={loop_iterations}")
     
     async def _health_check(self):
         """Check health of all tasks"""
@@ -602,6 +898,12 @@ def get_event_loop() -> BotEventLoop:
     if _event_loop is None:
         _event_loop = BotEventLoop()
     return _event_loop
+
+
+def reset_event_loop():
+    """Reset the singleton event loop (useful for testing or clean restarts)"""
+    global _event_loop
+    _event_loop = None
 
 
 async def run_bot(

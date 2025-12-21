@@ -136,6 +136,8 @@ class X10Adapter(BaseAdapter):
         self._trade_cache = {}
         self._funding_cache = {}
         self._funding_cache_time = {}  # Ensure this exists
+        self._candle_cache = {}
+        self._candle_cache_time = {}
         
         # NEW: Public Aliases for Latency/Prediction modules
         self.price_cache_time = self._price_cache_time
@@ -534,7 +536,8 @@ class X10Adapter(BaseAdapter):
             logger.warning("⚠️ [X10 Stream] Cannot initialize: Missing API key")
             return
         
-        stream_url = self.client_env.streamUrl
+        # Python SDK uses snake_case: stream_url instead of streamUrl
+        stream_url = getattr(self.client_env, 'stream_url', None) or getattr(self.client_env, 'streamUrl', None)
         if not stream_url:
             logger.warning("⚠️ [X10 Stream] Cannot initialize: Missing stream URL in config")
             return
@@ -577,10 +580,12 @@ class X10Adapter(BaseAdapter):
                         await self._handle_orderbook_stream_message(data, sym)
                     return handler
                 
+                # Test without depth parameter first - websocat example works without depth
+                # According to API docs, depth is optional and defaults to full orderbook
                 await self._stream_client.subscribe_to_orderbooks(
                     message_handler=make_orderbook_handler(symbol),
                     market_name=symbol,
-                    depth=20
+                    depth=None  # Don't specify depth - let server use default
                 )
             
             # Subscribe to public trades for key symbols (trade analysis)
@@ -597,6 +602,28 @@ class X10Adapter(BaseAdapter):
                     message_handler=make_trade_handler(symbol),
                     market_name=symbol
                 )
+
+            # Subscribe to candle streams (optional)
+            if getattr(config, "X10_CANDLE_STREAM_ENABLED", False):
+                candle_type = getattr(config, "X10_CANDLE_STREAM_TYPE", "trade")
+                candle_interval = getattr(config, "X10_CANDLE_STREAM_INTERVAL", "1m")
+                candle_symbols = stream_symbols[:5]
+                logger.info(
+                    f"[X10 Stream] Subscribing to candles for {len(candle_symbols)} symbols "
+                    f"(type={candle_type}, interval={candle_interval})"
+                )
+                for symbol in candle_symbols:
+                    def make_candle_handler(sym):
+                        async def handler(data):
+                            await self._handle_candle_stream_message(data, sym)
+                        return handler
+
+                    await self._stream_client.subscribe_to_candles(
+                        message_handler=make_candle_handler(symbol),
+                        market_name=symbol,
+                        candle_type=candle_type,
+                        interval=candle_interval,
+                    )
             
             # Start all streams
             await self._stream_client.start()
@@ -824,6 +851,31 @@ class X10Adapter(BaseAdapter):
             
         except Exception as e:
             logger.error(f"[X10 Stream] Error handling trade message for {symbol}: {e}")
+
+    async def _handle_candle_stream_message(self, data: Dict[str, Any], symbol: str) -> None:
+        """
+        Handle candle updates from stream.
+
+        Stores the most recent candle per symbol for downstream analysis.
+        """
+        try:
+            self._stream_metrics['last_update_time'] = time.time()
+
+            candles = data.get("candles") or data.get("data") or data.get("candle") or data
+            candle = None
+
+            if isinstance(candles, list) and candles:
+                candle = candles[-1]
+            elif isinstance(candles, dict):
+                candle = candles
+
+            if not candle:
+                return
+
+            self._candle_cache[symbol] = candle
+            self._candle_cache_time[symbol] = time.time()
+        except Exception as e:
+            logger.error(f"[X10 Stream] Error handling candle message for {symbol}: {e}")
     
     async def _stream_health_check_loop(self) -> None:
         """
@@ -1611,6 +1663,512 @@ class X10Adapter(BaseAdapter):
             logger.error(f"X10 Positions Error: {e}")
             return getattr(self, '_positions_cache', [])
 
+    async def get_orders_history(
+        self,
+        symbol: Optional[str] = None,
+        order_type: Optional[str] = None,
+        order_side: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get historical orders (all orders: filled, cancelled, rejected).
+        
+        Returns a list of all historical orders with their status, fill information,
+        fees, and other details. Useful for:
+        - Fill-rate analysis (how many orders were successfully filled?)
+        - Fee tracking (actual vs expected fees)
+        - Order performance (average fill time, slippage)
+        - Debugging (why orders failed/rejected)
+        
+        Args:
+            symbol: Optional market symbol to filter by (e.g., "BTC-USD")
+            order_type: Optional order type filter (e.g., "LIMIT", "MARKET")
+            order_side: Optional order side filter ("BUY" or "SELL")
+            limit: Maximum number of orders to return (default: 100)
+            cursor: Pagination cursor for fetching more results
+        
+        Returns:
+            List of order dictionaries with:
+            - id: Order ID
+            - market: Symbol
+            - side: BUY or SELL
+            - type: Order type (LIMIT, MARKET, etc.)
+            - price: Limit price
+            - size: Order size
+            - filledSize: Filled size
+            - avgFillPrice: Average fill price
+            - status: Order status (FILLED, CANCELLED, REJECTED, etc.)
+            - createdAt: Creation timestamp
+            - filledAt: Fill timestamp (if filled)
+            - cancelledAt: Cancel timestamp (if cancelled)
+            - fee: Trading fee
+            - rejectReason: Reason for rejection (if rejected)
+        """
+        try:
+            if not self.stark_account:
+                logger.warning("⚠️ [X10 Orders History] No stark_account configured")
+                return []
+            
+            def get_val(obj, key, default=None):
+                """Helper to access nested attributes or dict keys"""
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                return getattr(obj, key, default)
+            
+            await self.rate_limiter.acquire()
+            
+            # Try SDK method first
+            client = await self._get_auth_client()
+            data = []
+            
+            if client and hasattr(client, 'account'):
+                # Try SDK method (may not be available in all SDK versions)
+                method = None
+                for method_name in ['get_orders_history', 'getOrdersHistory', 'orders_history']:
+                    if hasattr(client.account, method_name):
+                        method = getattr(client.account, method_name)
+                        break
+                
+                if method:
+                    try:
+                        options = {'limit': limit}
+                        if symbol:
+                            options['marketNames'] = [symbol]
+                        if order_type:
+                            options['orderType'] = order_type
+                        if order_side:
+                            options['orderSide'] = order_side
+                        if cursor is not None:
+                            options['cursor'] = cursor
+                        
+                        result = await method(**options)
+                        if result and hasattr(result, 'data') and result.data:
+                            data = result.data
+                    except Exception as e:
+                        logger.debug(f"[X10 Orders History] SDK method failed: {e}, trying REST fallback")
+            
+            # Fallback to direct REST API if SDK method not available or failed
+            if not data:
+                base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+                url = f"{base_url}/api/v1/user/orders/history"
+                
+                headers = {
+                    "X-Api-Key": self.stark_account.api_key,
+                    "Accept": "application/json"
+                }
+                
+                params = {"limit": str(limit)}
+                if symbol:
+                    params["market"] = symbol
+                if order_type:
+                    params["type"] = order_type
+                if order_side:
+                    params["side"] = order_side
+                if cursor is not None:
+                    params["cursor"] = str(cursor)
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                        if resp.status == 200:
+                            json_resp = await resp.json()
+                            data = json_resp.get('data', [])
+                        else:
+                            logger.warning(f"⚠️ [X10 Orders History] REST API returned {resp.status}")
+                            return []
+            
+            # Parse orders
+            orders = []
+            for o in data:
+                try:
+                    # Normalize side
+                    side_raw = get_val(o, 'side', 'UNKNOWN')
+                    side_str = str(side_raw).upper()
+                    if "BUY" in side_str:
+                        side = "BUY"
+                    elif "SELL" in side_str:
+                        side = "SELL"
+                    else:
+                        side = side_str
+                    
+                    order_dict = {
+                        'id': str(get_val(o, 'id', '')),
+                        'market': get_val(o, 'market') or get_val(o, 'marketName', 'UNKNOWN'),
+                        'side': side,
+                        'type': get_val(o, 'type') or get_val(o, 'orderType', 'UNKNOWN'),
+                        'price': safe_float(get_val(o, 'price'), 0.0),
+                        'size': safe_float(
+                            get_val(o, 'size') or get_val(o, 'amount') or get_val(o, 'amount_of_synthetic'), 0.0
+                        ),
+                        'filledSize': safe_float(
+                            get_val(o, 'filledSize') or get_val(o, 'filled_size') or get_val(o, 'filledQty'), 0.0
+                        ),
+                        'avgFillPrice': safe_float(
+                            get_val(o, 'avgFillPrice') or get_val(o, 'avg_fill_price'), 0.0
+                        ),
+                        'status': get_val(o, 'status', 'UNKNOWN'),
+                        'createdAt': get_val(o, 'createdAt') or get_val(o, 'created_at'),
+                        'filledAt': get_val(o, 'filledAt') or get_val(o, 'filled_at'),
+                        'cancelledAt': get_val(o, 'cancelledAt') or get_val(o, 'cancelled_at'),
+                        'fee': safe_float(get_val(o, 'fee'), 0.0),
+                        'rejectReason': get_val(o, 'rejectReason') or get_val(o, 'reject_reason')
+                    }
+                    
+                    # Calculate fill percentage
+                    if order_dict['size'] > 0:
+                        order_dict['fillPercentage'] = (order_dict['filledSize'] / order_dict['size']) * 100.0
+                    else:
+                        order_dict['fillPercentage'] = 0.0
+                    
+                    # Calculate slippage if filled
+                    if order_dict['avgFillPrice'] > 0 and order_dict['price'] > 0:
+                        if side == "BUY":
+                            slippage = order_dict['avgFillPrice'] - order_dict['price']  # Positive = worse
+                        else:  # SELL
+                            slippage = order_dict['price'] - order_dict['avgFillPrice']  # Positive = worse
+                        order_dict['slippage'] = slippage
+                        order_dict['slippagePercent'] = (slippage / order_dict['price']) * 100.0
+                    else:
+                        order_dict['slippage'] = 0.0
+                        order_dict['slippagePercent'] = 0.0
+                    
+                    orders.append(order_dict)
+                except Exception as e:
+                    logger.debug(f"[X10 Orders History] Error parsing order: {e}")
+                    continue
+            
+            if orders:
+                logger.info(f"✅ [X10 Orders History] Retrieved {len(orders)} historical orders")
+            else:
+                logger.debug(f"[X10 Orders History] No historical orders found")
+            
+            return orders
+                
+        except Exception as e:
+            logger.error(f"❌ [X10 Orders History] Exception: {e}", exc_info=True)
+            return []
+
+    async def get_trades_history(
+        self,
+        symbols: List[str],
+        trade_side: Optional[str] = None,
+        trade_type: Optional[str] = None,
+        limit: int = 100,
+        cursor: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get historical trades (all fills/executions).
+        
+        Returns a list of all historical trades with their fill prices, sizes,
+        fees, and other details. Useful for:
+        - Precise PnL calculation (based on actual fill prices, not limit prices)
+        - Slippage tracking (limit price vs fill price)
+        - Trade analysis (which trades were profitable?)
+        - Reconciliation (compare bot data vs exchange data)
+        
+        Args:
+            symbols: List of market symbols to filter by (e.g., ["BTC-USD", "ETH-USD"])
+            trade_side: Optional trade side filter ("BUY" or "SELL")
+            trade_type: Optional trade type filter
+            limit: Maximum number of trades to return (default: 100)
+            cursor: Pagination cursor for fetching more results
+        
+        Returns:
+            List of trade dictionaries with:
+            - id: Trade ID
+            - market: Symbol
+            - side: BUY or SELL
+            - price: Fill price
+            - size: Trade size
+            - fee: Trading fee
+            - timestamp: Trade timestamp
+            - orderId: Associated order ID
+            - type: Trade type
+        """
+        try:
+            if not self.stark_account:
+                logger.warning("⚠️ [X10 Trades History] No stark_account configured")
+                return []
+            
+            if not symbols or not isinstance(symbols, list):
+                logger.warning("⚠️ [X10 Trades History] symbols must be a non-empty list")
+                return []
+            
+            def get_val(obj, key, default=None):
+                """Helper to access nested attributes or dict keys"""
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                return getattr(obj, key, default)
+            
+            await self.rate_limiter.acquire()
+            
+            # Try SDK method first
+            client = await self._get_auth_client()
+            data = []
+            
+            if client and hasattr(client, 'account'):
+                # Try SDK method (may not be available in all SDK versions)
+                method = None
+                for method_name in ['get_trades', 'getTrades', 'trades']:
+                    if hasattr(client.account, method_name):
+                        method = getattr(client.account, method_name)
+                        break
+                
+                if method:
+                    try:
+                        options = {
+                            'marketNames': symbols,
+                            'limit': limit
+                        }
+                        if trade_side:
+                            options['tradeSide'] = trade_side
+                        if trade_type:
+                            options['tradeType'] = trade_type
+                        if cursor is not None:
+                            options['cursor'] = cursor
+                        
+                        result = await method(**options)
+                        if result and hasattr(result, 'data') and result.data:
+                            data = result.data
+                    except Exception as e:
+                        logger.debug(f"[X10 Trades History] SDK method failed: {e}, trying REST fallback")
+            
+            # Fallback to direct REST API if SDK method not available or failed
+            if not data:
+                base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+                url = f"{base_url}/api/v1/user/trades"
+                
+                headers = {
+                    "X-Api-Key": self.stark_account.api_key,
+                    "Accept": "application/json"
+                }
+                
+                params = {
+                    "market": symbols,  # API expects array
+                    "limit": str(limit)
+                }
+                if trade_side:
+                    params["side"] = trade_side
+                if trade_type:
+                    params["type"] = trade_type
+                if cursor is not None:
+                    params["cursor"] = str(cursor)
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                        if resp.status == 200:
+                            json_resp = await resp.json()
+                            data = json_resp.get('data', [])
+                        else:
+                            logger.warning(f"⚠️ [X10 Trades History] REST API returned {resp.status}")
+                            return []
+            
+            # Parse trades
+            trades = []
+            for t in data:
+                try:
+                    # Normalize side
+                    side_raw = get_val(t, 'side', 'UNKNOWN')
+                    side_str = str(side_raw).upper()
+                    if "BUY" in side_str:
+                        side = "BUY"
+                    elif "SELL" in side_str:
+                        side = "SELL"
+                    else:
+                        side = side_str
+                    
+                    trade_dict = {
+                        'id': str(get_val(t, 'id', '')),
+                        'market': get_val(t, 'market') or get_val(t, 'marketName', 'UNKNOWN'),
+                        'side': side,
+                        'price': safe_float(get_val(t, 'price'), 0.0),
+                        'size': safe_float(
+                            get_val(t, 'size') or get_val(t, 'quantity') or get_val(t, 'qty'), 0.0
+                        ),
+                        'fee': safe_float(get_val(t, 'fee'), 0.0),
+                        'timestamp': get_val(t, 'timestamp') or get_val(t, 'ts') or get_val(t, 'time'),
+                        'orderId': str(get_val(t, 'orderId') or get_val(t, 'order_id', '')),
+                        'type': get_val(t, 'type') or get_val(t, 'tradeType', 'UNKNOWN')
+                    }
+                    
+                    # Calculate notional value
+                    if trade_dict['price'] > 0 and trade_dict['size'] > 0:
+                        trade_dict['notional'] = trade_dict['price'] * trade_dict['size']
+                    else:
+                        trade_dict['notional'] = 0.0
+                    
+                    trades.append(trade_dict)
+                except Exception as e:
+                    logger.debug(f"[X10 Trades History] Error parsing trade: {e}")
+                    continue
+            
+            if trades:
+                logger.info(f"✅ [X10 Trades History] Retrieved {len(trades)} historical trades")
+            else:
+                logger.debug(f"[X10 Trades History] No historical trades found")
+            
+            return trades
+                
+        except Exception as e:
+            logger.error(f"❌ [X10 Trades History] Exception: {e}", exc_info=True)
+            return []
+
+    async def get_asset_operations(
+        self,
+        operation_type: Optional[List[str]] = None,
+        operation_status: Optional[List[str]] = None,
+        start_time: Optional[int] = None,
+        end_time: Optional[int] = None,
+        limit: int = 100,
+        cursor: Optional[int] = None,
+        operation_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get asset operations (deposits, withdrawals, transfers).
+        
+        Returns a list of all asset operations with their details. Useful for:
+        - Complete accounting (all money movements, not just trading)
+        - Balance tracking over time
+        - Compliance & audit trail
+        - Debugging balance discrepancies
+        
+        Args:
+            operation_type: Optional list of operation types to filter by
+                          (e.g., ["DEPOSIT", "WITHDRAWAL", "TRANSFER"])
+            operation_status: Optional list of operation statuses to filter by
+                            (e.g., ["COMPLETED", "PENDING", "FAILED"])
+            start_time: Optional start timestamp (Unix timestamp in milliseconds)
+            end_time: Optional end timestamp (Unix timestamp in milliseconds)
+            limit: Maximum number of operations to return (default: 100)
+            cursor: Pagination cursor for fetching more results
+            operation_id: Optional specific operation ID to fetch
+        
+        Returns:
+            List of operation dictionaries with:
+            - id: Operation ID
+            - type: Operation type (DEPOSIT, WITHDRAWAL, TRANSFER, etc.)
+            - status: Operation status (COMPLETED, PENDING, FAILED, etc.)
+            - amount: Operation amount
+            - asset: Asset symbol
+            - timestamp: Operation timestamp
+            - fromAddress: Source address (if applicable)
+            - toAddress: Destination address (if applicable)
+            - txHash: Transaction hash (if applicable)
+        """
+        try:
+            if not self.stark_account:
+                logger.warning("⚠️ [X10 Asset Operations] No stark_account configured")
+                return []
+            
+            def get_val(obj, key, default=None):
+                """Helper to access nested attributes or dict keys"""
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                return getattr(obj, key, default)
+            
+            await self.rate_limiter.acquire()
+            
+            # Try SDK method first
+            client = await self._get_auth_client()
+            data = []
+            
+            if client and hasattr(client, 'account'):
+                # Try SDK method (may not be available in all SDK versions)
+                method = None
+                for method_name in ['asset_operations', 'assetOperations', 'get_asset_operations']:
+                    if hasattr(client.account, method_name):
+                        method = getattr(client.account, method_name)
+                        break
+                
+                if method:
+                    try:
+                        options = {'limit': limit}
+                        if operation_type:
+                            options['operationsType'] = operation_type
+                        if operation_status:
+                            options['operationsStatus'] = operation_status
+                        if start_time is not None:
+                            options['startTime'] = start_time
+                        if end_time is not None:
+                            options['endTime'] = end_time
+                        if cursor is not None:
+                            options['cursor'] = cursor
+                        if operation_id is not None:
+                            options['id'] = operation_id
+                        
+                        result = await method(**options)
+                        if result and hasattr(result, 'data') and result.data:
+                            data = result.data
+                    except Exception as e:
+                        logger.debug(f"[X10 Asset Operations] SDK method failed: {e}, trying REST fallback")
+            
+            # Fallback to direct REST API if SDK method not available or failed
+            if not data:
+                base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+                url = f"{base_url}/api/v1/user/assetOperations"
+                
+                headers = {
+                    "X-Api-Key": self.stark_account.api_key,
+                    "Accept": "application/json"
+                }
+                
+                params = {"limit": str(limit)}
+                if operation_type:
+                    params["type"] = operation_type  # API expects array
+                if operation_status:
+                    params["status"] = operation_status  # API expects array
+                if start_time is not None:
+                    params["startTime"] = str(start_time)
+                if end_time is not None:
+                    params["endTime"] = str(end_time)
+                if cursor is not None:
+                    params["cursor"] = str(cursor)
+                if operation_id is not None:
+                    params["id"] = str(operation_id)
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                        if resp.status == 200:
+                            json_resp = await resp.json()
+                            data = json_resp.get('data', [])
+                        else:
+                            logger.warning(f"⚠️ [X10 Asset Operations] REST API returned {resp.status}")
+                            return []
+            
+            # Parse operations
+            operations = []
+            for op in data:
+                try:
+                    operation_dict = {
+                        'id': get_val(op, 'id'),
+                        'type': get_val(op, 'type') or get_val(op, 'operationType', 'UNKNOWN'),
+                        'status': get_val(op, 'status') or get_val(op, 'operationStatus', 'UNKNOWN'),
+                        'amount': safe_float(get_val(op, 'amount'), 0.0),
+                        'asset': get_val(op, 'asset') or get_val(op, 'currency', 'UNKNOWN'),
+                        'timestamp': get_val(op, 'timestamp') or get_val(op, 'time') or get_val(op, 'createdAt'),
+                        'fromAddress': get_val(op, 'fromAddress') or get_val(op, 'from_address'),
+                        'toAddress': get_val(op, 'toAddress') or get_val(op, 'to_address'),
+                        'txHash': get_val(op, 'txHash') or get_val(op, 'tx_hash') or get_val(op, 'transactionHash'),
+                        'fee': safe_float(get_val(op, 'fee'), 0.0),
+                        'network': get_val(op, 'network') or get_val(op, 'chain', 'UNKNOWN')
+                    }
+                    
+                    operations.append(operation_dict)
+                except Exception as e:
+                    logger.debug(f"[X10 Asset Operations] Error parsing operation: {e}")
+                    continue
+            
+            if operations:
+                logger.info(f"✅ [X10 Asset Operations] Retrieved {len(operations)} asset operations")
+            else:
+                logger.debug(f"[X10 Asset Operations] No asset operations found")
+            
+            return operations
+                
+        except Exception as e:
+            logger.error(f"❌ [X10 Asset Operations] Exception: {e}", exc_info=True)
+            return []
+
     async def get_open_orders(self, symbol: str) -> List[dict]:
         """SAFE open orders fetch for compliance check"""
         # ═══════════════════════════════════════════════════════════════
@@ -1868,6 +2426,7 @@ class X10Adapter(BaseAdapter):
         amount: Optional[float] = None,
         price: Optional[float] = None,
         previous_order_id: Optional[str] = None,  # FIX: For atomic modify/replace
+        external_id: Optional[str] = None,  # For order tracking with external IDs
         **kwargs
     ) -> Tuple[bool, Optional[str]]:
         """Mit manuellem Rate Limiting"""
@@ -2138,18 +2697,26 @@ class X10Adapter(BaseAdapter):
             except Exception:
                 pass
 
-            resp = await client.place_order(
-                market_name=symbol,
-                amount_of_synthetic=qty,
-                price=limit_price,
-                side=order_side,
-                post_only=post_only,  # ✅ FIX: Explicit post_only parameter
-                previous_order_id=previous_order_id,  # ✅ FIX: Atomic modify/replace (cancels old order)
-                time_in_force=tif,
-                expire_time=expire,
-                reduce_only=reduce_only,  # ✅ FIX #7: reduce_only parameter (True=1, False=0 in API)
-                **place_kwargs,
-            )
+            place_order_kwargs = {
+                "market_name": symbol,
+                "amount_of_synthetic": qty,
+                "price": limit_price,
+                "side": order_side,
+                "post_only": post_only,  # ✅ FIX: Explicit post_only parameter
+                "previous_order_id": previous_order_id,  # ✅ FIX: Atomic modify/replace (cancels old order)
+                "time_in_force": tif,
+                "expire_time": expire,
+                "reduce_only": reduce_only,  # ✅ FIX #7: reduce_only parameter (True=1, False=0 in API)
+            }
+            
+            # Add external_id if provided (for order tracking)
+            if external_id:
+                place_order_kwargs["external_id"] = external_id
+            
+            # Merge with any additional kwargs (e.g., self_trade_protection_level)
+            place_order_kwargs.update(place_kwargs)
+            
+            resp = await client.place_order(**place_order_kwargs)
             
             # ═══════════════════════════════════════════════════════════════
             # FIX #7: Log reduce_only flag for verification
@@ -2571,21 +3138,15 @@ class X10Adapter(BaseAdapter):
                 logger.warning("⚠️ [X10 Mass Cancel] No cancel criteria provided")
                 return False
             
-            # Build options dict
-            options = {}
-            if order_ids:
-                options['orderIds'] = [int(oid) for oid in order_ids]
-            if external_order_ids:
-                options['externalOrderIds'] = external_order_ids
-            if markets:
-                options['markets'] = markets
-            if cancel_all:
-                options['cancelAll'] = True
-            
             await self.rate_limiter.acquire()
             
-            # Call massCancel via orders module
-            result = await client.orders.massCancel(options)
+            # Call mass_cancel via orders module (Python SDK uses snake_case for method and parameters)
+            result = await client.orders.mass_cancel(
+                order_ids=[int(oid) for oid in order_ids] if order_ids else None,
+                external_order_ids=external_order_ids,
+                markets=markets,
+                cancel_all=cancel_all
+            )
             
             # Check result
             if hasattr(result, 'success'):
@@ -2606,9 +3167,185 @@ class X10Adapter(BaseAdapter):
                 logger.warning(f"⚠️ [X10 Mass Cancel] Cancel returned False")
                 return False
                 
+        except ValueError as e:
+            # Handle "Market not found" errors gracefully (delisted markets)
+            error_str = str(e)
+            if "Market not found" in error_str or "code 1001" in error_str or '"code":1001' in error_str:
+                market_list = markets if markets else "specified markets"
+                logger.debug(f"⚠️ [X10 Mass Cancel] Market not found (may be delisted): {market_list}")
+                return False  # Silently fail for delisted markets
+            # Re-raise other ValueError exceptions
+            logger.error(f"❌ [X10 Mass Cancel] ValueError: {e}", exc_info=True)
+            return False
         except Exception as e:
             logger.error(f"❌ [X10 Mass Cancel] Exception: {e}", exc_info=True)
             return False
+
+    async def get_order_by_external_id(self, external_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get order by external ID for tracking.
+
+        This allows you to query orders using your own external IDs instead of
+        exchange-internal IDs, enabling better integration with external systems
+        and idempotency.
+
+        Args:
+            external_id: The external ID used when placing the order
+
+        Returns:
+            Order dictionary with order details, or None if not found
+        """
+        if not self.stark_account:
+            logger.warning("[X10] No stark_account configured - cannot get order by external ID")
+            return None
+
+        try:
+            client = await self._get_auth_client()
+            await self.rate_limiter.acquire()
+
+            # Try SDK method first
+            if hasattr(client.account, 'get_order_by_external_id'):
+                resp = await client.account.get_order_by_external_id(external_id)
+                if resp and hasattr(resp, 'success') and resp.success:
+                    data = resp.data if hasattr(resp, 'data') else []
+                    if data and len(data) > 0:
+                        order = data[0]
+                        self.rate_limiter.on_success()
+                        logger.debug(f"✅ [X10] Found order by external_id={external_id}")
+                        return self._parse_order_data(order)
+                    else:
+                        logger.debug(f"[X10] No order found for external_id={external_id}")
+                        self.rate_limiter.on_success()
+                        return None
+
+            # Fallback to direct REST API call
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/user/orders/external/{external_id}"
+
+            headers = {
+                "X-Api-Key": self.stark_account.api_key,
+                "Accept": "application/json"
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers=headers, timeout=5) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
+                        self.rate_limiter.on_success()
+                        if data and len(data) > 0:
+                            logger.debug(f"✅ [X10] Found order by external_id={external_id} (REST fallback)")
+                            return self._parse_order_data(data[0])
+                        else:
+                            logger.debug(f"[X10] No order found for external_id={external_id} (REST fallback)")
+                            return None
+                    elif resp.status == 404:
+                        logger.debug(f"[X10] Order not found for external_id={external_id} (404)")
+                        self.rate_limiter.on_success()
+                        return None
+                    else:
+                        logger.warning(f"⚠️ [X10] get_order_by_external_id returned {resp.status}")
+                        self.rate_limiter.on_success()
+                        return None
+
+        except Exception as e:
+            logger.error(f"❌ [X10] get_order_by_external_id failed: {e}", exc_info=True)
+            return None
+
+    async def cancel_order_by_external_id(self, external_id: str) -> bool:
+        """
+        Cancel order by external ID.
+
+        This allows you to cancel orders using your own external IDs instead of
+        exchange-internal IDs, enabling better integration with external systems.
+
+        Args:
+            external_id: The external ID used when placing the order
+
+        Returns:
+            True if order was cancelled successfully, False otherwise
+        """
+        if not self.stark_account:
+            logger.warning("[X10] No stark_account configured - cannot cancel order by external ID")
+            return False
+
+        try:
+            client = await self._get_trading_client()
+            await self.rate_limiter.acquire()
+
+            # Try SDK method first
+            if hasattr(client.orders, 'cancel_order_by_external_id'):
+                resp = await client.orders.cancel_order_by_external_id(external_id)
+                if resp and hasattr(resp, 'success') and resp.success:
+                    self.rate_limiter.on_success()
+                    logger.info(f"✅ [X10] Cancelled order by external_id={external_id}")
+                    return True
+                else:
+                    error_msg = getattr(resp, 'error', 'Unknown error') if resp else 'No response'
+                    logger.warning(f"⚠️ [X10] Cancel order by external_id failed: {error_msg}")
+                    self.rate_limiter.on_success()
+                    return False
+
+            # Fallback to direct REST API call
+            base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
+            url = f"{base_url}/api/v1/user/order"
+
+            headers = {
+                "X-Api-Key": self.stark_account.api_key,
+                "Accept": "application/json"
+            }
+            params = {
+                "externalId": external_id
+            }
+
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(url, headers=headers, params=params, timeout=5) as resp:
+                    if resp.status == 200:
+                        self.rate_limiter.on_success()
+                        logger.info(f"✅ [X10] Cancelled order by external_id={external_id} (REST fallback)")
+                        return True
+                    elif resp.status == 404:
+                        logger.warning(f"⚠️ [X10] Order not found for external_id={external_id} (404)")
+                        self.rate_limiter.on_success()
+                        return False
+                    else:
+                        error_text = await resp.text()
+                        logger.warning(f"⚠️ [X10] Cancel order by external_id returned {resp.status}: {error_text}")
+                        self.rate_limiter.on_success()
+                        return False
+
+        except Exception as e:
+            logger.error(f"❌ [X10] cancel_order_by_external_id failed: {e}", exc_info=True)
+            return False
+
+    def _parse_order_data(self, order: Any) -> Dict[str, Any]:
+        """
+        Helper method to parse order data from SDK response or REST API.
+
+        Args:
+            order: Order object (dict or SDK object)
+
+        Returns:
+            Parsed order dictionary
+        """
+        def get_val(obj, key, default=None):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        return {
+            "id": get_val(order, 'id'),
+            "external_id": get_val(order, 'external_id') or get_val(order, 'externalId'),
+            "symbol": get_val(order, 'market') or get_val(order, 'market_name'),
+            "side": get_val(order, 'side'),
+            "type": get_val(order, 'type') or get_val(order, 'order_type'),
+            "status": get_val(order, 'status'),
+            "price": safe_float(get_val(order, 'price'), 0.0),
+            "size": safe_float(get_val(order, 'size') or get_val(order, 'amount'), 0.0),
+            "filled_size": safe_float(get_val(order, 'filled_size') or get_val(order, 'filledSize'), 0.0),
+            "created_at": get_val(order, 'created_at') or get_val(order, 'createdAt'),
+            "updated_at": get_val(order, 'updated_at') or get_val(order, 'updatedAt'),
+        }
 
     async def cancel_all_orders(self, symbol: str = None) -> bool:
         # ═══════════════════════════════════════════════════════════════

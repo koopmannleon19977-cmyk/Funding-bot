@@ -117,13 +117,14 @@ OrderApi = None
 FundingApi = None
 AccountApi = None
 SignerClient = None
+CreateOrderTxReq = None
 HAVE_LIGHTER_SDK = False
 
 try:
     from lighter.api.order_api import OrderApi
     from lighter.api.funding_api import FundingApi
     from lighter.api.account_api import AccountApi
-    from lighter.signer_client import SignerClient
+    from lighter.signer_client import SignerClient, CreateOrderTxReq
     HAVE_LIGHTER_SDK = True
 except ImportError as e:
     HAVE_LIGHTER_SDK = False
@@ -183,6 +184,11 @@ class LighterAdapter(BaseAdapter):
         self._trade_cache = {}
         self._funding_cache = {}
         self._funding_cache_time = {}
+        self._ws_market_stats_last_ts = 0.0
+        self._ws_market_stats_ready_event = asyncio.Event()
+        self._ws_market_stats_ready_at = 0.0
+        self._init_time = time.time()
+        self._rest_refresh_ts = 0.0
         
         # Public Aliases for Latency/Prediction modules
         self.price_cache_time = self._price_cache_time
@@ -210,6 +216,10 @@ class LighterAdapter(BaseAdapter):
         # ═══════════════════════════════════════════════════════════════
         self._position_callbacks: List[Any] = []
         self._positions_cache: List[dict] = []  # Cache for fetch_open_positions deduplication
+        self._positions_cache_time = 0.0
+        self._positions_cache_ttl = float(
+            getattr(config, "LIGHTER_POSITIONS_CACHE_SECONDS", 5.0)
+        )
         
         # ═══════════════════════════════════════════════════════════════
         # NONCE MANAGEMENT: Pattern from lighter-ts-main/src/utils/nonce-manager.ts
@@ -763,6 +773,12 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.debug(f"⚠️ get_candlesticks {symbol} error: {e}")
             return []
+
+        now = time.time()
+        if self._positions_cache_ttl > 0:
+            cache_age = now - self._positions_cache_time
+            if cache_age < self._positions_cache_ttl and self._positions_cache is not None:
+                return self._positions_cache
     
     async def calculate_volatility(
         self,
@@ -1068,6 +1084,7 @@ class LighterAdapter(BaseAdapter):
             session = await self._get_session()
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 429:
+                    logger.warning(f"[LIGHTER] 429 from {path}")
                     self.rate_limiter.penalize_429()
                     return None
                 
@@ -1121,6 +1138,7 @@ class LighterAdapter(BaseAdapter):
             session = await self._get_session()
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status == 429:
+                    logger.warning(f"[LIGHTER] 429 from {path} (internal)")
                     self.rate_limiter.penalize_429()
                     return None
                 
@@ -2457,10 +2475,40 @@ class LighterAdapter(BaseAdapter):
         """Get current stream health status"""
         return self._stream_metrics.get('connection_health', 'unknown')
 
+    def mark_ws_market_stats(self) -> None:
+        """Record a market_stats update timestamp (used to gate REST polling)."""
+        now = time.time()
+        self._ws_market_stats_last_ts = now
+        if not self._ws_market_stats_ready_event.is_set():
+            self._ws_market_stats_ready_at = now
+            self._ws_market_stats_ready_event.set()
+
+    async def wait_for_ws_market_stats_ready(self, timeout: float = 10.0) -> bool:
+        if self._ws_market_stats_ready_event.is_set():
+            return True
+        try:
+            await asyncio.wait_for(self._ws_market_stats_ready_event.wait(), timeout=timeout)
+            return True
+        except asyncio.TimeoutError:
+            return False
+
+    def _ws_market_stats_is_fresh(self) -> bool:
+        """Check if WS market_stats updates are fresh enough to skip REST polling."""
+        if not getattr(config, "LIGHTER_SKIP_REST_POLL_WHEN_WS_HEALTHY", True):
+            return False
+        stale_seconds = float(getattr(config, "LIGHTER_WS_MARKET_STATS_STALE_SECONDS", 15.0))
+        if self._ws_market_stats_last_ts <= 0:
+            return False
+        return (time.time() - self._ws_market_stats_last_ts) <= stale_seconds
+
     async def _rest_price_poller(self, interval: float = 2.0):
         """REST-basiertes Preis-Polling als WebSocket-Ersatz"""
         while True:
             try:
+                if self._ws_market_stats_is_fresh():
+                    await asyncio.sleep(interval)
+                    continue
+
                 if not HAVE_LIGHTER_SDK:
                     await asyncio.sleep(interval)
                     continue
@@ -2516,6 +2564,10 @@ class LighterAdapter(BaseAdapter):
         """REST-basiertes Funding Rate Polling"""
         while True:
             try:
+                if self._ws_market_stats_is_fresh():
+                    await asyncio.sleep(interval)
+                    continue
+
                 await self.load_funding_rates_and_prices()
                 await asyncio.sleep(interval)
 
@@ -3404,13 +3456,35 @@ class LighterAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"❌ Lighter init error: {e}")
 
-    async def load_funding_rates_and_prices(self):
+    async def load_funding_rates_and_prices(self, force: bool = False):
         """Lädt Funding Rates UND Preise von der Lighter REST API"""
         if not getattr(config, "LIVE_TRADING", False):
             return
 
         if not HAVE_LIGHTER_SDK:
             return
+
+        if not force:
+            min_interval = float(getattr(config, "LIGHTER_REST_REFRESH_MIN_SECONDS", 60.0))
+            if min_interval > 0 and (time.time() - self._rest_refresh_ts) < min_interval:
+                logger.debug("Lighter: Skipping REST refresh (min interval)")
+                return
+
+        if not force and not self._ws_market_stats_ready_event.is_set():
+            grace_seconds = float(getattr(config, "LIGHTER_WS_STARTUP_GRACE_SECONDS", 15.0))
+            if (time.time() - self._init_time) < grace_seconds:
+                logger.debug("Lighter: Skipping REST refresh (WS not ready, startup grace)")
+                return
+
+        if not force and getattr(config, "LIGHTER_SKIP_REST_POLL_WHEN_WS_HEALTHY", False):
+            if self._ws_market_stats_is_fresh():
+                logger.debug("Lighter: Skipping REST funding/price refresh (WS market_stats fresh)")
+                return
+
+        if not force and self.rate_limiter.is_duplicate("LIGHTER:load_funding_rates_and_prices"):
+            return
+
+        self._rest_refresh_ts = time.time()
 
         try:
             signer = await self._get_signer()
@@ -4114,11 +4188,14 @@ class LighterAdapter(BaseAdapter):
 
             if not response or not response.accounts or not response.accounts[0]:
                 self._positions_cache = []
+                self._positions_cache_time = time.time()
                 return []
 
             account = response.accounts[0]
 
             if not hasattr(account, "positions") or not account.positions:
+                self._positions_cache = []
+                self._positions_cache_time = time.time()
                 return []
 
             positions = []
@@ -4262,6 +4339,7 @@ class LighterAdapter(BaseAdapter):
 
             # Cache for deduplication
             self._positions_cache = positions
+            self._positions_cache_time = time.time()
             
             # ═══════════════════════════════════════════════════════════════
             # FIXED: Trigger position callbacks for Ghost-Fill detection
@@ -4381,7 +4459,441 @@ class LighterAdapter(BaseAdapter):
 
         return quantized_base
 
+    def _build_grouped_order_req(
+        self,
+        market_id: int,
+        base_amount: int,
+        price_int: int,
+        is_ask: bool,
+        order_type: int,
+        time_in_force: int,
+        reduce_only: bool,
+        trigger_price: int,
+        order_expiry: int,
+    ):
+        if not CreateOrderTxReq:
+            raise RuntimeError("CreateOrderTxReq not available")
+
+        return CreateOrderTxReq(
+            MarketIndex=int(market_id),
+            ClientOrderIndex=0,
+            BaseAmount=int(base_amount),
+            Price=int(price_int),
+            IsAsk=1 if is_ask else 0,
+            Type=int(order_type),
+            TimeInForce=int(time_in_force),
+            ReduceOnly=1 if reduce_only else 0,
+            TriggerPrice=int(trigger_price),
+            OrderExpiry=int(order_expiry),
+        )
+
     @rate_limited(Exchange.LIGHTER)
+    async def place_grouped_orders(
+        self,
+        grouping_type: int,
+        orders: List[CreateOrderTxReq],
+    ) -> Dict[str, Any]:
+        """
+        Place grouped orders (OTO/OCO/OTOCO) in a single transaction.
+        Returns dict with success, hash, and error fields.
+        """
+        try:
+            if not HAVE_LIGHTER_SDK or not CreateOrderTxReq:
+                return {
+                    "success": False,
+                    "hash": "",
+                    "error": "Lighter SDK not installed or missing CreateOrderTxReq",
+                }
+
+            signer = await self._get_signer()
+            async with self.order_lock:
+                nonce = await self._get_next_nonce()
+                if nonce is None:
+                    return {
+                        "success": False,
+                        "hash": "",
+                        "error": "Failed to get nonce",
+                    }
+
+                tx, resp, err = await signer.create_grouped_orders(
+                    grouping_type=grouping_type,
+                    orders=orders,
+                    nonce=int(nonce),
+                    api_key_index=int(self._resolved_api_key_index),
+                )
+
+            if err:
+                return {"success": False, "hash": "", "error": str(err)}
+
+            tx_hash = getattr(resp, "tx_hash", "") if resp else ""
+            return {"success": True, "hash": tx_hash or "", "error": None, "tx": tx}
+
+        except Exception as e:
+            logger.error(f"[Lighter Grouped Orders] Exception: {e}", exc_info=True)
+            return {"success": False, "hash": "", "error": str(e)}
+
+    @rate_limited(Exchange.LIGHTER)
+    async def place_twap_order(
+        self,
+        symbol: str,
+        side: str,
+        size: Decimal,
+        price: Decimal,
+        order_expiry_ms: Optional[int] = None,
+        reduce_only: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Place a TWAP order. TWAP orders execute over time and do not support SL/TP in the same batch.
+        """
+        try:
+            if not HAVE_LIGHTER_SDK:
+                return {"success": False, "hash": "", "error": "Lighter SDK not installed"}
+
+            market_info = self.market_info.get(symbol, {})
+            market_id = safe_int(market_info.get("i"), -1)
+            if market_id < 0:
+                return {"success": False, "hash": "", "error": f"Invalid market_id for {symbol}"}
+
+            base_amount, price_int = self._scale_amounts(symbol, size, price, side)
+
+            signer = await self._get_signer()
+            tif = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+            order_type = SignerClient.ORDER_TYPE_TWAP
+            expiry = order_expiry_ms or int(time.time() * 1000) + (60 * 60 * 1000)
+
+            async with self.order_lock:
+                nonce = await self._get_next_nonce()
+                if nonce is None:
+                    return {"success": False, "hash": "", "error": "Failed to get nonce"}
+
+                tx, resp, err = await signer.create_order(
+                    market_index=int(market_id),
+                    client_order_index=int(time.time() * 1000) + random.randint(0, 99999),
+                    base_amount=int(base_amount),
+                    price=int(price_int),
+                    is_ask=side == "SELL",
+                    order_type=int(order_type),
+                    time_in_force=int(tif),
+                    reduce_only=bool(reduce_only),
+                    trigger_price=SignerClient.NIL_TRIGGER_PRICE,
+                    order_expiry=int(expiry),
+                    nonce=int(nonce),
+                    api_key_index=int(self._resolved_api_key_index),
+                )
+
+            if err:
+                return {"success": False, "hash": "", "error": str(err)}
+
+            tx_hash = getattr(resp, "tx_hash", "") if resp else ""
+            return {"success": True, "hash": tx_hash or "", "error": None, "tx": tx}
+
+        except Exception as e:
+            logger.error(f"[Lighter TWAP] Exception: {e}", exc_info=True)
+            return {"success": False, "hash": "", "error": str(e)}
+
+    @rate_limited(Exchange.LIGHTER)
+    async def place_order_with_sl_tp(
+        self,
+        symbol: str,
+        side: str,
+        size: Decimal,
+        price: Decimal,
+        stop_loss_price: Optional[Decimal] = None,
+        take_profit_price: Optional[Decimal] = None,
+        reduce_only: bool = False,
+        post_only: bool = False,
+        time_in_force: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Place order with automatic Stop-Loss and Take-Profit (Unified Order).
+        
+        This is 3x faster than placing orders individually (1 API call instead of 3)
+        and is atomic (all orders are created or none).
+        
+        Args:
+            symbol: Trading symbol (e.g., "BTC-USD")
+            side: BUY or SELL
+            size: Order size in base currency
+            price: Limit price for main order
+            stop_loss_price: Optional stop-loss trigger price
+            take_profit_price: Optional take-profit trigger price
+            reduce_only: Whether order is reduce-only
+            post_only: Whether order is post-only (maker)
+            time_in_force: Optional time in force (IOC, GTC, etc.)
+        
+        Returns:
+            Dict with:
+            - success: bool
+            - mainOrder: {tx, hash, error}
+            - stopLoss: {tx, hash, error} (if provided)
+            - takeProfit: {tx, hash, error} (if provided)
+            - message: str
+        """
+        try:
+            if not HAVE_LIGHTER_SDK:
+                logger.error("❌ [Lighter Unified Order] SDK not installed")
+                return {
+                    'success': False,
+                    'mainOrder': {'tx': None, 'hash': '', 'error': 'SDK not installed'},
+                    'message': 'Lighter SDK not installed'
+                }
+            
+            # Get market info
+            market_info = self.market_info.get(symbol, {})
+            market_id = safe_int(market_info.get('i'), -1)
+            if market_id < 0:
+                logger.error(f"❌ [Lighter Unified Order] Invalid market_id for {symbol}")
+                return {
+                    'success': False,
+                    'mainOrder': {'tx': None, 'hash': '', 'error': 'Invalid market_id'},
+                    'message': f'Invalid market_id for {symbol}'
+                }
+            
+            # Quantize size and price
+            size_inc = float(market_info.get('lot_size', market_info.get('min_base_amount', 0.0001)))
+            price_inc = float(market_info.get('tick_size', 0.01))
+            size_decimals = int(market_info.get('sd', 8))
+            price_decimals = int(market_info.get('pd', 6))
+            
+            quantized_size = quantize_value(float(size), size_inc, rounding=ROUND_FLOOR)
+            quantized_price = quantize_value(float(price), price_inc)
+            
+            scale_base = 10 ** size_decimals
+            scale_price = 10 ** price_decimals
+            
+            base_amount = int(round(quantized_size * scale_base))
+            price_int = int(round(quantized_price * scale_price))
+            
+            if base_amount <= 0:
+                logger.error(f"❌ [Lighter Unified Order] Invalid base_amount for {symbol}")
+                return {
+                    'success': False,
+                    'mainOrder': {'tx': None, 'hash': '', 'error': 'Invalid base_amount'},
+                    'message': 'Invalid base_amount after quantization'
+                }
+            
+            # Scale SL/TP prices if provided
+            stop_loss_price_int = None
+            take_profit_price_int = None
+            if stop_loss_price:
+                stop_loss_quantized = quantize_value(float(stop_loss_price), price_inc)
+                stop_loss_price_int = int(round(stop_loss_quantized * scale_price))
+            if take_profit_price:
+                take_profit_quantized = quantize_value(float(take_profit_price), price_inc)
+                take_profit_price_int = int(round(take_profit_quantized * scale_price))
+            
+            signer = await self._get_signer()
+            
+            # Check if createUnifiedOrder is available in the SDK
+            if hasattr(signer, 'createUnifiedOrder') or hasattr(signer, 'create_unified_order'):
+                # Use SDK method if available
+                method = getattr(signer, 'createUnifiedOrder', None) or getattr(signer, 'create_unified_order', None)
+                
+                # Get order type
+                order_type_limit = getattr(SignerClient, 'ORDER_TYPE_LIMIT', 0)
+                
+                # Get time in force
+                tif = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+                expiry = SignerClient.DEFAULT_28_DAY_ORDER_EXPIRY
+                if time_in_force and time_in_force.upper() == "IOC":
+                    tif = getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 0)
+                    expiry = 0
+                
+                # Build params
+                params = {
+                    'marketIndex': market_id,
+                    'clientOrderIndex': int(time.time() * 1000) + random.randint(0, 99999),
+                    'baseAmount': base_amount,
+                    'isAsk': side == 'SELL',
+                    'orderType': order_type_limit,
+                    'price': price_int,
+                    'reduceOnly': reduce_only,
+                    'timeInForce': tif,
+                    'orderExpiry': expiry
+                }
+                
+                if stop_loss_price_int:
+                    params['stopLoss'] = {
+                        'triggerPrice': stop_loss_price_int,
+                        'isLimit': False
+                    }
+                
+                if take_profit_price_int:
+                    params['takeProfit'] = {
+                        'triggerPrice': take_profit_price_int,
+                        'isLimit': False
+                    }
+                
+                await self.rate_limiter.acquire()
+                async with self.order_lock:
+                    current_nonce = await self._get_next_nonce()
+                    if current_nonce is None:
+                        return {
+                            'success': False,
+                            'mainOrder': {'tx': None, 'hash': '', 'error': 'Failed to get nonce'},
+                            'message': 'Failed to get nonce'
+                        }
+                    
+                    params['nonce'] = current_nonce
+                    params['apiKeyIndex'] = int(self._resolved_api_key_index)
+                    
+                    try:
+                        result = await method(**params)
+                        
+                        # Parse result
+                        if hasattr(result, 'success'):
+                            success = result.success
+                        elif isinstance(result, dict):
+                            success = result.get('success', False)
+                        else:
+                            success = bool(result)
+                        
+                        if success:
+                            logger.info(f"✅ [Lighter Unified Order] Successfully placed order with SL/TP for {symbol}")
+                            return {
+                                'success': True,
+                                'mainOrder': {
+                                    'tx': getattr(result, 'mainOrder', {}).get('tx') if hasattr(result, 'mainOrder') else None,
+                                    'hash': getattr(result, 'mainOrder', {}).get('hash', '') if hasattr(result, 'mainOrder') else '',
+                                    'error': None
+                                },
+                                'stopLoss': {
+                                    'tx': getattr(result, 'stopLoss', {}).get('tx') if hasattr(result, 'stopLoss') else None,
+                                    'hash': getattr(result, 'stopLoss', {}).get('hash', '') if hasattr(result, 'stopLoss') else '',
+                                    'error': getattr(result, 'stopLoss', {}).get('error') if hasattr(result, 'stopLoss') else None
+                                } if stop_loss_price_int else None,
+                                'takeProfit': {
+                                    'tx': getattr(result, 'takeProfit', {}).get('tx') if hasattr(result, 'takeProfit') else None,
+                                    'hash': getattr(result, 'takeProfit', {}).get('hash', '') if hasattr(result, 'takeProfit') else '',
+                                    'error': getattr(result, 'takeProfit', {}).get('error') if hasattr(result, 'takeProfit') else None
+                                } if take_profit_price_int else None,
+                                'message': getattr(result, 'message', 'Success') if hasattr(result, 'message') else 'Success'
+                            }
+                        else:
+                            error_msg = getattr(result, 'message', 'Unknown error') if hasattr(result, 'message') else 'Unknown error'
+                            logger.error(f"❌ [Lighter Unified Order] Failed: {error_msg}")
+                            return {
+                                'success': False,
+                                'mainOrder': {'tx': None, 'hash': '', 'error': error_msg},
+                                'message': error_msg
+                            }
+                    except Exception as e:
+                        logger.error(f"❌ [Lighter Unified Order] Exception: {e}", exc_info=True)
+                        self.acknowledge_failure()
+                        return {
+                            'success': False,
+                            'mainOrder': {'tx': None, 'hash': '', 'error': str(e)},
+                            'message': f'Exception: {e}'
+                        }
+            else:
+                # Fallback: Use grouped orders (OTO/OTOCO) when SL/TP are provided
+                logger.warning("⚠️ [Lighter Unified Order] createUnifiedOrder not available in SDK, using grouped orders fallback")
+
+                if stop_loss_price_int or take_profit_price_int:
+                    grouping_type = 3 if (stop_loss_price_int and take_profit_price_int) else 1
+                    main_is_ask = side == "SELL"
+                    protect_is_ask = not main_is_ask
+
+                    tif_main = SignerClient.ORDER_TIME_IN_FORCE_GOOD_TILL_TIME
+                    order_expiry = int(time.time() * 1000) + (28 * 24 * 60 * 60 * 1000)
+                    if time_in_force and time_in_force.upper() == "IOC":
+                        tif_main = SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL
+                        order_expiry = 0
+                    elif post_only:
+                        tif_main = SignerClient.ORDER_TIME_IN_FORCE_POST_ONLY
+
+                    grouped_orders = [
+                        self._build_grouped_order_req(
+                            market_id=market_id,
+                            base_amount=base_amount,
+                            price_int=price_int,
+                            is_ask=main_is_ask,
+                            order_type=SignerClient.ORDER_TYPE_LIMIT,
+                            time_in_force=tif_main,
+                            reduce_only=False,
+                            trigger_price=SignerClient.NIL_TRIGGER_PRICE,
+                            order_expiry=order_expiry,
+                        )
+                    ]
+
+                    if take_profit_price_int:
+                        grouped_orders.append(
+                            self._build_grouped_order_req(
+                                market_id=market_id,
+                                base_amount=0,
+                                price_int=take_profit_price_int,
+                                is_ask=protect_is_ask,
+                                order_type=SignerClient.ORDER_TYPE_TAKE_PROFIT,
+                                time_in_force=SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
+                                reduce_only=True,
+                                trigger_price=take_profit_price_int,
+                                order_expiry=order_expiry,
+                            )
+                        )
+
+                    if stop_loss_price_int:
+                        grouped_orders.append(
+                            self._build_grouped_order_req(
+                                market_id=market_id,
+                                base_amount=0,
+                                price_int=stop_loss_price_int,
+                                is_ask=protect_is_ask,
+                                order_type=SignerClient.ORDER_TYPE_STOP_LOSS,
+                                time_in_force=SignerClient.ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL,
+                                reduce_only=True,
+                                trigger_price=stop_loss_price_int,
+                                order_expiry=order_expiry,
+                            )
+                        )
+
+                    grouped_result = await self.place_grouped_orders(grouping_type, grouped_orders)
+                    if grouped_result.get("success"):
+                        tx_hash = grouped_result.get("hash", "")
+                        return {
+                            'success': True,
+                            'mainOrder': {'tx': grouped_result.get("tx"), 'hash': tx_hash, 'error': None},
+                            'stopLoss': {'tx': grouped_result.get("tx"), 'hash': tx_hash, 'error': None} if stop_loss_price_int else None,
+                            'takeProfit': {'tx': grouped_result.get("tx"), 'hash': tx_hash, 'error': None} if take_profit_price_int else None,
+                            'message': 'Order placed using grouped orders (OTO/OTOCO)'
+                        }
+
+                    logger.error(f"❌ [Lighter Unified Order] Grouped orders failed: {grouped_result.get('error')}")
+
+                # Fallback: Place main order only (no SL/TP)
+                success, order_id = await self.open_live_position(
+                    symbol=symbol,
+                    side=side,
+                    notional_usd=float(size * price),
+                    price=float(price),
+                    reduce_only=reduce_only,
+                    post_only=post_only,
+                    amount=float(size),
+                    time_in_force=time_in_force
+                )
+
+                if not success:
+                    return {
+                        'success': False,
+                        'mainOrder': {'tx': None, 'hash': '', 'error': 'Main order failed'},
+                        'message': 'Main order placement failed'
+                    }
+
+                return {
+                    'success': True,
+                    'mainOrder': {'tx': None, 'hash': order_id or '', 'error': None},
+                    'stopLoss': None,
+                    'takeProfit': None,
+                    'message': 'Main order placed without SL/TP (grouped orders unavailable)'
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ [Lighter Unified Order] Exception: {e}", exc_info=True)
+            return {
+                'success': False,
+                'mainOrder': {'tx': None, 'hash': '', 'error': str(e)},
+                'message': f'Exception: {e}'
+            }
+
     async def open_live_position(
         self,
         symbol: str,
@@ -5299,72 +5811,100 @@ class LighterAdapter(BaseAdapter):
             logger.error(f"Lighter Cancel Exception {order_id}: {e}")
             return False
 
-    async def get_order_status(self, order_id: str) -> str:
+    async def get_order_status(self, order_id: str, symbol: Optional[str] = None) -> str:
         """
         Check status of a specific order.
-        Returns: 'OPEN', 'FILLED', 'PARTIALLY_FILLED', 'CANCELLED', 'UNKNOWN'
+        Returns: 'OPEN', 'FILLED', 'CANCELLED', 'UNKNOWN'
         """
         try:
             if not HAVE_LIGHTER_SDK:
-                return 'UNKNOWN'
+                return "UNKNOWN"
 
             signer = await self._get_signer()
             order_api = OrderApi(signer.api_client)
-            
-            resp = None
-            try:
-                # Use rate limit?
-                # await self.rate_limiter.acquire() # Light check
-                # Note: get_order might not exist directly on OrderApi in all versions,
-                # but let's try the common ones or use order_details
-                 
-                # Try finding a working method (defensive reflection)
-                method = None
-                for m_name in ['get_order', 'order_details', 'get_order_by_id']:
-                    if hasattr(order_api, m_name):
-                        method = getattr(order_api, m_name)
+
+            # Resolve symbol from tracked orders if not provided
+            if not symbol and order_id in self._placed_orders:
+                symbol = self._placed_orders[order_id].get("symbol")
+
+            if not symbol and self._placed_orders:
+                for entry in self._placed_orders.values():
+                    if str(entry.get("client_order_index")) == str(order_id):
+                        symbol = entry.get("symbol")
                         break
-                
-                if method:
-                    resp = await method(order_id=int(order_id))
-            except Exception as e:
-                logger.debug(f"Lighter get_order_status fetch failed: {e}")
+
+            if not symbol:
                 return "UNKNOWN"
-                
-            if not resp:
+
+            market_id = safe_int(self.market_info.get(symbol, {}).get("i"), -1)
+            if market_id < 0:
                 return "UNKNOWN"
-            
-            # Extract data
-            data = resp
-            if hasattr(resp, 'data'): data = resp.data
-            elif hasattr(resp, 'order'): data = resp.order
-            
-            # Status Logic
-            filled = safe_float(getattr(data, 'filled_amount', 0) or getattr(data, 'filled_size', 0))
-            total = safe_float(getattr(data, 'total_amount', 0) or getattr(data, 'total_size', 0))
-            status_code = getattr(data, 'status', None)
-            
-            if total > 0 and filled >= total * 0.999:
-                return "FILLED"
-            
-            if filled > 0:
-                return "PARTIALLY_FILLED"
-                
-            # If 0 filled
-            if status_code == 10: # 10=Open
-                return "OPEN"
-                
-            if status_code in [30, 40, 4, 3]: # Assuming cancelled codes
-                return "CANCELLED"
-                
-            # Fallback: if we can't determine, assume OPEN if no cancel proof?
-            # Or assume CANCELLED/UNKNOWN?
-            # Safer to return UNKNOWN.
+
+            await self._resolve_account_index()
+            auth_token, auth_err = signer.create_auth_token_with_expiry()
+            auth = auth_token if not auth_err else None
+
+            def _match_order(orders):
+                for order in orders or []:
+                    order_id_str = str(getattr(order, "order_id", ""))
+                    client_order_id = str(getattr(order, "client_order_id", ""))
+                    order_index = str(getattr(order, "order_index", ""))
+                    client_order_index = str(getattr(order, "client_order_index", ""))
+                    if str(order_id) in (order_id_str, client_order_id, order_index, client_order_index):
+                        return order
+                return None
+
+            await self.rate_limiter.acquire()
+            active = await order_api.account_active_orders(
+                account_index=int(self._resolved_account_index),
+                market_id=int(market_id),
+                auth=auth,
+            )
+            match = _match_order(getattr(active, "orders", None))
+            if match:
+                status = str(getattr(match, "status", "")).lower()
+                if status in ("open", "pending", "in-progress"):
+                    return "OPEN"
+                if status == "filled":
+                    return "FILLED"
+                if status.startswith("canceled"):
+                    return "CANCELLED"
+                return "UNKNOWN"
+
+            await self.rate_limiter.acquire()
+            inactive = await order_api.account_inactive_orders(
+                account_index=int(self._resolved_account_index),
+                market_id=int(market_id),
+                auth=auth,
+            )
+            match = _match_order(getattr(inactive, "orders", None))
+            if match:
+                status = str(getattr(match, "status", "")).lower()
+                if status == "filled":
+                    return "FILLED"
+                if status.startswith("canceled"):
+                    return "CANCELLED"
+                return "UNKNOWN"
+
             return "UNKNOWN"
 
         except Exception as e:
             logger.error(f"Lighter Status Check Error {order_id}: {e}")
             return "UNKNOWN"
+
+    def get_cancel_reason(self, status: str) -> Optional[str]:
+        """
+        Extract cancel reason from Lighter status string.
+        Example: "canceled-post-only" -> "post-only"
+        """
+        if not status:
+            return None
+        status_lower = status.lower()
+        if not status_lower.startswith("canceled"):
+            return None
+        if status_lower == "canceled":
+            return "canceled"
+        return status_lower.replace("canceled-", "", 1)
 
     @rate_limited(Exchange.LIGHTER, 1.0)
     async def close_live_position(

@@ -1890,32 +1890,47 @@ class WebSocketManager:
     
     async def _handle_lighter_market_stats(self, msg: dict):
         """Process Lighter market stats"""
-        stats = msg.get("market_stats", {})
+        stats = msg.get("market_stats")
         if not stats:
             return
-        
-        market_id = stats. get("market_id")
-        if market_id is None:
-            return
-        
-        # Find symbol for market ID
-        symbol = self._lighter_market_id_to_symbol(market_id)
-        if not symbol:
-            return
-        
-        # Update adapter caches
+
+        # Normalize to list to support market_stats/all payloads.
+        entries = stats if isinstance(stats, list) else [stats]
+
         if self.lighter_adapter:
-            # Mark price
-            mark_price = stats. get("mark_price")
-            if mark_price:
-                self.lighter_adapter._price_cache[symbol] = float(mark_price)
-                self.lighter_adapter._price_cache_time[symbol] = time.time()
-            
-            # Funding rate
-            funding_rate = stats.get("current_funding_rate") or stats.get("funding_rate")
-            if funding_rate:
-                self.lighter_adapter._funding_cache[symbol] = float(funding_rate) / 100
-                self.lighter_adapter._funding_cache_time[symbol] = time.time()
+            self.lighter_adapter.mark_ws_market_stats()
+
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+
+            market_id = (
+                entry.get("market_id")
+                or entry.get("marketId")
+                or entry.get("market_index")
+                or entry.get("marketIndex")
+            )
+            if market_id is None:
+                continue
+
+            # Find symbol for market ID
+            symbol = self._lighter_market_id_to_symbol(market_id)
+            if not symbol:
+                continue
+
+            # Update adapter caches
+            if self.lighter_adapter:
+                # Mark price
+                mark_price = entry.get("mark_price")
+                if mark_price:
+                    self.lighter_adapter._price_cache[symbol] = float(mark_price)
+                    self.lighter_adapter._price_cache_time[symbol] = time.time()
+                
+                # Funding rate
+                funding_rate = entry.get("current_funding_rate") or entry.get("funding_rate")
+                if funding_rate:
+                    self.lighter_adapter._funding_cache[symbol] = float(funding_rate) / 100
+                    self.lighter_adapter._funding_cache_time[symbol] = time.time()
             
             # Open interest
             open_interest = stats.get("open_interest")

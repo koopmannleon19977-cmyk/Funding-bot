@@ -137,6 +137,8 @@ async def run_bot_v5(bot_instance=None):
     """
     global SHUTDOWN_FLAG, state_manager, telegram_bot
     
+    logger.info("🔍 run_bot_v5() entry point called")
+    
     # Lazy imports to avoid circular dependencies
     from src.adapters.x10_adapter import X10Adapter
     from src.adapters.lighter_adapter import LighterAdapter
@@ -222,11 +224,6 @@ async def run_bot_v5(bot_instance=None):
     except Exception as e:
         logger.error(f"⚠️ Market load warning: {e}")
 
-    # Pre-load prices
-    logger.info("📈 Pre-loading Lighter prices...")
-    await lighter.load_funding_rates_and_prices()
-    logger.info(f"✅ Lighter prices loaded: {len(lighter.price_cache)} symbols")
-    
     # Warmup execution clients
     logger.info("🔥 Warming up execution clients (Network Handshake)...")
     try:
@@ -244,23 +241,26 @@ async def run_bot_v5(bot_instance=None):
     # Initialize Stream Clients for real-time updates
     # ═══════════════════════════════════════════════════════════════
     logger.info("🌐 Initializing Stream Clients...")
-    
-    # Initialize X10 Stream Client
-    try:
-        await x10.initialize_stream_client(symbols=common_symbols)
-        logger.info("✅ X10 Stream Client initialized")
-    except Exception as e:
-        logger.warning(f"⚠️ X10 Stream Client initialization failed: {e}")
-        logger.info("ℹ️ Continuing with polling fallback...")
-    
-    # Initialize Lighter Stream Client
-    try:
-        await lighter.initialize_stream_client(symbols=common_symbols)
-        logger.info("✅ Lighter Stream Client initialized")
-    except Exception as e:
-        logger.warning(f"⚠️ Lighter Stream Client initialization failed: {e}")
-        logger.info("ℹ️ Continuing with polling fallback...")
-    
+
+    if getattr(config, "USE_ADAPTER_STREAM_CLIENTS", False):
+        # Initialize X10 Stream Client
+        try:
+            await x10.initialize_stream_client(symbols=common_symbols)
+            logger.info("X10 stream client initialized")
+        except Exception as e:
+            logger.warning(f"X10 stream client initialization failed: {e}")
+            logger.info("Continuing with polling fallback...")
+
+        # Initialize Lighter Stream Client
+        try:
+            await lighter.initialize_stream_client(symbols=common_symbols)
+            logger.info("Lighter stream client initialized")
+        except Exception as e:
+            logger.warning(f"Lighter stream client initialization failed: {e}")
+            logger.info("Continuing with polling fallback...")
+    else:
+        logger.info("Adapter stream clients disabled (using WebSocketManager)")
+
     # Init OI Tracker
     logger.info(f"启动 OI Tracker für {len(common_symbols)} Symbole...")
     oi_tracker = await init_oi_tracker(x10, lighter, symbols=common_symbols)
@@ -272,6 +272,20 @@ async def run_bot_v5(bot_instance=None):
         ping_interval=None, ping_timeout=None
     )
     ws_manager.set_oi_tracker(oi_tracker)
+    # Prefer WS for real-time prices/funding. Use REST only as a fallback.
+    ws_wait = float(getattr(config, "LIGHTER_WAIT_FOR_WS_MARKET_STATS_SECONDS", 10.0))
+    ws_ready = False
+    if hasattr(lighter, "wait_for_ws_market_stats_ready"):
+        logger.info("📈 Waiting for Lighter WS market_stats...")
+        ws_ready = await lighter.wait_for_ws_market_stats_ready(timeout=ws_wait)
+    if ws_ready:
+        logger.info("✅ Lighter WS market_stats ready - skipping REST preload")
+    elif getattr(config, "LIGHTER_STARTUP_REST_FALLBACK", True):
+        logger.info("📈 Pre-loading Lighter prices (REST fallback)...")
+        await lighter.load_funding_rates_and_prices(force=True)
+        logger.info(f"✅ Lighter prices loaded: {len(lighter.price_cache)} symbols")
+    else:
+        logger.info("⚠️ Lighter WS market_stats not ready; REST preload disabled")
     logger.info("🔗 Components Wired: WS -> OI Tracker -> Prediction")
 
     # ═══════════════════════════════════════════════════════════════
@@ -301,15 +315,34 @@ async def run_bot_v5(bot_instance=None):
 
     # Init ParallelExecutionManager
     parallel_exec = ParallelExecutionManager(x10, lighter, state_manager)
-    logger.info("✅ ParallelExecutionManager started")
 
     # Init Dashboard API
+    logger.info("🌐 Initializing Dashboard API...")
     start_time = time.time()
-    api_server = DashboardApi(state_manager, parallel_exec, start_time)
-    await api_server.start()
+    api_server = None
+    try:
+        api_server = DashboardApi(state_manager, parallel_exec, start_time)
+        logger.info("🌐 Starting Dashboard API server...")
+        started = await api_server.start()
+
+        if started:
+
+            logger.info("✅ Dashboard API started")
+
+        else:
+
+            logger.warning("?s???? Continuing without Dashboard API...")
+
+            api_server = None
+    except Exception as e:
+        logger.error(f"❌ Failed to start Dashboard API: {e}", exc_info=True)
+        logger.warning("⚠️ Continuing without Dashboard API...")
+        api_server = None
     
     # Setup Event Loop
+    logger.info("🔧 Setting up Event Loop...")
     event_loop = get_event_loop()
+    logger.info(f"✅ Event Loop obtained: {type(event_loop).__name__}")
     event_loop.x10_adapter = x10
     event_loop.lighter_adapter = lighter
     event_loop.parallel_exec = parallel_exec
@@ -333,6 +366,7 @@ async def run_bot_v5(bot_instance=None):
     )
     
     # Register tasks
+    logger.info("📝 Registering tasks with Event Loop...")
     event_loop.register_task(
         "logic_loop",
         lambda: logic_loop(lighter, x10, price_event, parallel_exec),
@@ -394,14 +428,59 @@ async def run_bot_v5(bot_instance=None):
     logger.info("═══════════════════════════════════════════════════════════")
     logger.info("   BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   ")
     logger.info("═══════════════════════════════════════════════════════════")
+    # Get task count safely
+    task_count = len(getattr(event_loop, '_tasks', {}))
+    logger.info(f"🔍 About to call event_loop.start() - tasks registered: {task_count}")
+    
+    # #region agent log
+    import json
+    DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+    try:
+        with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:398", "message": "Before event_loop.start()", "data": {"event_loop": str(event_loop), "event_loop_running": event_loop.is_running() if hasattr(event_loop, "is_running") else None}, "timestamp": int(time.time() * 1000)}) + "\n")
+    except: pass
+    # #endregion
     
     try:
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:410", "message": "Calling event_loop.start()", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
         await event_loop.start()
-    except KeyboardInterrupt:
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:416", "message": "event_loop.start() returned", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+    except KeyboardInterrupt as e:
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:420", "message": "KeyboardInterrupt in event_loop.start()", "data": {"error": str(e)}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
         logger.info("🛑 KeyboardInterrupt detected")
         raise
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as e:
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:428", "message": "CancelledError in event_loop.start()", "data": {"error": str(e)}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
         logger.info("🛑 Shutdown requested (CancelledError)")
+    except Exception as e:
+        # #region agent log
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:436", "message": "Exception in event_loop.start()", "data": {"error": str(e), "error_type": type(e).__name__}, "timestamp": int(time.time() * 1000)}) + "\n")
+        except: pass
+        # #endregion
+        logger.error(f"❌ Exception in event_loop.start(): {e}", exc_info=True)
+        raise
     finally:
         SHUTDOWN_FLAG = True
         logger.info("🛑 Shutting down...")
@@ -412,8 +491,38 @@ async def run_bot_v5(bot_instance=None):
         await event_loop.stop()
     
     # Cleanup
+    # #region agent log
+    import json
+    DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+    def _write_debug_log(entry):
+        try:
+            with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception:
+            pass
+    _write_debug_log({
+        "sessionId": "debug-session",
+        "runId": "port-binding-debug",
+        "hypothesisId": "B",
+        "location": "startup.py:finally",
+        "message": "Before api_server.stop()",
+        "data": {"api_server_exists": api_server is not None},
+        "timestamp": int(time.time() * 1000)
+    })
+    # #endregion
     if api_server:
         await api_server.stop()
+    # #region agent log
+    _write_debug_log({
+        "sessionId": "debug-session",
+        "runId": "port-binding-debug",
+        "hypothesisId": "B",
+        "location": "startup.py:finally",
+        "message": "After api_server.stop()",
+        "data": {},
+        "timestamp": int(time.time() * 1000)
+    })
+    # #endregion
     await parallel_exec.stop()
     if ws_manager:
         await ws_manager.stop()
@@ -501,13 +610,19 @@ async def main_entry():
     from src.database import close_database
     from src.fee_manager import stop_fee_manager
     
+    logger.info("🚀 main_entry() called - creating bot task...")
     bot = FundingBot()
     bot_task = asyncio.create_task(bot.run())
+    logger.info("✅ Bot task created, waiting for completion...")
     
     try:
         await bot_task
+        logger.info("✅ Bot task completed normally")
     except asyncio.CancelledError:
         logger.info("Main bot task cancelled.")
+    except Exception as e:
+        logger.error(f"❌ Exception in bot task: {e}", exc_info=True)
+        raise
     finally:
         # ═══════════════════════════════════════════════════════════════
         # FIX: run_bot_v5 already handles graceful shutdown in its finally block
