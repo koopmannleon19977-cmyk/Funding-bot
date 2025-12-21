@@ -489,7 +489,17 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             max_trades = getattr(config, 'MAX_OPEN_TRADES', 40)
             if len(open_trades) >= max_trades:
                 logger.debug(f"MAX_OPEN_TRADES ({max_trades}) reached, waiting...")
-                await asyncio.sleep(REFRESH_DELAY)
+                # Event-driven wait with timeout fallback
+                if price_event:
+                    try:
+                        await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                        price_event.clear()
+                        # Throttle: Debounce rapid events (prevent CPU spikes)
+                        await asyncio.sleep(0.005)  # 5ms cooldown to batch rapid updates
+                    except asyncio.TimeoutError:
+                        pass  # Timeout reached, continue anyway
+                else:
+                    await asyncio.sleep(REFRESH_DELAY)
                 continue
 
             opportunities = await find_opportunities(lighter, x10, open_syms, is_farm_mode=None)
@@ -512,7 +522,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 if bal_x10 < 5.0:
                     logger.warning(f"⚠️ X10 Balance too low (${bal_x10:.2f})")
-                    await asyncio.sleep(REFRESH_DELAY * 2)
+                    # Event-driven wait with timeout fallback
+                    if price_event:
+                        try:
+                            await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY * 2)
+                            price_event.clear()
+                            await asyncio.sleep(0.005)  # 5ms cooldown
+                        except asyncio.TimeoutError:
+                            pass
+                    else:
+                        await asyncio.sleep(REFRESH_DELAY * 2)
                     continue
 
                 # Calculate slots
@@ -531,7 +550,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     # Check shutdown before fetching positions
                     if SHUTDOWN_FLAG:
                         logger.debug("🚫 Shutdown detected - skipping position fetch")
-                        await asyncio.sleep(REFRESH_DELAY)
+                        # Event-driven wait with timeout fallback
+                        if price_event:
+                            try:
+                                await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                                price_event.clear()
+                                await asyncio.sleep(0.005)  # 5ms cooldown
+                            except asyncio.TimeoutError:
+                                pass
+                        else:
+                            await asyncio.sleep(REFRESH_DELAY)
                         continue
                     
                     x10_pos, lighter_pos = await get_cached_positions(lighter, x10, force=False)
@@ -555,7 +583,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
 
                 if slots_available <= 0:
                     logger.debug(f"⛔ Max trades reached ({current_total_count}/{max_trades})")
-                    await asyncio.sleep(REFRESH_DELAY)
+                    # Event-driven wait with timeout fallback
+                    if price_event:
+                        try:
+                            await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                            price_event.clear()
+                            await asyncio.sleep(0.005)  # 5ms cooldown to batch rapid updates
+                        except asyncio.TimeoutError:
+                            pass  # Timeout reached, continue anyway
+                    else:
+                        await asyncio.sleep(REFRESH_DELAY)
                     continue
 
                 # Sort opportunities by APY
@@ -593,7 +630,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                     # ═══════════════════════════════════════════════════════════════
                     if SHUTDOWN_FLAG:
                         logger.info("🚫 Shutdown detected - aborting trade launch")
-                        await asyncio.sleep(REFRESH_DELAY)
+                        # Event-driven wait with timeout fallback
+                        if price_event:
+                            try:
+                                await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                                price_event.clear()
+                                await asyncio.sleep(0.005)  # 5ms cooldown
+                            except asyncio.TimeoutError:
+                                pass
+                        else:
+                            await asyncio.sleep(REFRESH_DELAY)
                         continue
                     
                     LAST_ARBITRAGE_LAUNCH = time.time()
@@ -638,7 +684,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                                 reserved_symbols.append(sym)
                     
                     if not reserved_symbols:
-                        await asyncio.sleep(REFRESH_DELAY)
+                        # Event-driven wait with timeout fallback
+                        if price_event:
+                            try:
+                                await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                                price_event.clear()
+                                await asyncio.sleep(0.005)  # 5ms cooldown
+                            except asyncio.TimeoutError:
+                                pass
+                        else:
+                            await asyncio.sleep(REFRESH_DELAY)
                         continue
                     
                     # ═══════════════════════════════════════════════════════════════
@@ -649,7 +704,16 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
                         async with TASKS_LOCK:
                             for sym in reserved_symbols:
                                 ACTIVE_TASKS.pop(sym, None)
-                        await asyncio.sleep(REFRESH_DELAY)
+                        # Event-driven wait with timeout fallback
+                        if price_event:
+                            try:
+                                await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                                price_event.clear()
+                                await asyncio.sleep(0.005)  # 5ms cooldown
+                            except asyncio.TimeoutError:
+                                pass
+                        else:
+                            await asyncio.sleep(REFRESH_DELAY)
                         continue
                     
                     logger.info(f"🚀 Launching {len(reserved_symbols)} trades")
@@ -746,7 +810,18 @@ async def logic_loop(lighter, x10, price_event, parallel_exec):
             if SHUTDOWN_FLAG:
                 logger.info("Logic loop: SHUTDOWN_FLAG detected, exiting")
                 break
-            await asyncio.sleep(REFRESH_DELAY)
+            
+            # Event-driven wait with timeout fallback (main loop)
+            if price_event:
+                try:
+                    await asyncio.wait_for(price_event.wait(), timeout=REFRESH_DELAY)
+                    price_event.clear()
+                    # Throttle: Debounce rapid events (prevent CPU spikes)
+                    await asyncio.sleep(0.005)  # 5ms cooldown to batch rapid updates
+                except asyncio.TimeoutError:
+                    pass  # Timeout reached, continue anyway
+            else:
+                await asyncio.sleep(REFRESH_DELAY)
             
         except asyncio.CancelledError:
             logger.info("Logic loop cancelled")

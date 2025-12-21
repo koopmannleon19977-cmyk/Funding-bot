@@ -21,7 +21,8 @@ class BaseAdapter:
         """Get existing session or create a new one if missing/closed."""
         if self._session is None or self._session.closed:
             # Use a slightly larger pool limit if needed, or default
-            connector = aiohttp.TCPConnector(limit=100)
+            # TCP Keep-Alive prevents connection drops and improves performance
+            connector = aiohttp.TCPConnector(limit=100, keepalive_timeout=60)
             self._session = aiohttp.ClientSession(connector=connector)
         return self._session
 

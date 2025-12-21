@@ -388,7 +388,7 @@ class BotEventLoop:
     
     async def _supervision_loop(self):
         """Main loop that monitors tasks and handles shutdown"""
-        health_interval = 30.0
+        health_interval = 10.0  # Reduced from 30s to 10s for faster error detection
         last_health_check = 0.0
         
         # #region agent log
@@ -519,13 +519,14 @@ class BotEventLoop:
                     logger.debug(f"⏱️ [Iteration {loop_iterations}] Outer TimeoutError (unexpected)")
                     pass
                 
-                # Periodic health check
+                # Periodic health check (non-blocking)
                 now = time.time()
                 if now - last_health_check >= health_interval:
                     logger.info(f"🏥 [Iteration {loop_iterations}] Running health check...")
-                    await self._health_check()
+                    # Run health check in background to avoid blocking
+                    asyncio.create_task(self._health_check())
                     last_health_check = now
-                    logger.info(f"✅ [Iteration {loop_iterations}] Health check complete")
+                    logger.debug(f"✅ [Iteration {loop_iterations}] Health check scheduled (non-blocking)")
                 
             except asyncio.CancelledError:
                 # #region agent log

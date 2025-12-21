@@ -316,15 +316,22 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         logger.debug(f"X10 markets: {len(x10.market_info)}, Lighter: {len(lighter.market_info)}")
         return []
 
-    # Check price cache status
-    x10_prices = len(x10.price_cache)
-    lit_prices = len(lighter.price_cache)
+    # Check price cache status - count actual valid prices (> 0)
+    x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None and x10.fetch_mark_price(s) > 0])
+    lit_prices = len([s for s in common if lighter.fetch_mark_price(s) is not None and lighter.fetch_mark_price(s) > 0])
     logger.debug(f"Price cache status: X10={x10_prices}/{len(common)}, Lighter={lit_prices}/{len(common)}")
     
-    if x10_prices == 0 and lit_prices == 0:
-        logger.warning("⚠️ Price cache completely empty - WebSocket streams may not be working")
+    # If many X10 prices are missing, trigger refresh
+    if x10_prices < len(common) * 0.8:  # Less than 80% of prices available
+        logger.info(f"⚠️ X10 price cache incomplete ({x10_prices}/{len(common)}) - triggering refresh")
+        try:
+            await x10.refresh_missing_prices()
+        except Exception as e:
+            logger.debug(f"X10 refresh_missing_prices error: {e}")
+    
+    if lit_prices == 0:
+        logger.warning("⚠️ Lighter price cache completely empty - triggering refresh")
         await asyncio.gather(
-            x10.load_market_cache(force=True),
             lighter.load_market_cache(force=True),
             lighter.load_funding_rates_and_prices(),
             return_exceptions=True
@@ -349,6 +356,17 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
                 # Get prices (from cache)
                 px = x10.fetch_mark_price(s)
                 pl = lighter.fetch_mark_price(s)
+                
+                # Debug: Log if X10 price is missing or 0
+                if px is None or px == 0.0:
+                    # Try to fetch fresh price if missing
+                    if hasattr(x10, 'load_market_cache'):
+                        try:
+                            # Trigger a refresh for this symbol if possible
+                            # Note: This is async but we're in an async context
+                            pass  # Could trigger async refresh here if needed
+                        except Exception:
+                            pass
                 
                 return (s, lr, xr, px, pl)
                 
@@ -434,6 +452,11 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     rejected_apy = 0
     rejected_profit = 0
     rejected_breakeven = 0
+    
+    # Debug logging counter (limit to 5 entries)
+    data_debug_logged = 0
+    data_debug_limit = 5
+    cache_status_logged = False  # Log cache status only once for first failed symbol
 
     for s, rl, rx, px, pl in clean_results:
         # Skip already open
@@ -475,6 +498,42 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             valid_pairs += 1
         else:
             rejected_data += 1
+            # Debug logging: Log specific missing fields for first few failures
+            if data_debug_logged < data_debug_limit:
+                missing_fields = []
+                if rl is None:
+                    missing_fields.append("Lighter Funding Rate=None")
+                if rx is None:
+                    missing_fields.append("X10 Funding Rate=None")
+                if px is None:
+                    missing_fields.append("X10 Price=None")
+                if pl is None:
+                    missing_fields.append("Lighter Price=None")
+                logger.info(
+                    f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
+                    f"Missing: {', '.join(missing_fields) if missing_fields else 'Unknown'}"
+                )
+                
+                # Cache status logging (only for first failed symbol)
+                if not cache_status_logged:
+                    try:
+                        x10_price_cache_size = len(getattr(x10, 'price_cache', {}))
+                        x10_funding_cache_size = len(getattr(x10, 'funding_cache', {}))
+                        lighter_price_cache_size = len(getattr(lighter, 'price_cache', {}))
+                        lighter_funding_cache_size = len(getattr(lighter, 'funding_cache', {}))
+                        common_size = len(common)
+                        logger.info(
+                            f"📊 Cache Status (for {s}): "
+                            f"X10 price_cache={x10_price_cache_size}/{common_size}, "
+                            f"X10 funding_cache={x10_funding_cache_size}/{common_size}, "
+                            f"Lighter price_cache={lighter_price_cache_size}/{common_size}, "
+                            f"Lighter funding_cache={lighter_funding_cache_size}/{common_size}"
+                        )
+                        cache_status_logged = True
+                    except Exception as cache_e:
+                        logger.info(f"Cache status logging failed: {cache_e}")
+                
+                data_debug_logged += 1
             continue
 
         # Price parsing
@@ -483,10 +542,25 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             pl_float = safe_float(pl)
             if px_float <= 0 or pl_float <= 0:
                 rejected_data += 1
+                # Debug logging: Log invalid price values
+                if data_debug_logged < data_debug_limit:
+                    logger.info(
+                        f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
+                        f"Price parsing failed: X10 Price={px_float}, Lighter Price={pl_float} "
+                        f"(raw: px={px}, pl={pl})"
+                    )
+                    data_debug_logged += 1
                 continue
             spread = abs(px_float - pl_float) / px_float
-        except:
+        except Exception as e:
             rejected_data += 1
+            # Debug logging: Log exception during price parsing
+            if data_debug_logged < data_debug_limit:
+                logger.info(
+                    f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
+                    f"Price parsing exception: {type(e).__name__}: {e} (raw: px={px}, pl={pl})"
+                )
+                data_debug_logged += 1
             continue
 
         # Calculate funding metrics

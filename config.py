@@ -476,6 +476,14 @@ X10_PUBLIC_KEY = os.getenv("X10_PUBLIC_KEY")
 X10_API_KEY = os.getenv("X10_API_KEY")
 X10_VAULT_ID = os.getenv("X10_VAULT_ID")
 
+# X10 WebSocket Order Configuration
+X10_WS_ORDER_ENABLED = True  # Enable WebSocket order submission for X10 (experimental)
+X10_WS_ORDER_URL = "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account"  # WebSocket endpoint for orders
+
+# WebSocket Order Retry Configuration
+WS_ORDER_MAX_RETRIES = 2  # Maximum retry attempts for WebSocket order submission
+WS_ORDER_RETRY_BACKOFF_BASE = 0.1  # Base backoff time in seconds (exponential: 0.1s, 0.2s, 0.4s...)
+
 TELEGRAM_ENABLED = False
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

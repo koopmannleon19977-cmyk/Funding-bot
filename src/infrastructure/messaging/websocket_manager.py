@@ -129,7 +129,7 @@ class ManagedWebSocket:
         self._receive_task: Optional[asyncio.Task] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         self._process_task: Optional[asyncio.Task] = None  # Message processing task
-        self._message_queue: asyncio.Queue = asyncio.Queue(maxsize=config.message_queue_size)  # Use config value (10000) to handle snapshot bursts
+        self._message_queue: asyncio.Queue = asyncio.Queue(maxsize=50000)  # Increased from 10000 to 50000 for high orderbook volume
         
         self._lock = asyncio.Lock()
     
@@ -1667,6 +1667,13 @@ class WebSocketManager:
                 name="x10_account_keepalive"
             )
         
+        # Start one-time price initialization task (after WebSocket connections are established)
+        # This fills missing prices for illiquid markets via REST, then continues with WebSocket-only
+        self._price_init_task = asyncio.create_task(
+            self._initialize_missing_prices(),
+            name="price_initialization"
+        )
+        
         logger.info("✅ WebSocketManager started (Lighter + X10 Account/Trades/Funding + Keepalive)")
     
     async def stop(self):
@@ -1685,6 +1692,14 @@ class WebSocketManager:
             self._x10_account_keepalive_task.cancel()
             try:
                 await asyncio.wait_for(self._x10_account_keepalive_task, timeout=2.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                pass
+        
+        # Stop price initialization task
+        if hasattr(self, '_price_init_task') and self._price_init_task and not self._price_init_task.done():
+            self._price_init_task.cancel()
+            try:
+                await asyncio.wait_for(self._price_init_task, timeout=2.0)
             except (asyncio.TimeoutError, asyncio.CancelledError):
                 pass
         
@@ -1894,8 +1909,28 @@ class WebSocketManager:
         if not stats:
             return
 
-        # Normalize to list to support market_stats/all payloads.
-        entries = stats if isinstance(stats, list) else [stats]
+        # Normalize to list to support different payload formats:
+        # 1. List: [{"market_id": 0, ...}, {"market_id": 1, ...}]
+        # 2. Dict with numeric string keys: {"0": {"market_id": 0, ...}, "1": {...}}
+        # 3. Single dict: {"market_id": 0, ...}
+        if isinstance(stats, dict):
+            # Check if it's a dict with numeric string keys (market_stats/all format)
+            # Keys like "0", "1", "10" etc. indicate market IDs
+            if stats and isinstance(list(stats.keys())[0], str) and list(stats.keys())[0].isdigit():
+                # It's a dict with market ID keys: {"0": {...}, "1": {...}}
+                entries = list(stats.values())
+            else:
+                # Single dict entry
+                entries = [stats]
+        elif isinstance(stats, list):
+            entries = stats
+        else:
+            return
+        
+        # Debug: Log first message to see structure
+        if not hasattr(self, '_lighter_market_stats_logged'):
+            logger.info(f"📊 [WS] First market_stats message: {len(entries)} entries, sample keys: {list(entries[0].keys())[:10] if entries and isinstance(entries[0], dict) else 'N/A'}")
+            self._lighter_market_stats_logged = True
 
         if self.lighter_adapter:
             self.lighter_adapter.mark_ws_market_stats()
@@ -1920,22 +1955,69 @@ class WebSocketManager:
 
             # Update adapter caches
             if self.lighter_adapter:
-                # Mark price
-                mark_price = entry.get("mark_price")
-                if mark_price:
-                    self.lighter_adapter._price_cache[symbol] = float(mark_price)
-                    self.lighter_adapter._price_cache_time[symbol] = time.time()
+                # Price extraction with fallback chain:
+                # 1. mark_price (preferred for funding calculations)
+                # 2. last_trade_price (actual last trade)
+                # 3. index_price (oracle price)
+                # This ensures we always have a price even if one field is missing
+                price = (
+                    entry.get("mark_price") 
+                    or entry.get("last_trade_price")
+                    or entry.get("index_price")
+                )
+                if price is not None:
+                    try:
+                        self.lighter_adapter._price_cache[symbol] = float(price)
+                        self.lighter_adapter._price_cache_time[symbol] = time.time()
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Invalid price for {symbol} in market_stats: {price} ({type(price)})")
+                else:
+                    # Debug: Log missing price for first few symbols (help diagnose missing data)
+                    if not hasattr(self, '_lighter_price_missing_count'):
+                        self._lighter_price_missing_count = 0
+                    if self._lighter_price_missing_count < 5:
+                        available_keys = [k for k in ['mark_price', 'last_trade_price', 'index_price'] if k in entry]
+                        logger.warning(
+                            f"⚠️ [WS] No price in market_stats for {symbol} "
+                            f"(available price fields: {available_keys}, all keys: {list(entry.keys())[:10]})"
+                        )
+                        self._lighter_price_missing_count += 1
                 
-                # Funding rate
-                funding_rate = entry.get("current_funding_rate") or entry.get("funding_rate")
-                if funding_rate:
-                    self.lighter_adapter._funding_cache[symbol] = float(funding_rate) / 100
-                    self.lighter_adapter._funding_cache_time[symbol] = time.time()
+                # Funding rate - check multiple possible field names from Lighter WS docs
+                # According to docs: current_funding_rate is a string like "0.0001" 
+                # This appears to be an hourly rate already, but fetch_funding_rate() expects 8h rates.
+                # REST API returns rates that get divided by 8.0, so WS rates should be multiplied by 8
+                # to match the format (or we store hourly and adjust fetch_funding_rate logic).
+                # For now, store hourly rate as-is and let fetch_funding_rate() handle conversion.
+                funding_rate = (
+                    entry.get("current_funding_rate") 
+                    or entry.get("funding_rate")
+                    or entry.get("fundingRate")
+                )
+                if funding_rate is not None:
+                    try:
+                        rate_float = float(funding_rate)
+                        # Convert hourly rate to 8h rate (to match REST API format)
+                        # REST returns 8h rates, WS returns hourly rates
+                        rate_8h = rate_float * 8.0
+                        # Store in both caches for compatibility
+                        self.lighter_adapter._funding_cache[symbol] = rate_8h
+                        self.lighter_adapter.funding_cache[symbol] = rate_8h
+                        self.lighter_adapter._funding_cache_time[symbol] = time.time()
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Invalid funding_rate for {symbol}: {funding_rate} ({type(funding_rate)})")
+                else:
+                    # Debug: Log missing funding rate for first few symbols
+                    if not hasattr(self, '_lighter_funding_missing_count'):
+                        self._lighter_funding_missing_count = 0
+                    if self._lighter_funding_missing_count < 3:
+                        logger.info(f"⚠️ [WS] No funding_rate in market_stats for {symbol} (entry keys: {list(entry.keys())})")
+                        self._lighter_funding_missing_count += 1
             
-            # Open interest
-            open_interest = stats.get("open_interest")
+            # Open interest - FIX: use entry, not stats
+            open_interest = entry.get("open_interest") or entry.get("openInterest")
             if open_interest and self.oi_tracker:
-                self. oi_tracker. update_from_websocket(symbol, "lighter", float(open_interest))
+                self.oi_tracker.update_from_websocket(symbol, "lighter", float(open_interest))
     
     async def _handle_lighter_orderbook(self, msg: dict):
         """Process Lighter orderbook update - DISABLED
@@ -2246,6 +2328,41 @@ class WebSocketManager:
             elif msg_type == "DELTA":
                 if hasattr(self.x10_adapter, 'handle_orderbook_update'):
                     self.x10_adapter.handle_orderbook_update(symbol, bids, asks)
+            
+            # Update price cache with mid-price from orderbook
+            # This ensures illiquid markets get price updates even without trades
+            # We always update from orderbook if:
+            # 1. No price exists in cache, OR
+            # 2. Trade price is older than 60s (orderbook is more recent)
+            if bids and asks and len(bids) > 0 and len(asks) > 0:
+                try:
+                    best_bid = float(bids[0][0]) if len(bids[0]) >= 2 else None
+                    best_ask = float(asks[0][0]) if len(asks[0]) >= 2 else None
+                    
+                    if best_bid and best_ask and best_bid > 0 and best_ask > 0 and best_ask > best_bid:
+                        cache_time = self.x10_adapter._price_cache_time.get(symbol, 0)
+                        price_age = time.time() - cache_time
+                        has_price = symbol in self.x10_adapter._price_cache
+                        
+                        # Always update if no price exists, or if price is stale (>60s)
+                        # Orderbook mid-price is a valid price source for illiquid markets
+                        if not has_price or price_age > 60.0:
+                            mid_price = (best_bid + best_ask) / 2.0
+                            self.x10_adapter._price_cache[symbol] = mid_price
+                            self.x10_adapter._price_cache_time[symbol] = time.time()
+                            
+                            if not has_price:
+                                logger.info(
+                                    f"📊 [X10] Initialized {symbol} price from orderbook mid-price: "
+                                    f"${mid_price:.4f} (bid=${best_bid:.4f}, ask=${best_ask:.4f})"
+                                )
+                            else:
+                                logger.debug(
+                                    f"📊 [X10] Updated {symbol} price from orderbook mid-price: "
+                                    f"${mid_price:.4f} (trade price was stale: {price_age:.1f}s old)"
+                                )
+                except (ValueError, TypeError, IndexError) as e:
+                    logger.debug(f"[X10] Error updating price from orderbook for {symbol}: {e}")
         
     
     async def _handle_x10_open_interest(self, msg: dict):
@@ -2691,12 +2808,289 @@ class WebSocketManager:
             # Convert market format (BTC/USD -> BTC-USD)
             symbol = market.replace("/", "-")
             
-            # Extract price
+            # Extract price from trade
             price = trade.get("p") or trade.get("price")
             
-            if symbol and price and self.x10_adapter:
-                self.x10_adapter._price_cache[symbol] = float(price)
-                self.x10_adapter._price_cache_time[symbol] = time.time()
+            if symbol and price:
+                if self.x10_adapter:
+                    try:
+                        self.x10_adapter._price_cache[symbol] = float(price)
+                        self.x10_adapter._price_cache_time[symbol] = time.time()
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Invalid price in X10 trade for {symbol}: {price} ({type(price)})")
+            elif symbol:
+                # No trade price available - try orderbook mid-price as fallback
+                # This handles illiquid markets that don't have frequent trades
+                await self._update_x10_price_from_orderbook(symbol)
+    
+    async def _update_x10_price_from_orderbook(self, symbol: str):
+        """
+        Update X10 price from orderbook mid-price as fallback for illiquid markets.
+        
+        This method is called when no trade price is available. It attempts to
+        calculate the mid-price from the best bid/ask in the orderbook cache.
+        
+        Args:
+            symbol: Trading pair symbol (e.g., "BTC-USD")
+        """
+        if not self.x10_adapter:
+            return
+        
+        try:
+            # Try to get orderbook from adapter's cache
+            if hasattr(self.x10_adapter, '_orderbook_cache'):
+                orderbook = self.x10_adapter._orderbook_cache.get(symbol)
+                if orderbook:
+                    bids = orderbook.get('bids', [])
+                    asks = orderbook.get('asks', [])
+                    
+                    if bids and asks and len(bids) > 0 and len(asks) > 0:
+                        try:
+                            best_bid = float(bids[0][0]) if len(bids[0]) >= 2 else None
+                            best_ask = float(asks[0][0]) if len(asks[0]) >= 2 else None
+                            
+                            if best_bid and best_ask and best_bid > 0 and best_ask > 0 and best_ask > best_bid:
+                                # Calculate mid-price: (best_bid + best_ask) / 2
+                                mid_price = (best_bid + best_ask) / 2.0
+                                self.x10_adapter._price_cache[symbol] = mid_price
+                                self.x10_adapter._price_cache_time[symbol] = time.time()
+                                logger.debug(
+                                    f"📊 [X10] Updated {symbol} price from orderbook mid-price: "
+                                    f"${mid_price:.4f} (bid=${best_bid:.4f}, ask=${best_ask:.4f})"
+                                )
+                                return
+                        except (ValueError, TypeError, IndexError) as e:
+                            logger.debug(f"[X10] Error calculating mid-price for {symbol} from orderbook: {e}")
+            
+            # Try orderbook provider as fallback
+            if hasattr(self, 'orderbook_provider') and self.orderbook_provider:
+                try:
+                    orderbook_snapshot = await self.orderbook_provider.get_x10_orderbook(symbol)
+                    if orderbook_snapshot and orderbook_snapshot.best_bid and orderbook_snapshot.best_ask:
+                        mid_price = float((orderbook_snapshot.best_bid + orderbook_snapshot.best_ask) / 2.0)
+                        if self.x10_adapter:
+                            self.x10_adapter._price_cache[symbol] = mid_price
+                            self.x10_adapter._price_cache_time[symbol] = time.time()
+                            logger.debug(
+                                f"📊 [X10] Updated {symbol} price from OrderbookProvider mid-price: ${mid_price:.4f}"
+                            )
+                except Exception as e:
+                    logger.debug(f"[X10] Error getting orderbook from provider for {symbol}: {e}")
+                    
+        except Exception as e:
+            logger.debug(f"[X10] Error updating price from orderbook for {symbol}: {e}")
+    
+    async def _initialize_missing_prices(self):
+        """
+        One-time initialization of missing prices via REST API.
+        
+        After WebSocket connections are established, this method:
+        1. Waits 15 seconds for initial WebSocket updates to arrive
+        2. Identifies markets missing prices
+        3. Fetches orderbook data via REST API for those markets
+        4. Calculates mid-price from orderbook and caches it
+        5. After this one-time initialization, only WebSocket updates are used
+        
+        This ensures fast WebSocket-based operation while handling illiquid markets
+        that may not receive frequent trade/orderbook updates.
+        """
+        # Wait for initial WebSocket updates to arrive (15 seconds)
+        await asyncio.sleep(15.0)
+        
+        if not self._running:
+            return
+        
+        logger.info("🔍 Initializing missing prices for illiquid markets (one-time REST fallback)...")
+        
+        # Initialize X10 missing prices
+        if self.x10_adapter and hasattr(self.x10_adapter, 'market_info'):
+            x10_missing = []
+            for symbol in self.x10_adapter.market_info.keys():
+                if symbol not in self.x10_adapter._price_cache:
+                    x10_missing.append(symbol)
+            
+            if x10_missing:
+                logger.info(f"📊 Found {len(x10_missing)} X10 markets without prices, initializing via REST...")
+                
+                # Strategy 0: First, try to refresh market cache (bulk load all market stats)
+                # This is more efficient than individual calls and loads mark_price/index_price for all markets
+                try:
+                    if self.x10_adapter and hasattr(self.x10_adapter, 'load_market_cache'):
+                        logger.debug("🔄 Refreshing X10 market cache to get mark prices for all markets...")
+                        await self.x10_adapter.load_market_cache(force=True)
+                        
+                        # Copy prices from price_cache to _price_cache if not already there
+                        # (load_market_cache writes to price_cache, but we check _price_cache)
+                        for sym in x10_missing:
+                            if sym in self.x10_adapter.price_cache and sym not in self.x10_adapter._price_cache:
+                                price = self.x10_adapter.price_cache[sym]
+                                if price and price > 0:
+                                    self.x10_adapter._price_cache[sym] = price
+                                    self.x10_adapter._price_cache_time[sym] = time.time()
+                        
+                        # After refresh, re-check which markets still need prices
+                        still_missing = [s for s in x10_missing if s not in self.x10_adapter._price_cache]
+                        if len(still_missing) < len(x10_missing):
+                            logger.info(f"✅ Market cache refresh initialized {len(x10_missing) - len(still_missing)} prices")
+                            x10_missing = still_missing
+                except Exception as e:
+                    logger.debug(f"Market cache refresh failed: {e}")
+                
+                initialized = 0
+                failed = 0
+                
+                for symbol in x10_missing:
+                    if not self._running:
+                        break
+                    try:
+                        mid_price = None
+                        
+                        # Strategy 1: Try OrderbookProvider first (uses REST API)
+                        if hasattr(self, 'orderbook_provider') and self.orderbook_provider:
+                            try:
+                                orderbook_snapshot = await self.orderbook_provider.get_x10_orderbook(symbol, force_refresh=True)
+                                if orderbook_snapshot and orderbook_snapshot.best_bid and orderbook_snapshot.best_ask:
+                                    mid_price = float((orderbook_snapshot.best_bid + orderbook_snapshot.best_ask) / 2.0)
+                            except Exception as e:
+                                logger.debug(f"OrderbookProvider failed for {symbol}: {e}")
+                        
+                        # Strategy 2: Fallback to direct adapter fetch_orderbook if provider failed
+                        if mid_price is None and self.x10_adapter and hasattr(self.x10_adapter, 'fetch_orderbook'):
+                            try:
+                                orderbook_data = await self.x10_adapter.fetch_orderbook(symbol)
+                                if orderbook_data:
+                                    bids = orderbook_data.get('bids', [])
+                                    asks = orderbook_data.get('asks', [])
+                                    if bids and asks and len(bids) > 0 and len(asks) > 0:
+                                        best_bid = float(bids[0][0]) if len(bids[0]) >= 2 else None
+                                        best_ask = float(asks[0][0]) if len(asks[0]) >= 2 else None
+                                        if best_bid and best_ask and best_bid > 0 and best_ask > 0 and best_ask > best_bid:
+                                            mid_price = (best_bid + best_ask) / 2.0
+                            except Exception as e:
+                                logger.debug(f"Direct adapter fetch_orderbook failed for {symbol}: {e}")
+                        
+                        # Strategy 3: Fallback to market_stats API (mark_price, index_price, last_price)
+                        # fetch_mark_price checks market_info.market_stats for various price fields
+                        if mid_price is None and self.x10_adapter and hasattr(self.x10_adapter, 'fetch_mark_price'):
+                            try:
+                                mark_price = self.x10_adapter.fetch_mark_price(symbol)
+                                if mark_price and mark_price > 0:
+                                    mid_price = float(mark_price)
+                                    # fetch_mark_price already updates _price_cache, but ensure it's set
+                                    if symbol not in self.x10_adapter._price_cache:
+                                        self.x10_adapter._price_cache[symbol] = mid_price
+                                        self.x10_adapter._price_cache_time[symbol] = time.time()
+                            except Exception as e:
+                                logger.debug(f"fetch_mark_price failed for {symbol}: {e}")
+                        
+                        # Cache the price if we got one
+                        if mid_price:
+                            self.x10_adapter._price_cache[symbol] = mid_price
+                            self.x10_adapter._price_cache_time[symbol] = time.time()
+                            initialized += 1
+                            logger.info(f"✅ Initialized X10 {symbol} price: ${mid_price:.4f} (from orderbook)")
+                        else:
+                            failed += 1
+                            logger.debug(f"⚠️ No orderbook data available for {symbol}")
+                        
+                        # Small delay to avoid rate limiting
+                        await asyncio.sleep(0.1)
+                    except Exception as e:
+                        failed += 1
+                        logger.warning(f"❌ Failed to initialize X10 price for {symbol}: {e}")
+                
+                # Calculate how many were actually initialized (including from market cache refresh)
+                total_initialized = len([s for s in x10_missing if s in self.x10_adapter._price_cache])
+                total_failed = len(x10_missing) - total_initialized
+                
+                if total_initialized > 0:
+                    logger.info(f"✅ Initialized {total_initialized}/{len(x10_missing)} missing X10 prices (failed: {total_failed}, now using WebSocket-only)")
+                    if total_failed > 0:
+                        # Log which markets failed (for debugging)
+                        failed_symbols = [s for s in x10_missing if s not in self.x10_adapter._price_cache]
+                        logger.warning(f"⚠️ X10 markets that failed price initialization ({total_failed} total): {failed_symbols}")
+                else:
+                    logger.warning(f"⚠️ Could not initialize any X10 prices via REST ({total_failed} failed, {len(x10_missing)} total). Prices will come from WebSocket updates.")
+        
+        # Initialize Lighter missing prices (via orderbook REST as fallback)
+        # Note: Lighter prices should come from market_stats WebSocket, but for illiquid markets
+        # we can use orderbook mid-price as fallback
+        if self.lighter_adapter and hasattr(self.lighter_adapter, 'market_info'):
+            lighter_missing = []
+            for symbol in self.lighter_adapter.market_info.keys():
+                if symbol not in self.lighter_adapter._price_cache:
+                    lighter_missing.append(symbol)
+            
+            if lighter_missing:
+                logger.info(f"📊 Found {len(lighter_missing)} Lighter markets without prices, trying orderbook fallback...")
+                lighter_initialized = 0
+                lighter_failed = 0
+                
+                for symbol in lighter_missing:
+                    if not self._running:
+                        break
+                    try:
+                        mid_price = None
+                        
+                        # Try OrderbookProvider first
+                        if hasattr(self, 'orderbook_provider') and self.orderbook_provider:
+                            try:
+                                orderbook_snapshot = await self.orderbook_provider.get_lighter_orderbook(symbol, force_refresh=True)
+                                if orderbook_snapshot and orderbook_snapshot.best_bid and orderbook_snapshot.best_ask:
+                                    mid_price = float((orderbook_snapshot.best_bid + orderbook_snapshot.best_ask) / 2.0)
+                            except Exception as e:
+                                logger.debug(f"OrderbookProvider failed for Lighter {symbol}: {e}")
+                        
+                        # Fallback to direct adapter fetch_orderbook
+                        if mid_price is None and self.lighter_adapter and hasattr(self.lighter_adapter, 'fetch_orderbook'):
+                            try:
+                                orderbook_data = await self.lighter_adapter.fetch_orderbook(symbol, limit=20)
+                                if orderbook_data:
+                                    bids = orderbook_data.get('bids', [])
+                                    asks = orderbook_data.get('asks', [])
+                                    if bids and asks and len(bids) > 0 and len(asks) > 0:
+                                        best_bid = float(bids[0][0]) if len(bids[0]) >= 2 else None
+                                        best_ask = float(asks[0][0]) if len(asks[0]) >= 2 else None
+                                        if best_bid and best_ask and best_bid > 0 and best_ask > 0 and best_ask > best_bid:
+                                            mid_price = (best_bid + best_ask) / 2.0
+                            except Exception as e:
+                                logger.debug(f"Direct adapter fetch_orderbook failed for Lighter {symbol}: {e}")
+                        
+                        # Strategy 3: Try to fetch price from market info if available
+                        # Lighter market_stats WebSocket should have provided this, but if not,
+                        # we can try REST API endpoints
+                        if mid_price is None and self.lighter_adapter and hasattr(self.lighter_adapter, 'market_info'):
+                            try:
+                                market = self.lighter_adapter.market_info.get(symbol)
+                                if market:
+                                    # Try to extract price from market info if available
+                                    # (this would require a REST API call, which we skip here to keep it WebSocket-first)
+                                    pass
+                            except Exception as e:
+                                logger.debug(f"Market info check failed for Lighter {symbol}: {e}")
+                        
+                        if mid_price:
+                            self.lighter_adapter._price_cache[symbol] = mid_price
+                            self.lighter_adapter._price_cache_time[symbol] = time.time()
+                            lighter_initialized += 1
+                            logger.info(f"✅ Initialized Lighter {symbol} price: ${mid_price:.4f} (from orderbook)")
+                        else:
+                            lighter_failed += 1
+                        
+                        await asyncio.sleep(0.1)
+                    except Exception as e:
+                        lighter_failed += 1
+                        logger.debug(f"Failed to initialize Lighter price for {symbol}: {e}")
+                
+                if lighter_initialized > 0:
+                    logger.info(f"✅ Initialized {lighter_initialized}/{len(lighter_missing)} missing Lighter prices via REST (failed: {lighter_failed})")
+                elif lighter_missing:
+                    logger.warning(
+                        f"⚠️ Could not initialize Lighter prices via REST ({lighter_failed} failed). "
+                        f"Missing markets: {lighter_missing[:5]}{'...' if len(lighter_missing) > 5 else ''}"
+                    )
+        
+        logger.info("✅ Price initialization complete - now using WebSocket-only updates")
 
     def _lighter_market_id_to_symbol(self, market_id: int) -> Optional[str]:
         """Convert Lighter market ID to symbol"""

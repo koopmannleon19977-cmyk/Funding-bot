@@ -200,6 +200,26 @@ class X10Adapter(BaseAdapter):
             'reconnect_count': 0
         }
         self._stream_health_check_task: Optional[asyncio.Task] = None
+        
+        # ═══════════════════════════════════════════════════════════════
+        # X10 WebSocket Order Client for low-latency order submission
+        # ═══════════════════════════════════════════════════════════════
+        self._ws_order_enabled = getattr(config, 'X10_WS_ORDER_ENABLED', False)
+        self.ws_order_client = None
+        if self._ws_order_enabled:
+            try:
+                from src.adapters.x10_ws_order_client import X10WebSocketOrderClient, X10WsOrderConfig
+                ws_order_url = getattr(config, 'X10_WS_ORDER_URL', None)
+                api_key = self.stark_account.api_key if self.stark_account else None
+                ws_config = X10WsOrderConfig(
+                    url=ws_order_url or "wss://api.starknet.extended.exchange/stream.extended.exchange/v1/account",
+                    api_key=api_key
+                )
+                self.ws_order_client = X10WebSocketOrderClient(ws_config)
+                logger.info("✅ [X10] WebSocket Order Client initialized")
+            except Exception as e:
+                logger.warning(f"⚠️ [X10] Failed to initialize WebSocket Order Client: {e}")
+                self._ws_order_enabled = False
 
         try:
             if config.X10_VAULT_ID:
@@ -283,40 +303,40 @@ class X10Adapter(BaseAdapter):
                 "Accept": "application/json"
             }
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        order = data.get("data", {})
-                        
-                        # REST API only has limit price - not the actual fill price!
-                        filled_amount = safe_float(order.get("filled_amount_of_synthetic"), 0.0)
-                        price = safe_float(order.get("price"), 0.0)
-                        
-                        # Try to get average execution price if available
-                        avg_exec_price = safe_float(
-                            order.get("average_price") or 
-                            order.get("avg_price") or 
-                            order.get("avgFillPrice") or
-                            price,  # Fallback to limit price
-                            0.0
-                        )
-                        
-                        logger.debug(f"X10 get_order: REST API returned price=${price}, avgFillPrice=${avg_exec_price}")
-                        
-                        return {
-                            "id": order_id,
-                            "symbol": order.get("market") or symbol,
-                            "price": price,
-                            "avgFillPrice": avg_exec_price,
-                            "filledAmount": filled_amount,
-                            "status": order.get("status"),
-                            "side": order.get("side"),
-                            "post_only": order.get("post_only") or order.get("postOnly") or False,
-                        }
-                    else:
-                        logger.debug(f"X10 get_order: HTTP {resp.status} for order {order_id}")
-                        return None
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    order = data.get("data", {})
+                    
+                    # REST API only has limit price - not the actual fill price!
+                    filled_amount = safe_float(order.get("filled_amount_of_synthetic"), 0.0)
+                    price = safe_float(order.get("price"), 0.0)
+                    
+                    # Try to get average execution price if available
+                    avg_exec_price = safe_float(
+                        order.get("average_price") or 
+                        order.get("avg_price") or 
+                        order.get("avgFillPrice") or
+                        price,  # Fallback to limit price
+                        0.0
+                    )
+                    
+                    logger.debug(f"X10 get_order: REST API returned price=${price}, avgFillPrice=${avg_exec_price}")
+                    
+                    return {
+                        "id": order_id,
+                        "symbol": order.get("market") or symbol,
+                        "price": price,
+                        "avgFillPrice": avg_exec_price,
+                        "filledAmount": filled_amount,
+                        "status": order.get("status"),
+                        "side": order.get("side"),
+                        "post_only": order.get("post_only") or order.get("postOnly") or False,
+                    }
+                else:
+                    logger.debug(f"X10 get_order: HTTP {resp.status} for order {order_id}")
+                    return None
                         
         except Exception as e:
             logger.debug(f"X10 get_order error for {order_id}: {e}")
@@ -345,45 +365,45 @@ class X10Adapter(BaseAdapter):
                 "Accept": "application/json"
             }
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        order = data.get("data", {})
-                        
-                        fee_abs = safe_float(order.get("fee"), 0.0)
-                        filled = order.get("filled_amount_of_synthetic")
-                        price = safe_float(order.get("price"), 0.0)
-                        
-                        if fee_abs is not None and filled and price:
-                            try:
-                                fee_usd = float(str(fee_abs))
-                                filled_qty = float(str(filled))
-                                order_price = float(str(price))
-                                notional = filled_qty * order_price
-                                
-                                if notional > 0:
-                                    fee_rate = fee_usd / notional
-                                    if 0 <= fee_rate <= 0.01:
-                                        return fee_rate
-                            except (ValueError, TypeError):
-                                pass
-                        
-                        # ═══════════════════════════════════════════════════════════════
-                        # FIX #4: POST_ONLY is not a TimeInForce value - check post_only parameter
-                        # Some APIs may return time_in_force="POST_ONLY" as string, but
-                        # the correct way is to check the post_only boolean parameter
-                        # ═══════════════════════════════════════════════════════════════
-                        time_in_force = order.get("time_in_force")
-                        post_only_flag = order.get("post_only") or order.get("postOnly") or False
-                        
-                        # Check if order is POST_ONLY (either via parameter or legacy string value)
-                        if post_only_flag or (time_in_force and "POST_ONLY" in str(time_in_force).upper()):
-                            return config.MAKER_FEE_X10
-                        else:
-                            return config.TAKER_FEE_X10
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    order = data.get("data", {})
+                    
+                    fee_abs = safe_float(order.get("fee"), 0.0)
+                    filled = order.get("filled_amount_of_synthetic")
+                    price = safe_float(order.get("price"), 0.0)
+                    
+                    if fee_abs is not None and filled and price:
+                        try:
+                            fee_usd = float(str(fee_abs))
+                            filled_qty = float(str(filled))
+                            order_price = float(str(price))
+                            notional = filled_qty * order_price
+                            
+                            if notional > 0:
+                                fee_rate = fee_usd / notional
+                                if 0 <= fee_rate <= 0.01:
+                                    return fee_rate
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    # ═══════════════════════════════════════════════════════════════
+                    # FIX #4: POST_ONLY is not a TimeInForce value - check post_only parameter
+                    # Some APIs may return time_in_force="POST_ONLY" as string, but
+                    # the correct way is to check the post_only boolean parameter
+                    # ═══════════════════════════════════════════════════════════════
+                    time_in_force = order.get("time_in_force")
+                    post_only_flag = order.get("post_only") or order.get("postOnly") or False
+                    
+                    # Check if order is POST_ONLY (either via parameter or legacy string value)
+                    if post_only_flag or (time_in_force and "POST_ONLY" in str(time_in_force).upper()):
+                        return config.MAKER_FEE_X10
                     else:
                         return config.TAKER_FEE_X10
+                else:
+                    return config.TAKER_FEE_X10
                         
         except Exception as e:
             logger.error(f"X10 Fee Fetch Error for {order_id}: {e}")
@@ -440,58 +460,58 @@ class X10Adapter(BaseAdapter):
                 'Accept': 'application/json'
             }
 
-            async with aiohttp.ClientSession() as session:
-                for endpoint in endpoints:
-                    url = f"{base_url}{endpoint}"
-                    try:
-                        await self.rate_limiter.acquire()
-                        async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                            if resp.status == 200:
-                                data = await resp.json()
-                                self.rate_limiter.on_success()
+            session = await self._get_session()
+            for endpoint in endpoints:
+                url = f"{base_url}{endpoint}"
+                try:
+                    await self.rate_limiter.acquire()
+                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            self.rate_limiter.on_success()
+                        
+                            inner = data.get('data') or data
                             
-                                inner = data.get('data') or data
+                            # Strategy 0: Handles /api/v1/user/fees (Returned a list of per-market fees)
+                            if isinstance(inner, list) and len(inner) > 0:
+                                first_market = inner[0]
+                                # Fields are makerFeeRate / takerFeeRate
+                                maker = first_market.get('makerFeeRate')
+                                taker = first_market.get('takerFeeRate')
                                 
-                                # Strategy 0: Handles /api/v1/user/fees (Returned a list of per-market fees)
-                                if isinstance(inner, list) and len(inner) > 0:
-                                    first_market = inner[0]
-                                    # Fields are makerFeeRate / takerFeeRate
-                                    maker = first_market.get('makerFeeRate')
-                                    taker = first_market.get('takerFeeRate')
-                                    
-                                    if maker is not None and taker is not None:
-                                        maker_val = safe_float(maker, config.MAKER_FEE_X10)
-                                        taker_val = safe_float(taker, config.TAKER_FEE_X10)
-                                        logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
-                                        return (maker_val, taker_val)
+                                if maker is not None and taker is not None:
+                                    maker_val = safe_float(maker, config.MAKER_FEE_X10)
+                                    taker_val = safe_float(taker, config.TAKER_FEE_X10)
+                                    logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
+                                    return (maker_val, taker_val)
 
-                                # Strategy 1: Nested fee_schedule object (common in other endpoints)
-                                elif isinstance(inner, dict):
-                                    fee_schedule = inner.get('fee_schedule', {})
-                                    maker = None
-                                    taker = None
+                            # Strategy 1: Nested fee_schedule object (common in other endpoints)
+                            elif isinstance(inner, dict):
+                                fee_schedule = inner.get('fee_schedule', {})
+                                maker = None
+                                taker = None
 
-                                    if fee_schedule:
-                                        maker = fee_schedule.get('maker')
-                                        taker = fee_schedule.get('taker')
+                                if fee_schedule:
+                                    maker = fee_schedule.get('maker')
+                                    taker = fee_schedule.get('taker')
+                            
+                                # Strategy 2: Direct keys
+                                if maker is None and taker is None:
+                                    maker = inner.get('maker_fee') or inner.get('maker')
+                                    taker = inner.get('taker_fee') or inner.get('taker')
                                 
-                                    # Strategy 2: Direct keys
-                                    if maker is None and taker is None:
-                                        maker = inner.get('maker_fee') or inner.get('maker')
-                                        taker = inner.get('taker_fee') or inner.get('taker')
-                                    
-                                    if maker is not None and taker is not None:
-                                        maker_val = safe_float(maker, config.MAKER_FEE_X10)
-                                        taker_val = safe_float(taker, config.TAKER_FEE_X10)
-                                        logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
-                                        return (maker_val, taker_val)
+                                if maker is not None and taker is not None:
+                                    maker_val = safe_float(maker, config.MAKER_FEE_X10)
+                                    taker_val = safe_float(taker, config.TAKER_FEE_X10)
+                                    logger.info(f"✅ X10 Fee Schedule (REST {endpoint}): Maker={maker_val:.6f}, Taker={taker_val:.6f}")
+                                    return (maker_val, taker_val)
 
-                            elif resp.status == 404:
-                                continue # Try next endpoint
-                            else:
-                                logger.debug(f"X10 Fee {endpoint} failed: {resp.status}")
-                    except Exception:
-                        pass
+                        elif resp.status == 404:
+                            continue # Try next endpoint
+                        else:
+                            logger.debug(f"X10 Fee {endpoint} failed: {resp.status}")
+                except Exception:
+                    pass
             
             logger.warning("X10 Fee Fetch: All endpoints failed, using config defaults.")
             return (config.MAKER_FEE_X10, config.TAKER_FEE_X10)
@@ -1082,11 +1102,15 @@ class X10Adapter(BaseAdapter):
         if symbol in self._price_cache:
             age = time.time() - self._price_cache_time.get(symbol, 0)
             if age < 60:  # Nur nutzen wenn Daten jünger als 60s
-                return self._price_cache[symbol]
+                price = self._price_cache[symbol]
+                if price and price > 0:
+                    return price
 
         # 2. Fallback auf REST Cache
         if symbol in self.price_cache:
-            return self.price_cache[symbol]
+            price = self.price_cache[symbol]
+            if price and price > 0:
+                return price
             
         # 3. Fallback auf Market Info Stats
         m = self.market_info.get(symbol)
@@ -1094,9 +1118,31 @@ class X10Adapter(BaseAdapter):
             price = getattr(m.market_stats, 'mark_price', None)
             if price is not None:
                 price_float = float(price)
-                # Cache aktualisieren für nächstes Mal
-                self.price_cache[symbol] = price_float
-                return price_float
+                if price_float > 0:
+                    # Cache aktualisieren für nächstes Mal
+                    self.price_cache[symbol] = price_float
+                    self._price_cache[symbol] = price_float
+                    self._price_cache_time[symbol] = time.time()
+                    return price_float
+        
+        # 4. Try other price fields from market_stats
+        if m and hasattr(m, 'market_stats'):
+            stats = m.market_stats
+            for field in ['index_price', 'last_price', 'last_trade_price', 'price']:
+                if hasattr(stats, field):
+                    price = getattr(stats, field, None)
+                    if price is not None:
+                        try:
+                            price_float = float(price)
+                            if price_float > 0:
+                                # Cache aktualisieren
+                                self.price_cache[symbol] = price_float
+                                self._price_cache[symbol] = price_float
+                                self._price_cache_time[symbol] = time.time()
+                                return price_float
+                        except (ValueError, TypeError):
+                            continue
+        
         return None
 
     def fetch_funding_rate(self, symbol: str):
@@ -1160,9 +1206,9 @@ class X10Adapter(BaseAdapter):
             base_url = getattr(config, 'X10_API_BASE_URL', 'https://api.starknet.extended.exchange')
             url = f"{base_url}/api/v1/info/markets/{symbol}/orderbook"
             
-            async with aiohttp.ClientSession() as session:
-                headers = {"Accept": "application/json", "User-Agent": "FundingBot/1.0"}
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            session = await self._get_session()
+            headers = {"Accept": "application/json", "User-Agent": "FundingBot/1.0"}
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         data = await resp.json()
                         
@@ -1528,14 +1574,14 @@ class X10Adapter(BaseAdapter):
                 if cursor is not None:
                     params["cursor"] = str(cursor)
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
-                        if resp.status == 200:
-                            json_resp = await resp.json()
-                            data = json_resp.get('data', [])
-                        else:
-                            logger.warning(f"⚠️ [X10 Position History] REST API returned {resp.status}")
-                            return []
+                session = await self._get_session()
+                async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
+                    else:
+                        logger.warning(f"⚠️ [X10 Position History] REST API returned {resp.status}")
+                        return []
             
             # Parse positions
             positions = []
@@ -1768,14 +1814,14 @@ class X10Adapter(BaseAdapter):
                 if cursor is not None:
                     params["cursor"] = str(cursor)
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
-                        if resp.status == 200:
-                            json_resp = await resp.json()
-                            data = json_resp.get('data', [])
-                        else:
-                            logger.warning(f"⚠️ [X10 Orders History] REST API returned {resp.status}")
-                            return []
+                session = await self._get_session()
+                async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
+                    else:
+                        logger.warning(f"⚠️ [X10 Orders History] REST API returned {resp.status}")
+                        return []
             
             # Parse orders
             orders = []
@@ -1954,14 +2000,14 @@ class X10Adapter(BaseAdapter):
                 if cursor is not None:
                     params["cursor"] = str(cursor)
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
-                        if resp.status == 200:
-                            json_resp = await resp.json()
-                            data = json_resp.get('data', [])
-                        else:
-                            logger.warning(f"⚠️ [X10 Trades History] REST API returned {resp.status}")
-                            return []
+                session = await self._get_session()
+                async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
+                    else:
+                        logger.warning(f"⚠️ [X10 Trades History] REST API returned {resp.status}")
+                        return []
             
             # Parse trades
             trades = []
@@ -2126,14 +2172,14 @@ class X10Adapter(BaseAdapter):
                 if operation_id is not None:
                     params["id"] = str(operation_id)
                 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, params=params, timeout=10) as resp:
-                        if resp.status == 200:
-                            json_resp = await resp.json()
-                            data = json_resp.get('data', [])
-                        else:
-                            logger.warning(f"⚠️ [X10 Asset Operations] REST API returned {resp.status}")
-                            return []
+                session = await self._get_session()
+                async with session.get(url, headers=headers, params=params, timeout=10) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
+                    else:
+                        logger.warning(f"⚠️ [X10 Asset Operations] REST API returned {resp.status}")
+                        return []
             
             # Parse operations
             operations = []
@@ -2382,9 +2428,13 @@ class X10Adapter(BaseAdapter):
             if not missing:
                 return
 
+            logger.info(f"🔄 X10: Refreshing {len(missing)} missing prices: {missing[:10]}{'...' if len(missing) > 10 else ''}")
             await self.load_market_cache(force=True)
 
             still_missing = [s for s in missing if self.price_cache.get(s, 0) == 0.0]
+            
+            if still_missing:
+                logger.info(f"⚠️ X10: Still missing prices for {len(still_missing)} symbols after cache refresh: {still_missing[:10]}{'...' if len(still_missing) > 10 else ''}")
 
             if still_missing and len(still_missing) <= 10:
                 client = PerpetualTradingClient(self.client_env)
@@ -2401,7 +2451,10 @@ class X10Adapter(BaseAdapter):
                                     best_ask = float(asks[0].price) if asks else 0
                                     if best_bid > 0 and best_ask > 0:
                                         mid_price = (best_bid + best_ask) / 2
+                                        # Update both caches
                                         self.price_cache[symbol] = mid_price
+                                        self._price_cache[symbol] = mid_price
+                                        self._price_cache_time[symbol] = time.time()
                         except Exception as e:
                             logger.debug(f"X10: Orderbook fallback failed for {symbol}: {e}")
                 finally:
@@ -2716,6 +2769,40 @@ class X10Adapter(BaseAdapter):
             # Merge with any additional kwargs (e.g., self_trade_protection_level)
             place_order_kwargs.update(place_kwargs)
             
+            # ═══════════════════════════════════════════════════════════════
+            # Try WebSocket first for lower latency (if enabled)
+            # ═══════════════════════════════════════════════════════════════
+            if (hasattr(self, 'ws_order_client') and 
+                self._ws_order_enabled and 
+                self.ws_order_client and
+                self.ws_order_client.is_connected):
+                try:
+                    # Convert TimeInForce enum to string
+                    tif_str = tif.value if hasattr(tif, 'value') else str(tif)
+                    
+                    # Place order via WebSocket
+                    ws_result = await self.ws_order_client.place_order(
+                        market=symbol,
+                        side=side,
+                        qty=float(qty),
+                        price=float(limit_price),
+                        order_type="MARKET" if is_market_order else "LIMIT",
+                        post_only=post_only,
+                        time_in_force=tif_str,
+                        reduce_only=reduce_only,
+                        external_id=external_id
+                    )
+                    
+                    if ws_result.error:
+                        logger.warning(f"[X10-WS-ORDER] WebSocket order failed: {ws_result.error}, falling back to REST")
+                    else:
+                        logger.debug(f"[X10-WS-ORDER] Order placed via WebSocket: {ws_result.order_id}")
+                        self.rate_limiter.on_success()
+                        return True, ws_result.order_id if ws_result.order_id else None
+                except Exception as e:
+                    logger.warning(f"[X10-WS-ORDER] WebSocket submission failed: {e} - falling back to REST")
+            
+            # REST Fallback (or if WebSocket not available)
             resp = await client.place_order(**place_order_kwargs)
             
             # ═══════════════════════════════════════════════════════════════
@@ -3082,6 +3169,28 @@ class X10Adapter(BaseAdapter):
                 logger.warning("[X10] No stark_account configured - cannot cancel")
                 return False
 
+            # ═══════════════════════════════════════════════════════════════
+            # Try WebSocket first for lower latency (if enabled)
+            # ═══════════════════════════════════════════════════════════════
+            if (hasattr(self, 'ws_order_client') and 
+                self._ws_order_enabled and 
+                self.ws_order_client and
+                self.ws_order_client.is_connected):
+                try:
+                    ws_result = await self.ws_order_client.cancel_order(
+                        order_id=order_id,
+                        market=symbol
+                    )
+                    
+                    if ws_result.error:
+                        logger.warning(f"[X10-WS-ORDER] WebSocket cancel failed: {ws_result.error}, falling back to REST")
+                    else:
+                        logger.debug(f"[X10-WS-ORDER] Order cancelled via WebSocket: {order_id}")
+                        return True
+                except Exception as e:
+                    logger.warning(f"[X10-WS-ORDER] WebSocket cancel failed: {e} - falling back to REST")
+
+            # REST Fallback
             client = await self._get_auth_client()
             if not client or not hasattr(client, 'cancel_order'):
                 logger.warning("[X10] Auth client does not support cancel_order")
@@ -3227,26 +3336,26 @@ class X10Adapter(BaseAdapter):
                 "Accept": "application/json"
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=5) as resp:
-                    if resp.status == 200:
-                        json_resp = await resp.json()
-                        data = json_resp.get('data', [])
-                        self.rate_limiter.on_success()
-                        if data and len(data) > 0:
-                            logger.debug(f"✅ [X10] Found order by external_id={external_id} (REST fallback)")
-                            return self._parse_order_data(data[0])
-                        else:
-                            logger.debug(f"[X10] No order found for external_id={external_id} (REST fallback)")
-                            return None
-                    elif resp.status == 404:
-                        logger.debug(f"[X10] Order not found for external_id={external_id} (404)")
-                        self.rate_limiter.on_success()
-                        return None
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=5) as resp:
+                if resp.status == 200:
+                    json_resp = await resp.json()
+                    data = json_resp.get('data', [])
+                    self.rate_limiter.on_success()
+                    if data and len(data) > 0:
+                        logger.debug(f"✅ [X10] Found order by external_id={external_id} (REST fallback)")
+                        return self._parse_order_data(data[0])
                     else:
-                        logger.warning(f"⚠️ [X10] get_order_by_external_id returned {resp.status}")
-                        self.rate_limiter.on_success()
+                        logger.debug(f"[X10] No order found for external_id={external_id} (REST fallback)")
                         return None
+                elif resp.status == 404:
+                    logger.debug(f"[X10] Order not found for external_id={external_id} (404)")
+                    self.rate_limiter.on_success()
+                    return None
+                else:
+                    logger.warning(f"⚠️ [X10] get_order_by_external_id returned {resp.status}")
+                    self.rate_limiter.on_success()
+                    return None
 
         except Exception as e:
             logger.error(f"❌ [X10] get_order_by_external_id failed: {e}", exc_info=True)
@@ -3298,21 +3407,21 @@ class X10Adapter(BaseAdapter):
                 "externalId": external_id
             }
 
-            async with aiohttp.ClientSession() as session:
-                async with session.delete(url, headers=headers, params=params, timeout=5) as resp:
-                    if resp.status == 200:
-                        self.rate_limiter.on_success()
-                        logger.info(f"✅ [X10] Cancelled order by external_id={external_id} (REST fallback)")
-                        return True
-                    elif resp.status == 404:
-                        logger.warning(f"⚠️ [X10] Order not found for external_id={external_id} (404)")
-                        self.rate_limiter.on_success()
-                        return False
-                    else:
-                        error_text = await resp.text()
-                        logger.warning(f"⚠️ [X10] Cancel order by external_id returned {resp.status}: {error_text}")
-                        self.rate_limiter.on_success()
-                        return False
+            session = await self._get_session()
+            async with session.delete(url, headers=headers, params=params, timeout=5) as resp:
+                if resp.status == 200:
+                    self.rate_limiter.on_success()
+                    logger.info(f"✅ [X10] Cancelled order by external_id={external_id} (REST fallback)")
+                    return True
+                elif resp.status == 404:
+                    logger.warning(f"⚠️ [X10] Order not found for external_id={external_id} (404)")
+                    self.rate_limiter.on_success()
+                    return False
+                else:
+                    error_text = await resp.text()
+                    logger.warning(f"⚠️ [X10] Cancel order by external_id returned {resp.status}: {error_text}")
+                    self.rate_limiter.on_success()
+                    return False
 
         except Exception as e:
             logger.error(f"❌ [X10] cancel_order_by_external_id failed: {e}", exc_info=True)
@@ -3550,26 +3659,26 @@ class X10Adapter(BaseAdapter):
             }
             
             await self.rate_limiter.acquire()
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self.rate_limiter.on_success()
-                        
-                        # Parse response
-                        inner = data.get('data') or data
-                        
-                        for key in ['available_collateral', 'availableCollateral', 'balance', 'equity', 'free_collateral']:
-                            val = inner.get(key)
-                            if val is not None:
-                                balance = float(val)
-                                if balance > 0:
-                                    logger.info(f"💰 X10 Balance via REST: ${balance:.2f} USDC")
-                                    return balance
-                        
-                        logger.warning(f"X10 REST: Keine Balance in Antwort gefunden: {list(inner.keys())}")
-                    else:
-                        logger.warning(f"X10 REST Balance-Abfrage: HTTP {resp.status}")
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.rate_limiter.on_success()
+                    
+                    # Parse response
+                    inner = data.get('data') or data
+                    
+                    for key in ['available_collateral', 'availableCollateral', 'balance', 'equity', 'free_collateral']:
+                        val = inner.get(key)
+                        if val is not None:
+                            balance = float(val)
+                            if balance > 0:
+                                logger.info(f"💰 X10 Balance via REST: ${balance:.2f} USDC")
+                                return balance
+                    
+                    logger.warning(f"X10 REST: Keine Balance in Antwort gefunden: {list(inner.keys())}")
+                else:
+                    logger.warning(f"X10 REST Balance-Abfrage: HTTP {resp.status}")
         except Exception as e:
             logger.error(f"X10 REST Balance-Fallback fehlgeschlagen: {e}")
         
@@ -4162,15 +4271,15 @@ class X10Adapter(BaseAdapter):
             
             await self.rate_limiter.acquire()
             
-            async with aiohttp.ClientSession() as session:
-                params = {"market": symbol, "limit": str(limit)}
-                async with session.get(url, headers=headers, params=params, timeout=5) as resp:
-                    if resp.status != 200:
-                        logger.debug(f"X10 positions/history returned {resp.status}")
-                        return None
-                    
-                    json_resp = await resp.json()
-                    data = json_resp.get('data', [])
+            session = await self._get_session()
+            params = {"market": symbol, "limit": str(limit)}
+            async with session.get(url, headers=headers, params=params, timeout=5) as resp:
+                if resp.status != 200:
+                    logger.debug(f"X10 positions/history returned {resp.status}")
+                    return None
+                
+                json_resp = await resp.json()
+                data = json_resp.get('data', [])
             
             self.rate_limiter.on_success()
             
@@ -4253,12 +4362,12 @@ class X10Adapter(BaseAdapter):
                     "Accept": "application/json"
                 }
                 
-                async with aiohttp.ClientSession() as session:
-                    params = {"limit": str(limit)}
-                    async with session.get(url, headers=headers, params=params, timeout=5) as resp:
-                        if resp.status == 200:
-                            json_resp = await resp.json()
-                            data = json_resp.get('data', [])
+                session = await self._get_session()
+                params = {"limit": str(limit)}
+                async with session.get(url, headers=headers, params=params, timeout=5) as resp:
+                    if resp.status == 200:
+                        json_resp = await resp.json()
+                        data = json_resp.get('data', [])
 
             funding_records = []
             for p in data:
@@ -4389,74 +4498,74 @@ class X10Adapter(BaseAdapter):
             
             await self.rate_limiter.acquire()
             
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self.rate_limiter.on_success()
-                        
-                        # LOG RAW DATA (Truncated if too long)
-                        raw_str = str(data)
-                        if len(raw_str) > 2000:
-                            raw_str = raw_str[:2000] + "... [TRUNCATED]"
-                        # DEBUG only: dumping large payloads at INFO can starve the event loop and
-                        # indirectly cause WebSocket ping timeouts (observed in long sessions).
-                        logger.debug(f"🔍 [X10_FUNDING_DEBUG] Raw Response: {raw_str}")
+            session = await self._get_session()
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    self.rate_limiter.on_success()
+                    
+                    # LOG RAW DATA (Truncated if too long)
+                    raw_str = str(data)
+                    if len(raw_str) > 2000:
+                        raw_str = raw_str[:2000] + "... [TRUNCATED]"
+                    # DEBUG only: dumping large payloads at INFO can starve the event loop and
+                    # indirectly cause WebSocket ping timeouts (observed in long sessions).
+                    logger.debug(f"🔍 [X10_FUNDING_DEBUG] Raw Response: {raw_str}")
 
-                        if data.get("status") == "OK" and "data" in data:
-                            payments = []
-                            for item in data["data"]:
-                                payments.append({
-                                    "id": item.get("id"),
-                                    "symbol": item.get("market"),
-                                    "position_id": item.get("positionId"),
-                                    "side": item.get("side"),
-                                    "size": safe_float(item.get("size"), 0.0),
-                                    "value": safe_float(item.get("value"), 0.0),
-                                    "mark_price": safe_float(item.get("markPrice"), 0.0),
-                                    # FIX: X10 returns PnL directly (Negative = Paid/Cost, Positive = Received/Rebate)
-                                    # No inversion needed.
-                                    "funding_fee": safe_float(item.get("fundingFee"), 0.0),
-                                    "funding_rate": safe_float(item.get("fundingRate"), 0.0),
-                                    "paid_time": item.get("paidTime")
-                                })
-                                
-                                # DEBUG: Log raw funding fee to investigate sign issue
-                                raw_fee = item.get("fundingFee")
-                                parsed_fee = safe_float(raw_fee, 0.0)
-                                if raw_fee and str(raw_fee).startswith("-") and parsed_fee > 0:
-                                    logger.error(f"🚨 SIGN MISMATCH for {item.get('market')}: Raw='{raw_fee}' -> Parsed={parsed_fee}")
-
-                            # Defensive client-side filtering: some API responses may include older records
-                            # despite fromTime being provided (or timestamps may come back in seconds).
-                            pre_count = len(payments)
-                            filtered = [
-                                p for p in payments
-                                if _normalize_to_ms(p.get("paid_time")) >= requested_from_ms
-                            ]
-
-                            logger.debug(
-                                f"🔍 [X10_FUNDING_DEBUG] Filtered {pre_count} -> {len(filtered)} payments "
-                                f"(fromTime={requested_from_ms})"
-                            )
+                    if data.get("status") == "OK" and "data" in data:
+                        payments = []
+                        for item in data["data"]:
+                            payments.append({
+                                "id": item.get("id"),
+                                "symbol": item.get("market"),
+                                "position_id": item.get("positionId"),
+                                "side": item.get("side"),
+                                "size": safe_float(item.get("size"), 0.0),
+                                "value": safe_float(item.get("value"), 0.0),
+                                "mark_price": safe_float(item.get("markPrice"), 0.0),
+                                # FIX: X10 returns PnL directly (Negative = Paid/Cost, Positive = Received/Rebate)
+                                # No inversion needed.
+                                "funding_fee": safe_float(item.get("fundingFee"), 0.0),
+                                "funding_rate": safe_float(item.get("fundingRate"), 0.0),
+                                "paid_time": item.get("paidTime")
+                            })
                             
-                            for p in filtered:
-                                logger.debug(
-                                    f"  👉 [X10_PAYMENT] {p['symbol']} Time={p['paid_time']} "
-                                    f"Fee={p['funding_fee']:.6f} Rate={p['funding_rate']:.6f} Side={p['side']}"
-                                )
+                            # DEBUG: Log raw funding fee to investigate sign issue
+                            raw_fee = item.get("fundingFee")
+                            parsed_fee = safe_float(raw_fee, 0.0)
+                            if raw_fee and str(raw_fee).startswith("-") and parsed_fee > 0:
+                                logger.error(f"🚨 SIGN MISMATCH for {item.get('market')}: Raw='{raw_fee}' -> Parsed={parsed_fee}")
 
-                            return filtered
-                        else:
-                            logger.warning(f"🔍 [X10_FUNDING_DEBUG] Unexpected response format: {data.keys()}")
-                            return []
-                    elif resp.status == 404:
-                        # No funding history found - this is OK
-                        logger.info(f"🔍 [X10_FUNDING_DEBUG] HTTP 404 (No funding history found)")
-                        return []
+                        # Defensive client-side filtering: some API responses may include older records
+                        # despite fromTime being provided (or timestamps may come back in seconds).
+                        pre_count = len(payments)
+                        filtered = [
+                            p for p in payments
+                            if _normalize_to_ms(p.get("paid_time")) >= requested_from_ms
+                        ]
+
+                        logger.debug(
+                            f"🔍 [X10_FUNDING_DEBUG] Filtered {pre_count} -> {len(filtered)} payments "
+                            f"(fromTime={requested_from_ms})"
+                        )
+                        
+                        for p in filtered:
+                            logger.debug(
+                                f"  👉 [X10_PAYMENT] {p['symbol']} Time={p['paid_time']} "
+                                f"Fee={p['funding_fee']:.6f} Rate={p['funding_rate']:.6f} Side={p['side']}"
+                            )
+
+                        return filtered
                     else:
-                        logger.warning(f"🔍 [X10_FUNDING_DEBUG] HTTP {resp.status}")
+                        logger.warning(f"🔍 [X10_FUNDING_DEBUG] Unexpected response format: {data.keys()}")
                         return []
+                elif resp.status == 404:
+                    # No funding history found - this is OK
+                    logger.info(f"🔍 [X10_FUNDING_DEBUG] HTTP 404 (No funding history found)")
+                    return []
+                else:
+                    logger.warning(f"🔍 [X10_FUNDING_DEBUG] HTTP {resp.status}")
+                    return []
                         
         except asyncio.CancelledError:
             return []

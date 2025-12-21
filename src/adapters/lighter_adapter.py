@@ -211,6 +211,9 @@ class LighterAdapter(BaseAdapter):
         # NEU: Lock für thread-sichere Order-Erstellung (Fix für Invalid Nonce)
         self.order_lock = asyncio.Lock()
         
+        # Lock für thread-sichere Orderbook Cache Updates (WebSocket + REST können gleichzeitig schreiben)
+        self._orderbook_cache_lock = asyncio.Lock()
+        
         # ═══════════════════════════════════════════════════════════════
         # FIXED: Position callback infrastructure for Ghost-Fill detection
         # ═══════════════════════════════════════════════════════════════
@@ -332,6 +335,183 @@ class LighterAdapter(BaseAdapter):
     NONCE_BATCH_SIZE = 20  # Pre-fetch 20 nonces at a time
     NONCE_REFILL_THRESHOLD = 2  # Refill when pool < 2
     NONCE_MAX_CACHE_AGE = 30.0  # 30 seconds max cache age
+    
+    async def _submit_order_via_ws(
+        self,
+        tx_info_json: str,
+        max_retries: Optional[int] = None
+    ) -> Optional[Any]:
+        """
+        Submit order via WebSocket with retry logic.
+        
+        Args:
+            tx_info_json: Signed transaction info JSON string from signer
+            max_retries: Maximum retry attempts (default from config)
+            
+        Returns:
+            WsTransaction if successful, None if all retries failed
+        """
+        from src.ws_order_client import TransactionType
+        
+        if max_retries is None:
+            max_retries = getattr(config, 'WS_ORDER_MAX_RETRIES', 2)
+        
+        backoff_base = getattr(config, 'WS_ORDER_RETRY_BACKOFF_BASE', 0.1)
+        
+        for attempt in range(max_retries):
+            try:
+                # Check connection health before each attempt
+                if not self.ws_order_client.is_connected:
+                    logger.debug(f"[WS-ORDER] Attempt {attempt+1}: Reconnecting...")
+                    connected = await self.ws_order_client.connect()
+                    if not connected:
+                        if attempt < max_retries - 1:
+                            await asyncio.sleep(backoff_base * (2 ** attempt))
+                            continue
+                        else:
+                            logger.warning(f"[WS-ORDER] Failed to connect after {max_retries} attempts")
+                            return None
+                
+                # Submit via WebSocket
+                result = await self.ws_order_client.send_transaction(
+                    tx_type=TransactionType.CREATE_ORDER,
+                    tx_info=tx_info_json
+                )
+                
+                logger.debug(f"[WS-ORDER] Order submitted successfully via WebSocket (attempt {attempt+1})")
+                return result
+                
+            except ConnectionError as e:
+                logger.warning(f"[WS-ORDER] Attempt {attempt+1}: Connection error: {e}")
+                if attempt < max_retries - 1:
+                    # Try to reconnect
+                    try:
+                        await self.ws_order_client.connect()
+                    except Exception:
+                        pass
+                    await asyncio.sleep(backoff_base * (2 ** attempt))
+                    continue
+                else:
+                    logger.warning(f"[WS-ORDER] All {max_retries} retries failed (ConnectionError)")
+                    return None
+                    
+            except Exception as e:
+                # Non-recoverable error (e.g., invalid signature, invalid order params)
+                error_str = str(e).lower()
+                if "invalid nonce" in error_str or "nonce" in error_str:
+                    # Nonce error - refresh and retry once more
+                    if attempt < max_retries - 1:
+                        logger.warning(f"[WS-ORDER] Nonce error detected - refreshing nonce pool")
+                        await self.hard_refresh_nonce()
+                        await asyncio.sleep(backoff_base * (2 ** attempt))
+                        continue
+                
+                logger.warning(f"[WS-ORDER] Attempt {attempt+1}: Error: {e}")
+                if attempt == max_retries - 1:
+                    # Final attempt failed
+                    return None
+                await asyncio.sleep(backoff_base * (attempt + 1))
+        
+        return None  # All retries failed
+    
+    def _parse_ws_error(self, error_msg: Any) -> tuple[str, int]:
+        """
+        Parse WebSocket error response (matching TS SDK pattern).
+        
+        Args:
+            error_msg: Error message (dict, string, or Exception)
+            
+        Returns:
+            Tuple of (error_message: str, error_code: int)
+        """
+        if isinstance(error_msg, dict):
+            error_code = error_msg.get('error', {}).get('code', 'UNKNOWN')
+            error_message = error_msg.get('error', {}).get('message', str(error_msg))
+        elif isinstance(error_msg, Exception):
+            error_str = str(error_msg).lower()
+            # Try to extract error code from exception message
+            import re
+            code_match = re.search(r'(?:error|code)[:\s]*(\d+)', error_str)
+            error_code = code_match.group(1) if code_match else 'UNKNOWN'
+            error_message = str(error_msg)
+        else:
+            error_str = str(error_msg).lower()
+            import re
+            code_match = re.search(r'(?:error|code)[:\s]*(\d+)', error_str)
+            error_code = code_match.group(1) if code_match else 'UNKNOWN'
+            error_message = str(error_msg)
+        
+        # Convert error code to int if possible
+        try:
+            error_code_int = int(error_code) if str(error_code).isdigit() else 0
+        except (ValueError, TypeError):
+            error_code_int = 0
+        
+        # Categorize errors for better handling
+        error_lower = error_message.lower()
+        if 'invalid nonce' in error_lower or 'nonce' in error_lower:
+            return ('NONCE_ERROR', error_code_int if error_code_int > 0 else 400)
+        elif 'insufficient balance' in error_lower or 'not enough' in error_lower:
+            return ('BALANCE_ERROR', error_code_int if error_code_int > 0 else 400)
+        elif 'position' in error_lower and ('missing' in error_lower or 'not found' in error_lower):
+            return ('POSITION_ERROR', error_code_int if error_code_int > 0 else 1137)
+        elif 'invalid price' in error_lower or 'accidental price' in error_lower:
+            return ('PRICE_ERROR', error_code_int if error_code_int > 0 else 21733)
+        elif 'connection' in error_lower or 'timeout' in error_lower:
+            return ('CONNECTION_ERROR', error_code_int if error_code_int > 0 else 0)
+        else:
+            return (error_message, error_code_int)
+    
+    def _validate_tx_info(self, tx_info_json: str) -> bool:
+        """
+        Validate transaction info before WebSocket submission.
+        
+        Args:
+            tx_info_json: Signed transaction info JSON string
+            
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            import json
+            # Parse JSON to validate format
+            if isinstance(tx_info_json, str):
+                tx_info = json.loads(tx_info_json)
+            else:
+                tx_info = tx_info_json
+            
+            # Check required fields (based on Lighter API)
+            required_fields = ['market_index', 'base_amount', 'price', 'nonce']
+            for field in required_fields:
+                if field not in tx_info:
+                    logger.warning(f"[WS-ORDER] Missing required field in tx_info: {field}")
+                    return False
+            
+            # Validate field types
+            if not isinstance(tx_info.get('market_index'), (int, type(None))):
+                logger.warning(f"[WS-ORDER] Invalid market_index type: {type(tx_info.get('market_index'))}")
+                return False
+            
+            if not isinstance(tx_info.get('base_amount'), (int, type(None))):
+                logger.warning(f"[WS-ORDER] Invalid base_amount type: {type(tx_info.get('base_amount'))}")
+                return False
+            
+            if not isinstance(tx_info.get('price'), (int, type(None))):
+                logger.warning(f"[WS-ORDER] Invalid price type: {type(tx_info.get('price'))}")
+                return False
+            
+            if not isinstance(tx_info.get('nonce'), (int, type(None))):
+                logger.warning(f"[WS-ORDER] Invalid nonce type: {type(tx_info.get('nonce'))}")
+                return False
+            
+            return True
+            
+        except json.JSONDecodeError as e:
+            logger.warning(f"[WS-ORDER] Invalid JSON in tx_info: {e}")
+            return False
+        except Exception as e:
+            logger.warning(f"[WS-ORDER] Validation error: {e}")
+            return False
     
     async def _get_next_nonce(self, force_refresh: bool = False) -> Optional[int]:
         """
@@ -2289,30 +2469,22 @@ class LighterAdapter(BaseAdapter):
             parsed_bids.sort(key=lambda x: x[0], reverse=True)
             parsed_asks.sort(key=lambda x: x[0])
             
-            # ═══════════════════════════════════════════════════════════════
-            # NOTE: handle_orderbook_snapshot is DISABLED for Lighter due to
-            # race conditions. We use streams only for price updates.
-            # ═══════════════════════════════════════════════════════════════
+            # Extract server timestamp/sequence_id from WS payload for proper ordering
+            server_timestamp = data.get("timestamp") or data.get("ts") or data.get("time")
+            sequence_id = data.get("sequence_id") or data.get("seq") or data.get("sequence")
             
-            # Update mark price from best bid/ask (primary use case)
-            if parsed_bids and parsed_asks:
-                try:
-                    best_bid = parsed_bids[0][0]
-                    best_ask = parsed_asks[0][0]
-                    if best_bid > 0 and best_ask > 0:
-                        mid_price = (best_bid + best_ask) / 2.0
-                        self._price_cache[symbol] = mid_price
-                        self._price_cache_time[symbol] = time.time()
-                        self.price_cache[symbol] = mid_price
-                        
-                        # Log occasional updates (1% sampling)
-                        if random.random() < 0.01:
-                            logger.debug(f"📊 [Lighter Stream] Price update: {symbol} = ${mid_price:.2f} (from orderbook)")
-                except (ValueError, IndexError):
-                    pass
+            # Convert server_timestamp to milliseconds if needed
+            if server_timestamp and server_timestamp < 1e12:
+                server_timestamp = server_timestamp * 1000
             
-            # Note: We don't call handle_orderbook_snapshot() because it's disabled
-            # to prevent race conditions. Price updates are sufficient for our use case.
+            # Call handle_orderbook_snapshot with parsed data and server metadata
+            await self.handle_orderbook_snapshot(
+                symbol=symbol,
+                bids=parsed_bids,
+                asks=parsed_asks,
+                server_timestamp=server_timestamp,
+                sequence_id=sequence_id
+            )
                     
         except Exception as e:
             logger.error(f"[Lighter Stream] Error handling orderbook message for {symbol}: {e}")
@@ -3733,15 +3905,36 @@ class LighterAdapter(BaseAdapter):
                 # ═══════════════════════════════════════════════════════════════
                 # IMPORTANT: Update BOTH caches and clear internal delta dicts
                 # This ensures WebSocket deltas start from a fresh base
+                # Use lock to prevent race conditions with WS updates
+                # Only update if WS is unhealthy or cache is stale (>2s)
                 # ═══════════════════════════════════════════════════════════════
-                self.orderbook_cache[symbol] = result
-                self._orderbook_cache[symbol] = {
-                    **result,
-                    # Initialize fresh internal dicts for delta merging
-                    "_bid_dict": {b[0]: b[1] for b in bids},
-                    "_ask_dict": {a[0]: a[1] for a in asks},
-                }
-                self._orderbook_cache_time[symbol] = time.time()
+                async with self._orderbook_cache_lock:
+                    # Check WS health
+                    ws_healthy = False
+                    if self._stream_client:
+                        try:
+                            ws_healthy = self._stream_client.is_connected()
+                        except Exception:
+                            pass
+                    
+                    # Check existing cache age
+                    existing_cache = self.orderbook_cache.get(symbol)
+                    existing_ts = existing_cache.get("timestamp", 0) if existing_cache else 0
+                    if existing_ts > 1e12:
+                        existing_ts = existing_ts / 1000
+                    existing_age = time.time() - existing_ts
+                    
+                    # Only update if WS unhealthy or cache stale
+                    if not ws_healthy or existing_age > 2.0:
+                        self.orderbook_cache[symbol] = result
+                        self._orderbook_cache[symbol] = {
+                            **result,
+                            # Initialize fresh internal dicts for delta merging
+                            "_bid_dict": {b[0]: b[1] for b in bids},
+                            "_ask_dict": {a[0]: a[1] for a in asks},
+                        }
+                        self._orderbook_cache_time[symbol] = time.time()
+                
                 self.rate_limiter.on_success()
 
                 return result
@@ -3784,29 +3977,120 @@ class LighterAdapter(BaseAdapter):
 
         return self.orderbook_cache.get(symbol, {"bids": [], "asks": [], "timestamp": 0})
 
-    def handle_orderbook_snapshot(self, symbol: str, bids: List, asks: List):
+    async def handle_orderbook_snapshot(self, symbol: str, bids: List, asks: List, server_timestamp: Optional[int] = None, sequence_id: Optional[int] = None):
         """
-        Process incoming orderbook UPDATE from Lighter WebSocket.
+        Process incoming orderbook snapshot from Lighter WebSocket.
         
-        ═══════════════════════════════════════════════════════════════════════
-        DISABLED: WebSocket orderbook processing causes race conditions and
-        crossed books due to timing issues with delta updates.
-        
-        We now rely EXCLUSIVELY on REST polling for orderbook data.
-        This is slower but guarantees consistent, non-crossed orderbooks.
-        
-        WS is still used for: prices, funding rates, trades, market stats.
-        ═══════════════════════════════════════════════════════════════════════
+        Updates orderbook_cache with real-time orderbook data in a thread-safe manner.
+        Uses server timestamps/sequence_id for proper ordering.
         """
-        # COMPLETELY DISABLED - REST polling only
-        # The WS delta approach causes crossed books due to:
-        # 1. Race conditions between REST snapshot and WS deltas
-        # 2. Deltas arriving faster than we can process them
-        # 3. No guarantee of sequence ordering in WS messages
-        #
-        # Trade-off: Slightly slower orderbook updates (REST every 1-2s)
-        #            vs. guaranteed valid, non-crossed orderbooks
-        return
+        try:
+            # Parse and validate bids/asks
+            parsed_bids = []
+            for b in bids:
+                try:
+                    if isinstance(b, dict):
+                        price = safe_float(b.get("price"), 0.0)
+                        size = safe_float(b.get("amount") or b.get("remaining_base_amount"), 0.0)
+                    else:
+                        price = safe_float(b[0], 0.0)
+                        size = safe_float(b[1], 0.0)
+                    
+                    if price > 0 and size > 0:
+                        parsed_bids.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            parsed_asks = []
+            for a in asks:
+                try:
+                    if isinstance(a, dict):
+                        price = safe_float(a.get("price"), 0.0)
+                        size = safe_float(a.get("amount") or a.get("remaining_base_amount"), 0.0)
+                    else:
+                        price = safe_float(a[0], 0.0)
+                        size = safe_float(a[1], 0.0)
+                    
+                    if price > 0 and size > 0:
+                        parsed_asks.append([price, size])
+                except (ValueError, IndexError, TypeError):
+                    continue
+            
+            # Sort
+            parsed_bids.sort(key=lambda x: x[0], reverse=True)
+            parsed_asks.sort(key=lambda x: x[0])
+            
+            # Validate: Check for crossed books
+            if parsed_bids and parsed_asks:
+                best_bid = parsed_bids[0][0]
+                best_ask = parsed_asks[0][0]
+                if best_ask <= best_bid:
+                    logger.warning(f"⚠️ [Lighter WS] Crossed orderbook detected for {symbol}: ask={best_ask} <= bid={best_bid} - skipping update")
+                    return
+            
+            # Use server timestamp if available, else local time
+            timestamp_ms = server_timestamp if server_timestamp is not None else int(time.time() * 1000)
+            
+            # Thread-safe cache update
+            async with self._orderbook_cache_lock:
+                # Check if WS is healthy (if stream client exists)
+                ws_healthy = False
+                if self._stream_client:
+                    try:
+                        ws_healthy = self._stream_client.is_connected()
+                    except Exception:
+                        pass
+                
+                # Check existing cache timestamp for WS vs REST priority
+                existing_cache = self.orderbook_cache.get(symbol)
+                existing_ts = existing_cache.get("timestamp", 0) if existing_cache else 0
+                # Convert ms to s if needed for comparison
+                if existing_ts > 1e12:
+                    existing_ts = existing_ts / 1000
+                existing_age = time.time() - existing_ts
+                
+                # Only update if:
+                # 1. WS is healthy (fresh data), OR
+                # 2. Existing cache is stale (>2s old), OR
+                # 3. No existing cache
+                if ws_healthy or existing_age > 2.0 or not existing_cache:
+                    cache_entry = {
+                        "bids": parsed_bids,
+                        "asks": parsed_asks,
+                        "timestamp": timestamp_ms,
+                        "symbol": symbol
+                    }
+                    
+                    self.orderbook_cache[symbol] = cache_entry
+                    self._orderbook_cache[symbol] = cache_entry
+                    self._orderbook_cache_time[symbol] = time.time()
+                    
+                    # Update price cache from best bid/ask
+                    if parsed_bids and parsed_asks:
+                        try:
+                            best_bid = parsed_bids[0][0]
+                            best_ask = parsed_asks[0][0]
+                            if best_bid > 0 and best_ask > 0:
+                                mid_price = (best_bid + best_ask) / 2.0
+                                self._price_cache[symbol] = mid_price
+                                self._price_cache_time[symbol] = time.time()
+                                self.price_cache[symbol] = mid_price
+                        except (ValueError, IndexError):
+                            pass
+                    
+                    # Trigger price update event
+                    if hasattr(self, "price_update_event") and self.price_update_event:
+                        self.price_update_event.set()
+                    
+                    # Log occasional updates (0.5% sampling to reduce noise)
+                    if random.random() < 0.005:
+                        logger.debug(f"📊 [Lighter WS] Orderbook snapshot {symbol}: {len(parsed_bids)}b/{len(parsed_asks)}a")
+                else:
+                    # WS not healthy and cache is fresh - skip update to avoid overwriting REST data
+                    logger.debug(f"[Lighter WS] Skipping orderbook update for {symbol} (WS unhealthy, cache fresh)")
+                    
+        except Exception as e:
+            logger.error(f"[Lighter WS] Error in handle_orderbook_snapshot for {symbol}: {e}")
 
     def handle_orderbook_update(self, symbol: str, bids: List, asks: List):
         """
@@ -4515,6 +4799,10 @@ class LighterAdapter(BaseAdapter):
                         "error": "Failed to get nonce",
                     }
 
+                # ═══════════════════════════════════════════════════════════════
+                # Note: Grouped orders (OTO/OCO/OTOCO) may not be supported via WebSocket
+                # For now, use REST API. If WebSocket support is added later, integrate here.
+                # ═══════════════════════════════════════════════════════════════
                 tx, resp, err = await signer.create_grouped_orders(
                     grouping_type=grouping_type,
                     orders=orders,
@@ -4566,9 +4854,48 @@ class LighterAdapter(BaseAdapter):
                 if nonce is None:
                     return {"success": False, "hash": "", "error": "Failed to get nonce"}
 
+                client_order_index = int(time.time() * 1000) + random.randint(0, 99999)
+                
+                # Try WebSocket first for lower latency
+                if (hasattr(self, 'ws_order_client') and 
+                    self._ws_order_enabled and 
+                    self.ws_order_client.is_connected):
+                    try:
+                        # Use sign_create_order to get signed tx_info JSON string
+                        tx_info_json = signer.sign_create_order(
+                            market_index=int(market_id),
+                            client_order_index=client_order_index,
+                            base_amount=int(base_amount),
+                            price=int(price_int),
+                            is_ask=side == "SELL",
+                            order_type=int(order_type),
+                            time_in_force=int(tif),
+                            reduce_only=bool(reduce_only),
+                            trigger_price=SignerClient.NIL_TRIGGER_PRICE,
+                            order_expiry=int(expiry),
+                            nonce=int(nonce),
+                            api_key_index=int(self._resolved_api_key_index),
+                        )
+                        
+                        if tx_info_json:
+                            # Send via WebSocket
+                            from src.ws_order_client import TransactionType
+                            ws_result = await self.ws_order_client.send_transaction(
+                                tx_type=TransactionType.CREATE_ORDER,  # 14
+                                tx_info=tx_info_json
+                            )
+                            
+                            logger.debug(f"[WS-ORDER] TWAP order sent via WS: {ws_result.hash}")
+                            return {"success": True, "hash": ws_result.hash or "", "error": None, "tx": None}
+                        else:
+                            logger.warning("[WS-ORDER] sign_create_order returned empty, falling back to REST")
+                    except Exception as e:
+                        logger.warning(f"[WS-ORDER] WS submission failed: {e} - falling back to REST")
+                
+                # REST Fallback
                 tx, resp, err = await signer.create_order(
                     market_index=int(market_id),
-                    client_order_index=int(time.time() * 1000) + random.randint(0, 99999),
+                    client_order_index=client_order_index,
                     base_amount=int(base_amount),
                     price=int(price_int),
                     is_ask=side == "SELL",
@@ -4581,11 +4908,11 @@ class LighterAdapter(BaseAdapter):
                     api_key_index=int(self._resolved_api_key_index),
                 )
 
-            if err:
-                return {"success": False, "hash": "", "error": str(err)}
+                if err:
+                    return {"success": False, "hash": "", "error": str(err)}
 
-            tx_hash = getattr(resp, "tx_hash", "") if resp else ""
-            return {"success": True, "hash": tx_hash or "", "error": None, "tx": tx}
+                tx_hash = getattr(resp, "tx_hash", "") if resp else ""
+                return {"success": True, "hash": tx_hash or "", "error": None, "tx": tx}
 
         except Exception as e:
             logger.error(f"[Lighter TWAP] Exception: {e}", exc_info=True)
@@ -5194,6 +5521,41 @@ class LighterAdapter(BaseAdapter):
                                 # ═══════════════════════════════════════════════════════════════
                                 logger.info(f"⚡ MARKET ORDER {symbol}: {side} {base} @ avg_price={avg_exec_price} (shutdown fast-close)")
                                 logger.debug(f"✅ [REDUCE_ONLY] {symbol}: Market Order reduce_only={reduce_only} (will be {1 if reduce_only else 0} in API)")
+                                
+                                # ═══════════════════════════════════════════════════════════════
+                                # Try WebSocket first with retry logic (if enabled)
+                                # Note: Market orders may not be supported via WebSocket, fallback to REST
+                                # ═══════════════════════════════════════════════════════════════
+                                if (hasattr(self, 'ws_order_client') and 
+                                    self._ws_order_enabled and 
+                                    self.ws_order_client):
+                                    try:
+                                        # For market orders, we still use create_order with IOC TIF
+                                        # WebSocket may not support create_market_order directly
+                                        tx_info_json = signer.sign_create_order(
+                                            market_index=int(market_id),
+                                            client_order_index=int(client_oid_final),
+                                            base_amount=int(base),
+                                            price=int(avg_exec_price),  # Use avg_exec_price as limit
+                                            is_ask=bool(side == "SELL"),
+                                            order_type=int(getattr(SignerClient, 'ORDER_TYPE_MARKET', 1)),
+                                            time_in_force=int(getattr(SignerClient, 'ORDER_TIME_IN_FORCE_IMMEDIATE_OR_CANCEL', 0)),
+                                            reduce_only=bool(reduce_only),
+                                            trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
+                                            order_expiry=0,  # IOC requires expiry=0
+                                            nonce=int(current_nonce),
+                                            api_key_index=int(self._resolved_api_key_index),
+                                        )
+                                        
+                                        if tx_info_json:
+                                            ws_result = await self._submit_order_via_ws(tx_info_json)
+                                            if ws_result and ws_result.hash:
+                                                logger.debug(f"[WS-ORDER] Market order placed via WebSocket: {ws_result.hash}")
+                                                return True, ws_result.hash
+                                    except Exception as e:
+                                        logger.debug(f"[WS-ORDER] Market order WebSocket attempt failed: {e} - using REST")
+                                
+                                # REST Fallback for market orders
                                 tx, resp, err = await signer.create_market_order(
                                     market_index=int(market_id),
                                     client_order_index=int(client_oid_final),
@@ -5231,6 +5593,44 @@ class LighterAdapter(BaseAdapter):
                                 # Boolean-Wert: True = 1 (ReduceOnly), False = 0 (normal order)
                                 # ═══════════════════════════════════════════════════════════════
                                 logger.debug(f"✅ [REDUCE_ONLY] {symbol}: Limit Order reduce_only={reduce_only} (will be {1 if reduce_only else 0} in API)")
+                                
+                                # ═══════════════════════════════════════════════════════════════
+                                # Try WebSocket first with retry logic (if enabled)
+                                # ═══════════════════════════════════════════════════════════════
+                                if (hasattr(self, 'ws_order_client') and 
+                                    self._ws_order_enabled and 
+                                    self.ws_order_client):
+                                    try:
+                                        # Use sign_create_order to get signed tx_info JSON string
+                                        tx_info_json = signer.sign_create_order(
+                                            market_index=int(market_id),
+                                            client_order_index=int(client_oid_final),
+                                            base_amount=int(base),
+                                            price=int(price_int),
+                                            is_ask=bool(side == "SELL"),
+                                            order_type=int(order_type_limit),
+                                            time_in_force=int(tif),
+                                            reduce_only=bool(reduce_only),
+                                            trigger_price=int(getattr(SignerClient, 'NIL_TRIGGER_PRICE', 0)),
+                                            order_expiry=int(expiry),
+                                            nonce=int(current_nonce),
+                                            api_key_index=int(self._resolved_api_key_index),
+                                        )
+                                        
+                                        if tx_info_json:
+                                            # Submit via WebSocket with retry logic
+                                            ws_result = await self._submit_order_via_ws(tx_info_json)
+                                            
+                                            if ws_result and ws_result.hash:
+                                                logger.debug(f"[WS-ORDER] Order placed via WebSocket: {ws_result.hash}")
+                                                # Return success with hash
+                                                return True, ws_result.hash
+                                            else:
+                                                logger.warning("[WS-ORDER] WebSocket submission failed, falling back to REST")
+                                    except Exception as e:
+                                        logger.warning(f"[WS-ORDER] WebSocket submission error: {e} - falling back to REST")
+                                
+                                # REST Fallback (or if WebSocket not available)
                                 tx, resp, err = await signer.create_order(
                                     market_index=int(market_id),         # Force int
                                     client_order_index=int(client_oid_final),
@@ -5784,6 +6184,40 @@ class LighterAdapter(BaseAdapter):
             
             # 🔥 FIX: Lock execution to prevent Invalid Nonce errors
             async with self.order_lock:
+                nonce = await self._get_next_nonce()
+                if nonce is None:
+                    logger.error("❌ Failed to get nonce for cancel")
+                    return False
+                
+                # ═══════════════════════════════════════════════════════════════
+                # Try WebSocket first with retry logic (if enabled)
+                # ═══════════════════════════════════════════════════════════════
+                if (hasattr(self, 'ws_order_client') and 
+                    self._ws_order_enabled and 
+                    self.ws_order_client):
+                    try:
+                        from src.ws_order_client import TransactionType
+                        
+                        # Use sign_cancel_order to get signed tx_info JSON string
+                        tx_info_json = signer.sign_cancel_order(
+                            order_index=int(oid_int),
+                            nonce=int(nonce),
+                            api_key_index=int(self._resolved_api_key_index)
+                        )
+                        
+                        if tx_info_json:
+                            # Submit via WebSocket with retry logic
+                            ws_result = await self._submit_order_via_ws(tx_info_json)
+                            
+                            if ws_result and ws_result.hash:
+                                logger.debug(f"[WS-ORDER] Order cancelled via WebSocket: {ws_result.hash}")
+                                return True
+                            else:
+                                logger.warning("[WS-ORDER] WebSocket cancel failed, falling back to REST")
+                    except Exception as e:
+                        logger.warning(f"[WS-ORDER] WebSocket cancel error: {e} - falling back to REST")
+                
+                # REST Fallback
                 tx, resp, err = await signer.cancel_order(
                     order_id=oid_int,
                     symbol=None 
