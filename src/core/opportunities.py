@@ -564,6 +564,8 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             continue
 
         # Calculate funding metrics
+        # rl und rx sind stündliche Funding Rates als Dezimalzahlen (z.B. 0.0057 für 0.57%)
+        # APY = hourly_rate * 24 hours/day * 365 days/year
         net = rl - rx
         apy = abs(net) * 24 * 365
 

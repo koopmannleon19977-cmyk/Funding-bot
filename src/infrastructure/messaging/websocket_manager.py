@@ -1985,10 +1985,8 @@ class WebSocketManager:
                 
                 # Funding rate - check multiple possible field names from Lighter WS docs
                 # According to docs: current_funding_rate is a string like "0.0001" 
-                # This appears to be an hourly rate already, but fetch_funding_rate() expects 8h rates.
-                # REST API returns rates that get divided by 8.0, so WS rates should be multiplied by 8
-                # to match the format (or we store hourly and adjust fetch_funding_rate logic).
-                # For now, store hourly rate as-is and let fetch_funding_rate() handle conversion.
+                # Laut Dokumentation ist die Funding Rate bereits stündlich (clamp [-0.5%, +0.5%])
+                # Wir speichern sie direkt als stündliche Rate (keine Multiplikation mit 8 mehr!)
                 funding_rate = (
                     entry.get("current_funding_rate") 
                     or entry.get("funding_rate")
@@ -1997,12 +1995,10 @@ class WebSocketManager:
                 if funding_rate is not None:
                     try:
                         rate_float = float(funding_rate)
-                        # Convert hourly rate to 8h rate (to match REST API format)
-                        # REST returns 8h rates, WS returns hourly rates
-                        rate_8h = rate_float * 8.0
-                        # Store in both caches for compatibility
-                        self.lighter_adapter._funding_cache[symbol] = rate_8h
-                        self.lighter_adapter.funding_cache[symbol] = rate_8h
+                        # Speichere als stündliche Rate (laut Dokumentation ist current_funding_rate bereits stündlich)
+                        # fetch_funding_rate() gibt jetzt direkt die stündliche Rate zurück
+                        self.lighter_adapter._funding_cache[symbol] = rate_float
+                        self.lighter_adapter.funding_cache[symbol] = rate_float
                         self.lighter_adapter._funding_cache_time[symbol] = time.time()
                     except (ValueError, TypeError) as e:
                         logger.warning(f"Invalid funding_rate for {symbol}: {funding_rate} ({type(funding_rate)})")

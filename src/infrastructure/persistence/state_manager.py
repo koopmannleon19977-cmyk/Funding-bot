@@ -40,7 +40,7 @@ class TradeStatus(Enum):
     ROLLBACK = "rollback"
 
 
-@dataclass
+@dataclass(slots=True)
 class TradeState:
     """
     In-memory representation of a trade.
@@ -48,6 +48,9 @@ class TradeState:
     Financial fields (size_usd, pnl, funding_collected) are stored as float
     for SQLite compatibility, but Decimal properties are provided for 
     precision-critical calculations.
+    
+    OPTIMIZED: Uses slots=True for ~30% memory reduction per instance.
+    This is the modern Python 3.10+ way to use __slots__ with dataclasses.
     """
     symbol: str
     side_x10: str

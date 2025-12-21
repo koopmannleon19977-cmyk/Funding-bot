@@ -473,15 +473,15 @@ class AsyncDatabase:
             callback=future
         )
         
+        # OPTIMIZED: Use blocking put() instead of put_nowait() to prevent data loss
+        # This waits until space is available instead of dropping the oldest operation
         try:
-            self._write_queue. put_nowait(op)
-        except asyncio.QueueFull:
-            logger.warning("Write queue full, dropping oldest")
-            try:
-                self._write_queue. get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-            self._write_queue. put_nowait(op)
+            await self._write_queue.put(op)
+        except asyncio.CancelledError:
+            # If cancelled during shutdown, mark future as cancelled
+            if future and not future.done():
+                future.set_exception(asyncio.CancelledError())
+            raise
         
         if wait and future:
             return await future
@@ -497,7 +497,7 @@ class AsyncDatabase:
             await self.execute(sql, params, wait=False)
 
     async def _write_loop(self):
-        """Background task that batches and commits writes"""
+        """Background task that batches and commits writes - OPTIMIZED for non-blocking operation"""
         logger.info("🖊️ Database write loop started")
         
         batch: List[WriteOperation] = []
@@ -505,25 +505,36 @@ class AsyncDatabase:
         
         while not self._shutdown:
             try:
-                # Collect operations with timeout
+                # OPTIMIZED: Try to get operation immediately (non-blocking)
                 try:
-                    op = await asyncio.wait_for(
-                        self._write_queue.get(),
-                        timeout=self.config.write_flush_interval
-                    )
-                    
+                    op = self._write_queue.get_nowait()
                     if op is None:  # Shutdown signal
                         break
-                        
                     batch.append(op)
-                    
-                except asyncio.TimeoutError:
-                    pass
+                except asyncio.QueueEmpty:
+                    # Queue empty - flush if batch exists, otherwise wait briefly
+                    if batch:
+                        await self._flush_batch(batch)
+                        batch = []
+                        last_flush = time.monotonic()
+                    else:
+                        # Wait for next operation with short timeout (0.1s instead of 1.0s)
+                        try:
+                            op = await asyncio.wait_for(
+                                self._write_queue.get(),
+                                timeout=0.1
+                            )
+                            if op is None:  # Shutdown signal
+                                break
+                            batch.append(op)
+                        except asyncio.TimeoutError:
+                            # No data available, continue loop
+                            continue
                 
                 # Flush if batch is full or interval elapsed
                 now = time.monotonic()
                 should_flush = (
-                    len(batch) >= self. config.write_batch_size or
+                    len(batch) >= self.config.write_batch_size or
                     (batch and now - last_flush >= self.config.write_flush_interval)
                 )
                 
@@ -536,7 +547,7 @@ class AsyncDatabase:
                 break
             except Exception as e:
                 logger.error(f"Write loop error: {e}")
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.1)  # Reduced from 1.0s to 0.1s for faster recovery
         
         # Final flush
         if batch:

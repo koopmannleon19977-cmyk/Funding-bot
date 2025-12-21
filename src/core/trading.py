@@ -826,8 +826,10 @@ async def process_symbol(symbol: str, lighter, x10, parallel_exec, lock: asyncio
             except Exception:
                 pass
 
+            # rl und rx sind stündliche Funding Rates (laut Dokumentation beider Exchanges)
+            # APY = hourly_rate * 24 hours/day * 365 days/year
             net = rl - rx
-            apy = abs(net) * 24 * 365  # Hourly rates -> 24x per day
+            apy = abs(net) * 24 * 365
 
             # Threshold check
             from src.threshold_manager import get_threshold_manager

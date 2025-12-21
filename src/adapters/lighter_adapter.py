@@ -4278,7 +4278,15 @@ class LighterAdapter(BaseAdapter):
             return HARD_MIN_USD
 
     def fetch_funding_rate(self, symbol: str) -> Optional[float]:
-        """Funding Rate aus Cache (WS > REST) - mit robuster Typ-Konvertierung"""
+        """
+        Funding Rate aus Cache (WS > REST) - gibt IMMER stündliche Rate zurück.
+        
+        Die Funding Rate ist laut Dokumentation bereits stündlich:
+        - Lighter: fundingRate = (premium / 8) + interestRateComponent (stündlich, clamp [-0.5%, +0.5%])
+        - X10: Funding Rate = (Average Premium + ...) / 8 (stündlich)
+        
+        APY = hourly_rate * 24 * 365
+        """
         if symbol in self._funding_cache:
             rate = self._funding_cache[symbol]
         else:
@@ -4293,10 +4301,28 @@ class LighterAdapter(BaseAdapter):
             logger.warning(f"Invalid funding rate type for {symbol}: {type(rate)} = {rate}")
             return None
 
+        # Wenn Rate > 20.0, ist es wahrscheinlich eine APY in Prozent
+        # Konvertiere zu stündlicher Rate
         if abs(rate_float) > 20.0:
             return rate_float / 100.0 / (24 * 365)
 
-        return rate_float / 8.0
+        # WICHTIG: Prüfe, ob die Rate als Prozentwert oder Dezimalzahl zurückgegeben wird
+        # Laut Dokumentation: Funding Rate clamp [-0.5%, +0.5%] stündlich
+        # Die API gibt die Rate möglicherweise als Prozentwert zurück (z.B. 0.57 für 0.57%)
+        # statt als Dezimalzahl (0.0057 für 0.57%)
+        
+        # Prüfe: Wenn |rate| > 0.01 (1%), ist es wahrscheinlich ein Prozentwert
+        # Da Funding Rates normalerweise < 1% sind (max 0.5%), sollten Werte > 0.01 Prozentwerte sein
+        if abs(rate_float) > 0.01:
+            # Rate ist wahrscheinlich als Prozentwert (z.B. 0.57 für 0.57%)
+            # Konvertiere zu Dezimalzahl (0.57 / 100 = 0.0057)
+            converted = rate_float / 100.0
+            logger.debug(f"[Lighter] {symbol}: Converting rate {rate_float}% -> {converted} (decimal)")
+            return converted
+        
+        # Rate ist bereits als Dezimalzahl (z.B. 0.0057 für 0.57%)
+        # Das ist das erwartete Format laut Dokumentation
+        return rate_float
 
     def fetch_mark_price(self, symbol: str) -> Optional[float]:
         """Mark Price aus Cache - always returns float or None."""

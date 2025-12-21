@@ -343,41 +343,64 @@ class WebSocketOrderClient:
         """
         Reconnect with proper task cleanup to prevent duplicate recv() calls.
         This is called as a separate task from _receive_loop.
+        
+        OPTIMIZED: Added max_attempts check to prevent infinite reconnect loops.
         """
+        max_attempts = self.config.max_reconnect_attempts
+        attempt = 0
+        
         try:
-            # First, cleanup old tasks completely (this waits for them to finish)
-            await self._cleanup_tasks()
-            
-            # Close old WebSocket if still open
-            if self._ws:
-                try:
-                    await self._ws.close()
-                except Exception:
-                    pass
-                self._ws = None
-            
-            # Now do the reconnect with backoff
-            await self._schedule_reconnect()
+            while self._running and attempt < max_attempts:
+                attempt += 1
+                
+                # First, cleanup old tasks completely (this waits for them to finish)
+                await self._cleanup_tasks()
+                
+                # Close old WebSocket if still open
+                if self._ws:
+                    try:
+                        await self._ws.close()
+                    except Exception:
+                        pass
+                    self._ws = None
+                
+                # Check if we've exceeded max attempts
+                if self._reconnect_attempts >= max_attempts:
+                    logger.error(f"[WS-ORDER] Max reconnect attempts ({max_attempts}) reached - stopping reconnect loop")
+                    break
+                
+                # Schedule reconnect with backoff
+                if not self._running:
+                    break
+                
+                self._reconnect_attempts += 1
+                delay = min(self.config.reconnect_interval * (2 ** (self._reconnect_attempts - 1)), 60)
+                logger.info(f"[WS-ORDER] Reconnecting in {delay:.1f}s (attempt {self._reconnect_attempts}/{max_attempts})")
+                
+                await asyncio.sleep(delay)
+                
+                if self._running:
+                    success = await self.connect()
+                    if success:
+                        # Connection successful, exit reconnect loop
+                        logger.info(f"[WS-ORDER] Reconnected successfully after {self._reconnect_attempts} attempts")
+                        break
+                    else:
+                        logger.warning(f"[WS-ORDER] Reconnect attempt {self._reconnect_attempts} failed, will retry...")
+        except asyncio.CancelledError:
+            logger.debug("[WS-ORDER] Reconnect task cancelled")
+        except Exception as e:
+            logger.error(f"[WS-ORDER] Reconnect loop error: {e}")
         finally:
             self._reconnect_task = None
+            
+        if attempt >= max_attempts:
+            logger.error(f"[WS-ORDER] Reconnect loop stopped after {max_attempts} attempts")
                 
     async def _schedule_reconnect(self):
-        """Schedule reconnection with backoff"""
-        if not self._running:
-            return
-            
-        if self._reconnect_attempts >= self.config.max_reconnect_attempts:
-            logger.error("[WS-ORDER] Max reconnect attempts reached")
-            return
-            
-        self._reconnect_attempts += 1
-        delay = min(self.config.reconnect_interval * (2 ** (self._reconnect_attempts - 1)), 60)
-        logger.info(f"[WS-ORDER] Reconnecting in {delay:.1f}s (attempt {self._reconnect_attempts})")
-        
-        await asyncio.sleep(delay)
-        
-        if self._running:
-            await self.connect()
+        """Schedule reconnection with backoff - DEPRECATED: Use _do_reconnect() directly"""
+        # This method is kept for backwards compatibility but logic moved to _do_reconnect()
+        await self._do_reconnect()
             
     def _generate_request_id(self) -> str:
         """Generate unique request ID"""

@@ -1079,7 +1079,15 @@ class X10Adapter(BaseAdapter):
                             if price and price > 0:
                                 if name not in self.price_cache or self.price_cache.get(name, 0) == 0:
                                     self.price_cache[name] = price
+                                    # FIX: Also update _price_cache directly (used by websocket_manager)
+                                    self._price_cache[name] = price
+                                    self._price_cache_time[name] = time.time()
 
+            # FIX: Log which markets are missing prices
+            missing_symbols = [s for s in self.market_info.keys() if s not in self.price_cache or self.price_cache.get(s, 0) == 0]
+            if missing_symbols:
+                logger.warning(f"⚠️ X10: {len(missing_symbols)} Märkte ohne Preise in market_stats: {missing_symbols[:10]}{'...' if len(missing_symbols) > 10 else ''}")
+            
             logger.info(f" X10: {len(self.market_info)} Märkte geladen, {len(self.funding_cache)} Funding Rates, {len(self.price_cache)} Preise")
             self.rate_limiter.on_success()
         except Exception as e:
@@ -1146,26 +1154,51 @@ class X10Adapter(BaseAdapter):
         return None
 
     def fetch_funding_rate(self, symbol: str):
-        """Funding Rate: Prioritize WebSocket Cache (_funding_cache)"""
+        """
+        Funding Rate: Gibt IMMER stündliche Rate zurück.
+        
+        Laut X10-Dokumentation: Funding Rate = (Average Premium + ...) / 8
+        Das Ergebnis ist bereits die stündliche Rate (clamp [-0.5%, +0.5%]).
+        
+        APY = hourly_rate * 24 * 365
+        """
         # 1. Zuerst im Echtzeit-Cache (WebSocket) schauen
         if symbol in self._funding_cache:
-            return self._funding_cache[symbol]  # X10 liefert meist Hourly Rates
+            rate = self._funding_cache[symbol]
+            # Prüfe, ob Rate als Prozentwert oder Dezimalzahl zurückgegeben wird
+            # Funding Rates sollten < 1% sein (max 0.5%), also Werte > 0.01 sind wahrscheinlich Prozentwerte
+            if abs(rate) > 0.01:
+                # Rate ist wahrscheinlich als Prozentwert (z.B. 0.57 für 0.57%)
+                # Konvertiere zu Dezimalzahl
+                converted = rate / 100.0
+                logger.debug(f"[X10] {symbol}: Converting rate {rate}% -> {converted} (decimal)")
+                return converted
+            return rate
 
         # 2. Fallback auf REST Cache
         if symbol in self.funding_cache:
-            return self.funding_cache[symbol]
+            rate = self.funding_cache[symbol]
+            if abs(rate) > 0.01:
+                converted = rate / 100.0
+                logger.debug(f"[X10] {symbol}: Converting cached rate {rate}% -> {converted} (decimal)")
+                return converted
+            return rate
             
         # 3. Fallback auf Market Info
         m = self.market_info.get(symbol)
         if m and hasattr(m, 'market_stats') and hasattr(m.market_stats, 'funding_rate'):
             rate = getattr(m.market_stats, 'funding_rate', None)
             if rate is not None:
-                rate_float = float(rate)
-                # Falls X10 Rates als 8h Rates liefert (z.B. dYdX Style), 
-                # müssten wir durch 8 teilen um auf Hourly zu kommen.
-                # Aktuell gehen wir von Hourly aus.
-                self.funding_cache[symbol] = rate_float
-                return rate_float
+                try:
+                    rate_float = float(rate)
+                    # Prüfe, ob Rate als Prozentwert oder Dezimalzahl zurückgegeben wird
+                    if abs(rate_float) > 0.01:
+                        rate_float = rate_float / 100.0
+                        logger.debug(f"[X10] {symbol}: Converting market_stats rate {rate}% -> {rate_float} (decimal)")
+                    self.funding_cache[symbol] = rate_float
+                    return rate_float
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid funding_rate type for {symbol}: {type(rate)} = {rate}")
         return None
 
     def fetch_24h_vol(self, symbol: str) -> float:
