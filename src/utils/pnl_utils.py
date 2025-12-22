@@ -59,6 +59,14 @@ def _side_sign(side: Optional[str]) -> int:
     return 0
 
 
+def compute_funding_pnl(funding_events: List[Dict[str, Any]]) -> Decimal:
+    """Aggregate funding payments (positive for received, negative for paid)."""
+    total = Decimal("0")
+    for event in funding_events:
+        total += _safe_decimal(event.get("amount", 0))
+    return total
+
+
 def compute_realized_pnl(
     symbol: str,
     side: str,
