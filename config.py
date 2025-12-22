@@ -209,6 +209,8 @@ USE_ADAPTER_STREAM_CLIENTS = False
 # Lighter WS/REST alignment: skip REST polling when WS market_stats is fresh.
 LIGHTER_WS_MARKET_STATS_STALE_SECONDS = 15.0
 LIGHTER_SKIP_REST_POLL_WHEN_WS_HEALTHY = True
+# Orderbook deltas are disabled; avoid subscribing to order_book/* to save rate-limit budget.
+LIGHTER_WS_ORDERBOOKS_ENABLED = False
 
 # X10 candles stream (optional, only when adapter stream clients are enabled).
 X10_CANDLE_STREAM_ENABLED = False

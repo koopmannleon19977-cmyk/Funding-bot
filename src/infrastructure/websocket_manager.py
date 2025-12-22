@@ -1765,52 +1765,59 @@ class WebSocketManager:
         """Subscribe to market data for given symbols
         
         OPTION 3 IMPLEMENTATION:
-        - order_book/{market_id} for ALL symbols (real-time orderbook updates)
         - market_stats/all for prices, funding rates, OI (1 subscription for ALL markets)
+        - order_book/{market_id} for ALL symbols (real-time orderbook updates) when enabled
         - NO individual trade/{market_id} subscriptions (saves 50% subscriptions)
         
         Lighter WebSocket Limits (https://apidocs.lighter.xyz/docs/rate-limits):
         - Max 100 subscriptions per connection
         - Max 1000 total subscriptions per IP
         
-        With this approach:
+        With this approach (when order_book is enabled):
         - 65 order_book subscriptions + 1 market_stats/all = 66 total < 100 ✅
         """
         lighter_conn = self._connections.get("lighter")
         if lighter_conn:
             # Subscribe to market_stats/all FIRST (1 subscription)
-            # This provides: last_trade_price, funding_rate, mark_price, index_price, 
+            # This provides: last_trade_price, funding_rate, mark_price, index_price,
             # open_interest for ALL markets in a single feed
             await lighter_conn.subscribe("market_stats/all")
             logger.info("📊 [lighter] Subscribed to market_stats/all (prices, funding, OI for all markets)")
-            
-            # Subscribe to orderbooks for ALL symbols (no limit needed with Option 3)
-            # Each order_book subscription = 1 subscription
-            subscribed_count = 0
-            for symbol in symbols:
-                market_id = self._get_lighter_market_id(symbol)
-                if market_id is not None:
-                    await lighter_conn.subscribe(f"order_book/{market_id}")
-                    subscribed_count += 1
-                    # Pace subscriptions to avoid overwhelming the server
-                    if subscribed_count % 10 == 0:
-                        await asyncio.sleep(0.05)
-            
-            total_subs = 1 + subscribed_count  # market_stats/all + order_books
-            logger.info(
-                f"✅ [lighter] Subscribed to {total_subs} channels "
-                f"(1 market_stats/all + {subscribed_count} order_books)"
-            )
-            
-            if total_subs >= 95:
-                logger.warning(
-                    f"⚠️ [lighter] Approaching subscription limit: {total_subs}/100"
+
+            total_subs = 1
+            # Only subscribe to order_book channels if explicitly enabled
+            if getattr(config, "LIGHTER_WS_ORDERBOOKS_ENABLED", False):
+                # Subscribe to orderbooks for ALL symbols (no limit needed with Option 3)
+                # Each order_book subscription = 1 subscription
+                subscribed_count = 0
+                for symbol in symbols:
+                    market_id = self._get_lighter_market_id(symbol)
+                    if market_id is not None:
+                        await lighter_conn.subscribe(f"order_book/{market_id}")
+                        subscribed_count += 1
+                        # Pace subscriptions to avoid overwhelming the server
+                        if subscribed_count % 10 == 0:
+                            await asyncio.sleep(0.05)
+
+                total_subs += subscribed_count  # market_stats/all + order_books
+                logger.info(
+                    f"✅ [lighter] Subscribed to {total_subs} channels "
+                    f"(1 market_stats/all + {subscribed_count} order_books)"
                 )
-            
-            # NOTE: Lighter WS orderbook processing is DISABLED
-            # We rely on REST polling for orderbooks to avoid crossed books
-            # WS is still used for: prices, funding rates, market stats
-            logger.info(f"ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)")
+
+                if total_subs >= 95:
+                    logger.warning(
+                        f"⚠️ [lighter] Approaching subscription limit: {total_subs}/100"
+                    )
+
+                # NOTE: Lighter WS orderbook processing is DISABLED
+                # We rely on REST polling for orderbooks to avoid crossed books
+                # WS is still used for: prices, funding rates, market stats
+                logger.info(f"ℹ️ [lighter] Orderbook data: REST polling only (WS deltas disabled)")
+            else:
+                logger.info(
+                    "ℹ️ [lighter] Skipping order_book WS subscriptions (REST polling only)"
+                )
         
         # 2. X10 Subscriptions
         # WICHTIG: Wir müssen NICHTS mehr senden!
