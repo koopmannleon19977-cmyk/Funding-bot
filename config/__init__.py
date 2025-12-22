@@ -70,9 +70,9 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # APY muss hoch genug sein um Fees + Slippage zu kompensieren!
 # Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
 # ═════════════════════════════════════════════════════════════════════════════
-# TEMP TESTING: Niedriger um mehr Opportunities zu sehen (Achtung: mehr Low-Quality Trades möglich!)
-MIN_APY_FILTER = 0.05       # 5% APY Minimum
-MIN_APY_FALLBACK = 0.08     # 8% Fallback
+# APY Floor: realistisch, damit Fees/Slippage gedeckt sind (5% war zu niedrig)
+MIN_APY_FILTER = 0.20       # 20% APY Minimum
+MIN_APY_FALLBACK = 0.10     # 10% Fallback (nur für Edge-Cases)
 MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
 MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
 MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
@@ -202,6 +202,8 @@ USE_ADAPTER_STREAM_CLIENTS = False
 # Lighter WS/REST alignment: skip REST polling when WS market_stats is fresh.
 LIGHTER_WS_MARKET_STATS_STALE_SECONDS = 15.0
 LIGHTER_SKIP_REST_POLL_WHEN_WS_HEALTHY = True
+# Orderbook deltas are disabled; avoid subscribing to order_book/* to save rate-limit budget.
+LIGHTER_WS_ORDERBOOKS_ENABLED = False
 
 # X10 candles stream (optional, only when adapter stream clients are enabled).
 X10_CANDLE_STREAM_ENABLED = False

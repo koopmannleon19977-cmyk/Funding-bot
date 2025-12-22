@@ -220,8 +220,11 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
         
         # Check if position already exists
         try:
-            x10_positions = await x10.fetch_open_positions()
-            lighter_positions = await lighter.fetch_open_positions()
+            position_tasks = await asyncio.gather(
+                x10.fetch_open_positions(),
+                lighter.fetch_open_positions(),
+            )
+            x10_positions, lighter_positions = position_tasks
 
             max_positions = int(getattr(config, 'MAX_OPEN_POSITIONS', getattr(config, 'MAX_OPEN_TRADES', 40)))
             if max_positions > 0:
@@ -286,16 +289,21 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
         # Sizing
         try:
-            min_req_x10 = safe_decimal(await x10.min_notional_usd(symbol))
-            min_req_lit = safe_decimal(await lighter.min_notional_usd(symbol))
+            min_req_x10_raw, min_req_lit_raw, raw_x10, raw_lit = await asyncio.gather(
+                x10.min_notional_usd(symbol),
+                lighter.min_notional_usd(symbol),
+                x10.get_available_balance(),
+                lighter.get_available_balance(),
+            )
+
+            min_req_x10 = safe_decimal(min_req_x10_raw)
+            min_req_lit = safe_decimal(min_req_lit_raw)
             min_req = max(min_req_x10, min_req_lit)
             
             if min_req > safe_decimal(config.MAX_TRADE_SIZE_USD):
                 return False
 
             async with IN_FLIGHT_LOCK:
-                raw_x10 = await x10.get_available_balance()
-                raw_lit = await lighter.get_available_balance()
                 bal_x10_real = max(Decimal('0'), raw_x10 - IN_FLIGHT_MARGIN.get('X10', Decimal('0')))
                 bal_lit_real = max(Decimal('0'), raw_lit - IN_FLIGHT_MARGIN.get('Lighter', Decimal('0')))
 
@@ -325,7 +333,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             l_side = opp.get('leg1_side', 'BUY')
             lit_side_check = l_side if l_ex == 'Lighter' else ("SELL" if l_side == "BUY" else "BUY")
 
-            liquidity_usd = float(final_usd)
+            liquidity_usd = final_usd
             if not await lighter.check_liquidity(symbol, lit_side_check, liquidity_usd, is_maker=True):
                 logger.warning(f"🛑 {symbol}: Insufficient Lighter liquidity")
                 return False
@@ -385,8 +393,8 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
                 symbol=symbol,
                 side_x10=x10_side,
                 side_lighter=lit_side,
-                size_x10=float(final_usd),
-                size_lighter=float(final_usd)
+                size_x10=final_usd,
+                size_lighter=final_usd
             )
 
             if success:
