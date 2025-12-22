@@ -69,20 +69,15 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # PROFITABILITY FIX (16.12.2025):
 # APY muss hoch genug sein um Fees + Slippage zu kompensieren!
 # Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
-#
-# TARGET (01.2026): 10% Monatsrendite nach Fees & Spreads
-# → Erfordert ~120% Annualized APY pro Entry, sonst kein Trade.
 # ═════════════════════════════════════════════════════════════════════════════
 # TEMP TESTING: Niedriger um mehr Opportunities zu sehen (Achtung: mehr Low-Quality Trades möglich!)
-MIN_APY_FILTER = 0.20       # 20% APY Minimum (vorher 5%)
-MIN_APY_FALLBACK = 0.20     # 20% Fallback (vorher 8%)
-TARGET_MONTHLY_ROI = 0.10   # 10% Monatsziel (reiner Gewinn nach Kosten)
-TARGET_ANNUAL_APY = TARGET_MONTHLY_ROI * 12  # 120% Jahres-APY für Entry-Gate
-MIN_PROFIT_EXIT_USD = 0.25  # Höherer Mindestprofit für saubere Entries
-MIN_EXPECTED_PROFIT_ENTRY_USD = 0.25  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
-MIN_MAINTENANCE_APY = 0.30  # Exit wenn APY < 30% (vorher 20%)
+MIN_APY_FILTER = 0.05       # 5% APY Minimum
+MIN_APY_FALLBACK = 0.08     # 8% Fallback
+MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
+MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
+MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
 MAX_HOLD_HOURS = 72.0       # ERHÖHT: 72h max (vorher 48h) - mehr Zeit für Funding
-EXIT_SLIPPAGE_BUFFER_PCT = 0.0010 # 0.10% Buffer for Bid/Ask Spread at Exit (straffer für bessere Netto-PnL)
+EXIT_SLIPPAGE_BUFFER_PCT = 0.0015 # 0.15% Buffer for Bid/Ask Spread at Exit (erhöht für Sicherheit)
 EXIT_COST_SAFETY_MARGIN = 1.1      # Safety multiplier on estimated exit costs
 
 # Entry-Basis Engine (Quantzilla/DegeniusQ alignment)
@@ -167,9 +162,7 @@ AUTO_CLOSE_BAD_ENTRIES = False          # Auto-close trades with bad entry sprea
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.001  # 0.1% Baseline (aggressiver für beste Books)
-ELITE_SPREAD_FILTER_PERCENT = 0.0008  # 0.08% Cap für "beste" Books
-ELITE_MIN_ORDERBOOK_DEPTH_USD = 250.0  # Mindest-Liquidität für Elite-Trades
+MAX_SPREAD_FILTER_PERCENT = 0.002  # Base: 0.2% (dynamic filter kann höher sein bei hohem Funding)
 MAX_PRICE_IMPACT_PCT = 0.5         # H7: Max erlaubte Slippage aus Price Impact Simulation (0.5%)
 MAX_BREAKEVEN_HOURS = 12.0         # ERHÖHT: 12h statt 8h - Smart-Filter prüft bereits Recovery-Zeit
 
