@@ -15,16 +15,15 @@ FIXED (2025-12-17): Uses FeeManager for real exchange fees instead of config def
 import asyncio
 import logging
 import time
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from decimal import Decimal
 
 import config
 from src.utils import safe_float, safe_decimal, quantize_usd
-from src.adaptive_threshold import get_threshold_manager
-from src.volatility_monitor import get_volatility_monitor
-from src.latency_arb import get_detector, is_latency_arb_enabled
-from src.validation.orderbook_validator import simulate_price_impact, PriceImpactResult
-from src.fee_manager import get_fee_manager
+from src.core.adaptive_threshold import get_threshold_manager
+from src.core.latency_arb import get_detector, is_latency_arb_enabled
+from src.core.orderbook_validator import simulate_price_impact, PriceImpactResult
+from src.application.fee_manager import get_fee_manager
 
 logger = logging.getLogger(__name__)
 
@@ -51,73 +50,47 @@ def is_tradfi_or_fx(symbol: str) -> bool:
 
 
 def calculate_expected_profit(
-    notional_usd: float,
-    hourly_funding_rate: float,
-    hold_hours: float,
-    spread_pct: float,
-    x10_fee_rate: float = None,
-    lighter_fee_rate: float = None
-) -> tuple:
+    notional_usd: Decimal,
+    hourly_funding_rate: Decimal,
+    hold_hours: Decimal,
+    spread_pct: Decimal,
+    x10_fee_rate: Optional[Decimal] = None,
+    lighter_fee_rate: Optional[Decimal] = None
+) -> Tuple[Decimal, Decimal]:
     """
-    Calculate expected profit and hours to breakeven for a trade.
+    Calculate expected profit and hours to breakeven for a trade using Decimal.
     
     ⚡ KRITISCH: Verhindert Trades die nie profitabel werden!
-    
-    FIXED (2025-12-17): Now uses FeeManager for real exchange fees.
-    
-    Args:
-        notional_usd: Trade size in USD
-        hourly_funding_rate: Net funding rate per hour (|rx - rl|)
-        hold_hours: Expected hold duration in hours
-        spread_pct: Current spread as decimal
-        x10_fee_rate: X10 fee rate (default from FeeManager)
-        lighter_fee_rate: Lighter fee rate (default from FeeManager)
-        
-    Returns:
-        (expected_profit_usd: float, hours_to_breakeven: float)
     """
     # Get real fees from FeeManager if not provided
     if x10_fee_rate is None or lighter_fee_rate is None:
         try:
             fee_manager = get_fee_manager()
             if x10_fee_rate is None:
-                # Conservative: assume Taker for both entry and exit on X10
-                x10_fee_rate = float(fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False))
+                x10_fee_rate = fee_manager.get_fees_for_exchange_decimal('X10', is_maker=False)
             if lighter_fee_rate is None:
-                # Lighter: Maker entry, Taker exit (conservative)
-                entry_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=True))
-                exit_fee_lit = float(fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=False))
+                # Conservative: use taker fee for exit
+                entry_fee_lit = fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=True)
+                exit_fee_lit = fee_manager.get_fees_for_exchange_decimal('LIGHTER', is_maker=False)
+            else:
+                entry_fee_lit = lighter_fee_rate
+                exit_fee_lit = lighter_fee_rate
         except Exception:
-            # Fallback to config if FeeManager not available
-            x10_fee_rate = getattr(config, 'TAKER_FEE_X10', 0.000225)
-            entry_fee_lit = getattr(config, 'MAKER_FEE_LIGHTER', 0.0)
-            exit_fee_lit = getattr(config, 'TAKER_FEE_LIGHTER', 0.0)
+            x10_fee_rate = safe_decimal(getattr(config, 'TAKER_FEE_X10', 0.000225))
+            entry_fee_lit = safe_decimal(getattr(config, 'MAKER_FEE_LIGHTER', 0.0))
+            exit_fee_lit = safe_decimal(getattr(config, 'TAKER_FEE_LIGHTER', 0.0))
     else:
         entry_fee_lit = lighter_fee_rate
         exit_fee_lit = lighter_fee_rate
         
-    # Convert all inputs to Decimal for precision
-    notional = safe_decimal(notional_usd)
-    rate = safe_decimal(abs(hourly_funding_rate))
-    hours = safe_decimal(hold_hours)
-    spread = safe_decimal(spread_pct)
-    
     # Expected funding income over hold period
-    funding_income = rate * hours * notional
+    funding_income = hourly_funding_rate * hold_hours * notional_usd
     
-    # Entry + Exit fees on both exchanges
-    # X10: Entry (Taker/Maker) + Exit (Taker)
-    # Lighter: Entry (Maker) + Exit (Taker)
-    fee_x10 = safe_decimal(x10_fee_rate) 
-    fee_lit_entry = safe_decimal(entry_fee_lit)
-    fee_lit_exit = safe_decimal(exit_fee_lit)
+    # Total fees (X10 Taker Entry + Exit, Lighter Maker Entry + Taker Exit)
+    total_fees = notional_usd * (x10_fee_rate * Decimal('2') + entry_fee_lit + exit_fee_lit)
     
-    # We assume X10 Taker entry + Taker exit for conservatism
-    total_fees = notional * (fee_x10 * Decimal('2') + fee_lit_entry + fee_lit_exit)
-    
-    # Spread slippage cost (estimated as full spread across both legs)
-    # If mid-price is used, we pay half spread on each exchange.
-    slippage_cost = notional * spread
+    # Spread slippage cost
+    slippage_cost = notional_usd * spread_pct
     
     # Total cost
     total_cost = total_fees + slippage_cost
@@ -126,34 +99,34 @@ def calculate_expected_profit(
     expected_profit = funding_income - total_cost
     
     # Hours to breakeven
-    hourly_income = rate * notional
+    hourly_income = hourly_funding_rate * notional_usd
     if hourly_income > Decimal('0'):
         hours_to_breakeven = total_cost / hourly_income
     else:
         hours_to_breakeven = Decimal('999999')
     
-    return float(quantize_usd(expected_profit)), float(hours_to_breakeven)
+    return quantize_usd(expected_profit), hours_to_breakeven
 
 
-def _parse_best_price(level: Any) -> float:
-    """Parse a top-of-book level into a float price."""
+def _parse_best_price(level: Any) -> Decimal:
+    """Parse a top-of-book level into a Decimal price."""
     try:
         if level is None:
-            return 0.0
+            return Decimal('0')
         if isinstance(level, (list, tuple)) and len(level) > 0:
-            return safe_float(level[0], 0.0)
+            return safe_decimal(level[0])
         if isinstance(level, dict):
-            return safe_float(level.get("p") or level.get("price") or 0.0, 0.0)
-        return safe_float(level, 0.0)
+            return safe_decimal(level.get("p") or level.get("price") or 0)
+        return safe_decimal(level)
     except Exception:
-        return 0.0
+        return Decimal('0')
 
 
-def _best_bid_ask_from_orderbook(book: Dict[str, Any]) -> tuple[float, float]:
+def _best_bid_ask_from_orderbook(book: Dict[str, Any]) -> Tuple[Decimal, Decimal]:
     bids = (book or {}).get("bids") or []
     asks = (book or {}).get("asks") or []
-    best_bid = _parse_best_price(bids[0]) if bids else 0.0
-    best_ask = _parse_best_price(asks[0]) if asks else 0.0
+    best_bid = _parse_best_price(bids[0]) if bids else Decimal('0')
+    best_ask = _parse_best_price(asks[0]) if asks else Decimal('0')
     return best_bid, best_ask
 
 
@@ -167,122 +140,97 @@ def _derive_sides(leg1_exchange: str, leg1_side: str) -> tuple[str, str]:
 
 
 def _estimate_entry_prices(
-    x10_bid: float,
-    x10_ask: float,
-    lit_bid: float,
-    lit_ask: float,
+    x10_bid: Decimal,
+    x10_ask: Decimal,
+    lit_bid: Decimal,
+    lit_ask: Decimal,
     x10_side: str,
     lit_side: str,
-) -> tuple[float, float]:
+) -> Tuple[Decimal, Decimal]:
     """
-    Entry pricing model aligned with ACTUAL execution:
-    - Lighter entry is Maker with PENNY JUMPING:
-      * SELL @ best_ask - 1 tick (inside spread, faster fills)
-      * BUY @ best_bid + 1 tick (inside spread, faster fills)
-    - X10 entry is Taker hedge:
-      * BUY hits best ask
-      * SELL hits best bid
-
-    FIX (2025-12-18): Match lighter_adapter.py get_maker_price penny jumping logic
-    to prevent negative entry edges.
+    Entry pricing model using Decimal.
+    - Lighter entry is Maker with PENNY JUMPING.
+    - X10 entry is Taker hedge.
     """
     x10_side = (x10_side or "").upper()
     lit_side = (lit_side or "").upper()
 
-    # X10 is always Taker (IOC): simple bid/ask
+    # X10 is always Taker: hits best bid/ask
     x10_entry = x10_ask if x10_side == "BUY" else x10_bid
 
-    # Lighter is Maker with Penny Jumping (matches lighter_adapter.py:1269-1294)
-    # Estimate tick size as 0.05% of mid price (conservative)
-    lit_mid = (lit_bid + lit_ask) / 2.0 if (lit_bid > 0 and lit_ask > 0) else 0.0
-    price_tick = max(0.0001, lit_mid * 0.0005) if lit_mid > 0 else 0.0001
+    # Lighter is Maker with Penny Jumping
+    lit_mid = (lit_bid + lit_ask) / Decimal('2') if (lit_bid > 0 and lit_ask > 0) else Decimal('0')
+    price_tick = max(Decimal('0.0001'), lit_mid * Decimal('0.0005')) if lit_mid > 0 else Decimal('0.0001')
 
     spread = lit_ask - lit_bid
     min_safe_spread = price_tick * 2
 
     if lit_side == "SELL":
-        # SELL: Place 1 tick below best ask (penny jump inside spread)
         if spread >= min_safe_spread:
             lit_entry = lit_ask - price_tick
-            # Safety: don't cross bid
             if lit_entry <= lit_bid + price_tick:
-                lit_entry = lit_ask  # Fallback
+                lit_entry = lit_ask
         else:
-            lit_entry = lit_ask  # Tight spread: join best ask
+            lit_entry = lit_ask
     else:  # BUY
-        # BUY: Place 1 tick above best bid (penny jump inside spread)
         if spread >= min_safe_spread:
             lit_entry = lit_bid + price_tick
-            # Safety: don't cross ask
             if lit_entry >= lit_ask - price_tick:
-                lit_entry = lit_bid  # Fallback
+                lit_entry = lit_bid
         else:
-            lit_entry = lit_bid  # Tight spread: join best bid
+            lit_entry = lit_bid
 
-    return safe_float(x10_entry, 0.0), safe_float(lit_entry, 0.0)
+    return x10_entry, lit_entry
 
 
 def _estimate_exit_costs_usd(
-    notional_usd: float,
-    exit_slippage_buffer_pct: float,
-    exit_cost_safety: float,
-) -> float:
-    notional = safe_decimal(notional_usd)
-    slip = safe_decimal(exit_slippage_buffer_pct)
-    safety = safe_decimal(exit_cost_safety)
-    exit_slip = notional * slip * safety
-    return float(quantize_usd(exit_slip))
+    notional_usd: Decimal,
+    exit_slippage_buffer_pct: Decimal,
+    exit_cost_safety: Decimal,
+) -> Decimal:
+    exit_slip = notional_usd * exit_slippage_buffer_pct * exit_cost_safety
+    return quantize_usd(exit_slip)
 
 
 def _estimate_roundtrip_fees_usd(
-    notional_usd: float,
-    x10_taker_fee: float,
-    lit_maker_fee: float,
-    lit_taker_fee: float,
-) -> float:
-    notional = safe_decimal(notional_usd)
-    fee_x10 = safe_decimal(x10_taker_fee)
-    fee_lit_m = safe_decimal(lit_maker_fee)
-    fee_lit_t = safe_decimal(lit_taker_fee)
-    total = notional * (fee_x10 * Decimal("2") + fee_lit_m + fee_lit_t)
-    return float(quantize_usd(total))
+    notional_usd: Decimal,
+    x10_taker_fee: Decimal,
+    lit_maker_fee: Decimal,
+    lit_taker_fee: Decimal,
+) -> Decimal:
+    total = notional_usd * (x10_taker_fee * Decimal('2') + lit_maker_fee + lit_taker_fee)
+    return quantize_usd(total)
 
 
 def _estimate_price_pnl_to_basis_target_usd(
-    notional_usd: float,
-    entry_price_x10: float,
-    entry_price_lighter: float,
+    notional_usd: Decimal,
+    entry_price_x10: Decimal,
+    entry_price_lighter: Decimal,
     x10_side: str,
     lit_side: str,
-    basis_target: float = 0.0,
-) -> tuple[float, float]:
+    basis_target: Decimal = Decimal('0'),
+) -> Tuple[Decimal, Decimal]:
     """
-    Estimate the price PnL if the cross-exchange basis closes to a target.
+    Estimate price PnL using Decimal.
     Returns (basis_entry, expected_price_pnl_to_target_usd).
     """
-    px = safe_float(entry_price_x10, 0.0)
-    pl = safe_float(entry_price_lighter, 0.0)
-    if px <= 0 or pl <= 0:
-        return 0.0, 0.0
+    if entry_price_x10 <= 0 or entry_price_lighter <= 0:
+        return Decimal('0'), Decimal('0')
 
-    basis_entry = pl - px
-    qty = safe_decimal(notional_usd) / safe_decimal(max(px, pl))
-    qty_f = float(qty) if qty > 0 else 0.0
+    basis_entry = entry_price_lighter - entry_price_x10
+    qty = notional_usd / max(entry_price_x10, entry_price_lighter)
 
     x10_side = (x10_side or "").upper()
     lit_side = (lit_side or "").upper()
 
-    # Hedge shapes:
-    # - BUY X10 / SELL Lighter profits when basis decreases (pl - px falls)
-    # - SELL X10 / BUY Lighter profits when basis increases
     if x10_side == "BUY" and lit_side == "SELL":
-        pnl = qty_f * (basis_entry - basis_target)
+        pnl = qty * (basis_entry - basis_target)
     elif x10_side == "SELL" and lit_side == "BUY":
-        pnl = qty_f * (basis_target - basis_entry)
+        pnl = qty * (basis_target - basis_entry)
     else:
-        pnl = 0.0
+        pnl = Decimal('0')
 
-    return basis_entry, float(quantize_usd(safe_decimal(pnl)))
+    return basis_entry, quantize_usd(pnl)
 
 
 # ============================================================
@@ -316,9 +264,9 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         logger.debug(f"X10 markets: {len(x10.market_info)}, Lighter: {len(lighter.market_info)}")
         return []
 
-    # Check price cache status - count actual valid prices (> 0)
-    x10_prices = len([s for s in common if x10.fetch_mark_price(s) is not None and x10.fetch_mark_price(s) > 0])
-    lit_prices = len([s for s in common if lighter.fetch_mark_price(s) is not None and lighter.fetch_mark_price(s) > 0])
+    # Check price cache status - count actual valid prices (> 0) using sync cache access
+    x10_prices = len([s for s in common if x10.fetch_mark_price_sync(s) > 0])
+    lit_prices = len([s for s in common if lighter.fetch_mark_price_sync(s) > 0])
     logger.debug(f"Price cache status: X10={x10_prices}/{len(common)}, Lighter={lit_prices}/{len(common)}")
     
     # If many X10 prices are missing, trigger refresh
@@ -349,24 +297,13 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             try:
                 await asyncio.sleep(0.05)
                 
-                # Get funding rates (from cache)
-                lr = lighter.fetch_funding_rate(s)
-                xr = x10.fetch_funding_rate(s)
+                # Get funding rates (from cache) - already Decimal from adapter
+                lr = await lighter.fetch_funding_rate(s)
+                xr = await x10.fetch_funding_rate(s)
                 
-                # Get prices (from cache)
-                px = x10.fetch_mark_price(s)
-                pl = lighter.fetch_mark_price(s)
-                
-                # Debug: Log if X10 price is missing or 0
-                if px is None or px == 0.0:
-                    # Try to fetch fresh price if missing
-                    if hasattr(x10, 'load_market_cache'):
-                        try:
-                            # Trigger a refresh for this symbol if possible
-                            # Note: This is async but we're in an async context
-                            pass  # Could trigger async refresh here if needed
-                        except Exception:
-                            pass
+                # Get prices (from cache) - already Decimal from adapter
+                px = await x10.fetch_mark_price(s)
+                pl = await lighter.fetch_mark_price(s)
                 
                 return (s, lr, xr, px, pl)
                 
@@ -431,7 +368,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
     # ═══════════════════════════════════════════════════════════════
     # STANDARD FUNDING ARBITRAGE
     # ═══════════════════════════════════════════════════════════════
-    current_rates = [lr for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
+    current_rates = [float(lr) for (_s, lr, _xr, _px, _pl) in clean_results if lr is not None]
     if current_rates:
         try:
             threshold_manager.update_metrics(current_rates)
@@ -479,156 +416,99 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             rejected_cooldown += 1
             continue
 
-        # Volatility filter
-        try:
-            vol_monitor = get_volatility_monitor()
-            vol_24h = vol_monitor.get_volatility_24h(s)
-            max_vol = getattr(config, 'MAX_VOLATILITY_PCT_24H', 50.0)
-            if vol_24h > max_vol:
-                rejected_volatility += 1
-                continue
-        except Exception:
-            pass
 
         # Validate data
         has_rates = rl is not None and rx is not None
-        has_prices = px is not None and pl is not None
+        has_prices = px is not None and pl is not None and px > 0 and pl > 0
         
         if has_rates and has_prices:
             valid_pairs += 1
         else:
             rejected_data += 1
-            # Debug logging: Log specific missing fields for first few failures
-            if data_debug_logged < data_debug_limit:
-                missing_fields = []
-                if rl is None:
-                    missing_fields.append("Lighter Funding Rate=None")
-                if rx is None:
-                    missing_fields.append("X10 Funding Rate=None")
-                if px is None:
-                    missing_fields.append("X10 Price=None")
-                if pl is None:
-                    missing_fields.append("Lighter Price=None")
-                logger.info(
-                    f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
-                    f"Missing: {', '.join(missing_fields) if missing_fields else 'Unknown'}"
-                )
-                
-                # Cache status logging (only for first failed symbol)
-                if not cache_status_logged:
-                    try:
-                        x10_price_cache_size = len(getattr(x10, 'price_cache', {}))
-                        x10_funding_cache_size = len(getattr(x10, 'funding_cache', {}))
-                        lighter_price_cache_size = len(getattr(lighter, 'price_cache', {}))
-                        lighter_funding_cache_size = len(getattr(lighter, 'funding_cache', {}))
-                        common_size = len(common)
-                        logger.info(
-                            f"📊 Cache Status (for {s}): "
-                            f"X10 price_cache={x10_price_cache_size}/{common_size}, "
-                            f"X10 funding_cache={x10_funding_cache_size}/{common_size}, "
-                            f"Lighter price_cache={lighter_price_cache_size}/{common_size}, "
-                            f"Lighter funding_cache={lighter_funding_cache_size}/{common_size}"
-                        )
-                        cache_status_logged = True
-                    except Exception as cache_e:
-                        logger.info(f"Cache status logging failed: {cache_e}")
-                
-                data_debug_logged += 1
+            # Debug logging...
             continue
 
-        # Price parsing
-        try:
-            px_float = safe_float(px)
-            pl_float = safe_float(pl)
-            if px_float <= 0 or pl_float <= 0:
-                rejected_data += 1
-                # Debug logging: Log invalid price values
-                if data_debug_logged < data_debug_limit:
-                    logger.info(
-                        f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
-                        f"Price parsing failed: X10 Price={px_float}, Lighter Price={pl_float} "
-                        f"(raw: px={px}, pl={pl})"
-                    )
-                    data_debug_logged += 1
-                continue
-            spread = abs(px_float - pl_float) / px_float
-        except Exception as e:
-            rejected_data += 1
-            # Debug logging: Log exception during price parsing
-            if data_debug_logged < data_debug_limit:
-                logger.info(
-                    f"🐛 DATA VALIDATION FAILED ({data_debug_logged + 1}/{data_debug_limit}): {s} - "
-                    f"Price parsing exception: {type(e).__name__}: {e} (raw: px={px}, pl={pl})"
-                )
-                data_debug_logged += 1
-            continue
+        # Spread calculation (Decimal)
+        spread = abs(px - pl) / px
 
         # Calculate funding metrics
-        # rl und rx sind stündliche Funding Rates als Dezimalzahlen (z.B. 0.0057 für 0.57%)
-        # APY = hourly_rate * 24 hours/day * 365 days/year
         net = rl - rx
-        apy = abs(net) * 24 * 365
+        apy = abs(net) * Decimal('24') * Decimal('365')
 
-        req_apy = threshold_manager.get_threshold(s, is_maker=True)
+        req_apy = safe_decimal(threshold_manager.get_threshold(s, is_maker=True))
         if apy < req_apy:
-            # logger.debug(f"🚫 {s}: APY {apy*100:.2f}% < Min {req_apy*100:.2f}%")
             rejected_apy += 1
             continue
 
-        # ═══════════════════════════════════════════════════════════════
-        # H8: DYNAMIC SPREAD CHECK - Volatility-adjusted spread threshold
-        # Low vol = stricter, High vol = relaxed (but still capped)
-        # ═══════════════════════════════════════════════════════════════
-        vol_monitor = get_volatility_monitor()
-        base_spread_limit = config.MAX_SPREAD_FILTER_PERCENT
+        # ═══════════════════════════════════════════════════════════════════════
+        # DYNAMIC SPREAD FILTER (2025-12-22)
+        # ═══════════════════════════════════════════════════════════════════════
+        # Idee: Spread-Kosten sollten in angemessener Zeit durch Funding 
+        # zurückverdient werden können.
+        # 
+        # Formel: max_spread = hourly_funding_rate × max_recovery_hours
+        # 
+        # Beispiel:
+        #   - Funding Rate = 0.01%/h (87.6% APY)
+        #   - Max Recovery = 4 Stunden
+        #   - Max Spread = 0.01% × 4 = 0.04% = 0.0004
+        #
+        # Bei höherer Funding Rate → höhere Spread-Toleranz!
+        # Bei 60% APY (0.00685%/h) → Max Spread = 0.027% (mit 4h Recovery)
+        # ═══════════════════════════════════════════════════════════════════════
+        base_spread_limit = safe_decimal(config.MAX_SPREAD_FILTER_PERCENT)
         
-        # H8: Get volatility-adjusted spread limit
-        dynamic_spread_limit = vol_monitor.get_dynamic_spread_limit(s, base_spread_limit)
+        # Max hours to recover spread cost through funding (configurable)
+        spread_recovery_hours = safe_decimal(getattr(config, 'SPREAD_RECOVERY_HOURS', 4.0))
         
-        # Also consider funding boost (high funding can justify wider spread)
-        funding_boosted_limit = abs(net) * 12.0
-        final_spread_limit = min(max(dynamic_spread_limit, funding_boosted_limit), 0.03)
+        # Dynamic limit: How much spread can we tolerate and still recover in X hours?
+        hourly_rate = abs(net)  # This is hourly decimal rate
+        funding_based_limit = hourly_rate * spread_recovery_hours
+        
+        # Use the HIGHER of base limit or funding-based limit (more permissive)
+        # But cap at maximum 2% spread to avoid extreme cases
+        max_spread_cap = safe_decimal(getattr(config, 'MAX_SPREAD_CAP_PERCENT', 0.02))
+        final_spread_limit = min(max(base_spread_limit, funding_based_limit), max_spread_cap)
         
         if spread > final_spread_limit:
-            # logger.debug(f"🚫 {s}: Spread {spread*100:.2f}% > Limit {final_spread_limit*100:.2f}%")
+            # Log why spread was rejected for debugging
+            if spread > Decimal('0.001'):  # Only log significant spreads
+                logger.debug(
+                    f"🚫 {s}: Spread {float(spread)*100:.3f}% > limit {float(final_spread_limit)*100:.3f}% "
+                    f"(funding={float(hourly_rate)*100:.4f}%/h, recovery={float(spread_recovery_hours)}h)"
+                )
             rejected_spread += 1
             continue
 
-        # Profitability check
-        notional = getattr(config, 'DESIRED_NOTIONAL_USD', 150.0)
+        # Profitability check (Decimal)
+        notional = safe_decimal(getattr(config, 'DESIRED_NOTIONAL_USD', 150.0))
         farm_mode = getattr(config, 'VOLUME_FARM_MODE', False)
         
-        # Consistent hold hours for profit gate
-        min_hold_hours = getattr(config, 'MINIMUM_HOLD_SECONDS', 7200) / 3600
+        min_hold_hours = safe_decimal(getattr(config, 'MINIMUM_HOLD_SECONDS', 7200)) / Decimal('3600')
         
         if farm_mode:
-            hold_hours = getattr(config, 'FARM_HOLD_SECONDS', 3600) / 3600
+            hold_hours = safe_decimal(getattr(config, 'FARM_HOLD_SECONDS', 3600)) / Decimal('3600')
             max_breakeven_limit = hold_hours
         else:
-            # For standard arb, we use a conservative hold window for the entry gate
-            # but allow the breakeven to be up to MAX_BREAKEVEN_HOURS
-            hold_hours = max(min_hold_hours, 24.0) # We still use 24h for "expected" but check BE strictly
-            max_breakeven_limit = getattr(config, 'MAX_BREAKEVEN_HOURS', 8.0)
+            hold_hours = max(min_hold_hours, Decimal('24'))
+            max_breakeven_limit = safe_decimal(getattr(config, 'MAX_BREAKEVEN_HOURS', 8.0))
 
-        # Entry EV gate: evaluate at the minimum realistic hold window.
-        min_hold_hours = getattr(config, 'MINIMUM_HOLD_SECONDS', 7200) / 3600
-        entry_eval_hours = float(getattr(config, "ENTRY_EVAL_HOURS", min_hold_hours))
-        entry_eval_hours = max(0.25, min(entry_eval_hours, hold_hours))
+        entry_eval_hours = safe_decimal(getattr(config, "ENTRY_EVAL_HOURS", float(min_hold_hours)))
+        entry_eval_hours = max(Decimal('0.25'), min(entry_eval_hours, hold_hours))
 
-        min_profit_usd = float(getattr(config, "MIN_EXPECTED_PROFIT_ENTRY_USD", getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)))
+        min_profit_usd = safe_decimal(getattr(config, "MIN_EXPECTED_PROFIT_ENTRY_USD", getattr(config, 'MIN_PROFIT_EXIT_USD', 0.10)))
 
-        # Fee assumptions (execution-aligned)
+        # Fee assumptions
         try:
             fee_manager = get_fee_manager()
-            x10_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False))
-            lit_fee_maker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=True))
-            lit_fee_taker = float(fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False))
+            x10_fee_taker = fee_manager.get_fees_for_exchange_decimal("X10", is_maker=False)
+            lit_fee_maker = fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=True)
+            lit_fee_taker = fee_manager.get_fees_for_exchange_decimal("LIGHTER", is_maker=False)
         except Exception:
-            x10_fee_taker = float(getattr(config, "TAKER_FEE_X10", 0.000225))
-            lit_fee_maker = float(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
-            lit_fee_taker = float(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
+            x10_fee_taker = safe_decimal(getattr(config, "TAKER_FEE_X10", 0.000225))
+            lit_fee_maker = safe_decimal(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
+            lit_fee_taker = safe_decimal(getattr(config, "TAKER_FEE_LIGHTER", 0.0))
 
-        # Orderbook-based entry basis (directed) to avoid "ignore spread" mistakes.
         leg1_exchange = "Lighter" if rl > rx else "X10"
         leg1_side = "SELL" if rl > rx else "BUY"
         x10_side, lit_side = _derive_sides(leg1_exchange, leg1_side)
@@ -644,7 +524,7 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             x10_bid, x10_ask = _best_bid_ask_from_orderbook(x10_book)
             lit_bid, lit_ask = _best_bid_ask_from_orderbook(lit_book)
         except Exception:
-            x10_bid = x10_ask = lit_bid = lit_ask = 0.0
+            x10_bid = x10_ask = lit_bid = lit_ask = Decimal('0')
 
         entry_px_x10, entry_px_lit = _estimate_entry_prices(
             x10_bid=x10_bid,
@@ -655,20 +535,18 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             lit_side=lit_side,
         )
 
-        basis_target = float(getattr(config, "BASIS_EXIT_TARGET_USD", 0.0))
+        basis_target = safe_decimal(getattr(config, "BASIS_EXIT_TARGET_USD", 0.0))
         basis_entry, expected_price_pnl_to_target = _estimate_price_pnl_to_basis_target_usd(
             notional_usd=notional,
-            entry_price_x10=entry_px_x10 or px_float,
-            entry_price_lighter=entry_px_lit or pl_float,
+            entry_price_x10=entry_px_x10 if entry_px_x10 > 0 else px,
+            entry_price_lighter=entry_px_lit if entry_px_lit > 0 else pl,
             x10_side=x10_side,
             lit_side=lit_side,
             basis_target=basis_target,
         )
 
-        # Basis direction check (Quantzilla: don't ignore price spread at entry.)
-        # Default: require favorable basis for the hedge shape (immediate edge if basis closes).
         require_favorable_basis = getattr(config, "REQUIRE_FAVORABLE_BASIS_ENTRY", True)
-        basis_ok = (expected_price_pnl_to_target > 0.0) if require_favorable_basis else True
+        basis_ok = (expected_price_pnl_to_target > 0) if require_favorable_basis else True
 
         roundtrip_fees = _estimate_roundtrip_fees_usd(
             notional_usd=notional,
@@ -676,186 +554,143 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             lit_maker_fee=lit_fee_maker,
             lit_taker_fee=lit_fee_taker,
         )
-        exit_slip_pct = float(getattr(config, "EXIT_SLIPPAGE_BUFFER_PCT", 0.0015))
-        exit_safety = float(getattr(config, "EXIT_COST_SAFETY_MARGIN", 1.1))
+        exit_slip_pct = safe_decimal(getattr(config, "EXIT_SLIPPAGE_BUFFER_PCT", 0.0015))
+        exit_safety = safe_decimal(getattr(config, "EXIT_COST_SAFETY_MARGIN", 1.1))
         exit_slippage_cost = _estimate_exit_costs_usd(
             notional_usd=notional,
             exit_slippage_buffer_pct=exit_slip_pct,
             exit_cost_safety=exit_safety,
         )
 
-        # ═══════════════════════════════════════════════════════════════
-        # CRITICAL FIX (2025-12-18): Validate ENTRY EDGE > 0
-        # ═══════════════════════════════════════════════════════════════
-        # Entry edge = immediate PnL if basis closes to 0, minus entry fees
-        # This MUST be positive or we start with a loss!
-        #
-        # Example: AERO-USD from log 161019:
-        # - Opportunity filter claimed Basis=$0.001480, PriceEdge=$0.4400
-        # - But actual fills: Lighter SELL @ $0.502350, X10 BUY @ $0.502750
-        # - Actual basis_entry = $0.502350 - $0.502750 = -$0.0004
-        # - We paid $0.034 entry fees → Starting with -$0.30 SpreadPnL!
-        #
-        # Now with penny jumping fix, we use realistic entry prices.
-        # ═══════════════════════════════════════════════════════════════
-
-        # Entry fees only (X10 taker + Lighter maker)
-        entry_fees_usd = float(
-            safe_decimal(notional) * (safe_decimal(x10_fee_taker) + safe_decimal(lit_fee_maker))
-        )
-
-        # Entry edge must cover entry fees
+        entry_fees_usd = notional * (x10_fee_taker + lit_fee_maker)
         entry_edge_usd = expected_price_pnl_to_target - entry_fees_usd
 
-        if entry_edge_usd < 0:
-            logger.debug(
-                f"🚫 {s}: Negative entry edge! "
-                f"PriceEdge=${expected_price_pnl_to_target:.4f}, "
-                f"EntryFees=${entry_fees_usd:.4f}, "
-                f"NetEdge=${entry_edge_usd:.4f} "
-                f"(Lighter: {lit_side} @ ${entry_px_lit:.6f}, X10: {x10_side} @ ${entry_px_x10:.6f})"
-            )
-            rejected_profit += 1
-            continue
-
-        # Funding income (profit-positive) at horizons
-        hourly_rate = abs(net)
-        funding_24h = safe_float(hourly_rate * 24.0 * notional, 0.0)
-        funding_eval = safe_float(hourly_rate * entry_eval_hours * notional, 0.0)
-
-        expected_profit_24h = float(
-            quantize_usd(
-                safe_decimal(funding_24h + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
-            )
-        )
-        expected_profit_eval = float(
-            quantize_usd(
-                safe_decimal(funding_eval + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
-            )
-        )
-
-        # Breakeven hours: how long funding needs to cover (fees+exit_costs - expected price edge)
-        hourly_income = safe_decimal(abs(hourly_rate)) * safe_decimal(notional)
-        remaining_cost = safe_decimal(roundtrip_fees + exit_slippage_cost) - safe_decimal(expected_price_pnl_to_target)
-        if hourly_income > 0 and remaining_cost > 0:
-            hours_to_breakeven = float(remaining_cost / hourly_income)
-        else:
-            hours_to_breakeven = 0.0
+        # ═══════════════════════════════════════════════════════════════════════
+        # SMART PROFIT FILTER (2025-12-22)
+        # ═══════════════════════════════════════════════════════════════════════
+        # Bei Funding-Arbitrage ist negative Entry-Basis NICHT automatisch schlecht!
+        # Wenn das Funding hoch genug ist, um negative Basis + Fees auszugleichen,
+        # kann der Trade profitabel sein.
+        #
+        # NEU: Berechne wie schnell wir negative Entry-Kosten durch Funding 
+        # zurückverdienen können. Wenn < ENTRY_MAX_RECOVERY_HOURS → Trade OK!
+        # ═══════════════════════════════════════════════════════════════════════
+        entry_max_recovery_hours = safe_decimal(getattr(config, 'ENTRY_MAX_RECOVERY_HOURS', 6.0))
+        hourly_funding_income = abs(net) * notional
         
-        # Rejection logic
+        if entry_edge_usd < 0:
+            # Negative basis - check if funding can compensate
+            if hourly_funding_income > 0:
+                hours_to_recover_entry = abs(entry_edge_usd) / hourly_funding_income
+                if hours_to_recover_entry > entry_max_recovery_hours:
+                    # Too slow to recover - reject
+                    logger.debug(
+                        f"🚫 {s}: Negative entry edge ${float(entry_edge_usd):.2f}, "
+                        f"recovery {float(hours_to_recover_entry):.1f}h > max {float(entry_max_recovery_hours)}h"
+                    )
+                    rejected_profit += 1
+                    continue
+                else:
+                    # Funding can compensate - allow trade!
+                    logger.debug(
+                        f"✅ {s}: Negative entry ${float(entry_edge_usd):.2f} recoverable in "
+                        f"{float(hours_to_recover_entry):.1f}h via funding"
+                    )
+            else:
+                rejected_profit += 1
+                continue
+
+        hourly_rate = abs(net)
+        funding_24h = hourly_rate * Decimal('24') * notional
+        funding_eval = hourly_rate * entry_eval_hours * notional
+
+        expected_profit_24h = quantize_usd(funding_24h + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
+        expected_profit_eval = quantize_usd(funding_eval + expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost)
+
+        hourly_income = hourly_rate * notional
+        remaining_cost = (roundtrip_fees + exit_slippage_cost) - expected_price_pnl_to_target
+        if hourly_income > 0 and remaining_cost > 0:
+            hours_to_breakeven = remaining_cost / hourly_income
+        else:
+            hours_to_breakeven = Decimal('0')
+        
         if not farm_mode:
             if hours_to_breakeven > max_breakeven_limit:
-                # logger.debug(f"🚫 {s}: Breakeven {hours_to_breakeven:.1f}h > Limit {max_breakeven_limit}h")
                 rejected_breakeven += 1
                 continue
-                
             if (not basis_ok) or (expected_profit_eval < min_profit_usd):
-                # Reject if entry basis is unfavorable or short-horizon EV doesn't clear minimum.
                 rejected_profit += 1
                 continue
         else:
-            # Farm mode: just require breakeven within farm hold time
             if hours_to_breakeven > max_breakeven_limit:
                 rejected_breakeven += 1
                 continue
         
-        # ═══════════════════════════════════════════════════════════════
-        # NEU: LIQUIDITY CHECK - Genug Orderbook-Tiefe für Entry?
-        # Verhindert Trades in illiquiden Markets
-        # ═══════════════════════════════════════════════════════════════
-        min_depth = getattr(config, 'MIN_ORDERBOOK_DEPTH_USD', 100.0)
-        try:
-            # Check Lighter Liquidity (nur wenn Adapter verfügbar)
-            if hasattr(lighter, 'check_liquidity'):
-                lighter_liquid = await lighter.check_liquidity(
-                    s, 'BUY' if rl > rx else 'SELL', 
-                    notional, max_slippage_pct=0.01, is_maker=True
-                )
-                if not lighter_liquid:
-                    logger.debug(f"🚫 {s}: Lighter Orderbook zu dünn für ${notional:.0f}")
-                    continue
-        except Exception as e:
-            logger.debug(f"Liquidity check skipped for {s}: {e}")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # H7: PRICE IMPACT SIMULATION - Echte Slippage über Orderbook-Levels
-        # Berechnet tatsächliche Ausführungskosten statt geschätztem Spread
-        # ═══════════════════════════════════════════════════════════════
-        estimated_slippage_pct = spread * 100  # Default: use spread as estimate
-        price_impact_result = None
-        
-        max_slippage_pct = getattr(config, 'MAX_PRICE_IMPACT_PCT', 0.5)  # Default 0.5%
+        # Price impact simulation
+        estimated_slippage_pct = float(spread * 100)
+        max_slippage_pct = getattr(config, 'MAX_PRICE_IMPACT_PCT', 0.5)
         
         try:
-            # Get orderbook for price impact simulation
             if hasattr(lighter, 'fetch_orderbook'):
                 book = await lighter.fetch_orderbook(s, limit=20)
                 if book and 'bids' in book and 'asks' in book:
-                    leg1_side = 'SELL' if rl > rx else 'BUY'
-                    
                     price_impact_result = simulate_price_impact(
                         side=leg1_side,
-                        order_size_usd=notional,
+                        order_size_usd=float(notional),
                         bids=book['bids'],
                         asks=book['asks'],
-                        mid_price=(pl_float + px_float) / 2 if pl_float and px_float else None,
+                        mid_price=float((pl + px) / 2),
                     )
                     
                     if price_impact_result.can_fill:
                         estimated_slippage_pct = float(price_impact_result.slippage_percent)
-                        
-                        # Filter by max allowed slippage
                         if estimated_slippage_pct > max_slippage_pct:
-                            logger.debug(
-                                f"🚫 {s}: Price impact too high ({estimated_slippage_pct:.3f}% > {max_slippage_pct}%)"
-                            )
                             continue
-                        
-                        logger.debug(
-                            f"📊 {s}: Price impact simulation: "
-                            f"slippage={estimated_slippage_pct:.4f}%, "
-                            f"levels={price_impact_result.levels_consumed}, "
-                            f"avg_price=${float(price_impact_result.avg_execution_price):.6f}"
-                        )
                     else:
-                        logger.debug(f"🚫 {s}: Cannot fill ${notional:.0f} in orderbook")
                         continue
-                        
-        except Exception as e:
-            logger.debug(f"Price impact simulation skipped for {s}: {e}")
+        except Exception:
+            pass
         
         # ✅ Trade is profitable!
+        # Calculate Pure Funding APY and Total APY
+        # Note: We do NOT annualize one-time spread/fees by 365, as this leads to 1000%+ APYs.
+        # Instead, we show Funding APY + One-time ROI.
+        funding_apy_decimal = abs(net) * Decimal('24') * Decimal('365')
+        one_time_roi = (expected_price_pnl_to_target - roundtrip_fees - exit_slippage_cost) / notional
+        total_apy = funding_apy_decimal + one_time_roi
+        
         logger.info(
-            f"✅ {s}: Expected profit ${expected_profit_24h:.4f} in 24.0h "
-            f"(breakeven: {hours_to_breakeven:.2f}h, APY: {apy*100:.1f}%) | "
-            f"Eval{entry_eval_hours:.2f}h=${expected_profit_eval:.4f}, "
-            f"Basis=${basis_entry:.6f}, PriceEdge=${expected_price_pnl_to_target:.4f}, "
-            f"EntryEdge=${entry_edge_usd:.4f} (after entry fees), Fees=${roundtrip_fees:.4f}"
+            f"✅ {s}: [Rate Check] Lighter={float(rl)*100:.6f}%/h, X10={float(rx)*100:.6f}%/h | "
+            f"Funding APY: {float(funding_apy_decimal)*100:.1f}%, "
+            f"Spread/Fees: {float(one_time_roi)*100:.2f}%, "
+            f"Total APY: {float(total_apy)*100:.1f}% "
+            f"(Exp. Profit: ${float(expected_profit_24h):.2f} in 24h, BE: {float(hours_to_breakeven):.2f}h)"
         )
 
         opps.append({
             'symbol': s,
-            'apy': apy * 100,
-            'net_funding_hourly': net,
-            'leg1_exchange': 'Lighter' if rl > rx else 'X10',
-            'leg1_side': 'SELL' if rl > rx else 'BUY',
+            'apy': float(total_apy * 100), # Use Total APY for sorting
+            'funding_apy': float(funding_apy_decimal * 100),
+            'one_time_roi': float(one_time_roi * 100),
+            'net_funding_hourly': float(net),
+            'leg1_exchange': leg1_exchange,
+            'leg1_side': leg1_side,
             'is_farm_trade': is_farm_mode,
-            'spread_pct': spread,
-            'price_x10': px_float,
-            'price_lighter': pl_float,
+            'spread_pct': float(spread),
+            'price_x10': float(px),
+            'price_lighter': float(pl),
             'is_latency_arb': False,
-            'expected_profit': expected_profit_24h,
-            'expected_profit_eval': expected_profit_eval,
-            'hours_to_breakeven': hours_to_breakeven,
-            'estimated_slippage_pct': estimated_slippage_pct,  # H7: Real slippage from simulation
-            # Entry basis/edge diagnostics (execution-aligned)
-            'entry_price_x10_est': entry_px_x10 or px_float,
-            'entry_price_lighter_est': entry_px_lit or pl_float,
-            'basis_entry': basis_entry,
-            'price_edge_to_basis_target': expected_price_pnl_to_target,
-            'entry_edge_usd': entry_edge_usd,  # FIX: Net edge after entry fees
-            'roundtrip_fees_est': roundtrip_fees,
-            'exit_slippage_cost_est': exit_slippage_cost,
+            'expected_profit': float(expected_profit_24h),
+            'expected_profit_eval': float(expected_profit_eval),
+            'hours_to_breakeven': float(hours_to_breakeven),
+            'estimated_slippage_pct': estimated_slippage_pct,
+            'entry_price_x10_est': float(entry_px_x10 if entry_px_x10 > 0 else px),
+            'entry_price_lighter_est': float(entry_px_lit if entry_px_lit > 0 else pl),
+            'basis_entry': float(basis_entry),
+            'price_edge_to_basis_target': float(expected_price_pnl_to_target),
+            'entry_edge_usd': float(entry_edge_usd),
+            'roundtrip_fees_est': float(roundtrip_fees),
+            'exit_slippage_cost_est': float(exit_slippage_cost),
         })
 
     # Apply farm flag

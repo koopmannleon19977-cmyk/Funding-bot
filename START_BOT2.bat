@@ -1,17 +1,16 @@
 @echo off
-title Funding Bot V4 - WebSocket Test
+title Funding Bot V5 - Architected Clean Architecture
 chcp 65001 > NUL
 cd /d "%~dp0"
 
 echo ========================================
-echo   FUNDING BOT V4 - WEBSOCKET TEST
+echo   FUNDING BOT V5 - CLEAN ARCHITECTURE
 echo ========================================
 echo. 
 
 REM --- LOGGING KONFIGURATION ---
 for /f "usebackq" %%t in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"`) do set TS=%%t
-set "RUN_ID=%COMPUTERNAME%_%TS%"
-set RUN_ID=%RUN_ID:\"=%
+set "RUN_ID=%TS%"
 
 mkdir logs 2>nul
 
@@ -32,7 +31,7 @@ call .venv\Scripts\activate.bat
 
 echo Testing Python path... & python --version
 echo. 
-if not exist src\main.py (
+if not exist main.py (
     echo ✗ Script NOT found! 
     pause
     exit /b 1
@@ -41,13 +40,19 @@ if not exist src\main.py (
 )
 echo. 
 
-echo Starting bot...  Der Bot schreibt den vollständigen Log direkt in die Datei.
+REM --- CACHE BEREINIGUNG ---
+echo Cleaning Python cache (__pycache__ and .pyc files)...
+powershell -NoProfile -Command "Get-ChildItem -Path . -Include __pycache__,*.pyc -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue"
+echo ✓ Cache cleared
+echo. 
+
+echo Starting bot... Der Bot schreibt den vollständigen Log direkt in die Datei.
 echo Press Ctrl+C to stop
 echo. 
 
 set BOT_LOG_FILE=%FULL_LOG%
 
-python src\main.py
+python main.py
 
 REM --- FEHLER-LOG ERSTELLUNG ---
 echo. 

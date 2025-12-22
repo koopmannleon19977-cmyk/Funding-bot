@@ -70,8 +70,9 @@ CB_DRAWDOWN_WINDOW = 3600           # Zeitraum für Drawdown (Sekunden)
 # APY muss hoch genug sein um Fees + Slippage zu kompensieren!
 # Breakeven bei $150 Trade: ~0.05% Roundtrip = braucht >35% APY
 # ═════════════════════════════════════════════════════════════════════════════
-MIN_APY_FILTER = 0.20       # GESENKT für Testing: 20% APY Minimum (war 35%)
-MIN_APY_FALLBACK = 0.25     # ERHÖHT: 25% Fallback (vorher 15%)
+# TEMP TESTING: Niedriger um mehr Opportunities zu sehen (Achtung: mehr Low-Quality Trades möglich!)
+MIN_APY_FILTER = 0.05       # 5% APY Minimum
+MIN_APY_FALLBACK = 0.08     # 8% Fallback
 MIN_PROFIT_EXIT_USD = 0.10  # REDUZIERT: $0.10 Minimum (bei größeren Trades reicht das)
 MIN_EXPECTED_PROFIT_ENTRY_USD = 0.10  # Entry-EV Gate (2h Default) nach Fees/Basis/Exit-Kosten
 MIN_MAINTENANCE_APY = 0.20  # ERHÖHT: Exit wenn APY < 20% (vorher 10%)
@@ -80,8 +81,10 @@ EXIT_SLIPPAGE_BUFFER_PCT = 0.0015 # 0.15% Buffer for Bid/Ask Spread at Exit (erh
 EXIT_COST_SAFETY_MARGIN = 1.1      # Safety multiplier on estimated exit costs
 
 # Entry-Basis Engine (Quantzilla/DegeniusQ alignment)
-REQUIRE_FAVORABLE_BASIS_ENTRY = True  # Reject negative entry basis for the hedge shape
+REQUIRE_FAVORABLE_BASIS_ENTRY = False  # CHANGED: Allow negative basis if funding compensates
 ENTRY_EVAL_HOURS = 2.0  # Evaluate EV at realistic hold window (default: 2h)
+ENTRY_MAX_RECOVERY_HOURS = 6.0  # NEU: Max Stunden um negative Entry-Kosten durch Funding zurückzuverdienen
+
 
 # Basis Exit Engine (DegeniusQ: "wait for spread to close")
 # COMPLETELY DISABLED: Bei gehedgten Trades macht Basis-Stop-Loss keinen Sinn!
@@ -159,9 +162,9 @@ AUTO_CLOSE_BAD_ENTRIES = False          # Auto-close trades with bad entry sprea
 
 # 3. SICHERHEIT
 # ------------------------------------------------------------------------------
-MAX_SPREAD_FILTER_PERCENT = 0.002  # VERSCHÄRFT: 0.2% (vorher 0.3%) - weniger Slippage!
+MAX_SPREAD_FILTER_PERCENT = 0.002  # Base: 0.2% (dynamic filter kann höher sein bei hohem Funding)
 MAX_PRICE_IMPACT_PCT = 0.5         # H7: Max erlaubte Slippage aus Price Impact Simulation (0.5%)
-MAX_BREAKEVEN_HOURS = 8.0          # REDUZIERT: Trade muss in 8h profitabel sein (vorher 12h)
+MAX_BREAKEVEN_HOURS = 12.0         # ERHÖHT: 12h statt 8h - Smart-Filter prüft bereits Recovery-Zeit
 
 # H9: Spread Protection (Pre-Hedge)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -176,6 +179,16 @@ SPREAD_PROTECTION_NARROW_FACTOR = 0.70              # Abort if spread shrinks to
 # H8: Dynamic Spread Threshold (Volatility-based adjustments)
 # Bei niedriger Vol: 0.75x stricter, bei hoher Vol: 1.5x relaxed (max 1%)
 DYNAMIC_SPREAD_ENABLED = True      # H8: Aktiviert volatilitätsbasierte Spread-Limits
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DYNAMIC SPREAD FILTER (2025-12-22) - Funding-basierte Spread-Toleranz
+# ═══════════════════════════════════════════════════════════════════════════════
+# Formel: max_spread = MAX(base_limit, hourly_funding_rate × recovery_hours)
+# Bei höherer Funding Rate → höhere Spread-Toleranz!
+# Beispiel: 60% APY (0.00685%/h) × 4h = 0.027% max spread
+# ═══════════════════════════════════════════════════════════════════════════════
+SPREAD_RECOVERY_HOURS = 4.0        # Max Stunden um Spread-Kosten durch Funding zurückzuverdienen
+MAX_SPREAD_CAP_PERCENT = 0.02      # Absolutes Max: 2% Spread (Sicherheit vor extremen Fällen)
 
 # B1: WebSocket Order Client (low-latency order submission)
 # Orders werden über WS statt REST gesendet (~50-100ms schneller)

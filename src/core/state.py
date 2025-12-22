@@ -14,24 +14,40 @@ import logging
 import time
 import aiosqlite
 from datetime import datetime
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Tuple
+from decimal import Decimal
 import csv
 import os
 
 import config
-from src.state_manager import get_state_manager, TradeState, TradeStatus
+from src.utils import safe_float, safe_decimal, quantize_usd
+from src.core.interfaces import StateManagerInterface, TradeState, TradeStatus
 
 logger = logging.getLogger(__name__)
 
 # ============================================================
 # GLOBALS (shared state)
 # ============================================================
-state_manager = None
+_state_manager: Optional[StateManagerInterface] = None
 POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
 POSITION_CACHE_TTL = 10.0
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
 SYMBOL_LOCKS = {}
+
+
+def set_state_manager(sm: StateManagerInterface):
+    """Set the global state manager instance (Dependency Injection)"""
+    global _state_manager
+    _state_manager = sm
+
+
+async def get_state_manager() -> StateManagerInterface:
+    """Get the global state manager instance."""
+    global _state_manager
+    if _state_manager is None:
+        raise RuntimeError("StateManager not initialized. Call set_state_manager() first.")
+    return _state_manager
 
 
 # ============================================================
@@ -42,26 +58,21 @@ def get_local_state_manager():
     return state_manager
 
 
-async def get_open_trades() -> list:
-    """Get open trades from in-memory state (instant)"""
-    global state_manager
-    if state_manager is None:
-        state_manager = await get_state_manager()
-    sm = state_manager
+async def get_open_trades() -> List[Dict[str, Any]]:
+    """Get open trades from state manager."""
+    sm = await get_state_manager()
     trades = await sm.get_all_open_trades()
-    # Convert to dict format for backwards compatibility
-    return [t.to_dict() for t in trades]
+    return [t.to_dict() if hasattr(t, 'to_dict') else t for t in trades]
 
 
-async def add_trade_to_state(trade_data: dict) -> str:
-    """Add trade to in-memory state (writes to DB in background)"""
+async def add_trade_to_state(trade_data: Dict[str, Any]) -> str:
+    """Add trade to in-memory state using Decimal for financial fields."""
     sm = await get_state_manager()
     
     # ═══════════════════════════════════════════════════════════════
     # FIX: Accept both 'size_usd' and 'notional_usd' field names
-    # Some callers use 'notional_usd', others use 'size_usd'
     # ═══════════════════════════════════════════════════════════════
-    size_usd = trade_data.get('size_usd') or trade_data.get('notional_usd') or 0
+    size_usd = safe_decimal(trade_data.get('size_usd') or trade_data.get('notional_usd') or 0)
     
     status_raw = trade_data.get("status", TradeStatus.OPEN)
     if isinstance(status_raw, str):
@@ -74,9 +85,9 @@ async def add_trade_to_state(trade_data: dict) -> str:
         symbol=trade_data['symbol'],
         side_x10=trade_data.get('side_x10', 'BUY'),
         side_lighter=trade_data.get('side_lighter', 'SELL'),
-        size_usd=size_usd,
-        entry_price_x10=trade_data.get('entry_price_x10', 0),
-        entry_price_lighter=trade_data.get('entry_price_lighter', 0),
+        size_usd=float(size_usd),
+        entry_price_x10=float(safe_decimal(trade_data.get('entry_price_x10', 0))),
+        entry_price_lighter=float(safe_decimal(trade_data.get('entry_price_lighter', 0))),
         status=status_raw,
         is_farm_trade=trade_data.get('is_farm_trade', False),
         account_label=trade_data.get('account_label', 'Main'),
@@ -86,14 +97,14 @@ async def add_trade_to_state(trade_data: dict) -> str:
     return await sm.add_trade(trade)
 
 
-async def close_trade_in_state(symbol: str, pnl: float = 0, funding: float = 0):
-    """Close trade in state (writes to DB in background)"""
+async def close_trade_in_state(symbol: str, pnl: Decimal = Decimal('0'), funding: Decimal = Decimal('0')):
+    """Close trade in state using Decimal."""
     sm = await get_state_manager()
     
-    logger.info(f"📝 close_trade_in_state({symbol}): PnL=${pnl:.4f}, Funding=${funding:.4f}")
+    logger.info(f"📝 close_trade_in_state({symbol}): PnL=${float(pnl):.4f}, Funding=${float(funding):.4f}")
     
     await sm.close_trade(symbol, pnl, funding)
-    logger.info(f"✅ Trade {symbol} closed in state (PnL: ${pnl:.4f}, Funding: ${funding:.4f})")
+    logger.info(f"✅ Trade {symbol} closed in state")
 
 
 async def archive_trade_to_history(trade_data: Dict, close_reason: str, pnl_data: Dict):
@@ -285,47 +296,68 @@ def get_symbol_lock(symbol: str) -> asyncio.Lock:
 # ============================================================
 # EXPOSURE CHECK
 # ============================================================
-async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: float = 0) -> tuple:
+def _safe_to_decimal(value) -> Decimal:
+    """Safely convert any value to Decimal without relying on external imports."""
+    if value is None:
+        return Decimal('0')
+    if isinstance(value, Decimal):
+        return value
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return Decimal('0')
+
+
+async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size = None) -> Tuple[bool, float, float]:
     """
-    Check if total exposure would exceed MAX_TOTAL_EXPOSURE_PCT.
+    Check if total exposure would exceed MAX_TOTAL_EXPOSURE_PCT using Decimal.
     
     Args:
         x10_adapter: X10 adapter for balance check
         lighter_adapter: Lighter adapter for balance check  
-        new_trade_size: Size of new trade to add (USD)
+        new_trade_size: Size of new trade to add (USD) - can be Decimal, float, or int
     
     Returns:
         (can_trade, current_leverage, max_leverage)
     """
     try:
+        # Convert new_trade_size to Decimal safely
+        new_trade_size_dec = _safe_to_decimal(new_trade_size)
+        
         # Get current open trades
         open_trades = await get_open_trades()
-        current_exposure = sum(t.get('size_usd', 0) for t in open_trades)
+        
+        # Calculate current exposure using safe conversion
+        current_exposure = Decimal('0')
+        for t in open_trades:
+            size_val = t.get('size_usd') or t.get('notional_usd') or 0
+            current_exposure += _safe_to_decimal(size_val)
         
         # Total capital = X10 + Lighter (user goal is portfolio-level ROI).
-        x10_balance = await x10_adapter.get_real_available_balance()
-        lighter_balance = await lighter_adapter.get_real_available_balance()
-
-        x10_balance = float(x10_balance or 0.0)
-        lighter_balance = float(lighter_balance or 0.0)
+        x10_balance = await x10_adapter.get_available_balance()
+        lighter_balance = await lighter_adapter.get_available_balance()
+        
+        # Safely convert balances
+        x10_balance = _safe_to_decimal(x10_balance)
+        lighter_balance = _safe_to_decimal(lighter_balance)
 
         total_balance = x10_balance + lighter_balance
         if total_balance <= 0:
-            total_balance = 100.0
+            total_balance = Decimal('100.0')
         
         # Calculate exposure with new trade
-        new_total_exposure = current_exposure + new_trade_size
+        new_total_exposure = current_exposure + new_trade_size_dec
         
         # CALCULATE LEVERAGE
-        current_leverage = new_total_exposure / total_balance if total_balance > 0 else 999.0
-        max_leverage = getattr(config, 'LEVERAGE_MULTIPLIER', 5.0)
+        current_leverage = float(new_total_exposure / total_balance)
+        max_leverage = float(getattr(config, 'LEVERAGE_MULTIPLIER', 5.0))
         
         can_trade = current_leverage <= max_leverage
         
         if not can_trade:
             logger.warning(
                 f"⚠️ EXPOSURE LIMIT: Leverage {current_leverage:.2f}x > Max {max_leverage:.1f}x "
-                f"(Exp: ${new_total_exposure:.0f}, Bal: ${total_balance:.0f})"
+                f"(Exp: ${float(new_total_exposure):.0f}, Bal: ${float(total_balance):.0f})"
             )
         else:
             logger.debug(f"✅ Exposure Check: {current_leverage:.2f}x <= {max_leverage:.1f}x")
@@ -333,5 +365,5 @@ async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size: flo
         return can_trade, current_leverage, max_leverage
         
     except Exception as e:
-        logger.error(f"Exposure check failed: {e}")
+        logger.error(f"Exposure check failed: {e}", exc_info=True)
         return False, 999.0, 5.0

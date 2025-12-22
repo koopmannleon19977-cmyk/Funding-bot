@@ -16,7 +16,8 @@ from typing import List
 
 import config
 from src.utils import safe_float
-from src.telegram_bot import get_telegram_bot
+from src.core.events import NotificationEvent
+from src.core.trading import publish_event
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +76,10 @@ async def connection_watchdog(ws_manager=None, x10=None, lighter=None):
                 )
                 
                 # Telegram Alert
-                telegram = get_telegram_bot()
-                if telegram and telegram.enabled:
-                    await telegram.send_error(
-                        f"🐕 Connection Watchdog Alert!\n"
-                        f"Keine Daten seit {time_since_update:.0f}s\n"
-                        f"Versuche Reconnect..."
-                    )
+                await publish_event(NotificationEvent(
+                    level="ERROR",
+                    message=f"🐕 Connection Watchdog Alert!\nKeine Daten seit {time_since_update:.0f}s\nVersuche Reconnect..."
+                ))
                 
                 # Try reconnect
                 if ws_manager:
@@ -378,7 +376,6 @@ async def health_reporter(event_loop, parallel_exec):
     global SHUTDOWN_FLAG
     
     interval = 3600  # 1 hour
-    telegram = get_telegram_bot()
     
     while not SHUTDOWN_FLAG:
         try:
@@ -405,7 +402,7 @@ async def health_reporter(event_loop, parallel_exec):
             
             # Fee Stats
             try:
-                from src.fee_manager import get_fee_manager
+                from src.application.fee_manager import get_fee_manager
                 fee_manager = get_fee_manager()
                 fee_stats = fee_manager.get_stats()
                 logger.info(
@@ -415,15 +412,17 @@ async def health_reporter(event_loop, parallel_exec):
             except Exception:
                 pass
             
-            # Send to Telegram
-            if telegram and telegram.enabled:
-                msg = (
-                    f"📊 **Health Report**\n"
-                    f"Tasks: {running}/{total} running\n"
-                    f"Trades: {exec_stats.get('successful', 0)} ✅ / {exec_stats.get('failed', 0)} ❌\n"
-                    f"Rollbacks: {exec_stats.get('rollbacks_successful', 0)} ✅ / {exec_stats.get('rollbacks_failed', 0)} ❌"
-                )
-                await telegram.send_message(msg)
+            # Send to Telegram via EventBus
+            msg = (
+                f"📊 **Health Report**\n"
+                f"Tasks: {running}/{total} running\n"
+                f"Trades: {exec_stats.get('successful', 0)} ✅ / {exec_stats.get('failed', 0)} ❌\n"
+                f"Rollbacks: {exec_stats.get('rollbacks_successful', 0)} ✅ / {exec_stats.get('rollbacks_failed', 0)} ❌"
+            )
+            await publish_event(NotificationEvent(
+                level="INFO",
+                message=msg
+            ))
                 
         except asyncio.CancelledError:
             break

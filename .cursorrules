@@ -1,0 +1,64 @@
+# Rolle
+Du bist ein erfahrener Senior Python Softwarearchitekt, spezialisiert auf High-Frequency Trading (HFT) und Event-Driven Architectures. Dein Fokus liegt auf Latenzminimierung, Typ-Sicherheit (Decimal) und strikter Modularisierung (Clean Architecture).
+
+# Projekt-Kontext & Dateistruktur
+- **Root**: `main.py` (Composition Root), `config.py` (Settings)
+- **Core (Logik - Source of Truth)**: `src/core/`
+  - Enthält: `trading.py`, `opportunities.py`, `events.py`, `interfaces.py`.
+  - Darf **NIEMALS** `src/adapters` oder `src/infrastructure` importieren.
+- **Adapters (Exchanges)**: `src/adapters/`
+  - Implementieren `src/core/interfaces.py`.
+  - Importieren lokale SDKs aus `libs/`.
+- **Infrastructure (I/O)**: `src/infrastructure/` (Telegram, DB, Websockets).
+
+# Externe Dokumentation & Referenzen
+Nutze diese Quellen als Referenz für API-Verhalten, Error-Codes und Limits:
+## Lighter (Orderbook / CLOB)
+- **Basics**: https://apidocs.lighter.xyz/docs/get-started-for-programmers-1
+- **Auth & Keys**: https://apidocs.lighter.xyz/docs/api-keys | https://apidocs.lighter.xyz/docs/account-types
+- **Critical Logic**: 
+  - **Nonce**: https://apidocs.lighter.xyz/docs/nonce-management (Vermeide Sequence Mismatches!)
+  - **Limits**: https://apidocs.lighter.xyz/docs/rate-limits | https://apidocs.lighter.xyz/docs/volume-quota-program
+- **Realtime**: https://apidocs.lighter.xyz/docs/websocket-reference
+- **Errors**: https://apidocs.lighter.xyz/docs/data-structures-constants-and-errors
+
+## X10 (Extended Exchange)
+- **General**: https://api.docs.extended.exchange/#introduction
+- **API**: https://api.docs.extended.exchange/#public-rest-api | https://api.docs.extended.exchange/#private-rest-api
+- **Streams**: https://api.docs.extended.exchange/#public-websocket-streams | https://api.docs.extended.exchange/#private-websocket-streams
+- **Errors**: https://api.docs.extended.exchange/#error-responses
+
+# Architektur-Regeln (UNVERHANDELBAR)
+1. **Zwiebel-Architektur (Clean Architecture)**:
+   - Die Richtung der Abhängigkeiten zeigt immer nach INNEN (`src/core`).
+   - `main.py` ist der **einzige** Ort, an dem Adapter instanziiert und in die Core-Logik injiziert werden (Dependency Injection).
+   - Core kommuniziert mit Infrastructure (Telegram/DB) **ausschliesslich** über `src.core.events.EventBus`.
+
+2. **Decimal Crusade (Präzision)**:
+   - **VERBOTEN**: `float` für Preise, Sizes, PnL, Fees oder Balances.
+   - **PFLICHT**: Nutze `decimal.Decimal`.
+   - **Casting**: Konvertiere Strings/Floats von APIs sofort an der Adapter-Grenze: `Decimal(str(api_value))`.
+
+3. **Event-Driven Design**:
+   - Keine direkten Funktionsaufrufe von `trading.py` an `telegram_bot.py`.
+   - Stattdessen: `event_bus.publish(TradeExecutedEvent(...))`.
+
+# SDK & Implementation Guidelines
+## Lighter (`src/adapters/lighter_adapter.py`)
+- **SDK-Pfad**: `libs/lighter-python-main`
+- **Nonce Management**: Lighter erfordert strikt inkrementierende Nonces. 
+  - Verlasse dich bei High-Frequency nicht auf das Auto-Management des SDKs.
+  - Implementiere/Nutze `_get_next_nonce()` basierend auf der Doku "Nonce Management".
+- **Order IDs**: Nutze den `signer_client` für kryptografische Signaturen.
+
+## X10 (`src/adapters/x10_adapter.py`)
+- **SDK-Pfad**: `x10xchange/python_sdk` (bzw. `libs/python_sdk-starknet`)
+- **Price Data**:
+  - `markPrice`: Für Trigger/Berechnungen (via REST/WS Ticker).
+  - `avgFillPrice`: Der **echte** Ausführungspreis (nur via WS Execution Report verfügbar).
+- **Starknet**: Beachte, dass Assets oft als Felt (Integers) übertragen werden und formatiert werden müssen.
+
+# Coding Standards
+- **Logging**: Nutze `src.utils.json_logger`. Kein `print()`.
+- **Async**: Alle I/O Operationen müssen `async` sein. Vermeide blockierende Calls in der Event-Loop.
+- **Error Handling**: Fange SDK-spezifische Errors in den Adaptern und wirf generische Exceptions aus `src/core` (oder returne `OrderResult(success=False)`), damit der Core unabhängig vom SDK bleibt.

@@ -14,14 +14,14 @@ import logging
 import time
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 import config
 from src.utils import safe_float
-from src.fee_manager import get_fee_manager
-from src.telegram_bot import get_telegram_bot
-from src.volatility_monitor import get_volatility_monitor
-from src.pnl_utils import compute_hedge_pnl, _side_sign
+from src.application.fee_manager import get_fee_manager
+from src.core.events import NotificationEvent, TradeClosed
+from src.core.trading import publish_event
+from src.utils.pnl_utils import compute_hedge_pnl, _side_sign
 
 logger = logging.getLogger(__name__)
 
@@ -306,12 +306,12 @@ async def calculate_realized_close_pnl(trade: Dict, lighter, x10) -> Dict[str, f
     # Fallback prices if we couldn't find fills
     if x10_exit_px <= 0:
         try:
-            x10_exit_px = safe_float(x10.fetch_mark_price(symbol), 0.0)
+            x10_exit_px = safe_float(await x10.fetch_mark_price(symbol), 0.0)
         except Exception:
             x10_exit_px = 0.0
     if lit_exit_px <= 0:
         try:
-            lit_exit_px = safe_float(lighter.fetch_mark_price(symbol), 0.0)
+            lit_exit_px = safe_float(await lighter.fetch_mark_price(symbol), 0.0)
         except Exception:
             lit_exit_px = 0.0
 
@@ -571,7 +571,7 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                     if pos:
                         size = safe_float(pos.get('size', 0))
                         original_side = "BUY" if size > 0 else "SELL"
-                        px = safe_float(x10.fetch_mark_price(sym))
+                        px = safe_float(await x10.fetch_mark_price(sym))
                         if px > 0:
                             notional = abs(size) * px
                             ok, _ = await x10.close_live_position(sym, original_side, notional)
@@ -601,7 +601,7 @@ async def sync_check_and_fix(lighter, x10, parallel_exec=None):
                         if pos:
                             size = safe_float(pos.get('size', 0))
                             original_side = "BUY" if size > 0 else "SELL"
-                            px = safe_float(lighter.fetch_mark_price(sym))
+                            px = safe_float(await lighter.fetch_mark_price(sym))
                             if px > 0:
                                 notional = abs(size) * px
                                 ok, _ = await lighter.close_live_position(sym, original_side, notional)
@@ -647,7 +647,7 @@ async def cleanup_zombie_positions(lighter, x10):
                     if p:
                         position_size = safe_float(p.get('size', 0))
                         original_side = "BUY" if position_size > 0 else "SELL"
-                        size_usd = abs(position_size) * safe_float(x10.fetch_mark_price(sym))
+                        size_usd = abs(position_size) * safe_float(await x10.fetch_mark_price(sym))
                         
                         min_x10 = x10.min_notional_usd(sym) if hasattr(x10, 'min_notional_usd') else 5.0
                         if size_usd < min_x10:
@@ -668,7 +668,7 @@ async def cleanup_zombie_positions(lighter, x10):
                     if p:
                         position_size = safe_float(p.get('size', 0))
                         original_side = "BUY" if position_size > 0 else "SELL"
-                        px = safe_float(lighter.fetch_mark_price(sym))
+                        px = safe_float(await lighter.fetch_mark_price(sym))
                         if px > 0:
                             size_usd = abs(position_size) * px
                             try:
@@ -798,7 +798,7 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
         }
         
         # Get DB trades
-        from src.state_manager import get_state_manager
+        from src.core.state import get_state_manager
         sm = await get_state_manager()
         db_trades = await sm.get_all_open_trades()
         
@@ -829,7 +829,8 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                     try:
                         size = real_x10[symbol]
                         side = "BUY" if size < 0 else "SELL"
-                        await x10.close_live_position(symbol, side, abs(size) * x10.fetch_mark_price(symbol))
+                        mark_px = await x10.fetch_mark_price(symbol)
+                        await x10.close_live_position(symbol, side, abs(size) * mark_px)
                     except Exception as e:
                         logger.error(f"Failed to close X10 part of zombie {symbol}: {e}")
 
@@ -837,7 +838,9 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                     try:
                         size = real_lighter[symbol]
                         side = "BUY" if size < 0 else "SELL"
-                        await lighter.close_live_position(symbol, side, abs(size) * (lighter.get_price(symbol) or 0))
+                        # Use await for consistency
+                        mark_px = await lighter.fetch_mark_price(symbol)
+                        await lighter.close_live_position(symbol, side, abs(size) * mark_px)
                     except Exception as e:
                         logger.error(f"Failed to close Lighter part of zombie {symbol}: {e}")
                 
@@ -888,7 +891,7 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                                 logger.debug(f"👻 Skipping orphan close for {symbol}: Ghost Guardian synthetic position")
                                 lighter_position = None
                         if lighter_position:
-                            px = safe_float(lighter.fetch_mark_price(symbol))
+                            px = safe_float(await lighter.fetch_mark_price(symbol))
                             if px > 0:
                                 notional = abs(l_size) * px
                                 original_side = "BUY" if l_size < 0 else "SELL"
@@ -911,7 +914,7 @@ async def reconcile_state_with_exchange(lighter, x10, parallel_exec):
                         logger.warning(f"🚨 Closing orphan X10 position {symbol} (size={x_size})...")
                         x10_position = next((p for p in (x10_pos or []) if p.get('symbol') == symbol), None)
                         if x10_position:
-                            px = safe_float(x10.fetch_mark_price(symbol))
+                            px = safe_float(await x10.fetch_mark_price(symbol))
                             if px > 0:
                                 notional = abs(x_size) * px
                                 original_side = "BUY" if x_size < 0 else "SELL"
@@ -1025,14 +1028,14 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             if hasattr(x10, 'get_orderbook_mid_price'):
                 raw_px = await x10.get_orderbook_mid_price(sym)
             if raw_px is None or raw_px <= 0:
-                raw_px = x10.fetch_mark_price(sym)
+                raw_px = await x10.fetch_mark_price(sym)
             
             # Lighter Price
             raw_pl = None
             if hasattr(lighter, 'get_orderbook_mid_price'):
                 raw_pl = await lighter.get_orderbook_mid_price(sym)
             if raw_pl is None or raw_pl <= 0:
-                raw_pl = lighter.fetch_mark_price(sym)
+                raw_pl = await lighter.fetch_mark_price(sym)
                 
             px = safe_float(raw_px) if raw_px is not None else None
             pl = safe_float(raw_pl) if raw_pl is not None else None
@@ -1053,7 +1056,7 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                             px_source_ws = False  # Mark as REST source
                         elif hasattr(x10, 'load_market_cache'):
                             await x10.load_market_cache(force=True)
-                            px = safe_float(x10.fetch_mark_price(sym))
+                            px = safe_float(await x10.fetch_mark_price(sym))
                             px_source_ws = False
                     
                     if pl is None or pl <= 0:
@@ -1062,7 +1065,7 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                             pl_source_ws = False  # Mark as REST source
                         elif hasattr(lighter, 'load_funding_rates_and_prices'):
                             await lighter.load_funding_rates_and_prices()
-                            pl = safe_float(lighter.fetch_mark_price(sym))
+                            pl = safe_float(await lighter.fetch_mark_price(sym))
                             pl_source_ws = False
                     
                     if px is not None and pl is not None and px > 0 and pl > 0:
@@ -1075,8 +1078,8 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     logger.debug(f"{sym}: No prices available, skipping")
                     continue
 
-            rx = x10.fetch_funding_rate(sym) or 0.0
-            rl = lighter.fetch_funding_rate(sym) or 0.0
+            rx = await x10.fetch_funding_rate(sym) or 0.0
+            rl = await lighter.fetch_funding_rate(sym) or 0.0
 
             # ═══════════════════════════════════════════════════════════════
             # Strategy PnL ESTIMATE (for exit decisions only)
@@ -1281,25 +1284,9 @@ async def manage_open_trades(lighter, x10, state_manager=None):
             # current_net is hourly rate. APY = rate * 24 * 365
             current_apy = current_net * 24 * 365
             
-            # ═══════════════════════════════════════════════════════════════
-            # NEW (2025-12-17 Audit): Volatility Panic Check
-            # ═══════════════════════════════════════════════════════════════
+            # Initialize exit tracking
             reason = None
             force_close = False
-            try:
-                vol_monitor = get_volatility_monitor()
-                # Update with current price
-                vol_monitor.update_price(sym, px)
-                
-                if vol_monitor.should_close_due_to_volatility(sym):
-                    logger.warning(
-                        f"🚨 PANIC CLOSE {sym}: Extreme Volatility! "
-                        f"Regime: {vol_monitor.current_regimes.get(sym, 'UNKNOWN')}"
-                    )
-                    reason = "VOLATILITY_PANIC"
-                    force_close = True
-            except Exception as vol_err:
-                logger.debug(f"Volatility check error for {sym}: {vol_err}")
 
             # ═══════════════════════════════════════════════════════════════
             # BASIS EXIT ENGINE (DegeniusQ): Wait for basis to close
@@ -1584,7 +1571,7 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                             if current_net < 0:
                                 # Lazy load state manager
                                 if state_manager is None:
-                                    from src.state_manager import get_state_manager
+                                    from src.core.state import get_state_manager
                                     state_manager = await get_state_manager()
                                 
                                 flip_key = f"funding_flip_start_{sym}"
@@ -1634,7 +1621,7 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                                          
                                 # Also ensure state_manager is loaded for next iteration if not already
                                 if state_manager is None:
-                                    from src.state_manager import get_state_manager
+                                    from src.core.state import get_state_manager
                                     state_manager = await get_state_manager()
                                     # Check again with loaded manager
                                     flip_key = f"funding_flip_start_{sym}"
@@ -1692,10 +1679,11 @@ async def manage_open_trades(lighter, x10, state_manager=None):
                     # FIX: Track recently closed trades to avoid orphan false positives
                     RECENTLY_CLOSED_TRADES[sym] = time.time()
 
-                    # Telegram notification
-                    telegram = get_telegram_bot()
-                    if telegram.enabled:
-                        await telegram.send_trade_alert(sym, reason, notional, realized_total)
+                    # Telegram notification via EventBus
+                    await publish_event(TradeClosed(
+                        symbol=sym,
+                        pnl_usd=float(realized_total)
+                    ))
 
         except Exception as e:
             logger.error(f"Trade Loop Error for {t.get('symbol', 'UNKNOWN')}: {e}")

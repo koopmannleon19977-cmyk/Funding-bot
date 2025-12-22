@@ -67,13 +67,23 @@ from .monitoring import (
 from .startup import (
     run_bot_v5,
     FundingBot,
-    main_entry,
     setup_database,
     migrate_database,
     close_all_open_positions_on_start,
 )
 
+from .adaptive_threshold import get_threshold_manager
+from .circuit_breaker import CircuitBreaker
+from .latency_arb import LatencyArbDetector, get_detector, is_latency_arb_enabled
+from .open_interest_tracker import OpenInterestTracker, get_oi_tracker, init_oi_tracker
+from .event_loop import BotEventLoop, TaskPriority, get_event_loop
+from .interfaces import ExchangeAdapter, Position, OrderResult
+
 __all__ = [
+    # Interfaces
+    'ExchangeAdapter',
+    'Position',
+    'OrderResult',
     # State
     'get_open_trades',
     'add_trade_to_state',
@@ -119,10 +129,21 @@ __all__ = [
     # Startup
     'run_bot_v5',
     'FundingBot',
-    'main_entry',
     'setup_database',
     'migrate_database',
     'close_all_open_positions_on_start',
+    # New Core Modules
+    'get_threshold_manager',
+    'CircuitBreaker',
+    'LatencyArbDetector',
+    'get_detector',
+    'is_latency_arb_enabled',
+    'OpenInterestTracker',
+    'get_oi_tracker',
+    'init_oi_tracker',
+    'BotEventLoop',
+    'TaskPriority',
+    'get_event_loop',
 ]
 
 

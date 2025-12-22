@@ -2,17 +2,22 @@
 import logging
 import config
 import random
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
+from decimal import Decimal
 import aiohttp
+from src.core.interfaces import ExchangeAdapter, Position, OrderResult
+from src.utils import safe_decimal
 
 logger = logging.getLogger(__name__)
 
-class BaseAdapter:
+class BaseAdapter(ExchangeAdapter):
+    @property
+    def name(self) -> str:
+        return self._name
+
     def __init__(self, name: str):
-        # Do not overwrite if a subclass already provided a `name` attribute
-        if not hasattr(self, "name") or self.name is None:
-            self.name = name
-        logger.info(f"Initialisiere {self.name} Adapter...")
+        self._name = name
+        logger.info(f"Initialisiere {self._name} Adapter...")
         # Wird von den konkreten Adaptern überschrieben
         self.rate_limiter = None
         self._session: Optional[aiohttp.ClientSession] = None
@@ -61,14 +66,14 @@ class BaseAdapter:
             return
         raise NotImplementedError(f"{self.name}.load_funding_rates_and_prices() muss implementiert werden.")
 
-    def fetch_funding_rate(self, symbol: str) -> Optional[float]:
+    async def fetch_funding_rate(self, symbol: str) -> Decimal:
         if not getattr(config, "LIVE_TRADING", False):
-            return random.uniform(0.0005, 0.002)
+            return safe_decimal(random.uniform(0.0005, 0.002))
         raise NotImplementedError(f"{self.name}.fetch_funding_rate() muss implementiert werden.")
 
-    def fetch_mark_price(self, symbol: str) -> Optional[float]:
+    async def fetch_mark_price(self, symbol: str) -> Decimal:
         if not getattr(config, "LIVE_TRADING", False):
-            return random.uniform(50, 100000)
+            return safe_decimal(random.uniform(50, 100000))
         raise NotImplementedError(f"{self.name}.fetch_mark_price() muss implementiert werden.")
     
     def min_notional_usd(self, symbol: str) -> float:
@@ -77,7 +82,7 @@ class BaseAdapter:
         logger.warning(f"{self.name}: min_notional_usd Fallback → return 20.0")
         return 20.0
 
-    async def fetch_open_positions(self) -> Optional[List[dict]]:
+    async def fetch_open_positions(self) -> List[Position]:
         if not getattr(config, "LIVE_TRADING", False):
             logger.info(f"{self.name}: Dry-Run → Keine Positionen.")
             return []
@@ -120,15 +125,29 @@ class BaseAdapter:
         logger.warning(f"{self.name}: close_live_position nicht implementiert.")
         return False, None
 
-    async def get_order_fee(self, order_id: str) -> float:
-        if not getattr(config, "LIVE_TRADING", False):
-            return 0.0005
-        raise NotImplementedError(f"{self.name}.get_order_fee() muss implementiert werden.")
+    async def place_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        reduce_only: bool = False,
+        post_only: bool = False
+    ) -> OrderResult:
+        raise NotImplementedError
 
-    async def get_real_available_balance(self) -> float:
-        if not getattr(config, "LIVE_TRADING", False):
-            return 10000.0
-        raise NotImplementedError(f"{self.name}.get_real_available_balance() muss implementiert werden.")
+    async def cancel_order(self, symbol: str, order_id: str) -> bool:
+        raise NotImplementedError
+
+    async def get_order_status(self, symbol: str, order_id: str) -> Dict[str, Any]:
+        raise NotImplementedError
+
+    async def get_available_balance(self) -> Decimal:
+        return safe_decimal(await self.get_real_available_balance())
+
+    async def fetch_fee_schedule(self) -> Tuple[Decimal, Decimal]:
+        raise NotImplementedError
 
     async def aclose(self):
         """Cleanup all resources"""

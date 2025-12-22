@@ -130,11 +130,11 @@ except ImportError as e:
     HAVE_LIGHTER_SDK = False
     # Logged at runtime when adapter is initialized
 
-from .base_adapter import BaseAdapter
-from src.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
+from .base_adapter import BaseAdapter, Position, OrderResult
+from src.infrastructure.rate_limiter import LIGHTER_RATE_LIMITER, rate_limited, Exchange, with_rate_limit
 from src.adapters.lighter_client_fix import SaferSignerClient
-from src.batch_manager import LighterBatchManager
-from src.ws_order_client import WebSocketOrderClient, WsOrderConfig
+from src.application.batch_manager import LighterBatchManager
+from src.adapters.ws_order_client import WebSocketOrderClient, WsOrderConfig
 from .lighter_stream_client import LighterStreamClient
 
 
@@ -151,7 +151,7 @@ MARKET_OVERRIDES = {
 # GLOBAL TYPE-SAFETY HELPERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from src.utils import safe_float, safe_int, quantize_value
+from src.utils import safe_float, safe_int, quantize_value, safe_decimal
 
 
 def safe_int(val, default=0):
@@ -351,7 +351,7 @@ class LighterAdapter(BaseAdapter):
         Returns:
             WsTransaction if successful, None if all retries failed
         """
-        from src.ws_order_client import TransactionType
+        from src.adapters.ws_order_client import TransactionType
         
         if max_retries is None:
             max_retries = getattr(config, 'WS_ORDER_MAX_RETRIES', 2)
@@ -2245,7 +2245,14 @@ class LighterAdapter(BaseAdapter):
             logger. error(f"Lighter Fee Fetch Error for {order_id}: {e}")
             return 0.0
 
-    async def fetch_fee_schedule(self) -> Optional[Tuple[float, float]]:
+    async def fetch_fee_schedule(self) -> Tuple[Decimal, Decimal]:
+        """New Interface: fetch_fee_schedule returning Tuple[Decimal, Decimal]."""
+        res = await self._fetch_fee_schedule_internal()
+        if res:
+            return safe_decimal(res[0]), safe_decimal(res[1])
+        return safe_decimal(config.MAKER_FEE_LIGHTER), safe_decimal(config.TAKER_FEE_LIGHTER)
+
+    async def _fetch_fee_schedule_internal(self) -> Optional[Tuple[float, float]]:
         """
         Fetch fee schedule from Lighter API
         """
@@ -2896,7 +2903,10 @@ class LighterAdapter(BaseAdapter):
                                 if symbol and rate is not None:
                                     if not symbol.endswith('-USD'):
                                         symbol = f"{symbol}-USD"
-                                    self.funding_cache[symbol] = safe_float(rate, 0.0)
+                                    # Die Rate ist bereits STÜNDLICH (Lighter verwendet 1-hour funding intervals)
+                                    hourly_rate = safe_float(rate, 0.0)
+                                    self.funding_cache[symbol] = hourly_rate
+                                    self._funding_cache[symbol] = hourly_rate
                         
                         logger.debug(f"Lighter: Loaded {len(self.funding_cache)} funding rates")
                         return True
@@ -3666,7 +3676,11 @@ class LighterAdapter(BaseAdapter):
             await self.rate_limiter.acquire()
             fd_response = await funding_api.funding_rates()
 
-            if fd_response and fd_response. funding_rates:
+            if fd_response and fd_response.funding_rates:
+                # Ensure market_info is populated before mapping
+                if not self.market_info:
+                    await self.load_market_cache(force=True)
+                
                 updated = 0
                 for fr in fd_response.funding_rates:
                     market_id = getattr(fr, "market_id", None)
@@ -3675,17 +3689,22 @@ class LighterAdapter(BaseAdapter):
                     if market_id is None or rate is None:
                         continue
 
-                    rate_float = safe_float(rate, 0.0)
+                    raw_rate = safe_float(rate, 0.0)
+                    # REST API gibt 8-Stunden Rate zurück - teile durch 8 für stündliche Rate
+                    hourly_rate = raw_rate / 8.0
 
-                    for symbol, data in self.market_info. items():
+                    for symbol, data in self.market_info.items():
                         if data.get("i") == market_id:
-                            self.funding_cache[symbol] = rate_float
-                            self._funding_cache[symbol] = rate_float
+                            self.funding_cache[symbol] = hourly_rate
+                            self._funding_cache[symbol] = hourly_rate
                             updated += 1
                             break
 
                 self.rate_limiter.on_success()
-                logger.debug(f"Lighter: Loaded {updated} funding rates")
+                if updated > 0:
+                    logger.debug(f"Lighter: Loaded {updated} funding rates from REST API")
+                else:
+                    logger.warning(f"⚠️ Lighter: No funding rates matched market_info")
 
             # 2.  PREISE laden via order_book_details
             await asyncio.sleep(0.5)
@@ -4277,15 +4296,12 @@ class LighterAdapter(BaseAdapter):
             logger.debug(f"min_notional_usd error {symbol}: {e}")
             return HARD_MIN_USD
 
-    def fetch_funding_rate(self, symbol: str) -> Optional[float]:
+    def _fetch_funding_rate_legacy(self, symbol: str) -> Optional[float]:
         """
-        Funding Rate aus Cache (WS > REST) - gibt IMMER stündliche Rate zurück.
+        Legacy funding rate fetch - returns hourly rate as float.
+        (Internal use for transition only)
         
-        Die Funding Rate ist laut Dokumentation bereits stündlich:
-        - Lighter: fundingRate = (premium / 8) + interestRateComponent (stündlich, clamp [-0.5%, +0.5%])
-        - X10: Funding Rate = (Average Premium + ...) / 8 (stündlich)
-        
-        APY = hourly_rate * 24 * 365
+        FIX (2025-12-22): Simplified - rate is already stored as hourly decimal fraction.
         """
         if symbol in self._funding_cache:
             rate = self._funding_cache[symbol]
@@ -4298,41 +4314,25 @@ class LighterAdapter(BaseAdapter):
         try:
             rate_float = float(rate)
         except (ValueError, TypeError):
-            logger.warning(f"Invalid funding rate type for {symbol}: {type(rate)} = {rate}")
             return None
 
-        # Wenn Rate > 20.0, ist es wahrscheinlich eine APY in Prozent
-        # Konvertiere zu stündlicher Rate
-        if abs(rate_float) > 20.0:
-            return rate_float / 100.0 / (24 * 365)
-
-        # WICHTIG: Prüfe, ob die Rate als Prozentwert oder Dezimalzahl zurückgegeben wird
-        # Laut Dokumentation: Funding Rate clamp [-0.5%, +0.5%] stündlich
-        # Die API gibt die Rate möglicherweise als Prozentwert zurück (z.B. 0.57 für 0.57%)
-        # statt als Dezimalzahl (0.0057 für 0.57%)
-        
-        # Prüfe: Wenn |rate| > 0.01 (1%), ist es wahrscheinlich ein Prozentwert
-        # Da Funding Rates normalerweise < 1% sind (max 0.5%), sollten Werte > 0.01 Prozentwerte sein
-        if abs(rate_float) > 0.01:
-            # Rate ist wahrscheinlich als Prozentwert (z.B. 0.57 für 0.57%)
-            # Konvertiere zu Dezimalzahl (0.57 / 100 = 0.0057)
-            converted = rate_float / 100.0
-            logger.debug(f"[Lighter] {symbol}: Converting rate {rate_float}% -> {converted} (decimal)")
-            return converted
-        
-        # Rate ist bereits als Dezimalzahl (z.B. 0.0057 für 0.57%)
-        # Das ist das erwartete Format laut Dokumentation
+        # Rate is already stored as hourly decimal fraction
+        # e.g. 0.0001 = 0.01% per hour
         return rate_float
 
-    def fetch_mark_price(self, symbol: str) -> Optional[float]:
-        """Mark Price aus Cache - always returns float or None."""
+    async def fetch_mark_price(self, symbol: str) -> Decimal:
+        """Mark Price aus Cache - always returns Decimal."""
+        return self.fetch_mark_price_sync(symbol)
+
+    def fetch_mark_price_sync(self, symbol: str) -> Decimal:
+        """Synchronous version of fetch_mark_price."""
         # Check primary cache first
         if symbol in self._price_cache:
             price = self._price_cache[symbol]
             try:
                 price_float = float(str(price)) if price is not None else 0.0
                 if price_float > 0:
-                    return price_float
+                    return safe_decimal(price_float)
             except (ValueError, TypeError):
                 pass
         
@@ -4342,11 +4342,97 @@ class LighterAdapter(BaseAdapter):
             try:
                 price_float = float(str(price)) if price is not None else 0.0
                 if price_float > 0:
-                    return price_float
+                    return safe_decimal(price_float)
             except (ValueError, TypeError):
                 pass
         
-        return None
+        return Decimal(0)
+
+    async def fetch_funding_rate(self, symbol: str) -> Decimal:
+        """Interface implementation of fetch_funding_rate."""
+        # Simple cache lookup
+        return self.fetch_funding_rate_sync(symbol)
+
+    def fetch_funding_rate_sync(self, symbol: str) -> Decimal:
+        """
+        Funding Rate: Gibt IMMER stündliche Rate als DEZIMAL-FRAKTION zurück.
+
+        ═══════════════════════════════════════════════════════════════════════
+        FIX (2025-12-22): Korrigierte Interpretation der Lighter Funding Rate
+        ═══════════════════════════════════════════════════════════════════════
+        
+        Laut loris.tools Doku und Lighter API:
+        - Lighter verwendet 1-HOUR FUNDING INTERVALS (wie Hyperliquid, Extended)
+        - Die API liefert die STÜNDLICHE Rate direkt (NICHT 8-Stunden!)
+        - loris.tools multipliziert Lighter Rates mit 8 um sie mit 8h-Exchanges zu vergleichen
+        
+        Die Rate ist eine DEZIMAL-FRAKTION (nicht Prozent!):
+        - Beispiel: rate=0.00015 = 0.015%/h 
+        - APY = 0.00015 * 24 * 365 = 1.314 = 131.4%
+        
+        Der Cache enthält direkt die stündliche Dezimal-Fraktion.
+        ═══════════════════════════════════════════════════════════════════════
+        """
+        raw_rate = Decimal(0)
+        if symbol in self._funding_cache:
+            raw_rate = safe_decimal(self._funding_cache[symbol])
+        elif symbol in self.funding_cache:
+            raw_rate = safe_decimal(self.funding_cache[symbol])
+
+        if raw_rate == 0:
+            return Decimal(0)
+
+        # Die Rate ist bereits als stündliche Dezimal-Fraktion im Cache gespeichert
+        # z.B. 0.00015 = 0.015% pro Stunde
+        # APY = 0.00015 * 24 * 365 = 1.314 = 131.4%
+        return raw_rate
+
+    async def place_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        reduce_only: bool = False,
+        post_only: bool = False
+    ) -> OrderResult:
+        """Interface implementation of place_order."""
+        # Mapping to existing open_live_position
+        # Note: LighterAdapter.open_live_position uses notional_usd or amount
+        success, order_id = await self.open_live_position(
+            symbol=symbol,
+            side=side,
+            notional_usd=0, # Will use amount instead
+            price=float(price) if price else None,
+            reduce_only=reduce_only,
+            post_only=post_only,
+            amount=float(size)
+        )
+        return OrderResult(
+            success=success,
+            order_id=order_id,
+            error_message=None if success else "Order placement failed"
+        )
+
+    async def cancel_order(self, symbol: str, order_id: str) -> bool:
+        """Interface implementation of cancel_order."""
+        try:
+            signer = await self._get_signer()
+            # Note: order_id could be tx_hash or numeric ID
+            # SaferSignerClient.cancel_order handles both
+            tx, resp, err = await signer.cancel_order(order_id=order_id)
+            return err is None
+        except Exception as e:
+            logger.error(f"❌ [Lighter] cancel_order error: {e}")
+            return False
+
+    async def get_order_status(self, symbol: str, order_id: str) -> Dict[str, Any]:
+        """Interface implementation of get_order_status."""
+        order = await self.get_order(order_id, symbol)
+        if order:
+            return order
+        return {}
 
     def get_price(self, symbol: str) -> Optional[float]:
         """Alias for fetch_mark_price - used by order execution code."""
@@ -4403,6 +4489,37 @@ class LighterAdapter(BaseAdapter):
             logger.debug(f"fetch_fresh_mark_price error for {symbol}: {e}")
             return None
 
+    async def get_available_balance(self) -> Decimal:
+        """Interface implementation of get_available_balance."""
+        balance = await self.get_real_available_balance()
+        return safe_decimal(balance)
+
+    async def fetch_fee_schedule(self) -> Tuple[Decimal, Decimal]:
+        """Interface implementation of fetch_fee_schedule."""
+        # Note: Lighter fee schedule can be dynamic or static
+        # Taker: 0.02% (0.0002), Maker: 0.0% (0.0000)
+        # Using config or defaults
+        maker = safe_decimal(getattr(config, "MAKER_FEE_LIGHTER", 0.0))
+        taker = safe_decimal(getattr(config, "TAKER_FEE_LIGHTER", 0.0002))
+        return maker, taker
+
+    async def aclose(self):
+        """Interface implementation of aclose."""
+        logger.info(f"Stopping {self.name} adapter...")
+        try:
+            # Stop stream client
+            if hasattr(self, 'stop_stream_client'):
+                await self.stop_stream_client()
+            
+            # Close WS order client
+            if hasattr(self, 'ws_order_client') and self.ws_order_client:
+                await self.ws_order_client.close()
+                
+            # Close session via BaseAdapter
+            await super().aclose()
+        except Exception as e:
+            logger.error(f"Error during {self.name} adapter shutdown: {e}")
+
     async def get_real_available_balance(self) -> float:
         if time.time() - self._last_balance_update < 2.0:
             return self._balance_cache
@@ -4452,7 +4569,31 @@ class LighterAdapter(BaseAdapter):
 
         return self._balance_cache
 
-    async def fetch_open_positions(self) -> List[dict]:
+    async def fetch_open_positions(self) -> List[Position]:
+        """Fetch open positions from Lighter and return as Position objects."""
+        raw_positions = await self._fetch_open_positions_internal()
+        return self._to_position_objects(raw_positions)
+
+    def _to_position_objects(self, raw_positions: List[dict]) -> List[Position]:
+        """Convert raw position dicts to Position objects."""
+        positions = []
+        for p in (raw_positions or []):
+            try:
+                positions.append(Position(
+                    symbol=p.get('symbol', ''),
+                    side='LONG' if safe_float(p.get('size', 0)) > 0 else 'SHORT',
+                    size=safe_decimal(p.get('size', 0)),
+                    entry_price=safe_decimal(p.get('avg_entry_price') or p.get('entry_price') or 0),
+                    mark_price=safe_decimal(self.fetch_mark_price_sync(p.get('symbol', ''))),
+                    unrealized_pnl=safe_decimal(p.get('unrealized_pnl', 0)),
+                    leverage=safe_decimal(p.get('leverage', 1)),
+                    exchange=self.name
+                ))
+            except Exception as e:
+                logger.error(f"Error converting Lighter position: {e}")
+        return positions
+
+    async def _fetch_open_positions_internal(self) -> List[dict]:
         if not getattr(config, "LIVE_TRADING", False):
             return []
 
@@ -4905,7 +5046,7 @@ class LighterAdapter(BaseAdapter):
                         
                         if tx_info_json:
                             # Send via WebSocket
-                            from src.ws_order_client import TransactionType
+                            from src.adapters.ws_order_client import TransactionType
                             ws_result = await self.ws_order_client.send_transaction(
                                 tx_type=TransactionType.CREATE_ORDER,  # 14
                                 tx_info=tx_info_json
@@ -6222,7 +6363,7 @@ class LighterAdapter(BaseAdapter):
                     self._ws_order_enabled and 
                     self.ws_order_client):
                     try:
-                        from src.ws_order_client import TransactionType
+                        from src.adapters.ws_order_client import TransactionType
                         
                         # Use sign_cancel_order to get signed tx_info JSON string
                         tx_info_json = signer.sign_cancel_order(
