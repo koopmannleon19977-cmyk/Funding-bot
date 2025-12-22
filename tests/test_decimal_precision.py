@@ -19,7 +19,7 @@ def test_calculate_common_quantity_precision():
     # step 10
     # expected 250
     qty = calculate_common_quantity(256.0, 1.0, 1.0, 10.0)
-    assert qty == 250.0  # Currently returns float
+    assert qty == Decimal("250")
     
     # Precision case: 0.30000000004 vs 0.3
     # If we have 0.300000004 coins and step is 0.1 -> 0.3
@@ -29,18 +29,14 @@ def test_calculate_common_quantity_precision():
     # 100 USD, price 1.0, step 0.0001
     # 100 / 1 = 100
     qty = calculate_common_quantity(100.0, 1.0, 0.0001, 0.0001)
-    assert qty == 100.0
+    assert qty == Decimal("100")
 
 def test_calculate_common_quantity_decimal_inputs():
     """Test what happens if we pass Decimals to the function (future proofing)."""
     qty = calculate_common_quantity(
         Decimal("256.0"), Decimal("1.0"), Decimal("1.0"), Decimal("10.0")
     )
-    # The current implementation might crash or work depending on math.floor logic with Decimal
-    # We want it to work and ideally return a float (for now) or Decimal (if we fully switch)
-    # The plan says "Return float ONLY at the very end if required".
-    # So we expect a number that equals 250
-    assert float(qty) == 250.0
+    assert qty == Decimal("250")
 
 def test_quantize_value_precision():
     """Test quantize_value with Decimal inputs."""

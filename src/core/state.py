@@ -308,17 +308,23 @@ def _safe_to_decimal(value) -> Decimal:
         return Decimal('0')
 
 
-async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size = None) -> Tuple[bool, float, float]:
-    """
-    Check if total exposure would exceed MAX_TOTAL_EXPOSURE_PCT using Decimal.
-    
+async def check_total_exposure(
+    x10_adapter,
+    lighter_adapter,
+    new_trade_size=None
+) -> Tuple[bool, Decimal, Decimal]:
+    """Prüft, ob die Gesamtexposure das erlaubte Maximum überschreitet.
+
+    Alle Berechnungen erfolgen konsequent in ``Decimal``. Bei fehlender Balance
+    wird der Trade blockiert statt auf magische Fallbacks zu setzen.
+
     Args:
-        x10_adapter: X10 adapter for balance check
-        lighter_adapter: Lighter adapter for balance check  
-        new_trade_size: Size of new trade to add (USD) - can be Decimal, float, or int
-    
+        x10_adapter: Adapter für X10-Balance
+        lighter_adapter: Adapter für Lighter-Balance
+        new_trade_size: Notional des neuen Trades (USD) – Decimal bevorzugt
+
     Returns:
-        (can_trade, current_leverage, max_leverage)
+        Tuple[bool, Decimal, Decimal]: (kann_handeln, aktuelle_Leverage, max_Leverage)
     """
     try:
         # Convert new_trade_size to Decimal safely
@@ -336,34 +342,40 @@ async def check_total_exposure(x10_adapter, lighter_adapter, new_trade_size = No
         # Total capital = X10 + Lighter (user goal is portfolio-level ROI).
         x10_balance = await x10_adapter.get_available_balance()
         lighter_balance = await lighter_adapter.get_available_balance()
-        
+
         # Safely convert balances
         x10_balance = _safe_to_decimal(x10_balance)
         lighter_balance = _safe_to_decimal(lighter_balance)
 
         total_balance = x10_balance + lighter_balance
         if total_balance <= 0:
-            total_balance = Decimal('100.0')
-        
+            logger.error("No available balance on either exchange; blocking new trades")
+            max_leverage_cfg = _safe_to_decimal(getattr(config, 'LEVERAGE_MULTIPLIER', 5))
+            return False, Decimal('0'), max_leverage_cfg if max_leverage_cfg > 0 else Decimal('0')
+
         # Calculate exposure with new trade
         new_total_exposure = current_exposure + new_trade_size_dec
-        
+
         # CALCULATE LEVERAGE
-        current_leverage = float(new_total_exposure / total_balance)
-        max_leverage = float(getattr(config, 'LEVERAGE_MULTIPLIER', 5.0))
-        
+        leverage_ratio = new_total_exposure / total_balance
+        current_leverage = leverage_ratio.quantize(Decimal('0.0001'))
+        max_leverage = _safe_to_decimal(getattr(config, 'LEVERAGE_MULTIPLIER', 5))
+        if max_leverage <= 0:
+            max_leverage = Decimal('1')
+
         can_trade = current_leverage <= max_leverage
-        
+
         if not can_trade:
             logger.warning(
-                f"⚠️ EXPOSURE LIMIT: Leverage {current_leverage:.2f}x > Max {max_leverage:.1f}x "
-                f"(Exp: ${float(new_total_exposure):.0f}, Bal: ${float(total_balance):.0f})"
+                "⚠️ EXPOSURE LIMIT: Leverage "
+                f"{current_leverage}x > Max {max_leverage}x "
+                f"(Exp: ${new_total_exposure}, Bal: ${total_balance})"
             )
         else:
-            logger.debug(f"✅ Exposure Check: {current_leverage:.2f}x <= {max_leverage:.1f}x")
+            logger.debug(f"✅ Exposure Check: {current_leverage}x <= {max_leverage}x")
 
         return can_trade, current_leverage, max_leverage
-        
+
     except Exception as e:
         logger.error(f"Exposure check failed: {e}", exc_info=True)
-        return False, 999.0, 5.0
+        return False, Decimal('999'), _safe_to_decimal(getattr(config, 'LEVERAGE_MULTIPLIER', 5))

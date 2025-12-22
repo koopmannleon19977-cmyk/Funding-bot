@@ -277,9 +277,11 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
 
         # Exposure check
         trade_size = safe_decimal(opp.get('size_usd') or getattr(config, 'DESIRED_NOTIONAL_USD', 500))
-        can_trade, exposure_pct, max_pct = await check_total_exposure(x10, lighter, float(trade_size))
+        can_trade, exposure_pct, max_pct = await check_total_exposure(x10, lighter, trade_size)
         if not can_trade:
-            logger.info(f"⛔ {symbol}: Exposure limit ({exposure_pct:.1%} > {max_pct:.0%})")
+            exposure_print = (exposure_pct * Decimal('100')).quantize(Decimal('0.1')) if isinstance(exposure_pct, Decimal) else exposure_pct
+            max_print = (max_pct * Decimal('100')).quantize(Decimal('0.1')) if isinstance(max_pct, Decimal) else max_pct
+            logger.info(f"⛔ {symbol}: Exposure limit ({exposure_print}% > {max_print}%)")
             return False
 
         # Sizing
@@ -300,25 +302,31 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             available_capital = min(bal_x10_real, bal_lit_real)
             desired_size = safe_decimal(getattr(config, 'DESIRED_NOTIONAL_USD', 80.0))
             final_usd = max(desired_size, min_req)
-            
+
             leverage = safe_decimal(getattr(config, 'LEVERAGE_MULTIPLIER', 1.0))
             required_margin_check = (final_usd / leverage) * Decimal('1.05')
-            
+
             if required_margin_check > available_capital:
-                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${float(required_margin_check):.2f} margin, have ${float(available_capital):.2f})")
+                need_str = required_margin_check.quantize(Decimal('0.01'))
+                have_str = available_capital.quantize(Decimal('0.01'))
+                logger.warning(f"🛑 {symbol}: Insufficient capital (need ${need_str} margin, have ${have_str})")
                 return False
-            
+
             if final_usd > safe_decimal(config.MAX_TRADE_SIZE_USD):
                 final_usd = safe_decimal(config.MAX_TRADE_SIZE_USD)
-            
-            logger.info(f"📏 SIZE {symbol}: ${float(final_usd):.2f} (Lev {leverage}x, Margin ${float(required_margin_check):.2f})")
+
+            logger.info(
+                f"📏 SIZE {symbol}: ${final_usd.quantize(Decimal('0.01'))} "
+                f"(Lev {leverage}x, Margin ${required_margin_check.quantize(Decimal('0.01'))})"
+            )
 
             # Liquidity check
             l_ex = opp.get('leg1_exchange', 'X10')
             l_side = opp.get('leg1_side', 'BUY')
             lit_side_check = l_side if l_ex == 'Lighter' else ("SELL" if l_side == "BUY" else "BUY")
-            
-            if not await lighter.check_liquidity(symbol, lit_side_check, float(final_usd), is_maker=True):
+
+            liquidity_usd = float(final_usd)
+            if not await lighter.check_liquidity(symbol, lit_side_check, liquidity_usd, is_maker=True):
                 logger.warning(f"🛑 {symbol}: Insufficient Lighter liquidity")
                 return False
 
@@ -342,7 +350,7 @@ async def execute_trade_parallel(opp: Dict, lighter, x10, parallel_exec) -> bool
             x10_side = leg1_side if leg1_ex == 'X10' else ("SELL" if leg1_side == "BUY" else "BUY")
             lit_side = leg1_side if leg1_ex == 'Lighter' else ("SELL" if leg1_side == "BUY" else "BUY")
 
-            logger.info(f"🚀 Opening {symbol}: Size=${float(final_usd):.1f}")
+            logger.info(f"🚀 Opening {symbol}: Size=${final_usd.quantize(Decimal('0.1'))}")
             
             async with RECENTLY_OPENED_LOCK:
                 RECENTLY_OPENED_TRADES[symbol] = time.time()
