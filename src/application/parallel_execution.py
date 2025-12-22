@@ -45,36 +45,31 @@ def _scalar_float(value: Any) -> Optional[float]:
     except Exception:
         return None
 
-def calculate_common_quantity(amount_usd, price, x10_step, lighter_step):
+def calculate_common_quantity(amount_usd, price, x10_step, lighter_step) -> Decimal:
     """
-    Berechnet die exakte Anzahl Coins, die auf BEIDEN Börsen handelbar ist.
-    FIX: Nutzt Decimal für Präzision, um Float-Fehler (0.1+0.2!=0.3) zu vermeiden.
+    Berechnet die gemeinsame Coin-Menge für beide Börsen ohne Float-Downcasts.
+
+    Alle Berechnungen und der Rückgabewert bleiben Decimal; ein Float-Cast darf
+    nur unmittelbar vor dem API-Call erfolgen.
     """
-    # 1. Inputs sicher zu Decimal konvertieren
     d_amount = safe_decimal(amount_usd)
     d_price = safe_decimal(price)
     d_x10_step = safe_decimal(x10_step)
     d_lighter_step = safe_decimal(lighter_step)
-    
-    if d_price <= 0: return 0.0
-    
-    # 2. Berechne theoretische Anzahl Coins
+
+    if d_price <= 0:
+        return Decimal('0')
+
     raw_coins = d_amount / d_price
-    
-    # 3. Finde den größeren Schritt (Step Size)
     max_step = max(d_x10_step, d_lighter_step)
-    
-    if max_step <= 0: return float(raw_coins)
-    
-    # 4. Runde AB auf das nächste Vielfache
-    # Decimal Quantize Verhalten bei 'ROUND_FLOOR' ist nicht exakt modulo-basiert für steps != 10^-N
-    # Besser: (raw // step) * step
-    
-    steps = raw_coins // max_step # Ganzzahlige Anzahl Schritte
+
+    if max_step <= 0:
+        return raw_coins
+
+    steps = raw_coins // max_step
     coins = steps * max_step
-    
-    # Return as float for API compatibility
-    return float(coins)
+
+    return coins
 
 
 class ExecutionState(Enum):
@@ -649,66 +644,69 @@ class ParallelExecutionManager:
             # ═══════════════════════════════════════════════════════════════
             # SIZE ALIGNMENT (Common Denominator)
             # ═══════════════════════════════════════════════════════════════
-            safe_coins = 0.0
+            safe_coins = Decimal('0')
             try:
                 # 1. Get Reference Price (Lighter Maker)
-                maker_price_val = float(price_lighter) if price_lighter else None
+                maker_price_val = safe_decimal(price_lighter) if price_lighter else None
                 if not maker_price_val or maker_price_val <= 0:
-                    maker_price_val = self.lighter.fetch_mark_price(symbol)
-                
-                    if maker_price_val and maker_price_val > 0:
-                        # 2. Get Step Sizes
-                        # X10
-                        x10_step = 0.001
-                        x10_m = None
-                        x10_market_info = getattr(self.x10, "market_info", None)
-                        if isinstance(x10_market_info, dict):
-                            x10_m = x10_market_info.get(symbol)
-                        elif hasattr(self.x10, "get_market_info"):
-                            try:
-                                x10_m = self.x10.get_market_info(symbol)
-                            except Exception:
-                                x10_m = None
+                    maker_price_val = safe_decimal(self.lighter.fetch_mark_price(symbol))
 
-                        if x10_m:
-                            if hasattr(x10_m, "trading_config"):  # Object from SDK
-                                candidate = getattr(getattr(x10_m, "trading_config", None), "min_order_size_change", None)
-                                candidate_f = _scalar_float(candidate)
-                                if candidate_f:
-                                    x10_step = candidate_f
-                            elif isinstance(x10_m, dict):
-                                candidate = x10_m.get("lot_size", x10_m.get("min_order_qty"))
-                                candidate_f = _scalar_float(candidate)
-                                if candidate_f:
-                                    x10_step = candidate_f
-                             
-                    # Lighter
-                    lighter_step = 0.01
-                    lig_m = self.lighter.get_market_info(symbol) if hasattr(self.lighter, 'get_market_info') else None
-                    if lig_m:
-                        # Prioritize 'lot_size', then 'min_quantity', then 'size_increment'
-                        candidate = lig_m.get('lot_size', lig_m.get('size_increment', lig_m.get('min_quantity', 0.01)))
-                        lighter_step = _scalar_float(candidate) or lighter_step
-                    
-                    # 3. Calculate aligned size
-                    target_size_usd = float(size_lighter)
+                # 2. Get Step Sizes
+                x10_step = Decimal('0.001')
+                x10_m = None
+                x10_market_info = getattr(self.x10, "market_info", None)
+                if isinstance(x10_market_info, dict):
+                    x10_m = x10_market_info.get(symbol)
+                elif hasattr(self.x10, "get_market_info"):
+                    try:
+                        x10_m = self.x10.get_market_info(symbol)
+                    except Exception:
+                        x10_m = None
+
+                if x10_m:
+                    if hasattr(x10_m, "trading_config"):  # Object from SDK
+                        candidate = getattr(getattr(x10_m, "trading_config", None), "min_order_size_change", None)
+                        candidate_dec = safe_decimal(candidate) if candidate is not None else None
+                        if candidate_dec and candidate_dec > 0:
+                            x10_step = candidate_dec
+                    elif isinstance(x10_m, dict):
+                        candidate = x10_m.get("lot_size", x10_m.get("min_order_qty"))
+                        candidate_dec = safe_decimal(candidate) if candidate is not None else None
+                        if candidate_dec and candidate_dec > 0:
+                            x10_step = candidate_dec
+
+                # Lighter
+                lighter_step = Decimal('0.01')
+                lig_m = self.lighter.get_market_info(symbol) if hasattr(self.lighter, 'get_market_info') else None
+                if lig_m:
+                    candidate = lig_m.get('lot_size', lig_m.get('size_increment', lig_m.get('min_quantity', 0.01)))
+                    candidate_dec = safe_decimal(candidate) if candidate is not None else None
+                    if candidate_dec and candidate_dec > 0:
+                        lighter_step = candidate_dec
+
+                # 3. Calculate aligned size
+                target_size_usd = safe_decimal(size_lighter)
+                if maker_price_val and maker_price_val > 0:
                     safe_coins = calculate_common_quantity(
                         target_size_usd,
                         maker_price_val,
                         x10_step,
                         lighter_step
                     )
-                    
-                    if safe_coins > 0:
-                        final_usd_size = safe_coins * maker_price_val
-                        logger.info(f"⚖️ Size Alignment {symbol}: {target_size_usd:.2f}$ -> {final_usd_size:.2f}$ ({safe_coins:.6f} Coins) to match both exchanges (X10 Step: {x10_step}, Lighter Step: {lighter_step})")
-                        
-                        # Update sizes
-                        size_lighter = Decimal(str(final_usd_size))
-                        # Match X10 to new aligned size
-                        size_x10 = size_lighter 
-                    else:
-                        logger.warning(f"⚠️ Size Alignment {symbol}: Calculated 0 coins? Keeping original.")
+
+                if safe_coins > 0:
+                    final_usd_size = safe_coins * maker_price_val
+                    logger.info(
+                        f"⚖️ Size Alignment {symbol}: {target_size_usd}USD -> {final_usd_size}USD "
+                        f"({safe_coins} Coins) to match both exchanges (X10 Step: {x10_step}, Lighter Step: {lighter_step})"
+                    )
+
+                    # Update sizes
+                    size_lighter = final_usd_size
+                    # Match X10 to new aligned size
+                    size_x10 = size_lighter
+                else:
+                    logger.warning(f"⚠️ Size Alignment {symbol}: Calculated 0 coins? Keeping original.")
 
             except Exception as e:
                 logger.error(f"⚠️ Size Alignment Error: {e}", exc_info=True)
