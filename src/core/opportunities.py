@@ -19,7 +19,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from decimal import Decimal
 
 import config
-from src.utils import safe_float, safe_decimal, quantize_usd
+from src.utils import safe_decimal, quantize_usd
 from src.core.adaptive_threshold import get_threshold_manager
 from src.core.latency_arb import get_detector, is_latency_arb_enabled
 from src.core.orderbook_validator import simulate_price_impact, PriceImpactResult
@@ -290,13 +290,12 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
         f"Lighter markets: {len(lighter.market_info)}, X10 markets: {len(x10.market_info)}"
     )
 
-    semaphore = asyncio.Semaphore(10)
+    concurrency_limit = getattr(config, "OPP_SCAN_CONCURRENCY", 20)
+    semaphore = asyncio.Semaphore(concurrency_limit)
 
     async def fetch_symbol_data(s: str):
         async with semaphore:
             try:
-                await asyncio.sleep(0.05)
-                
                 # Get funding rates (from cache) - already Decimal from adapter
                 lr = await lighter.fetch_funding_rate(s)
                 xr = await x10.fetch_funding_rate(s)
@@ -335,16 +334,18 @@ async def find_opportunities(lighter, x10, open_syms, is_farm_mode: bool = None)
             try:
                 latency_opp = await detector.detect_lag_opportunity(
                     symbol=s,
-                    x10_rate=float(rx),
-                    lighter_rate=float(rl),
+                    x10_rate=rx,
+                    lighter_rate=rl,
                     x10_adapter=x10,
                     lighter_adapter=lighter
                 )
-                
+
                 if latency_opp:
-                    latency_opp['price_x10'] = safe_float(px)
-                    latency_opp['price_lighter'] = safe_float(pl)
-                    latency_opp['spread_pct'] = abs(safe_float(px) - safe_float(pl)) / safe_float(px) if px else 0
+                    px_val = px or Decimal('0')
+                    pl_val = pl or Decimal('0')
+                    latency_opp['price_x10'] = px_val
+                    latency_opp['price_lighter'] = pl_val
+                    latency_opp['spread_pct'] = (abs(px_val - pl_val) / px_val) if px_val else Decimal('0')
                     
                     logger.info(
                         f"⚡ LATENCY ARB DETECTED: {s} | "
