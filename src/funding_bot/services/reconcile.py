@@ -1010,17 +1010,15 @@ class Reconciler:
                 continue
 
             # Check if position appeared (parallel fetch for speed)
-            lighter_pos, x10_pos = await asyncio.gather(
+            results = await asyncio.gather(
                 self.lighter.get_position(trade.symbol),
                 self.x10.get_position(trade.symbol),
                 return_exceptions=True
             )
 
-            # Handle exceptions from gather
-            if isinstance(lighter_pos, Exception):
-                lighter_pos = None
-            if isinstance(x10_pos, Exception):
-                x10_pos = None
+            # Handle exceptions from gather with proper typing
+            lighter_pos: Position | None = results[0] if not isinstance(results[0], BaseException) else None
+            x10_pos: Position | None = results[1] if not isinstance(results[1], BaseException) else None
 
             has_position = (
                 (lighter_pos and lighter_pos.qty > Decimal("0.0001")) or
@@ -1037,6 +1035,8 @@ class Reconciler:
                     await self._close_position(self.x10, x10_pos)
 
                 count += 1
+
+        return count
 
     async def _perform_startup_checks(self) -> None:
         """

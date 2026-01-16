@@ -72,11 +72,11 @@ class ZScoreExitStrategy:
             return None
 
         n = len(historical_values)
-        mean = sum(historical_values) / n
+        mean: Decimal = sum(historical_values, Decimal("0")) / Decimal(n)
 
-        # Varianz berechnen
-        variance = sum((x - mean) ** 2 for x in historical_values) / n
-        std_dev = variance ** Decimal("0.5")
+        # Varianz berechnen (use Decimal arithmetic)
+        variance: Decimal = sum(((x - mean) ** 2 for x in historical_values), Decimal("0")) / Decimal(n)
+        std_dev = variance.sqrt()
 
         if std_dev == 0:
             return Decimal("0")
@@ -186,7 +186,7 @@ class ATRTrailingStopStrategy:
         if not period_data:
             return Decimal("0")
 
-        return sum(period_data) / len(period_data)
+        return Decimal(sum(period_data)) / Decimal(len(period_data))
 
     def calculate_pnl_atr(
         self,
@@ -207,7 +207,7 @@ class ATRTrailingStopStrategy:
         if not period_data:
             return Decimal("0.50")
 
-        return sum(period_data) / len(period_data)
+        return Decimal(sum(period_data)) / Decimal(len(period_data))
 
     def get_stop_level(
         self,
@@ -291,10 +291,10 @@ class FundingVelocityExitStrategy:
 
         # Lineare Regression: y = mx + b, wir wollen m (Steigung)
         x_mean = Decimal(n - 1) / 2
-        y_mean = sum(rates) / n
+        y_mean = Decimal(sum(rates)) / Decimal(n)
 
-        numerator = sum((Decimal(i) - x_mean) * (rates[i] - y_mean) for i in range(n))
-        denominator = sum((Decimal(i) - x_mean) ** 2 for i in range(n))
+        numerator = Decimal(sum((Decimal(i) - x_mean) * (rates[i] - y_mean) for i in range(n)))
+        denominator = Decimal(sum((Decimal(i) - x_mean) ** 2 for i in range(n)))
 
         if denominator == 0:
             return Decimal("0")
@@ -487,7 +487,7 @@ class ExpectedShortfallExitStrategy:
         if not tail_losses:
             return Decimal("0")
 
-        avg_tail_loss = sum(tail_losses) / len(tail_losses)
+        avg_tail_loss = Decimal(sum(tail_losses)) / Decimal(len(tail_losses))
         return abs(avg_tail_loss)
 
     def evaluate(

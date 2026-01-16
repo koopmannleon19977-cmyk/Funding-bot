@@ -18,9 +18,11 @@ from funding_bot.domain.models import (
     OrderRequest,
     OrderStatus,
     OrderType,
+    Position,
     Side,
     TimeInForce,
     Trade,
+    TradeLeg,
     TradeStatus,
 )
 from funding_bot.observability.logging import get_logger
@@ -913,7 +915,7 @@ async def _readback_leg(
     self,
     trade: Trade,
     adapter: ExchangePort,
-    leg: object,
+    leg: TradeLeg,
     order_ids: list[str],
     tolerance_pct: Decimal,
     net_pnl_tolerance_usd: Decimal,
@@ -1997,14 +1999,13 @@ def _calculate_rebalance_target(
     trade: Trade,
     leg1_mark_price: Decimal | None,
     leg2_mark_price: Decimal | None,
-) -> tuple[Exchange, "TradeLeg", Decimal, Decimal]:
+) -> tuple[Exchange, TradeLeg, Decimal, Decimal]:
     """
     Calculate which leg to rebalance and by how much.
 
     Returns:
         (exchange, leg, rebalance_notional, net_delta)
     """
-    from funding_bot.domain.models import TradeLeg
 
     leg1_px = leg1_mark_price if leg1_mark_price and leg1_mark_price > 0 else trade.leg1.entry_price
     leg2_px = leg2_mark_price if leg2_mark_price and leg2_mark_price > 0 else trade.leg2.entry_price
@@ -2186,7 +2187,7 @@ async def _execute_rebalance_ioc(
 
 
 def _update_leg_after_fill(
-    rebalance_leg: "TradeLeg",
+    rebalance_leg: TradeLeg,
     filled_qty: Decimal,
     fee: Decimal,
 ) -> None:
@@ -2423,14 +2424,15 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
             # Execute tasks in parallel and map results directly to legs
             results = await asyncio.gather(*maker_tasks.values(), return_exceptions=True)
             for leg, result in zip(maker_tasks.keys(), results, strict=False):
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     logger.warning(f"Maker order failed for {leg}: {result}")
                     maker_orders[leg] = None
                 else:
-                    maker_orders[leg] = result
-                    if result:
-                        maker_order_ids[leg] = result.order_id
-                        logger.info(f"Maker order placed: {leg} = {result.order_id}")
+                    order_result: Order | None = result
+                    maker_orders[leg] = order_result
+                    if order_result:
+                        maker_order_ids[leg] = order_result.order_id
+                        logger.info(f"Maker order placed: {leg} = {order_result.order_id}")
 
         # Wait for fills with timeout
         start_time = time.time()
@@ -2823,7 +2825,7 @@ async def _close_leg(
     self,
     adapter: ExchangePort,
     trade: Trade,
-    leg: object,
+    leg: TradeLeg,
     override_qty: Decimal | None = None,
     *,
     update_leg: bool = True,
@@ -2833,7 +2835,7 @@ async def _close_leg(
     close_qty = override_qty if override_qty is not None else leg.filled_qty
 
     if close_qty <= 0:
-        return
+        return None
 
     logger.info(f"Executing Market Close for {trade.symbol} on {adapter.exchange}: {close_qty}")
 
@@ -2980,17 +2982,15 @@ async def _verify_closed(self, trade: Trade) -> None:
     still_open: list[str] = []
 
     # Check both exchanges in parallel
-    lighter_pos, x10_pos = await asyncio.gather(
+    results = await asyncio.gather(
         self.lighter.get_position(trade.symbol),
         self.x10.get_position(trade.symbol),
         return_exceptions=True
     )
 
-    # Handle exceptions from gather
-    if isinstance(lighter_pos, Exception):
-        lighter_pos = None
-    if isinstance(x10_pos, Exception):
-        x10_pos = None
+    # Handle exceptions from gather with proper typing
+    lighter_pos: Position | None = results[0] if not isinstance(results[0], BaseException) else None
+    x10_pos: Position | None = results[1] if not isinstance(results[1], BaseException) else None
 
     # Check Lighter
     if lighter_pos and lighter_pos.qty > threshold:

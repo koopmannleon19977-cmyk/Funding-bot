@@ -7,7 +7,7 @@ from __future__ import annotations
 import contextlib
 from decimal import Decimal
 
-from funding_bot.domain.models import Trade
+from funding_bot.domain.models import Order, Trade
 from funding_bot.observability.logging import get_logger
 from funding_bot.services.execution_leg1_types import Leg1AttemptContext, Leg1Config, Leg1State
 
@@ -19,7 +19,7 @@ async def _process_leg1_fill(
     trade: Trade,
     ctx: Leg1AttemptContext,
     state: Leg1State,
-    filled_order: object | None,
+    filled_order: Order | None,
     *,
     initial_pos_qty: Decimal | None,
     pos_tolerance: Decimal,
@@ -108,6 +108,8 @@ async def _ghost_fill_reconcile(
 
         # Calculate detected position change
         # (absolute, assuming uni-directional trade opening)
+        # Note: initial_pos_qty is guaranteed non-None by req_check above
+        assert initial_pos_qty is not None  # Type guard for mypy
         position_delta = current_pos_qty - initial_pos_qty
 
         # If position grew significantly more than Order API
