@@ -46,7 +46,15 @@ logger = get_logger("funding_bot.services.execution")
 
 @dataclass
 class BalanceData:
-    """Balance information from both exchanges."""
+    """
+    Balance information from both exchanges.
+
+    Attributes:
+        lighter_total: Total equity on Lighter exchange (USD).
+        lighter_available: Available margin on Lighter exchange (USD).
+        x10_total: Total equity on X10 exchange (USD).
+        x10_available: Available margin on X10 exchange (USD).
+    """
 
     lighter_total: Decimal = Decimal("0")
     lighter_available: Decimal = Decimal("0")
@@ -55,12 +63,26 @@ class BalanceData:
 
     @property
     def total_equity(self) -> Decimal:
+        """Combined total equity across both exchanges."""
         return self.lighter_total + self.x10_total
 
 
 @dataclass
 class LeverageConfig:
-    """Effective leverage configuration for both exchanges."""
+    """
+    Effective leverage configuration for both exchanges.
+
+    The effective leverage is the minimum of user-configured leverage
+    and the exchange's IMR (Initial Margin Requirement) limit.
+
+    Attributes:
+        lighter_imr_limit: Max leverage allowed by Lighter exchange.
+        x10_imr_limit: Max leverage allowed by X10 exchange.
+        lighter_user_lev: User-configured leverage for Lighter.
+        x10_user_lev: User-configured leverage for X10.
+        eff_lighter: Effective leverage for Lighter (min of user/limit).
+        eff_x10: Effective leverage for X10 (min of user/limit).
+    """
 
     lighter_imr_limit: Decimal = Decimal("3")
     x10_imr_limit: Decimal = Decimal("5")
@@ -72,7 +94,21 @@ class LeverageConfig:
 
 @dataclass
 class RiskCapacity:
-    """Risk and liquidity capacity calculations."""
+    """
+    Risk and liquidity capacity calculations.
+
+    Determines how much notional exposure is available for a new trade
+    based on risk limits and available margin on both exchanges.
+
+    Attributes:
+        global_risk_cap: Max total exposure based on equity and risk %.
+        current_exposure: Sum of notional from existing open trades.
+        remaining_risk_cap: global_risk_cap - current_exposure.
+        max_lighter_pos: Max position size on Lighter (70% of available * lev).
+        max_x10_pos: Max position size on X10 (95% of available * lev).
+        liquidity_cap: Minimum of max_lighter_pos and max_x10_pos.
+        available_exposure: Final available = min(remaining_risk_cap, liquidity_cap).
+    """
 
     global_risk_cap: Decimal = Decimal("0")
     current_exposure: Decimal = Decimal("0")
@@ -85,7 +121,18 @@ class RiskCapacity:
 
 @dataclass
 class SlotAllocation:
-    """Slot-based allocation result."""
+    """
+    Slot-based allocation result.
+
+    Divides available exposure across remaining trade slots to ensure
+    diversification and prevent over-concentration in a single trade.
+
+    Attributes:
+        remaining_slots: Number of trade slots still available (max_open - current).
+        slot_based_size: available_exposure / remaining_slots.
+        risk_based_cap: Max per-trade size from risk.max_trade_size_pct.
+        target_notional: Final target = min(slot_based, risk_cap, opp suggestion).
+    """
 
     remaining_slots: int = 1
     slot_based_size: Decimal = Decimal("0")
@@ -95,7 +142,23 @@ class SlotAllocation:
 
 @dataclass
 class DepthGateConfig:
-    """Configuration for depth gate sizing."""
+    """
+    Configuration for depth gate sizing.
+
+    Controls liquidity-aware position sizing to prevent excessive
+    slippage and ensure orderbook can support the trade size.
+
+    Attributes:
+        enabled: Whether depth gating is active.
+        mode: "L1" for top-of-book only, "IMPACT" for full depth analysis.
+        levels: Number of orderbook levels to analyze (IMPACT mode).
+        max_price_impact_pct: Max allowed price impact (e.g., 0.0015 = 0.15%).
+        strict_preflight: Apply stricter checks for hedge depth.
+        multiplier: Multiplier for preflight thresholds (>= 1.0).
+        min_l1_notional_usd: Minimum L1 depth required in USD.
+        min_l1_notional_multiple: Required L1 depth as multiple of trade size.
+        max_l1_qty_utilization: Max fraction of L1 qty to consume (0.0-1.0).
+    """
 
     enabled: bool = False
     mode: str = "L1"  # "L1" or "IMPACT"
@@ -110,7 +173,21 @@ class DepthGateConfig:
 
 @dataclass
 class SizingResult:
-    """Result of sizing operation."""
+    """
+    Result of sizing operation.
+
+    Contains the calculated trade size and any rejection information
+    if the trade could not be sized due to insufficient liquidity or risk limits.
+
+    Attributes:
+        target_notional: Final target notional in USD.
+        target_qty: Final target quantity in base asset.
+        depth_ob: Orderbook depth snapshot used for sizing (if IMPACT mode).
+        depth_cap_metrics: Detailed metrics from depth cap calculation.
+        rejected: True if trade was rejected during sizing.
+        reject_reason: Human-readable rejection reason.
+        reject_stage: Stage where rejection occurred (e.g., "depth_gate").
+    """
 
     target_notional: Decimal = Decimal("0")
     target_qty: Decimal = Decimal("0")
@@ -130,7 +207,16 @@ async def _fetch_balances(
     lighter: "LighterExchangeAdapter",
     x10: "X10ExchangeAdapter",
 ) -> BalanceData:
-    """Fetch balance data from both exchanges."""
+    """
+    Fetch balance data from both exchanges.
+
+    Args:
+        lighter: Lighter exchange adapter instance.
+        x10: X10 exchange adapter instance.
+
+    Returns:
+        BalanceData with total and available balances from both exchanges.
+    """
     lighter_balance = await lighter.get_available_balance()
     x10_balance = await x10.get_available_balance()
 
@@ -147,7 +233,20 @@ def _calculate_leverage(
     settings: "Settings",
     market_data: "MarketDataService",
 ) -> LeverageConfig:
-    """Calculate effective leverage for both exchanges."""
+    """
+    Calculate effective leverage for both exchanges.
+
+    Effective leverage is capped at the exchange's IMR limit to prevent
+    margin calls and ensure positions can be maintained.
+
+    Args:
+        trade: Trade object with symbol information.
+        settings: Application settings with user leverage config.
+        market_data: Market data service for IMR limits.
+
+    Returns:
+        LeverageConfig with effective leverage for both exchanges.
+    """
     lighter_info = market_data.get_market_info(trade.symbol, Exchange.LIGHTER)
     x10_info = market_data.get_market_info(trade.symbol, Exchange.X10)
 
@@ -177,7 +276,24 @@ async def _calculate_risk_capacity(
     store: Any,
     current_trade_id: str,
 ) -> RiskCapacity:
-    """Calculate risk and liquidity capacity."""
+    """
+    Calculate risk and liquidity capacity.
+
+    Determines the maximum exposure available for new trades based on:
+    - Global risk cap (equity * max_exposure_pct * leverage)
+    - Current exposure from existing trades
+    - Available margin on each exchange
+
+    Args:
+        balance: Current balance data from both exchanges.
+        leverage: Effective leverage configuration.
+        settings: Application settings with risk parameters.
+        store: Trade store for querying active trades.
+        current_trade_id: ID of current trade (excluded from exposure calc).
+
+    Returns:
+        RiskCapacity with all calculated limits and available exposure.
+    """
     max_exp_pct = settings.risk.max_exposure_pct / Decimal("100.0")
     global_risk_cap = balance.total_equity * max_exp_pct * leverage.eff_lighter
 
@@ -210,7 +326,22 @@ def _calculate_slot_allocation(
     opp: Opportunity,
     num_other_trades: int,
 ) -> SlotAllocation:
-    """Calculate slot-based allocation."""
+    """
+    Calculate slot-based allocation.
+
+    Divides available exposure across remaining trade slots to ensure
+    diversification. The final target is capped by risk limits and
+    the opportunity's suggested notional.
+
+    Args:
+        risk: Calculated risk capacity with available exposure.
+        settings: Application settings with slot and risk limits.
+        opp: Opportunity with suggested notional size.
+        num_other_trades: Number of other active trades.
+
+    Returns:
+        SlotAllocation with target notional for this trade.
+    """
     max_open = settings.trading.max_open_trades
     remaining_slots = max(1, max_open - num_other_trades)
     slot_based_size = risk.available_exposure / Decimal(remaining_slots)
@@ -236,7 +367,18 @@ def _calculate_slot_allocation(
 
 
 def _load_depth_gate_config(settings: "Settings") -> DepthGateConfig:
-    """Load depth gate configuration from settings."""
+    """
+    Load depth gate configuration from settings.
+
+    Extracts all depth gate parameters and applies preflight multipliers
+    if strict preflight mode is enabled.
+
+    Args:
+        settings: Application settings with trading and execution config.
+
+    Returns:
+        DepthGateConfig with all parameters for liquidity gating.
+    """
     ts = settings.trading
     es = settings.execution
 
@@ -352,7 +494,19 @@ async def _apply_depth_cap(
 
 
 def _calculate_mid_price(opp: Opportunity, fresh_ob: OrderbookSnapshot) -> Decimal:
-    """Calculate mid price from opportunity or orderbook."""
+    """
+    Calculate mid price from opportunity or orderbook.
+
+    Uses opportunity's mid_price if available, otherwise calculates
+    average of all available bid/ask prices from both exchanges.
+
+    Args:
+        opp: Opportunity with optional mid_price.
+        fresh_ob: Fresh orderbook snapshot with exchange prices.
+
+    Returns:
+        Mid price as Decimal, or 0 if no prices available.
+    """
     mid_price = opp.mid_price
     if mid_price <= 0:
         mids = [

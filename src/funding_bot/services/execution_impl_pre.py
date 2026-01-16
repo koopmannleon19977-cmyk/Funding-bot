@@ -46,7 +46,18 @@ logger = get_logger("funding_bot.services.execution")
 
 @dataclass
 class SmartPricingConfig:
-    """Configuration for smart pricing depth-VWAP spread check."""
+    """
+    Configuration for smart pricing depth-VWAP spread check.
+
+    Smart pricing uses orderbook depth to calculate volume-weighted
+    average prices, providing more accurate spread estimates for
+    larger orders that would consume multiple price levels.
+
+    Attributes:
+        enabled: Whether smart pricing is active.
+        max_price_impact_pct: Max allowed price impact for VWAP calc.
+        depth_levels: Number of orderbook levels to include in VWAP.
+    """
 
     enabled: bool = False
     max_price_impact_pct: Decimal = Decimal("0.5")
@@ -55,7 +66,20 @@ class SmartPricingConfig:
 
 @dataclass
 class SpreadCheckConfig:
-    """Configuration for entry spread validation."""
+    """
+    Configuration for entry spread validation.
+
+    Controls how entry spreads are calculated and validated before
+    executing a trade. Supports both L1 (top-of-book) and depth-based
+    spread calculations.
+
+    Attributes:
+        max_spread: Maximum allowed entry spread (e.g., 0.01 = 1%).
+        smart_pricing: Config for depth-VWAP based spread calculation.
+        negative_guard_multiple: Multiplier for revalidating favorable spreads.
+        use_impact: Use impact-based (depth) spread calculation.
+        depth_levels: Number of levels for depth-based calculations.
+    """
 
     max_spread: Decimal = Decimal("0.01")
     smart_pricing: SmartPricingConfig = field(default_factory=SmartPricingConfig)
@@ -66,7 +90,18 @@ class SpreadCheckConfig:
 
 @dataclass
 class SpreadCheckResult:
-    """Result of spread check with optional depth orderbook."""
+    """
+    Result of spread check with optional depth orderbook.
+
+    Contains the calculated entry spread and cost, along with any
+    depth orderbook data that was fetched during the check.
+
+    Attributes:
+        entry_spread: Calculated entry spread (can be negative if favorable).
+        spread_cost: Spread cost for P&L (max of 0 and entry_spread).
+        depth_ob: Depth orderbook snapshot if fetched during smart pricing.
+        used_smart_pricing: True if depth-VWAP was used instead of L1.
+    """
 
     entry_spread: Decimal
     spread_cost: Decimal
@@ -80,7 +115,19 @@ class SpreadCheckResult:
 
 
 def _load_spread_check_config(settings: Any, opp_apy: Decimal) -> SpreadCheckConfig:
-    """Load spread check configuration from settings."""
+    """
+    Load spread check configuration from settings.
+
+    Calculates dynamic max spread based on opportunity APY and loads
+    all related configuration for spread validation.
+
+    Args:
+        settings: Application settings with trading and execution config.
+        opp_apy: Opportunity APY for dynamic spread calculation.
+
+    Returns:
+        SpreadCheckConfig with all spread validation parameters.
+    """
     ts = settings.trading
     es = settings.execution
 
@@ -126,7 +173,23 @@ async def _apply_smart_pricing_spread(
     suggested_qty: Decimal,
     config: SmartPricingConfig,
 ) -> tuple[Decimal | None, OrderbookDepthSnapshot | None]:
-    """Apply smart pricing depth-VWAP spread calculation."""
+    """
+    Apply smart pricing depth-VWAP spread calculation.
+
+    Fetches orderbook depth and calculates volume-weighted spread
+    based on the suggested trade quantity.
+
+    Args:
+        market_data: Market data service for fetching depth.
+        symbol: Trading symbol (e.g., "BTC").
+        long_exchange: Exchange for long side ("lighter" or "x10").
+        suggested_qty: Target trade quantity for VWAP calculation.
+        config: Smart pricing configuration.
+
+    Returns:
+        Tuple of (calculated_spread, depth_orderbook).
+        spread is None if calculation failed.
+    """
     depth_ob: OrderbookDepthSnapshot | None = None
     with contextlib.suppress(Exception):
         depth_ob = await market_data.get_fresh_orderbook_depth(
@@ -152,7 +215,23 @@ async def _revalidate_orderbook_for_guard(
     entry_spread: Decimal,
     guard_limit: Decimal,
 ) -> tuple[OrderbookSnapshot | None, Decimal]:
-    """Revalidate orderbook if favorable spread exceeds guard."""
+    """
+    Revalidate orderbook if favorable spread exceeds guard.
+
+    Suspiciously favorable spreads (large negative values) may indicate
+    stale data. This function re-fetches the orderbook to confirm.
+
+    Args:
+        market_data: Market data service for fetching orderbook.
+        symbol: Trading symbol (e.g., "BTC").
+        long_exchange: Exchange for long side ("lighter" or "x10").
+        entry_spread: Currently calculated entry spread.
+        guard_limit: Threshold for triggering revalidation.
+
+    Returns:
+        Tuple of (new_orderbook, updated_spread).
+        orderbook is None if no revalidation was needed.
+    """
     if entry_spread < 0 and abs(entry_spread) > guard_limit:
         logger.info(
             f"Favorable spread exceeds guard for {symbol}; "
@@ -174,7 +253,25 @@ def _build_spread_kpi_data(
     smart_config: SmartPricingConfig,
     used_depth: bool,
 ) -> dict[str, Any]:
-    """Build KPI data for spread check stage."""
+    """
+    Build KPI data for spread check stage.
+
+    Creates a structured dictionary for KPI logging with all relevant
+    spread check metrics and orderbook data.
+
+    Args:
+        opp: Opportunity being evaluated.
+        fresh_ob: Fresh orderbook snapshot with exchange prices.
+        long_exchange: Exchange for long side ("lighter" or "x10").
+        entry_spread: Calculated entry spread.
+        spread_cost: Spread cost for P&L calculation.
+        max_spread: Maximum allowed spread.
+        smart_config: Smart pricing configuration.
+        used_depth: Whether depth-based pricing was used.
+
+    Returns:
+        Dict with KPI data for the spread check stage.
+    """
     return {
         "stage": "SPREAD_CHECK",
         "apy": opp.apy,
@@ -206,7 +303,18 @@ def _build_spread_kpi_data(
 
 
 def _load_preflight_liquidity_config(settings: Any) -> PreflightLiquidityConfig:
-    """Load preflight liquidity configuration from settings."""
+    """
+    Load preflight liquidity configuration from settings.
+
+    Extracts all parameters needed for the preflight liquidity check
+    which verifies sufficient depth on both exchanges before execution.
+
+    Args:
+        settings: Application settings with trading configuration.
+
+    Returns:
+        PreflightLiquidityConfig with all liquidity check parameters.
+    """
     ts = settings.trading
     return PreflightLiquidityConfig(
         enabled=True,
@@ -236,7 +344,20 @@ def _build_liquidity_kpi_data(
     config: PreflightLiquidityConfig,
     required_qty: Decimal,
 ) -> dict[str, Any]:
-    """Build KPI data for liquidity check stage."""
+    """
+    Build KPI data for liquidity check stage.
+
+    Creates a structured dictionary for KPI logging with liquidity
+    check results from both exchanges.
+
+    Args:
+        liquidity_result: Result from check_preflight_liquidity.
+        config: Liquidity check configuration used.
+        required_qty: Quantity that was checked for liquidity.
+
+    Returns:
+        Dict with KPI data for the liquidity check stage.
+    """
     return {
         "stage": "LIQUIDITY_CHECK",
         "data": {

@@ -2003,8 +2003,20 @@ def _calculate_rebalance_target(
     """
     Calculate which leg to rebalance and by how much.
 
+    Determines the net delta of the position and identifies which leg
+    needs to be reduced to restore delta neutrality.
+
+    Args:
+        trade: Trade with leg1 (Lighter) and leg2 (X10).
+        leg1_mark_price: Current mark price for leg1, or None to use entry.
+        leg2_mark_price: Current mark price for leg2, or None to use entry.
+
     Returns:
-        (exchange, leg, rebalance_notional, net_delta)
+        Tuple of (exchange, leg, rebalance_notional, net_delta):
+        - exchange: Which exchange to trade on
+        - leg: The TradeLeg to reduce
+        - rebalance_notional: USD value to reduce
+        - net_delta: Current net delta (positive = net long)
     """
 
     leg1_px = leg1_mark_price if leg1_mark_price and leg1_mark_price > 0 else trade.leg1.entry_price
@@ -2191,7 +2203,17 @@ def _update_leg_after_fill(
     filled_qty: Decimal,
     fee: Decimal,
 ) -> None:
-    """Update leg state after a fill."""
+    """
+    Update leg state after a fill.
+
+    Reduces the leg's filled_qty and accumulates fees.
+    Ensures filled_qty never goes negative.
+
+    Args:
+        rebalance_leg: The TradeLeg to update.
+        filled_qty: Quantity that was filled (to subtract).
+        fee: Trading fee to accumulate.
+    """
     rebalance_leg.filled_qty = max(Decimal("0"), rebalance_leg.filled_qty - filled_qty)
     rebalance_leg.fees += fee
 

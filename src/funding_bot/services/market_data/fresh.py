@@ -30,7 +30,17 @@ logger = get_logger(__name__)
 
 @dataclass
 class OrderbookFetchConfig:
-    """Configuration for orderbook fetch with retry settings."""
+    """
+    Configuration for orderbook fetch with retry settings.
+
+    Controls retry behavior and staleness thresholds for fetching
+    L1 and depth orderbook data from exchanges.
+
+    Attributes:
+        attempts: Number of retry attempts before giving up.
+        base_delay: Base delay in seconds between retries (multiplied by attempt #).
+        fallback_max_age: Max age in seconds for data to be considered valid.
+    """
 
     attempts: int = 3
     base_delay: float = 0.3
@@ -38,7 +48,18 @@ class OrderbookFetchConfig:
 
 
 def _load_orderbook_fetch_config(settings: Any) -> OrderbookFetchConfig:
-    """Load orderbook fetch configuration from settings."""
+    """
+    Load orderbook fetch configuration from settings.
+
+    Extracts retry parameters from websocket settings with clamping
+    to prevent extreme values.
+
+    Args:
+        settings: Application settings with websocket configuration.
+
+    Returns:
+        OrderbookFetchConfig with validated parameters.
+    """
     ws = settings.websocket
     attempts = int(getattr(ws, "orderbook_l1_retry_attempts", 3) or 3)
     attempts = max(1, min(attempts, 10))
@@ -60,7 +81,18 @@ def _load_orderbook_fetch_config(settings: Any) -> OrderbookFetchConfig:
 
 
 def _safe_decimal(book: dict, key: str) -> Decimal:
-    """Safely extract a Decimal value from a book dict."""
+    """
+    Safely extract a Decimal value from a book dict.
+
+    Handles missing keys, None values, and invalid strings gracefully.
+
+    Args:
+        book: Dictionary containing orderbook data.
+        key: Key to extract value for.
+
+    Returns:
+        Decimal value, or Decimal("0") if extraction fails.
+    """
     v = book.get(key, Decimal("0"))
     if isinstance(v, Decimal):
         return v
@@ -70,7 +102,18 @@ def _safe_decimal(book: dict, key: str) -> Decimal:
 
 
 def _book_has_depth(book: dict) -> bool:
-    """Check if a single-exchange book has valid depth (bid < ask, positive quantities)."""
+    """
+    Check if a single-exchange book has valid depth.
+
+    Validates that bid < ask (non-inverted spread) and both
+    bid and ask have positive quantities.
+
+    Args:
+        book: Dictionary with best_bid, best_ask, bid_qty, ask_qty.
+
+    Returns:
+        True if book has valid tradeable depth.
+    """
     bid = _safe_decimal(book, "best_bid")
     ask = _safe_decimal(book, "best_ask")
     bid_qty = _safe_decimal(book, "bid_qty")
@@ -81,7 +124,18 @@ def _book_has_depth(book: dict) -> bool:
 
 
 def _has_any_price_data(book: dict) -> bool:
-    """Return True if book has any valid price (bid OR ask)."""
+    """
+    Return True if book has any valid price (bid OR ask).
+
+    Less strict than _book_has_depth - only requires one side
+    to have a positive price. Useful for partial data scenarios.
+
+    Args:
+        book: Dictionary with best_bid and/or best_ask.
+
+    Returns:
+        True if at least one price is positive.
+    """
     bid = _safe_decimal(book, "best_bid")
     ask = _safe_decimal(book, "best_ask")
     return bid > 0 or ask > 0
@@ -95,7 +149,22 @@ def _merge_exchange_book(
     prev_bid_qty: Decimal,
     prev_ask_qty: Decimal,
 ) -> tuple[Decimal, Decimal, Decimal, Decimal]:
-    """Merge fresh book data with previous snapshot to avoid poisoning with partial/zero books."""
+    """
+    Merge fresh book data with previous snapshot.
+
+    Prevents data poisoning by falling back to previous values when
+    fresh data is zero/invalid. Also detects inverted spreads.
+
+    Args:
+        book: Fresh orderbook data dictionary.
+        prev_bid: Previous best bid price.
+        prev_ask: Previous best ask price.
+        prev_bid_qty: Previous bid quantity.
+        prev_ask_qty: Previous ask quantity.
+
+    Returns:
+        Tuple of (bid, ask, bid_qty, ask_qty) with fallbacks applied.
+    """
     bid = _safe_decimal(book, "best_bid")
     ask = _safe_decimal(book, "best_ask")
     bid_qty = _safe_decimal(book, "bid_qty")
@@ -242,7 +311,19 @@ def _try_use_stale_cache(
 def _normalize_depth_book(
     book: dict, depth_levels: int
 ) -> tuple[list[tuple[Decimal, Decimal]], list[tuple[Decimal, Decimal]]]:
-    """Normalize raw orderbook depth data to (price, qty) tuples."""
+    """
+    Normalize raw orderbook depth data to (price, qty) tuples.
+
+    Converts raw orderbook data to standardized format, filters invalid
+    entries, and sorts by price (bids descending, asks ascending).
+
+    Args:
+        book: Raw orderbook data with "bids" and "asks" lists.
+        depth_levels: Maximum number of levels to include.
+
+    Returns:
+        Tuple of (bids, asks) where each is a list of (price, qty) tuples.
+    """
     bids_raw = book.get("bids") or []
     asks_raw = book.get("asks") or []
 
@@ -267,7 +348,16 @@ def _normalize_depth_book(
 
 
 def _is_depth_ok(bids: list[tuple[Decimal, Decimal]], asks: list[tuple[Decimal, Decimal]]) -> bool:
-    """Check if depth data is valid (has bids and asks with correct spread)."""
+    """
+    Check if depth data is valid (has bids and asks with correct spread).
+
+    Args:
+        bids: List of (price, qty) tuples for bid side.
+        asks: List of (price, qty) tuples for ask side.
+
+    Returns:
+        True if both sides exist and best_bid < best_ask.
+    """
     if not bids or not asks:
         return False
     best_bid, best_ask = bids[0][0], asks[0][0]
@@ -277,7 +367,20 @@ def _is_depth_ok(bids: list[tuple[Decimal, Decimal]], asks: list[tuple[Decimal, 
 async def _fetch_depth_with_fallback(
     exchange_obj: ExchangePort, sym: str, depth_levels: int
 ) -> dict[str, list[tuple[Decimal, Decimal]]]:
-    """Fetch depth from adapter; fall back to L1 if not available."""
+    """
+    Fetch depth from adapter; fall back to L1 if not available.
+
+    Tries to get full depth data first; if adapter doesn't support it,
+    falls back to L1 data formatted as single-level depth.
+
+    Args:
+        exchange_obj: Exchange adapter implementing ExchangePort.
+        sym: Trading symbol.
+        depth_levels: Number of depth levels to request.
+
+    Returns:
+        Dict with "bids" and "asks" lists of (price, qty) tuples.
+    """
     if hasattr(exchange_obj, "get_orderbook_depth"):
         return await exchange_obj.get_orderbook_depth(sym, depth_levels)  # type: ignore[attr-defined]
     l1 = await exchange_obj.get_orderbook_l1(sym)

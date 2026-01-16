@@ -197,19 +197,38 @@ Already well-refactored with orchestrator pattern:
 
 ---
 
-## 📋 Planned - Phase 5: Documentation
+## ✅ Completed - Phase 5: Documentation
 
-### Phase 5.1: Docstrings for Public APIs 📋
-- All public service methods
-- All dataclasses with field descriptions
-- All helper functions with Args/Returns
+### Phase 5.1: Docstrings for Public APIs ✅ (2026-01-16)
+| Module | Dataclasses | Helpers | Status |
+|--------|-------------|---------|--------|
+| `execution_impl_sizing.py` | 6 | 6 | ✅ Complete |
+| `execution_impl_pre.py` | 3 | 6 | ✅ Complete |
+| `market_data/fresh.py` | 1 | 7 | ✅ Complete |
+| `positions/close.py` | - | 3 | ✅ Complete |
 
-### Phase 5.2: Type Annotations Completion 📋
-- Remaining `Any` return types
-- Generic type parameters
-- Protocol definitions for interfaces
+**Docstring Format Applied**:
+```python
+"""
+Brief description.
 
-**Phase 5 Status**: 📋 **PLANNED**
+Extended explanation if needed.
+
+Attributes/Args:
+    param1: Description of param1.
+    param2: Description of param2.
+
+Returns:
+    Description of return value.
+"""
+```
+
+### Phase 5.2: Type Annotations 📋
+- Remaining `Any` return types (deferred - low priority)
+- Generic type parameters (deferred - low priority)
+- Protocol definitions for interfaces (deferred - low priority)
+
+**Phase 5 Status**: ✅ **Phase 5.1 COMPLETE** (2026-01-16)
 
 ---
 
