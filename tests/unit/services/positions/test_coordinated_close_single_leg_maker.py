@@ -303,12 +303,14 @@ class TestCoordinatedCloseCodeStructure:
 
         Verifies that the new code uses `maker_tasks: dict[str, Awaitable[Order]]`
         instead of the old list-based approach.
+
+        Note: Logic was refactored into _submit_coordinated_maker_orders helper.
         """
         import inspect
         from funding_bot.services.positions import close
 
-        # Get the source of _close_both_legs_coordinated
-        source = inspect.getsource(close._close_both_legs_coordinated)
+        # Get the source of _submit_coordinated_maker_orders (where the dict logic now lives)
+        source = inspect.getsource(close._submit_coordinated_maker_orders)
 
         # ASSERT: Dict-based task mapping exists
         assert "maker_tasks:" in source or "maker_tasks =" in source, \

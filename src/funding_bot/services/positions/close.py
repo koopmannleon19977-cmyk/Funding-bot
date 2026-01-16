@@ -8,8 +8,10 @@ import asyncio
 import contextlib
 import time
 from collections.abc import Awaitable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from funding_bot.domain.events import AlertEvent, TradeClosed
 from funding_bot.domain.models import (
@@ -32,6 +34,8 @@ from funding_bot.services.positions.utils import _round_price_to_tick
 from funding_bot.utils.decimals import safe_decimal as _safe_decimal
 
 logger = get_logger(__name__)
+
+_rebalance_skip_warned: set[str] = set()
 
 
 # =============================================================================
@@ -952,7 +956,11 @@ async def _readback_leg(
 
     corrected = False
     if api_vwap > 0:
-        price_diff_pct = abs(api_vwap - current_exit_price) / current_exit_price if current_exit_price > 0 else Decimal("1")
+        price_diff_pct = (
+            abs(api_vwap - current_exit_price) / current_exit_price
+            if current_exit_price > 0
+            else Decimal("1")
+        )
         fee_diff_usd = abs(total_fees - current_fees)
 
         # Calculate net_pnl impact: (price_diff * qty) + fee_diff
@@ -2117,7 +2125,7 @@ async def _execute_rebalance_maker(
 
     while time.time() - start_time < maker_timeout:
         await asyncio.sleep(0.5)
-        updated = await adapter.get_order(maker_order.order_id)
+        updated = await adapter.get_order(trade.symbol, maker_order.order_id)
         if updated:
             if updated.is_filled or updated.status == OrderStatus.FILLED:
                 return updated, Decimal("0")
@@ -2154,16 +2162,18 @@ async def _execute_rebalance_ioc(
     price_data = self.market_data.get_price(trade.symbol)
 
     # Get aggressive price for IOC
+    fallback_lighter = price_data.lighter_price if price_data else Decimal("0")
+    fallback_x10 = price_data.x10_price if price_data else Decimal("0")
     if rebalance_side == Side.BUY:
         if rebalance_exchange == Exchange.LIGHTER:
-            base_price = ob.lighter_ask if ob and ob.lighter_ask > 0 else (price_data.lighter_price if price_data else Decimal("0"))
+            base_price = ob.lighter_ask if ob and ob.lighter_ask > 0 else fallback_lighter
         else:
-            base_price = ob.x10_ask if ob and ob.x10_ask > 0 else (price_data.x10_price if price_data else Decimal("0"))
+            base_price = ob.x10_ask if ob and ob.x10_ask > 0 else fallback_x10
     else:
         if rebalance_exchange == Exchange.LIGHTER:
-            base_price = ob.lighter_bid if ob and ob.lighter_bid > 0 else (price_data.lighter_price if price_data else Decimal("0"))
+            base_price = ob.lighter_bid if ob and ob.lighter_bid > 0 else fallback_lighter
         else:
-            base_price = ob.x10_bid if ob and ob.x10_bid > 0 else (price_data.x10_price if price_data else Decimal("0"))
+            base_price = ob.x10_bid if ob and ob.x10_bid > 0 else fallback_x10
 
     if base_price <= 0:
         return None
@@ -2218,7 +2228,12 @@ def _update_leg_after_fill(
     rebalance_leg.fees += fee
 
 
-async def _rebalance_trade(self, trade: Trade, leg1_mark_price: Decimal | None = None, leg2_mark_price: Decimal | None = None) -> None:
+async def _rebalance_trade(
+    self,
+    trade: Trade,
+    leg1_mark_price: Decimal | None = None,
+    leg2_mark_price: Decimal | None = None,
+) -> None:
     """
     Phase 3: Restore delta neutrality without full position close.
 
@@ -2245,6 +2260,21 @@ async def _rebalance_trade(self, trade: Trade, leg1_mark_price: Decimal | None =
     leg2_px = leg2_mark_price if leg2_mark_price and leg2_mark_price > 0 else trade.leg2.entry_price
     leg1_notional = trade.leg1.filled_qty * leg1_px
     leg2_notional = trade.leg2.filled_qty * leg2_px
+
+    min_notional_usd = _safe_decimal(getattr(ts, "rebalance_min_notional_usd", None), Decimal("0"))
+    min_notional_pct = _safe_decimal(getattr(ts, "rebalance_min_notional_pct", None), Decimal("0"))
+    notional_floor = max(
+        min_notional_usd,
+        (max(leg1_notional, leg2_notional) * min_notional_pct) if min_notional_pct > 0 else Decimal("0"),
+    )
+    if rebalance_notional < notional_floor:
+        if trade.symbol not in _rebalance_skip_warned:
+            _rebalance_skip_warned.add(trade.symbol)
+            logger.info(
+                f"Rebalance skipped for {trade.symbol}: "
+                f"notional=${rebalance_notional:.2f} < min=${notional_floor:.2f}"
+            )
+        return
 
     _log_rebalance_start(
         trade=trade,
@@ -2330,62 +2360,48 @@ async def _rebalance_trade(self, trade: Trade, leg1_mark_price: Decimal | None =
         logger.warning(f"Rebalance failed for {trade.symbol}: {e}")
 
 
-async def _close_both_legs_coordinated(self, trade: Trade) -> None:
+@dataclass
+class _CoordinatedCloseContext:
+    """Context for coordinated close operation."""
+
+    trade: Trade
+    price_data: Any
+    ob: Any
+    leg1_close_qty: Decimal
+    leg2_close_qty: Decimal
+    leg1_close_side: Side
+    leg2_close_side: Side
+    leg1_maker_price: Decimal
+    leg2_maker_price: Decimal
+    lighter_tick: Decimal
+    x10_tick: Decimal
+    x10_use_maker: bool
+    maker_timeout: float
+    escalate_to_ioc: bool
+
+
+def _build_coordinated_close_context(
+    self,
+    trade: Trade,
+) -> _CoordinatedCloseContext | None:
     """
-    Phase 3: Coordinated dual-leg close to minimize unhedged exposure.
+    Build context for coordinated close operation.
 
-    Instead of sequential close (Lighter → wait → X10), this function:
-    1. Submits POST_ONLY maker orders on BOTH legs simultaneously
-    2. Waits for fills with short timeout (6s)
-    3. Escalates UNFILLED legs to IOC on BOTH (no unhedged window)
-    4. Final MARKET fallback if needed
-
-    Benefits:
-    - Minimizes unhedged exposure (both legs close in parallel)
-    - Uses maker orders on X10 (post_only flag) for fee savings
-    - Faster execution overall
-
-    Args:
-        trade: The trade to close using coordinated strategy
-
-    Configuration:
-        - coordinated_close_enabled: Enable this feature
-        - coordinated_close_maker_timeout_seconds: Timeout for maker phase
-        - coordinated_close_ioc_timeout_seconds: Timeout for IOC phase
-        - coordinated_close_x10_use_maker: Use maker on X10 (not just IOC)
+    Returns None if there's nothing to close.
     """
     ts = self.settings.trading
-    coordinated_enabled = bool(getattr(ts, "coordinated_close_enabled", True))
     x10_use_maker = bool(getattr(ts, "coordinated_close_x10_use_maker", True))
     maker_timeout = float(getattr(ts, "coordinated_close_maker_timeout_seconds", 6.0))
-    _ioc_timeout = float(getattr(ts, "coordinated_close_ioc_timeout_seconds", 2.0))  # Reserved for future IOC phase
     escalate_to_ioc = bool(getattr(ts, "coordinated_close_escalate_to_ioc", True))
 
-    if not coordinated_enabled:
-        logger.info(f"Coordinated close disabled for {trade.symbol}, falling back to sequential")
-        await self._close_lighter_smart(trade)
-        await self._update_trade(trade)
-        logger.info(f"Closing X10 for {trade.symbol}")
-        await self._close_x10_smart(trade)
-        await self._update_trade(trade)
-        return
-
-    # Log coordinated close start
-    _log_coordinated_close_start(trade)
-
-    logger.info(f"Coordinated close for {trade.symbol} - parallel maker orders on both legs")
-
-    # Get current positions and prices
     price_data = self.market_data.get_price(trade.symbol)
     ob = self.market_data.get_orderbook(trade.symbol)
 
-    # Get close quantities
     leg1_close_qty = trade.leg1.filled_qty
     leg2_close_qty = trade.leg2.filled_qty
 
     if leg1_close_qty == 0 and leg2_close_qty == 0:
-        logger.info(f"No position to close for {trade.symbol}")
-        return
+        return None
 
     # Get market info for tick sizes
     lighter_info = self.market_data.get_market_info(trade.symbol, Exchange.LIGHTER)
@@ -2398,159 +2414,284 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
     leg2_close_side = trade.leg2.side.inverse()
 
     # Calculate maker prices
-    leg1_maker_price = Decimal("0")
-    leg2_maker_price = Decimal("0")
+    leg1_maker_price = _calculate_leg_maker_price(
+        ob, price_data, leg1_close_qty, leg1_close_side, "lighter", lighter_tick
+    )
+    leg2_maker_price = _calculate_leg_maker_price(
+        ob, price_data, leg2_close_qty, leg2_close_side, "x10", x10_tick
+    )
 
-    if leg1_close_qty > 0:
+    return _CoordinatedCloseContext(
+        trade=trade,
+        price_data=price_data,
+        ob=ob,
+        leg1_close_qty=leg1_close_qty,
+        leg2_close_qty=leg2_close_qty,
+        leg1_close_side=leg1_close_side,
+        leg2_close_side=leg2_close_side,
+        leg1_maker_price=leg1_maker_price,
+        leg2_maker_price=leg2_maker_price,
+        lighter_tick=lighter_tick,
+        x10_tick=x10_tick,
+        x10_use_maker=x10_use_maker,
+        maker_timeout=maker_timeout,
+        escalate_to_ioc=escalate_to_ioc,
+    )
+
+
+def _calculate_leg_maker_price(
+    ob: Any,
+    price_data: Any,
+    close_qty: Decimal,
+    close_side: Side,
+    exchange: str,
+    tick: Decimal,
+) -> Decimal:
+    """Calculate maker price for a leg based on orderbook or price data."""
+    if close_qty <= 0:
+        return Decimal("0")
+
+    price = Decimal("0")
+
+    if exchange == "lighter":
         if ob and ob.lighter_bid > 0 and ob.lighter_ask > 0:
-            leg1_maker_price = ob.lighter_bid if leg1_close_side == Side.SELL else ob.lighter_ask
+            price = ob.lighter_bid if close_side == Side.SELL else ob.lighter_ask
         elif price_data and price_data.lighter_price > 0:
-            leg1_maker_price = price_data.lighter_price
-
-    if leg2_close_qty > 0:
+            price = price_data.lighter_price
+    else:  # x10
         if ob and ob.x10_bid > 0 and ob.x10_ask > 0:
-            leg2_maker_price = ob.x10_bid if leg2_close_side == Side.SELL else ob.x10_ask
+            price = ob.x10_bid if close_side == Side.SELL else ob.x10_ask
         elif price_data and price_data.x10_price > 0:
-            leg2_maker_price = price_data.x10_price
+            price = price_data.x10_price
 
-    leg1_maker_price = _round_price_to_tick(leg1_maker_price, lighter_tick, rounding="down") if leg1_maker_price > 0 else Decimal("0")
-    leg2_maker_price = _round_price_to_tick(leg2_maker_price, x10_tick, rounding="down") if leg2_maker_price > 0 else Decimal("0")
+    if price > 0:
+        return _round_price_to_tick(price, tick, rounding="down")
+    return Decimal("0")
 
-    # Track which legs are still open
-    legs_to_close = []
-    if leg1_close_qty > 0:
-        legs_to_close.append("leg1")
-    if leg2_close_qty > 0:
-        legs_to_close.append("leg2")
 
-    # Step 1: Submit MAKER orders on BOTH legs simultaneously
+async def _submit_coordinated_maker_orders(
+    self,
+    ctx: _CoordinatedCloseContext,
+) -> tuple[dict[str, Order | None], dict[str, str]]:
+    """Submit maker orders for both legs in parallel."""
     maker_orders: dict[str, Order | None] = {}
     maker_order_ids: dict[str, str] = {}
+    maker_tasks: dict[str, Awaitable[Order]] = {}
 
-    try:
-        # Submit both maker orders in parallel using dict for clear leg->task mapping
-        maker_tasks: dict[str, Awaitable[Order]] = {}
-        if leg1_close_qty > 0 and leg1_maker_price > 0:
-            logger.info(f"Submitting Lighter maker: {leg1_close_side.value} {leg1_close_qty} @ {leg1_maker_price}")
-            maker_tasks["leg1"] = self._submit_maker_order(
-                trade, Exchange.LIGHTER, "leg1", leg1_close_side, leg1_close_qty, leg1_maker_price, lighter_tick
-            )
+    if ctx.leg1_close_qty > 0 and ctx.leg1_maker_price > 0:
+        logger.info(
+            f"Submitting Lighter maker: {ctx.leg1_close_side.value} "
+            f"{ctx.leg1_close_qty} @ {ctx.leg1_maker_price}"
+        )
+        maker_tasks["leg1"] = self._submit_maker_order(
+            ctx.trade, Exchange.LIGHTER, "leg1",
+            ctx.leg1_close_side, ctx.leg1_close_qty,
+            ctx.leg1_maker_price, ctx.lighter_tick
+        )
 
-        if leg2_close_qty > 0 and leg2_maker_price > 0 and x10_use_maker:
-            logger.info(f"Submitting X10 maker: {leg2_close_side.value} {leg2_close_qty} @ {leg2_maker_price}")
-            maker_tasks["leg2"] = self._submit_maker_order(
-                trade, Exchange.X10, "leg2", leg2_close_side, leg2_close_qty, leg2_maker_price, x10_tick
-            )
+    if ctx.leg2_close_qty > 0 and ctx.leg2_maker_price > 0 and ctx.x10_use_maker:
+        logger.info(
+            f"Submitting X10 maker: {ctx.leg2_close_side.value} "
+            f"{ctx.leg2_close_qty} @ {ctx.leg2_maker_price}"
+        )
+        maker_tasks["leg2"] = self._submit_maker_order(
+            ctx.trade, Exchange.X10, "leg2",
+            ctx.leg2_close_side, ctx.leg2_close_qty,
+            ctx.leg2_maker_price, ctx.x10_tick
+        )
 
-        if maker_tasks:
-            # Execute tasks in parallel and map results directly to legs
-            results = await asyncio.gather(*maker_tasks.values(), return_exceptions=True)
-            for leg, result in zip(maker_tasks.keys(), results, strict=False):
-                if isinstance(result, BaseException):
-                    logger.warning(f"Maker order failed for {leg}: {result}")
-                    maker_orders[leg] = None
-                else:
-                    order_result: Order | None = result
-                    maker_orders[leg] = order_result
-                    if order_result:
-                        maker_order_ids[leg] = order_result.order_id
-                        logger.info(f"Maker order placed: {leg} = {order_result.order_id}")
+    if maker_tasks:
+        results = await asyncio.gather(*maker_tasks.values(), return_exceptions=True)
+        for leg, result in zip(maker_tasks.keys(), results, strict=False):
+            if isinstance(result, BaseException):
+                logger.warning(f"Maker order failed for {leg}: {result}")
+                maker_orders[leg] = None
+            else:
+                order_result: Order | None = result
+                maker_orders[leg] = order_result
+                if order_result:
+                    maker_order_ids[leg] = order_result.order_id
+                    logger.info(f"Maker order placed: {leg} = {order_result.order_id}")
 
-        # Wait for fills with timeout
-        start_time = time.time()
-        filled_legs = set()
+    return maker_orders, maker_order_ids
 
-        while time.time() - start_time < maker_timeout and legs_to_close:
-            await asyncio.sleep(0.3)
 
-            for leg in list(legs_to_close):
-                if leg not in maker_order_ids:
+async def _wait_for_coordinated_fills(
+    self,
+    trade: Trade,
+    legs_to_close: list[str],
+    maker_order_ids: dict[str, str],
+    maker_timeout: float,
+) -> set[str]:
+    """Wait for maker orders to fill with timeout."""
+    start_time = time.time()
+    filled_legs: set[str] = set()
+
+    while time.time() - start_time < maker_timeout and legs_to_close:
+        await asyncio.sleep(0.3)
+
+        for leg in list(legs_to_close):
+            if leg not in maker_order_ids:
+                continue
+
+            order_id = maker_order_ids[leg]
+            adapter = self.lighter if leg == "leg1" else self.x10
+
+            try:
+                updated = await adapter.get_order(trade.symbol, order_id)
+                if not updated:
                     continue
 
-                order_id = maker_order_ids[leg]
-                adapter = self.lighter if leg == "leg1" else self.x10
+                if updated.is_filled or updated.status == OrderStatus.FILLED:
+                    logger.info(
+                        f"Maker filled for {leg}: {updated.filled_qty} @ {updated.avg_fill_price}"
+                    )
+                    filled_legs.add(leg)
+                    legs_to_close.remove(leg)
+                    # Update trade leg
+                    if leg == "leg1":
+                        trade.leg1.exit_price = updated.avg_fill_price
+                        trade.leg1.fees += updated.fee
+                    else:
+                        trade.leg2.exit_price = updated.avg_fill_price
+                        trade.leg2.fees += updated.fee
+                elif not updated.is_active:
+                    logger.warning(f"Maker order {leg} no longer active: {updated.status}")
+                    legs_to_close.remove(leg)
+            except Exception as e:
+                logger.warning(f"Failed to check maker order for {leg}: {e}")
 
-                try:
-                    updated = await adapter.get_order(order_id)
-                    if updated:
-                        if updated.is_filled or updated.status == OrderStatus.FILLED:
-                            logger.info(f"Maker filled for {leg}: {updated.filled_qty} @ {updated.avg_fill_price}")
-                            filled_legs.add(leg)
-                            legs_to_close.remove(leg)
-                            # Update trade leg with exit price and accumulate fees
-                            if leg == "leg1":
-                                trade.leg1.exit_price = updated.avg_fill_price
-                                trade.leg1.fees += updated.fee
-                            else:
-                                trade.leg2.exit_price = updated.avg_fill_price
-                                trade.leg2.fees += updated.fee
-                        elif not updated.is_active:
-                            logger.warning(f"Maker order {leg} no longer active: {updated.status}")
-                            legs_to_close.remove(leg)
-                except Exception as e:
-                    logger.warning(f"Failed to check maker order for {leg}: {e}")
+    return filled_legs
+
+
+async def _escalate_unfilled_to_ioc(
+    self,
+    ctx: _CoordinatedCloseContext,
+    legs_to_close: list[str],
+    filled_legs: set[str],
+) -> None:
+    """Escalate unfilled legs to IOC orders."""
+    _log_coordinated_close_ioc_escalate(trade=ctx.trade, legs=list(legs_to_close))
+    logger.info(f"Escalating to IOC for unfilled legs: {', '.join(legs_to_close)} (synchronous)")
+
+    ioc_tasks = []
+
+    if "leg1" in legs_to_close and ctx.leg1_close_qty > 0:
+        ioc_price = _calculate_ioc_price(
+            ctx.ob, ctx.price_data, ctx.leg1_close_side, "lighter", ctx.lighter_tick
+        )
+        if ioc_price > 0:
+            ioc_tasks.append(self._execute_ioc_close(
+                ctx.trade, Exchange.LIGHTER, "leg1",
+                ctx.leg1_close_side, ctx.leg1_close_qty, ioc_price
+            ))
+
+    if "leg2" in legs_to_close and ctx.leg2_close_qty > 0:
+        ioc_price = _calculate_ioc_price(
+            ctx.ob, ctx.price_data, ctx.leg2_close_side, "x10", ctx.x10_tick
+        )
+        if ioc_price > 0:
+            ioc_tasks.append(self._execute_ioc_close(
+                ctx.trade, Exchange.X10, "leg2",
+                ctx.leg2_close_side, ctx.leg2_close_qty, ioc_price
+            ))
+
+    if ioc_tasks:
+        results = await asyncio.gather(*ioc_tasks, return_exceptions=True)
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(f"IOC close failed: {result}")
+            else:
+                logger.info(f"IOC close completed: {result}")
+
+        _log_coordinated_close_complete(trade=ctx.trade, filled_legs=filled_legs)
+
+
+def _calculate_ioc_price(
+    ob: Any,
+    price_data: Any,
+    close_side: Side,
+    exchange: str,
+    tick: Decimal,
+) -> Decimal:
+    """Calculate IOC price (cross spread) for a leg."""
+    price = Decimal("0")
+
+    if exchange == "lighter":
+        if ob and ob.lighter_bid > 0 and ob.lighter_ask > 0:
+            price = ob.lighter_ask if close_side == Side.BUY else ob.lighter_bid
+        elif price_data and price_data.lighter_price > 0:
+            price = price_data.lighter_price
+    else:  # x10
+        if ob and ob.x10_bid > 0 and ob.x10_ask > 0:
+            price = ob.x10_ask if close_side == Side.BUY else ob.x10_bid
+        elif price_data and price_data.x10_price > 0:
+            price = price_data.x10_price
+
+    if price > 0:
+        return _round_price_to_tick(price, tick, rounding="down")
+    return Decimal("0")
+
+
+async def _close_both_legs_coordinated(self, trade: Trade) -> None:
+    """
+    Coordinated dual-leg close to minimize unhedged exposure.
+
+    Strategy:
+    1. Submit POST_ONLY maker orders on BOTH legs simultaneously
+    2. Wait for fills with short timeout
+    3. Escalate UNFILLED legs to IOC on BOTH (no unhedged window)
+    4. Fallback to sequential close on error
+    """
+    ts = self.settings.trading
+    coordinated_enabled = bool(getattr(ts, "coordinated_close_enabled", True))
+
+    if not coordinated_enabled:
+        logger.info(f"Coordinated close disabled for {trade.symbol}, falling back to sequential")
+        await self._close_lighter_smart(trade)
+        await self._update_trade(trade)
+        await self._close_x10_smart(trade)
+        await self._update_trade(trade)
+        return
+
+    _log_coordinated_close_start(trade)
+    logger.info(f"Coordinated close for {trade.symbol} - parallel maker orders on both legs")
+
+    # Build context
+    ctx = _build_coordinated_close_context(self, trade)
+    if ctx is None:
+        logger.info(f"No position to close for {trade.symbol}")
+        return
+
+    # Determine which legs need closing
+    legs_to_close = []
+    if ctx.leg1_close_qty > 0:
+        legs_to_close.append("leg1")
+    if ctx.leg2_close_qty > 0:
+        legs_to_close.append("leg2")
+
+    try:
+        # Step 1: Submit maker orders
+        _, maker_order_ids = await _submit_coordinated_maker_orders(self, ctx)
+
+        # Step 2: Wait for fills
+        filled_legs = await _wait_for_coordinated_fills(
+            self, trade, legs_to_close, maker_order_ids, ctx.maker_timeout
+        )
 
         if not legs_to_close:
             logger.info(f"All legs filled via maker orders for {trade.symbol}")
-            # Log coordinated close complete
             _log_coordinated_close_complete(trade=trade, filled_legs=filled_legs)
             return
 
         logger.info(f"Maker timeout: {len(legs_to_close)} legs remaining ({', '.join(legs_to_close)})")
 
-        # Step 2: Escalate UNFILLED legs to IOC SYNCHRONOUSLY (no unhedged window)
-        if escalate_to_ioc:
-            # Log IOC escalation
-            _log_coordinated_close_ioc_escalate(trade=trade, legs=list(legs_to_close))
-
-            logger.info(f"Escalating to IOC for unfilled legs: {', '.join(legs_to_close)} (synchronous)")
-
-            # Build IOC tasks for ALL unfilled legs simultaneously
-            ioc_tasks = []
-
-            if "leg1" in legs_to_close and leg1_close_qty > 0:
-                # Calculate IOC price (cross spread)
-                ioc_price = Decimal("0")
-                if ob and ob.lighter_bid > 0 and ob.lighter_ask > 0:
-                    ioc_price = ob.lighter_ask if leg1_close_side == Side.BUY else ob.lighter_bid
-                elif price_data and price_data.lighter_price > 0:
-                    ioc_price = price_data.lighter_price
-
-                if ioc_price > 0:
-                    ioc_price = _round_price_to_tick(ioc_price, lighter_tick, rounding="down")
-                    ioc_tasks.append(self._execute_ioc_close(
-                        trade, Exchange.LIGHTER, "leg1", leg1_close_side, leg1_close_qty, ioc_price
-                    ))
-
-            if "leg2" in legs_to_close and leg2_close_qty > 0:
-                # Calculate IOC price (cross spread)
-                ioc_price = Decimal("0")
-                if ob and ob.x10_bid > 0 and ob.x10_ask > 0:
-                    ioc_price = ob.x10_ask if leg2_close_side == Side.BUY else ob.x10_bid
-                elif price_data and price_data.x10_price > 0:
-                    ioc_price = price_data.x10_price
-
-                if ioc_price > 0:
-                    ioc_price = _round_price_to_tick(ioc_price, x10_tick, rounding="down")
-                    ioc_tasks.append(self._execute_ioc_close(
-                        trade, Exchange.X10, "leg2", leg2_close_side, leg2_close_qty, ioc_price
-                    ))
-
-            # Execute ALL IOC tasks SIMULTANEOUSLY (no unhedged window)
-            if ioc_tasks:
-                results = await asyncio.gather(*ioc_tasks, return_exceptions=True)
-                for result in results:
-                    if isinstance(result, Exception):
-                        logger.warning(f"IOC close failed: {result}")
-                    else:
-                        logger.info(f"IOC close completed: {result}")
-
-                # Log coordinated close END after IOC escalation
-                _log_coordinated_close_complete(trade=trade, filled_legs=filled_legs)
+        # Step 3: Escalate to IOC
+        if ctx.escalate_to_ioc:
+            await _escalate_unfilled_to_ioc(self, ctx, legs_to_close, filled_legs)
 
     except Exception as e:
         logger.warning(f"Coordinated close failed for {trade.symbol}: {e}")
-        # Fallback to sequential close
         logger.info(f"Falling back to sequential close for {trade.symbol}")
         await self._close_lighter_smart(trade)
         await self._update_trade(trade)

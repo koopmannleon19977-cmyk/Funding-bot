@@ -128,81 +128,31 @@ class Reconciler:
         """
         Perform full reconciliation.
 
-        Compares database trades with exchange positions.
+        Compares database trades with exchange positions and handles:
+        - Zombies: trades in DB without exchange positions
+        - Ghosts: positions on exchange without DB trades
+        - Conflicts: side/quantity mismatches between DB and exchange
         """
         logger.info("Starting reconciliation...")
         result = ReconciliationResult()
 
         try:
-            # Get DB trades
+            # Phase 1: Fetch data from DB and exchanges
             db_trades = await self.store.list_open_trades()
             db_symbols: set[str] = {t.symbol for t in db_trades}
 
-            # Get exchange positions
             lighter_positions = await self._safe_list_positions(self.lighter)
             x10_positions = await self._safe_list_positions(self.x10)
 
             if lighter_positions is None or x10_positions is None:
-                logger.error("Aborting reconciliation: failed to fetch positions from one or more exchanges")
+                logger.error("Aborting reconciliation: failed to fetch positions")
                 result.errors.append("Failed to fetch positions")
                 return result
 
-            # Log detailed state for debugging
             logger.info(f"Reconciler: DB has {len(db_trades)} active trades: {sorted(list(db_symbols))}")
 
-            # Filter for Zombie Check:
-            # 1. OPEN/CLOSING trades: Must have positions. If not -> Zombie.
-            # 2. PENDING/OPENING trades: Only if "stale".
-            #    IMPORTANT: OPENING trades can legitimately take minutes (maker-chasing),
-            #    so we use a conservative timeout to avoid interfering with live executions.
-            zombie_candidates = []
-            now = datetime.now(UTC)
-
-            pending_stale_seconds = 120.0
-            maker_timeout = float(
-                getattr(
-                    self.settings.execution,
-                    "maker_order_timeout_seconds",
-                    Decimal("60.0"),
-                )
-            )
-            maker_retries = int(
-                getattr(self.settings.execution, "maker_order_max_retries", 3)
-            )
-            opening_stale_seconds = max(
-                600.0,  # hard safety floor
-                (maker_timeout * max(1, maker_retries)) + 120.0,
-            )
-
-            for t in db_trades:
-                if t.status in (TradeStatus.OPEN, TradeStatus.CLOSING):
-                    zombie_candidates.append(t)
-                elif t.status == TradeStatus.PENDING:
-                    age = (now - t.created_at).total_seconds()
-                    if age > pending_stale_seconds:
-                        zombie_candidates.append(t)
-                elif t.status == TradeStatus.OPENING:
-                    if startup:
-                        # At startup we have no in-flight execution state machine running.
-                        # Any OPENING trade that is not backed by an on-exchange position is orphaned.
-                        zombie_candidates.append(t)
-                        continue
-
-                    age = (now - t.created_at).total_seconds()
-                    # If an opening execution is stuck, we still want to clean it up,
-                    # but we must not close it while it may still be actively working.
-                    if (
-                        t.execution_state
-                        in (
-                            ExecutionState.PENDING,
-                            ExecutionState.LEG1_SUBMITTED,
-                            ExecutionState.LEG1_FILLED,
-                            ExecutionState.LEG2_SUBMITTED,
-                        )
-                        and age > opening_stale_seconds
-                    ):
-                        zombie_candidates.append(t)
-
+            # Phase 2: Identify zombie candidates and aggregate exchange positions
+            zombie_candidates = self._identify_zombie_candidates(db_trades, startup=startup)
             zombie_symbols = {t.symbol for t in zombie_candidates}
 
             l_log = [f"{p.symbol}={p.qty}" for p in lighter_positions]
@@ -210,165 +160,140 @@ class Reconciler:
             logger.info(f"Reconciler: Lighter positions ({len(lighter_positions)}): {l_log}")
             logger.info(f"Reconciler: X10 positions ({len(x10_positions)}): {x_log}")
 
-            exchange_positions: dict[str, dict[Exchange, Position]] = {}
-            for pos in lighter_positions + x10_positions:
-                if pos.qty > Decimal("0.0001"):
-                    # Normalize: strip -USD to match DB canonical format
-                    symbol = pos.symbol.replace("-USD", "")
-                    if symbol not in exchange_positions:
-                        exchange_positions[symbol] = {}
-                    exchange_positions[symbol][pos.exchange] = pos
-                else:
-                    logger.debug(f"Ignoring dust position: {pos.symbol} qty={pos.qty}")
-
+            exchange_positions = self._aggregate_exchange_positions(lighter_positions, x10_positions)
             exchange_symbols = set(exchange_positions.keys())
 
-            # Find discrepancies
-            zombies = zombie_symbols - exchange_symbols  # In DB (OPEN/CLOSING), not on exchange
-            ghosts = exchange_symbols - db_symbols  # On exchange, not in ANY active DB trade
+            # Phase 3: Find discrepancies
+            zombies = zombie_symbols - exchange_symbols
+            ghosts = exchange_symbols - db_symbols
+            conflicts = await self._detect_conflicts(db_trades, exchange_positions)
 
-            # Find Conflicts (Symbol match but sides/quantities are wrong).
-            # Map symbol -> reason for forced flattening and DB resolution.
-            conflicts: dict[str, str] = {}
-            for t in db_trades:
-                if t.symbol in exchange_positions and t.status in (TradeStatus.OPEN, TradeStatus.CLOSING):
-                    # Check if sides match the trade legs
-                    l_pos = exchange_positions[t.symbol].get(Exchange.LIGHTER)
-                    x_pos = exchange_positions[t.symbol].get(Exchange.X10)
-
-                    side_mismatch = False
-                    if l_pos and l_pos.side != t.leg1.side:
-                        logger.warning(f"Side mismatch for {t.symbol} on LIGHTER: Exchange={l_pos.side}, DB={t.leg1.side}")
-                        side_mismatch = True
-                    if x_pos and x_pos.side != t.leg2.side:
-                        logger.warning(f"Side mismatch for {t.symbol} on X10: Exchange={x_pos.side}, DB={t.leg2.side}")
-                        side_mismatch = True
-
-                    if side_mismatch:
-                        conflicts.setdefault(t.symbol, "reconciliation_side_mismatch")
-
-                    # NEW: Quantity Mismatch Detection (supports missing legs)
-                    # Detects imbalanced hedges where Lighter qty ≠ X10 qty
-                    if not side_mismatch:
-                        l_qty = abs(l_pos.qty) if l_pos else Decimal("0")
-                        x_qty = abs(x_pos.qty) if x_pos else Decimal("0")
-
-                        qty_tolerance_pct = Decimal("0.05")  # 5% tolerance (looser for partial fills)
-                        max_qty = max(l_qty, x_qty)
-                        delta = abs(l_qty - x_qty)
-
-                        # Only trigger if significant mismatch (> 5% of max side)
-                        # And at least one side has significant size (> $5 dust)
-                        if max_qty > 0 and delta > qty_tolerance_pct * max_qty and max_qty > Decimal("5"):
-                            logger.warning(
-                                f"QUANTITY MISMATCH for {t.symbol}: "
-                                f"Lighter={l_qty}, X10={x_qty} "
-                                f"(delta={delta:.4f}, {delta/max_qty*100:.1f}%)"
-                            )
-                            # Add to conflicts to trigger auto-resolution (close all)
-                            conflicts.setdefault(t.symbol, "reconciliation_quantity_mismatch")
-
-                            # Publish alert event
-                            await self.event_bus.publish(
-                                PositionReconciled(
-                                    symbol=t.symbol,
-                                    exchange=Exchange.LIGHTER,
-                                    action="quantity_mismatch",
-                                    details={
-                                        "lighter_qty": str(l_qty),
-                                        "x10_qty": str(x_qty),
-                                        "delta": str(delta),
-                                        "delta_pct": f"{delta/max_qty*100:.1f}%",
-                                    },
-                                )
-                            )
-
-            # Handle conflicts
-            for symbol, reason in conflicts.items():
-                try:
-                    logger.warning(f"Closing conflict position: {symbol} reason={reason}")
-                    closed = await self._close_symbol_positions(
-                        symbol,
-                        lighter_positions,
-                        x10_positions,
-                    )
-                    if closed:
-                        await self._mark_db_trades_resolved(symbol, db_trades, reason=reason, startup=startup)
-                        result.ghosts_closed += 1
-                    else:
-                        result.errors.append(
-                            f"Conflict {symbol}: no matching on-exchange positions found to close"
-                        )
-                except Exception as e:
-                    result.errors.append(f"Conflict {symbol}: {e}")
-
-            # Handle zombies
-            for symbol in zombies:
-                try:
-                    await self._handle_zombie(symbol, db_trades, startup=startup)
-                    result.zombies_closed += 1
-                except Exception as e:
-                    result.errors.append(f"Zombie {symbol}: {e}")
-
-            # Handle ghosts
-            # Check if we should auto-close or auto-import ghosts
-            auto_close_ghosts = bool(
-                getattr(self.settings, "reconciliation", None) and
-                getattr(self.settings.reconciliation, "auto_close_ghosts", False)
-            )
-            auto_import_ghosts = bool(
-                getattr(self.settings, "reconciliation", None) and
-                getattr(self.settings.reconciliation, "auto_import_ghosts", False)
+            # Phase 4: Handle conflicts
+            await self._handle_conflicts(
+                conflicts, lighter_positions, x10_positions, db_trades, result, startup=startup
             )
 
-            if not auto_close_ghosts and not auto_import_ghosts and ghosts:
-                logger.warning(
-                    f"Found {len(ghosts)} ghost position(s) but auto_close_ghosts and auto_import_ghosts are disabled. "
-                    f"Symbols: {sorted(list(ghosts))}. "
-                    f"Either close them manually on the exchanges or set reconciliation.auto_close_ghosts=true or reconciliation.auto_import_ghosts=true"
-                )
+            # Phase 5: Handle zombies
+            await self._handle_zombies(zombies, db_trades, result, startup=startup)
 
-            for symbol in ghosts:
-                try:
-                    if not auto_close_ghosts and not auto_import_ghosts:
-                        # Just log and skip
-                        logger.warning(f"Ghost position {symbol} detected but auto-close and auto-import are disabled - SKIPPING")
-                        continue
+            # Phase 6: Handle ghosts
+            await self._handle_ghosts(
+                ghosts, lighter_positions, x10_positions, result
+            )
 
-                    closed = await self._handle_ghost(
-                        symbol,
-                        lighter_positions,
-                        x10_positions,
-                        action="closed_ghost",
-                    )
-                    if closed:
-                        result.ghosts_closed += 1
-                    else:
-                        result.ghosts_adopted += 1
-                except Exception as e:
-                    result.errors.append(f"Ghost {symbol}: {e}")
-
-            if result.zombies_closed or result.ghosts_closed or result.ghosts_adopted:
-                logger.info(
-                    f"Reconciliation complete: "
-                    f"zombies={result.zombies_closed}, "
-                    f"ghosts_closed={result.ghosts_closed}, "
-                    f"ghosts_adopted={result.ghosts_adopted}"
-                )
-            elif result.errors:
-                logger.warning(f"Reconciliation completed with {len(result.errors)} errors")
-            else:
-                logger.debug("Reconciliation complete: no discrepancies")
-
-            if result.errors:
-                for err in result.errors:
-                    logger.warning(f"Reconciliation error: {err}")
+            # Phase 7: Log results
+            self._log_reconciliation_result(result)
 
         except Exception as e:
             logger.exception(f"Reconciliation failed: {e}")
             result.errors.append(str(e))
 
         return result
+
+    async def _handle_conflicts(
+        self,
+        conflicts: dict[str, str],
+        lighter_positions: list[Position],
+        x10_positions: list[Position],
+        db_trades: list[Trade],
+        result: ReconciliationResult,
+        *,
+        startup: bool,
+    ) -> None:
+        """Handle conflict positions (side/quantity mismatches)."""
+        for symbol, reason in conflicts.items():
+            try:
+                logger.warning(f"Closing conflict position: {symbol} reason={reason}")
+                closed = await self._close_symbol_positions(
+                    symbol, lighter_positions, x10_positions
+                )
+                if closed:
+                    await self._mark_db_trades_resolved(
+                        symbol, db_trades, reason=reason, startup=startup
+                    )
+                    result.ghosts_closed += 1
+                else:
+                    result.errors.append(
+                        f"Conflict {symbol}: no matching on-exchange positions found to close"
+                    )
+            except Exception as e:
+                result.errors.append(f"Conflict {symbol}: {e}")
+
+    async def _handle_zombies(
+        self,
+        zombies: set[str],
+        db_trades: list[Trade],
+        result: ReconciliationResult,
+        *,
+        startup: bool,
+    ) -> None:
+        """Handle zombie positions (in DB but not on exchange)."""
+        for symbol in zombies:
+            try:
+                await self._handle_zombie(symbol, db_trades, startup=startup)
+                result.zombies_closed += 1
+            except Exception as e:
+                result.errors.append(f"Zombie {symbol}: {e}")
+
+    async def _handle_ghosts(
+        self,
+        ghosts: set[str],
+        lighter_positions: list[Position],
+        x10_positions: list[Position],
+        result: ReconciliationResult,
+    ) -> None:
+        """Handle ghost positions (on exchange but not in DB)."""
+        auto_close_ghosts = bool(
+            getattr(self.settings, "reconciliation", None)
+            and getattr(self.settings.reconciliation, "auto_close_ghosts", False)
+        )
+        auto_import_ghosts = bool(
+            getattr(self.settings, "reconciliation", None)
+            and getattr(self.settings.reconciliation, "auto_import_ghosts", False)
+        )
+
+        if not auto_close_ghosts and not auto_import_ghosts and ghosts:
+            logger.warning(
+                f"Found {len(ghosts)} ghost position(s) but auto_close_ghosts and "
+                f"auto_import_ghosts are disabled. Symbols: {sorted(list(ghosts))}. "
+                f"Set reconciliation.auto_close_ghosts=true or auto_import_ghosts=true"
+            )
+
+        for symbol in ghosts:
+            try:
+                if not auto_close_ghosts and not auto_import_ghosts:
+                    logger.warning(
+                        f"Ghost position {symbol} detected but auto-close and "
+                        f"auto-import are disabled - SKIPPING"
+                    )
+                    continue
+
+                closed = await self._handle_ghost(
+                    symbol, lighter_positions, x10_positions, action="closed_ghost"
+                )
+                if closed:
+                    result.ghosts_closed += 1
+                else:
+                    result.ghosts_adopted += 1
+            except Exception as e:
+                result.errors.append(f"Ghost {symbol}: {e}")
+
+    def _log_reconciliation_result(self, result: ReconciliationResult) -> None:
+        """Log the reconciliation result summary."""
+        if result.zombies_closed or result.ghosts_closed or result.ghosts_adopted:
+            logger.info(
+                f"Reconciliation complete: "
+                f"zombies={result.zombies_closed}, "
+                f"ghosts_closed={result.ghosts_closed}, "
+                f"ghosts_adopted={result.ghosts_adopted}"
+            )
+        elif result.errors:
+            logger.warning(f"Reconciliation completed with {len(result.errors)} errors")
+        else:
+            logger.debug("Reconciliation complete: no discrepancies")
+
+        for err in result.errors:
+            logger.warning(f"Reconciliation error: {err}")
 
     async def _safe_list_positions(self, adapter: ExchangePort) -> list[Position] | None:
         """Safely list positions, returning None on error."""
@@ -377,6 +302,191 @@ class Reconciler:
         except Exception as e:
             logger.warning(f"Failed to list positions from {adapter.exchange}: {e}")
             return None
+
+    def _identify_zombie_candidates(
+        self,
+        db_trades: list[Trade],
+        *,
+        startup: bool,
+    ) -> list[Trade]:
+        """
+        Identify trades that are zombie candidates.
+
+        Zombie candidates are trades in DB that may not have exchange positions:
+        - OPEN/CLOSING trades: Always candidates (must have positions)
+        - PENDING trades: Only if stale (> 120s)
+        - OPENING trades: Only if stale (> maker_timeout * retries + buffer)
+
+        Args:
+            db_trades: List of open trades from DB
+            startup: Whether this is a startup reconciliation
+
+        Returns:
+            List of trades that are zombie candidates
+        """
+        now = datetime.now(UTC)
+        pending_stale_seconds = 120.0
+
+        maker_timeout = float(
+            getattr(
+                self.settings.execution,
+                "maker_order_timeout_seconds",
+                Decimal("60.0"),
+            )
+        )
+        maker_retries = int(
+            getattr(self.settings.execution, "maker_order_max_retries", 3)
+        )
+        opening_stale_seconds = max(
+            600.0,  # hard safety floor
+            (maker_timeout * max(1, maker_retries)) + 120.0,
+        )
+
+        candidates: list[Trade] = []
+
+        for t in db_trades:
+            if t.status in (TradeStatus.OPEN, TradeStatus.CLOSING):
+                candidates.append(t)
+            elif t.status == TradeStatus.PENDING:
+                age = (now - t.created_at).total_seconds()
+                if age > pending_stale_seconds:
+                    candidates.append(t)
+            elif t.status == TradeStatus.OPENING:
+                if startup:
+                    # At startup: any OPENING trade without position is orphaned
+                    candidates.append(t)
+                    continue
+
+                age = (now - t.created_at).total_seconds()
+                if (
+                    t.execution_state
+                    in (
+                        ExecutionState.PENDING,
+                        ExecutionState.LEG1_SUBMITTED,
+                        ExecutionState.LEG1_FILLED,
+                        ExecutionState.LEG2_SUBMITTED,
+                    )
+                    and age > opening_stale_seconds
+                ):
+                    candidates.append(t)
+
+        return candidates
+
+    def _aggregate_exchange_positions(
+        self,
+        lighter_positions: list[Position],
+        x10_positions: list[Position],
+    ) -> dict[str, dict[Exchange, Position]]:
+        """
+        Aggregate exchange positions by symbol.
+
+        Filters out dust positions (qty <= 0.0001) and normalizes
+        symbol names (strips -USD suffix).
+
+        Args:
+            lighter_positions: Positions from Lighter exchange
+            x10_positions: Positions from X10 exchange
+
+        Returns:
+            Dict mapping symbol -> {Exchange -> Position}
+        """
+        exchange_positions: dict[str, dict[Exchange, Position]] = {}
+
+        for pos in lighter_positions + x10_positions:
+            if pos.qty > Decimal("0.0001"):
+                # Normalize: strip -USD to match DB canonical format
+                symbol = pos.symbol.replace("-USD", "")
+                if symbol not in exchange_positions:
+                    exchange_positions[symbol] = {}
+                exchange_positions[symbol][pos.exchange] = pos
+            else:
+                logger.debug(f"Ignoring dust position: {pos.symbol} qty={pos.qty}")
+
+        return exchange_positions
+
+    async def _detect_conflicts(
+        self,
+        db_trades: list[Trade],
+        exchange_positions: dict[str, dict[Exchange, Position]],
+    ) -> dict[str, str]:
+        """
+        Detect conflicts between DB trades and exchange positions.
+
+        Checks for:
+        - Side mismatches (DB side != exchange side)
+        - Quantity mismatches (Lighter qty != X10 qty beyond tolerance)
+
+        Args:
+            db_trades: List of trades from DB
+            exchange_positions: Aggregated exchange positions by symbol
+
+        Returns:
+            Dict mapping symbol -> conflict reason
+        """
+        conflicts: dict[str, str] = {}
+
+        for t in db_trades:
+            if t.symbol not in exchange_positions:
+                continue
+            if t.status not in (TradeStatus.OPEN, TradeStatus.CLOSING):
+                continue
+
+            l_pos = exchange_positions[t.symbol].get(Exchange.LIGHTER)
+            x_pos = exchange_positions[t.symbol].get(Exchange.X10)
+
+            # Check side mismatch
+            side_mismatch = False
+            if l_pos and l_pos.side != t.leg1.side:
+                logger.warning(
+                    f"Side mismatch for {t.symbol} on LIGHTER: "
+                    f"Exchange={l_pos.side}, DB={t.leg1.side}"
+                )
+                side_mismatch = True
+            if x_pos and x_pos.side != t.leg2.side:
+                logger.warning(
+                    f"Side mismatch for {t.symbol} on X10: "
+                    f"Exchange={x_pos.side}, DB={t.leg2.side}"
+                )
+                side_mismatch = True
+
+            if side_mismatch:
+                conflicts.setdefault(t.symbol, "reconciliation_side_mismatch")
+                continue
+
+            # Check quantity mismatch
+            l_qty = abs(l_pos.qty) if l_pos else Decimal("0")
+            x_qty = abs(x_pos.qty) if x_pos else Decimal("0")
+
+            qty_tolerance_pct = Decimal("0.05")  # 5% tolerance
+            max_qty = max(l_qty, x_qty)
+            delta = abs(l_qty - x_qty)
+
+            # Only trigger if significant mismatch (> 5% of max side)
+            # And at least one side has significant size (> $5 dust)
+            if max_qty > 0 and delta > qty_tolerance_pct * max_qty and max_qty > Decimal("5"):
+                logger.warning(
+                    f"QUANTITY MISMATCH for {t.symbol}: "
+                    f"Lighter={l_qty}, X10={x_qty} "
+                    f"(delta={delta:.4f}, {delta/max_qty*100:.1f}%)"
+                )
+                conflicts.setdefault(t.symbol, "reconciliation_quantity_mismatch")
+
+                # Publish alert event
+                await self.event_bus.publish(
+                    PositionReconciled(
+                        symbol=t.symbol,
+                        exchange=Exchange.LIGHTER,
+                        action="quantity_mismatch",
+                        details={
+                            "lighter_qty": str(l_qty),
+                            "x10_qty": str(x_qty),
+                            "delta": str(delta),
+                            "delta_pct": f"{delta/max_qty*100:.1f}%",
+                        },
+                    )
+                )
+
+        return conflicts
 
     async def _handle_zombie(
         self, symbol: str, db_trades: list[Trade], *, startup: bool = False
