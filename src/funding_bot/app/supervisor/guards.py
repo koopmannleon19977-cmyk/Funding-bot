@@ -1,5 +1,8 @@
 """
 Trading pause guards and account safety checks.
+
+These functions are designed to be used as methods of the Supervisor class.
+They are defined externally and assigned to the class in manager.py.
 """
 
 from __future__ import annotations
@@ -7,16 +10,19 @@ from __future__ import annotations
 import asyncio
 import time
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from funding_bot.domain.events import AlertEvent, BrokenHedgeDetected, CircuitBreakerTripped
 from funding_bot.observability.logging import get_logger
+
+if TYPE_CHECKING:
+    from funding_bot.app.supervisor.manager import Supervisor
 
 logger = get_logger(__name__)
 
 
 async def _pause_trading(
-    self,
+    self: Supervisor,
     reason: str,
     cooldown_seconds: float,
     *,
@@ -91,7 +97,7 @@ def _compact_error(err: Exception, *, max_chars: int = 240) -> str:
     return first
 
 
-async def _on_broken_hedge(self, event: BrokenHedgeDetected) -> None:
+async def _on_broken_hedge(self: Supervisor, event: BrokenHedgeDetected) -> None:
     """
     Handle BrokenHedgeDetected event.
 
@@ -130,7 +136,7 @@ async def _on_broken_hedge(self, event: BrokenHedgeDetected) -> None:
 
 
 async def _fetch_balances_with_retry(
-    self,
+    self: Supervisor,
     *,
     attempts: int = 3,
     base_delay_seconds: float = 0.5,
@@ -154,7 +160,7 @@ async def _fetch_balances_with_retry(
     raise last_err
 
 
-async def _maybe_resume_trading(self) -> None:
+async def _maybe_resume_trading(self: Supervisor) -> None:
     async with self._risk_lock:
         if self._trading_paused_until is None:
             return
@@ -230,7 +236,7 @@ async def _maybe_resume_trading(self) -> None:
     logger.info("Trading resumed")
 
 
-async def _is_trading_paused(self) -> bool:
+async def _is_trading_paused(self: Supervisor) -> bool:
     async with self._risk_lock:
         if self._trading_paused_until is None:
             return False
@@ -239,7 +245,7 @@ async def _is_trading_paused(self) -> bool:
         return time.time() < self._trading_paused_until
 
 
-async def _check_account_guards(self, *, l_bal: Any | None = None, x_bal: Any | None = None) -> None:
+async def _check_account_guards(self: Supervisor, *, l_bal: Any | None = None, x_bal: Any | None = None) -> None:
     """
     Enforce drawdown and free margin rules.
 

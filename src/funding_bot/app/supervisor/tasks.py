@@ -1,26 +1,32 @@
 """
 Task supervision helpers for restart/backoff behavior.
+
+These functions are designed to be used as methods of the Supervisor class.
+They are defined externally and assigned to the class in manager.py.
 """
 
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any, Coroutine
 
 from funding_bot.domain.events import AlertEvent
 from funding_bot.observability.logging import get_logger
 
+if TYPE_CHECKING:
+    from funding_bot.app.supervisor.manager import Supervisor
+
 logger = get_logger(__name__)
 
 
-def _create_task(self, coro: Any, name: str) -> asyncio.Task:
+def _create_task(self: Supervisor, coro: Coroutine[Any, Any, Any], name: str) -> asyncio.Task[Any]:
     """Create a supervised task with proper exception handling."""
     task = asyncio.create_task(coro, name=name)
     task.add_done_callback(lambda t: self._handle_task_done(t, name))
     return task
 
 
-def _handle_task_done(self, task: asyncio.Task, name: str) -> None:
+def _handle_task_done(self: Supervisor, task: asyncio.Task[Any], name: str) -> None:
     """Handle task completion/failure."""
     if task.cancelled():
         logger.debug(f"Task {name} cancelled")
@@ -63,7 +69,7 @@ def _handle_task_done(self, task: asyncio.Task, name: str) -> None:
     )
 
 
-async def _restart_task_after_delay(self, name: str, delay_seconds: float, reason: str) -> None:
+async def _restart_task_after_delay(self: Supervisor, name: str, delay_seconds: float, reason: str) -> None:
     """Restart a supervised task with backoff, if still running."""
     try:
         await asyncio.sleep(delay_seconds)
@@ -101,7 +107,7 @@ async def _restart_task_after_delay(self, name: str, delay_seconds: float, reaso
         logger.exception(f"Failed to restart task {name}: {e}")
 
 
-async def _cancel_all_tasks(self) -> None:
+async def _cancel_all_tasks(self: Supervisor) -> None:
     """Cancel all running tasks safely."""
     if not self._tasks:
         # Still cancel any scheduled restart jobs

@@ -1,19 +1,26 @@
 """
 Startup and shutdown lifecycle management.
+
+These functions are designed to be used as methods of the Supervisor class.
+They are defined externally and assigned to the class in manager.py.
 """
 
 from __future__ import annotations
 
 import contextlib
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from funding_bot.domain.events import BrokenHedgeDetected
 from funding_bot.observability.logging import get_logger
 
+if TYPE_CHECKING:
+    from funding_bot.app.supervisor.manager import Supervisor
+
 logger = get_logger(__name__)
 
 
-async def start(self) -> None:
+async def start(self: Supervisor) -> None:
     """Start all services in correct order."""
     if self._running:
         logger.warning("Supervisor already running")
@@ -44,7 +51,7 @@ async def start(self) -> None:
         raise
 
 
-async def stop(self) -> None:
+async def stop(self: Supervisor) -> None:
     """Stop all services gracefully."""
     if self._stopping:
         logger.debug("Supervisor already stopping")
@@ -92,7 +99,7 @@ async def stop(self) -> None:
     logger.info("Supervisor stopped")
 
 
-async def _init_infrastructure(self) -> None:
+async def _init_infrastructure(self: Supervisor) -> None:
     """Initialize database and other infrastructure."""
     logger.info("Initializing infrastructure...")
 
@@ -122,7 +129,7 @@ async def _init_infrastructure(self) -> None:
     logger.info("Infrastructure initialized")
 
 
-async def _init_adapters(self) -> None:
+async def _init_adapters(self: Supervisor) -> None:
     """Initialize exchange adapters."""
     logger.info("Initializing adapters...")
 
@@ -156,7 +163,7 @@ async def _init_adapters(self) -> None:
     logger.info("Adapters initialized")
 
 
-async def _start_services(self) -> None:
+async def _start_services(self: Supervisor) -> None:
     """Start all business services."""
     logger.info("Starting services...")
 
@@ -271,7 +278,7 @@ async def _start_services(self) -> None:
     logger.info("Services started")
 
 
-async def _stop_services(self) -> None:
+async def _stop_services(self: Supervisor) -> None:
     """Stop all services."""
     logger.info("Stopping services...")
 
@@ -291,7 +298,7 @@ async def _stop_services(self) -> None:
     logger.info("Services stopped")
 
 
-async def _close_adapters(self) -> None:
+async def _close_adapters(self: Supervisor) -> None:
     """Close exchange adapters."""
     logger.info("Closing adapters...")
 
@@ -307,7 +314,7 @@ async def _close_adapters(self) -> None:
     logger.info("Adapters closed")
 
 
-async def _close_infrastructure(self) -> None:
+async def _close_infrastructure(self: Supervisor) -> None:
     """Close database and infrastructure."""
     logger.info("Closing infrastructure...")
 

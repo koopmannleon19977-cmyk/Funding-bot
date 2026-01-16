@@ -155,7 +155,7 @@ class Supervisor:
     _cancel_all_tasks = _cancel_all_tasks
 
 
-def trigger_position_check(self) -> None:
+def trigger_position_check(self: "Supervisor") -> None:
     """
     Trigger immediate position check (event-driven wakeup).
 
@@ -173,3 +173,7 @@ def trigger_position_check(self) -> None:
     """
     if hasattr(self, '_position_check_event'):
         self._position_check_event.set()
+
+
+# Assign as method to class
+Supervisor.trigger_position_check = trigger_position_check  # type: ignore[method-assign]
