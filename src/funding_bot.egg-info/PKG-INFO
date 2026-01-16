@@ -1,0 +1,131 @@
+Metadata-Version: 2.4
+Name: funding-bot
+Version: 2.0.0
+Summary: Delta-neutral funding rate arbitrage bot (Lighter <-> X10)
+Author: Funding Bot Team
+License: MIT
+Project-URL: Homepage, https://github.com/your-org/funding-bot
+Keywords: trading,arbitrage,funding-rate,defi,lighter,x10
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: websockets>=12.0
+Requires-Dist: certifi>=2026.1.4
+Requires-Dist: aiosqlite>=0.19.0
+Requires-Dist: eth-account>=0.10.0
+Requires-Dist: pydantic>=2.5.0
+Requires-Dist: pydantic-settings>=2.1.0
+Requires-Dist: PyYAML>=6.0
+Requires-Dist: orjson>=3.9.0
+Requires-Dist: python-dotenv>=1.0.0
+Requires-Dist: tenacity>=8.2.0
+Requires-Dist: rich>=13.0.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.7.0; extra == "dev"
+
+# funding-bot
+
+Delta-neutral funding rate arbitrage bot across **Lighter** and **X10**.
+
+This bot can run in **PAPER** (scan-only) or **LIVE** (places real orders).
+
+## What it does
+
+- Scans common markets, ranks opportunities (APY/spread/EV), and enforces risk + liquidity gates.
+- Executes a 2-leg entry (maker-first on Lighter, hedge on X10) with rollback handling.
+- Manages exits (min-hold, funding flip logic, trailing stop, net-EV exit), reconciles DB vs exchange, and tracks funding + PnL.
+- Telegram notifications for critical events and a local dashboard.
+
+## Requirements
+
+- Python `>=3.11`
+- Exchange SDKs: **Optional for development/testing**, required for live trading
+  - The bot's default install (`pip install -e ".[dev]"`) includes all core dependencies
+  - Exchange SDKs are only needed for:
+    - Live trading on real exchanges
+    - WebSocket connections to live market data
+  - For offline development and unit tests, the Exchange SDKs are **not required**
+  - See `requirements-exchange.txt` for Exchange SDK installation if needed
+
+## Safety / Disclaimer
+
+- This project can place **real** orders and can lose money.
+- Funding arbitrage is not “risk free”: spreads, slippage, execution failures, margin constraints, and liquidations are real.
+- Run PAPER first, then use tiny LIVE sizing and monitor alerts.
+
+## Install (recommended)
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+python -m pip install -U pip
+pip install -e ".[dev]"
+```
+
+## Configuration
+
+- Main config: `src/funding_bot/config/config.yaml`
+- Secrets via env vars (typically via a local `.env`, which is ignored by git).
+
+Common env vars used by the bot:
+
+- Lighter: `LIGHTER_PRIVATE_KEY` (legacy) or `LIGHTER_API_KEY_PRIVATE_KEY`, plus `LIGHTER_ACCOUNT_INDEX`, `LIGHTER_API_KEY_INDEX`, `LIGHTER_L1_ADDRESS`
+- X10: `X10_API_KEY`, `X10_PRIVATE_KEY`, `X10_PUBLIC_KEY`, `X10_VAULT_ID`
+- Optional Telegram: `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+
+## Alerts (Telegram)
+
+The bot sends Telegram alerts for:
+
+- Broken hedge (one leg missing / liquidation/manual close) → immediate unwind attempt
+- Reconciler interventions (zombie/ghost/conflict)
+- Close failures / “positions still open”
+- Repeated execution failures (before circuit breaker pauses new trades)
+
+## Run
+
+Paper mode:
+
+```bash
+set PYTHONPATH=%CD%\src
+python -m funding_bot run --paper
+```
+
+Live mode requires explicit confirmation:
+
+```bash
+set PYTHONPATH=%CD%\src
+python -m funding_bot run --env prod --live --confirm-live
+```
+
+Windows helpers:
+
+- `START_BOT.bat` (paper)
+- `START_LIVE_BOT.bat` (live, confirmed)
+- `CLEAN_RESTART.bat`
+
+## State / Files
+
+- Logs: `logs/` (ignored by git)
+- SQLite DB: `data/funding_v2.db` (ignored by git; contains local trade state)
+
+## Tests
+
+```bash
+set PYTHONPATH=%CD%\src
+pytest -q
+```
+
+## Disclaimer
+
+This project can place real orders. Use at your own risk.

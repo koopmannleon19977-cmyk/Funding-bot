@@ -1,0 +1,108 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "funding-bot"
+version = "2.0.0"
+description = "Delta-neutral funding rate arbitrage bot (Lighter <-> X10)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Funding Bot Team" }]
+keywords = ["trading", "arbitrage", "funding-rate", "defi", "lighter", "x10"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+  # Async HTTP & WebSocket
+  "aiohttp>=3.13.3",
+  "websockets>=12.0",
+  "certifi>=2026.1.4",  # CA certificates (security updates)
+
+  # Database
+  "aiosqlite>=0.19.0",
+
+  # Crypto & Signing
+  "eth-account>=0.10.0",
+
+  # Data handling
+  "pydantic>=2.5.0",
+  "pydantic-settings>=2.1.0",
+  "PyYAML>=6.0",
+  "orjson>=3.9.0",  # Faster JSON parsing for WebSocket hot path
+
+  # Utils
+  "python-dotenv>=1.0.0",
+  "tenacity>=8.2.0",
+  "rich>=13.0.0",
+]
+
+# Note: Exchange SDKs are managed in requirements-exchange.txt
+# Install with: pip install -r requirements-exchange.txt
+# This ensures reproducible builds with pinned SDK versions.
+# See: requirements-exchange.txt and libs/elliottech_lighter_python/PATCHES.md
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4.0",
+  "pytest-asyncio>=0.21.0",
+  "pytest-cov>=4.1.0",
+  "ruff>=0.1.0",
+  "mypy>=1.7.0",
+]
+
+[project.scripts]
+funding-bot = "funding_bot.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/your-org/funding-bot"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+funding_bot = ["config/*.yaml", "py.typed"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"] # Line too long (handled by formatter)
+
+[tool.ruff.isort]
+known-first-party = ["funding_bot"]
+
+[tool.mypy]
+python_version = "3.11"
+# Relaxed settings for gradual type adoption
+warn_return_any = true
+warn_unused_ignores = false
+disallow_untyped_defs = false
+check_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+# Ignore missing imports for external SDKs
+[[tool.mypy.overrides]]
+module = ["x10.*", "lighter.*", "eth_account.*", "starknet_py.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["websockets.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: marks tests as unit tests (fast, isolated, no external deps)",
+    "integration: marks tests requiring external dependencies (APIs, database, adapters)"
+]
+

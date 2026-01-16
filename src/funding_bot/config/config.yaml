@@ -1,0 +1,435 @@
+# =============================================================================
+# FUNDING ARBITRAGE BOT - UNIFIED CONFIGURATION
+# =============================================================================
+#
+# Diese eine Datei enthält ALLE Einstellungen für den Bot.
+# Optimiert für 10% monatliche Rendite (2025-12-27).
+#
+# Wichtige Erkenntnisse:
+# - Trading-Frequenz ist der größte Profitfresser (nicht APY)
+# - Min 48h Haltezeit reduziert Execution Costs von 493% auf ~30%/Monat
+# - Spread-Filter wichtiger als APY-Filter für Netto-Profitabilität
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# TRADING MODE
+# -----------------------------------------------------------------------------
+live_trading: true     # true = echte Orders, false = PAPER mode (scan-only / dry-run)
+testing_mode: false     # true = extra Diagnostics (setzt Logging-Level mind. auf DEBUG)
+
+# -----------------------------------------------------------------------------
+# EXCHANGE CONNECTIONS (URLs - Keys kommen aus .env)
+# -----------------------------------------------------------------------------
+lighter:
+  base_url: "https://mainnet.zklighter.elliot.ai"
+  account_index: 0
+  funding_rate_interval_hours: "1"  # API returns hourly rate (formula: premium/8 + interest). No division needed.
+
+x10:
+  base_url: "https://api.starknet.extended.exchange"
+  funding_rate_interval_hours: "1"  # API returns hourly rate (formula: avg_premium/8 + clamp). No division needed.
+
+# -----------------------------------------------------------------------------
+# TRADING PARAMETERS - OPTIMIERT FÜR PROFITABILITÄT
+# -----------------------------------------------------------------------------
+trading:
+  # ---- POSITION SIZING (OPTIMIERT FÜR 400€ KAPITAL) ----
+  desired_notional_usd: "350.0"         # Optimal für 400€ Equity (sicherer Liq-Buffer)
+  max_open_trades: 1                    # Single Trade für maximale Qualität (weniger Fees/Slippage)
+  leverage_multiplier: "7.0"            # Konservativer Leverage (6-8.0 range) - mehr Liq-Abstand
+
+  # ---- ENTRY FILTER (QUALITÄT > QUANTITÄT) ----
+  min_apy_filter: "0.35"                # 35% APY: Nur Trades mit echtem Edge (verhindert Fee-Burn)
+
+  min_expected_profit_entry_usd: "0.80" # Höherer Threshold: Nur "worth it" Trades
+
+  min_ev_spread_ratio: "3.5"            # Mehr Sicherheit gegen Noise (3.0 → 3.5)
+
+  max_breakeven_hours: "24.0"           # Max 1 Tag bis Breakeven (kleineres Kapital = schneller ROI)
+
+  # ---- SPREAD KONTROLLE (kritisch!) ----
+  max_spread_filter_percent: "0.0016"   # Max 0.16% Spread (Balanced sniper settings)
+  max_spread_cap_percent: "0.0030"      # Cap leicht gelockert
+  negative_spread_guard_multiple: "2.0" # Revalidate if negative spread exceeds 2x max
+
+  # ---- LIQUIDITY / DEPTH GATE (L1) ----
+  # Verhindert "APY Traps": dünne Orderbooks, bei denen Fees/Slippage die Funding-Edge auffressen.
+  # L1-only (best bid/ask qty) – konservativer Gate vor Execution + vor Hedge.
+  depth_gate_enabled: True
+  depth_gate_mode: "IMPACT"                 # L1|IMPACT
+  depth_gate_levels: 20                     # Top-N Levels je Seite (IMPACT only)
+  depth_gate_max_price_impact_percent: "0.0015"  # 0.15% Fenster ab best bid/ask (IMPACT only)
+  min_l1_notional_usd: "500"       # Absolute Mindest-L1-Notional (Reduziert für mehr Action)
+  min_l1_notional_multiple: "1.2"       # L1-Notional >= 1.2x Trade-Notional (gesenkt von 1.5 → weniger X10 Rejections)
+  max_l1_qty_utilization: "0.7"         # TradeQty darf max 70% der L1 Qty sein (>=1 = aus)
+
+  # ---- HALTEZEIT (KRITISCHSTE EINSTELLUNG!) ----
+  # Die Rechnung: 720h/Monat ÷ min_hold_hours = max Trades/Monat
+  # Balance: 48h = deutlich weniger Execution Costs (30% vs 49% bei 40h)
+  # Professionelle Bots nutzen 48-72h Haltezeit für bessere Net-APY
+  # 48h erlaubt ~15 Trades/Monat/Slot vs. ~20 bei 40h
+
+  min_hold_seconds: 172800              # 48 STUNDEN (Optimiert für Net-Profit: 15 Trades/Monat/Slot)
+  max_hold_hours: "240.0"               # Max 10 Tage
+  max_hold_extend_on_recovery_enabled: true  # Extend max hold if recovery predicted within 6h
+
+  # ---- EXIT REGELN (OPTIMIERT FÜR WENIGER MICRO-EXITS) ----
+  min_profit_exit_usd: "3.00"           # Erhöht von 1.50 → verhindert Micro-Exit-Churn
+                                        # Konsistentes Profit-Level für alle Exits
+
+  # ---- EARLY TAKE-PROFIT (Bypass min_hold, aber nur wenn NETTO) ----
+  # Erlaubt schnelles Mitnehmen von Preis-Dislocations/Arb-PnL VOR 40h,
+  # aber nur wenn der geschätzte Netto-PnL (nach Fees, bid/ask) >= threshold ist.
+  # Aktiviert für hohe Preis-Dislocations, Funding-Holds bleiben unberührt.
+  early_take_profit_enabled: true     # Aktiviert für $4.00+ Preis-PnL (ohne Funding)
+  early_take_profit_net_usd: "4.00"         # Threshold fuer Preis-Dislocation (hohes Netto) - RAISED from $1.50
+  early_take_profit_slippage_multiple: "2.5" # FIX: Increased buffer to prevent false-positive exits
+
+  # ---- EARLY TP FAST-CLOSE (Sofortiges Mitnehmen von Preis-Dislocations) ----
+  early_tp_fast_close_enabled: true
+  early_tp_fast_close_use_taker_directly: true   # Sofortiger Close ohne Maker-Chase
+  early_tp_fast_close_total_timeout_seconds: "8.0"
+  early_tp_fast_close_attempt_timeout_seconds: "2.5"
+  early_tp_fast_close_max_attempts: 1
+
+  # ---- EARLY EDGE-EXIT (Bypass min_hold bei Edge-Collapse) ----
+  # Erlaubt pre-min_hold Exit, wenn Funding/Edge strukturell kippt (Funding-Flip / APY-Crash),
+  # um nicht stundenlang Fees "auszusitzen".
+  early_edge_exit_enabled: true
+  early_edge_exit_min_age_seconds: 7200  # 2h (erhöht von 1h - verhindert verfrühte APY-Crash Exits)
+
+  # REMOVED 2026-01-10: apy_crash_ratio, apy_crash_floor, apy_crash_horizon_hours
+  # Reason: Replaced by Funding Velocity Exit (more proactive, professional strategy)
+  # Research shows APY naturally oscillates 50-150% - ratio-based exits cause premature closures
+
+  funding_flip_hours_threshold: "0.0"  # Sofortiger Exit bei negativem Funding (kein Timer)
+
+  # REMOVED 2026-01-10: volatility_panic_threshold
+  # Reason: Market-neutral strategy means price volatility is irrelevant for funding arbitrage.
+  # We're long one exchange, short the other - price movements affect both legs equally.
+  # Previous: volatility_panic_threshold: "5.0"
+
+  # ---- NETTO EV EXIT (Overtrading-Schutz) ----
+  # Exit nur, wenn die erwartete Funding-Einnahme über einen Horizont
+  # die Exit-Kosten (Fees + Spread) NICHT mehr sinnvoll deckt.
+  exit_ev_enabled: true
+  exit_ev_horizon_hours: "12.0"
+  exit_ev_exit_cost_multiple: "1.4"     # RAISED from 1.2 - More conservative exit cost threshold
+  exit_ev_skip_profit_target_when_edge_good: true
+  exit_ev_skip_opportunity_cost_when_edge_good: false
+
+  # REMOVED 2026-01-10: trailing_stop_activation_usd, trailing_stop_callback_pct
+  # Reason: Replaced by ATR Trailing Stop (volatility-adaptive, professional strategy)
+
+  # ---- HOLY GRAIL EXIT STRATEGIES (2026-01-10) ----
+  # Phase 1: Z-Score APY Crash Detection (statistisch statt fixer %-Schwellen)
+  # NUR als Fallback für alte Trades (7+ Tage) - FundingVelocityExit bevorzugt für neue Trades
+  z_score_exit_enabled: true            # AKTIVIERT für Live-Test
+  z_score_exit_threshold: "-2.0"        # Exit bei 2-Sigma Crash
+  z_score_emergency_threshold: "-3.0"   # Emergency bei 3-Sigma
+  z_score_lookback_hours: 24            # 24h History für Mean/Std
+  z_score_exit_min_age_hours: 168       # NUR für Trades 7+ Tage alt (168 Stunden)
+
+  # Phase 1: Yield vs. Cost Filter (verhindert "Bleeder"-Positionen)
+  yield_cost_exit_enabled: false        # DEAKTIVIERT für 400€ Kapital (redundant zu Net-EV)
+  # yield_cost_max_hours: "36.0"         # Falls aktiviert: 36h statt 24h (weniger aggressiv)
+
+  # Phase 2: Basis Convergence (Spread-Convergence = Arb Complete)
+  basis_convergence_exit_enabled: true  # AKTIVIERT für Live-Test
+  basis_convergence_threshold_pct: "0.0005"  # 0.05% = near-zero basis
+  basis_convergence_ratio: "0.20"       # 80% spread collapse triggers exit
+  basis_convergence_min_profit_usd: "0.50"   # Min PnL für Exit
+
+  # ---- NEW EXIT STRATEGIES v3.1 LEAN (2026-01-10) ----
+  # Layer 1: EMERGENCY EXITS (Override min_hold gate)
+  liquidation_distance_monitoring_enabled: false  # TODO: Enable after adapter extension (requires liquidation_price from API)
+  liquidation_distance_min_pct: "15.0"            # 15% Minimum buffer to liquidation
+  liquidation_distance_check_interval_seconds: 15  # Check every 15s
+
+  delta_bound_enabled: true
+  delta_bound_max_delta_pct: "0.03"               # 3% Max delta deviation (hedge protection)
+  delta_bound_check_interval_seconds: 15          # Check every 15s
+
+  # Phase 3: DELTA REBALANCE (Restore neutrality without full exit)
+  rebalance_enabled: true                         # Enable rebalance instead of full exit at 1-3% drift
+  rebalance_min_delta_pct: "0.01"                 # 1% = log warning only
+  rebalance_max_delta_pct: "0.03"                 # 3% = rebalance trigger (same as delta_bound threshold)
+  rebalance_maker_timeout_seconds: 6.0            # Maker order timeout before IOC fallback
+  rebalance_use_ioc_fallback: true                # Escalate to IOC if maker doesn't fill
+
+  # Phase 3: COORDINATED CLOSE (Dual-leg parallel close)
+  coordinated_close_enabled: true                 # Enable coordinated close on both legs
+  coordinated_close_maker_timeout_seconds: 6.0    # Timeout for maker orders on both legs
+  coordinated_close_ioc_timeout_seconds: 2.0      # Timeout for IOC escalation
+  coordinated_close_escalate_to_ioc: true         # Auto-escalate unfilled legs to IOC
+  coordinated_close_x10_use_maker: true           # Use maker on X10 (not just IOC)
+
+  # Layer 2: PROFIT TAKING (ATR-based trailing stop)
+  # NOTE: NOT IMPLEMENTED - Phantom feature (disabled by default)
+  atr_trailing_enabled: false
+  atr_period: 14                                 # ATR lookback period (14 bars)
+  atr_multiplier: "2.0"                          # ATR multiplier for stop distance
+  atr_min_activation_usd: "3.0"                  # Min profit to activate trailing
+  atr_check_interval_seconds: 60                 # Recalculate every 60s
+
+  # Layer 3: STATISTICAL (Funding Velocity - proactive crash detection)
+  funding_velocity_exit_enabled: true
+  velocity_threshold_hourly: "-0.0015"          # -0.15% per hour
+  acceleration_threshold: "-0.0008"              # Negative acceleration threshold
+  velocity_lookback_hours: 6                     # Lookback for velocity calc
+
+  # ---- OPPORTUNITY COST (STRENGER FÜR KLEINERES KAPITAL) ----
+  opportunity_cost_apy_diff: "0.80"     # Rotation nur wenn deutlich besser (0.50 → 0.80)
+                                        # Bei 400€ lohnt Rotieren nur bei signifikantem Edge
+
+  # ---- COOLDOWN & SCAN INTERVAL (REDUZIERT JITTER & DECISION NOISE) ----
+  cooldown_minutes: 60                  # 1h Cooldown nach Exit
+                                        # Verhindert sofortigen Wiedereintritt
+  opportunity_rotation_cooldown_minutes: 30  # Separate cooldown for rotation (weniger aggressiv)
+  opportunity_scan_interval_seconds: "5.0"    # Weniger aggressiv (1.0 → 5.0) - weniger "jitter"
+  opportunity_scan_pause_during_execution_seconds: "2.0"
+  opportunity_scan_log_interval_seconds: "60.0"   # Selteneres Logging (30.0 → 60.0)
+  candidate_log_interval_seconds: "60.0"        # Selteneres Logging (20.0 → 60.0)
+
+  # ---- FEES (Fallback wenn API nicht verfügbar) ----
+  taker_fee_x10: "0.000225"             # 0.0225% (referral rate, public: 0.025%)
+  maker_fee_x10: "0.0"                  # 0%
+  maker_fee_lighter: "0.00002"          # 0.002% (Premium Tier)
+  taker_fee_lighter: "0.0002"           # 0.02% (Premium Tier)
+
+  # ---- Phase 4: SCORING OPTIMIZATION (Weighted Exit Cost & Rotation) ----
+  # Weighted exit cost model for more accurate EV calculation
+  # Maker fill probabilities by exchange/account type (exchange-specific)
+  maker_fill_probability:
+    lighter_standard: "0.70"      # 70% for Lighter Standard accounts
+    lighter_premium: "0.80"       # 80% for Lighter Premium accounts (better liquidity)
+    x10: "0.50"                   # 50% for X10 (less liquid, lower fill rate)
+  switching_cost_latency_usd: "0.20"    # Latency penalty for rotation ($0.20)
+
+  # ---- Phase 4: VELOCITY FORECAST (Slope-based APY adjustment) ----
+  velocity_forecast_enabled: true       # Use funding velocity to adjust expected APY
+  velocity_forecast_lookback_hours: 6   # Hours to look back for slope calculation
+  velocity_forecast_weight: "2.0"       # Multiplier for velocity adjustment (slope * weight)
+
+  # ---- BLACKLIST ----
+  blacklist_symbols: [] # Manuell geblacklistet (POPCAT/PENGU: negative PnL history)
+
+# -----------------------------------------------------------------------------
+# EXECUTION (Order-Ausführung)
+# -----------------------------------------------------------------------------
+execution:
+  lead_exchange: "LIGHTER"              # Lighter zuerst (Maker), dann X10 (Hedge)
+  maker_order_timeout_seconds: "30.0"   # Faster escalation (was 60s)
+  maker_order_max_retries: 3            # 3 Versuche mit Repricing
+  maker_attempt_timeout_min_seconds: "2.0"
+  maker_attempt_timeout_schedule: "equal"        # Tread.fi style: Constant pressure (was increasing)
+  maker_max_aggressiveness: "1.0"           # 0..1 (nur innerhalb Spread, maker-only)
+  maker_force_post_only: true               # true = Enforce Maker rebates only (Aggressive Maker)
+  parallel_execution_timeout: "30.0"    # 30s für beide Legs
+  rollback_delay_seconds: "3.0"         # 3s warten vor Rollback
+  taker_order_slippage: "0.001"          # 0.1% Slippage für Hedge (war 2% = zu aggressiv!)
+  taker_close_slippage: "0.01"           # 1.0% min Slippage für Reduce-Only Close (Lighter MARKET emulation)
+
+  # Maker -> Taker escalation (Lighter Leg1)
+  leg1_escalate_to_taker_enabled: true
+  leg1_escalate_to_taker_after_seconds: "15.0"
+  leg1_escalate_to_taker_slippage: "0.0015"
+  leg1_escalate_to_taker_fill_timeout_seconds: "6.0"
+
+  # Hedge IOC Robustness (X10)
+  hedge_ioc_max_attempts: 3
+  hedge_ioc_fill_timeout_seconds: "8.0"
+  hedge_ioc_retry_delay_seconds: "0.2"
+  hedge_ioc_slippage_step: "0.0005"     # +0.05% je Versuch
+  hedge_ioc_max_slippage: "0.003"       # Max 0.30% Slippage-Cap
+
+  # Dynamic Hedge Timing (adaptive retry delay based on short-horizon volatility)
+  hedge_dynamic_timing_enabled: true
+  hedge_dynamic_timing_min_retry_delay_seconds: "0.05"
+  hedge_dynamic_timing_max_retry_delay_seconds: "0.8"
+  hedge_dynamic_timing_low_volatility_pct: "0.0002"   # 2 bps
+  hedge_dynamic_timing_high_volatility_pct: "0.0010"  # 10 bps
+
+  # Post-Leg1 hedge-depth salvage
+  hedge_depth_salvage_enabled: true
+  hedge_depth_salvage_min_fraction: "0.35"
+  hedge_depth_salvage_close_slippage: "0.0020"
+  hedge_depth_salvage_close_fill_timeout_seconds: "6.0"
+
+  # Microfill Policy
+  microfill_grace_seconds: "8.0"
+  microfill_max_wait_seconds: "20.0"
+  microfill_max_unhedged_usd: "5.0"
+  max_min_qty_bump_multiple: "1.5"      # Reject wenn min_qty-Notional > target_notional * multiple (verhindert Risk/Sizing Override)
+
+  # Hedge depth preflight (verhindert Leg1->Rollback durch duenne Hedge-Seite)
+  hedge_depth_preflight_enabled: true
+  hedge_depth_preflight_multiplier: "2.0"   # 2x Safety-Buffer (reduziert von 8.0 → mehr Opportunities passieren)
+  hedge_depth_preflight_checks: 2
+  hedge_depth_preflight_delay_seconds: "0.5"
+
+  # Turbo: Use WS order updates for fill-waits (fallback polls occasionally)
+  ws_fill_wait_enabled: true
+  ws_fill_wait_fallback_poll_seconds: "2.0"
+  ws_ready_gate_enabled: true
+  ws_ready_gate_timeout_seconds: "2.0"
+  ws_ready_gate_cooldown_seconds: "15.0"
+
+  # Hedge fast-path: submit hedge immediately after Leg1 fill (avoid slow depth snapshots in hot-path)
+  hedge_submit_immediately_on_fill_enabled: true
+  hedge_post_leg1_impact_depth_enabled: true
+
+  # X10 close tuning (IOC retries before market fallback)
+  x10_close_attempts: 3
+  x10_close_slippage: "0.005"
+  x10_close_max_slippage: "0.02"
+  x10_sdk_call_timeout_seconds: "30.0"  # Increased from 8.0s to handle slow API responses
+
+  # Smart Pricing (depth-aware VWAP when L1 is thin)
+  smart_pricing_enabled: true
+  smart_pricing_depth_levels: 20
+  smart_pricing_max_price_impact_percent: "0.0015"
+  # Trigger when (target_qty / l1_qty) > threshold (0.8 => safer trigger before L1 is full)
+  smart_pricing_l1_utilization_trigger: "0.8"
+  # Maker repricing: minimum aggressiveness when L1 is too thin (0..1)
+  smart_pricing_maker_aggressiveness_floor: "0.25"
+
+  # Grid Step Close (Dynamic Order Distribution)
+  # Verteilt Close Orders auf mehrere Price Levels um Order-Pollution zu vermeiden
+  # und Maker-Fill-Rate zu erhöhen. Nur für Large Positions mit dünnen Orderbooks.
+  grid_step_enabled: true                     # Grid Step aktivieren
+  grid_step_adaptive: true                    # Automatische Anpassung basierend auf Volatility
+  grid_step_min_pct: "0.0002"                 # 0.02% minimaler Abstand (konservativ)
+  grid_step_max_pct: "0.001"                  # 0.1% maximaler Abstand (aggressiv)
+  grid_step_max_levels: 5                     # Max 5 Grid Orders
+  grid_step_min_notional_usd: "200.0"         # Min $200 Position für Grid
+  grid_step_l1_depth_trigger: "0.5"           # Grid wenn L1 < 50% der Position
+  grid_step_volatility_threshold_high: "0.01" # >1% Volatility = aggressiver Grid
+  grid_step_volatility_threshold_low: "0.005" # 0.5-1% Volatility = balanced
+
+# -----------------------------------------------------------------------------
+# RECONCILIATION
+# -----------------------------------------------------------------------------
+reconciliation:
+  # Ghost-Positionen automatisch schließen (auf Börse aber nicht in DB)
+  # ACHTUNG: Wenn du false setzt, musst du die Positionen manuell auf der Börse schließen!
+  auto_close_ghosts: false  # Default: false (sicherer - verhindert versehentliches Schließen)
+  # Ghost-Positionen automatisch importieren (in DB übernehmen statt schliessen)
+  auto_import_ghosts: true  # Aktiviert: Bot importiert UNI/XMR Ghost-Positions automatisch
+  soft_close_enabled: true
+  soft_close_timeout_seconds: "15.0"
+  soft_close_max_attempts: 2
+
+# -----------------------------------------------------------------------------
+# RISK MANAGEMENT
+# -----------------------------------------------------------------------------
+risk:
+  max_consecutive_failures: 3           # Circuit Breaker nach 3 Fehlern
+  max_drawdown_pct: "0.20"              # 20% max Drawdown
+  max_exposure_pct: "80.0"              # 80% des Kapitals max exponiert
+  max_trade_size_pct: "50.0"            # Max 50% pro Trade
+  min_free_margin_pct: "0.05"           # 5% Margin-Reserve
+  broken_hedge_cooldown_seconds: "900.0" # 15 min Pause nach Broken Hedge
+
+# -----------------------------------------------------------------------------
+# WEBSOCKET
+# -----------------------------------------------------------------------------
+websocket:
+  ping_interval: "20.0"      # 🚀 PERFORMANCE: Increased from 15s to reduce network overhead (stable connections)
+  ping_timeout: "10.0"
+  reconnect_delay_initial: "2.0"
+  reconnect_delay_max: "120.0"
+  health_check_interval: "3.0"          # Optimiert: 40% schnellere Market-Updates
+
+  # 🔧 WebSocket Stability Improvements
+  reconnect_jitter_factor: "0.15"       # 15% jitter for reconnects (prevents connection storms)
+  circuit_breaker_threshold: 10         # Open circuit after N consecutive failures
+  circuit_breaker_cooldown_seconds: "60.0"  # Cooldown before allowing reconnection
+  health_check_message_threshold: 5     # Min messages before health check is meaningful
+  health_check_error_threshold: 5        # Max errors before connection is unhealthy
+  gap_recovery_quick_resync_enabled: false  # REST resync on nonce gap (future: set true)
+  gap_recovery_quick_resync_timeout_seconds: "5.0"
+
+  orderbook_l1_retry_attempts: 3
+  orderbook_l1_retry_delay_seconds: "0.15"   # Optimiert: schnellere Retries
+  orderbook_l1_fallback_max_age_seconds: "8.0"  # Increased from 5.0 to reduce X10 staleness warnings
+  market_data_streams_enabled: true     # QUICK WIN: Enabled for top pairs → 60× schneller market data, +25% more opportunities
+  market_data_streams_symbols: ["ETH", "BTC", "SOL"]       # Optional: keep a small allowlist WS-hot (e.g., ["ETH", "BTC"])
+  market_data_streams_max_symbols: 6    # Safety cap for the allowlist above
+  market_data_batch_refresh_interval_seconds: "15.0"  # Optimiert: 2x frischere Funding-Rates
+  orderbook_stream_depth: 1              # X10: only supports full book or depth=1 (best bid/ask)
+  x10_ws_orderbook_multi_market: false   # IMPORTANT: ALL_MARKETS stream is too chatty/unstable; use per-market WS on-demand
+  lighter_ws_order_submission_enabled: true
+  lighter_ws_order_submission_connect_timeout_seconds: "2.0"
+  lighter_ws_order_submission_response_timeout_seconds: "2.0"
+  lighter_orderbook_ws_max_connections: 20
+  lighter_orderbook_ws_ttl_seconds: "120.0"
+
+# -----------------------------------------------------------------------------
+# SHUTDOWN
+# -----------------------------------------------------------------------------
+shutdown:
+  # Safety default: keep positions open when you stop the bot.
+  # Set true only if you explicitly want to flatten all positions on exit.
+  close_positions_on_exit: false
+  timeout_seconds: "20.0"
+
+# -----------------------------------------------------------------------------
+# DATABASE
+# -----------------------------------------------------------------------------
+database:
+  path: "data/funding_v2.db"
+  pool_size: 10                          # QUICK WIN: Increased from 5 → 5× faster concurrent DB operations
+  write_batch_size: 50
+  wal_mode: true
+
+# -----------------------------------------------------------------------------
+# HISTORICAL ANALYSIS (APY Crash Detection & Recovery Prediction)
+# -----------------------------------------------------------------------------
+historical:
+  enabled: true                         # Aktiviert minütliche Candle-Erfassung & Crash-Analyse
+  backfill_days: 90                     # Initiale Historie: 90 Tage
+  daily_update_hour: 2                  # Tägliches Update um 02:00 UTC (Lückenfüllung)
+  minute_candles_enabled: true          # Minütliche Granularität für Crash-Detektion
+
+  # Crash Detection (Z-Score Algorithmus)
+  # OPTIMIERT 2026-01-08: Aggressivere Parameter für mehr Crash-Erkennung
+  # - Z-Score 2.0 = 2.5% der Fälle (statt 0.3% bei 3.0)
+  # - Min Duration 60min = Filtert kurzfristige Noise-Spikes
+  crash_detection:
+    z_score_threshold: 2.0              # 2-Sigma Event = Crash (mean - 2*std_dev) - AGGRESSIVER
+    min_crash_duration_minutes: 60      # Mindestens 1h Dauer um als Crash zu zählen - WENIGER NOISE
+    recovery_threshold_pct: 80.0        # Recovery = 80% von Pre-Crash APY
+
+  # Recovery Time Prediction (Quantile-basiert)
+  prediction:
+    depth_bin_size_pct: 20.0            # Depth-Bins: 0-20%, 20-40%, etc.
+
+  # Storage & Retention
+  storage:
+    retention_days: 365                 # Candle-Daten 1 Jahr behalten
+    crash_events_retention_days: 730    # Crash-Events 2 Jahre für Langzeit-Analyse
+
+  # Performance Tuning
+  ingestion:
+    x10_rate_limit_per_minute: 1000     # X10: 1000 req/min
+    lighter_rate_limit_per_minute: 10   # Lighter: konservativ (SDK limitiert)
+    backfill_chunk_days: 7              # 7-Tage Chunks für Backfill (Memory-Schutz)
+    x10_chunk_days: 1                   # X10: 1-Tage Chunks (REST API Limit)
+
+# -----------------------------------------------------------------------------
+# LOGGING
+# -----------------------------------------------------------------------------
+logging:
+  level: "INFO"                        # DEBUG für Exit-Strategy Testing
+  json_enabled: true
+  json_file: "logs/funding_bot_json.jsonl"
+  json_max_bytes: 50000000              # 50MB (0 disables rotation)
+  json_backup_count: 3                  # number of rotated files to keep
+
+# -----------------------------------------------------------------------------
+# TELEGRAM (Optional - Keys in .env)
+# -----------------------------------------------------------------------------
+telegram:
+  enabled: true

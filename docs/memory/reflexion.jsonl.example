@@ -1,0 +1,5 @@
+{"pattern": "Forgot to invalidate open trades cache after trade update", "solution": "Call store._invalidate_open_trades_cache() in _update_trade()", "impact": "medium", "occurred_at": "2026-01-13T15:30:00Z"}
+{"pattern": "Test mock setup with MagicMock incompatible with parallel implementation", "solution": "Use direct async functions instead of MagicMock with MethodType binding", "impact": "medium", "occurred_at": "2026-01-14T09:45:00Z"}
+{"pattern": "Funding rate interval_hours=8 caused 8x EV/APY errors", "solution": "Always use interval_hours=1, /8 is only for realization normalization", "impact": "critical", "occurred_at": "2026-01-13T12:00:00Z"}
+{"pattern": "X10 funding history only fetched first page (100 records max)", "solution": "Implement pagination loop with cursor, max_pages=200 for safety", "impact": "high", "occurred_at": "2026-01-12T16:20:00Z"}
+{"pattern": "Connection pool defaults too small for Premium accounts", "solution": "Increase to limit=200, limit_per_host=100 for Premium (24,000 req/min)", "impact": "high", "occurred_at": "2026-01-14T10:00:00Z"}
