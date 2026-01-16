@@ -204,7 +204,13 @@ def check_depth_for_entry_by_impact(
                 "utilization": None if utilization is None else str(utilization),
             }
 
-        if max_l1_qty_utilization and max_l1_qty_utilization < 1 and utilization is not None and utilization > max_l1_qty_utilization:
+        utilization_exceeded = (
+            max_l1_qty_utilization
+            and max_l1_qty_utilization < 1
+            and utilization is not None
+            and utilization > max_l1_qty_utilization
+        )
+        if utilization_exceeded:
             return False, f"{exchange} depth utilization too high", {
                 "exchange": exchange,
                 "side": side.value,
@@ -306,7 +312,13 @@ def check_x10_depth_compliance_by_impact(
                 "utilization": None if utilization is None else str(utilization),
             }
 
-        if max_l1_qty_utilization and max_l1_qty_utilization < 1 and utilization is not None and utilization > max_l1_qty_utilization:
+        utilization_exceeded = (
+            max_l1_qty_utilization
+            and max_l1_qty_utilization < 1
+            and utilization is not None
+            and utilization > max_l1_qty_utilization
+        )
+        if utilization_exceeded:
             return False, f"{exchange} depth utilization too high", {
                 "exchange": exchange,
                 "side": side.value,

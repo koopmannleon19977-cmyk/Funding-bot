@@ -127,7 +127,19 @@
       "Bash(git fetch:*)",
       "Bash(git stash:*)",
       "Bash(git checkout:*)",
-      "Bash(git cherry-pick:*)"
+      "Bash(git cherry-pick:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create:*)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" diff --stat src/funding_bot/app/supervisor/)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" diff src/funding_bot/app/supervisor/loops.py)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" add src/funding_bot/app/supervisor/guards.py src/funding_bot/app/supervisor/lifecycle.py src/funding_bot/app/supervisor/manager.py src/funding_bot/app/supervisor/tasks.py)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" log --oneline -5)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" commit -m \"$\\(cat <<''EOF''\nrefactor: Phase 7.1 - add type hints to supervisor module functions\n\nAdd TYPE_CHECKING imports and explicit `self: Supervisor` type hints\nto all external functions in the supervisor submodules:\n\n- lifecycle.py: 8 functions \\(0% → 100% param coverage\\)\n- guards.py: 7 functions \\(100% param coverage\\)\n- tasks.py: 4 functions \\(100% param coverage\\)\n- manager.py: 1 function updated\n\nThis improves IDE support and static type checking for the\nsupervisor orchestration layer.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" log --oneline -1)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" diff --stat src/funding_bot/services/reconcile.py src/funding_bot/services/positions/close.py tests/unit/services/positions/test_coordinated_close_single_leg_maker.py)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" add src/funding_bot/services/reconcile.py src/funding_bot/services/positions/close.py tests/unit/services/positions/test_coordinated_close_single_leg_maker.py)",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" commit -m \"$\\(cat <<''EOF''\nrefactor: Phase 7.3 - reduce complexity in reconcile and coordinated close\n\nExtract helper functions to reduce cyclomatic complexity:\n\nreconcile\\(\\) CC=52 -> ~15:\n- _identify_zombie_candidates\\(\\)\n- _aggregate_exchange_positions\\(\\)\n- _detect_conflicts\\(\\)\n- _handle_conflicts\\(\\)\n- _handle_zombies\\(\\)\n- _handle_ghosts\\(\\)\n- _log_reconciliation_result\\(\\)\n\n_close_both_legs_coordinated\\(\\) CC=59 -> ~30:\n- _CoordinatedCloseContext dataclass\n- _build_coordinated_close_context\\(\\)\n- _calculate_leg_maker_price\\(\\)\n- _submit_coordinated_maker_orders\\(\\)\n- _wait_for_coordinated_fills\\(\\)\n- _escalate_unfilled_to_ioc\\(\\)\n- _calculate_ioc_price\\(\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" log --oneline -3)"
     ]
   },
   "disabledMcpjsonServers": [

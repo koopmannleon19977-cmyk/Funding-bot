@@ -957,7 +957,7 @@ async def test_rebalance_cancels_maker_before_ioc():
             return _make_mock_order("ioc_456", request.qty, Decimal("50000"), Decimal("0"))
         return None
 
-    async def mock_get_order(order_id):
+    async def mock_get_order(symbol, order_id):
         # Return unfilled maker order (active but not filled)
         return _make_mock_order(order_id, Decimal("0"), Decimal("0"), Decimal("0"), is_filled=False)
 
@@ -1115,7 +1115,7 @@ async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none
             return _make_mock_order("ioc_456", request.qty, Decimal("50000"), Decimal("0"))
         return None
 
-    async def mock_get_order(order_id):
+    async def mock_get_order(symbol, order_id):
         # Simulate get_order failure/timeout - returns None
         # This is the critical condition for D5 test
         return None

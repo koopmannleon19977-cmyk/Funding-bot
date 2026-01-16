@@ -4,6 +4,7 @@ Scanning and validation logic for opportunities.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -66,6 +67,10 @@ async def scan(
     # Fetch once per scan to keep candidate sizing consistent across symbols.
     available_equity = await self._get_available_equity_for_sizing()
 
+    # 🚀 PERFORMANCE: Filter symbols first (sync), then evaluate in parallel (async)
+    symbols_to_evaluate: list[str] = []
+    now = datetime.now(UTC)
+
     for symbol in symbols:
         # Skip if we already have a trade
         if symbol in open_symbols:
@@ -74,14 +79,14 @@ async def scan(
         # === PHASE 4: CHECK BOTH COOLDOWNS ===
         # Check entry cooldown (after normal exit)
         if symbol in self.cooldowns:
-            if datetime.now(UTC) < self.cooldowns[symbol]:
+            if now < self.cooldowns[symbol]:
                 continue
             # Expired
             del self.cooldowns[symbol]
 
         # Check rotation cooldown (after rotation exit)
         if hasattr(self, "rotation_cooldowns") and symbol in self.rotation_cooldowns:
-            if datetime.now(UTC) < self.rotation_cooldowns[symbol]:
+            if now < self.rotation_cooldowns[symbol]:
                 continue
             # Expired
             del self.rotation_cooldowns[symbol]
@@ -91,18 +96,36 @@ async def scan(
         if hasattr(self, "should_skip_symbol") and self.should_skip_symbol(symbol):
             continue
 
+        symbols_to_evaluate.append(symbol)
+
+    # 🚀 PERFORMANCE: Parallel symbol evaluation with controlled concurrency
+    # Premium-safe: batch_size=10 means ~10-20 API calls concurrently (well under 24k/min)
+    batch_size = 10
+
+    async def _evaluate_single(sym: str) -> Opportunity | None:
+        """Evaluate a single symbol with error handling."""
         try:
-            opp = await self._evaluate_symbol(symbol, available_equity)
+            opp = await self._evaluate_symbol(sym, available_equity)
             if opp:
-                opportunities.append(opp)
                 # Record success to reset failure counter
                 if hasattr(self, "record_symbol_success"):
-                    self.record_symbol_success(symbol)
+                    self.record_symbol_success(sym)
+                return opp
         except Exception as e:
-            logger.debug(f"Failed to evaluate {symbol}: {e}")
+            logger.debug(f"Failed to evaluate {sym}: {e}")
             # Record failure for retry tracking
             if hasattr(self, "record_symbol_failure"):
-                self.record_symbol_failure(symbol)
+                self.record_symbol_failure(sym)
+        return None
+
+    # Process in batches with asyncio.gather for parallelism
+    for i in range(0, len(symbols_to_evaluate), batch_size):
+        batch = symbols_to_evaluate[i:i + batch_size]
+        results = await asyncio.gather(*[_evaluate_single(sym) for sym in batch], return_exceptions=True)
+
+        for result in results:
+            if isinstance(result, Opportunity):
+                opportunities.append(result)
 
     # Sort by expected value (descending)
     opportunities.sort(key=lambda o: o.expected_value_usd, reverse=True)
@@ -230,7 +253,8 @@ async def get_best_opportunity(
 
             # Phase 4 Fix: Record depth-related failures for skip logic
             # Symbols that consistently fail depth checks should be temporarily skipped
-            if reason in ("depth_cap_failed", "depth_gate_failed", "no_orderbook") and hasattr(self, "record_symbol_failure"):
+            depth_failure = reason in ("depth_cap_failed", "depth_gate_failed", "no_orderbook")
+            if depth_failure and hasattr(self, "record_symbol_failure"):
                 self.record_symbol_failure(symbol)
             continue
 
@@ -491,7 +515,11 @@ async def should_rotate_to(
     # Calculate NetEV for current position (remaining value)
     # NetEV_current = (current_funding_remaining) - (exit_cost_current)
     # For simplicity, use current_apy as proxy for remaining value
-    current_funding_hourly = current_trade.current_funding_hourly if hasattr(current_trade, "current_funding_hourly") else Decimal("0")
+    current_funding_hourly = (
+        current_trade.current_funding_hourly
+        if hasattr(current_trade, "current_funding_hourly")
+        else Decimal("0")
+    )
 
     # Estimate remaining hold time (up to max_hold_hours)
     remaining_hold_hours = min(

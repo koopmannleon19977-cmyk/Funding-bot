@@ -123,8 +123,10 @@ async def _log_zero_scan_diagnostics(
         except Exception as e:
             reasons.append(f"{symbol}=error({e})")
 
+    best = sample[0] if sample else "None"
+    first_reason = reasons[0] if reasons else "No candidates"
     logger.info(
-        f"[SCAN] No opportunities. Best: {sample[0] if sample else 'None'} - {reasons[0] if reasons else 'No candidates'} | "
+        f"[SCAN] No opportunities. Best: {best} - {first_reason} | "
         f"Available: ${available_equity:.0f}"
     )
     logger.debug(

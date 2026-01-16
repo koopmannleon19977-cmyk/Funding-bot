@@ -9,6 +9,7 @@ import contextlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from itertools import islice
 from typing import Any
 
 from funding_bot.observability.logging import get_logger
@@ -330,13 +331,15 @@ def _normalize_depth_book(
     bids: list[tuple[Decimal, Decimal]] = []
     asks: list[tuple[Decimal, Decimal]] = []
 
-    for p, q in list(bids_raw)[:depth_levels]:
+    # 🚀 PERFORMANCE: Use itertools.islice instead of list() slicing for lazy evaluation
+    # This avoids creating intermediate list copies
+    for p, q in islice(bids_raw, depth_levels):
         price = p if isinstance(p, Decimal) else Decimal(str(p))
         qty = q if isinstance(q, Decimal) else Decimal(str(q))
         if price > 0 and qty > 0:
             bids.append((price, qty))
 
-    for p, q in list(asks_raw)[:depth_levels]:
+    for p, q in islice(asks_raw, depth_levels):
         price = p if isinstance(p, Decimal) else Decimal(str(p))
         qty = q if isinstance(q, Decimal) else Decimal(str(q))
         if price > 0 and qty > 0:
@@ -573,9 +576,26 @@ async def get_fresh_orderbook_depth(self, symbol: str, *, levels: int) -> Orderb
     Get top-N orderbook levels from both exchanges.
 
     Used for slippage/impact-aware depth gating beyond L1.
+
+    🚀 PERFORMANCE: Uses TTL-based cache (5s default) to avoid redundant API calls.
+    Multiple components calling this within the TTL window get cached data.
     """
     x10_symbol = self.get_x10_symbol(symbol)
     config = _load_orderbook_fetch_config(self.settings)
+
+    # 🚀 PERFORMANCE: Check TTL-based cache first (5s default for depth data)
+    depth_cache_ttl_seconds = float(getattr(self.settings.websocket, "depth_cache_ttl_seconds", 5.0) or 5.0)
+    depth_cache_ttl_seconds = max(1.0, min(depth_cache_ttl_seconds, 30.0))  # Clamp 1-30s
+
+    cached = self._orderbook_depth.get(symbol)
+    if cached and cached.lighter_updated and cached.x10_updated:
+        now = datetime.now(UTC)
+        lighter_age = (now - cached.lighter_updated).total_seconds()
+        x10_age = (now - cached.x10_updated).total_seconds()
+
+        # Return cached data if both sides are within TTL
+        if lighter_age < depth_cache_ttl_seconds and x10_age < depth_cache_ttl_seconds:
+            return cached
 
     # Clamp depth_levels to valid range
     depth_levels = max(1, min(int(levels or 1), 250))

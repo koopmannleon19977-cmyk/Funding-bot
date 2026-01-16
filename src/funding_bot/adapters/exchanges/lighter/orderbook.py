@@ -69,7 +69,10 @@ class LocalOrderbook:
         self._apply_batch(self.asks, raw_asks)
 
         self.snapshot_loaded = True
-        logger.debug(f"[{self.symbol}] Snapshot applied: {len(self.bids)} bids, {len(self.asks)} asks (nonce={self.last_nonce})")
+        logger.debug(
+            f"[{self.symbol}] Snapshot applied: {len(self.bids)} bids, "
+            f"{len(self.asks)} asks (nonce={self.last_nonce})"
+        )
 
     def apply_update(self, data: dict[str, Any]) -> None:
         """

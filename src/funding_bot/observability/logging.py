@@ -19,6 +19,28 @@ from typing import Any
 
 from funding_bot.config.settings import Settings
 
+# =============================================================================
+# Constants
+# =============================================================================
+
+# Log tags for special message handling
+LOG_TAG_TRADE = "[TRADE]"
+LOG_TAG_PROFIT = "[PROFIT]"
+LOG_TAG_HEALTH = "[HEALTH]"
+LOG_TAG_SCAN = "[SCAN]"
+
+__all__ = [
+    "setup_logging",
+    "get_logger",
+    "SensitiveDataFilter",
+    "JSONFormatter",
+    "BotLogFormatter",
+    "LOG_TAG_TRADE",
+    "LOG_TAG_PROFIT",
+    "LOG_TAG_HEALTH",
+    "LOG_TAG_SCAN",
+]
+
 
 class SensitiveDataFilter(logging.Filter):
     """Filter that masks sensitive data (API keys, secrets) in log messages."""
@@ -27,7 +49,10 @@ class SensitiveDataFilter(logging.Filter):
         (re.compile(r"('X-Api-Key':\s*'?)([a-zA-Z0-9]{20,})('?)"), r"\1***MASKED***\3"),
         (re.compile(r'("X-Api-Key":\s*"?)([a-zA-Z0-9]{20,})("?)'), r'"X-Api-Key": "***MASKED***"'),
         (re.compile(r"(api[_-]?key['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
-        (re.compile(r"(private[_-]?key['\"]?:\s*['\"]?)(0x[a-fA-F0-9]{32,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
+        (
+            re.compile(r"(private[_-]?key['\"]?:\s*['\"]?)(0x[a-fA-F0-9]{32,})(['\"]?)", re.IGNORECASE),
+            r"\1***MASKED***\3",
+        ),
         (re.compile(r"(secret['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
         (re.compile(r"(token['\"]?:\s*['\"]?)([a-zA-Z0-9]{16,})(['\"]?)", re.IGNORECASE), r"\1***MASKED***\3"),
     ]
@@ -123,7 +148,7 @@ def setup_logging(settings: Settings | None = None) -> logging.Logger:
     logs_dir = Path("logs")
     logs_dir.mkdir(exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     file_handler = logging.FileHandler(
         logs_dir / f"funding_bot_{timestamp}.log",
         encoding="utf-8"
@@ -181,6 +206,11 @@ class BotLogFormatter(logging.Formatter):
     - WARNING: Yellow
     - ERROR: Red
     - CRITICAL: Bold Red
+
+    Special tags:
+    - [TRADE]/[PROFIT]: Cyan
+    - [HEALTH]: Blue
+    - [SCAN]: Grey (dimmed)
     """
 
     # ANSI Colors
@@ -194,35 +224,63 @@ class BotLogFormatter(logging.Formatter):
     CYAN = "\033[96m"
     BLUE = "\033[94m"
 
-    FORMATS = {
-        logging.DEBUG: f"{GREY}%(asctime)s [DEBUG] %(message)s{RESET}",
-        logging.INFO: f"{GREEN}%(asctime)s [INFO]{RESET} %(message)s",
-        logging.WARNING: f"{YELLOW}%(asctime)s [WARN] %(message)s{RESET}",
-        logging.ERROR: f"{RED}%(asctime)s [ERROR] %(message)s{RESET}",
-        logging.CRITICAL: f"{BOLD_RED}%(asctime)s [CRITICAL] %(message)s{RESET}",
-    }
-
     def __init__(self):
         super().__init__(datefmt="%H:%M:%S")
+        # P1: Cache all formatter instances to avoid creating new ones on every format() call
+        self._formatters: dict[str, logging.Formatter] = {
+            "DEBUG": logging.Formatter(
+                f"{self.GREY}%(asctime)s [DEBUG] %(message)s{self.RESET}",
+                datefmt="%H:%M:%S"
+            ),
+            "INFO": logging.Formatter(
+                f"{self.GREEN}%(asctime)s [INFO]{self.RESET} %(message)s",
+                datefmt="%H:%M:%S"
+            ),
+            "WARNING": logging.Formatter(
+                f"{self.YELLOW}%(asctime)s [WARN] %(message)s{self.RESET}",
+                datefmt="%H:%M:%S"
+            ),
+            "ERROR": logging.Formatter(
+                f"{self.RED}%(asctime)s [ERROR] %(message)s{self.RESET}",
+                datefmt="%H:%M:%S"
+            ),
+            "CRITICAL": logging.Formatter(
+                f"{self.BOLD_RED}%(asctime)s [CRITICAL] %(message)s{self.RESET}",
+                datefmt="%H:%M:%S"
+            ),
+            # Special tag formatters
+            "TRADE": logging.Formatter(
+                f"{self.CYAN}%(asctime)s [TRADE]{self.RESET} %(message)s",
+                datefmt="%H:%M:%S"
+            ),
+            "HEALTH": logging.Formatter(
+                f"{self.BLUE}%(asctime)s [HEALTH]{self.RESET} %(message)s",
+                datefmt="%H:%M:%S"
+            ),
+            "SCAN": logging.Formatter(
+                f"{self.GREY}%(asctime)s [SCAN]{self.RESET} %(message)s",
+                datefmt="%H:%M:%S"
+            ),
+        }
 
     def format(self, record: logging.LogRecord) -> str:
-        # Special handling for trade events or specific keywords to pop
+        # Special handling for trade events or specific keywords
         msg = record.getMessage()
 
-        # Colorize specific keywords in message for better scanning
-        if "[TRADE]" in msg or "[PROFIT]" in msg:
-             log_fmt = f"{self.CYAN}%(asctime)s [TRADE]{self.RESET} %(message)s"
-             record.msg = msg.replace("[TRADE]", "").replace("[PROFIT]", "").strip()
-        elif "[HEALTH]" in msg:
-             log_fmt = f"{self.BLUE}%(asctime)s [HEALTH]{self.RESET} %(message)s"
-             # Strip the redundant [HEALTH] tag from message if present to avoid duplication
-             record.msg = msg.replace("[HEALTH]", "").strip()
-        elif "[SCAN]" in msg:
-             # Make scan logs grey/dim so they recede
-             log_fmt = f"{self.GREY}%(asctime)s [SCAN]{self.RESET} %(message)s"
-             record.msg = msg.replace("[SCAN]", "").strip()
+        # Use constants for tag detection
+        if LOG_TAG_TRADE in msg or LOG_TAG_PROFIT in msg:
+            record.msg = msg.replace(LOG_TAG_TRADE, "").replace(LOG_TAG_PROFIT, "").strip()
+            record.args = ()
+            return self._formatters["TRADE"].format(record)
+        elif LOG_TAG_HEALTH in msg:
+            record.msg = msg.replace(LOG_TAG_HEALTH, "").strip()
+            record.args = ()
+            return self._formatters["HEALTH"].format(record)
+        elif LOG_TAG_SCAN in msg:
+            record.msg = msg.replace(LOG_TAG_SCAN, "").strip()
+            record.args = ()
+            return self._formatters["SCAN"].format(record)
         else:
-            log_fmt = self.FORMATS.get(record.levelno, self.FORMATS[logging.INFO])
-
-        formatter = logging.Formatter(log_fmt, datefmt="%H:%M:%S")
-        return formatter.format(record)
+            # Use level-based formatter
+            formatter_key = record.levelname if record.levelname in self._formatters else "INFO"
+            return self._formatters[formatter_key].format(record)

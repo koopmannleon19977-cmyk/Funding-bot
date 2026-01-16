@@ -1341,37 +1341,64 @@ class X10Adapter(ExchangePort):
                 if cursor is not None:
                     params["cursor"] = cursor
 
-                await self._throttle_request(operation_name="funding_history")
+                # Transient failures happen in the wild (we've seen 500s in prod logs).
+                # Retry a couple times per page to reduce partial results.
+                transient_statuses = {429, 500, 502, 503, 504}
+                page_attempts = 0
+                data: dict | None = None
 
-                async with self._http_session.get(url, params=params, headers=headers) as resp:
-                    if resp.status != 200:
+                while True:
+                    await self._throttle_request(operation_name="funding_history")
+
+                    async with self._http_session.get(url, params=params, headers=headers) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            break
+
+                        if resp.status in transient_statuses and page_attempts < 2:
+                            import asyncio
+                            import random
+
+                            page_attempts += 1
+                            backoff = float(2 ** (page_attempts - 1))
+                            delay = backoff + (backoff * random.uniform(0.0, 0.25))
+                            logger.warning(
+                                f"X10 funding history API returned {resp.status} (page {page_count}, attempt {page_attempts}/3). "
+                                f"Retrying in {delay:.1f}s"
+                            )
+                            await asyncio.sleep(delay)
+                            continue
+
                         logger.warning(f"X10 funding history API returned {resp.status}")
+                        data = None
                         break
 
-                    data = await resp.json()
-                    payments = data.get("data", [])
+                if not data:
+                    break
 
-                    if not payments:
-                        # No more data
-                        break
+                payments = data.get("data", [])
 
-                    all_payments.extend(payments)
+                if not payments:
+                    # No more data
+                    break
 
-                    # Check pagination info
-                    pagination = data.get("pagination", {})
-                    next_cursor = pagination.get("cursor")
-                    count = pagination.get("count", 0)
+                all_payments.extend(payments)
 
-                    logger.debug(
-                        f"X10 funding history page {page_count}: {len(payments)} payments, "
-                        f"cursor={next_cursor}, total_so_far={len(all_payments)}"
-                    )
+                # Check pagination info
+                pagination = data.get("pagination", {})
+                next_cursor = pagination.get("cursor")
+                count = pagination.get("count", 0)
 
-                    # If count < limit, we've reached the end
-                    if count < limit or next_cursor is None:
-                        break
+                logger.debug(
+                    f"X10 funding history page {page_count}: {len(payments)} payments, "
+                    f"cursor={next_cursor}, total_so_far={len(all_payments)}"
+                )
 
-                    cursor = next_cursor
+                # If count < limit, we've reached the end
+                if count < limit or next_cursor is None:
+                    break
+
+                cursor = next_cursor
 
             # Only log INFO if pagination was needed (page_count > 1), otherwise DEBUG
             # This reduces log spam from routine 30s funding checks

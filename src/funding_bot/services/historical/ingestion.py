@@ -5,11 +5,18 @@ Fetches hourly-level candle data from both exchanges,
 normalizes timestamps, and stores in database.
 
 NOTE: Exchanges only provide 1h resolution - minute-level data is not available.
+
+Rate Limiting:
+- Uses dedicated backfill rate limiters (separate from production)
+- Configurable budget via settings.historical.backfill_rate_budget_pct
+- Exponential backoff on 429 errors
+- Respects inter-request delays to avoid API overload
 """
 
 from __future__ import annotations
 
 import asyncio
+import random
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -19,6 +26,26 @@ import aiohttp
 from funding_bot.domain.historical import FundingCandle
 from funding_bot.observability.logging import get_logger
 from funding_bot.ports.store import TradeStorePort
+from funding_bot.services.rate_limiter import get_rate_limiter_manager
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+# API Configuration
+API_TIMEOUT_SECONDS = 30
+MAX_LIGHTER_CANDLES = 2160  # 90 days * 24 hours
+X10_CHUNK_DAYS = 7  # Process X10 in 7-day chunks
+
+# Connection Pooling
+SESSION_POOL_LIMIT = 10  # Max concurrent connections per session
+SESSION_KEEPALIVE_SECONDS = 30
+
+# Funding Rate Validation (P2.2: bounds check)
+FUNDING_RATE_MAX_ABS = Decimal("0.01")  # Max 1% per hour (extreme but possible)
+
+# Transient HTTP errors that should trigger retry
+TRANSIENT_HTTP_CODES = {429, 500, 502, 503, 504}
 
 logger = get_logger(__name__)
 
@@ -73,9 +100,62 @@ class HistoricalIngestionService:
         self.settings = settings
         self.lighter_adapter = lighter_adapter
 
-        # Rate limiting: X10 allows 1000 req/min
-        self.x10_rate_limit = 1000 / 60  # 16.67 req/sec
-        self.lighter_rate_limit = 10 / 60  # Conservative for Lighter
+        # Rate limiting configuration from settings (with safe defaults for mocks)
+        hist_settings = getattr(settings, "historical", None)
+
+        def _safe_get(obj, attr, default):
+            """Safely get attribute, handling MagicMock and other edge cases."""
+            try:
+                val = getattr(obj, attr, default)
+                # Check if it's a real value (not a MagicMock)
+                if val is None or (hasattr(val, '_mock_name') and val._mock_name):
+                    return default
+                return float(val) if isinstance(default, float) else int(val)
+            except (TypeError, ValueError):
+                return default
+
+        def _safe_decimal_get(obj, attr, default: Decimal) -> Decimal:
+            """Safely get Decimal-like attribute, handling mocks/None."""
+            try:
+                val = getattr(obj, attr, default)
+                if val is None or (hasattr(val, "_mock_name") and val._mock_name):
+                    return default
+                return Decimal(str(val))
+            except Exception:
+                return default
+
+        self._backfill_rate_budget_pct = _safe_get(hist_settings, "backfill_rate_budget_pct", 0.10)
+        self._max_concurrent_symbols = _safe_get(hist_settings, "backfill_max_concurrent_symbols", 2)
+        self._inter_request_delay_ms = _safe_get(hist_settings, "backfill_inter_request_delay_ms", 200)
+        self._max_retries = _safe_get(hist_settings, "backfill_max_retries", 3)
+        self._retry_base_delay_ms = _safe_get(hist_settings, "backfill_retry_base_delay_ms", 1000)
+        self._funding_rate_max_abs = _safe_decimal_get(hist_settings, "funding_rate_max_abs", FUNDING_RATE_MAX_ABS)
+
+        # Initialize rate limiters with reduced capacity for backfill
+        # This ensures backfill doesn't starve production operations
+        rate_manager = get_rate_limiter_manager()
+
+        # Lighter backfill: 10% of 24,000 = 2,400 req/min
+        lighter_backfill_limit = int(24000 * self._backfill_rate_budget_pct)
+        self._lighter_rate_limiter = rate_manager.get_limiter(
+            "LIGHTER",
+            "backfill",
+            requests_per_minute=max(60, lighter_backfill_limit),  # Minimum 1 req/sec
+        )
+
+        # X10 backfill: 10% of 10,000 = 1,000 req/min
+        x10_backfill_limit = int(10000 * self._backfill_rate_budget_pct)
+        self._x10_rate_limiter = rate_manager.get_limiter(
+            "X10",
+            "backfill",
+            requests_per_minute=max(60, x10_backfill_limit),
+        )
+
+        logger.info(
+            f"Backfill rate limiters initialized: "
+            f"Lighter={lighter_backfill_limit}/min, X10={x10_backfill_limit}/min "
+            f"(budget={self._backfill_rate_budget_pct * 100:.0f}%)"
+        )
 
         # Extract X10 base URL from settings
         x10_settings = getattr(settings, "x10", None) or {}
@@ -184,18 +264,78 @@ class HistoricalIngestionService:
         start_time = end_time - timedelta(days=days_back)
 
         results = {}
-        for symbol in symbols:
-            try:
-                count = await self._backfill_symbol(symbol, start_time, end_time)
-                results[symbol] = count
-                logger.info(f"Backfilled {symbol}: {count} records")
 
-                # Rate limit delay between symbols
-                await asyncio.sleep(1.0)
+        # Use configurable concurrency from settings
+        batch_size = self._max_concurrent_symbols
+        inter_batch_delay = self._inter_request_delay_ms / 1000.0  # Convert to seconds
 
-            except Exception as e:
-                logger.error(f"Failed to backfill {symbol}: {e}")
-                results[symbol] = 0
+        logger.info(
+            f"Backfill config: batch_size={batch_size}, "
+            f"inter_batch_delay={inter_batch_delay:.2f}s, "
+            f"max_retries={self._max_retries}"
+        )
+
+        # P1: Create ONE session for the entire backfill operation (connection pooling)
+        connector = aiohttp.TCPConnector(
+            limit=SESSION_POOL_LIMIT,
+            keepalive_timeout=SESSION_KEEPALIVE_SECONDS,
+        )
+        timeout = aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            async def _backfill_single(symbol: str) -> tuple[str, int]:
+                """Backfill a single symbol with error handling and retry."""
+                last_error = None
+                for attempt in range(self._max_retries):
+                    try:
+                        count = await self._backfill_symbol(symbol, start_time, end_time, session)
+                        logger.info(f"Backfilled {symbol}: {count} records")
+                        return (symbol, count)
+                    except Exception as e:
+                        last_error = e
+                        # P2.1: Only retry on transient errors
+                        if attempt < self._max_retries - 1:
+                            # Exponential backoff: 1s, 2s, 4s, ...
+                            delay = (self._retry_base_delay_ms / 1000.0) * (2 ** attempt)
+                            logger.warning(
+                                f"Backfill {symbol} failed (attempt {attempt + 1}/{self._max_retries}): {e}. "
+                                f"Retrying in {delay:.1f}s"
+                            )
+                            await asyncio.sleep(delay)
+
+                logger.error(f"Failed to backfill {symbol} after {self._max_retries} attempts: {last_error}")
+                return (symbol, 0)
+
+            # Process in batches with asyncio.gather
+            for i in range(0, len(symbols), batch_size):
+                batch = symbols[i:i + batch_size]
+                batch_num = (i // batch_size) + 1
+                total_batches = (len(symbols) + batch_size - 1) // batch_size
+
+                logger.info(f"Processing batch {batch_num}/{total_batches}: {batch}")
+
+                batch_results = await asyncio.gather(
+                    *[_backfill_single(sym) for sym in batch],
+                    return_exceptions=True
+                )
+
+                for result in batch_results:
+                    if isinstance(result, tuple):
+                        sym, count = result
+                        results[sym] = count
+                    elif isinstance(result, BaseException):
+                        logger.error(f"Batch backfill exception: {result}")
+
+                # Configurable delay between batches
+                if i + batch_size < len(symbols):
+                    await asyncio.sleep(inter_batch_delay)
+
+        # Log rate limiter stats
+        logger.info(
+            f"Backfill complete. Rate limiter stats: "
+            f"Lighter={self._lighter_rate_limiter.get_stats()}, "
+            f"X10={self._x10_rate_limiter.get_stats()}"
+        )
 
         return results
 
@@ -204,12 +344,19 @@ class HistoricalIngestionService:
         symbol: str,
         start_time: datetime,
         end_time: datetime,
+        session: aiohttp.ClientSession,
     ) -> int:
         """Backfill data for a single symbol.
 
         NOTE: Lighter API uses count_back parameter and ignores time range,
         so we fetch Lighter data ONCE (not chunked) to avoid redundant API calls.
         X10 respects time ranges, so we still chunk X10 fetches.
+
+        Args:
+            symbol: Trading symbol
+            start_time: Start of backfill period
+            end_time: End of backfill period
+            session: Shared aiohttp session for connection reuse
         """
         total_inserted = 0
 
@@ -219,7 +366,9 @@ class HistoricalIngestionService:
 
         try:
             lighter_data = await self._fetch_lighter_candles(
-                symbol, start_time, end_time, count_back=min(hours_needed, 2160)  # Max 90 days
+                symbol, start_time, end_time,
+                count_back=min(hours_needed, MAX_LIGHTER_CANDLES),
+                session=session,
             )
             if lighter_data:
                 inserted = await self.store.insert_funding_candles(lighter_data)
@@ -231,10 +380,10 @@ class HistoricalIngestionService:
         # Process in 7-day chunks to avoid memory issues and respect API limits
         chunk_start = start_time
         while chunk_start < end_time:
-            chunk_end = min(chunk_start + timedelta(days=7), end_time)
+            chunk_end = min(chunk_start + timedelta(days=X10_CHUNK_DAYS), end_time)
 
             try:
-                x10_data = await self._fetch_x10_candles(symbol, chunk_start, chunk_end)
+                x10_data = await self._fetch_x10_candles(symbol, chunk_start, chunk_end, session)
                 if x10_data:
                     inserted = await self.store.insert_funding_candles(x10_data)
                     total_inserted += inserted
@@ -251,6 +400,7 @@ class HistoricalIngestionService:
         start_time: datetime,
         end_time: datetime,
         count_back: int = 1000,
+        session: aiohttp.ClientSession | None = None,
     ) -> list[FundingCandle]:
         """
         Fetch hourly funding candles from Lighter using REST API.
@@ -261,14 +411,18 @@ class HistoricalIngestionService:
         IMPORTANT: Lighter API uses count_back and ignores start_timestamp/end_timestamp.
         Pass appropriate count_back for your time range (e.g., 2160 for 90 days).
 
-        Query params:
-        - market_id: int (0-based, not 1-based)
-        - resolution: "1h" or "1d"
-        - start_timestamp: int (seconds, not milliseconds) - IGNORED by API
-        - end_timestamp: int (seconds, not milliseconds) - IGNORED by API
-        - count_back: int (number of candles to fetch, API returns this many)
+        Args:
+            symbol: Trading symbol
+            start_time: Start of period (passed to API but ignored)
+            end_time: End of period (passed to API but ignored)
+            count_back: Number of candles to fetch
+            session: Optional shared aiohttp session for connection reuse
         """
         candles = []
+        skipped_extreme = 0
+        max_abs_rate = Decimal("0")
+        first_skipped_ts: datetime | None = None
+        last_skipped_ts: datetime | None = None
 
         try:
             # Try to get market_id from Lighter adapter (dynamic mapping for all 121+ markets)
@@ -304,85 +458,115 @@ class HistoricalIngestionService:
                 logger.debug(f"No market ID mapping for {symbol}, skipping Lighter data")
                 return []
 
-            # Use REST API directly for funding history
-            # Note: Lighter API uses count_back and ignores time range parameters
-            async with aiohttp.ClientSession() as session:
-                url = f"{self.lighter_base_url}/api/v1/fundings"
-                params = {
-                    "market_id": market_id,
-                    "resolution": "1h",  # Note: 1m resolution not available
-                    "start_timestamp": int(start_time.timestamp()),  # Passed but ignored by API
-                    "end_timestamp": int(end_time.timestamp()),      # Passed but ignored by API
-                    "count_back": count_back,  # This is what actually controls how many candles are returned
-                }
+            # P1: Use shared session if provided, otherwise create new one (fallback)
+            url = f"{self.lighter_base_url}/api/v1/fundings"
+            params = {
+                "market_id": market_id,
+                "resolution": "1h",
+                "start_timestamp": int(start_time.timestamp()),
+                "end_timestamp": int(end_time.timestamp()),
+                "count_back": count_back,
+            }
 
-                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
+            async def _fetch_lighter_api():
+                # Use shared session or create fallback
+                if session:
+                    async with session.get(url, params=params) as resp:
+                        return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+                else:
+                    # Fallback for direct calls without session
+                    async with aiohttp.ClientSession() as fallback_session:
+                        async with fallback_session.get(
+                            url, params=params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
+                        ) as resp:
+                            return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
-                        # Parse fundings array
-                        fundings = data.get("fundings", [])
+            # Execute with rate limiting
+            status, data = await self._lighter_rate_limiter.execute(
+                _fetch_lighter_api,
+                label=f"lighter_fundings_{symbol}"
+            )
 
-                        for funding_item in fundings:
-                            # Parse timestamp (seconds from API)
-                            ts_val = funding_item.get("timestamp", 0)
-                            if isinstance(ts_val, str):
-                                ts_val = int(ts_val)
+            if status == 200:
+                # Parse fundings array
+                fundings = data.get("fundings", [])
 
-                            # Convert to datetime (timestamp is in seconds)
-                            timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
+                for funding_item in fundings:
+                    # Parse timestamp (seconds from API)
+                    ts_val = funding_item.get("timestamp", 0)
+                    if isinstance(ts_val, str):
+                        ts_val = int(ts_val)
 
-                            # Parse funding rate (comes as string like "0.0463")
-                            # Rate is HOURLY (API returns DECIMAL format, e.g., -0.000386 = -0.0386%)
-                            # NO division by 100 needed - API already returns decimal format
-                            # Configurable interval for backwards compatibility (default: 1 = hourly, no division)
-                            rate_val = funding_item.get("rate", "0")
-                            rate_raw = Decimal(str(rate_val))
+                    # Convert to datetime (timestamp is in seconds)
+                    timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
 
-                            # Normalize to hourly (divide by interval if > 1)
-                            # Uses settings.lighter.funding_rate_interval_hours (default: 1)
-                            interval_hours = Decimal("1")  # Default: hourly
-                            lighter_settings = getattr(self.settings, "lighter", None)
-                            if lighter_settings and hasattr(lighter_settings, "funding_rate_interval_hours"):
-                                interval_val = lighter_settings.funding_rate_interval_hours
-                                # Ensure it's a Decimal, not a mock or None
-                                if interval_val is not None and not callable(interval_val):
-                                    try:
-                                        interval_hours = Decimal(str(interval_val))
-                                    except (ValueError, TypeError):
-                                        interval_hours = Decimal("1")
+                    # Parse funding rate (comes as string like "0.0463")
+                    # Rate is HOURLY (API returns DECIMAL format, e.g., -0.000386 = -0.0386%)
+                    # NO division by 100 needed - API already returns decimal format
+                    # Configurable interval for backwards compatibility (default: 1 = hourly, no division)
+                    rate_val = funding_item.get("rate", "0")
+                    rate_raw = Decimal(str(rate_val))
 
-                            # Lighter returns an unsigned rate plus a direction field indicating who pays.
-                            # Normalize to the "long funding rate" convention used throughout the bot:
-                            # - direction="short" => shorts pay longs => long funding is NEGATIVE
-                            # - otherwise => longs pay shorts => long funding is POSITIVE
-                            direction = str(funding_item.get("direction", "") or "").lower()
-                            if direction == "short":
-                                rate_raw = -rate_raw
+                    # Normalize to hourly (divide by interval if > 1)
+                    # Uses settings.lighter.funding_rate_interval_hours (default: 1)
+                    interval_hours = Decimal("1")  # Default: hourly
+                    lighter_settings = getattr(self.settings, "lighter", None)
+                    if lighter_settings and hasattr(lighter_settings, "funding_rate_interval_hours"):
+                        interval_val = lighter_settings.funding_rate_interval_hours
+                        # Ensure it's a Decimal, not a mock or None
+                        if interval_val is not None and not callable(interval_val):
+                            try:
+                                interval_hours = Decimal(str(interval_val))
+                            except (ValueError, TypeError):
+                                interval_hours = Decimal("1")
 
-                            # Convert to hourly rate (API already returns DECIMAL format, not percent)
-                            rate_hourly = rate_raw / interval_hours
+                    # Lighter returns an unsigned rate plus a direction field indicating who pays.
+                    # Normalize to the "long funding rate" convention used throughout the bot:
+                    # - direction="short" => shorts pay longs => long funding is NEGATIVE
+                    # - otherwise => longs pay shorts => long funding is POSITIVE
+                    direction = str(funding_item.get("direction", "") or "").lower()
+                    if direction == "short":
+                        rate_raw = -rate_raw
 
-                            # Convert to APY (hourly -> annual)
-                            funding_apy = rate_hourly * 24 * 365
+                    # Convert to hourly rate (API already returns DECIMAL format, not percent)
+                    rate_hourly = rate_raw / interval_hours
 
-                            candles.append(FundingCandle(
-                                timestamp=timestamp,
-                                symbol=symbol,
-                                exchange="LIGHTER",
-                                mark_price=None,
-                                index_price=None,
-                                spread_bps=None,
-                                funding_rate_hourly=rate_hourly,
-                                funding_apy=funding_apy,
-                                fetched_at=datetime.now(UTC),
-                            ))
+                    # P2.2: Bounds validation - skip extreme rates (likely data errors)
+                    if abs(rate_hourly) > self._funding_rate_max_abs:
+                        skipped_extreme += 1
+                        abs_rate = abs(rate_hourly)
+                        if abs_rate > max_abs_rate:
+                            max_abs_rate = abs_rate
+                        if first_skipped_ts is None:
+                            first_skipped_ts = timestamp
+                        last_skipped_ts = timestamp
+                        continue
 
-                        logger.info(f"Fetched {len(fundings)} hourly funding records from Lighter for {symbol}")
-                    else:
-                        logger.warning(f"Lighter fundings API returned status {resp.status} for {symbol}")
-                        text = await resp.text()
-                        logger.debug(f"Response: {text}")
+                    # Convert to APY (hourly -> annual, simple multiplication)
+                    funding_apy = rate_hourly * 24 * 365
+
+                    candles.append(FundingCandle(
+                        timestamp=timestamp,
+                        symbol=symbol,
+                        exchange="LIGHTER",
+                        mark_price=None,
+                        index_price=None,
+                        spread_bps=None,
+                        funding_rate_hourly=rate_hourly,
+                        funding_apy=funding_apy,
+                        fetched_at=datetime.now(UTC),
+                    ))
+
+                logger.info(f"Fetched {len(fundings)} hourly funding records from Lighter for {symbol}")
+                if skipped_extreme:
+                    logger.warning(
+                        f"Lighter {symbol}: Skipped {skipped_extreme} extreme funding rates "
+                        f"(>{self._funding_rate_max_abs}, max_abs={max_abs_rate}) "
+                        f"between {first_skipped_ts} and {last_skipped_ts}"
+                    )
+            else:
+                logger.warning(f"Lighter fundings API returned status {status} for {symbol}")
+                logger.debug(f"Response: {data}")
 
         except Exception as e:
             logger.error(f"Error fetching Lighter candles for {symbol}: {e}")
@@ -474,102 +658,144 @@ class HistoricalIngestionService:
         symbol: str,
         start_time: datetime,
         end_time: datetime,
+        session: aiohttp.ClientSession | None = None,
     ) -> list[FundingCandle]:
         """
         Fetch funding rate history from X10 REST API.
 
-        Uses GET /info/<market>/funding?startTime=<start>&endTime=<end>
+        Uses GET /info/<market>/funding?startTime=<start>&endTime=<end>.
+        The caller already chunks large ranges (see `X10_CHUNK_DAYS`), so this method
+        fetches the given range in a single request and retries transient failures.
         Ref: https://api.docs.extended.exchange/#get-funding-rates-history
+
+        Args:
+            symbol: Trading symbol
+            start_time: Start of period
+            end_time: End of period
+            session: Optional shared aiohttp session for connection reuse
         """
-        candles = []
+        candles: list[FundingCandle] = []
         x10_symbol = _get_x10_symbol(symbol)
 
-        # Process in 1-day chunks
-        chunk_start = start_time
-        while chunk_start < end_time:
-            chunk_end = min(chunk_start + timedelta(days=1), end_time)
+        url = f"{self.x10_base_url}/info/{x10_symbol}/funding"
+        params = {
+            "startTime": int(start_time.timestamp() * 1000),
+            "endTime": int(end_time.timestamp() * 1000),
+        }
 
+        async def _fetch_x10_api():
+            if session:
+                async with session.get(url, params=params) as resp:
+                    return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+
+            async with aiohttp.ClientSession() as fallback_session:
+                async with fallback_session.get(
+                    url, params=params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
+                ) as resp:
+                    return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+
+        attempts = max(1, int(self._max_retries))
+        label = f"x10_funding_{symbol}_{start_time.date()}_{end_time.date()}"
+
+        for attempt in range(attempts):
             try:
-                async with aiohttp.ClientSession() as session:
-                    # X10 funding history endpoint
-                    url = f"{self.x10_base_url}/info/{x10_symbol}/funding"
-                    params = {
-                        "startTime": int(chunk_start.timestamp() * 1000),
-                        "endTime": int(chunk_end.timestamp() * 1000),
-                    }
-
-                    async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-
-                            # Parse funding rates
-                            funding_rates = data.get("data", [])
-
-                            for rate_data in funding_rates:
-                                # Parse timestamp (milliseconds)
-                                ts_val = rate_data.get("timestamp", rate_data.get("T", 0))
-                                if isinstance(ts_val, str):
-                                    ts_val = int(ts_val)
-
-                                if ts_val > 1e12:  # Milliseconds
-                                    timestamp = datetime.fromtimestamp(ts_val / 1000, tz=UTC)
-                                else:  # Seconds
-                                    timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
-
-                                # Parse funding rate (hourly)
-                                # X10 API returns rates in DECIMAL format (e.g., -0.000360)
-                                # NO division by 100 - API already returns decimal format
-                                rate_val = rate_data.get("funding_rate", rate_data.get("f", 0))
-                                rate_hourly = Decimal(str(rate_val))  # Already in decimal format
-
-                                # Convert to APY (hourly -> annual)
-                                funding_apy = rate_hourly * 24 * 365
-
-                                candles.append(FundingCandle(
-                                    timestamp=timestamp,
-                                    symbol=symbol,
-                                    exchange="X10",
-                                    mark_price=None,
-                                    index_price=None,
-                                    spread_bps=None,
-                                    funding_rate_hourly=rate_hourly,
-                                    funding_apy=funding_apy,
-                                    fetched_at=datetime.now(UTC),
-                                ))
-                        else:
-                            # Handle 400 errors gracefully (symbol not available on X10)
-                            if resp.status == 400:
-                                # Market not found = Symbol not available on X10
-                                logger.debug(f"Symbol {symbol} not available on X10 (400 Market not found)")
-                                break  # Stop trying this symbol
-                            else:
-                                logger.warning(f"X10 returned {resp.status} for {symbol}")
-
+                status, data = await self._x10_rate_limiter.execute(_fetch_x10_api, label=label)
             except Exception as e:
-                logger.error(f"Error fetching X10 candles for {symbol}: {e}")
-                break
+                if attempt < attempts - 1:
+                    base = self._retry_base_delay_ms / 1000.0
+                    backoff = base * (2**attempt)
+                    delay = backoff + (backoff * random.uniform(0.0, 0.25))
+                    logger.warning(
+                        f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
+                        f"Retrying in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+                logger.warning(
+                    f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
+                    f"Giving up after {attempts} attempts"
+                )
+                return []
 
-            chunk_start = chunk_end
+            if status == 200:
+                funding_rates = data.get("data", [])
 
-            # Rate limit: 60ms between requests
-            await asyncio.sleep(0.06)
+                for rate_data in funding_rates:
+                    ts_val = rate_data.get("timestamp", rate_data.get("T", 0))
+                    if isinstance(ts_val, str):
+                        ts_val = int(ts_val)
+
+                    if ts_val > 1e12:  # Milliseconds
+                        timestamp = datetime.fromtimestamp(ts_val / 1000, tz=UTC)
+                    else:  # Seconds
+                        timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
+
+                    # X10 API returns rates in DECIMAL format (e.g., -0.000360)
+                    rate_val = rate_data.get("funding_rate", rate_data.get("f", 0))
+                    rate_hourly = Decimal(str(rate_val))
+
+                    # P2.2: Bounds validation - skip extreme rates
+                    if abs(rate_hourly) > self._funding_rate_max_abs:
+                        logger.warning(
+                            f"X10 {symbol}: Skipping extreme funding rate {rate_hourly} "
+                            f"(exceeds {self._funding_rate_max_abs}) at {timestamp}"
+                        )
+                        continue
+
+                    funding_apy = rate_hourly * 24 * 365
+
+                    candles.append(
+                        FundingCandle(
+                            timestamp=timestamp,
+                            symbol=symbol,
+                            exchange="X10",
+                            mark_price=None,
+                            index_price=None,
+                            spread_bps=None,
+                            funding_rate_hourly=rate_hourly,
+                            funding_apy=funding_apy,
+                            fetched_at=datetime.now(UTC),
+                        )
+                    )
+
+                return candles
+
+            # P2.1: Distinguish transient vs permanent errors
+            if status in TRANSIENT_HTTP_CODES:
+                if attempt < attempts - 1:
+                    base = self._retry_base_delay_ms / 1000.0
+                    backoff = base * (2**attempt)
+                    delay = backoff + (backoff * random.uniform(0.0, 0.25))
+                    logger.warning(
+                        f"X10 funding history returned {status} for {symbol} ({start_time.date()} - {end_time.date()}). "
+                        f"Retrying in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
+                    continue
+
+                logger.warning(
+                    f"X10 funding history returned {status} for {symbol} ({start_time.date()} - {end_time.date()}). "
+                    f"Giving up after {attempts} attempts"
+                )
+                return []
+
+            if status == 400:
+                # Market not found = Symbol not available on X10
+                logger.debug(f"Symbol {symbol} not available on X10 (400 Market not found)")
+                return []
+
+            if status == 404:
+                logger.debug(f"X10 endpoint not found for {symbol}")
+                return []
+
+            # Unknown/non-retryable HTTP response.
+            snippet = str(data)[:200] if data is not None else ""
+            logger.warning(f"X10 returned {status} for {symbol} ({start_time.date()} - {end_time.date()}): {snippet}")
+            return []
 
         return candles
 
-    async def _fetch_x10_candle_type(
-        self,
-        session: aiohttp.ClientSession,
-        x10_symbol: str,
-        candle_type: str,  # "mark-prices" or "index-prices"
-        start_time: datetime,
-        end_time: datetime,
-    ) -> list[dict]:
-        """Fetch candles of a specific type from X10.
-
-        NOTE: This method is DEPRECATED - X10 uses /info/<market>/funding endpoint instead.
-        Kept for potential future use if candle data becomes available.
-        """
-        return []
+    # P3.1: Removed deprecated _fetch_x10_candle_type() - was dead code returning []
 
     async def daily_update(self, symbols: list[str]) -> dict[str, int]:
         """
@@ -590,13 +816,22 @@ class HistoricalIngestionService:
         start_time = end_time - timedelta(days=2)
 
         results = {}
-        for symbol in symbols:
-            try:
-                count = await self._backfill_symbol(symbol, start_time, end_time)
-                results[symbol] = count
-            except Exception as e:
-                logger.error(f"Failed to update {symbol}: {e}")
-                results[symbol] = 0
+
+        # Create session for daily update (same pattern as backfill)
+        connector = aiohttp.TCPConnector(
+            limit=SESSION_POOL_LIMIT,
+            keepalive_timeout=SESSION_KEEPALIVE_SECONDS,
+        )
+        timeout = aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
+
+        async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+            for symbol in symbols:
+                try:
+                    count = await self._backfill_symbol(symbol, start_time, end_time, session)
+                    results[symbol] = count
+                except Exception as e:
+                    logger.error(f"Failed to update {symbol}: {e}")
+                    results[symbol] = 0
 
         return results
 

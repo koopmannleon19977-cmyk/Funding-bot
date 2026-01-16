@@ -7,7 +7,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from funding_bot.domain.errors import InsufficientBalanceError, Leg1FailedError, Leg1HedgeEvaporatedError
 from funding_bot.domain.models import ExecutionState, Opportunity, Trade

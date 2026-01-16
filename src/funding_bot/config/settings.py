@@ -204,6 +204,8 @@ class TradingSettings(BaseModel):
     rebalance_enabled: bool = True  # Enable rebalance instead of full exit at 1-3% drift
     rebalance_min_delta_pct: Decimal = Decimal("0.01")  # 1% = log warning only
     rebalance_max_delta_pct: Decimal = Decimal("0.03")  # 3% = rebalance trigger (same as delta_bound)
+    rebalance_min_notional_usd: Decimal = Decimal("2.0")  # Skip micro rebalances below this notional
+    rebalance_min_notional_pct: Decimal = Decimal("0.005")  # 0.5% of larger leg notional
     rebalance_maker_timeout_seconds: Decimal = Decimal("6.0")  # Maker timeout before IOC fallback
     rebalance_use_ioc_fallback: bool = True  # Escalate to IOC if maker doesn't fill
 
@@ -491,6 +493,10 @@ class HistoricalSettings(BaseModel):
     daily_update_hour: int = 2  # 0-23, UTC
     minute_candles_enabled: bool = True
 
+    # Funding-rate outlier handling (historical ingestion only)
+    # Default is conservative to avoid bad data poisoning features; increase if you trust extreme regimes.
+    funding_rate_max_abs: Decimal = Decimal("0.01")
+
     # Crash detection settings
     z_score_threshold: float = 3.0
     min_crash_duration_minutes: int = 5
@@ -508,6 +514,13 @@ class HistoricalSettings(BaseModel):
     lighter_rate_limit_per_minute: int = 10
     backfill_chunk_days: int = 7
     x10_chunk_days: int = 1
+
+    # Rate limiting for backfill (to avoid starving production)
+    backfill_rate_budget_pct: float = 0.10  # Use 10% of rate limit capacity
+    backfill_max_concurrent_symbols: int = 2  # Max parallel symbol fetches
+    backfill_inter_request_delay_ms: int = 200  # Delay between API calls
+    backfill_max_retries: int = 3  # Max retries per failed request
+    backfill_retry_base_delay_ms: int = 1000  # Base delay for exponential backoff
 
     # Priority 1: Real-time crash detection settings
     realtime_crash_detection_enabled: bool = True

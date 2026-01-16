@@ -247,7 +247,13 @@ class FundingTracker:
         """
         updates: dict[str, Decimal] = {}
 
-        async def _refresh_leg(leg_name: str, exchange: ExchangePort, leg_exchange: Exchange, order_id: str | None, current_fee: Decimal) -> None:
+        async def _refresh_leg(
+            leg_name: str,
+            exchange: ExchangePort,
+            leg_exchange: Exchange,
+            order_id: str | None,
+            current_fee: Decimal,
+        ) -> None:
             if not order_id:
                 return
             if current_fee != Decimal("0"):
@@ -264,9 +270,15 @@ class FundingTracker:
                 return
             updates[f"{leg_name}_fees"] = o.fee
 
+        leg1_ex = self.lighter if trade.leg1.exchange == Exchange.LIGHTER else self.x10
+        leg2_ex = self.lighter if trade.leg2.exchange == Exchange.LIGHTER else self.x10
         await asyncio.gather(
-            _refresh_leg("leg1", self.lighter if trade.leg1.exchange == Exchange.LIGHTER else self.x10, trade.leg1.exchange, trade.leg1.order_id, trade.leg1.fees),
-            _refresh_leg("leg2", self.lighter if trade.leg2.exchange == Exchange.LIGHTER else self.x10, trade.leg2.exchange, trade.leg2.order_id, trade.leg2.fees),
+            _refresh_leg(
+                "leg1", leg1_ex, trade.leg1.exchange, trade.leg1.order_id, trade.leg1.fees
+            ),
+            _refresh_leg(
+                "leg2", leg2_ex, trade.leg2.exchange, trade.leg2.order_id, trade.leg2.fees
+            ),
             return_exceptions=True,
         )
 

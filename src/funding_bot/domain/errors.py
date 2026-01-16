@@ -180,6 +180,30 @@ class MicrofillError(ExecutionError):
     error_code = "MICROFILL"
 
 
+class SizingError(ExecutionError):
+    """Error calculating trade size."""
+
+    error_code = "SIZING_ERROR"
+
+
+class PreflightCheckError(ExecutionError):
+    """Preflight checks failed before execution."""
+
+    error_code = "PREFLIGHT_CHECK_ERROR"
+
+
+class WaitForFillError(ExecutionError):
+    """Timeout or error waiting for order fill."""
+
+    error_code = "WAIT_FOR_FILL_ERROR"
+
+
+class OrderbookDataError(ExecutionError):
+    """Missing or invalid orderbook data."""
+
+    error_code = "ORDERBOOK_DATA_ERROR"
+
+
 # =============================================================================
 # Rollback Errors
 # =============================================================================

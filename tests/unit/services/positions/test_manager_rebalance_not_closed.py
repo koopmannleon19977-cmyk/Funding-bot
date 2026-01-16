@@ -175,12 +175,15 @@ async def test_check_trades_counts_full_close_as_closed():
     # Create a minimal mock service with direct async functions
     service = MagicMock()
     service.settings = MagicMock()
+    service.settings.trading = MagicMock()
+    service.settings.trading.cooldown_minutes = 60  # Required for rebalance cooldown logic
     service.store = MagicMock()
     service.store.list_open_trades = AsyncMock(return_value=[trade])
     service.close_trade = mock_close_trade
     service._evaluate_exits_parallel = mock_evaluate_exits_parallel
     service._orderbook_subs_lock = asyncio.Lock()
     service._active_orderbook_subs = set()
+    service._rebalance_cooldowns = {}  # Required for rebalance cooldown tracking
 
     # Bind the check_trades method using the actual implementation
     import types
@@ -243,12 +246,15 @@ async def test_check_trades_handles_rebalance_then_full_close():
     # Create a minimal mock service with direct async functions
     service = MagicMock()
     service.settings = MagicMock()
+    service.settings.trading = MagicMock()
+    service.settings.trading.cooldown_minutes = 60  # Required for rebalance cooldown logic
     service.store = MagicMock()
     service.store.list_open_trades = AsyncMock(return_value=[trade])
     service.close_trade = mock_close_trade
     service._evaluate_exits_parallel = mock_evaluate_exits_parallel
     service._orderbook_subs_lock = asyncio.Lock()
     service._active_orderbook_subs = set()
+    service._rebalance_cooldowns = {}  # Required for rebalance cooldown tracking
 
     # Bind the check_trades method using the actual implementation
     import types

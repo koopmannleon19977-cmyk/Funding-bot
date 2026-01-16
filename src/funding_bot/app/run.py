@@ -104,16 +104,21 @@ async def run_bot(
 
     # Signal handlers for graceful shutdown
     shutdown_event = asyncio.Event()
+    received_signal: list[str] = []  # Store signal name for logging after handler
 
     def handle_signal(sig: signal.Signals) -> None:
+        # NOTE: On Unix, this runs in the event loop context, so logging is safe
+        received_signal.append(sig.name)
         logger.info(f"Received signal {sig.name}, initiating shutdown...")
         shutdown_event.set()
 
     # Register signal handlers
     if sys.platform == "win32":
         # Windows: use signal.signal (runs in main thread only)
+        # IMPORTANT: Do NOT log in signal handler - causes reentrant write errors
+        # when signal arrives during an active log write to stdout
         def win_handler(signum: int, frame) -> None:
-            logger.info(f"Received signal {signum}, initiating shutdown...")
+            received_signal.append(f"signal-{signum}")
             shutdown_event.set()
         signal.signal(signal.SIGINT, win_handler)
         signal.signal(signal.SIGTERM, win_handler)
@@ -129,6 +134,10 @@ async def run_bot(
 
         # Wait for shutdown signal or supervisor completion
         await shutdown_event.wait()
+
+        # Log the signal AFTER the handler returns (safe from reentrant issues)
+        if received_signal:
+            logger.info(f"Received {received_signal[0]}, initiating shutdown...")
 
     except (KeyboardInterrupt, asyncio.CancelledError):
         logger.info("Shutdown signal received, shutting down...")

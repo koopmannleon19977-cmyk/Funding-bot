@@ -273,12 +273,14 @@ def check_funding_flip(
             if projected_loss > estimated_exit_cost_usd:
                 return RuleResult(
                     True,
-                    f"Funding Flip: {horizon_hours}h loss (${projected_loss:.2f}) > exit cost (${estimated_exit_cost_usd:.2f})",
+                    f"Funding Flip: {horizon_hours}h loss (${projected_loss:.2f}) > "
+                    f"exit cost (${estimated_exit_cost_usd:.2f})",
                 )
             else:
                 return RuleResult(
                     False,
-                    f"Holding despite flip: exit cost (${estimated_exit_cost_usd:.2f}) > {horizon_hours}h loss (${projected_loss:.2f})",
+                    f"Holding despite flip: exit cost (${estimated_exit_cost_usd:.2f}) > "
+                    f"{horizon_hours}h loss (${projected_loss:.2f})",
                 )
 
     return RuleResult(False)
@@ -325,22 +327,26 @@ def check_net_ev_exit(
         if projected_loss >= threshold:
             return RuleResult(
                 True,
-                f"NetEV: projected {horizon_hours}h funding loss ${projected_loss:.2f} >= exit cost*{exit_cost_multiple} ${threshold:.2f}",
+                f"NetEV: projected {horizon_hours}h funding loss ${projected_loss:.2f} >= "
+                f"exit cost*{exit_cost_multiple} ${threshold:.2f}",
             )
         return RuleResult(
             False,
-            f"Hold (NetEV): exit cost*{exit_cost_multiple} ${threshold:.2f} > projected {horizon_hours}h loss ${projected_loss:.2f}",
+            f"Hold (NetEV): exit cost*{exit_cost_multiple} ${threshold:.2f} > "
+            f"projected {horizon_hours}h loss ${projected_loss:.2f}",
         )
 
     if projected < threshold:
         return RuleResult(
             True,
-            f"NetEV: projected {horizon_hours}h funding ${projected:.2f} < exit cost*{exit_cost_multiple} ${threshold:.2f}",
+            f"NetEV: projected {horizon_hours}h funding ${projected:.2f} < "
+            f"exit cost*{exit_cost_multiple} ${threshold:.2f}",
         )
 
     return RuleResult(
         False,
-        f"Hold (NetEV): projected {horizon_hours}h funding ${projected:.2f} >= exit cost*{exit_cost_multiple} ${threshold:.2f}",
+        f"Hold (NetEV): projected {horizon_hours}h funding ${projected:.2f} >= "
+        f"exit cost*{exit_cost_multiple} ${threshold:.2f}",
     )
 
 
@@ -383,7 +389,8 @@ def check_yield_vs_cost(
     if hours_to_cover > min_hours_to_cover:
         return RuleResult(
             True,
-            f"Unholdable: {hours_to_cover:.1f}h to cover ${estimated_exit_cost_usd:.2f} exit > {min_hours_to_cover}h limit",
+            f"Unholdable: {hours_to_cover:.1f}h to cover ${estimated_exit_cost_usd:.2f} "
+            f"exit > {min_hours_to_cover}h limit",
         )
 
     return RuleResult(
@@ -620,8 +627,14 @@ def check_liquidation_distance(
 
     if worst_distance_pct < min_distance_pct:
         # Determine which leg triggered the exit
-        triggered_leg = "Lighter" if leg1_liq_distance_pct <= leg2_liq_distance_pct else "X10"
-        triggered_distance = leg1_liq_distance_pct if leg1_liq_distance_pct <= leg2_liq_distance_pct else leg2_liq_distance_pct
+        triggered_leg = (
+            "Lighter" if leg1_liq_distance_pct <= leg2_liq_distance_pct else "X10"
+        )
+        triggered_distance = (
+            leg1_liq_distance_pct
+            if leg1_liq_distance_pct <= leg2_liq_distance_pct
+            else leg2_liq_distance_pct
+        )
         return RuleResult(
             True,
             f"Liquidation risk: {triggered_leg} leg at {triggered_distance:.1%} from liquidation "

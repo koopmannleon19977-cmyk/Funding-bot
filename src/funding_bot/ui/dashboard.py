@@ -45,8 +45,11 @@ _HEALTH_RE = re.compile(r"\[HEALTH\]\s*(?P<kv>.+)$")
 _KV_RE = re.compile(r"(?P<k>[a-zA-Z_]+)=(?P<v>[^,]+)")
 _SIZING_RE = re.compile(
     r"Sizing Check: Equity=\$(?P<equity>[\d\.]+)\s+"
-    r"RiskCap=\$(?P<riskcap>[\d\.]+)\s+Used=\$(?P<used>[\d\.]+)\s+->\s+RemRisk=\$(?P<remrisk>[\d\.]+)\.\s+"
-    r"LiquidityCap=\$(?P<liqcap>[\d\.]+)\s+\(L-85%:\$(?P<lcap>[\d\.]+)/X-95%:\$(?P<xcap>[\d\.]+)\)\s+->\s+FINAL AVAILABLE=\$(?P<avail>[\d\.]+)"
+    r"RiskCap=\$(?P<riskcap>[\d\.]+)\s+Used=\$(?P<used>[\d\.]+)\s+->\s+"
+    r"RemRisk=\$(?P<remrisk>[\d\.]+)\.\s+"
+    r"LiquidityCap=\$(?P<liqcap>[\d\.]+)\s+"
+    r"\(L-85%:\$(?P<lcap>[\d\.]+)/X-95%:\$(?P<xcap>[\d\.]+)\)\s+->\s+"
+    r"FINAL AVAILABLE=\$(?P<avail>[\d\.]+)"
 )
 
 
@@ -648,9 +651,19 @@ def _trades_table(trades: list[TradeRow]) -> Table:
         apy_now = tr.current_apy
         apy_entry = tr.entry_apy
         apy_stale = False
-        if (apy_now is None) or (tr.last_eval_at is None) or (now - tr.last_eval_at).total_seconds() > 120:
+        apy_stale_cond = (
+            (apy_now is None)
+            or (tr.last_eval_at is None)
+            or (now - tr.last_eval_at).total_seconds() > 120
+        )
+        if apy_stale_cond:
             apy_stale = True
-        status_style = "green" if tr.status == "OPEN" else ("yellow" if tr.status in ("OPENING", "CLOSING") else "magenta")
+        if tr.status == "OPEN":
+            status_style = "green"
+        elif tr.status in ("OPENING", "CLOSING"):
+            status_style = "yellow"
+        else:
+            status_style = "magenta"
         upnl_style = "green" if tr.unrealized_pnl >= 0 else "red"
         apy_style = "dim" if apy_stale else ""
         apy_text = "--"
@@ -789,7 +802,10 @@ def _risk_panel(s: Snapshot) -> Panel:
     else:
         body.append(f"Free margin: {free_margin:.2%} (min {min_free_margin_pct:.2%})\n")
 
-    body.append(f"Limits: max_exposure={Decimal(str(max_exposure_pct)):.0f}%, lev={leverage_multiplier}x, max_dd={Decimal(str(max_drawdown_pct)):.0%}\n")
+    body.append(
+        f"Limits: max_exposure={Decimal(str(max_exposure_pct)):.0f}%, "
+        f"lev={leverage_multiplier}x, max_dd={Decimal(str(max_drawdown_pct)):.0%}\n"
+    )
 
     if liqcap is not None and liqcap > 0:
         bottleneck = "LIGHTER" if (lcap is not None and xcap is not None and lcap <= xcap) else "X10"
@@ -876,7 +892,9 @@ def _build_layout(s: Snapshot) -> Layout:
     layout["risk"].update(_risk_panel(s))
     layout["kpis"].update(_kpis_panel(s))
     layout["decision"].update(_decision_panel(s))
-    layout["attempts"].update(Panel(_attempts_table(s.attempts), title="Recent FAILED/REJECTED executions", border_style="red"))
+    layout["attempts"].update(
+        Panel(_attempts_table(s.attempts), title="Recent FAILED/REJECTED executions", border_style="red")
+    )
     layout["monitor"].update(_monitor_panel(s))
     layout["footer"].update(Align.center(Text("Ctrl+C to quit", style="dim")))
     return layout

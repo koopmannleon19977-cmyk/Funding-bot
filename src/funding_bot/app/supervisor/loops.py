@@ -480,9 +480,9 @@ async def _heartbeat_loop(self) -> None:
             )
 
             # Periodic cleanup of stale order watchers (memory management)
-            if self.execution and hasattr(self.execution, "_cleanup_stale_watchers"):
+            if self.execution_engine and hasattr(self.execution_engine, "_cleanup_stale_watchers"):
                 try:
-                    await self.execution._cleanup_stale_watchers()
+                    await self.execution_engine._cleanup_stale_watchers()
                 except Exception:
                     pass
 

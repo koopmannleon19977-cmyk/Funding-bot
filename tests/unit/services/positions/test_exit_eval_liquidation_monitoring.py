@@ -77,10 +77,10 @@ class TestLiquidationMonitoringCodeStructure:
         assert liq_data_fetch_line is not None, \
             "Position fetching code should exist (via _fetch_liquidation_data)"
 
-        # ASSERT: Helper contains actual position fetching
-        assert "await self.lighter.get_position" in helper_source, \
+        # ASSERT: Helper contains actual position fetching (may use asyncio.gather for parallelism)
+        assert "self.lighter.get_position" in helper_source, \
             "_fetch_liquidation_data should fetch Lighter position"
-        assert "await self.x10.get_position" in helper_source, \
+        assert "self.x10.get_position" in helper_source, \
             "_fetch_liquidation_data should fetch X10 position"
 
         # ASSERT: Early return exists

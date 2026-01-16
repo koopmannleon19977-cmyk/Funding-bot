@@ -239,7 +239,10 @@ class ATRTrailingStopStrategy:
         if current_pnl <= stop_level:
             return ExitSignal(
                 should_exit=True,
-                reason=f"ATR-TRAILING: PnL ${current_pnl:.2f} <= Stop ${stop_level:.2f} (ATR=${atr_value:.2f}, {self.multiplier}x)",
+                reason=(
+                    f"ATR-TRAILING: PnL ${current_pnl:.2f} <= Stop ${stop_level:.2f} "
+                    f"(ATR=${atr_value:.2f}, {self.multiplier}x)"
+                ),
                 confidence=Decimal("0.85"),
                 priority=2,
             )
@@ -607,7 +610,10 @@ class KellyRotationStrategy:
         if improvement >= self.min_kelly_improvement:
             return ExitSignal(
                 should_exit=True,
-                reason=f"KELLY-ROTATE: New {new_kelly:.2%} > Current {current_kelly:.2%} + {self.min_kelly_improvement:.2%}",
+                reason=(
+                    f"KELLY-ROTATE: New {new_kelly:.2%} > Current {current_kelly:.2%} "
+                    f"+ {self.min_kelly_improvement:.2%}"
+                ),
                 confidence=Decimal("0.75"),
                 priority=4,
             )

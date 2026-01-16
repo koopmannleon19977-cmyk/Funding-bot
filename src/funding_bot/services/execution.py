@@ -14,7 +14,6 @@ This is the heart of the trading bot.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -68,6 +67,11 @@ from funding_bot.services.execution_orders import (
     _wait_for_fill_polling as _wait_for_fill_polling_orders,
 )
 from funding_bot.services.execution_types import ExecutionResult
+from funding_bot.services.execution_ws import (
+    cleanup_stale_watchers as _cleanup_stale_watchers_ws,
+    ensure_ws_order_subscriptions as _ensure_ws_order_subscriptions_ws,
+    on_ws_order_update as _on_ws_order_update_ws,
+)
 from funding_bot.services.market_data import (
     MarketDataService,
     OrderbookDepthSnapshot,
@@ -131,39 +135,8 @@ class ExecutionEngine:
         return self._locks[symbol]
 
     async def _cleanup_stale_watchers(self) -> None:
-        """
-        Clean up stale order watchers and cached order updates.
-
-        MEMORY MANAGEMENT: Periodically remove stale entries to prevent unbounded growth.
-        This is a safety net in case the finally block in _wait_for_fill_ws() doesn't execute.
-
-        Should be called periodically (e.g., every hour) from the supervisor.
-        """
-        async with self._ws_orders_lock:
-            # Clean up empty watcher sets
-            stale_keys = [
-                key for key, watchers in self._order_watchers.items()
-                if not watchers
-            ]
-            for key in stale_keys:
-                self._order_watchers.pop(key, None)
-
-            # Clean up old order updates (keep last 100 per exchange to limit memory)
-            max_cached_per_exchange = 100
-            for exchange in (self.lighter.exchange, self.x10.exchange):
-                # Get all keys for this exchange
-                exchange_keys = [
-                    key for key in self._last_order_update
-                    if key[0] == exchange
-                ]
-                # Sort by some criterion (here: by key string) and keep only the newest
-                if len(exchange_keys) > max_cached_per_exchange:
-                    # Remove oldest entries (first in the sorted list)
-                    keys_to_remove = exchange_keys[:-max_cached_per_exchange]
-                    for key in keys_to_remove:
-                        self._last_order_update.pop(key, None)
-
-        logger.debug(f"Cleanup complete. Watchers: {len(self._order_watchers)}, Cached orders: {len(self._last_order_update)}")
+        """Clean up stale order watchers and cached order updates."""
+        return await _cleanup_stale_watchers_ws(self)
 
     async def _kpi_create_attempt(self, attempt: ExecutionAttempt) -> str | None:
         try:
@@ -402,46 +375,11 @@ class ExecutionEngine:
 
     async def _ensure_ws_order_subscriptions(self) -> None:
         """Register WS order callbacks once (best-effort)."""
-        if self._ws_orders_ready:
-            return
-
-        async with self._ws_orders_lock:
-            if self._ws_orders_ready:
-                return
-
-            async def _subscribe_one(ex: ExchangePort) -> None:
-                with contextlib.suppress(Exception):
-                    await ex.subscribe_orders(self._on_ws_order_update)
-
-            await asyncio.gather(
-                _subscribe_one(self.lighter),
-                _subscribe_one(self.x10),
-                return_exceptions=True,
-            )
-
-            self._ws_orders_ready = True
+        return await _ensure_ws_order_subscriptions_ws(self)
 
     async def _on_ws_order_update(self, order: Order) -> None:
         """Dispatch WS order updates to any in-flight waiters."""
-        keys: set[tuple[Exchange, str]] = {(order.exchange, str(order.order_id))}
-        # Lighter fills can arrive on WS before we resolve the system order_id (we may be waiting
-        # on a `pending_{client}_{market}` placeholder). To correlate fast, also index by client id.
-        if order.client_order_id:
-            keys.add((order.exchange, f"client:{order.client_order_id}"))
-
-        async with self._ws_orders_lock:
-            for k in keys:
-                self._last_order_update[k] = order
-            watchers: set[asyncio.Queue[Order]] = set()
-            for k in keys:
-                watchers |= self._order_watchers.get(k, set())
-            watchers_list = list(watchers)
-
-        for q in watchers_list:
-            with contextlib.suppress(Exception):
-                if q.full():
-                    _ = q.get_nowait()
-                q.put_nowait(order)
+        return await _on_ws_order_update_ws(self, order)
 
     async def _get_best_effort_x10_depth_snapshot(
         self,

@@ -57,8 +57,9 @@ class WsClient:
             if not _LIGHTER_SDK_AVAILABLE:
                 raise RuntimeError(
                     "WsClient with host=None requires the Lighter SDK to be installed. "
-                    "Either install the Lighter SDK (pip install lighter) or provide an explicit host parameter. "
-                    "Note: The adapter always passes host explicitly, so this error should not occur in normal operation."
+                    "Either install the Lighter SDK (pip install lighter) or provide an "
+                    "explicit host parameter. Note: The adapter always passes host "
+                    "explicitly, so this error should not occur in normal operation."
                 )
             host = Configuration.get_default().host.replace("https://", "")  # type: ignore
 
