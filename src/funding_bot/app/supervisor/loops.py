@@ -10,13 +10,8 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING
-
 from funding_bot.domain.events import AlertEvent
 from funding_bot.observability.logging import get_logger
-
-if TYPE_CHECKING:
-    from funding_bot.services.execution import ExecutionResult
 
 logger = get_logger(__name__)
 
@@ -484,6 +479,13 @@ async def _heartbeat_loop(self) -> None:
                 (" | [PAUSED]" if paused else "")
             )
 
+            # Periodic cleanup of stale order watchers (memory management)
+            if self.execution and hasattr(self.execution, "_cleanup_stale_watchers"):
+                try:
+                    await self.execution._cleanup_stale_watchers()
+                except Exception:
+                    pass
+
             await asyncio.wait_for(
                 self._shutdown_event.wait(),
                 timeout=15.0  # Frequent updates for dashboard
@@ -570,7 +572,8 @@ async def _historical_data_loop(self) -> None:
 
                     # Convert to sorted list for consistent ordering
                     symbols = sorted(list(all_symbols))
-                    logger.info(f"Backfilling {len(symbols)} symbols: {symbols[:20]}{'...' if len(symbols) > 20 else ''}")
+                    suffix = "..." if len(symbols) > 20 else ""
+                    logger.info(f"Backfilling {len(symbols)} symbols: {symbols[:20]}{suffix}")
 
                     results = await self.historical_ingestion.backfill(symbols, days_back=backfill_days)
 
@@ -622,7 +625,11 @@ async def _historical_data_loop(self) -> None:
 
                     # Convert to sorted list for consistent ordering
                     symbols = sorted(list(all_symbols))
-                    logger.info(f"Updating historical data for {len(symbols)} symbols: {symbols[:20]}{'...' if len(symbols) > 20 else ''}")
+                    suffix = "..." if len(symbols) > 20 else ""
+                    logger.info(
+                        f"Updating historical data for {len(symbols)} symbols: "
+                        f"{symbols[:20]}{suffix}"
+                    )
 
                     results = await self.historical_ingestion.daily_update(symbols)
 

@@ -239,11 +239,12 @@ class X10Adapter(ExchangePort):
         self._heartbeat_task: asyncio.Task | None = None
 
         # 🚀 PERFORMANCE: WebSocket Fill Cache (instant fill detection)
-        # Maps order_id -> Order for immediate get_order() lookups.
+        # Maps order_id -> (Order, timestamp) for immediate get_order() lookups.
         # Populated by WS account updates, avoiding slow REST API searches.
-        # Cleaned up when order is terminal (filled/cancelled).
-        self._ws_fill_cache: dict[str, Order] = {}
+        # Cleaned up when order is terminal (filled/cancelled) or TTL expires.
+        self._ws_fill_cache: dict[str, tuple[Order, float]] = {}
         self._ws_fill_cache_lock = asyncio.Lock()  # Thread-safe cache ops
+        self._ws_fill_cache_ttl_seconds: float = 300.0  # 5 minutes TTL for stale entries
 
     @property
     def exchange(self) -> Exchange:
@@ -1193,7 +1194,8 @@ class X10Adapter(ExchangePort):
                     continue
 
                 # 2. Side (Enum) - PositionSide.LONG / SHORT
-                # Use string comparison to be safe against Enum type mismatch across versions, but map STRICTLY to LONG/SHORT
+                # Use string comparison to be safe against Enum type mismatch across
+                # versions, but map STRICTLY to LONG/SHORT
                 side_val = str(getattr(p, "side", "")).upper()
                 if side_val == "LONG":
                     side = Side.BUY
@@ -1371,9 +1373,16 @@ class X10Adapter(ExchangePort):
 
                     cursor = next_cursor
 
-            logger.info(
-                f"X10 funding history COMPLETE: {len(all_payments)} payments for {symbol} ({page_count} pages fetched)"
-            )
+            # Only log INFO if pagination was needed (page_count > 1), otherwise DEBUG
+            # This reduces log spam from routine 30s funding checks
+            if page_count > 1:
+                logger.info(
+                    f"X10 funding history: {len(all_payments)} payments for {symbol} ({page_count} pages)"
+                )
+            else:
+                logger.debug(
+                    f"X10 funding history: {len(all_payments)} payments for {symbol}"
+                )
             return all_payments
 
         except Exception as e:
@@ -1971,34 +1980,52 @@ class X10Adapter(ExchangePort):
         """
         Cache filled/cancelled order for instant get_order() lookups.
 
-        Avoids slow REST API searches. Cache TTL is 60s.
+        Avoids slow REST API searches. Cache entries include timestamp for TTL-based cleanup.
         """
         if not order.order_id:
             return
 
         async with self._ws_fill_cache_lock:
-            self._ws_fill_cache[order.order_id] = order
-            # Schedule auto-cleanup after 60s to prevent unbounded growth
-            asyncio.create_task(self._cleanup_cached_order(order.order_id, ttl=60.0))
+            self._ws_fill_cache[order.order_id] = (order, time.time())
 
-    async def _cleanup_cached_order(self, order_id: str, ttl: float) -> None:
-        """Remove order from cache after TTL expires."""
-        await asyncio.sleep(ttl)
+    async def _cleanup_stale_fill_cache(self) -> int:
+        """
+        Remove stale entries from fill cache based on TTL.
+
+        Called periodically from market data refresh loop.
+
+        Returns:
+            Number of entries removed.
+        """
+        now = time.time()
         async with self._ws_fill_cache_lock:
-            self._ws_fill_cache.pop(order_id, None)
+            stale_keys = [
+                k for k, (_, ts) in self._ws_fill_cache.items()
+                if now - ts > self._ws_fill_cache_ttl_seconds
+            ]
+            for k in stale_keys:
+                del self._ws_fill_cache[k]
+            if stale_keys:
+                logger.debug(f"Cleaned up {len(stale_keys)} stale X10 fill cache entries")
+            return len(stale_keys)
 
     async def _get_cached_fill(self, order_id: str) -> Order | None:
         """
         Check WebSocket fill cache for instant order lookup.
 
-        Returns cached order if found, None otherwise.
+        Returns cached order if found and not expired, None otherwise.
         """
         if not order_id:
             return None
 
+        now = time.time()
         async with self._ws_fill_cache_lock:
-            cached = self._ws_fill_cache.get(order_id)
-            if cached:
+            entry = self._ws_fill_cache.get(order_id)
+            if entry:
+                cached, ts = entry
+                # Check TTL
+                if now - ts > self._ws_fill_cache_ttl_seconds:
+                    return None  # Expired
                 logger.debug(
                     f"⚡ WS Fill Cache HIT for {cached.symbol} order {order_id} "
                     f"(status={cached.status}, filled={cached.filled_qty}/{cached.qty})"
@@ -2962,7 +2989,8 @@ class X10Adapter(ExchangePort):
                         if seq is not None:
                             if last_seq is not None and seq != last_seq + 1:
                                 logger.warning(
-                                    f"X10 WS seq gap for {market_name}: expected {last_seq + 1}, got {seq}. Reconnecting..."
+                                    f"X10 WS seq gap for {market_name}: expected "
+                                    f"{last_seq + 1}, got {seq}. Reconnecting..."
                                 )
                                 break  # Reconnect to resync
                             last_seq = seq
@@ -3136,7 +3164,8 @@ class X10Adapter(ExchangePort):
                         diff_pct = abs(cached_price - fresh_price) / fresh_price
                         if diff_pct > Decimal("0.01"):
                             discrepancies.append(
-                                f"{market_name}: cached={cached_price:.6f}, fresh={fresh_price:.6f}, diff={diff_pct:.2%}"
+                                f"{market_name}: cached={cached_price:.6f}, "
+                                f"fresh={fresh_price:.6f}, diff={diff_pct:.2%}"
                             )
             except Exception as e:
                 logger.debug(f"Price validation error for {market_name}: {e}")

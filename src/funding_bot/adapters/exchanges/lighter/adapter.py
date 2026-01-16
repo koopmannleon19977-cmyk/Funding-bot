@@ -226,6 +226,7 @@ class LighterAdapter(ExchangePort):
         self._client: Any = None
         self._signer: Any = None  # SignerClient for authenticated requests
         self._auth_token: str | None = None  # Auth token for premium rate limits
+        self._auth_token_created_at: float = 0.0  # Timestamp when token was created (for proactive refresh)
         self._api_client: Any = None  # Lighter SDK API client
         self._order_api: Any = None  # Lighter SDK Order API
         self._funding_api: Any = None  # Lighter SDK Funding API
@@ -320,11 +321,12 @@ class LighterAdapter(ExchangePort):
         self._rate_limit_until = 0.0  # Timestamp until which we're rate-limited
 
         # 🚀 PERFORMANCE: WebSocket Fill Cache (instant fill detection)
-        # Maps client_order_id -> Order for immediate get_order() lookups.
+        # Maps client_order_id -> (Order, timestamp) for immediate get_order() lookups.
         # Populated by WS updates, avoiding slow REST API searches (2-5s timeout).
-        # Cleaned up when order is terminal (filled/cancelled).
-        self._ws_fill_cache: dict[str, Order] = {}
+        # Cleaned up when order is terminal (filled/cancelled) or TTL expires.
+        self._ws_fill_cache: dict[str, tuple[Order, float]] = {}
         self._ws_fill_cache_lock = asyncio.Lock()  # Thread-safe cache ops
+        self._ws_fill_cache_ttl_seconds: float = 300.0  # 5 minutes TTL for stale entries
 
         # 🔧 WebSocket Stability: Circuit breaker and health monitoring
         cb_threshold = int(getattr(getattr(settings, "websocket", None), "circuit_breaker_threshold", 10) or 10)
@@ -448,6 +450,7 @@ class LighterAdapter(ExchangePort):
                         logger.warning(f"Failed to create auth token: {error}")
                     else:
                         self._auth_token = auth_token
+                        self._auth_token_created_at = time.time()  # Track creation time for proactive refresh
                         # Add auth token to API client headers
                         config.api_key = {"apiKey": auth_token}
                         logger.info(
@@ -505,6 +508,7 @@ class LighterAdapter(ExchangePort):
                 return False
 
             self._auth_token = auth_token
+            self._auth_token_created_at = time.time()  # Track refresh time for proactive refresh
 
             # Update API client config
             if self._api_client:
@@ -516,6 +520,28 @@ class LighterAdapter(ExchangePort):
         except Exception as e:
             logger.warning(f"Error refreshing auth token: {e}")
             return False
+
+    async def _maybe_refresh_token_proactively(self) -> bool:
+        """
+        Proactively refresh auth token if approaching expiry.
+
+        Refreshes token after 7 hours (25200s) to avoid 401 errors at 8h expiry.
+        This is called periodically from the market data refresh loop.
+
+        Returns:
+            True if token was refreshed, False if not needed or failed.
+        """
+        if not self._auth_token or not self._auth_token_created_at:
+            return False
+
+        token_age = time.time() - self._auth_token_created_at
+        # Refresh if token is older than 7 hours (25200 seconds)
+        # Token expires at 8 hours (28800 seconds), so we have 1 hour buffer
+        if token_age > 25200:
+            logger.info(f"Token age {token_age/3600:.1f}h > 7h, proactively refreshing...")
+            return await self._refresh_auth_token()
+
+        return False
 
     async def close(self) -> None:
         """Close connections."""
@@ -662,7 +688,8 @@ class LighterAdapter(ExchangePort):
                             backoff = initial_backoff * (2**attempt)
                             self._rate_limit_until = time.time() + backoff
                             logger.warning(
-                                f"Lighter rate-limited, backing off for {backoff:.1f}s (attempt {attempt + 1}/{max_retries})"
+                                f"Lighter rate-limited, backing off for {backoff:.1f}s "
+                                f"(attempt {attempt + 1}/{max_retries})"
                             )
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(backoff)
@@ -2151,31 +2178,46 @@ class LighterAdapter(ExchangePort):
         """
         Cache filled/cancelled order for instant get_order() lookups.
 
-        Avoids slow REST API searches (2-5s timeout). Cache TTL is 60s.
+        Avoids slow REST API searches (2-5s timeout). Cache entries include
+        timestamp for TTL-based cleanup.
         """
+        now = time.time()
         # Cache by client ID (if available) - usually the preferred key for pending lookups
         if order.client_order_id:
             async with self._ws_fill_cache_lock:
-                self._ws_fill_cache[str(order.client_order_id)] = order
-            asyncio.create_task(self._cleanup_cached_order(str(order.client_order_id), ttl=60.0))
+                self._ws_fill_cache[str(order.client_order_id)] = (order, now)
 
         # Cache by system ID (if available) - used when polling via resolved order ID
         if order.order_id and str(order.order_id) != str(order.client_order_id):
             async with self._ws_fill_cache_lock:
-                self._ws_fill_cache[str(order.order_id)] = order
-            asyncio.create_task(self._cleanup_cached_order(str(order.order_id), ttl=60.0))
+                self._ws_fill_cache[str(order.order_id)] = (order, now)
 
-    async def _cleanup_cached_order(self, order_id: str, ttl: float) -> None:
-        """Remove order from cache after TTL expires."""
-        await asyncio.sleep(ttl)
+    async def _cleanup_stale_fill_cache(self) -> int:
+        """
+        Remove stale entries from fill cache based on TTL.
+
+        Called periodically from market data refresh loop.
+
+        Returns:
+            Number of entries removed.
+        """
+        now = time.time()
         async with self._ws_fill_cache_lock:
-            self._ws_fill_cache.pop(str(order_id), None)
+            stale_keys = [
+                k for k, (_, ts) in self._ws_fill_cache.items()
+                if now - ts > self._ws_fill_cache_ttl_seconds
+            ]
+            for k in stale_keys:
+                del self._ws_fill_cache[k]
+            if stale_keys:
+                logger.debug(f"Cleaned up {len(stale_keys)} stale fill cache entries")
+            return len(stale_keys)
 
     async def _get_cached_fill(self, order_id: str, symbol: str) -> Order | None:
         """
         Check WebSocket fill cache for instant order lookup.
 
-        Returns cached order if found, None otherwise.
+        Returns cached order if found and not expired, None otherwise.
         """
         lookup_ids = [str(order_id)]
 
@@ -2185,15 +2227,21 @@ class LighterAdapter(ExchangePort):
             if len(parts) >= 3:
                 lookup_ids.append(parts[1])  # Extract client_index
 
+        now = time.time()
         async with self._ws_fill_cache_lock:
             for lid in lookup_ids:
-                cached = self._ws_fill_cache.get(lid)
-                if cached and cached.symbol == symbol:
-                    logger.debug(
-                        f"⚡ WS Fill Cache HIT for {symbol} order {order_id} (key={lid}) "
-                        f"(status={cached.status}, filled={cached.filled_qty}/{cached.qty})"
-                    )
-                    return cached
+                entry = self._ws_fill_cache.get(lid)
+                if entry:
+                    cached, ts = entry
+                    # Check TTL
+                    if now - ts > self._ws_fill_cache_ttl_seconds:
+                        continue  # Expired, skip
+                    if cached.symbol == symbol:
+                        logger.debug(
+                            f"⚡ WS Fill Cache HIT for {symbol} order {order_id} (key={lid}) "
+                            f"(status={cached.status}, filled={cached.filled_qty}/{cached.qty})"
+                        )
+                        return cached
 
         return None
 

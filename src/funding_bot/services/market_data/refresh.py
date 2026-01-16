@@ -141,7 +141,7 @@ async def refresh_all(self) -> None:
 async def _refresh_symbols_parallel(
     self,
     symbols: set[str],
-    batch_size: int = 20,
+    batch_size: int = 50,
 ) -> None:
     """
     Refresh multiple symbols in parallel with controlled concurrency.
@@ -154,10 +154,8 @@ async def _refresh_symbols_parallel(
     concurrency than Standard (60 req/min). However, we still need to respect
     WebSocket message limits (200 msg/min) and keep some headroom.
 
-    Conservative defaults for production safety:
-    - batch_size=20: Process 20 symbols concurrently
-    - Each _refresh_symbol reads from cache (no API calls)
-    - Purely CPU-bound (data structure operations)
+    🚀 PERFORMANCE: Increased batch_size to 50 (from 20) since _refresh_symbol
+    only reads from adapter caches (no API calls). Purely CPU-bound operations.
     """
     if not symbols:
         return
@@ -219,6 +217,27 @@ async def _batch_refresh_adapters(self) -> tuple[bool, bool]:
     # This prevents health flapping when per-market calls get slow.
     if getattr(self.lighter, "_auth_token", None):
         self._schedule_lighter_mark_price_trickle()
+
+    # Proactive token refresh: check if Lighter token needs refresh before expiry
+    # This prevents 401 errors at 8h expiry by refreshing at 7h
+    if hasattr(self.lighter, "_maybe_refresh_token_proactively"):
+        try:
+            await self.lighter._maybe_refresh_token_proactively()
+        except Exception as e:
+            logger.debug(f"Proactive token refresh check failed: {e}")
+
+    # Periodic fill cache cleanup to prevent memory growth
+    # Removes stale entries older than 5 minutes
+    if hasattr(self.lighter, "_cleanup_stale_fill_cache"):
+        try:
+            await self.lighter._cleanup_stale_fill_cache()
+        except Exception:
+            pass
+    if hasattr(self.x10, "_cleanup_stale_fill_cache"):
+        try:
+            await self.x10._cleanup_stale_fill_cache()
+        except Exception:
+            pass
 
     if lighter_ok or x10_ok:
         self._last_batch_refresh_at = now
