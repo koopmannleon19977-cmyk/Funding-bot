@@ -135,6 +135,84 @@ Already well-refactored with orchestrator pattern:
 
 ---
 
+## ✅ Completed - Phase 4: Test Coverage for Helper Functions
+
+### Phase 4.1: execution_impl_sizing Tests ✅ (2026-01-16)
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| `TestBalanceData` | 3 | Dataclass defaults, total_equity |
+| `TestLeverageConfig` | 2 | Dataclass defaults, custom values |
+| `TestRiskCapacity` | 2 | Dataclass defaults, custom values |
+| `TestSlotAllocation` | 2 | Dataclass defaults, custom values |
+| `TestDepthGateConfig` | 2 | Dataclass defaults, IMPACT mode |
+| `TestSizingResult` | 2 | Dataclass defaults, rejection |
+| `TestCalculateLeverage` | 3 | Cap by limit, user lev, separate X10 |
+| `TestCalculateSlotAllocation` | 4 | No trades, existing trades, caps |
+| `TestLoadDepthGateConfig` | 5 | Disabled, L1, IMPACT, preflight |
+
+**Total: 25 tests**
+
+### Phase 4.2: positions/close Tests ✅ (2026-01-16)
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| `TestCalculateGridPriceLevels` | 5 | SELL/BUY sides, tick rounding |
+| `TestCalculateRebalanceTarget` | 6 | Delta calculations, mark prices |
+| `TestUpdateLegAfterFill` | 6 | Qty reduction, fee accumulation |
+
+**Total: 17 tests**
+
+### Phase 4.3: market_data/fresh Tests ✅ (2026-01-16)
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| `TestOrderbookFetchConfig` | 2 | Defaults, custom values |
+| `TestLoadOrderbookFetchConfig` | 5 | Load, clamp min/max |
+| `TestSafeDecimal` | 7 | All type conversions |
+| `TestBookHasDepth` | 5 | Valid, inverted, zero |
+| `TestHasAnyPriceData` | 5 | Both, one-sided, none |
+| `TestMergeExchangeBook` | 4 | Fresh, fallback, partial |
+| `TestSnapshotDepthOk` | 8 | Valid, missing, stale, inverted |
+
+**Total: 36 tests**
+
+### Phase 4.4: execution_impl_pre Tests ✅ (2026-01-16)
+| Test Class | Tests | Coverage |
+|------------|-------|----------|
+| `TestSmartPricingConfig` | 2 | Defaults, enabled |
+| `TestSpreadCheckConfig` | 2 | Defaults, custom |
+| `TestSpreadCheckResult` | 2 | Basic, smart pricing |
+| `TestLoadSpreadCheckConfig` | 4 | Load, smart, clamp guard |
+| `TestBuildSpreadKpiData` | 4 | Basic, smart, orderbook, metrics |
+
+**Total: 14 tests**
+
+### Phase 4 Summary
+| Metric | Value |
+|--------|-------|
+| Total New Tests | **92** |
+| Test Files Created | 4 |
+| Previous Test Count | 302 |
+| **New Test Count** | **394** |
+
+**Phase 4 Status**: ✅ **100% COMPLETE** (2026-01-16)
+
+---
+
+## 📋 Planned - Phase 5: Documentation
+
+### Phase 5.1: Docstrings for Public APIs 📋
+- All public service methods
+- All dataclasses with field descriptions
+- All helper functions with Args/Returns
+
+### Phase 5.2: Type Annotations Completion 📋
+- Remaining `Any` return types
+- Generic type parameters
+- Protocol definitions for interfaces
+
+**Phase 5 Status**: 📋 **PLANNED**
+
+---
+
 ## 📋 Backlog
 
 ### High Priority
@@ -249,7 +327,7 @@ No active investigations.
 
 ### Test Coverage
 
-- **Unit Tests**: 302 passing
+- **Unit Tests**: 394 passing
 - **Integration Tests**: Available (require env vars)
 - **Verification Tests**: Available (require full setup)
 
