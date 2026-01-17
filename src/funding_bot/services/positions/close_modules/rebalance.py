@@ -306,6 +306,20 @@ async def rebalance_trade(
     maker_timeout = float(getattr(ts, "rebalance_maker_timeout_seconds", 6.0))
     use_ioc_fallback = bool(getattr(ts, "rebalance_use_ioc_fallback", True))
 
+    # Fetch mark prices from MarketDataService if not provided
+    # This fixes the bug where entry_prices were used instead of current prices
+    if not leg1_mark_price or not leg2_mark_price:
+        price_data = manager.market_data.get_price(trade.symbol)
+        if price_data:
+            if not leg1_mark_price and price_data.lighter_price > 0:
+                leg1_mark_price = price_data.lighter_price
+            if not leg2_mark_price and price_data.x10_price > 0:
+                leg2_mark_price = price_data.x10_price
+            logger.debug(
+                f"Rebalance using fetched mark prices for {trade.symbol}: "
+                f"L1=${leg1_mark_price}, L2=${leg2_mark_price}"
+            )
+
     # 1. Calculate rebalance target
     rebalance_exchange, rebalance_leg, rebalance_notional, net_delta = (
         calculate_rebalance_target(trade, leg1_mark_price, leg2_mark_price)
