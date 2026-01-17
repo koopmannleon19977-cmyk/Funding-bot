@@ -61,7 +61,28 @@ async def run_bot(
     confirm_live: bool = False,
     allow_testing_live: bool = False,
 ) -> int:
-    """Main bot entry point."""
+    """
+    Main bot entry point.
+
+    Initializes the bot infrastructure and starts the supervisor loop.
+    Handles graceful shutdown via signal handlers (SIGINT, SIGTERM).
+
+    Args:
+        env: Environment name for configuration loading ("development", "production").
+        mode_override: Force "paper" or "live" mode, overriding config.
+        confirm_live: Set True to confirm live trading (safety check).
+        allow_testing_live: Allow live trading even in testing_mode (dangerous).
+
+    Returns:
+        Exit code: 0 = success, 1 = fatal error, 2 = configuration error.
+
+    Example:
+        >>> asyncio.run(run_bot(env="production", confirm_live=True))
+
+    Note:
+        On Windows, signal handling runs in the main thread only.
+        The handler sets a shutdown event without logging (reentrant-safe).
+    """
     # Load settings
     settings = get_settings(env)
 

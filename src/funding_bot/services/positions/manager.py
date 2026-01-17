@@ -105,6 +105,9 @@ class PositionManager:
         # Rebalance cooldowns:
         # symbol -> cooldown_until_utc
         self._rebalance_cooldowns: dict[str, datetime] = {}
+        # Rebalance cooldown log throttle:
+        # symbol -> last_logged_cooldown_until_utc
+        self._rebalance_cooldown_logged_until: dict[str, datetime] = {}
 
         # 🚀 PERFORMANCE: Track active orderbook subscriptions to avoid re-subscribing
         # Only subscribe when a trade is opened, unsubscribe when closed
@@ -255,14 +258,19 @@ class PositionManager:
                         cooldown_minutes = int(getattr(self.settings.trading, "cooldown_minutes", 60))
                         cooldown_until = self._rebalance_cooldowns.get(trade.symbol)
                         if cooldown_until and now < cooldown_until:
-                            logger.info(
-                                f"Rebalance cooldown active for {trade.symbol}: "
-                                f"skipping until {cooldown_until.isoformat()}"
-                            )
+                            last_logged_until = self._rebalance_cooldown_logged_until.get(trade.symbol)
+                            if last_logged_until != cooldown_until:
+                                logger.info(
+                                    f"Rebalance cooldown active for {trade.symbol}: "
+                                    f"skipping until {cooldown_until.isoformat()}"
+                                )
+                                self._rebalance_cooldown_logged_until[trade.symbol] = cooldown_until
                             continue
                         if cooldown_until and now >= cooldown_until:
                             del self._rebalance_cooldowns[trade.symbol]
+                            self._rebalance_cooldown_logged_until.pop(trade.symbol, None)
                         self._rebalance_cooldowns[trade.symbol] = now + timedelta(minutes=cooldown_minutes)
+                        self._rebalance_cooldown_logged_until.pop(trade.symbol, None)
 
                     logger.info(f"Exit condition met for {trade.symbol}: {decision.reason}")
                     result = await self.close_trade(trade, decision.reason)

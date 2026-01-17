@@ -1931,7 +1931,7 @@ class WebSocketManager:
             await self._handle_lighter_orderbook(msg)
         
         # Trade update
-        elif "trade" in msg_type:
+        elif "trade" in msg_type or "trade" in channel:
             await self._handle_lighter_trade(msg)
     
     async def _handle_lighter_market_stats(self, msg: dict):
@@ -2024,9 +2024,9 @@ class WebSocketManager:
                 # - Die API liefert die STÜNDLICHE Rate direkt (NICHT 8-Stunden!)
                 # - loris.tools multipliziert Lighter Rates mit 8 um sie mit 8h-Exchanges zu vergleichen
                 # 
-                # Die Rate ist eine DEZIMAL-FRAKTION (nicht Prozent!):
-                # - Beispiel: rate=0.00015 = 0.015%/h = 13.14% APY
-                # - APY = rate * 24 * 365
+                # Unit: PERCENT per hour (divide by 100 to get DECIMAL).
+                # - Beispiel: rate="0.0012" => 0.0012%/h => 0.000012 DECIMAL/h
+                # - APY = rate_decimal * 24 * 365
                 #
                 # VORHER (FALSCH): 
                 #   hourly_rate = raw_rate / 8  → machte Rates 8x zu klein!
@@ -2051,10 +2051,14 @@ class WebSocketManager:
                     or entry.get("fundingRate")
                 )
                 if funding_rate is not None:
-                    # WebSocket funding rates werden NICHT verwendet!
-                    # Die REST API /api/v1/funding-rates (÷8 für stündlich) ist die korrekte Quelle.
-                    # WebSocket Werte sind ~8x höher und führen zu falschen APY-Berechnungen.
-                    pass
+                    # WS market_stats funding_rate is returned in PERCENT per hour
+                    # (e.g. "0.0012" = 0.0012%/h). Normalize to DECIMAL hourly (0.000012).
+                    raw_percent = safe_float(funding_rate, 0.0)
+                    hourly_decimal = raw_percent / 100.0
+
+                    self.lighter_adapter.funding_cache[symbol] = hourly_decimal
+                    self.lighter_adapter._funding_cache[symbol] = hourly_decimal
+                    self.lighter_adapter._funding_cache_time[symbol] = time.time()
             
             # Open interest - FIX: use entry, not stats
             open_interest = entry.get("open_interest") or entry.get("openInterest")

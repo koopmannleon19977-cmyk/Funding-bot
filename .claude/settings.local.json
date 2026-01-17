@@ -139,7 +139,12 @@
       "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" diff --stat src/funding_bot/services/reconcile.py src/funding_bot/services/positions/close.py tests/unit/services/positions/test_coordinated_close_single_leg_maker.py)",
       "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" add src/funding_bot/services/reconcile.py src/funding_bot/services/positions/close.py tests/unit/services/positions/test_coordinated_close_single_leg_maker.py)",
       "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" commit -m \"$\\(cat <<''EOF''\nrefactor: Phase 7.3 - reduce complexity in reconcile and coordinated close\n\nExtract helper functions to reduce cyclomatic complexity:\n\nreconcile\\(\\) CC=52 -> ~15:\n- _identify_zombie_candidates\\(\\)\n- _aggregate_exchange_positions\\(\\)\n- _detect_conflicts\\(\\)\n- _handle_conflicts\\(\\)\n- _handle_zombies\\(\\)\n- _handle_ghosts\\(\\)\n- _log_reconciliation_result\\(\\)\n\n_close_both_legs_coordinated\\(\\) CC=59 -> ~30:\n- _CoordinatedCloseContext dataclass\n- _build_coordinated_close_context\\(\\)\n- _calculate_leg_maker_price\\(\\)\n- _submit_coordinated_maker_orders\\(\\)\n- _wait_for_coordinated_fills\\(\\)\n- _escalate_unfilled_to_ioc\\(\\)\n- _calculate_ioc_price\\(\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" log --oneline -3)"
+      "Bash(git -C \"C:\\\\Users\\\\koopm\\\\funding-bot\" log --oneline -3)",
+      "Bash(git -C C:Userskoopmfunding-bot log --oneline -20)",
+      "Bash(git -C C:Userskoopmfunding-bot status)",
+      "Bash(tree:*)",
+      "Bash(du:*)",
+      "Bash(git ls-files:*)"
     ]
   },
   "disabledMcpjsonServers": [

@@ -36,6 +36,7 @@ from funding_bot.services.rate_limiter import get_rate_limiter_manager
 API_TIMEOUT_SECONDS = 30
 MAX_LIGHTER_CANDLES = 2160  # 90 days * 24 hours
 X10_CHUNK_DAYS = 7  # Process X10 in 7-day chunks
+X10_FUNDING_HISTORY_PAGE_LIMIT = 100  # Extended funding history max page size (per docs)
 
 # Connection Pooling
 SESSION_POOL_LIMIT = 10  # Max concurrent connections per session
@@ -129,6 +130,7 @@ class HistoricalIngestionService:
         self._inter_request_delay_ms = _safe_get(hist_settings, "backfill_inter_request_delay_ms", 200)
         self._max_retries = _safe_get(hist_settings, "backfill_max_retries", 3)
         self._retry_base_delay_ms = _safe_get(hist_settings, "backfill_retry_base_delay_ms", 1000)
+        self._x10_chunk_days = _safe_get(hist_settings, "x10_chunk_days", X10_CHUNK_DAYS)
         self._funding_rate_max_abs = _safe_decimal_get(hist_settings, "funding_rate_max_abs", FUNDING_RATE_MAX_ABS)
 
         # Initialize rate limiters with reduced capacity for backfill
@@ -377,10 +379,10 @@ class HistoricalIngestionService:
             logger.warning(f"Lighter fetch failed for {symbol}: {e}")
 
         # === X10: Chunked fetch (API respects time ranges) ===
-        # Process in 7-day chunks to avoid memory issues and respect API limits
+        # Process in configurable day chunks to respect API limits (default: 7).
         chunk_start = start_time
         while chunk_start < end_time:
-            chunk_end = min(chunk_start + timedelta(days=X10_CHUNK_DAYS), end_time)
+            chunk_end = min(chunk_start + timedelta(days=self._x10_chunk_days), end_time)
 
             try:
                 x10_data = await self._fetch_x10_candles(symbol, chunk_start, chunk_end, session)
@@ -501,9 +503,9 @@ class HistoricalIngestionService:
                     timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
 
                     # Parse funding rate (comes as string like "0.0463")
-                    # Rate is HOURLY (API returns DECIMAL format, e.g., -0.000386 = -0.0386%)
-                    # NO division by 100 needed - API already returns decimal format
-                    # Configurable interval for backwards compatibility (default: 1 = hourly, no division)
+                    # Rate is HOURLY and returned in PERCENT format (e.g., 0.5000 = 0.5%).
+                    # Convert to decimal before applying any interval normalization.
+                    # Configurable interval for backwards compatibility (default: 1 = hourly).
                     rate_val = funding_item.get("rate", "0")
                     rate_raw = Decimal(str(rate_val))
 
@@ -528,8 +530,8 @@ class HistoricalIngestionService:
                     if direction == "short":
                         rate_raw = -rate_raw
 
-                    # Convert to hourly rate (API already returns DECIMAL format, not percent)
-                    rate_hourly = rate_raw / interval_hours
+                    # Convert to hourly rate (percent -> decimal, then normalize by interval)
+                    rate_hourly = (rate_raw / Decimal("100")) / interval_hours
 
                     # P2.2: Bounds validation - skip extreme rates (likely data errors)
                     if abs(rate_hourly) > self._funding_rate_max_abs:
@@ -674,126 +676,173 @@ class HistoricalIngestionService:
             end_time: End of period
             session: Optional shared aiohttp session for connection reuse
         """
-        candles: list[FundingCandle] = []
+        candles_by_ts: dict[datetime, FundingCandle] = {}
         x10_symbol = _get_x10_symbol(symbol)
 
         url = f"{self.x10_base_url}/info/{x10_symbol}/funding"
-        params = {
-            "startTime": int(start_time.timestamp() * 1000),
-            "endTime": int(end_time.timestamp() * 1000),
-        }
-
-        async def _fetch_x10_api():
-            if session:
-                async with session.get(url, params=params) as resp:
-                    return resp.status, await resp.json() if resp.status == 200 else await resp.text()
-
-            async with aiohttp.ClientSession() as fallback_session:
-                async with fallback_session.get(
-                    url, params=params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
-                ) as resp:
-                    return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+        start_ms = int(start_time.timestamp() * 1000)
+        end_ms = int(end_time.timestamp() * 1000)
 
         attempts = max(1, int(self._max_retries))
-        label = f"x10_funding_{symbol}_{start_time.date()}_{end_time.date()}"
+        cursor: int | None = None
+        page_count = 0
 
-        for attempt in range(attempts):
-            try:
-                status, data = await self._x10_rate_limiter.execute(_fetch_x10_api, label=label)
-            except Exception as e:
-                if attempt < attempts - 1:
-                    base = self._retry_base_delay_ms / 1000.0
-                    backoff = base * (2**attempt)
-                    delay = backoff + (backoff * random.uniform(0.0, 0.25))
-                    logger.warning(
-                        f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
-                        f"Retrying in {delay:.1f}s"
-                    )
-                    await asyncio.sleep(delay)
-                    continue
-                logger.warning(
-                    f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
-                    f"Giving up after {attempts} attempts"
-                )
-                return []
+        while True:
+            page_count += 1
+            params: dict[str, int] = {
+                "startTime": start_ms,
+                "endTime": end_ms,
+                "limit": X10_FUNDING_HISTORY_PAGE_LIMIT,
+            }
+            if cursor is not None:
+                params["cursor"] = cursor
 
-            if status == 200:
-                funding_rates = data.get("data", [])
+            async def _fetch_x10_api(_params: dict[str, int] = params):
+                if session:
+                    async with session.get(url, params=_params) as resp:
+                        return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
-                for rate_data in funding_rates:
-                    ts_val = rate_data.get("timestamp", rate_data.get("T", 0))
-                    if isinstance(ts_val, str):
-                        ts_val = int(ts_val)
+                async with aiohttp.ClientSession() as fallback_session:
+                    async with fallback_session.get(
+                        url, params=_params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
+                    ) as resp:
+                        return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
-                    if ts_val > 1e12:  # Milliseconds
-                        timestamp = datetime.fromtimestamp(ts_val / 1000, tz=UTC)
-                    else:  # Seconds
-                        timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
+            label = f"x10_funding_{symbol}_{start_time.date()}_{end_time.date()}_p{page_count}"
 
-                    # X10 API returns rates in DECIMAL format (e.g., -0.000360)
-                    rate_val = rate_data.get("funding_rate", rate_data.get("f", 0))
-                    rate_hourly = Decimal(str(rate_val))
+            status = None
+            data = None
 
-                    # P2.2: Bounds validation - skip extreme rates
-                    if abs(rate_hourly) > self._funding_rate_max_abs:
+            for attempt in range(attempts):
+                try:
+                    status, data = await self._x10_rate_limiter.execute(_fetch_x10_api, label=label)
+                except Exception as e:
+                    if attempt < attempts - 1:
+                        base = self._retry_base_delay_ms / 1000.0
+                        backoff = base * (2**attempt)
+                        delay = backoff + (backoff * random.uniform(0.0, 0.25))
                         logger.warning(
-                            f"X10 {symbol}: Skipping extreme funding rate {rate_hourly} "
-                            f"(exceeds {self._funding_rate_max_abs}) at {timestamp}"
+                            f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
+                            f"Retrying in {delay:.1f}s"
                         )
+                        await asyncio.sleep(delay)
                         continue
 
-                    funding_apy = rate_hourly * 24 * 365
-
-                    candles.append(
-                        FundingCandle(
-                            timestamp=timestamp,
-                            symbol=symbol,
-                            exchange="X10",
-                            mark_price=None,
-                            index_price=None,
-                            spread_bps=None,
-                            funding_rate_hourly=rate_hourly,
-                            funding_apy=funding_apy,
-                            fetched_at=datetime.now(UTC),
-                        )
+                    logger.warning(
+                        f"X10 funding history request failed for {symbol} ({start_time.date()} - {end_time.date()}): {e}. "
+                        f"Giving up after {attempts} attempts"
                     )
+                    return list(candles_by_ts.values())
 
-                return candles
+                if status == 200:
+                    break
 
-            # P2.1: Distinguish transient vs permanent errors
-            if status in TRANSIENT_HTTP_CODES:
-                if attempt < attempts - 1:
-                    base = self._retry_base_delay_ms / 1000.0
-                    backoff = base * (2**attempt)
-                    delay = backoff + (backoff * random.uniform(0.0, 0.25))
+                # P2.1: Distinguish transient vs permanent errors
+                if status in TRANSIENT_HTTP_CODES:
+                    if attempt < attempts - 1:
+                        base = self._retry_base_delay_ms / 1000.0
+                        backoff = base * (2**attempt)
+                        delay = backoff + (backoff * random.uniform(0.0, 0.25))
+                        logger.warning(
+                            f"X10 funding history returned {status} for {symbol} ({start_time.date()} - {end_time.date()}). "
+                            f"Retrying in {delay:.1f}s"
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+
                     logger.warning(
                         f"X10 funding history returned {status} for {symbol} ({start_time.date()} - {end_time.date()}). "
-                        f"Retrying in {delay:.1f}s"
+                        f"Giving up after {attempts} attempts"
                     )
-                    await asyncio.sleep(delay)
+                    return list(candles_by_ts.values())
+
+                if status == 400:
+                    # Market not found = Symbol not available on X10
+                    logger.debug(f"Symbol {symbol} not available on X10 (400 Market not found)")
+                    return []
+
+                if status == 404:
+                    logger.debug(f"X10 endpoint not found for {symbol}")
+                    return []
+
+                # Unknown/non-retryable HTTP response.
+                snippet = str(data)[:200] if data is not None else ""
+                logger.warning(f"X10 returned {status} for {symbol} ({start_time.date()} - {end_time.date()}): {snippet}")
+                return list(candles_by_ts.values())
+
+            if status != 200:
+                return list(candles_by_ts.values())
+
+            funding_rates = (data or {}).get("data", [])
+
+            for rate_data in funding_rates:
+                ts_val = rate_data.get("timestamp", rate_data.get("T", 0))
+                if isinstance(ts_val, str):
+                    ts_val = int(ts_val)
+
+                if ts_val > 1e12:  # Milliseconds
+                    timestamp = datetime.fromtimestamp(ts_val / 1000, tz=UTC)
+                else:  # Seconds
+                    timestamp = datetime.fromtimestamp(ts_val, tz=UTC)
+
+                # X10 API returns rates in DECIMAL format (e.g., -0.000360)
+                rate_val = rate_data.get("funding_rate", rate_data.get("f", 0))
+                rate_hourly = Decimal(str(rate_val))
+
+                # P2.2: Bounds validation - skip extreme rates
+                if abs(rate_hourly) > self._funding_rate_max_abs:
+                    logger.warning(
+                        f"X10 {symbol}: Skipping extreme funding rate {rate_hourly} "
+                        f"(exceeds {self._funding_rate_max_abs}) at {timestamp}"
+                    )
                     continue
 
-                logger.warning(
-                    f"X10 funding history returned {status} for {symbol} ({start_time.date()} - {end_time.date()}). "
-                    f"Giving up after {attempts} attempts"
+                funding_apy = rate_hourly * 24 * 365
+
+                candles_by_ts[timestamp] = FundingCandle(
+                    timestamp=timestamp,
+                    symbol=symbol,
+                    exchange="X10",
+                    mark_price=None,
+                    index_price=None,
+                    spread_bps=None,
+                    funding_rate_hourly=rate_hourly,
+                    funding_apy=funding_apy,
+                    fetched_at=datetime.now(UTC),
                 )
-                return []
 
-            if status == 400:
-                # Market not found = Symbol not available on X10
-                logger.debug(f"Symbol {symbol} not available on X10 (400 Market not found)")
-                return []
+            # Cursor-based pagination (Extended max page size is limited).
+            pagination = (data or {}).get("pagination") or {}
+            next_cursor = pagination.get("cursor")
+            count = pagination.get("count")
+            if count is None:
+                try:
+                    count = int(pagination.get("total", 0))  # fallback if present
+                except Exception:
+                    count = None
 
-            if status == 404:
-                logger.debug(f"X10 endpoint not found for {symbol}")
-                return []
+            if next_cursor is None:
+                break
 
-            # Unknown/non-retryable HTTP response.
-            snippet = str(data)[:200] if data is not None else ""
-            logger.warning(f"X10 returned {status} for {symbol} ({start_time.date()} - {end_time.date()}): {snippet}")
-            return []
+            try:
+                next_cursor_int = int(next_cursor)
+            except Exception:
+                break
 
-        return candles
+            # Safety: avoid infinite loops on buggy cursors.
+            if cursor is not None and next_cursor_int == cursor:
+                logger.warning(f"X10 funding history pagination cursor did not advance for {symbol}; stopping pagination.")
+                break
+
+            # If we got fewer than the max page size, we are done.
+            if count is not None and int(count) < X10_FUNDING_HISTORY_PAGE_LIMIT:
+                break
+            if len(funding_rates) < X10_FUNDING_HISTORY_PAGE_LIMIT:
+                break
+
+            cursor = next_cursor_int
+
+        return list(candles_by_ts.values())
 
     # P3.1: Removed deprecated _fetch_x10_candle_type() - was dead code returning []
 

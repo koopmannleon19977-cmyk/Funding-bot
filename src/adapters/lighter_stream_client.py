@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class LighterStreamType(Enum):
     """Lighter stream subscription types"""
     ORDERBOOK = "order_book"
-    TRADES = "trades"
+    TRADES = "trade"
     FUNDING = "funding"
     ACCOUNT = "account"
 
@@ -98,19 +98,23 @@ class LighterStreamConnection:
     def _get_channel_name(self) -> str:
         """Get channel name for subscription"""
         if self.stream_type == LighterStreamType.ORDERBOOK:
-            if self.config.market_id is not None:
-                return f"order_book/{self.config.market_id}"
-            return "order_book"  # All markets
+            if self.config.market_id is None:
+                # Lighter WS requires a market_id for order_book subscriptions.
+                raise ValueError("Lighter order_book stream requires market_id")
+            return f"order_book/{self.config.market_id}"
         
         elif self.stream_type == LighterStreamType.TRADES:
-            if self.config.market_id is not None:
-                return f"trades/{self.config.market_id}"
-            return "trades"  # All markets
+            if self.config.market_id is None:
+                # Lighter WS requires a market_id for trade subscriptions.
+                raise ValueError("Lighter trade stream requires market_id")
+            return f"trade/{self.config.market_id}"
         
         elif self.stream_type == LighterStreamType.FUNDING:
+            # Lighter WS does not expose a dedicated "funding/*" channel (Invalid Channel).
+            # Funding is delivered via market_stats.
             if self.config.market_id is not None:
-                return f"funding/{self.config.market_id}"
-            return "funding"  # All markets
+                return f"market_stats/{self.config.market_id}"
+            return "market_stats/all"
         
         elif self.stream_type == LighterStreamType.ACCOUNT:
             return "account"  # Account updates don't need market_id

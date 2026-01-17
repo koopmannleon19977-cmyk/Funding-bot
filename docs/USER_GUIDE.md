@@ -1,649 +1,516 @@
-# User Guide - Funding Arbitrage Bot
+# User Guide
 
-> **Version**: 2.0.0
-> **Last Updated**: 2026-01-16
+## Introduction
+
+This guide walks you through setting up and operating the Funding Bot for delta-neutral funding rate arbitrage between Lighter and X10 exchanges.
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Quick Start](#quick-start)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [Running the Bot](#running-the-bot)
-6. [Understanding the Dashboard](#understanding-the-dashboard)
-7. [Trading Strategies](#trading-strategies)
-8. [Exit Rules](#exit-rules)
-9. [Risk Management](#risk-management)
-10. [Monitoring & Alerts](#monitoring--alerts)
-11. [Troubleshooting](#troubleshooting)
-12. [FAQ](#faq)
+1. [Prerequisites](#prerequisites)
+2. [Installation](#installation)
+3. [Configuration](#configuration)
+4. [Running the Bot](#running-the-bot)
+5. [Monitoring](#monitoring)
+6. [Common Operations](#common-operations)
+7. [Troubleshooting](#troubleshooting)
+8. [FAQ](#faq)
 
 ---
 
-## Introduction
+## Prerequisites
 
-The Funding Arbitrage Bot is a production-grade trading system that exploits funding rate differentials between perpetual futures exchanges. It maintains **delta-neutral positions** by going long on one exchange and short on another, collecting the net funding rate difference as profit.
+### System Requirements
 
-### Supported Exchanges
+- **Operating System**: Windows 10/11, Linux, or macOS
+- **Python**: 3.11 or higher
+- **Memory**: Minimum 2GB RAM
+- **Storage**: 1GB free disk space
+- **Network**: Stable internet connection
 
-| Exchange | Type | Role | Rate Limit |
-|----------|------|------|------------|
-| **Lighter** | DEX | Primary (Maker) | 24,000 req/min (Premium) |
-| **X10 Extended** | CEX | Secondary (Hedge) | Standard |
+### Exchange Accounts
 
-### How It Works
+Before starting, you need active accounts on both exchanges:
 
-```
-1. SCAN    → Find funding rate opportunities across symbols
-2. FILTER  → Apply APY, spread, and liquidity filters
-3. EXECUTE → Open delta-neutral position (Long + Short)
-4. HOLD    → Collect funding payments hourly
-5. EXIT    → Close when conditions change
-```
+#### Lighter Exchange
+1. Create account at [lighter.xyz](https://lighter.xyz)
+2. Generate API credentials in account settings
+3. Note your account index (usually 0)
 
----
+#### X10 Exchange
+1. Create account at [extended.exchange](https://extended.exchange)
+2. Generate API key and secret
+3. Generate Stark private key for signing
 
-## Quick Start
+### Capital Requirements
 
-```bash
-# 1. Clone and install
-git clone <repo-url>
-cd funding-bot
-python -m venv venv
-venv\Scripts\activate  # Windows
-pip install -e ".[dev]"
-
-# 2. Configure environment
-cp .env.example .env
-# Edit .env with your API keys
-
-# 3. Run in paper mode (default)
-python -m funding_bot
-
-# 4. Enable live trading (when ready)
-# Set live_trading: true in config/config.yaml
-```
+| Parameter | Minimum | Recommended |
+|-----------|---------|-------------|
+| Starting Capital | $200 | $400+ |
+| Per Exchange | $100 | $200+ |
+| Position Size | $50 | $350 |
 
 ---
 
 ## Installation
 
-### Requirements
-
-- **Python**: 3.14+
-- **OS**: Windows, Linux, macOS
-- **Memory**: 512MB+ RAM recommended
-- **Network**: Stable internet connection
-
-### Step-by-Step Installation
+### Step 1: Clone Repository
 
 ```bash
-# 1. Create virtual environment
+git clone https://github.com/your-org/funding-bot.git
+cd funding-bot
+```
+
+### Step 2: Create Virtual Environment
+
+**Windows:**
+```bash
 python -m venv venv
+.\venv\Scripts\activate
+```
 
-# 2. Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# Linux/macOS:
+**Linux/macOS:**
+```bash
+python3 -m venv venv
 source venv/bin/activate
-
-# 3. Upgrade pip
-python -m pip install -U pip
-
-# 4. Install with development dependencies
-pip install -e ".[dev]"
 ```
 
-### Exchange SDK Installation (Optional)
-
-The bot works without exchange SDKs for paper trading. For live trading:
+### Step 3: Install Dependencies
 
 ```bash
-# Install exchange SDKs (optional, for live trading)
-pip install -r requirements-exchange.txt
+# Core dependencies
+pip install -e .
+
+# Exchange SDKs
+pip install x10-python-trading-starknet>=0.0.17
+
+# Lighter SDK (from GitHub)
+pip install git+https://github.com/elliottech/lighter-python.git
 ```
 
-### Verify Installation
+### Step 4: Verify Installation
 
 ```bash
-# Run unit tests (should pass without SDKs)
-pytest tests/unit/ -q
+# Check Python version
+python --version  # Should be 3.11+
 
-# Check version
-python -c "import funding_bot; print(funding_bot.__version__)"
+# Test import
+python -c "from funding_bot import __version__; print(__version__)"
 ```
 
 ---
 
 ## Configuration
 
-### Environment Variables (.env)
+### Environment Variables
 
 Create a `.env` file in the project root:
 
-```bash
-# Lighter Exchange (DEX)
-LIGHTER_API_KEY=your_lighter_api_key
-LIGHTER_PRIVATE_KEY=0x_your_lighter_private_key
+```env
+# ============================================================
+# LIGHTER EXCHANGE
+# ============================================================
+LIGHTER_PRIVATE_KEY=0x1234567890abcdef...  # Your Ethereum private key
+LIGHTER_ACCOUNT_INDEX=0                     # Usually 0 for primary account
 
-# X10 Exchange (CEX)
-X10_API_KEY=your_x10_api_key
-X10_PRIVATE_KEY=0x_your_x10_private_key
+# ============================================================
+# X10 EXCHANGE
+# ============================================================
+X10_API_KEY=your_api_key_here
+X10_API_SECRET=your_api_secret_here
+X10_STARK_PRIVATE_KEY=0xabcdef1234567890...  # Stark curve private key
 
-# Telegram Notifications (Optional)
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_CHAT_ID=your_telegram_chat_id
+# ============================================================
+# TELEGRAM NOTIFICATIONS (Optional)
+# ============================================================
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
+TELEGRAM_CHAT_ID=-1001234567890
 ```
 
-### Main Configuration (config/config.yaml)
+### Main Configuration (config.yaml)
+
+The main configuration file is located at `src/funding_bot/config/config.yaml`.
 
 #### Trading Mode
 
 ```yaml
-# IMPORTANT: Start with paper mode!
-live_trading: false    # false = paper mode (no real orders)
-testing_mode: false    # true = extra debug logging
+# Set to false for paper trading (no real orders)
+live_trading: true
+
+# Enable for extra diagnostics
+testing_mode: false
 ```
 
 #### Position Sizing
 
 ```yaml
 trading:
-  desired_notional_usd: "350.0"    # Position size per trade
-  max_open_trades: 1               # Max concurrent positions
-  leverage_multiplier: "7.0"       # Target leverage (6-8 recommended)
+  # Position size in USD
+  desired_notional_usd: "350.0"
+
+  # Maximum concurrent positions
+  max_open_trades: 1
+
+  # Leverage multiplier (6-8 recommended)
+  leverage_multiplier: "7.0"
 ```
 
 #### Entry Filters
 
 ```yaml
 trading:
-  min_apy_filter: "0.35"              # Minimum 35% APY required
-  min_expected_profit_entry_usd: "0.80"  # Min expected profit
-  max_spread_filter_percent: "0.0016" # Max 0.16% spread
-  max_breakeven_hours: "24.0"         # Max 24h to breakeven
+  # Minimum APY to enter (35% = 0.35)
+  min_apy_filter: "0.35"
+
+  # Minimum expected profit per trade
+  min_expected_profit_entry_usd: "0.80"
+
+  # Maximum spread at entry
+  max_spread_filter_percent: "0.0016"  # 0.16%
 ```
 
-#### Hold Duration
+#### Hold Time Settings
 
 ```yaml
 trading:
-  min_hold_seconds: 172800   # 48 hours minimum hold
-  max_hold_hours: "240.0"    # 10 days maximum hold
+  # Minimum hold time (48 hours = 172800 seconds)
+  min_hold_seconds: 172800
+
+  # Maximum hold time
+  max_hold_hours: "240.0"  # 10 days
 ```
 
-The minimum hold time is **critical** for profitability:
-- **48 hours** = ~15 trades/month (recommended)
-- **24 hours** = ~30 trades/month (more fees)
-
-#### Exit Rules
+#### Exit Settings
 
 ```yaml
 trading:
-  # Economic exits
-  exit_ev_enabled: true              # Net EV exit
-  exit_ev_horizon_hours: "12.0"      # Look-ahead window
+  # Minimum profit to exit
+  min_profit_exit_usd: "3.00"
 
-  # Early take profit
+  # Early take-profit threshold
   early_take_profit_enabled: true
-  early_take_profit_net_usd: "4.00"  # Exit if $4+ profit before min_hold
+  early_take_profit_net_usd: "4.00"
 
-  # Funding velocity (detects APY crashes)
-  funding_velocity_exit_enabled: true
-  velocity_threshold_hourly: "-0.0015"
+  # Funding flip (exit when funding turns negative)
+  funding_flip_hours_threshold: "0.0"  # Immediate exit
 ```
 
 ---
 
 ## Running the Bot
 
-### Paper Mode (Recommended First)
+### Standard Start
 
 ```bash
-# Default: paper mode (live_trading: false)
-python -m funding_bot
+# Activate virtual environment
+.\venv\Scripts\activate  # Windows
+source venv/bin/activate  # Linux/macOS
+
+# Run the bot
+python main.py
 ```
 
-In paper mode, the bot:
-- Scans for opportunities
-- Calculates optimal entries/exits
-- Logs all decisions
-- Does NOT place real orders
+### Using Batch Files (Windows)
 
-### Live Trading Mode
+```bash
+# Standard start
+start.bat
+
+# Debug mode with extra logging
+start-live-debug.bat
+```
+
+### CLI Commands
+
+```bash
+# Standard run
+funding-bot
+
+# Doctor mode (diagnostics)
+python -m funding_bot doctor
+
+# Reconcile positions
+python -m funding_bot reconcile
+
+# Close all positions
+python -m funding_bot close-all
+
+# Backfill historical data
+python -m funding_bot backfill
+```
+
+### Paper Trading Mode
+
+To test without real money, set in `config.yaml`:
 
 ```yaml
-# config/config.yaml
-live_trading: true
+live_trading: false
 ```
 
-```bash
-python -m funding_bot
-```
-
-### Background Execution
-
-```bash
-# Linux/macOS
-nohup python -m funding_bot > bot.log 2>&1 &
-
-# Windows (PowerShell)
-Start-Process -NoNewWindow python -ArgumentList "-m funding_bot"
-
-# Using screen (Linux)
-screen -S funding-bot
-python -m funding_bot
-# Ctrl+A, D to detach
-```
-
-### Docker (Optional)
-
-```bash
-# Build
-docker build -t funding-bot .
-
-# Run
-docker run -d --name funding-bot \
-  -v $(pwd)/.env:/app/.env \
-  -v $(pwd)/data:/app/data \
-  funding-bot
-```
+The bot will scan for opportunities and log decisions without placing orders.
 
 ---
 
-## Understanding the Dashboard
+## Monitoring
 
-The bot displays a real-time terminal dashboard:
+### Console Output
 
-```
-╔══════════════════════════════════════════════════════════════════════════╗
-║                     FUNDING ARBITRAGE BOT v2.0.0                         ║
-╠══════════════════════════════════════════════════════════════════════════╣
-║ Mode: LIVE          Account: Premium        Uptime: 4h 23m               ║
-╠══════════════════════════════════════════════════════════════════════════╣
-║ ACTIVE POSITIONS                                                          ║
-╠──────────┬──────────┬──────────┬──────────┬──────────┬──────────────────╣
-║ Symbol   │ APY      │ Notional │ PnL      │ Age      │ Status           ║
-╠──────────┼──────────┼──────────┼──────────┼──────────┼──────────────────╣
-║ ETH      │  45.2%   │ $350.00  │ +$2.45   │ 12.3h    │ OPEN             ║
-║ BTC      │  32.8%   │ $350.00  │ +$1.12   │  6.5h    │ OPEN             ║
-╠══════════════════════════════════════════════════════════════════════════╣
-║ OPPORTUNITIES                                                             ║
-╠──────────┬──────────┬──────────┬──────────┬──────────────────────────────╣
-║ Symbol   │ APY      │ Spread   │ EV/hour  │ Status                       ║
-╠──────────┼──────────┼──────────┼──────────┼──────────────────────────────╣
-║ SOL      │  68.4%   │  0.08%   │ $0.12    │ READY                        ║
-║ AVAX     │  41.2%   │  0.15%   │ $0.08    │ SPREAD_HIGH                  ║
-╠══════════════════════════════════════════════════════════════════════════╣
-║ STATISTICS                                                                ║
-║ Total PnL: +$156.78   │   Trades: 45   │   Win Rate: 82%                ║
-╚══════════════════════════════════════════════════════════════════════════╝
-```
-
-### Status Indicators
-
-| Status | Meaning |
-|--------|---------|
-| `OPEN` | Position active, collecting funding |
-| `CLOSING` | Exit triggered, closing in progress |
-| `READY` | Opportunity meets all criteria |
-| `APY_LOW` | Below minimum APY threshold |
-| `SPREAD_HIGH` | Spread exceeds maximum |
-| `COOLDOWN` | Recently exited, waiting |
-
----
-
-## Trading Strategies
-
-### Entry Strategy
-
-The bot uses a **quality-over-quantity** approach:
-
-1. **APY Filter**: Only trades with 35%+ APY
-2. **Spread Filter**: Maximum 0.16% bid-ask spread
-3. **Liquidity Gate**: Sufficient depth on both sides
-4. **EV Check**: Positive expected value after fees
-5. **Breakeven Time**: Must recover costs within 24 hours
-
-### Position Direction
+When running, the bot displays:
 
 ```
-If Lighter Rate > X10 Rate:
-  → Long X10, Short Lighter
-  → Receive funding from Lighter shorts
-
-If X10 Rate > Lighter Rate:
-  → Long Lighter, Short X10
-  → Receive funding from X10 shorts
+2026-01-17 14:30:00 | INFO | Starting Funding Bot v2.0.0
+2026-01-17 14:30:01 | INFO | Lighter adapter initialized
+2026-01-17 14:30:02 | INFO | X10 adapter initialized
+2026-01-17 14:30:03 | INFO | Scanning for opportunities...
+2026-01-17 14:30:05 | INFO | [ETH] APY: 45.2% | Spread: 0.08% | CANDIDATE
+2026-01-17 14:30:10 | INFO | Opening trade: ETH | $350 | APY: 45.2%
 ```
-
-### Execution Flow
-
-```
-1. Leg1 (Lighter - Maker)
-   └─ Post limit order at competitive price
-   └─ Wait for fill (max 30s)
-   └─ Escalate to taker if needed
-
-2. Leg2 (X10 - Hedge)
-   └─ Immediately hedge after Leg1 fill
-   └─ IOC order with slippage tolerance
-   └─ Retry up to 3 times
-
-3. Position Open
-   └─ Both legs filled
-   └─ Start collecting funding
-```
-
----
-
-## Exit Rules
-
-### Priority Layers
-
-Exits are evaluated in priority order (first match wins):
-
-#### Layer 1: Emergency (Override min_hold)
-
-| Rule | Trigger | Action |
-|------|---------|--------|
-| **Broken Hedge** | One leg missing | Immediate close |
-| **Liquidation** | < 15% distance | Immediate close |
-| **Delta Drift** | > 3% imbalance | Rebalance or close |
-
-#### Layer 2: Economic (After min_hold)
-
-| Rule | Trigger | Action |
-|------|---------|--------|
-| **Net EV Negative** | EV horizon < costs | Close position |
-| **Funding Flip** | Direction reversed | Close position |
-| **Opportunity Cost** | Better trade available | Rotate |
-
-#### Layer 3: Profit Taking
-
-| Rule | Trigger | Action |
-|------|---------|--------|
-| **Early TP** | $4+ profit (any time) | Close position |
-| **Velocity Exit** | APY declining fast | Close position |
-| **Z-Score Exit** | 2-sigma deviation | Close position |
-
-### Configuring Exit Rules
-
-```yaml
-trading:
-  # Emergency
-  delta_bound_max_delta_pct: "0.03"     # 3% max drift
-  liquidation_distance_min_pct: "15.0"  # 15% buffer
-
-  # Economic
-  exit_ev_enabled: true
-  exit_ev_horizon_hours: "12.0"
-  funding_flip_hours_threshold: "0.0"   # Immediate on flip
-
-  # Profit Taking
-  early_take_profit_net_usd: "4.00"
-  funding_velocity_exit_enabled: true
-```
-
----
-
-## Risk Management
-
-### Position Limits
-
-```yaml
-risk:
-  max_consecutive_failures: 3      # Circuit breaker
-  max_drawdown_pct: "0.20"         # 20% max drawdown
-  max_exposure_pct: "80.0"         # 80% max capital exposure
-  max_trade_size_pct: "50.0"       # 50% max per trade
-  min_free_margin_pct: "0.05"      # 5% margin reserve
-```
-
-### Circuit Breaker
-
-After 3 consecutive execution failures:
-- Bot pauses new entries
-- Monitors existing positions
-- Requires manual restart
-
-### Delta Protection
-
-The bot continuously monitors position delta:
-
-| Drift | Action |
-|-------|--------|
-| 0-1% | Normal |
-| 1-3% | Warning logged |
-| > 3% | Rebalance triggered |
-
-Rebalancing restores delta neutrality by adjusting the smaller leg.
-
----
-
-## Monitoring & Alerts
-
-### Telegram Notifications
-
-Enable Telegram for real-time alerts:
-
-```yaml
-telegram:
-  enabled: true
-```
-
-```bash
-# .env
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-```
-
-Notifications sent for:
-- Trade opened/closed
-- Exit triggered (with reason)
-- Errors and warnings
-- Daily summary
 
 ### Log Files
 
-```
-logs/
-├── funding_bot_YYYYMMDD_HHMMSS.log  # Human-readable
-└── funding_bot_json.jsonl           # JSON format (for analysis)
+Logs are stored in the `logs/` directory:
+
+| File | Content |
+|------|---------|
+| `funding_bot_YYYYMMDD_HHMMSS.log` | Full session log |
+| `funding_bot_json.jsonl` | Structured JSON logs |
+
+### Telegram Notifications
+
+If configured, you'll receive:
+
+- **Trade Opened**: Symbol, APY, position size
+- **Trade Closed**: Symbol, PnL, reason
+- **Errors**: Critical failures and warnings
+
+### Database
+
+Trade history is stored in `data/funding_v2.db`. You can query it with SQLite:
+
+```bash
+sqlite3 data/funding_v2.db
+
+# View recent trades
+SELECT * FROM trades ORDER BY created_at DESC LIMIT 10;
+
+# Check active positions
+SELECT * FROM trades WHERE status = 'OPEN';
 ```
 
-### Log Levels
+---
+
+## Common Operations
+
+### Starting Fresh
+
+To reset and start fresh:
+
+```bash
+# Backup existing data
+mv data/funding_v2.db data/funding_v2.db.backup
+
+# Clear logs
+rm -rf logs/*
+
+# Start bot (new database will be created)
+python main.py
+```
+
+### Closing All Positions
+
+To manually close all positions:
+
+```bash
+python -m funding_bot close-all
+```
+
+Or set in `config.yaml` before stopping:
 
 ```yaml
-logging:
-  level: "INFO"      # INFO, DEBUG, WARNING, ERROR
-  json_enabled: true
+shutdown:
+  close_positions_on_exit: true
 ```
 
-### Key Log Tags
+### Reconciling Positions
 
-| Tag | Meaning |
-|-----|---------|
-| `[TRADE]` | Trade events (open/close) |
-| `[PROFIT]` | PnL updates |
-| `[HEALTH]` | Health checks |
-| `[SCAN]` | Opportunity scans |
+If positions get out of sync:
+
+```bash
+python -m funding_bot reconcile
+```
+
+This will:
+1. Fetch positions from both exchanges
+2. Compare with database records
+3. Optionally import "ghost" positions
+
+### Adjusting Settings While Running
+
+Most settings require a restart. However, you can:
+
+1. Stop the bot (Ctrl+C)
+2. Edit `config.yaml`
+3. Restart the bot
+
+The bot will pick up new settings on startup.
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+### Connection Issues
 
-#### "WebSocket disconnected"
+**Problem**: "Failed to connect to exchange"
 
-**Cause**: Network instability or exchange maintenance
+**Solutions**:
+1. Check internet connection
+2. Verify API credentials in `.env`
+3. Check exchange status pages
+4. Try increasing WebSocket timeouts:
 
-**Solution**: Bot auto-reconnects with circuit breaker
 ```yaml
 websocket:
-  circuit_breaker_threshold: 10
-  circuit_breaker_cooldown_seconds: "60.0"
+  ping_timeout: "15.0"
+  reconnect_delay_initial: "5.0"
 ```
 
-#### "Too Many Websocket Messages"
+### Position Mismatch
 
-**Cause**: Subscribed to too many Lighter streams
+**Problem**: "Ghost position detected"
 
-**Solution**: Limit symbols
-```yaml
-websocket:
-  market_data_streams_symbols: ["ETH", "BTC", "SOL"]
-  market_data_streams_max_symbols: 6
-```
+**Solutions**:
+1. Run reconcile command: `python -m funding_bot reconcile`
+2. Enable auto-import in config:
 
-#### "Insufficient Balance"
-
-**Cause**: Not enough margin on exchange
-
-**Solution**:
-1. Check balances on both exchanges
-2. Reduce `desired_notional_usd`
-3. Ensure `min_free_margin_pct` is respected
-
-#### "Order Rejected"
-
-**Cause**: Various exchange-specific reasons
-
-**Solution**: Check logs for rejection reason
-```bash
-grep "rejected" logs/funding_bot_json.jsonl
-```
-
-#### "Ghost Position Detected"
-
-**Cause**: Position exists on exchange but not in database
-
-**Solution**:
 ```yaml
 reconciliation:
-  auto_import_ghosts: true  # Import into DB
-  # OR
-  auto_close_ghosts: true   # Close on exchange
+  auto_import_ghosts: true
 ```
 
-### Debug Mode
+3. Or manually close on exchange web interface
 
-For detailed troubleshooting:
+### Order Failures
+
+**Problem**: "Order rejected" or "Insufficient margin"
+
+**Solutions**:
+1. Check available balance on exchanges
+2. Reduce position size:
 
 ```yaml
-testing_mode: true  # Extra diagnostics
-logging:
-  level: "DEBUG"
+trading:
+  desired_notional_usd: "200.0"  # Reduce from 350
 ```
 
-### Database Issues
+3. Check if symbol is tradeable
+4. Verify leverage settings
 
-```bash
-# Check database integrity
-sqlite3 data/funding_v2.db "PRAGMA integrity_check;"
+### High Latency
 
-# Backup database
-cp data/funding_v2.db data/funding_v2.db.backup
+**Problem**: Slow order fills or stale data
+
+**Solutions**:
+1. Check network latency to exchange servers
+2. Enable WebSocket streams for hot symbols:
+
+```yaml
+websocket:
+  market_data_streams_enabled: true
+  market_data_streams_symbols: ["ETH", "BTC"]
+```
+
+3. Reduce scan interval:
+
+```yaml
+trading:
+  opportunity_scan_interval_seconds: "3.0"
+```
+
+### Circuit Breaker Triggered
+
+**Problem**: "Circuit breaker OPEN"
+
+**Solutions**:
+1. Wait for cooldown (default 5 minutes)
+2. Check logs for failure reasons
+3. Reduce max_consecutive_failures if too sensitive:
+
+```yaml
+risk:
+  max_consecutive_failures: 5  # Increase from 3
 ```
 
 ---
 
 ## FAQ
 
-### General
+### How much capital do I need?
 
-**Q: Is paper mode safe to run?**
+Minimum $200 total ($100 per exchange). Recommended $400+ for better opportunities.
 
-A: Yes, paper mode never places real orders. It's purely simulation.
+### What's the expected return?
 
-**Q: How much capital do I need?**
+Targeting 10% monthly (~120% APY). Actual returns depend on market conditions and funding rate opportunities.
 
-A: Minimum $300-500 recommended for meaningful returns. The default config is optimized for ~$400.
+### How long should I hold positions?
 
-**Q: What's a realistic return?**
+Default minimum hold is 48 hours. This reduces execution costs and improves net profitability.
 
-A: With optimized settings, expect 5-15% monthly during favorable funding conditions. Returns vary with market conditions.
+### Can I run multiple instances?
 
-### Trading
+Not recommended. Each instance would compete for the same opportunities and could cause position conflicts.
 
-**Q: Why isn't the bot opening trades?**
+### Is it safe to stop the bot?
 
-A: Check these filters:
-- `min_apy_filter` (default 35%)
-- `max_spread_filter_percent` (default 0.16%)
-- `min_l1_notional_usd` (liquidity check)
+Yes. By default, positions remain open when you stop. Set `close_positions_on_exit: true` to close all positions on shutdown.
 
-Lower thresholds if needed, but understand the tradeoffs.
+### How do I change the symbols being traded?
 
-**Q: Why did a trade exit early?**
+The bot automatically trades all supported symbols. To blacklist symbols:
 
-A: Check the `close_reason` in logs. Common reasons:
-- `NET_EV_NEGATIVE` - Expected value turned negative
-- `FUNDING_FLIP` - Funding direction reversed
-- `EARLY_TP` - Early take profit triggered
-
-**Q: Can I trade multiple symbols?**
-
-A: Yes, set `max_open_trades` > 1. But single-trade mode often outperforms due to quality filtering.
-
-### Technical
-
-**Q: Do I need exchange SDKs?**
-
-A: No for paper mode. Yes for live trading (install via `requirements-exchange.txt`).
-
-**Q: How do I update the bot?**
-
-A:
-```bash
-git pull
-pip install -e ".[dev]"
+```yaml
+trading:
+  blacklist_symbols: ["POPCAT", "PENGU"]
 ```
 
-**Q: Where is trade data stored?**
+### What happens during exchange maintenance?
 
-A: SQLite database at `data/funding_v2.db`
+The bot detects maintenance and pauses trading. It will resume automatically when exchanges are back online.
 
-### Exchanges
+### How do I update to a new version?
 
-**Q: What's the difference between Standard and Premium Lighter?**
+```bash
+# Pull latest changes
+git pull origin main
 
-A: Premium accounts have 400x higher rate limits (24,000 vs 60 req/min), enabling faster market data and execution.
+# Update dependencies
+pip install -e . --upgrade
 
-**Q: Can I use other exchanges?**
+# Restart bot
+python main.py
+```
 
-A: Currently only Lighter and X10 are supported. The architecture supports adding new exchanges via the `ExchangePort` interface.
+### How do I backup my data?
 
----
-
-## Getting Help
-
-- **Documentation**: See [TECHNICAL.md](TECHNICAL.md) for detailed technical docs
-- **Issues**: Report bugs at the project repository
-- **Logs**: Include relevant logs when reporting issues
-
----
-
-## Appendix: Configuration Reference
-
-### All Configuration Keys
-
-See [config/config.yaml](../src/funding_bot/config/config.yaml) for the complete configuration with comments.
-
-### Key Defaults
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `live_trading` | `false` | Paper mode by default |
-| `desired_notional_usd` | `350.0` | Position size |
-| `min_apy_filter` | `0.35` | 35% minimum APY |
-| `min_hold_seconds` | `172800` | 48 hours |
-| `max_spread_filter_percent` | `0.0016` | 0.16% max spread |
-| `early_take_profit_net_usd` | `4.00` | $4 early TP |
+```bash
+# Copy database and logs
+cp data/funding_v2.db backups/funding_v2_$(date +%Y%m%d).db
+cp -r logs backups/logs_$(date +%Y%m%d)
+```
 
 ---
 
-**Good luck with your trading!**
+## Support
+
+For issues and questions:
+
+1. Check the [GitHub Issues](https://github.com/your-org/funding-bot/issues)
+2. Review the [Technical Documentation](TECHNICAL.md)
+3. Search existing issues before creating new ones
+
+When reporting issues, please include:
+- Bot version
+- Error messages from logs
+- Configuration (without sensitive data)
+- Steps to reproduce

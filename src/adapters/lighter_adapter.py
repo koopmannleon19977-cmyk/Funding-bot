@@ -2359,20 +2359,23 @@ class LighterAdapter(BaseAdapter):
             self._stream_client = LighterStreamClient(stream_url=stream_url)
             
             # Subscribe to orderbooks for key symbols
-            logger.info(f"📊 [Lighter Stream] Subscribing to orderbooks for {len(stream_symbols[:10])} symbols...")
-            for symbol in stream_symbols[:10]:  # Limit to 10
-                market_id = self.market_info.get(symbol, {}).get('i')
-                if market_id is not None:
-                    # Create closure to properly capture symbol and market_id
-                    def make_orderbook_handler(sym, m_id):
-                        async def handler(data):
-                            await self._handle_orderbook_stream_message(data, sym, m_id)
-                        return handler
-                    
-                    await self._stream_client.subscribe_to_orderbooks(
-                        message_handler=make_orderbook_handler(symbol, market_id),
-                        market_id=market_id
-                    )
+            if getattr(config, "LIGHTER_WS_ORDERBOOKS_ENABLED", True):
+                logger.info(f"📊 [Lighter Stream] Subscribing to orderbooks for {len(stream_symbols[:10])} symbols...")
+                for symbol in stream_symbols[:10]:  # Limit to 10
+                    market_id = self.market_info.get(symbol, {}).get('i')
+                    if market_id is not None:
+                        # Create closure to properly capture symbol and market_id
+                        def make_orderbook_handler(sym, m_id):
+                            async def handler(data):
+                                await self._handle_orderbook_stream_message(data, sym, m_id)
+                            return handler
+
+                        await self._stream_client.subscribe_to_orderbooks(
+                            message_handler=make_orderbook_handler(symbol, market_id),
+                            market_id=market_id
+                        )
+            else:
+                logger.info("📊 [Lighter Stream] Orderbook WS disabled (LIGHTER_WS_ORDERBOOKS_ENABLED=False)")
             
             # Subscribe to public trades for key symbols
             logger.info(f"📈 [Lighter Stream] Subscribing to public trades for {len(stream_symbols[:10])} symbols...")

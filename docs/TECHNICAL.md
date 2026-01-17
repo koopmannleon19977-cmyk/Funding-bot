@@ -1,820 +1,681 @@
-# Technical Documentation - Funding Arbitrage Bot
+# Technical Documentation
 
-> **Version**: 2.0.0
-> **Generated**: 2026-01-16
-> **Architecture**: Hexagonal (Ports & Adapters)
+## System Architecture
 
----
+### Overview
 
-## Table of Contents
+Funding Bot follows a **Hexagonal Architecture** (Ports and Adapters) pattern combined with **Domain-Driven Design** principles. This architecture ensures:
 
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Module Reference](#module-reference)
-4. [Domain Models](#domain-models)
-5. [Ports (Interfaces)](#ports-interfaces)
-6. [Services](#services)
-7. [Adapters](#adapters)
-8. [Configuration](#configuration)
-9. [Observability](#observability)
-10. [Performance Characteristics](#performance-characteristics)
-
----
-
-## Overview
-
-This is a **production-grade funding arbitrage bot** implementing delta-neutral trading strategies between:
-- **Lighter** (DEX) - Premium account with 24,000 req/min
-- **X10/Extended** (CEX)
-
-### Core Strategy
-
-The bot exploits funding rate differentials between perpetual futures exchanges:
+- Clear separation between business logic and infrastructure
+- Easy testability through dependency injection
+- Flexibility to swap exchange implementations
 
 ```
-Net Funding = |Lighter Rate - X10 Rate|
-Position: Long on lower-rate exchange, Short on higher-rate exchange
-Profit: Collect net funding while maintaining delta-neutral exposure
-```
-
-### Key Metrics
-
-| Metric | Target |
-|--------|--------|
-| Market Data Refresh | ≤ 500ms (10 symbols) |
-| Exit Evaluation | ≤ 150ms (10 positions) |
-| DB Batch Write | ≤ 10ms (100 trades) |
-| Connection Pool | 200 total, 100 per-host |
-
----
-
-## Architecture
-
-### Hexagonal Architecture (Ports & Adapters)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Application                          │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │                    Domain Core                       │   │
-│  │  ┌─────────┐  ┌──────────┐  ┌─────────────────┐    │   │
-│  │  │ Models  │  │  Events  │  │ Rules (Exits)   │    │   │
-│  │  └─────────┘  └──────────┘  └─────────────────┘    │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                            │                                │
-│  ┌─────────────────────────┴───────────────────────────┐   │
-│  │                      Services                        │   │
-│  │  ┌──────────────┐  ┌────────────┐  ┌────────────┐   │   │
-│  │  │ Execution    │  │ Positions  │  │ Market Data│   │   │
-│  │  │ (Leg1/Leg2)  │  │ (Manager)  │  │ (Service)  │   │   │
-│  │  └──────────────┘  └────────────┘  └────────────┘   │   │
-│  │  ┌──────────────┐  ┌────────────┐  ┌────────────┐   │   │
-│  │  │ Opportunities│  │ Liquidity  │  │ Historical │   │   │
-│  │  │ (Scanner)    │  │ (Gates)    │  │ (Backfill) │   │   │
-│  │  └──────────────┘  └────────────┘  └────────────┘   │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                            │                                │
-│  ┌─────────────────────────┴───────────────────────────┐   │
-│  │                       Ports                          │   │
-│  │  ┌──────────────┐  ┌────────────┐  ┌────────────┐   │   │
-│  │  │ ExchangePort │  │ StorePort  │  │ EventBus   │   │   │
-│  │  └──────────────┘  └────────────┘  └────────────┘   │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-                            │
-┌───────────────────────────┴─────────────────────────────────┐
-│                        Adapters                             │
-│  ┌──────────────┐  ┌────────────┐  ┌────────────────────┐  │
-│  │ Lighter SDK  │  │  X10 SDK   │  │ SQLite Store       │  │
-│  │ (exchanges/) │  │ (exchanges)│  │ (store/sqlite/)    │  │
-│  └──────────────┘  └────────────┘  └────────────────────┘  │
-│  ┌──────────────┐  ┌────────────┐                          │
-│  │ Telegram     │  │ Event Bus  │                          │
-│  │ (messaging/) │  │ (in-memory)│                          │
-│  └──────────────┘  └────────────┘                          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Application Layer                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ FundingBot  │  │ Supervisor  │  │    OpportunityEngine    │  │
+│  │   (run.py)  │  │   (loops)   │  │  (scanner, evaluator)   │  │
+│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘  │
+│         │                │                      │                │
+│  ┌──────▼──────────────────────────────────────▼──────────────┐ │
+│  │                    Domain Services                          │ │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │ │
+│  │  │ Execution   │  │  Position   │  │    Market Data      │ │ │
+│  │  │   Engine    │  │   Manager   │  │      Service        │ │ │
+│  │  └──────┬──────┘  └──────┬──────┘  └──────────┬──────────┘ │ │
+│  └─────────┼────────────────┼───────────────────┼─────────────┘ │
+└────────────┼────────────────┼───────────────────┼───────────────┘
+             │                │                   │
+┌────────────▼────────────────▼───────────────────▼───────────────┐
+│                         Ports (Interfaces)                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │ ExchangePort│  │  StorePort  │  │   NotificationPort      │  │
+│  └──────┬──────┘  └──────┬──────┘  └───────────┬─────────────┘  │
+└─────────┼───────────────┼──────────────────────┼────────────────┘
+          │               │                      │
+┌─────────▼───────────────▼──────────────────────▼────────────────┐
+│                         Adapters                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │   Lighter   │  │    X10      │  │      SQLite Store       │  │
+│  │   Adapter   │  │   Adapter   │  │  (trades, funding, etc) │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐  │
+│  │  WebSocket  │  │  Telegram   │  │      Event Bus          │  │
+│  │   Manager   │  │    Bot      │  │   (pub/sub messaging)   │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Module Reference
+## Module Structure
 
-### Directory Structure
+### Core Modules (`src/core/`)
 
-```
-src/funding_bot/
-├── __init__.py              # Package root (v2.0.0)
-├── __main__.py              # Entry point
-├── domain/                  # Domain models & business rules
-│   ├── models.py           # Core domain entities
-│   ├── events.py           # Domain events
-│   ├── historical.py       # Historical data models
-│   ├── rules.py            # Exit rule definitions
-│   └── professional_exits.py # Advanced exit strategies
-├── ports/                   # Abstract interfaces
-│   ├── exchange.py         # ExchangePort interface
-│   ├── store.py            # TradeStorePort interface
-│   ├── event_bus.py        # EventBusPort interface
-│   └── notification.py     # NotificationPort interface
-├── adapters/                # Concrete implementations
-│   ├── exchanges/          # Exchange adapters
-│   │   ├── lighter/        # Lighter DEX adapter
-│   │   └── x10/            # X10 CEX adapter
-│   ├── store/sqlite/       # SQLite persistence
-│   └── messaging/          # Telegram, EventBus
-├── services/                # Business logic
-│   ├── execution*.py       # Trade execution (Leg1/Leg2)
-│   ├── positions/          # Position management
-│   ├── opportunities/      # Opportunity scanning
-│   ├── market_data/        # Market data service
-│   ├── historical/         # Historical data backfill
-│   ├── liquidity_gates*.py # Liquidity validation
-│   └── metrics/            # Internal metrics
-├── config/                  # Configuration
-│   ├── settings.py         # Settings dataclass
-│   └── config.yaml         # Default config
-├── observability/           # Logging & metrics
-│   ├── logging.py          # Structured logging
-│   └── metrics.py          # Prometheus metrics
-├── app/                     # Application bootstrap
-│   ├── run.py              # Main run loop
-│   └── supervisor/         # Loop supervisors
-├── ui/                      # Terminal UI
-│   └── dashboard.py        # Rich dashboard
-└── utils/                   # Utilities
-    ├── decimals.py         # Decimal helpers
-    ├── json_parser.py      # JSON parsing
-    └── rest_pool.py        # HTTP connection pool
-```
+| Module | Purpose |
+|--------|---------|
+| `startup.py` | Bot initialization, database setup, adapter creation |
+| `trading.py` | Core trading logic, opportunity evaluation |
+| `state.py` | In-memory state management, position cache |
+| `events.py` | Event definitions (CriticalError, NotificationEvent) |
+| `circuit_breaker.py` | Failure tracking and automatic circuit breaking |
+| `adaptive_threshold.py` | Dynamic threshold adjustment based on market conditions |
 
----
+### Domain Layer (`src/funding_bot/domain/`)
 
-## Domain Models
+| Module | Purpose |
+|--------|---------|
+| `models.py` | Core entities: `Trade`, `Position`, `Order`, `FundingRate`, `Opportunity` |
+| `rules.py` | Business rules for entry/exit decisions |
+| `events.py` | Domain events for position changes |
+| `errors.py` | Domain-specific exceptions |
 
-### Core Entities (`domain/models.py`)
-
-#### Enums
-
-| Enum | Values | Description |
-|------|--------|-------------|
-| `Exchange` | LIGHTER, X10 | Supported exchanges |
-| `Side` | BUY, SELL | Order/position direction |
-| `OrderType` | LIMIT, MARKET | Order types |
-| `TimeInForce` | GTC, IOC, POST_ONLY, FOK | Order time-in-force |
-| `OrderStatus` | PENDING, OPEN, PARTIALLY_FILLED, FILLED, CANCELLED, REJECTED, EXPIRED | Order lifecycle |
-| `TradeStatus` | PENDING, OPENING, OPEN, CLOSING, CLOSED, REJECTED, FAILED, ROLLBACK | Trade lifecycle |
-| `ExecutionState` | PENDING → LEG1_SUBMITTED → LEG1_FILLED → LEG2_SUBMITTED → COMPLETE | Execution state machine |
-
-#### Value Objects
+#### Key Domain Models
 
 ```python
-@dataclass(frozen=True, slots=True)
-class FundingRate:
-    """Normalized HOURLY funding rate."""
-    symbol: str
-    exchange: Exchange
-    rate: Decimal          # Hourly rate
-    next_funding_time: datetime | None
+# Exchange identifiers
+class Exchange(Enum):
+    LIGHTER = "Lighter"
+    X10 = "X10"
 
-    @property
-    def rate_annual(self) -> Decimal:
-        """APY = hourly * 24 * 365"""
-        return self.rate * Decimal("24") * Decimal("365")
-```
+# Order side
+class Side(Enum):
+    BUY = "BUY"
+    SELL = "SELL"
 
-```python
-@dataclass(frozen=True, slots=True)
-class MarketInfo:
-    """Market metadata and precision settings."""
-    symbol: str
-    exchange: Exchange
-    price_precision: int = 2
-    qty_precision: int = 4
-    tick_size: Decimal = Decimal("0.01")
-    min_qty: Decimal
-    max_qty: Decimal
-    maker_fee: Decimal
-    taker_fee: Decimal
-```
-
-#### Entities
-
-```python
-@dataclass(slots=True)
+# Trade represents an active arbitrage position
+@dataclass
 class Trade:
-    """Delta-neutral funding arbitrage trade."""
-    trade_id: str
+    id: str
     symbol: str
-    leg1: TradeLeg          # Lighter (maker)
-    leg2: TradeLeg          # X10 (hedge)
-    target_qty: Decimal
     status: TradeStatus
-    execution_state: ExecutionState
-    funding_collected: Decimal
-    realized_pnl: Decimal
+    lighter_leg: TradeLeg
+    x10_leg: TradeLeg
     entry_apy: Decimal
-    close_reason: str | None
-```
+    entry_spread: Decimal
+    created_at: datetime
+    # ...
 
-```python
-@dataclass(slots=True)
-class TradeLeg:
-    """One leg of a delta-neutral trade."""
-    exchange: Exchange
+# Position on a single exchange
+@dataclass
+class Position:
+    symbol: str
     side: Side
-    order_id: str | None
-    qty: Decimal
-    filled_qty: Decimal
+    quantity: Decimal
     entry_price: Decimal
-    exit_price: Decimal
-    fees: Decimal
+    mark_price: Decimal
+    unrealized_pnl: Decimal
 
     @property
-    def pnl(self) -> Decimal:
-        """Net PnL including fees."""
+    def notional_usd(self) -> Decimal:
+        return self.quantity * self.mark_price
 ```
 
-```python
-@dataclass(frozen=True, slots=True)
-class Opportunity:
-    """Detected funding arbitrage opportunity (immutable)."""
-    symbol: str
-    net_funding_hourly: Decimal
-    apy: Decimal
-    spread_pct: Decimal
-    suggested_qty: Decimal
-    expected_value_usd: Decimal
-    breakeven_hours: Decimal
-```
+### Ports (`src/funding_bot/ports/`)
 
----
-
-## Ports (Interfaces)
-
-### ExchangePort (`ports/exchange.py`)
-
-Abstract interface for all exchange operations:
+Ports define interfaces that adapters must implement:
 
 ```python
 class ExchangePort(ABC):
-    """Exchange adapter interface using only domain types."""
+    """Abstract interface for exchange operations."""
 
-    # Properties
     @property
+    @abstractmethod
     def exchange(self) -> Exchange: ...
-    @property
-    def is_connected(self) -> bool: ...
 
-    # Lifecycle
+    @abstractmethod
     async def initialize(self) -> None: ...
-    async def close(self) -> None: ...
 
-    # Market Data
-    async def load_markets(self) -> dict[str, MarketInfo]: ...
-    async def get_mark_price(self, symbol: str) -> Decimal: ...
+    @abstractmethod
     async def get_funding_rate(self, symbol: str) -> FundingRate: ...
-    async def get_orderbook_l1(self, symbol: str) -> dict[str, Decimal]: ...
 
-    # Account
-    async def get_available_balance(self) -> Balance: ...
-    async def get_fee_schedule(self, symbol: str | None) -> dict[str, Decimal]: ...
-
-    # Positions
-    async def list_positions(self) -> list[Position]: ...
-    async def get_position(self, symbol: str) -> Position | None: ...
-    async def get_realized_funding(self, symbol: str, start_time: datetime | None) -> Decimal: ...
-
-    # Orders
+    @abstractmethod
     async def place_order(self, request: OrderRequest) -> Order: ...
-    async def get_order(self, symbol: str, order_id: str) -> Order | None: ...
-    async def cancel_order(self, symbol: str, order_id: str) -> bool: ...
-    async def cancel_all_orders(self, symbol: str | None) -> int: ...
 
-    # WebSocket (optional)
-    async def subscribe_positions(self, callback: PositionCallback) -> None: ...
-    async def subscribe_orders(self, callback: OrderCallback) -> None: ...
-    async def subscribe_orderbook_l1(self, symbols: list[str] | None) -> None: ...
+    @abstractmethod
+    async def list_positions(self) -> List[Position]: ...
+
+    # ... more methods
 ```
 
-### TradeStorePort (`ports/store.py`)
+### Adapters (`src/adapters/`, `src/funding_bot/adapters/`)
 
-Abstract interface for persistence:
+| Adapter | Implementation |
+|---------|----------------|
+| `LighterAdapter` | Lighter Exchange via REST + WebSocket |
+| `X10Adapter` | X10 Exchange via REST + WebSocket |
+| `SQLiteStore` | Persistent storage for trades, funding, events |
+| `TelegramBot` | Notification delivery via Telegram |
+| `EventBus` | In-process pub/sub messaging |
+
+---
+
+## Execution Engine
+
+### Trade Execution Flow
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     ExecutionEngine.execute()                     │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                      1. Preflight Checks                          │
+│  • Validate opportunity still profitable                          │
+│  • Check depth gate (L1 liquidity)                               │
+│  • Verify hedge depth (preflight multiplier)                     │
+│  • Confirm spread within limits                                  │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                     2. Calculate Quantity                         │
+│  • Determine notional based on available margin                  │
+│  • Apply leverage multiplier                                     │
+│  • Respect min_qty requirements                                  │
+│  • Apply sizing caps (max_trade_size_pct)                        │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+                               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                   3. Execute Leg 1 (Lighter)                      │
+│  • Place maker order at best price                               │
+│  • Wait for fill (WS updates + polling fallback)                 │
+│  • Escalate to taker IOC if timeout exceeded                     │
+│  • Track partial fills                                           │
+└──────────────────────────────┬───────────────────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    │    Leg1 Filled?     │
+                    └──────────┬──────────┘
+                       │              │
+                      Yes            No
+                       │              │
+                       ▼              ▼
+┌─────────────────────────┐  ┌─────────────────────────────────────┐
+│  4. Execute Leg 2 (X10) │  │         Rollback Leg 1              │
+│  • Submit IOC hedge     │  │  • Cancel open orders               │
+│  • Retry with slippage  │  │  • Close any partial fills          │
+│  • Track fill status    │  │  • Log failure reason               │
+└───────────┬─────────────┘  └─────────────────────────────────────┘
+            │
+            ▼
+┌──────────────────────────────────────────────────────────────────┐
+│                    5. Finalize Trade                              │
+│  • Update trade record in database                               │
+│  • Calculate entry metrics (APY, spread, fees)                   │
+│  • Start position monitoring                                     │
+│  • Send notification                                             │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Leg 1 Execution Details
+
+The execution engine uses a **maker-first** strategy on Lighter:
+
+1. **Initial Order**: Post-only maker order at best bid/ask
+2. **Repricing Loop**: Periodically reprice if order not filled
+3. **WS Fill Monitoring**: Real-time fill updates via WebSocket
+4. **Taker Escalation**: After `leg1_escalate_to_taker_after_seconds`, switch to IOC
+5. **Partial Fill Handling**: Track accumulated fills, proceed when sufficient
 
 ```python
-class TradeStorePort(ABC):
-    """Trade storage interface."""
+# Simplified execution flow
+async def _execute_leg1(self, ctx: ExecutionContext) -> Leg1Result:
+    # Prepare maker order
+    price = self._calculate_maker_price(ctx)
+    order = await self.lighter.place_order(
+        OrderRequest(
+            symbol=ctx.symbol,
+            side=ctx.lighter_side,
+            order_type=OrderType.LIMIT,
+            quantity=ctx.quantity,
+            price=price,
+            time_in_force=TimeInForce.POST_ONLY,
+        )
+    )
 
-    # Lifecycle
-    async def initialize(self) -> None: ...
-    async def close(self) -> None: ...
+    # Wait for fill
+    filled = await self._wait_for_fill(order, timeout=maker_timeout)
 
-    # Trade CRUD
-    async def create_trade(self, trade: Trade) -> str: ...
-    async def get_trade(self, trade_id: str) -> Trade | None: ...
-    async def update_trade(self, trade_id: str, updates: dict[str, Any]) -> bool: ...
-    async def list_open_trades(self) -> list[Trade]: ...
+    if not filled and escalate_enabled:
+        # Escalate to taker
+        order = await self._place_lighter_taker_ioc(ctx)
+        filled = await self._wait_for_fill(order, timeout=ioc_timeout)
 
-    # Events (Audit Trail)
-    async def append_event(self, trade_id: str, event: DomainEvent) -> None: ...
+    return Leg1Result(filled=filled, order=order)
+```
 
-    # Funding
-    async def record_funding(self, trade_id: str, exchange: str, amount: Decimal, timestamp: datetime) -> None: ...
-    async def get_recent_apy_history(self, symbol: str, hours_back: int) -> list[Decimal]: ...
+### Leg 2 (Hedge) Execution
 
-    # Historical Data
-    async def insert_funding_candles(self, candles: list[FundingCandle]) -> int: ...
+X10 hedge uses **aggressive IOC** with retry logic:
 
-    # Statistics
-    async def get_stats(self) -> dict[str, Any]: ...
+1. **Initial Attempt**: IOC at best price + base slippage
+2. **Retry Loop**: Increment slippage by `hedge_ioc_slippage_step`
+3. **Max Attempts**: Configurable via `hedge_ioc_max_attempts`
+4. **Depth Salvage**: If hedge fails, attempt to close Leg1 partial fills
+
+```python
+# Hedge execution with retries
+for attempt in range(max_attempts):
+    slippage = base_slippage + (attempt * slippage_step)
+    price = mark_price * (1 + slippage if is_buy else 1 - slippage)
+
+    order = await self.x10.place_order(
+        OrderRequest(
+            symbol=symbol,
+            side=hedge_side,
+            order_type=OrderType.LIMIT,
+            quantity=quantity,
+            price=price,
+            time_in_force=TimeInForce.IOC,
+        )
+    )
+
+    if order.is_filled:
+        return HedgeResult(success=True, order=order)
+
+    await asyncio.sleep(retry_delay)
 ```
 
 ---
 
-## Services
+## Position Management
 
-### Execution Service (`services/execution*.py`)
+### Exit Evaluation Pipeline
 
-Handles trade execution with Leg1 (maker) → Leg2 (hedge) flow:
+The `PositionManager` evaluates exits in a prioritized pipeline:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Execution Flow                           │
-├─────────────────────────────────────────────────────────────┤
-│  1. execution_impl.py      → Entry point, orchestration     │
-│  2. execution_leg1.py      → Leg1 maker order management    │
-│  3. execution_leg2.py      → Leg2 hedge order management    │
-│  4. execution_rollback.py  → Rollback on partial fills      │
-│  5. execution_flow.py      → State machine transitions      │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                    Exit Evaluation Pipeline                      │
+│                    (Priority: High → Low)                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 1: EMERGENCY EXITS (Override all gates)                    │
+│  • Liquidation Distance < 15%                                    │
+│  • Delta Bound Breach > 3%                                       │
+│  • Funding Flip (negative funding)                               │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ Not triggered
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 2: EARLY EXITS (Bypass min_hold gate)                      │
+│  • Early Take-Profit >= $4.00 net                                │
+│  • Early Edge Exit (funding collapse after 2h)                   │
+│  • Z-Score Crash < -2.0 (for trades > 7 days)                    │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ Not triggered
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ MIN_HOLD GATE                                                    │
+│  • Trade age < min_hold_seconds (48h)? → SKIP remaining layers   │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ Gate passed
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 3: STANDARD EXITS                                          │
+│  • Profit Target >= min_profit_exit_usd                          │
+│  • Max Hold Time exceeded                                        │
+│  • Basis Convergence (80% spread collapse)                       │
+│  • Net EV Exit (expected value negative)                         │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ Not triggered
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ LAYER 4: OPPORTUNITY COST                                        │
+│  • Better opportunity available (APY diff > 80%)                 │
+│  • Rotation cooldown respected                                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Files:**
+### Coordinated Close
 
-| File | Responsibility |
-|------|----------------|
-| `execution_impl.py` | Main execution orchestration |
-| `execution_leg1.py` | Leg1 (Lighter maker) order flow |
-| `execution_leg1_pricing.py` | Maker price calculation |
-| `execution_leg1_fill_ops.py` | Fill detection and handling |
-| `execution_leg1_attempts.py` | Retry logic with backoff |
-| `execution_leg2.py` | Leg2 (X10 hedge) order flow |
-| `execution_leg2_helpers.py` | Hedge latency tracking |
-| `execution_rollback.py` | Partial fill rollback |
-| `execution_orderbook.py` | Orderbook utilities |
-
-### Position Manager (`services/positions/`)
-
-Manages open trades and exit evaluation:
+When closing a position, the bot executes a **coordinated close** on both legs:
 
 ```python
-class PositionManager:
-    """
-    Manages open trades and handles exit logic.
+async def close_trade(self, trade: Trade, reason: str) -> CloseResult:
+    async with self._get_close_lock(trade.id):
+        # 1. Fetch current positions
+        lighter_pos = await self.lighter.get_position(trade.symbol)
+        x10_pos = await self.x10.get_position(trade.symbol)
 
-    Responsibilities:
-    - Monitor trades for exit conditions
-    - Close both legs simultaneously
-    - Calculate and record PnL
-    - Verify positions are actually closed
-    """
+        # 2. Calculate close quantities
+        lighter_qty = lighter_pos.quantity
+        x10_qty = x10_pos.quantity
 
-    async def evaluate_and_close(self) -> None: ...
-    async def close_trade(self, trade: Trade, reason: str) -> CloseResult: ...
-    async def rebalance_trade(self, trade: Trade) -> bool: ...
+        # 3. Execute parallel close
+        async with asyncio.TaskGroup() as tg:
+            lighter_task = tg.create_task(
+                self._close_leg(self.lighter, trade.symbol, lighter_qty)
+            )
+            x10_task = tg.create_task(
+                self._close_leg(self.x10, trade.symbol, x10_qty)
+            )
+
+        # 4. Verify both legs closed
+        lighter_result = lighter_task.result()
+        x10_result = x10_task.result()
+
+        # 5. Update trade record
+        await self._update_trade(trade, "CLOSED", reason)
+
+        return CloseResult(
+            lighter=lighter_result,
+            x10=x10_result,
+            total_pnl=lighter_result.pnl + x10_result.pnl
+        )
 ```
 
-**Exit Rule Priority Stack:**
+### Delta Rebalancing
+
+When hedge drift exceeds threshold (1-3%), the bot rebalances:
 
 ```
-Layer 1 (Emergency):
-  - BROKEN_HEDGE      → Missing leg detected
-  - LIQUIDATION       → Liquidation imminent
+┌─────────────────────────────────────────────────────────────────┐
+│                    Rebalance Flow                                │
+└─────────────────────────────────────────────────────────────────┘
 
-Layer 2 (Economic):
-  - NET_EV_NEGATIVE   → Expected value turned negative
-  - OPPORTUNITY_COST  → Better opportunity available
-  - FUNDING_FLIP      → Funding direction reversed
+1. Detect drift:
+   delta_pct = abs(lighter_notional - x10_notional) / max_notional
 
-Layer 3 (Optional):
-  - TAKE_PROFIT       → Target profit reached
-  - VELOCITY_EXIT     → Funding rate declining rapidly
-  - Z_SCORE_EXIT      → Statistical deviation from mean
+2. If delta_pct >= rebalance_min_delta_pct (1%):
+   → Log warning, continue monitoring
+
+3. If delta_pct >= rebalance_max_delta_pct (3%):
+   → Calculate rebalance quantity
+   → Determine which leg to adjust
+   → Place maker order (with IOC fallback)
+   → Verify delta restored to acceptable range
 ```
-
-### Opportunity Engine (`services/opportunities/`)
-
-Scans and evaluates funding arbitrage opportunities:
-
-```python
-class OpportunityEngine:
-    """
-    Scans for and evaluates funding arbitrage opportunities.
-
-    Filter Pipeline:
-    1. Blacklist check
-    2. Spread limit
-    3. Minimum APY
-    4. Liquidity score
-    5. Expected value (including fees)
-    6. Breakeven time
-    """
-
-    async def scan(self) -> list[Opportunity]: ...
-    async def get_best_opportunity(self) -> Opportunity | None: ...
-```
-
-**Key Files:**
-
-| File | Responsibility |
-|------|----------------|
-| `scanner.py` | Main scanning logic |
-| `evaluator.py` | Symbol evaluation |
-| `filters.py` | Filter pipeline |
-| `scoring.py` | EV, breakeven, liquidity |
-| `sizing.py` | Position sizing |
-| `diagnostics.py` | Scan diagnostics |
-
-### Market Data Service (`services/market_data/`)
-
-Provides unified market data access:
-
-```python
-class MarketDataService:
-    """
-    Unified market data access with caching.
-
-    Features:
-    - Parallel refresh (20 concurrent)
-    - L1 orderbook caching
-    - Funding rate caching
-    - WebSocket integration
-    """
-
-    async def refresh_all(self) -> None: ...
-    async def get_funding_rates(self, symbol: str) -> tuple[FundingRate, FundingRate]: ...
-    async def get_orderbook_l1(self, symbol: str, exchange: Exchange) -> dict: ...
-```
-
-### Historical Service (`services/historical/`)
-
-Handles historical data backfill with rate limiting:
-
-```python
-async def backfill(
-    symbols: list[str],
-    days_back: int = 7,
-    max_concurrency: int = 2,
-    rate_limit_delay: float = 0.5,
-) -> BackfillResult:
-    """
-    Backfill historical funding rates with session reuse.
-
-    Features:
-    - aiohttp session pooling (10 connections)
-    - Transient error handling (429, 5xx)
-    - Bounds validation (max 1% hourly rate)
-    - Progress logging
-    """
-```
-
-### Liquidity Gates (`services/liquidity_gates*.py`)
-
-Pre-trade liquidity validation:
-
-| File | Responsibility |
-|------|----------------|
-| `liquidity_gates.py` | Main gate facade |
-| `liquidity_gates_l1.py` | Level 1 (spread/depth) checks |
-| `liquidity_gates_preflight.py` | Pre-execution validation |
-| `liquidity_gates_impact_core.py` | Price impact calculation |
-| `liquidity_gates_config.py` | Gate thresholds |
-| `liquidity_gates_types.py` | Gate result types |
 
 ---
 
-## Adapters
+## Market Data Service
 
-### Lighter Adapter (`adapters/exchanges/lighter/`)
+### Data Flow
 
-```python
-class LighterAdapter(ExchangePort):
-    """
-    Lighter DEX adapter with Premium rate limits.
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      Market Data Service                          │
+└──────────────────────────────────────────────────────────────────┘
 
-    Features:
-    - WebSocket orderbook streaming
-    - Account index support (0 vs None semantics)
-    - Connection pooling (100 per-host)
-    - Rate limit: 24,000 req/min
-    """
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  WebSocket      │────▶│   Data Cache    │────▶│  Opportunity    │
+│  Streams        │     │  (TTL-based)    │     │    Scanner      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+       │                        │
+       │                        ▼
+       │               ┌─────────────────┐
+       │               │  Funding Rates  │
+       │               │  (per symbol)   │
+       │               └─────────────────┘
+       │                        │
+       ▼                        ▼
+┌─────────────────┐     ┌─────────────────┐
+│  Orderbook L1   │     │  Mark Prices    │
+│  (bid/ask)      │     │  (mid price)    │
+└─────────────────┘     └─────────────────┘
 ```
 
-Key files:
-- `adapter.py` - Main adapter implementation
-- `ws_client.py` - WebSocket client
-- `orderbook.py` - Orderbook management
+### Caching Strategy
 
-### X10 Adapter (`adapters/exchanges/x10/`)
+| Data Type | TTL | Refresh Strategy |
+|-----------|-----|------------------|
+| Funding Rates | 60s | Batch refresh every 15s |
+| Orderbook L1 | 5s | WebSocket stream (hot symbols) |
+| Depth Snapshot | 5s | On-demand REST fetch |
+| Mark Prices | 5s | Derived from L1 mid |
 
-```python
-class X10Adapter(ExchangePort):
-    """
-    X10 (Extended) CEX adapter.
-
-    Features:
-    - StarkNet integration
-    - Funding rate API
-    - Position management
-    """
-```
-
-### SQLite Store (`adapters/store/sqlite/`)
+### WebSocket Streams
 
 ```python
-class SQLiteStore(TradeStorePort):
-    """
-    SQLite persistence with write-behind pattern.
-
-    Features:
-    - WAL mode for concurrency
-    - Async write queue (batching)
-    - Automatic migrations
-    - PnL snapshot history
-    """
+# Hot symbol streaming
+market_data_streams_enabled: true
+market_data_streams_symbols: ["ETH", "BTC", "SOL"]
+market_data_streams_max_symbols: 6
 ```
 
-Key files:
-
-| File | Responsibility |
-|------|----------------|
-| `store.py` | Main store implementation |
-| `schema.py` | Database schema |
-| `migrations.py` | Schema migrations |
-| `write_queue.py` | Write-behind queue |
-| `trades.py` | Trade CRUD |
-| `funding.py` | Funding records |
-| `historical.py` | Historical data |
-| `events.py` | Event logging |
-| `stats.py` | Aggregations |
-| `utils.py` | DB utilities |
+For high-priority symbols, the bot maintains persistent WebSocket connections for:
+- Orderbook L1 updates (best bid/ask)
+- Trade stream (last price)
+- Funding rate updates
 
 ---
 
-## Configuration
+## Risk Management
 
-### Settings Structure (`config/settings.py`)
+### Circuit Breaker
+
+The circuit breaker prevents cascading failures:
 
 ```python
-@dataclass
-class Settings:
-    # Mode
-    testing_mode: bool = False
-    live_trading: bool = False
+class CircuitBreaker:
+    def __init__(self, threshold: int = 3, cooldown: float = 300.0):
+        self.failures = 0
+        self.threshold = threshold
+        self.cooldown = cooldown
+        self.last_failure: Optional[float] = None
 
-    # Exchange settings
-    lighter: ExchangeSettings
-    x10: ExchangeSettings
+    def record_failure(self):
+        self.failures += 1
+        self.last_failure = time.time()
+        if self.failures >= self.threshold:
+            logger.warning("Circuit breaker OPEN")
 
-    # Strategy settings
-    strategy: StrategySettings
-
-    # Exit rules
-    exit_rules: ExitRulesSettings
-
-    # Risk limits
-    risk: RiskSettings
-
-    # Logging
-    logging: LoggingSettings
-
-@dataclass
-class StrategySettings:
-    min_apy: Decimal = Decimal("10")
-    max_spread_pct: Decimal = Decimal("0.1")
-    min_expected_value_usd: Decimal = Decimal("1")
-    max_breakeven_hours: int = 4
-
-@dataclass
-class ExitRulesSettings:
-    min_hold_hours: float = 1.0
-    net_ev_exit_threshold_usd: Decimal = Decimal("-1")
-    take_profit_apy: Decimal | None = None
-    velocity_exit_enabled: bool = False
-    z_score_exit_enabled: bool = False
+    def is_open(self) -> bool:
+        if self.failures < self.threshold:
+            return False
+        if time.time() - self.last_failure > self.cooldown:
+            self.reset()
+            return False
+        return True
 ```
 
-### Config File (`config/config.yaml`)
+### Risk Limits
 
-```yaml
-testing_mode: false
-live_trading: false
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `max_consecutive_failures` | 3 | Circuit breaker threshold |
+| `max_drawdown_pct` | 20% | Maximum allowed drawdown |
+| `max_exposure_pct` | 80% | Maximum capital exposure |
+| `max_trade_size_pct` | 50% | Maximum single trade size |
+| `min_free_margin_pct` | 5% | Minimum margin reserve |
 
-lighter:
-  api_key: ${LIGHTER_API_KEY}
-  private_key: ${LIGHTER_PRIVATE_KEY}
-  account_index: 0
-  funding_rate_interval_hours: 1  # ALWAYS 1 (hourly)
+### Liquidation Monitoring
 
-x10:
-  api_key: ${X10_API_KEY}
-  private_key: ${X10_PRIVATE_KEY}
-  funding_rate_interval_hours: 1  # ALWAYS 1 (hourly)
-
-strategy:
-  min_apy: 10
-  max_spread_pct: 0.1
-  symbols:
-    - BTC-USD
-    - ETH-USD
-
-exit_rules:
-  min_hold_hours: 1.0
-  net_ev_exit_threshold_usd: -1
-
-risk:
-  max_position_notional_usd: 10000
-  max_total_notional_usd: 50000
-  max_concurrent_positions: 5
+```python
+# Liquidation distance monitoring (when enabled)
+liquidation_distance_monitoring_enabled: true
+liquidation_distance_min_pct: 15.0  # 15% buffer
+liquidation_distance_check_interval_seconds: 15
 ```
+
+---
+
+## Database Schema
+
+### Core Tables
+
+```sql
+-- Active and historical trades
+CREATE TABLE trades (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    status TEXT NOT NULL,
+    lighter_side TEXT,
+    lighter_qty REAL,
+    lighter_entry_price REAL,
+    x10_side TEXT,
+    x10_qty REAL,
+    x10_entry_price REAL,
+    entry_apy REAL,
+    entry_spread REAL,
+    total_funding_collected REAL DEFAULT 0,
+    created_at TIMESTAMP,
+    closed_at TIMESTAMP,
+    close_reason TEXT
+);
+
+-- Execution attempts
+CREATE TABLE execution_attempts (
+    id TEXT PRIMARY KEY,
+    trade_id TEXT,
+    symbol TEXT,
+    status TEXT,
+    leg1_exchange TEXT,
+    leg1_order_id TEXT,
+    leg1_fill_qty REAL,
+    leg2_exchange TEXT,
+    leg2_order_id TEXT,
+    leg2_fill_qty REAL,
+    created_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    FOREIGN KEY (trade_id) REFERENCES trades(id)
+);
+
+-- Funding rate history
+CREATE TABLE funding_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    symbol TEXT,
+    exchange TEXT,
+    rate REAL,
+    timestamp TIMESTAMP,
+    UNIQUE(symbol, exchange, timestamp)
+);
+
+-- Event log
+CREATE TABLE events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT,
+    trade_id TEXT,
+    data TEXT,  -- JSON
+    timestamp TIMESTAMP
+);
+```
+
+### Write Queue
+
+Database writes are batched for performance:
+
+```python
+class WriteQueue:
+    def __init__(self, batch_size: int = 50):
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.batch_size = batch_size
+
+    async def enqueue(self, operation: Callable):
+        await self.queue.put(operation)
+
+    async def flush(self):
+        batch = []
+        while not self.queue.empty() and len(batch) < self.batch_size:
+            batch.append(await self.queue.get())
+
+        async with self.db.transaction():
+            for op in batch:
+                await op()
+```
+
+---
+
+## Performance Optimizations
+
+### Parallel Execution
+
+1. **Parallel Symbol Evaluation**: Opportunities evaluated concurrently
+2. **Parallel Position Fetches**: Both exchanges queried simultaneously
+3. **Batch Parallelization**: Historical data ingestion in parallel chunks
+
+### Caching
+
+1. **Depth Cache**: 5-second TTL for orderbook depth
+2. **Position Cache**: 10-second TTL for position data
+3. **Funding Rate Cache**: 60-second TTL with batch refresh
+
+### Memory Optimization
+
+1. **`itertools.islice`**: Avoid full list materialization
+2. **Single-pass Filtering**: Combined filter operations
+3. **Streaming Ingestion**: Process historical data in chunks
 
 ---
 
 ## Observability
 
-### Logging (`observability/logging.py`)
+### Logging
 
 ```python
-# Log tags for categorization
-LOG_TAG_TRADE = "[TRADE]"    # Trade events (cyan)
-LOG_TAG_PROFIT = "[PROFIT]"  # PnL events (cyan)
-LOG_TAG_HEALTH = "[HEALTH]"  # Health checks (blue)
-LOG_TAG_SCAN = "[SCAN]"      # Scans (grey/dimmed)
-
-# Setup
-logger = setup_logging(settings)
-
-# Usage
-logger.info(f"{LOG_TAG_TRADE} Opened trade {trade_id}")
+# Structured JSON logging
+logging:
+  level: "INFO"
+  json_enabled: true
+  json_file: "logs/funding_bot_json.jsonl"
+  json_max_bytes: 50000000  # 50MB rotation
 ```
 
-Features:
-- Colored console output (BotLogFormatter)
-- JSON file logging (optional)
-- Sensitive data masking (API keys, tokens)
-- Rotating file handlers
+### Metrics
 
-### Metrics (`observability/metrics.py`)
+Key metrics tracked:
+- Execution latency (Leg1, Leg2, total)
+- Fill rates (maker vs taker)
+- Funding rate collection
+- PnL tracking (per trade, cumulative)
+- WebSocket health (latency, reconnects)
 
-Prometheus metrics (optional dependency):
-
-```python
-# Close operations
-record_close_operation(symbol, reason, success, duration_seconds, pnl_usd)
-
-# Execution
-record_execution(symbol, outcome, duration_seconds, notional_usd)
-record_leg1_order(symbol, outcome, fill_rate)
-record_leg2_order(symbol, outcome, fill_rate)
-record_hedge_latency(symbol, latency_seconds)
-
-# Context managers
-with track_close_duration("ETH", "ECON_EXIT") as ctx:
-    # perform close
-    ctx["success"] = True
-    ctx["pnl_usd"] = 15.50
-```
-
-Available metrics:
-
-| Metric | Type | Description |
-|--------|------|-------------|
-| `funding_bot_close_operations_total` | Counter | Close operations by symbol/reason/success |
-| `funding_bot_close_duration_seconds` | Histogram | Close operation duration |
-| `funding_bot_close_pnl_usd` | Histogram | Realized PnL distribution |
-| `funding_bot_execution_total` | Counter | Trade executions by outcome |
-| `funding_bot_leg1_fill_rate` | Gauge | Leg1 maker fill rate |
-| `funding_bot_hedge_latency_seconds` | Histogram | Leg1→Leg2 latency |
-| `funding_bot_active_positions` | Gauge | Current open positions |
-
----
-
-## Performance Characteristics
-
-### Premium-Optimized Settings
+### Telegram Notifications
 
 ```python
-# Connection pooling (utils/rest_pool.py)
-connector = TCPConnector(
-    limit=200,           # Total connections
-    limit_per_host=100,  # Per-host connections
-    keepalive_timeout=300,  # 5 minutes
-    ttl_dns_cache=1800,  # 30 minutes DNS cache
-)
-
-# Parallel operations
-MARKET_DATA_CONCURRENCY = 20  # Parallel symbol refresh
-EXIT_EVAL_CONCURRENCY = 10    # Parallel position eval
-DB_BATCH_SIZE = 100           # executemany batch size
-
-# Caching
-MARKET_INFO_CACHE_TTL = 3600  # 1 hour
-ORDERBOOK_CACHE_TTL = 1       # 1 second (L1)
-```
-
-### Rate Limits
-
-| Exchange | Rate Limit | Headroom |
-|----------|------------|----------|
-| Lighter (Premium) | 24,000 req/min | 80% alert threshold |
-| X10 | Varies | Adaptive backoff |
-
-### Historical Backfill Rate Limits
-
-```python
-# Constants (services/historical/ingestion.py)
-API_TIMEOUT_SECONDS = 30
-SESSION_POOL_LIMIT = 10
-SESSION_KEEPALIVE_SECONDS = 30
-TRANSIENT_HTTP_CODES = {429, 500, 502, 503, 504}
-FUNDING_RATE_MAX_ABS = Decimal("0.01")  # Max 1% hourly
+# Event types sent to Telegram
+- Trade opened: symbol, APY, notional
+- Trade closed: symbol, PnL, reason
+- Critical errors: error message, stack trace
+- Circuit breaker events
 ```
 
 ---
 
-## Entry Points
+## Testing Strategy
 
-### Main Entry (`__main__.py`)
+### Test Categories
 
-```bash
-# Run the bot
-python -m funding_bot
+| Category | Location | Focus |
+|----------|----------|-------|
+| Unit | `tests/unit/` | Isolated component testing |
+| Integration | `tests/integration/` | Adapter and service integration |
+| E2E | `tests/e2e/` | Full system workflows |
 
-# Or via installed package
-funding-bot
-```
-
-### Application Bootstrap (`app/run.py`)
+### Mocking Strategy
 
 ```python
-async def run_bot(settings: Settings) -> None:
-    """Main application entry point."""
-    # 1. Initialize adapters
-    # 2. Initialize services
-    # 3. Start supervisor loops
-    # 4. Handle graceful shutdown
-```
-
-### Supervisor Loops (`app/supervisor/loops.py`)
-
-```python
-# Main loops
-async def opportunity_loop(engine, executor): ...
-async def position_loop(manager): ...
-async def funding_loop(manager): ...
-async def health_loop(adapters): ...
-```
-
----
-
-## Testing
-
-### Test Structure
-
-```
-tests/
-├── unit/                    # Offline unit tests
-│   ├── domain/             # Domain model tests
-│   ├── services/           # Service tests
-│   └── adapters/           # Adapter tests (mocked)
-├── integration/            # Integration tests (marked)
-└── fixtures/               # Test fixtures
+# Example: Mocking exchange adapter
+@pytest.fixture
+def mock_lighter():
+    adapter = AsyncMock(spec=LighterAdapter)
+    adapter.exchange = Exchange.LIGHTER
+    adapter.get_funding_rate.return_value = FundingRate(
+        symbol="ETH",
+        rate=Decimal("0.0001"),
+        next_funding_time=datetime.now(timezone.utc) + timedelta(hours=1)
+    )
+    return adapter
 ```
 
 ### Running Tests
 
 ```bash
-# Unit tests only (offline, no SDK required)
-pytest tests/unit/ -q
+# All tests
+pytest
 
-# Full test suite
-pytest -q
+# Unit tests only
+pytest -m unit
+
+# Integration tests
+pytest -m integration
 
 # With coverage
-pytest --cov=funding_bot tests/
+pytest --cov=src/funding_bot --cov-report=html
 ```
-
-### Test Requirements
-
-- Unit tests must run **offline** (no DNS, no exchange SDK)
-- Use `try/except ImportError` for optional SDK imports
-- Integration tests marked with `@pytest.mark.integration`
-- Currently: **394 unit tests passing**
-
----
-
-## See Also
-
-- [PLANNING.md](../PLANNING.md) - Architecture principles, absolute rules
-- [TASK.md](../TASK.md) - Current tasks, backlog
-- [KNOWLEDGE.md](../KNOWLEDGE.md) - Troubleshooting, best practices
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines

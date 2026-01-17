@@ -1,4 +1,0 @@
-@echo off
-set LIGHTER_API_KEY_PRIVATE_KEY=0x992b5ac873c0dbc812115dc4d1042546a7fc4c1872b0a8e0d1fba17c5765c1f9df1329712f2e2c5f
-set X10_API_KEY=a1c9207f79f0e57ddc454bf1e16dbe49
-pytest tests/integration/liquidity/test_preflight_liquidity_live.py -v -s

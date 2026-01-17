@@ -279,7 +279,8 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     if hasattr(lighter, "wait_for_ws_market_stats_ready"):
         ws_ready = await lighter.wait_for_ws_market_stats_ready(timeout=ws_wait)
     
-    # Load Lighter funding rates from REST API (WebSocket rates are incorrect)
+    # Load Lighter funding rates from REST API (baseline).
+    # Note: Lighter WS market_stats funding_rate is PERCENT and must be normalized (/100) before use.
     await lighter.load_funding_rates_and_prices(force=True)
     
     if ws_ready:

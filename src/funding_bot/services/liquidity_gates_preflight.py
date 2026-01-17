@@ -11,8 +11,6 @@ Key features:
 - Cached orderbook data with TTL (5 seconds)
 - Fallback to L1 if multi-level fails
 - Comprehensive logging for monitoring
-
-Ref: docs/memory/preflight_liquidity_implementation_plan.md
 """
 
 from __future__ import annotations

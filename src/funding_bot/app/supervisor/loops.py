@@ -659,7 +659,7 @@ async def _historical_data_loop(self) -> None:
             break
         except Exception as e:
             self._stats["errors"] += 1
-            logger.warning(f"Historical data loop error: {e}")
+            logger.exception("Historical data loop error")
             await asyncio.sleep(300)  # 5 min on error
 
     logger.info("Historical data loop stopped")
