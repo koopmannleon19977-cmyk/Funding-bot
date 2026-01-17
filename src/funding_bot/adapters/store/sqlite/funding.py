@@ -208,32 +208,50 @@ async def get_recent_apy_history(
     since_str = since.isoformat()
 
     try:
-        # Fetch Lighter rates from funding_candles_minute (contains backfill data)
-        # Note: funding_history only has live data, funding_candles_minute has 90-day backfill
+        # Fetch Lighter rates from BOTH tables (backfill + live data)
+        # - funding_candles_minute: 90-day backfill data
+        # - funding_history: live data from record_funding_history
+        # UNION ensures we get data from both sources, deduped by timestamp
         lighter_cursor = await self._conn.execute(
             """
-            SELECT timestamp, funding_apy
-            FROM funding_candles_minute
-            WHERE symbol = ?
-              AND exchange = 'LIGHTER'
-              AND timestamp >= ?
+            SELECT timestamp, funding_apy FROM (
+                SELECT timestamp, funding_apy
+                FROM funding_candles_minute
+                WHERE symbol = ?
+                  AND exchange = 'LIGHTER'
+                  AND timestamp >= ?
+                UNION
+                SELECT timestamp, rate_apy as funding_apy
+                FROM funding_history
+                WHERE symbol = ?
+                  AND exchange = 'LIGHTER'
+                  AND timestamp >= ?
+            )
             ORDER BY timestamp DESC
             """,
-            (symbol, since_str)
+            (symbol, since_str, symbol, since_str)
         )
         lighter_rows = await lighter_cursor.fetchall()
 
-        # Fetch X10 rates from funding_candles_minute
+        # Fetch X10 rates from BOTH tables
         x10_cursor = await self._conn.execute(
             """
-            SELECT timestamp, funding_apy
-            FROM funding_candles_minute
-            WHERE symbol = ?
-              AND exchange = 'X10'
-              AND timestamp >= ?
+            SELECT timestamp, funding_apy FROM (
+                SELECT timestamp, funding_apy
+                FROM funding_candles_minute
+                WHERE symbol = ?
+                  AND exchange = 'X10'
+                  AND timestamp >= ?
+                UNION
+                SELECT timestamp, rate_apy as funding_apy
+                FROM funding_history
+                WHERE symbol = ?
+                  AND exchange = 'X10'
+                  AND timestamp >= ?
+            )
             ORDER BY timestamp DESC
             """,
-            (symbol, since_str)
+            (symbol, since_str, symbol, since_str)
         )
         x10_rows = await x10_cursor.fetchall()
 

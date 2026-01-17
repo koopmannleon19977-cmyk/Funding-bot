@@ -530,8 +530,11 @@ class HistoricalIngestionService:
                     if direction == "short":
                         rate_raw = -rate_raw
 
-                    # Convert to hourly rate (percent -> decimal, then normalize by interval)
-                    rate_hourly = (rate_raw / Decimal("100")) / interval_hours
+                    # Convert to hourly rate (normalize by interval)
+                    # NOTE: Lighter API returns rates in DECIMAL format (e.g., 0.0001 = 0.01%)
+                    # NO division by 100 - API already returns decimal format.
+                    # This matches the live adapter behavior (see lighter/adapter.py:980-981)
+                    rate_hourly = rate_raw / interval_hours
 
                     # P2.2: Bounds validation - skip extreme rates (likely data errors)
                     if abs(rate_hourly) > self._funding_rate_max_abs:
