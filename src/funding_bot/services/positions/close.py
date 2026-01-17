@@ -2574,8 +2574,17 @@ async def _wait_for_coordinated_fills(
                         trade.leg2.exit_price = updated.avg_fill_price
                         trade.leg2.fees += updated.fee
                 elif not updated.is_active:
-                    logger.warning(f"Maker order {leg} no longer active: {updated.status}")
-                    legs_to_close.remove(leg)
+                    # Order is no longer active but NOT filled
+                    # This means CANCELLED, REJECTED, or EXPIRED
+                    # Do NOT remove from legs_to_close - let IOC escalation handle it
+                    if updated.status in (OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED):
+                        logger.warning(
+                            f"Maker order {leg} was {updated.status.value}, will escalate to IOC"
+                        )
+                        # Keep in legs_to_close for IOC escalation
+                    else:
+                        logger.warning(f"Maker order {leg} no longer active: {updated.status}")
+                        legs_to_close.remove(leg)
             except Exception as e:
                 logger.warning(f"Failed to check maker order for {leg}: {e}")
 
