@@ -208,11 +208,12 @@ async def get_recent_apy_history(
     since_str = since.isoformat()
 
     try:
-        # Fetch Lighter rates
+        # Fetch Lighter rates from funding_candles_minute (contains backfill data)
+        # Note: funding_history only has live data, funding_candles_minute has 90-day backfill
         lighter_cursor = await self._conn.execute(
             """
-            SELECT timestamp, rate_apy
-            FROM funding_history
+            SELECT timestamp, funding_apy
+            FROM funding_candles_minute
             WHERE symbol = ?
               AND exchange = 'LIGHTER'
               AND timestamp >= ?
@@ -222,11 +223,11 @@ async def get_recent_apy_history(
         )
         lighter_rows = await lighter_cursor.fetchall()
 
-        # Fetch X10 rates
+        # Fetch X10 rates from funding_candles_minute
         x10_cursor = await self._conn.execute(
             """
-            SELECT timestamp, rate_apy
-            FROM funding_history
+            SELECT timestamp, funding_apy
+            FROM funding_candles_minute
             WHERE symbol = ?
               AND exchange = 'X10'
               AND timestamp >= ?
