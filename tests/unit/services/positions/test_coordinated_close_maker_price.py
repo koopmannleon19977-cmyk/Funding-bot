@@ -263,3 +263,115 @@ async def test_cancelled_order_triggers_ioc_escalation():
         "CANCELLED/REJECTED orders should trigger IOC escalation or fallback, "
         "not be treated as filled"
     )
+
+
+@pytest.mark.asyncio
+async def test_eden_scenario_from_log():
+    """
+    Reproduce exact scenario from funding_bot_20260117_221146.log:
+
+    - EDEN trade with leg1=SELL 3910 on Lighter, leg2=BUY 3910 on X10
+    - Close attempt: leg1 BUY @ 0.06678, leg2 SELL @ 0.06672
+    - leg1 CANCELLED, leg2 REJECTED
+    - Should NOT log "All legs filled", should escalate/fallback
+    """
+    from unittest.mock import AsyncMock
+    import types
+
+    from funding_bot.domain.models import Exchange, OrderStatus, Side
+    from funding_bot.services.positions import close
+
+    service = MagicMock()
+    service.settings.trading.coordinated_close_enabled = True
+    service.settings.trading.coordinated_close_x10_use_maker = True
+    service.settings.trading.coordinated_close_maker_timeout_seconds = 0.5
+    service.settings.trading.coordinated_close_ioc_timeout_seconds = 2.0
+    service.settings.trading.coordinated_close_escalate_to_ioc = True
+
+    # EDEN orderbook from log
+    service.market_data.get_price.return_value = MagicMock(
+        lighter_price=Decimal("0.0668"),
+        x10_price=Decimal("0.0668"),
+    )
+    service.market_data.get_orderbook.return_value = MagicMock(
+        lighter_bid=Decimal("0.06675"),  # From log: bid
+        lighter_ask=Decimal("0.0668"),   # From log: ask
+        x10_bid=Decimal("0.06675"),
+        x10_ask=Decimal("0.0668"),
+    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
+        tick_size=Decimal("0.00001")
+    )
+
+    # EDEN trade: leg1=SELL on Lighter, leg2=BUY on X10
+    trade = MagicMock()
+    trade.symbol = "EDEN"
+    trade.leg1 = MagicMock(
+        side=Side.SELL,
+        filled_qty=Decimal("3910"),
+        remaining_qty=Decimal("3910"),
+        fees=Decimal("0"),
+    )
+    trade.leg2 = MagicMock(
+        side=Side.BUY,
+        filled_qty=Decimal("3910"),
+        remaining_qty=Decimal("3910"),
+        fees=Decimal("0"),
+    )
+
+    placed_prices = {}
+
+    async def mock_place_order(request):
+        placed_prices[request.exchange.value] = request.price
+        order = MagicMock()
+        order.order_id = f"order_{request.exchange.value}"
+        order.status = OrderStatus.PENDING
+        order.is_filled = False
+        order.is_active = True
+        order.filled_qty = Decimal("0")
+        order.avg_fill_price = Decimal("0")
+        order.fee = Decimal("0")
+        return order
+
+    def make_status_order(order_id, status):
+        order = MagicMock()
+        order.order_id = order_id
+        order.status = status
+        order.is_filled = False
+        order.is_active = False
+        order.filled_qty = Decimal("0")
+        order.avg_fill_price = Decimal("0")
+        order.fee = Decimal("0")
+        return order
+
+    service.lighter.place_order = AsyncMock(side_effect=mock_place_order)
+    service.x10.place_order = AsyncMock(side_effect=mock_place_order)
+    service.lighter.get_order = AsyncMock(
+        return_value=make_status_order("order_LIGHTER", OrderStatus.CANCELLED)
+    )
+    service.x10.get_order = AsyncMock(
+        return_value=make_status_order("order_X10", OrderStatus.REJECTED)
+    )
+
+    service._close_lighter_smart = AsyncMock()
+    service._close_x10_smart = AsyncMock()
+    service._update_trade = AsyncMock()
+    service._submit_maker_order = types.MethodType(close._submit_maker_order, service)
+    service._execute_ioc_close = AsyncMock()
+
+    await close._close_both_legs_coordinated(service, trade)
+
+    # Verify prices are on correct side of spread after fix
+    # leg1 close side = BUY (inverse of SELL) -> should use bid
+    # leg2 close side = SELL (inverse of BUY) -> should use ask
+    assert placed_prices.get("LIGHTER") == Decimal("0.06675"), (
+        f"Lighter BUY should use bid 0.06675, got {placed_prices.get('LIGHTER')}"
+    )
+    assert placed_prices.get("X10") == Decimal("0.0668"), (
+        f"X10 SELL should use ask 0.0668, got {placed_prices.get('X10')}"
+    )
+
+    # Verify IOC escalation or fallback was triggered
+    assert service._execute_ioc_close.called or service._close_lighter_smart.called, (
+        "Should escalate to IOC or fallback after CANCELLED/REJECTED"
+    )
