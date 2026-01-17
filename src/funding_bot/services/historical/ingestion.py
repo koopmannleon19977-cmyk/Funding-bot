@@ -536,7 +536,7 @@ class HistoricalIngestionService:
                     # This matches the live adapter behavior (see lighter/adapter.py:980-981)
                     rate_hourly = rate_raw / interval_hours
 
-                    # P2.2: Bounds validation - skip extreme rates (likely data errors)
+                    # P2.2: Bounds validation - clamp extreme rates to max (preserves data continuity)
                     if abs(rate_hourly) > self._funding_rate_max_abs:
                         skipped_extreme += 1
                         abs_rate = abs(rate_hourly)
@@ -545,7 +545,9 @@ class HistoricalIngestionService:
                         if first_skipped_ts is None:
                             first_skipped_ts = timestamp
                         last_skipped_ts = timestamp
-                        continue
+                        # Clamp to max instead of skipping (preserves time series continuity)
+                        sign = Decimal("1") if rate_hourly > 0 else Decimal("-1")
+                        rate_hourly = sign * self._funding_rate_max_abs
 
                     # Convert to APY (hourly -> annual, simple multiplication)
                     funding_apy = rate_hourly * 24 * 365
@@ -564,9 +566,9 @@ class HistoricalIngestionService:
 
                 logger.info(f"Fetched {len(fundings)} hourly funding records from Lighter for {symbol}")
                 if skipped_extreme:
-                    logger.warning(
-                        f"Lighter {symbol}: Skipped {skipped_extreme} extreme funding rates "
-                        f"(>{self._funding_rate_max_abs}, max_abs={max_abs_rate}) "
+                    logger.info(
+                        f"Lighter {symbol}: Clamped {skipped_extreme} extreme funding rates "
+                        f"to ±{self._funding_rate_max_abs} (max_abs={max_abs_rate}) "
                         f"between {first_skipped_ts} and {last_skipped_ts}"
                     )
             else:
@@ -682,6 +684,12 @@ class HistoricalIngestionService:
         candles_by_ts: dict[datetime, FundingCandle] = {}
         x10_symbol = _get_x10_symbol(symbol)
 
+        # Track clamped extreme rates for summary logging
+        clamped_count = 0
+        max_abs_rate = Decimal("0")
+        first_clamped_ts: datetime | None = None
+        last_clamped_ts: datetime | None = None
+
         url = f"{self.x10_base_url}/info/{x10_symbol}/funding"
         start_ms = int(start_time.timestamp() * 1000)
         end_ms = int(end_time.timestamp() * 1000)
@@ -792,13 +800,18 @@ class HistoricalIngestionService:
                 rate_val = rate_data.get("funding_rate", rate_data.get("f", 0))
                 rate_hourly = Decimal(str(rate_val))
 
-                # P2.2: Bounds validation - skip extreme rates
+                # P2.2: Bounds validation - clamp extreme rates to max (preserves data continuity)
                 if abs(rate_hourly) > self._funding_rate_max_abs:
-                    logger.warning(
-                        f"X10 {symbol}: Skipping extreme funding rate {rate_hourly} "
-                        f"(exceeds {self._funding_rate_max_abs}) at {timestamp}"
-                    )
-                    continue
+                    clamped_count += 1
+                    abs_rate = abs(rate_hourly)
+                    if abs_rate > max_abs_rate:
+                        max_abs_rate = abs_rate
+                    if first_clamped_ts is None:
+                        first_clamped_ts = timestamp
+                    last_clamped_ts = timestamp
+                    # Clamp to max instead of skipping
+                    sign = Decimal("1") if rate_hourly > 0 else Decimal("-1")
+                    rate_hourly = sign * self._funding_rate_max_abs
 
                 funding_apy = rate_hourly * 24 * 365
 
@@ -844,6 +857,14 @@ class HistoricalIngestionService:
                 break
 
             cursor = next_cursor_int
+
+        # Log summary of clamped extreme rates (avoid log spam during pagination)
+        if clamped_count:
+            logger.info(
+                f"X10 {symbol}: Clamped {clamped_count} extreme funding rates "
+                f"to ±{self._funding_rate_max_abs} (max_abs={max_abs_rate}) "
+                f"between {first_clamped_ts} and {last_clamped_ts}"
+            )
 
         return list(candles_by_ts.values())
 
