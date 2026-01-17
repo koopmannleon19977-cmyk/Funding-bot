@@ -2467,14 +2467,18 @@ def _calculate_leg_maker_price(
 
     price = Decimal("0")
 
+    # For POST_ONLY/maker orders, place on OUR side of the spread:
+    # - BUY: use bid (join the bid side, don't cross to ask)
+    # - SELL: use ask (join the ask side, don't cross to bid)
+    # This is the OPPOSITE of IOC orders which cross the spread.
     if exchange == "lighter":
         if ob and ob.lighter_bid > 0 and ob.lighter_ask > 0:
-            price = ob.lighter_bid if close_side == Side.SELL else ob.lighter_ask
+            price = ob.lighter_ask if close_side == Side.SELL else ob.lighter_bid
         elif price_data and price_data.lighter_price > 0:
             price = price_data.lighter_price
     else:  # x10
         if ob and ob.x10_bid > 0 and ob.x10_ask > 0:
-            price = ob.x10_bid if close_side == Side.SELL else ob.x10_ask
+            price = ob.x10_ask if close_side == Side.SELL else ob.x10_bid
         elif price_data and price_data.x10_price > 0:
             price = price_data.x10_price
 
