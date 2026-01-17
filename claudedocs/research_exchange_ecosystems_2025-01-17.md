@@ -3323,7 +3323,7 @@ class ExchangeHealthChecker:
 
 ## Zusammenfassung der Recherche
 
-Diese Wissensdatenbank enthält **14 Teile** mit umfassenden technischen Details:
+Diese Wissensdatenbank enthält **15 Teile** mit umfassenden technischen Details:
 
 1. **Architektur**: ZK-Rollup (Lighter) vs StarkEx→Starknet (Extended)
 2. **API-Grundlagen**: REST + WebSocket Endpunkte
@@ -3339,6 +3339,7 @@ Diese Wissensdatenbank enthält **14 Teile** mit umfassenden technischen Details
 12. **Infrastructure**: Starknet Config, Asset Resolution, L3 Status
 13. **30-Tage Funding-Historie**: Lückenlose Abfrage + Z-Score
 14. **Operativer Betrieb & DevOps**: Sequencer, WebSocket, Maintenance, Hidden Limits
+15. **Backfill-Analyse**: Daten-Verfügbarkeit, API-Unterschiede, Empfehlungen
 
 **Kritische Erkenntnisse für Arbitrage-Bot:**
 - Beide Exchanges: Funding STÜNDLICH (nicht 8h!)
@@ -3353,5 +3354,90 @@ Diese Wissensdatenbank enthält **14 Teile** mit umfassenden technischen Details
 
 ---
 
+## Teil 15: Historische Daten-Verfügbarkeit (Backfill-Analyse)
+
+> **Analyse-Datum:** 2026-01-17
+> **Problem:** Lighter hat nur 35 Tage Backfill-Daten vs X10 mit 92 Tagen
+
+### 15.1 Aktuelle Datenbank-Status
+
+```sql
+SELECT exchange, COUNT(DISTINCT symbol), COUNT(*),
+       DATE(MIN(timestamp)), DATE(MAX(timestamp))
+FROM funding_candles_minute GROUP BY exchange;
+```
+
+| Exchange | Symbole | Records | Älteste | Neueste | Tage |
+|----------|---------|---------|---------|---------|------|
+| **LIGHTER** | 66 | 51,813 | 2025-12-14 | 2026-01-17 | **34** |
+| **X10** | 65 | 139,545 | 2025-10-16 | 2026-01-17 | **92** |
+
+### 15.2 API-Unterschiede bei historischen Daten
+
+| Aspekt | Lighter `/api/v1/fundings` | X10 `/api/v1/info/{market}/funding` |
+|--------|---------------------------|-------------------------------------|
+| **Zeit-Parameter** | `count_back` (ignoriert Zeitraum) | `startTime` + `endTime` (exakt) |
+| **Pagination** | Keine (single request) | Cursor-basiert |
+| **Max Records/Request** | ~2160 (90 Tage × 24h) | 10,000 |
+| **Beliebige Historie** | ❌ Nein, nur letzte N | ✅ Ja, unbegrenzt |
+
+**Kritische Erkenntnis:** Die Lighter API **ignoriert `start_timestamp` und `end_timestamp`** und verwendet nur `count_back`. Das bedeutet, dass nur die letzten N Datenpunkte abgerufen werden können.
+
+### 15.3 Warum hat Lighter weniger Daten?
+
+**Hypothese 1: API-Limitation (WAHRSCHEINLICH)**
+- Lighter gibt nur Daten zurück, die intern gespeichert sind
+- Viele Märkte auf Lighter wurden erst im Dezember 2025 gestartet
+- Erste Daten am 2025-12-14 (nur 32 Records), ab 2025-12-15 normal (~1560/Tag)
+
+**Hypothese 2: Bot-Code-Limit (UNWAHRSCHEINLICH)**
+```python
+MAX_LIGHTER_CANDLES = 2160  # 90 days * 24 hours
+```
+Der Bot versucht 90 Tage zu holen, bekommt aber nur 34 zurück.
+
+### 15.4 Bot-Implementierung (ingestion.py)
+
+**Lighter:** Single Request
+```python
+# API uses count_back, ignores time range
+lighter_data = await self._fetch_lighter_candles(
+    symbol, start_time, end_time,
+    count_back=min(hours_needed, MAX_LIGHTER_CANDLES),
+    session=session,
+)
+```
+
+**X10:** Chunked + Pagination
+```python
+# API respects time ranges + cursor pagination
+chunk_start = start_time
+while chunk_start < end_time:
+    chunk_end = min(chunk_start + timedelta(days=7), end_time)
+    x10_data = await self._fetch_x10_candles(symbol, chunk_start, chunk_end, session)
+    chunk_start = chunk_end  # Loop bis zum Ende
+```
+
+### 15.5 Auswirkung auf Exit-Strategien
+
+| Exit-Strategie | Benötigte Historie | Status |
+|----------------|-------------------|--------|
+| Z-Score Exit | 7 Tage (168h) | ✅ Funktioniert |
+| Velocity Exit | 24h + Trend | ✅ Funktioniert |
+| Funding Flip | Aktuell | ✅ Funktioniert |
+
+**Fazit:** 34 Tage Lighter-Daten sind **ausreichend** für alle aktuellen Exit-Strategien.
+
+### 15.6 Empfehlungen
+
+1. **Backfill erneut ausführen:** `python -m funding_bot backfill`
+   - Prüft, ob Lighter jetzt mehr historische Daten hat
+
+2. **Monitoring:** Alert wenn Lighter-Daten < 14 Tage (unter Z-Score-Anforderung)
+
+3. **Alternative Quelle:** [CoinAPI](https://www.coinapi.io/blog/historical-crypto-funding-rates-api-coinapi) bietet historische Funding-Daten für beide Exchanges
+
+---
+
 *Generiert mit Claude Code Deep Research - 2025-01-17*
-*Letzte Aktualisierung: Teil 14 (Operativer Betrieb & DevOps) hinzugefügt*
+*Letzte Aktualisierung: Teil 15 (Backfill-Analyse) hinzugefügt - 2026-01-17*
