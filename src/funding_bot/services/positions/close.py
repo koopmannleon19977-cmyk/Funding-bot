@@ -9,7 +9,7 @@ import contextlib
 import time
 from collections.abc import Awaitable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -691,7 +691,9 @@ async def _calculate_grid_step_config(
     )
 
 
-async def _close_verify_and_finalize(self, trade: Trade, reason: str) -> CloseResult:
+async def _close_verify_and_finalize(
+    self, trade: Trade, reason: str, *, _recovery_attempt: bool = False
+) -> CloseResult:
     """
     Verify positions are closed and finalize trade (idempotent close path).
 
@@ -701,9 +703,13 @@ async def _close_verify_and_finalize(self, trade: Trade, reason: str) -> CloseRe
     2. Performs post-close readback (T3) to get accurate VWAP/fees from API
     3. Finalizes the trade with calculated realized_pnl
 
+    If positions are still open (e.g., due to CANCELLED/REJECTED orders), this
+    function will reset the trade status and retry the full close flow once.
+
     Args:
         trade: Trade in CLOSING state
         reason: Close reason (may differ from original, use original if set)
+        _recovery_attempt: Internal flag to prevent infinite recovery loops
 
     Returns:
         CloseResult with success status and realized_pnl
@@ -765,6 +771,41 @@ async def _close_verify_and_finalize(self, trade: Trade, reason: str) -> CloseRe
             realized_pnl=realized_pnl,
             reason=reason,
         )
+
+    except PositionsStillOpenError as e:
+        # Positions still open despite CLOSING status - likely due to CANCELLED/REJECTED orders.
+        # Recovery: Reset trade status and retry the full close flow (once).
+        if _recovery_attempt:
+            # Already tried recovery once, don't loop infinitely
+            logger.error(
+                f"Recovery close also failed for {trade.symbol}: {e}. "
+                f"Manual intervention may be required."
+            )
+            return CloseResult(
+                success=False,
+                reason=reason,
+                error=f"Recovery failed: {e}",
+            )
+
+        logger.warning(
+            f"Positions still open for {trade.symbol} despite CLOSING status - "
+            f"initiating recovery close (original orders likely CANCELLED/REJECTED)"
+        )
+
+        # Reset trade state for a fresh close attempt
+        trade.status = TradeStatus.OPEN
+        trade.close_reason = None
+        await self._update_trade(trade)
+
+        # Retry the full close flow (this will go through _close_impl again)
+        # Mark as recovery attempt to prevent infinite loops
+        result = await self._close_impl(trade, reason)
+
+        # If the retry succeeded but we need to verify again, do so with recovery flag
+        if not result.success and trade.status == TradeStatus.CLOSING:
+            return await self._close_verify_and_finalize(trade, reason, _recovery_attempt=True)
+
+        return result
 
     except Exception as e:
         logger.exception(f"Error in verify+finalize for {trade.symbol}: {e}")
@@ -900,6 +941,15 @@ async def _post_close_readback(self, trade: Trade) -> tuple[bool, bool]:
             net_pnl_tolerance_usd=net_pnl_tolerance_usd,
         )
 
+    # Fallback: If leg1 exit_price is still 0, try trade history API
+    if trade.leg1.exit_price == 0 and trade.leg1.filled_qty > 0:
+        leg1_corrected = await self._fallback_readback_from_trades(
+            trade=trade,
+            adapter=self.lighter,
+            leg=trade.leg1,
+            leg_name="leg1",
+        )
+
     # Process X10 leg (leg2)
     leg2_corrected = False
     if x10_order_ids["leg2"]:
@@ -912,7 +962,204 @@ async def _post_close_readback(self, trade: Trade) -> tuple[bool, bool]:
             net_pnl_tolerance_usd=net_pnl_tolerance_usd,
         )
 
+    # Fallback: If leg2 exit_price is still 0, try trade history API
+    if trade.leg2.exit_price == 0 and trade.leg2.filled_qty > 0:
+        leg2_corrected = await self._fallback_readback_from_trades(
+            trade=trade,
+            adapter=self.x10,
+            leg=trade.leg2,
+            leg_name="leg2",
+        )
+
     return leg1_corrected, leg2_corrected
+
+
+async def _fallback_readback_from_trades(
+    self,
+    trade: Trade,
+    adapter: ExchangePort,
+    leg: TradeLeg,
+    leg_name: str,
+) -> bool:
+    """
+    Fallback readback using trade history API when order-based readback fails.
+
+    This is called when exit_price is still 0 after normal readback, typically because:
+    - Close order events weren't logged (legacy code path)
+    - Orders were partially filled across multiple IOC attempts
+    - Order IDs couldn't be resolved
+
+    Queries the exchange's trade history API to find recent fills for the symbol
+    and calculates VWAP from actual executed trades.
+
+    Returns:
+        True if exit_price was successfully recovered, False otherwise
+    """
+    try:
+        logger.info(
+            f"Fallback readback for {trade.symbol} {leg_name}: "
+            f"querying trade history API from {adapter.exchange}"
+        )
+
+        # Get close side (inverse of position side)
+        close_side = leg.side.inverse()
+
+        # Query trade history - look for recent trades on this symbol
+        trades_data = await self._fetch_recent_trades(adapter, trade.symbol)
+
+        if not trades_data:
+            logger.warning(
+                f"Fallback readback: no trades found for {trade.symbol} on {adapter.exchange}"
+            )
+            return False
+
+        # Extract close order IDs from events for precise filtering
+        close_order_ids: set[str] = set()
+        close_start = None
+        for event in trade.events:
+            event_type = event.get("event_type", "")
+            # Collect order IDs from close events
+            if "CLOSE" in event_type or "MAKER" in event_type or "IOC" in event_type:
+                order_id = event.get("order_id")
+                if order_id:
+                    close_order_ids.add(str(order_id))
+            # Get close start timestamp
+            if event_type in ("COORDINATED_CLOSE_START", "CLOSE_ORDER_PLACED"):
+                ts_str = event.get("timestamp")
+                if ts_str and not close_start:
+                    try:
+                        close_start = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pass
+
+        # Default: look back 30 minutes if no close start found
+        if not close_start:
+            close_start = datetime.now(UTC) - timedelta(minutes=30)
+
+        logger.debug(
+            f"Fallback readback filter: close_order_ids={close_order_ids}, "
+            f"close_start={close_start.isoformat()}, close_side={close_side.value}"
+        )
+
+        # Filter and aggregate trades
+        total_qty = Decimal("0")
+        total_notional = Decimal("0")
+        total_fees = Decimal("0")
+
+        for t in trades_data:
+            trade_side = getattr(t, "side", None)
+            if trade_side is None:
+                # Lighter uses is_ask
+                is_ask = getattr(t, "is_ask", None)
+                if is_ask is not None:
+                    trade_side = Side.SELL if is_ask else Side.BUY
+            elif isinstance(trade_side, str):
+                # X10 returns side as string "BUY"/"SELL"
+                trade_side = Side.BUY if trade_side.upper() == "BUY" else Side.SELL
+
+            # Skip if wrong side
+            if trade_side != close_side:
+                continue
+
+            # Check order ID match (if we have close order IDs)
+            trade_order_id = str(getattr(t, "order_id", "") or "")
+            order_id_match = not close_order_ids or trade_order_id in close_order_ids
+
+            # Parse timestamp (optional - X10 may not return timestamps)
+            ts = getattr(t, "timestamp", None) or getattr(t, "created_at", None)
+            trade_time = None
+            if isinstance(ts, (int, float)):
+                trade_time = datetime.fromtimestamp(ts / 1000, UTC)
+            elif isinstance(ts, str):
+                try:
+                    trade_time = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    pass
+            elif isinstance(ts, datetime):
+                trade_time = ts
+
+            # Filter logic:
+            # 1. If we have close order IDs, use order ID match (most precise)
+            # 2. Otherwise, use timestamp filter (if timestamp available)
+            # 3. If no timestamp and no order IDs, include trade (X10 edge case)
+            if close_order_ids:
+                # Strict: only include trades with matching order IDs
+                if not order_id_match:
+                    continue
+            elif trade_time is not None and trade_time < close_start:
+                # Fallback: use timestamp filter
+                continue
+
+            # Extract trade data
+            qty = Decimal(str(getattr(t, "base_amount", 0) or getattr(t, "qty", 0) or 0))
+            price = Decimal(str(getattr(t, "price", 0) or 0))
+            fee = Decimal(str(getattr(t, "fee", 0) or 0))
+
+            if qty > 0 and price > 0:
+                total_qty += qty
+                total_notional += qty * price
+                total_fees += fee
+
+        if total_qty > 0:
+            vwap = total_notional / total_qty
+            leg.exit_price = vwap
+            leg.fees += total_fees
+
+            logger.info(
+                f"Fallback readback SUCCESS for {trade.symbol} {leg_name}: "
+                f"VWAP={vwap:.6f} qty={total_qty} fees=${total_fees:.4f}"
+            )
+            return True
+        else:
+            logger.warning(
+                f"Fallback readback: no matching trades found for {trade.symbol} {leg_name} "
+                f"(side={close_side.value}, since={close_start.isoformat()})"
+            )
+            return False
+
+    except Exception as e:
+        logger.warning(f"Fallback readback failed for {trade.symbol} {leg_name}: {e}")
+        return False
+
+
+async def _fetch_recent_trades(
+    self,
+    adapter: ExchangePort,
+    symbol: str,
+) -> list:
+    """Fetch recent trades from exchange API."""
+    try:
+        if adapter.exchange == Exchange.LIGHTER:
+            market_id = adapter._get_market_index(symbol)
+            if market_id < 0:
+                return []
+
+            trades_resp = await adapter._sdk_call_with_retry(
+                lambda: adapter._order_api.trades(
+                    sort_by="timestamp",
+                    limit=100,
+                    market_id=market_id,
+                    account_index=adapter._account_index,
+                    sort_dir="desc",
+                    auth=adapter._auth_token,
+                )
+            )
+            return getattr(trades_resp, "trades", []) or []
+
+        else:  # X10
+            market_name = f"{symbol}-USD"
+            trades_resp = await adapter._sdk_call_with_retry(
+                lambda: adapter._trading_client.account.get_trades(
+                    market_names=[market_name],
+                    limit=100,
+                ),
+                operation_name="get_trades",
+            )
+            return getattr(trades_resp, "data", []) or []
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch trades for {symbol} from {adapter.exchange}: {e}")
+        return []
 
 
 async def _readback_leg(
@@ -2394,7 +2641,7 @@ class _CoordinatedCloseContext:
     escalate_to_ioc: bool
 
 
-def _build_coordinated_close_context(
+async def _build_coordinated_close_context(
     self,
     trade: Trade,
 ) -> _CoordinatedCloseContext | None:
@@ -2402,6 +2649,10 @@ def _build_coordinated_close_context(
     Build context for coordinated close operation.
 
     Returns None if there's nothing to close.
+
+    IMPORTANT: Uses actual exchange positions (not trade.filled_qty) to handle
+    partial closes correctly. This prevents issues where one leg is already closed
+    but the bot still tries to close it with the original qty.
     """
     ts = self.settings.trading
     x10_use_maker = bool(getattr(ts, "coordinated_close_x10_use_maker", True))
@@ -2411,8 +2662,40 @@ def _build_coordinated_close_context(
     price_data = self.market_data.get_price(trade.symbol)
     ob = self.market_data.get_orderbook(trade.symbol)
 
-    leg1_close_qty = trade.leg1.filled_qty
-    leg2_close_qty = trade.leg2.filled_qty
+    # Fetch ACTUAL positions from exchanges (not trade.filled_qty)
+    # This handles partial closes and recovery scenarios correctly
+    lighter_pos, x10_pos = await asyncio.gather(
+        self.lighter.get_position(trade.symbol),
+        self.x10.get_position(trade.symbol),
+        return_exceptions=True,
+    )
+
+    # Extract actual qty from positions (0 if no position or error)
+    if isinstance(lighter_pos, BaseException) or lighter_pos is None:
+        leg1_close_qty = Decimal("0")
+        if isinstance(lighter_pos, BaseException):
+            logger.warning(f"Failed to get Lighter position for {trade.symbol}: {lighter_pos}")
+    else:
+        leg1_close_qty = abs(lighter_pos.qty)
+
+    if isinstance(x10_pos, BaseException) or x10_pos is None:
+        leg2_close_qty = Decimal("0")
+        if isinstance(x10_pos, BaseException):
+            logger.warning(f"Failed to get X10 position for {trade.symbol}: {x10_pos}")
+    else:
+        leg2_close_qty = abs(x10_pos.qty)
+
+    # Log if positions differ from trade record (indicates partial close)
+    if leg1_close_qty != trade.leg1.filled_qty:
+        logger.info(
+            f"Lighter position qty ({leg1_close_qty}) differs from trade record "
+            f"({trade.leg1.filled_qty}) - using actual position"
+        )
+    if leg2_close_qty != trade.leg2.filled_qty:
+        logger.info(
+            f"X10 position qty ({leg2_close_qty}) differs from trade record "
+            f"({trade.leg2.filled_qty}) - using actual position"
+        )
 
     if leg1_close_qty == 0 and leg2_close_qty == 0:
         return None
@@ -2684,8 +2967,8 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
     _log_coordinated_close_start(trade)
     logger.info(f"Coordinated close for {trade.symbol} - parallel maker orders on both legs")
 
-    # Build context
-    ctx = _build_coordinated_close_context(self, trade)
+    # Build context (async to fetch actual positions from exchanges)
+    ctx = await _build_coordinated_close_context(self, trade)
     if ctx is None:
         logger.info(f"No position to close for {trade.symbol}")
         return
@@ -2697,6 +2980,9 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
     if ctx.leg2_close_qty > 0:
         legs_to_close.append("leg2")
 
+    # Track expected legs for proper fill verification (Fix: CANCELLED/REJECTED orders)
+    expected_legs = set(legs_to_close)
+
     try:
         # Step 1: Submit maker orders
         _, maker_order_ids = await _submit_coordinated_maker_orders(self, ctx)
@@ -2706,7 +2992,10 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
             self, trade, legs_to_close, maker_order_ids, ctx.maker_timeout
         )
 
-        if not legs_to_close:
+        # Fix: Check filled_legs instead of legs_to_close to detect CANCELLED/REJECTED orders
+        # Previously, CANCELLED orders were removed from legs_to_close but not added to filled_legs,
+        # causing the bot to incorrectly report "All legs filled" when orders were actually rejected.
+        if filled_legs == expected_legs:
             logger.info(f"All legs filled via maker orders for {trade.symbol}")
             _log_coordinated_close_complete(trade=trade, filled_legs=filled_legs)
             return
@@ -2810,17 +3099,48 @@ async def _execute_ioc_close(
 
     order = await adapter.place_order(request)
 
-    if order and order.is_filled:
-        logger.info(f"IOC filled for {leg}: {order.filled_qty} @ {order.avg_fill_price}")
-        # Update trade leg with exit price and accumulate fees
-        if leg == "leg1":
-            trade.leg1.exit_price = order.avg_fill_price
-            trade.leg1.fees += order.fee
+    if order:
+        # Log close order event for post-close readback (T3)
+        # This is critical for accurate VWAP/fees calculation even for partial fills
+        _log_close_order_placed(
+            trade=trade,
+            exchange=exchange,
+            leg=leg,
+            order_id=order.order_id,
+            client_order_id=getattr(order, "client_order_id", None),
+            side=side,
+            qty=qty,
+            price=price,
+            time_in_force=TimeInForce.IOC,
+            post_only=False,
+        )
+
+        # Handle fills (full or partial)
+        if order.filled_qty and order.filled_qty > 0:
+            fill_price = order.avg_fill_price if order.avg_fill_price > 0 else price
+            logger.info(
+                f"IOC {'filled' if order.is_filled else 'partially filled'} for {leg}: "
+                f"{order.filled_qty} @ {fill_price}"
+            )
+
+            # Update trade leg with exit price (VWAP calculation for multiple fills)
+            target_leg = trade.leg1 if leg == "leg1" else trade.leg2
+            current_exit = getattr(target_leg, "exit_price", Decimal("0")) or Decimal("0")
+            current_exit_qty = getattr(target_leg, "_exit_qty", Decimal("0")) or Decimal("0")
+
+            # VWAP: (old_price * old_qty + new_price * new_qty) / (old_qty + new_qty)
+            if current_exit > 0 and current_exit_qty > 0:
+                total_qty = current_exit_qty + order.filled_qty
+                vwap = (current_exit * current_exit_qty + fill_price * order.filled_qty) / total_qty
+                target_leg.exit_price = vwap
+                target_leg._exit_qty = total_qty  # Track cumulative exit qty for VWAP
+            else:
+                target_leg.exit_price = fill_price
+                target_leg._exit_qty = order.filled_qty
+
+            target_leg.fees += order.fee
         else:
-            trade.leg2.exit_price = order.avg_fill_price
-            trade.leg2.fees += order.fee
-    elif order:
-        logger.warning(f"IOC not filled for {leg}: {order.order_id}")
+            logger.warning(f"IOC not filled for {leg}: {order.order_id}")
 
 
 async def _close_x10_smart(self, trade: Trade) -> None:

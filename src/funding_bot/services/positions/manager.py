@@ -32,6 +32,8 @@ from funding_bot.services.positions.close import (
     _execute_lighter_close_attempt,
     _execute_lighter_maker_close,
     _execute_lighter_taker_fallback,
+    _fallback_readback_from_trades,
+    _fetch_recent_trades,
     _get_lighter_close_config,
     _post_close_readback,
     _rebalance_trade,
@@ -424,3 +426,5 @@ class PositionManager:
     _close_both_legs_coordinated = _close_both_legs_coordinated
     _submit_maker_order = _submit_maker_order
     _execute_ioc_close = _execute_ioc_close
+    _fallback_readback_from_trades = _fallback_readback_from_trades
+    _fetch_recent_trades = _fetch_recent_trades
