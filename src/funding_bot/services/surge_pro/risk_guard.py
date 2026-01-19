@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from funding_bot.observability.logging import get_logger
 
@@ -31,7 +31,7 @@ class RiskCheckResult:
 class RiskGuard:
     """Monitors and guards against excessive risk."""
 
-    def __init__(self, *, settings: SurgeProSettings, store):
+    def __init__(self, *, settings: SurgeProSettings, store: Any):
         self.settings = settings
         self.store = store
         self._paused_until: datetime | None = None

@@ -1,4 +1,5 @@
 import asyncio
+
 from utils import default_example_setup
 
 
@@ -12,6 +13,7 @@ async def main():
 
     tx_info, response, err = await client.create_sub_account()
     print(tx_info, response, err)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

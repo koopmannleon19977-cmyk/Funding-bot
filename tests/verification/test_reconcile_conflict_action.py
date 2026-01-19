@@ -1,4 +1,3 @@
-
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -69,8 +68,6 @@ async def test_reconcile_conflict_publishes_closed_conflict_action():
 
     assert x10.place_order.await_count == 1
     reconciled = [
-        call.args[0]
-        for call in event_bus.publish.await_args_list
-        if isinstance(call.args[0], PositionReconciled)
+        call.args[0] for call in event_bus.publish.await_args_list if isinstance(call.args[0], PositionReconciled)
     ]
     assert any(e.symbol == "TIA" and e.action == "closed_conflict" for e in reconciled)

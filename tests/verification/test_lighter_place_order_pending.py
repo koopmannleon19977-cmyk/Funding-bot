@@ -68,4 +68,3 @@ async def test_lighter_place_order_signed_returns_pending_id_without_resolving(m
     assert order.order_id == "pending_1700000000000_7"
     assert order.status == OrderStatus.PENDING
     assert order.client_order_id == "1700000000000"
-

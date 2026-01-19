@@ -86,11 +86,13 @@ def main() -> int:
 
     try:
         if args.command == "run":
-            return asyncio.run(run_bot(
-                env=args.env,
-                mode_override=mode,
-                confirm_live=confirm_live,
-            ))
+            return asyncio.run(
+                run_bot(
+                    env=args.env,
+                    mode_override=mode,
+                    confirm_live=confirm_live,
+                )
+            )
         elif args.command == "doctor":
             return asyncio.run(run_doctor())
         elif args.command == "reconcile":

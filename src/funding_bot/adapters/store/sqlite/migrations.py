@@ -21,37 +21,27 @@ async def _apply_schema_migrations(self) -> None:
 
     if "high_water_mark" not in columns:
         logger.info("Applying schema migration: add trades.high_water_mark")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN high_water_mark DECIMAL DEFAULT '0'"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN high_water_mark DECIMAL DEFAULT '0'")
         await self._conn.commit()
 
     if "current_apy" not in columns:
         logger.info("Applying schema migration: add trades.current_apy")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN current_apy DECIMAL DEFAULT '0'"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN current_apy DECIMAL DEFAULT '0'")
         await self._conn.commit()
 
     if "current_lighter_rate" not in columns:
         logger.info("Applying schema migration: add trades.current_lighter_rate")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN current_lighter_rate DECIMAL DEFAULT '0'"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN current_lighter_rate DECIMAL DEFAULT '0'")
         await self._conn.commit()
 
     if "current_x10_rate" not in columns:
         logger.info("Applying schema migration: add trades.current_x10_rate")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN current_x10_rate DECIMAL DEFAULT '0'"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN current_x10_rate DECIMAL DEFAULT '0'")
         await self._conn.commit()
 
     if "last_eval_at" not in columns:
         logger.info("Applying schema migration: add trades.last_eval_at")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN last_eval_at TEXT"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN last_eval_at TEXT")
         await self._conn.commit()
 
     # Migrate execution_attempts table for hedge latency columns
@@ -62,9 +52,7 @@ async def _apply_schema_migrations(self) -> None:
     for col in ["leg1_to_leg2_submit_ms", "leg1_to_leg2_ack_ms", "leg2_place_ack_ms"]:
         if col not in attempt_columns:
             logger.info(f"Applying schema migration: add execution_attempts.{col}")
-            await self._conn.execute(
-                f"ALTER TABLE execution_attempts ADD COLUMN {col} DECIMAL"
-            )
+            await self._conn.execute(f"ALTER TABLE execution_attempts ADD COLUMN {col} DECIMAL")
             await self._conn.commit()
 
     # Migration: Slippage tracking columns for performance analytics
@@ -79,15 +67,44 @@ async def _apply_schema_migrations(self) -> None:
     for col, col_type in slippage_columns.items():
         if col not in columns:
             logger.info(f"Applying schema migration: add trades.{col}")
-            await self._conn.execute(
-                f"ALTER TABLE trades ADD COLUMN {col} {col_type}"
-            )
+            await self._conn.execute(f"ALTER TABLE trades ADD COLUMN {col} {col_type}")
             await self._conn.commit()
 
     # Migration: total_fees column for tracking total trade fees (leg1 + leg2)
     if "total_fees" not in columns:
         logger.info("Applying schema migration: add trades.total_fees")
-        await self._conn.execute(
-            "ALTER TABLE trades ADD COLUMN total_fees DECIMAL DEFAULT '0'"
-        )
+        await self._conn.execute("ALTER TABLE trades ADD COLUMN total_fees DECIMAL DEFAULT '0'")
+        await self._conn.commit()
+
+    # Migration: Create surge_trades table if not exists (for Surge Pro strategy)
+    cursor = await self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='surge_trades'")
+    if not await cursor.fetchone():
+        logger.info("Applying schema migration: create surge_trades table")
+        await self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS surge_trades (
+                trade_id TEXT PRIMARY KEY,
+                symbol TEXT NOT NULL,
+                exchange TEXT NOT NULL,
+                side TEXT NOT NULL,
+                qty DECIMAL NOT NULL,
+                entry_price DECIMAL DEFAULT '0',
+                exit_price DECIMAL DEFAULT '0',
+                fees DECIMAL DEFAULT '0',
+                status TEXT NOT NULL,
+                entry_order_id TEXT,
+                entry_client_order_id TEXT,
+                exit_order_id TEXT,
+                exit_client_order_id TEXT,
+                entry_reason TEXT,
+                exit_reason TEXT,
+                created_at TEXT NOT NULL,
+                opened_at TEXT,
+                closed_at TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_surge_trades_symbol ON surge_trades(symbol);
+            CREATE INDEX IF NOT EXISTS idx_surge_trades_status ON surge_trades(status);
+            CREATE INDEX IF NOT EXISTS idx_surge_trades_opened_at ON surge_trades(opened_at);
+            CREATE INDEX IF NOT EXISTS idx_surge_trades_closed_at ON surge_trades(closed_at);
+        """)
         await self._conn.commit()

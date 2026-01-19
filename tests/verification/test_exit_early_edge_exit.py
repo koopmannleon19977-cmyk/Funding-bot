@@ -44,7 +44,7 @@ def test_early_edge_exit_exits_on_apy_crash_before_min_hold():
         current_pnl=Decimal("5.00"),  # Some profit to lock in
         current_apy=Decimal("0.10"),
         lighter_rate=Decimal("0.00020"),  # Lighter higher
-        x10_rate=Decimal("0.00000"),     # X10 lower (for BUY, we pay)
+        x10_rate=Decimal("0.00000"),  # X10 lower (for BUY, we pay)
         min_hold_seconds=86400,  # 24h gate
         max_hold_hours=Decimal("999"),
         profit_target_usd=Decimal("999"),
@@ -88,4 +88,3 @@ def test_early_edge_exit_exits_on_funding_flip_before_min_hold():
 
     assert decision.should_exit is True
     assert decision.reason.startswith("EARLY_EDGE:")
-

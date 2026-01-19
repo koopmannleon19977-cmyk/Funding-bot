@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Dict, Optional
 
 from x10.perpetual.accounts import StarkPerpetualAccount
 from x10.perpetual.configuration import EndpointConfig
@@ -32,7 +31,7 @@ class PerpetualTradingClient:
     X10 Perpetual Trading Client for the X10 REST API v1.
     """
 
-    __markets: Dict[str, MarketModel] | None
+    __markets: dict[str, MarketModel] | None
     __stark_account: StarkPerpetualAccount
 
     __info_module: InfoModule
@@ -50,16 +49,16 @@ class PerpetualTradingClient:
         side: OrderSide,
         post_only: bool = False,
         previous_order_id=None,
-        expire_time: Optional[datetime] = None,
+        expire_time: datetime | None = None,
         time_in_force: TimeInForce = TimeInForce.GTT,
         self_trade_protection_level: SelfTradeProtectionLevel = SelfTradeProtectionLevel.ACCOUNT,
-        external_id: Optional[str] = None,
-        builder_fee: Optional[Decimal] = None,
-        builder_id: Optional[int] = None,
+        external_id: str | None = None,
+        builder_fee: Decimal | None = None,
+        builder_id: int | None = None,
         reduce_only: bool = False,
-        tp_sl_type: Optional[OrderTpslType] = None,
-        take_profit: Optional[OrderTpslTriggerParam] = None,
-        stop_loss: Optional[OrderTpslTriggerParam] = None,
+        tp_sl_type: OrderTpslType | None = None,
+        take_profit: OrderTpslTriggerParam | None = None,
+        stop_loss: OrderTpslTriggerParam | None = None,
     ) -> WrappedApiResponse[PlacedOrderModel]:
         if not self.__stark_account:
             raise ValueError("Stark account is not set")

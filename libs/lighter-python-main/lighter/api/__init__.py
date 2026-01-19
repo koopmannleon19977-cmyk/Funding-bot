@@ -13,4 +13,3 @@ from lighter.api.order_api import OrderApi
 from lighter.api.referral_api import ReferralApi
 from lighter.api.root_api import RootApi
 from lighter.api.transaction_api import TransactionApi
-

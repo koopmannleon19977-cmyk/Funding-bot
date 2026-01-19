@@ -14,27 +14,26 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 import asyncio
+import json
 import logging
 import time
-import json
-import copy
-from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Set, Callable, Union
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-from src.utils import safe_float, safe_decimal, quantize_usd
-from src.core.interfaces import TradeStatus, TradeState
+from src.core.interfaces import TradeState, TradeStatus
+from src.utils import safe_decimal, safe_float
 
 
 @dataclass
 class BalanceState:
     """In-memory balance state"""
+
     exchange: str
     available: float = 0.0
     total: float = 0.0
@@ -45,6 +44,7 @@ class BalanceState:
 @dataclass
 class MarketState:
     """In-memory market data"""
+
     symbol: str
     mark_price: float = 0.0
     funding_rate_x10: float = 0.0
@@ -63,22 +63,23 @@ class WriteOperation(Enum):
 @dataclass
 class PendingWrite:
     """Represents a pending write operation"""
+
     operation: WriteOperation
     table: str
     key: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     timestamp: float = field(default_factory=time.monotonic)
-    callback: Optional[asyncio.Future] = None
+    callback: asyncio.Future | None = None
 
 
 class InMemoryStateManager:
     """
-    In-Memory State Manager with Write-Behind Pattern. 
-    
+    In-Memory State Manager with Write-Behind Pattern.
+
     ═══════════════════════════════════════════════════════════════════════════
     ARCHITECTURE:
     ═══════════════════════════════════════════════════════════════════════════
-    
+
     ┌─────────────────────────────────────────────────────────────────────────┐
     │                        InMemoryStateManager                              │
     ├─────────────────────────────────────────────────────────────────────────┤
@@ -94,46 +95,47 @@ class InMemoryStateManager:
     │    get_trade() < 1μs             │     Background Writer Task           │
     │    get_all_trades() < 10μs       │     (batched commits every 1s)       │
     └─────────────────────────────────────────────────────────────────────────┘
-    
+
     ═══════════════════════════════════════════════════════════════════════════
     """
-    
+
     WRITE_BATCH_SIZE = 50
     WRITE_FLUSH_INTERVAL = 1.0  # seconds
     SYNC_INTERVAL = 60.0  # Full sync every 60s
     SNAPSHOT_INTERVAL = 300.0  # Snapshot every 5 min
-    
+
     def __init__(self, db_path: str = None):
         import config
+
         self.db_path = db_path or config.DB_FILE
-        
+
         # In-Memory State
-        self._trades: Dict[str, TradeState] = {}
-        self._balances: Dict[str, BalanceState] = {}
-        self._markets: Dict[str, MarketState] = {}
-        self._bot_state: Dict[str, Any] = {}
-        
+        self._trades: dict[str, TradeState] = {}
+        self._balances: dict[str, BalanceState] = {}
+        self._markets: dict[str, MarketState] = {}
+        self._bot_state: dict[str, Any] = {}
+
         # Dirty tracking
-        self._dirty_trades: Set[str] = set()
-        self._dirty_balances: Set[str] = set()
-        self._dirty_markets: Set[str] = set()
-        self._dirty_bot_state: Set[str] = set()
-        
+        self._dirty_trades: set[str] = set()
+        self._dirty_balances: set[str] = set()
+        self._dirty_markets: set[str] = set()
+        self._dirty_bot_state: set[str] = set()
+
         # Locks
         self._trade_lock = asyncio.Lock()
         self._balance_lock = asyncio.Lock()
         self._market_lock = asyncio.Lock()
         self._state_lock = asyncio.Lock()
-        
+
         # Write-behind queue
-        self._write_queue: asyncio.Queue[Optional[PendingWrite]] = asyncio. Queue(maxsize=10000)
-        self._writer_task: Optional[asyncio.Task] = None
-        self._sync_task: Optional[asyncio.Task] = None
-        self._snapshot_task: Optional[asyncio. Task] = None
-        
+        self._write_queue: asyncio.Queue[PendingWrite | None] = asyncio.Queue(maxsize=10000)
+        self._writer_task: asyncio.Task | None = None
+        self._sync_task: asyncio.Task | None = None
+        self._snapshot_task: asyncio.Task | None = None
+
         # Database reference
         self._db = None
-        
+
         # Stats
         self._stats = {
             "reads": 0,
@@ -142,41 +144,33 @@ class InMemoryStateManager:
             "syncs": 0,
             "snapshots": 0,
         }
-        
+
         self._running = False
 
     async def start(self):
         """Start the state manager background tasks"""
         if self._running:
             return
-            
+
         logger.info("🚀 Starting InMemoryStateManager...")
-        
+
         # Import here to avoid circular imports
         from src.infrastructure.database import get_database
+
         self._db = await get_database(db_path=self.db_path)
-        
+
         # Load initial state from database
         await self._load_from_db()
-        
+
         # Start background tasks
         self._running = True
-        
-        self._writer_task = asyncio.create_task(
-            self._writer_loop(),
-            name="state_writer"
-        )
-        
-        self._sync_task = asyncio.create_task(
-            self._sync_loop(),
-            name="state_sync"
-        )
-        
-        self._snapshot_task = asyncio.create_task(
-            self._snapshot_loop(),
-            name="state_snapshot"
-        )
-        
+
+        self._writer_task = asyncio.create_task(self._writer_loop(), name="state_writer")
+
+        self._sync_task = asyncio.create_task(self._sync_loop(), name="state_sync")
+
+        self._snapshot_task = asyncio.create_task(self._snapshot_loop(), name="state_snapshot")
+
         logger.info(f"✅ InMemoryStateManager started (loaded {len(self._trades)} trades)")
 
     async def stop(self):
@@ -184,23 +178,23 @@ class InMemoryStateManager:
         # ═══════════════════════════════════════════════════════════════
         # FIX: Prevent duplicate stop calls during shutdown
         # ═══════════════════════════════════════════════════════════════
-        if hasattr(self, '_stopped') and self._stopped:
+        if hasattr(self, "_stopped") and self._stopped:
             return
         self._stopped = True
-        
+
         logger.info("🛑 Stopping InMemoryStateManager...")
         self._running = False
-        
+
         # Signal writer to stop
         await self._write_queue.put(None)
-        
+
         # Wait for writer to flush
         if self._writer_task:
             try:
                 await asyncio.wait_for(self._writer_task, timeout=10.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 self._writer_task.cancel()
-        
+
         # Cancel other tasks
         for task in [self._sync_task, self._snapshot_task]:
             if task:
@@ -209,7 +203,7 @@ class InMemoryStateManager:
                     await task
                 except asyncio.CancelledError:
                     pass
-        
+
         # Final sync
         await self._flush_dirty()
 
@@ -217,10 +211,11 @@ class InMemoryStateManager:
         # This also keeps unit tests deterministic when using a temp db_path.
         try:
             from src.infrastructure.database import close_database
+
             await close_database(db_path=self.db_path)
         except Exception as e:
             logger.debug(f"Database close skipped/failed: {e}")
-         
+
         logger.info("✅ InMemoryStateManager stopped")
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -230,78 +225,56 @@ class InMemoryStateManager:
     async def add_trade(self, trade: TradeState) -> str:
         """Add a new trade to state"""
         async with self._trade_lock:
-            self._trades[trade. symbol] = trade
+            self._trades[trade.symbol] = trade
             self._dirty_trades.add(trade.symbol)
-        
+
         # Queue write
-        await self._queue_write(
-            WriteOperation.INSERT,
-            "trades",
-            trade.symbol,
-            trade. to_dict()
-        )
-        
+        await self._queue_write(WriteOperation.INSERT, "trades", trade.symbol, trade.to_dict())
+
         self._stats["writes_queued"] += 1
-        logger.debug(f"📝 Trade added to state: {trade. symbol}")
+        logger.debug(f"📝 Trade added to state: {trade.symbol}")
         return trade.symbol
 
-    async def get_trade(self, symbol: str) -> Optional[TradeState]:
+    async def get_trade(self, symbol: str) -> TradeState | None:
         """Get a trade by symbol (instant, from memory)"""
         self._stats["reads"] += 1
         return self._trades.get(symbol)
 
-    async def get_all_open_trades(self) -> List[TradeState]:
+    async def get_all_open_trades(self) -> list[TradeState]:
         """Get all open trades (instant, from memory)"""
         self._stats["reads"] += 1
-        return [
-            t for t in self._trades.values()
-            if t.status in (TradeStatus. OPEN, TradeStatus.PENDING)
-        ]
+        return [t for t in self._trades.values() if t.status in (TradeStatus.OPEN, TradeStatus.PENDING)]
 
     async def get_trade_count(self) -> int:
         """Get count of open trades"""
-        return len([t for t in self._trades.values() if t.status == TradeStatus. OPEN])
+        return len([t for t in self._trades.values() if t.status == TradeStatus.OPEN])
 
-    async def update_trade(
-        self,
-        symbol: str,
-        updates: Dict[str, Any]
-    ) -> bool:
+    async def update_trade(self, symbol: str, updates: dict[str, Any]) -> bool:
         """Update a trade's fields"""
         async with self._trade_lock:
-            trade = self._trades. get(symbol)
+            trade = self._trades.get(symbol)
             if not trade:
                 return False
-            
+
             for key, value in updates.items():
                 if hasattr(trade, key):
-                    if key == 'status' and isinstance(value, str):
+                    if key == "status" and isinstance(value, str):
                         value = TradeStatus(value)
                     setattr(trade, key, value)
-            
+
             self._dirty_trades.add(symbol)
-        
-        await self._queue_write(
-            WriteOperation.UPDATE,
-            "trades",
-            symbol,
-            updates
-        )
-        
+
+        await self._queue_write(WriteOperation.UPDATE, "trades", symbol, updates)
+
         return True
 
-    async def close_trade(
-        self,
-        symbol: str,
-        pnl: Union[float, Decimal] = 0.0,
-        funding: Union[float, Decimal] = 0.0
-    ) -> bool:
+    async def close_trade(self, symbol: str, pnl: float | Decimal = 0.0, funding: float | Decimal = 0.0) -> bool:
         """
         Close a trade with PnL and funding values.
-        
+
         Accepts both float and Decimal for pnl/funding.
         Internally converts to float for storage, using Decimal for precision.
-        
+
         FIXED (2025-12-17): Wait for DB write to complete before removing from memory.
         This prevents data loss if the bot crashes between queue and actual DB write.
         """
@@ -309,10 +282,10 @@ class InMemoryStateManager:
         # REMOVED quantize_usd to preserve precision for small PnL (e.g. < $0.01)
         pnl_value = float(safe_decimal(pnl))
         funding_value = float(safe_decimal(funding))
-        
+
         # ✅ FIX: Enhanced logging to verify PnL values are being queued correctly
         logger.info(f"📝 StateManager.close_trade({symbol}): PnL=${pnl_value:.4f}, Funding=${funding_value:.4f}")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # FIX (2025-12-17): Use wait=True to ensure DB write completes
         # before removing trade from memory. This prevents data loss
@@ -322,36 +295,36 @@ class InMemoryStateManager:
             trade = self._trades.get(symbol)
             if not trade:
                 return False
-            
+
             trade.status = TradeStatus.CLOSED
             trade.closed_at = int(time.time() * 1000)
             trade.pnl = pnl_value
             trade.funding_collected = funding_value
             self._dirty_trades.add(symbol)
-        
+
         # Queue write and WAIT for completion
         await self._queue_write(
             WriteOperation.UPDATE,
             "trades",
             symbol,
             {
-                'status': TradeStatus.CLOSED.value,
-                'closed_at': int(time.time() * 1000),
-                'pnl': pnl_value,
-                'funding_collected': funding_value,
+                "status": TradeStatus.CLOSED.value,
+                "closed_at": int(time.time() * 1000),
+                "pnl": pnl_value,
+                "funding_collected": funding_value,
             },
-            wait=True  # CRITICAL: Wait for DB ack before memory removal
+            wait=True,  # CRITICAL: Wait for DB ack before memory removal
         )
-        
+
         logger.debug(f"📝 StateManager.close_trade({symbol}): DB write complete")
-        
+
         # Now safe to remove from memory since DB has the data
         async with self._trade_lock:
             if symbol in self._trades:
                 del self._trades[symbol]
                 self._dirty_trades.discard(symbol)
                 logger.debug(f"🧹 Removed closed trade {symbol} from memory (after DB ack)")
-        
+
         return True
 
     async def close_trade_verified(
@@ -404,36 +377,28 @@ class InMemoryStateManager:
         async with self._trade_lock:
             if symbol not in self._trades:
                 return False
-            
+
             del self._trades[symbol]
             self._dirty_trades.discard(symbol)
-        
-        await self._queue_write(
-            WriteOperation.DELETE,
-            "trades",
-            symbol,
-            {}
-        )
-        
+
+        await self._queue_write(WriteOperation.DELETE, "trades", symbol, {})
+
         return True
 
     async def has_open_trade(self, symbol: str) -> bool:
         """Check if symbol has an open trade"""
-        trade = self._trades. get(symbol)
-        return trade is not None and trade. status in (TradeStatus. OPEN, TradeStatus.PENDING)
+        trade = self._trades.get(symbol)
+        return trade is not None and trade.status in (TradeStatus.OPEN, TradeStatus.PENDING)
 
-    async def get_open_symbols(self) -> Set[str]:
+    async def get_open_symbols(self) -> set[str]:
         """Get set of symbols with open trades"""
-        return {
-            t.symbol for t in self._trades.values()
-            if t.status in (TradeStatus. OPEN, TradeStatus.PENDING)
-        }
+        return {t.symbol for t in self._trades.values() if t.status in (TradeStatus.OPEN, TradeStatus.PENDING)}
 
     async def reconcile_with_exchange(self, exchange_name: str, real_positions: list):
         """
         Gleicht State mit echten Positionen ab.
         1. Schließt Trades in State, die auf Exchange weg sind (Zombies). -> Logic usually handled elsewhere, but can be here.
-           NOTE: Zombie check is complex because we have two legs. 
+           NOTE: Zombie check is complex because we have two legs.
            If one leg is missing, we might want to close the other? Or just mark as closed?
            For now, we implement ONLY the ORPHAN ADOPTION as requested.
         2. Adoptiert Trades in State, die auf Exchange existieren aber in State fehlen (Waisen).
@@ -442,48 +407,48 @@ class InMemoryStateManager:
             return
 
         # 2. WAISEN ADOPTION
-        real_map = {p['symbol']: p for p in real_positions if not p.get('is_ghost')}
-        
+        real_map = {p["symbol"]: p for p in real_positions if not p.get("is_ghost")}
+
         # Use a copy of keys to avoid modification issues if we add
         async with self._trade_lock:
-             known_symbols = set(self._trades.keys())
+            known_symbols = set(self._trades.keys())
 
         for symbol, real_pos in real_map.items():
             # Parse position data common to both paths
-            size = safe_float(real_pos.get('size'), 0.0)
-            price = safe_float(real_pos.get('entry_price') or real_pos.get('mark_price'), 0.0)
-            
+            size = safe_float(real_pos.get("size"), 0.0)
+            price = safe_float(real_pos.get("entry_price") or real_pos.get("mark_price"), 0.0)
+
             if size == 0:
                 continue
-                
+
             rec_side = "BUY" if size > 0 else "SELL"
-            
+
             # Check if we already have this trade in memory
             existing_trade = self._trades.get(symbol)
-            
+
             if existing_trade:
                 # UPDATE EXISTING TRADE (Merge Leg)
                 updated = False
-                if exchange_name == 'X10' and existing_trade.side_x10 == "NONE":
+                if exchange_name == "X10" and existing_trade.side_x10 == "NONE":
                     logger.info(f"🔄 Merging X10 leg into existing orphan trade {symbol}")
                     existing_trade.side_x10 = rec_side
                     existing_trade.entry_price_x10 = price
-                    existing_trade.size_usd = max(existing_trade.size_usd, abs(size) * price) # Take max size
+                    existing_trade.size_usd = max(existing_trade.size_usd, abs(size) * price)  # Take max size
                     updated = True
-                elif exchange_name == 'Lighter' and existing_trade.side_lighter == "NONE":
+                elif exchange_name == "Lighter" and existing_trade.side_lighter == "NONE":
                     logger.info(f"🔄 Merging Lighter leg into existing orphan trade {symbol}")
                     existing_trade.side_lighter = rec_side
                     existing_trade.entry_price_lighter = price
                     existing_trade.size_usd = max(existing_trade.size_usd, abs(size) * price)
-                    
+
                     # Capture Lighter Funding if available
-                    funding_received = safe_float(real_pos.get('funding_received'), 0.0)
+                    funding_received = safe_float(real_pos.get("funding_received"), 0.0)
                     if funding_received != 0:
                         logger.info(f"💰 Merging Lighter funding: ${funding_received:.6f}")
                         existing_trade.funding_collected += funding_received
-                    
+
                     updated = True
-                
+
                 if updated:
                     # If we now have both legs, ensure status is OPEN
                     if existing_trade.side_x10 != "NONE" and existing_trade.side_lighter != "NONE":
@@ -493,7 +458,7 @@ class InMemoryStateManager:
 
             if symbol not in known_symbols:
                 logger.warning(f"⚠️ DESYNC FIX: Found ORPHAN {symbol} on {exchange_name}. Adopting into DB...")
-                
+
                 try:
                     # Determine sides
                     side_x10 = "NONE"
@@ -501,21 +466,21 @@ class InMemoryStateManager:
                     entry_px_x10 = 0.0
                     entry_px_lit = 0.0
                     initial_funding = 0.0
-                    
-                    if exchange_name == 'X10':
+
+                    if exchange_name == "X10":
                         side_x10 = rec_side
                         entry_px_x10 = price
-                    elif exchange_name == 'Lighter':
+                    elif exchange_name == "Lighter":
                         side_lighter = rec_side
                         entry_px_lit = price
                         # Capture Lighter Funding
-                        initial_funding = safe_float(real_pos.get('funding_received'), 0.0)
+                        initial_funding = safe_float(real_pos.get("funding_received"), 0.0)
                         if initial_funding != 0:
-                             logger.info(f"💰 Adopting Lighter position with existing funding: ${initial_funding:.6f}")
-                        
+                            logger.info(f"💰 Adopting Lighter position with existing funding: ${initial_funding:.6f}")
+
                     # Estimate USD size
                     size_usd = abs(size) * price
-                    
+
                     # Create Recovery Trade
                     trade = TradeState(
                         symbol=symbol,
@@ -533,13 +498,13 @@ class InMemoryStateManager:
                         funding_collected=initial_funding,
                         account_label="Recovery",
                         x10_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}",
-                        lighter_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}"
+                        lighter_order_id=f"RECOVERY_{exchange_name}_{int(time.time())}",
                     )
-                    
+
                     await self.add_trade(trade)
-                    known_symbols.add(symbol) # prevent double add if loop logic changes
+                    known_symbols.add(symbol)  # prevent double add if loop logic changes
                     logger.info(f"✅ Successfully adopted orphan trade {symbol}")
-                    
+
                 except Exception as e:
                     logger.error(f"❌ Failed to adopt orphan {symbol}: {e}")
 
@@ -547,13 +512,7 @@ class InMemoryStateManager:
     # BALANCE OPERATIONS
     # ═══════════════════════════════════════════════════════════════════════════
 
-    async def update_balance(
-        self,
-        exchange: str,
-        available: float,
-        total: float = 0.0,
-        in_position: float = 0.0
-    ):
+    async def update_balance(self, exchange: str, available: float, total: float = 0.0, in_position: float = 0.0):
         """Update balance for an exchange"""
         async with self._balance_lock:
             self._balances[exchange] = BalanceState(
@@ -564,14 +523,14 @@ class InMemoryStateManager:
             )
             self._dirty_balances.add(exchange)
 
-    async def get_balance(self, exchange: str) -> Optional[BalanceState]:
+    async def get_balance(self, exchange: str) -> BalanceState | None:
         """Get balance for an exchange"""
         return self._balances.get(exchange)
 
     async def get_available_balance(self, exchange: str) -> float:
         """Get available balance for an exchange"""
         balance = self._balances.get(exchange)
-        return balance. available if balance else 0.0
+        return balance.available if balance else 0.0
 
     # ═══════════════════════════════════════════════════════════════════════════
     # MARKET DATA OPERATIONS
@@ -580,34 +539,34 @@ class InMemoryStateManager:
     async def update_market(
         self,
         symbol: str,
-        mark_price: Optional[float] = None,
-        funding_rate_x10: Optional[float] = None,
-        funding_rate_lighter: Optional[float] = None,
-        spread: Optional[float] = None,
-        apy: Optional[float] = None
+        mark_price: float | None = None,
+        funding_rate_x10: float | None = None,
+        funding_rate_lighter: float | None = None,
+        spread: float | None = None,
+        apy: float | None = None,
     ):
         """Update market data for a symbol"""
         async with self._market_lock:
-            market = self._markets. get(symbol) or MarketState(symbol=symbol)
-            
+            market = self._markets.get(symbol) or MarketState(symbol=symbol)
+
             if mark_price is not None:
                 market.mark_price = mark_price
             if funding_rate_x10 is not None:
-                market. funding_rate_x10 = funding_rate_x10
+                market.funding_rate_x10 = funding_rate_x10
             if funding_rate_lighter is not None:
-                market. funding_rate_lighter = funding_rate_lighter
+                market.funding_rate_lighter = funding_rate_lighter
             if spread is not None:
                 market.spread = spread
             if apy is not None:
                 market.apy = apy
-            
+
             market.updated_at = int(time.time() * 1000)
             self._markets[symbol] = market
             self._dirty_markets.add(symbol)
 
-    async def get_market(self, symbol: str) -> Optional[MarketState]:
+    async def get_market(self, symbol: str) -> MarketState | None:
         """Get market data for a symbol"""
-        return self._markets. get(symbol)
+        return self._markets.get(symbol)
 
     async def get_mark_price(self, symbol: str) -> float:
         """Get mark price for a symbol"""
@@ -622,7 +581,7 @@ class InMemoryStateManager:
         """Set a bot state value"""
         async with self._state_lock:
             self._bot_state[key] = value
-            self._dirty_bot_state. add(key)
+            self._dirty_bot_state.add(key)
 
     async def get_state(self, key: str, default: Any = None) -> Any:
         """Get a bot state value"""
@@ -633,34 +592,23 @@ class InMemoryStateManager:
     # ═══════════════════════════════════════════════════════════════════════════
 
     async def _queue_write(
-        self,
-        operation: WriteOperation,
-        table: str,
-        key: str,
-        data: Dict[str, Any],
-        wait: bool = False
-    ) -> Optional[Any]:
+        self, operation: WriteOperation, table: str, key: str, data: dict[str, Any], wait: bool = False
+    ) -> Any | None:
         """Queue a write operation"""
         future = asyncio.get_running_loop().create_future() if wait else None
-        
-        write = PendingWrite(
-            operation=operation,
-            table=table,
-            key=key,
-            data=data,
-            callback=future
-        )
-        
+
+        write = PendingWrite(operation=operation, table=table, key=key, data=data, callback=future)
+
         try:
-            self._write_queue. put_nowait(write)
+            self._write_queue.put_nowait(write)
         except asyncio.QueueFull:
             logger.warning("Write queue full, dropping oldest")
             try:
-                self._write_queue. get_nowait()
+                self._write_queue.get_nowait()
             except asyncio.QueueEmpty:
                 pass
-            self._write_queue. put_nowait(write)
-        
+            self._write_queue.put_nowait(write)
+
         if wait and future:
             return await future
         return None
@@ -668,52 +616,48 @@ class InMemoryStateManager:
     async def _writer_loop(self):
         """Background task that batches and commits writes"""
         logger.info("📝 State writer loop started")
-        
-        batch: List[PendingWrite] = []
-        last_flush = time. monotonic()
-        
+
+        batch: list[PendingWrite] = []
+        last_flush = time.monotonic()
+
         while self._running:
             try:
                 # Get next write with timeout
                 try:
-                    write = await asyncio. wait_for(
-                        self._write_queue.get(),
-                        timeout=self.WRITE_FLUSH_INTERVAL
-                    )
-                    
+                    write = await asyncio.wait_for(self._write_queue.get(), timeout=self.WRITE_FLUSH_INTERVAL)
+
                     if write is None:  # Shutdown signal
                         break
-                    
+
                     batch.append(write)
-                    
-                except asyncio.TimeoutError:
+
+                except TimeoutError:
                     pass
-                
+
                 # Flush if batch is full or interval elapsed
                 now = time.monotonic()
-                should_flush = (
-                    len(batch) >= self. WRITE_BATCH_SIZE or
-                    (batch and now - last_flush >= self. WRITE_FLUSH_INTERVAL)
+                should_flush = len(batch) >= self.WRITE_BATCH_SIZE or (
+                    batch and now - last_flush >= self.WRITE_FLUSH_INTERVAL
                 )
-                
+
                 if should_flush and batch:
                     await self._flush_batch(batch)
                     batch = []
                     last_flush = now
-                    
+
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Writer loop error: {e}")
                 await asyncio.sleep(1.0)
-        
+
         # Final flush
         if batch:
             await self._flush_batch(batch)
-        
+
         logger.info("📝 State writer loop stopped")
 
-    async def _flush_batch(self, batch: List[PendingWrite]):
+    async def _flush_batch(self, batch: list[PendingWrite]):
         """Flush a batch of writes to database"""
         if not batch:
             return
@@ -728,10 +672,11 @@ class InMemoryStateManager:
                     if write.callback and not write.callback.done():
                         write.callback.set_exception(RuntimeError("StateManager DB not initialized"))
             return
-         
+
         from src.infrastructure.database import get_trade_repository
+
         repo = await get_trade_repository(db_path=self.db_path)
-        
+
         for write in batch:
             try:
                 # Barrier writes: allow callers/tests to wait until all prior writes have been committed.
@@ -744,17 +689,17 @@ class InMemoryStateManager:
                 if write.table == "trades":
                     if write.operation == WriteOperation.INSERT:
                         trade_data = write.data.copy()
-                        trade_data['status'] = trade_data.get('status', 'open')
+                        trade_data["status"] = trade_data.get("status", "open")
                         db_id = await repo.add_trade(trade_data)
-                        
+
                         # Update in-memory with DB ID
                         async with self._trade_lock:
                             if write.key in self._trades:
-                                self._trades[write. key].db_id = db_id
-                        
+                                self._trades[write.key].db_id = db_id
+
                         if write.callback and not write.callback.done():
                             write.callback.set_result(db_id)
-                            
+
                     elif write.operation == WriteOperation.UPDATE:
                         status = write.data.get("status")
                         if isinstance(status, TradeStatus):
@@ -772,16 +717,16 @@ class InMemoryStateManager:
 
                         if write.callback and not write.callback.done():
                             write.callback.set_result(True)
-                            
-                    elif write. operation == WriteOperation. DELETE:
+
+                    elif write.operation == WriteOperation.DELETE:
                         # Trades are closed, not deleted
                         pass
-                
+
             except Exception as e:
                 logger.error(f"Flush error for {write.table}/{write.key}: {e}")
                 if write.callback and not write.callback.done():
                     write.callback.set_exception(e)
-        
+
         self._stats["writes_flushed"] += len(batch)
         logger.debug(f"📝 Flushed {len(batch)} writes")
 
@@ -828,36 +773,37 @@ class InMemoryStateManager:
         """Load initial state from database"""
         if not self._db:
             return
-         
+
         from src.infrastructure.database import get_trade_repository
+
         repo = await get_trade_repository(db_path=self.db_path)
-        
+
         try:
             db_trades = await repo.get_open_trades()
-            
+
             async with self._trade_lock:
                 for row in db_trades:
                     trade = TradeState(
-                        symbol=row['symbol'],
-                        side_x10=row. get('side_x10', 'BUY'),
-                        side_lighter=row.get('side_lighter', 'SELL'),
-                        size_usd=safe_float(row.get('size_usd'), 0.0),
-                        entry_price_x10=safe_float(row.get('entry_price_x10'), 0.0),
-                        entry_price_lighter=safe_float(row.get('entry_price_lighter'), 0.0),
-                        status=TradeStatus(row. get('status', 'open')),
-                        is_farm_trade=bool(row.get('is_farm_trade', 0)),
-                        created_at=row.get('created_at', 0),
-                        pnl=safe_float(row.get('pnl'), 0.0),
-                        funding_collected=safe_float(row.get('funding_collected'), 0.0),
-                        account_label=row.get('account_label', 'Main'),
-                        x10_order_id=row. get('x10_order_id'),
-                        lighter_order_id=row.get('lighter_order_id'),
-                        db_id=row.get('id'),
+                        symbol=row["symbol"],
+                        side_x10=row.get("side_x10", "BUY"),
+                        side_lighter=row.get("side_lighter", "SELL"),
+                        size_usd=safe_float(row.get("size_usd"), 0.0),
+                        entry_price_x10=safe_float(row.get("entry_price_x10"), 0.0),
+                        entry_price_lighter=safe_float(row.get("entry_price_lighter"), 0.0),
+                        status=TradeStatus(row.get("status", "open")),
+                        is_farm_trade=bool(row.get("is_farm_trade", 0)),
+                        created_at=row.get("created_at", 0),
+                        pnl=safe_float(row.get("pnl"), 0.0),
+                        funding_collected=safe_float(row.get("funding_collected"), 0.0),
+                        account_label=row.get("account_label", "Main"),
+                        x10_order_id=row.get("x10_order_id"),
+                        lighter_order_id=row.get("lighter_order_id"),
+                        db_id=row.get("id"),
                     )
-                    self._trades[trade. symbol] = trade
-            
+                    self._trades[trade.symbol] = trade
+
             logger.info(f"📂 Loaded {len(self._trades)} trades from database")
-            
+
         except Exception as e:
             logger.error(f"Failed to load state from DB: {e}")
 
@@ -877,31 +823,32 @@ class InMemoryStateManager:
         """Verify in-memory state matches database"""
         if not self._db:
             return
-         
+
         from src.infrastructure.database import get_trade_repository
+
         repo = await get_trade_repository(db_path=self.db_path)
-        
+
         try:
             db_trades = await repo.get_open_trades()
-            db_symbols = {t['symbol'] for t in db_trades}
-            memory_symbols = await self. get_open_symbols()
-            
+            db_symbols = {t["symbol"] for t in db_trades}
+            memory_symbols = await self.get_open_symbols()
+
             # Check for discrepancies
             in_memory_only = memory_symbols - db_symbols
             in_db_only = db_symbols - memory_symbols
-            
+
             if in_memory_only:
                 logger.warning(f"⚠️ Trades in memory but not DB: {in_memory_only}")
-            
+
             if in_db_only:
                 logger.warning(f"⚠️ Trades in DB but not memory: {in_db_only}")
                 # Load missing trades
                 for row in db_trades:
-                    if row['symbol'] in in_db_only:
-                        trade = TradeState. from_dict(row)
+                    if row["symbol"] in in_db_only:
+                        trade = TradeState.from_dict(row)
                         async with self._trade_lock:
                             self._trades[trade.symbol] = trade
-            
+
         except Exception as e:
             logger.error(f"State verification failed: {e}")
 
@@ -915,12 +862,12 @@ class InMemoryStateManager:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger. error(f"Snapshot error: {e}")
+                logger.error(f"Snapshot error: {e}")
 
     async def _save_snapshot(self):
         """Save state snapshot to disk"""
-        snapshot_path = Path(self. db_path). parent / "state_snapshot.json"
-        
+        snapshot_path = Path(self.db_path).parent / "state_snapshot.json"
+
         try:
             snapshot = {
                 "timestamp": int(time.time() * 1000),
@@ -928,59 +875,53 @@ class InMemoryStateManager:
                 "balances": {k: asdict(v) for k, v in self._balances.items()},
                 "bot_state": self._bot_state,
             }
-            
+
             # Write atomically
-            temp_path = snapshot_path.with_suffix('.tmp')
-            with open(temp_path, 'w') as f:
+            temp_path = snapshot_path.with_suffix(".tmp")
+            with open(temp_path, "w") as f:
                 json.dump(snapshot, f, indent=2)
             temp_path.replace(snapshot_path)
-            
+
             logger.debug(f"📸 State snapshot saved ({len(self._trades)} trades)")
-            
+
         except Exception as e:
             logger.error(f"Snapshot save failed: {e}")
 
     async def load_snapshot(self) -> bool:
         """Load state from snapshot (for recovery)"""
         snapshot_path = Path(self.db_path).parent / "state_snapshot.json"
-        
+
         if not snapshot_path.exists():
             return False
-        
+
         try:
-            with open(snapshot_path, 'r') as f:
-                snapshot = json. load(f)
-            
+            with open(snapshot_path) as f:
+                snapshot = json.load(f)
+
             async with self._trade_lock:
-                self._trades = {
-                    k: TradeState.from_dict(v)
-                    for k, v in snapshot. get("trades", {}).items()
-                }
-            
+                self._trades = {k: TradeState.from_dict(v) for k, v in snapshot.get("trades", {}).items()}
+
             async with self._balance_lock:
-                self._balances = {
-                    k: BalanceState(**v)
-                    for k, v in snapshot.get("balances", {}).items()
-                }
-            
+                self._balances = {k: BalanceState(**v) for k, v in snapshot.get("balances", {}).items()}
+
             self._bot_state = snapshot.get("bot_state", {})
-            
+
             logger.info(f"📸 Loaded snapshot ({len(self._trades)} trades)")
             return True
-            
+
         except Exception as e:
             logger.error(f"Snapshot load failed: {e}")
             return False
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get state manager statistics"""
         return {
             **self._stats,
             "trades_in_memory": len(self._trades),
-            "open_trades": len([t for t in self._trades. values() if t. status == TradeStatus.OPEN]),
+            "open_trades": len([t for t in self._trades.values() if t.status == TradeStatus.OPEN]),
             "balances_tracked": len(self._balances),
             "markets_tracked": len(self._markets),
-            "pending_writes": self._write_queue. qsize(),
+            "pending_writes": self._write_queue.qsize(),
             "dirty_trades": len(self._dirty_trades),
         }
 
@@ -989,23 +930,23 @@ class InMemoryStateManager:
 # GLOBAL STATE MANAGER INSTANCE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_state_manager: Optional[InMemoryStateManager] = None
+_state_manager: InMemoryStateManager | None = None
 _state_manager_closed: bool = False  # FIX: Track if shutdown has occurred
 
 
 async def get_state_manager() -> InMemoryStateManager:
     """Get or create the global state manager.
-    
+
     FIX (2025-12-22): After shutdown, this function will NOT create a new instance.
     This prevents the "Starting InMemoryStateManager" log during shutdown cleanup.
     """
     global _state_manager, _state_manager_closed
-    
+
     # FIX: Don't create new instance if we've already closed during shutdown
     if _state_manager_closed:
         logger.debug("⚠️ get_state_manager() called after shutdown - returning existing or None")
         return _state_manager  # May be None, caller should handle
-    
+
     if _state_manager is None:
         _state_manager = InMemoryStateManager()
         await _state_manager.start()
@@ -1014,7 +955,7 @@ async def get_state_manager() -> InMemoryStateManager:
 
 async def close_state_manager():
     """Close the global state manager.
-    
+
     FIX (2025-12-22): Sets _state_manager_closed flag to prevent re-creation.
     """
     global _state_manager, _state_manager_closed

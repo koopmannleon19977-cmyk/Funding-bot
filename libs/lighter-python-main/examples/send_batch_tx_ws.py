@@ -1,8 +1,9 @@
-import websockets
 import asyncio
 import time
 
-from utils import default_example_setup, ws_send_batch_tx, trim_exception
+import websockets
+
+from utils import default_example_setup, trim_exception, ws_send_batch_tx
 
 
 # this example does the same thing as the send_batch_tx_http.py example, but sends the TX over WS instead of HTTP
@@ -138,7 +139,6 @@ async def main():
     tx_hashes = [cancel_1_tx_hash, cancel_2_tx_hash]
 
     await ws_send_batch_tx(ws_client, tx_types, tx_infos, tx_hashes)
-
 
     # Clean up
     await client.close()

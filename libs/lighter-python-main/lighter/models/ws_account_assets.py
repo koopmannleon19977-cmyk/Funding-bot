@@ -1,21 +1,23 @@
 from __future__ import annotations
+
+import json
 import pprint
 import re  # noqa: F401
-import json
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
 
 from lighter.models.account_asset import AccountAsset
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr, Field
-from typing import Any, ClassVar, Dict, List
-from typing import Optional, Set
+
 
 class WSAccountAssets(BaseModel):
     type: StrictStr
     channel: StrictStr
-    assets: Dict[StrictStr, AccountAsset]
+    assets: dict[StrictStr, AccountAsset]
     account_id: StrictInt
 
-    additional_properties: Dict[str, Any] = Field(default_factory=dict)
-    __properties: ClassVar[List[str]] = ["type", "channel", "assets"]
+    additional_properties: dict[str, Any] = Field(default_factory=dict)
+    __properties: ClassVar[list[str]] = ["type", "channel", "assets"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -30,11 +32,11 @@ class WSAccountAssets(BaseModel):
         return json.dumps(self.to_dict())
 
     @classmethod
-    def from_json(cls, json_str: str) -> Optional["WSAccountAssets"]:
+    def from_json(cls, json_str: str) -> WSAccountAssets | None:
         return cls.from_dict(json.loads(json_str))
 
-    def to_dict(self) -> Dict[str, Any]:
-        excluded_fields: Set[str] = {"additional_properties"}
+    def to_dict(self) -> dict[str, Any]:
+        excluded_fields: set[str] = {"additional_properties"}
 
         # dump base fields
         _dict = self.model_dump(
@@ -51,7 +53,7 @@ class WSAccountAssets(BaseModel):
         return _dict
 
     @classmethod
-    def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional["WSAccountAssets"]:
+    def from_dict(cls, obj: dict[str, Any] | None) -> WSAccountAssets | None:
         if obj["type"] != "subscribed/account_all_assets" and obj["type"] != "update/account_all_assets":
             raise ValueError(f"invalid type {obj['type']} for WSAccountAssets")
 
@@ -63,19 +65,12 @@ class WSAccountAssets(BaseModel):
 
         # parse inner assets dict into AccountAsset objects
         raw_assets = obj.get("assets") or {}
-        parsed_assets: Dict[str, AccountAsset] = {
-            k: AccountAsset.from_dict(v) for k, v in raw_assets.items()
-        }
+        parsed_assets: dict[str, AccountAsset] = {k: AccountAsset.from_dict(v) for k, v in raw_assets.items()}
 
         account_id = int(obj.get("channel").split(":")[1])
 
         _obj = cls.model_validate(
-            {
-                "type": obj.get("type"),
-                "channel": obj.get("channel"),
-                "assets": parsed_assets,
-                "account_id": account_id
-            }
+            {"type": obj.get("type"), "channel": obj.get("channel"), "assets": parsed_assets, "account_id": account_id}
         )
 
         # store additional fields

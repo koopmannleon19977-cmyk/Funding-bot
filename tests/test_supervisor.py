@@ -10,22 +10,19 @@ Tests the bot startup/shutdown sequence including:
 - Error handling during startup
 """
 
+import os
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-import os
 
 # Mark as integration tests - skip unless RUN_INTEGRATION=1
 if os.getenv("RUN_INTEGRATION") == "1":
     pytestmark = pytest.mark.integration
 else:
-    pytestmark = [
-        pytest.mark.integration,
-        pytest.mark.skip(reason="Integration test: set RUN_INTEGRATION=1 to run")
-    ]
+    pytestmark = [pytest.mark.integration, pytest.mark.skip(reason="Integration test: set RUN_INTEGRATION=1 to run")]
 
 from funding_bot.domain.events import BrokenHedgeDetected
 

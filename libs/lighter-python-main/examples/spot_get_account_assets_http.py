@@ -1,6 +1,8 @@
-import logging
 import asyncio
+import logging
+
 import lighter
+
 from utils import default_example_setup
 
 
@@ -17,7 +19,9 @@ async def main():
     # Note: cross-account value does not take into account isolated positions, but total does
     print("=== perp assets ===")
     print(f"total: {account.total_asset_value} available: {account.available_balance}")
-    print(f"cross: {account.cross_asset_value} isolated: {float(account.total_asset_value) - float(account.cross_asset_value)}")
+    print(
+        f"cross: {account.cross_asset_value} isolated: {float(account.total_asset_value) - float(account.cross_asset_value)}"
+    )
 
     # Spot Assets
     print("=== spot assets ===")
@@ -26,6 +30,7 @@ async def main():
 
     await client.close()
     await api_client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

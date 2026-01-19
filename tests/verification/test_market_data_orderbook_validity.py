@@ -181,4 +181,3 @@ async def test_refresh_symbol_does_not_overwrite_depth_with_zero_qty():
     assert ob is not None
     assert ob.x10_bid_qty == Decimal("10")
     assert ob.x10_ask_qty == Decimal("11")
-

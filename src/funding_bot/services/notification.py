@@ -150,10 +150,7 @@ class NotificationService:
                 f"Trade failed but hedged successfully."
             )
         else:
-            msg = (
-                f"🚨 <b>Rollback FAILED: {event.symbol}</b>\n"
-                f"CRITICAL: Check positions manually!"
-            )
+            msg = f"🚨 <b>Rollback FAILED: {event.symbol}</b>\nCRITICAL: Check positions manually!"
         await self._send(msg)
 
     async def _on_position_reconciled(self, event: PositionReconciled) -> None:
@@ -162,10 +159,7 @@ class NotificationService:
             return
 
         emoji = "👻" if "ghost" in event.action else "🧟"
-        msg = (
-            f"{emoji} <b>Reconciliation: {event.symbol}</b>\n"
-            f"Action: <b>{event.action}</b>"
-        )
+        msg = f"{emoji} <b>Reconciliation: {event.symbol}</b>\nAction: <b>{event.action}</b>"
         details_text = self._format_details(event.details or {})
         if details_text:
             msg += f"\n<pre>{details_text}</pre>"

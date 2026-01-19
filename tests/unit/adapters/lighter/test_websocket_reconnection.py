@@ -10,10 +10,7 @@ OFFLINE-FIRST: These tests do NOT require exchange SDK or network access.
 
 from __future__ import annotations
 
-from time import monotonic
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import patch
 
 # Import the WebSocket components from adapter.py
 # We'll test the standalone functions and classes
@@ -189,9 +186,7 @@ class TestExponentialBackoff:
             _get_ws_reconnect_delay,
         )
 
-        delay = _get_ws_reconnect_delay(
-            10, base_delay=2.0, max_delay=60.0, jitter_factor=0
-        )
+        delay = _get_ws_reconnect_delay(10, base_delay=2.0, max_delay=60.0, jitter_factor=0)
 
         # Without cap: 2 * 2^10 = 2048 seconds
         # With cap: 60 seconds
@@ -219,9 +214,7 @@ class TestExponentialBackoff:
         # Instead, verify the formula implementation is correct
 
         # Without jitter, delay should be exact
-        delay_no_jitter = _get_ws_reconnect_delay(
-            0, base_delay=base_delay, jitter_factor=0
-        )
+        delay_no_jitter = _get_ws_reconnect_delay(0, base_delay=base_delay, jitter_factor=0)
         assert delay_no_jitter == base_delay
 
         # With jitter, delay should be within ±jitter_factor range
@@ -248,9 +241,7 @@ class TestWebSocketHealthMonitor:
             _WebSocketHealthMonitor,
         )
 
-        monitor = _WebSocketHealthMonitor(
-            message_threshold=5, error_threshold=5
-        )
+        monitor = _WebSocketHealthMonitor(message_threshold=5, error_threshold=5)
 
         # Immediately after creation, should be healthy (grace period)
         assert monitor.is_healthy() is True
@@ -267,9 +258,7 @@ class TestWebSocketHealthMonitor:
             _WebSocketHealthMonitor,
         )
 
-        monitor = _WebSocketHealthMonitor(
-            message_threshold=5, error_threshold=5
-        )
+        monitor = _WebSocketHealthMonitor(message_threshold=5, error_threshold=5)
 
         # Mock time to be >30s after connection start
         with patch("time.monotonic", return_value=monitor.connection_start + 35):
@@ -288,9 +277,7 @@ class TestWebSocketHealthMonitor:
             _WebSocketHealthMonitor,
         )
 
-        monitor = _WebSocketHealthMonitor(
-            message_threshold=5, error_threshold=5
-        )
+        monitor = _WebSocketHealthMonitor(message_threshold=5, error_threshold=5)
 
         # Mock time to be past grace period
         with patch("time.monotonic", return_value=monitor.connection_start + 10):
@@ -313,9 +300,7 @@ class TestWebSocketHealthMonitor:
             _WebSocketHealthMonitor,
         )
 
-        monitor = _WebSocketHealthMonitor(
-            message_threshold=5, error_threshold=5
-        )
+        monitor = _WebSocketHealthMonitor(message_threshold=5, error_threshold=5)
 
         # Mock time to be past grace period
         with patch("time.monotonic", return_value=monitor.connection_start + 10):

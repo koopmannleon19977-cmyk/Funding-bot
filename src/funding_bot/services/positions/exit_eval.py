@@ -93,9 +93,7 @@ async def _fetch_liquidation_data(
         # 🚀 PERFORMANCE: Fetch live positions in parallel (50% latency reduction)
         leg1_task = self.lighter.get_position(trade.symbol)
         leg2_task = self.x10.get_position(trade.symbol)
-        result.leg1_position, result.leg2_position = await asyncio.gather(
-            leg1_task, leg2_task, return_exceptions=False
-        )
+        result.leg1_position, result.leg2_position = await asyncio.gather(leg1_task, leg2_task, return_exceptions=False)
 
         # Get orderbook for mark price fallback
         ob = self.market_data.get_orderbook(trade.symbol)
@@ -169,9 +167,7 @@ def _log_liquidation_metrics(
                     f"Trade {trade.symbol}: Lighter liquidation distance = {liq_data.leg1_liq_distance_pct:.2%}"
                 )
             if liq_data.leg2_liq_distance_pct >= 0:
-                logger.info(
-                    f"Trade {trade.symbol}: X10 liquidation distance = {liq_data.leg2_liq_distance_pct:.2%}"
-                )
+                logger.info(f"Trade {trade.symbol}: X10 liquidation distance = {liq_data.leg2_liq_distance_pct:.2%}")
 
         if delta_bound_enabled and liq_data.leg1_position and liq_data.leg2_position:
             log_delta_imbalance(
@@ -238,11 +234,11 @@ async def _fetch_fresh_pnl_for_early_tp(
 
         lighter_age = (
             (now - result.orderbook_depth.lighter_updated).total_seconds()
-            if result.orderbook_depth.lighter_updated else 999.0
+            if result.orderbook_depth.lighter_updated
+            else 999.0
         )
         x10_age = (
-            (now - result.orderbook_depth.x10_updated).total_seconds()
-            if result.orderbook_depth.x10_updated else 999.0
+            (now - result.orderbook_depth.x10_updated).total_seconds() if result.orderbook_depth.x10_updated else 999.0
         )
 
         if lighter_age > max_age or x10_age > max_age:

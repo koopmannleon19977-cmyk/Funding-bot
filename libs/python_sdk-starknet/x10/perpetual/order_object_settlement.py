@@ -1,8 +1,8 @@
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, Optional, Tuple
 
 from fast_stark_crypto import get_order_msg_hash
 
@@ -36,11 +36,11 @@ class OrderSettlementData:
 class SettlementDataCtx:
     market: MarketModel
     fees: TradingFeeModel
-    builder_fee: Optional[Decimal]
+    builder_fee: Decimal | None
     nonce: int
     collateral_position_id: int
     expire_time: datetime
-    signer: Callable[[int], Tuple[int, int]]
+    signer: Callable[[int], tuple[int, int]]
     public_key: int
     starknet_domain: StarknetDomain
 

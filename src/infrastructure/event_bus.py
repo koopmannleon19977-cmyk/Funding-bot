@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from typing import Any, Awaitable, Callable, Dict, List, Type, TypeVar
-from src.core.events import Event, TradeOpened, TradeClosed
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
+
+from src.core.events import Event
 from src.core.interfaces import EventBusInterface
 
 TEvent = TypeVar("TEvent", bound="Event")
@@ -16,12 +18,12 @@ class EventBus(EventBusInterface):
     """In-memory async event bus (pub/sub)."""
 
     def __init__(self) -> None:
-        self._handlers: Dict[Type[Event], List[Handler]] = {}
+        self._handlers: dict[type[Event], list[Handler]] = {}
         self._queue: asyncio.Queue[Event] = asyncio.Queue()
         self._running = False
         self._loop_task: asyncio.Task | None = None
 
-    def subscribe(self, event_type: Type[TEvent], handler: Handler) -> None:
+    def subscribe(self, event_type: type[TEvent], handler: Handler) -> None:
         self._handlers.setdefault(event_type, []).append(handler)
 
     async def publish(self, event: Event) -> None:

@@ -382,10 +382,7 @@ class X10Adapter(ExchangePort):
             if task and not task.done():
                 task.cancel()
                 try:
-                    await asyncio.wait_for(
-                        asyncio.shield(task),
-                        timeout=close_timeout
-                    )
+                    await asyncio.wait_for(asyncio.shield(task), timeout=close_timeout)
                 except (TimeoutError, asyncio.CancelledError):
                     pass
                 except Exception as e:
@@ -408,10 +405,7 @@ class X10Adapter(ExchangePort):
         # Close trading client with timeout
         if self._trading_client:
             try:
-                await asyncio.wait_for(
-                    self._trading_client.close(),
-                    timeout=close_timeout
-                )
+                await asyncio.wait_for(self._trading_client.close(), timeout=close_timeout)
             except (TimeoutError, Exception) as e:
                 logger.debug(f"Trading client close timeout/error: {e}")
             self._trading_client = None
@@ -426,8 +420,7 @@ class X10Adapter(ExchangePort):
 
         # Cleanup per-market WS tasks (in parallel with timeout)
         per_market_tasks = [
-            (market, task) for market, task in list(self._per_market_ws_tasks.items())
-            if task and not task.done()
+            (market, task) for market, task in list(self._per_market_ws_tasks.items()) if task and not task.done()
         ]
         if per_market_tasks:
             for _market, task in per_market_tasks:
@@ -435,11 +428,8 @@ class X10Adapter(ExchangePort):
             # Wait for all cancellations with a single timeout
             try:
                 await asyncio.wait_for(
-                    asyncio.gather(
-                        *[task for _, task in per_market_tasks],
-                        return_exceptions=True
-                    ),
-                    timeout=close_timeout
+                    asyncio.gather(*[task for _, task in per_market_tasks], return_exceptions=True),
+                    timeout=close_timeout,
                 )
             except TimeoutError:
                 logger.debug(f"Timeout waiting for {len(per_market_tasks)} per-market WS tasks")
@@ -678,8 +668,9 @@ class X10Adapter(ExchangePort):
             getattr(
                 getattr(getattr(self.settings, "market_data", None), "market_cache_ttl_seconds", None),
                 "market_cache_ttl_seconds",
-                3600.0
-            ) or 3600.0
+                3600.0,
+            )
+            or 3600.0
         )
 
         # Check if cache has expired
@@ -1403,13 +1394,9 @@ class X10Adapter(ExchangePort):
             # Only log INFO if pagination was needed (page_count > 1), otherwise DEBUG
             # This reduces log spam from routine 30s funding checks
             if page_count > 1:
-                logger.info(
-                    f"X10 funding history: {len(all_payments)} payments for {symbol} ({page_count} pages)"
-                )
+                logger.info(f"X10 funding history: {len(all_payments)} payments for {symbol} ({page_count} pages)")
             else:
-                logger.debug(
-                    f"X10 funding history: {len(all_payments)} payments for {symbol}"
-                )
+                logger.debug(f"X10 funding history: {len(all_payments)} payments for {symbol}")
             return all_payments
 
         except Exception as e:
@@ -2026,10 +2013,7 @@ class X10Adapter(ExchangePort):
         """
         now = time.time()
         async with self._ws_fill_cache_lock:
-            stale_keys = [
-                k for k, (_, ts) in self._ws_fill_cache.items()
-                if now - ts > self._ws_fill_cache_ttl_seconds
-            ]
+            stale_keys = [k for k, (_, ts) in self._ws_fill_cache.items() if now - ts > self._ws_fill_cache_ttl_seconds]
             for k in stale_keys:
                 del self._ws_fill_cache[k]
             if stale_keys:
@@ -3176,11 +3160,11 @@ class X10Adapter(ExchangePort):
                     if m_name == market_name:
                         # Get mark price or last price
                         fresh_price = _safe_decimal(
-                            getattr(market, "mark_price", None) or
-                            (market.get("mark_price") if isinstance(market, dict) else None) or
-                            getattr(market, "last_price", None) or
-                            (market.get("last_price") if isinstance(market, dict) else None) or
-                            0
+                            getattr(market, "mark_price", None)
+                            or (market.get("mark_price") if isinstance(market, dict) else None)
+                            or getattr(market, "last_price", None)
+                            or (market.get("last_price") if isinstance(market, dict) else None)
+                            or 0
                         )
                         break
 

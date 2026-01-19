@@ -5,8 +5,6 @@ This test verifies that all imported functions from close.py are properly
 bound to the PositionManager class for use as instance methods.
 """
 
-from unittest.mock import MagicMock
-
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -28,15 +26,17 @@ def test_position_manager_binds_rebalance_and_coordinated_methods():
 
     # Verify all critical methods are bound
     assert hasattr(PositionManager, "_rebalance_trade"), "PositionManager should have _rebalance_trade method"
-    assert hasattr(PositionManager, "_close_both_legs_coordinated"), "PositionManager should have _close_both_legs_coordinated method"
+    assert hasattr(PositionManager, "_close_both_legs_coordinated"), (
+        "PositionManager should have _close_both_legs_coordinated method"
+    )
     assert hasattr(PositionManager, "_submit_maker_order"), "PositionManager should have _submit_maker_order method"
     assert hasattr(PositionManager, "_execute_ioc_close"), "PositionManager should have _execute_ioc_close method"
 
     # Verify methods are callable
-    assert callable(getattr(PositionManager, "_rebalance_trade")), "_rebalance_trade should be callable"
-    assert callable(getattr(PositionManager, "_close_both_legs_coordinated")), "_close_both_legs_coordinated should be callable"
-    assert callable(getattr(PositionManager, "_submit_maker_order")), "_submit_maker_order should be callable"
-    assert callable(getattr(PositionManager, "_execute_ioc_close")), "_execute_ioc_close should be callable"
+    assert callable(PositionManager._rebalance_trade), "_rebalance_trade should be callable"
+    assert callable(PositionManager._close_both_legs_coordinated), "_close_both_legs_coordinated should be callable"
+    assert callable(PositionManager._submit_maker_order), "_submit_maker_order should be callable"
+    assert callable(PositionManager._execute_ioc_close), "_execute_ioc_close should be callable"
 
 
 def test_position_manager_binds_all_close_helpers():

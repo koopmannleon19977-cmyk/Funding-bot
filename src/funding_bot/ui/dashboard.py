@@ -137,6 +137,7 @@ def _highlight_log(lines: list[str], *, max_items: int = 8) -> list[str]:
             break
     return list(reversed(picked))
 
+
 def _parse_percent(text: str) -> Decimal | None:
     if not text:
         return None
@@ -228,6 +229,7 @@ def _infer_last_decision(tail: list[str]) -> tuple[str, str]:
     if fallback:
         return "Last activity", _truncate(fallback, 220)
     return "Last activity", _truncate(tail[-1], 220)
+
 
 def _parse_last_sizing_check(tail: list[str]) -> dict[str, Decimal] | None:
     for raw in reversed(tail):
@@ -322,6 +324,7 @@ def _db_connect(db_path: Path) -> sqlite3.Connection:
         return sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True, timeout=2.0)
     except Exception:
         return sqlite3.connect(str(db_path), timeout=2.0)
+
 
 def _try_migrate_trades_schema(db_path: Path) -> None:
     """
@@ -596,7 +599,7 @@ def _build_header(s: Snapshot) -> Panel:
             status = "STALE"
             status_style = "bold red"
 
-    paused = (s.health.get("paused", "").strip().lower() == "true")
+    paused = s.health.get("paused", "").strip().lower() == "true"
     paused_text = "PAUSED" if paused else "ACTIVE"
     paused_style = "bold red" if paused else "bold green"
 
@@ -647,15 +650,11 @@ def _trades_table(trades: list[TradeRow]) -> Table:
     for tr in trades:
         hold_h = ""
         if tr.opened_at:
-            hold_h = f"{(now - tr.opened_at).total_seconds()/3600:.1f}"
+            hold_h = f"{(now - tr.opened_at).total_seconds() / 3600:.1f}"
         apy_now = tr.current_apy
         apy_entry = tr.entry_apy
         apy_stale = False
-        apy_stale_cond = (
-            (apy_now is None)
-            or (tr.last_eval_at is None)
-            or (now - tr.last_eval_at).total_seconds() > 120
-        )
+        apy_stale_cond = (apy_now is None) or (tr.last_eval_at is None) or (now - tr.last_eval_at).total_seconds() > 120
         if apy_stale_cond:
             apy_stale = True
         if tr.status == "OPEN":
@@ -668,13 +667,13 @@ def _trades_table(trades: list[TradeRow]) -> Table:
         apy_style = "dim" if apy_stale else ""
         apy_text = "--"
         if (apy_now is not None) and (tr.last_eval_at is not None):
-            apy_text = f"{(apy_now*Decimal('100')):.1f}"
+            apy_text = f"{(apy_now * Decimal('100')):.1f}"
         t.add_row(
             tr.symbol,
             Text(tr.status, style=status_style),
             f"{tr.target_qty:.4f}",
             f"${tr.target_notional_usd:.0f}",
-            Text(f"{apy_text}/{(apy_entry*Decimal('100')):.1f}%", style=apy_style),
+            Text(f"{apy_text}/{(apy_entry * Decimal('100')):.1f}%", style=apy_style),
             hold_h or "-",
             f"${tr.funding_collected:.2f}",
             Text(f"${tr.unrealized_pnl:.2f}", style=upnl_style),
@@ -708,6 +707,7 @@ def _kpis_panel(s: Snapshot) -> Panel:
         body.append(f"DB ERROR: {_truncate(s.db_error or 'unknown', 160)}\n", style="bold red")
 
     return Panel(body, title="KPIs", border_style="green", box=box.ROUNDED)
+
 
 def _risk_panel(s: Snapshot) -> Panel:
     thr = s.thresholds
@@ -793,9 +793,7 @@ def _risk_panel(s: Snapshot) -> Panel:
     if riskcap is not None and riskcap > 0:
         body.append(f"RiskCap: ${riskcap:.2f} (from bot)\n")
     elif riskcap_approx is not None:
-        body.append(
-            f"RiskCap: ${riskcap_approx:.2f} (approx: equity*{max_exposure_pct:.0f}%*{leverage_multiplier}x)\n"
-        )
+        body.append(f"RiskCap: ${riskcap_approx:.2f} (approx: equity*{max_exposure_pct:.0f}%*{leverage_multiplier}x)\n")
 
     if free_margin is None:
         body.append("Free margin: n/a\n")
@@ -835,7 +833,7 @@ def _attempts_table(attempts: list[AttemptRow]) -> Table:
     for a in attempts[:25]:
         age = "-"
         if a.created_at:
-            age = f"{(now - a.created_at).total_seconds()/60:.0f}m"
+            age = f"{(now - a.created_at).total_seconds() / 60:.0f}m"
         style = "red" if a.status == "FAILED" else "yellow"
         t.add_row(
             age,

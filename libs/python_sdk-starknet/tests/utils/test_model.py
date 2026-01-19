@@ -1,17 +1,15 @@
 import re
-from typing import Optional
 
 from hamcrest import assert_that, equal_to, raises
 from pydantic import ValidationError
-
 from x10.utils.model import X10BaseModel
 
 
 class _TestModel(X10BaseModel):
     market: str
-    order_type: Optional[str] = "LIMIT"
+    order_type: str | None = "LIMIT"
     created_time: int
-    expiry_time: Optional[int] = None
+    expiry_time: int | None = None
 
 
 def test_model_should_parse_json_with_missing_optional_fields():

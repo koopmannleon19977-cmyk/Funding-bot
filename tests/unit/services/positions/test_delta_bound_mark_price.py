@@ -4,10 +4,10 @@ Unit tests for delta bound checking with mark price (CURRENT notional).
 
 from decimal import Decimal
 
+import pytest
+
 from funding_bot.domain.models import Exchange, Side, Trade, TradeLeg
 from funding_bot.domain.rules import check_delta_bound
-
-import pytest
 
 pytestmark = pytest.mark.unit
 
@@ -190,7 +190,7 @@ def test_delta_bound_formatting_includes_prices():
 
     # The reason shows delta values calculated with those prices
     # 52000 * 0.1 = 5200, 51000 * 0.1 = 5100
-    assert ("5200" in result.reason or "5100" in result.reason)
+    assert "5200" in result.reason or "5100" in result.reason
 
 
 def test_delta_bound_zero_qty():

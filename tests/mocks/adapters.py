@@ -24,6 +24,7 @@ from funding_bot.domain.models import (
 @dataclass
 class MockMarket:
     """Simple market info for mocks."""
+
     symbol: str
     base_asset: str = "ETH"
     quote_asset: str = "USD"
@@ -160,9 +161,7 @@ class MockLighterAdapter:
             next_funding_time=datetime.now(UTC),
         )
 
-    def _update_position(
-        self, symbol: str, side: Side, qty: Decimal, price: Decimal
-    ) -> None:
+    def _update_position(self, symbol: str, side: Side, qty: Decimal, price: Decimal) -> None:
         """Update internal position tracking."""
         if symbol in self._positions:
             pos = self._positions[symbol]
@@ -333,9 +332,7 @@ class MockX10Adapter:
             next_funding_time=datetime.now(UTC),
         )
 
-    def _update_position(
-        self, symbol: str, side: Side, qty: Decimal, price: Decimal
-    ) -> None:
+    def _update_position(self, symbol: str, side: Side, qty: Decimal, price: Decimal) -> None:
         """Update internal position tracking."""
         if symbol in self._positions:
             pos = self._positions[symbol]
@@ -404,9 +401,7 @@ class MockTradeStore:
 
     async def list_open_trades(self):
         """List all open trades."""
-        return [
-            t["trade"] for t in self._trades.values() if t["status"] == "OPEN"
-        ]
+        return [t["trade"] for t in self._trades.values() if t["status"] == "OPEN"]
 
 
 class MockEventBus:

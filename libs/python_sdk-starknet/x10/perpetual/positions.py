@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from strenum import StrEnum
 
@@ -33,12 +32,12 @@ class PositionModel(X10BaseModel):
     value: Decimal
     open_price: Decimal
     mark_price: Decimal
-    liquidation_price: Optional[Decimal] = None
+    liquidation_price: Decimal | None = None
     unrealised_pnl: Decimal
     realised_pnl: Decimal
-    tp_price: Optional[Decimal] = None
-    sl_price: Optional[Decimal] = None
-    adl: Optional[int] = None
+    tp_price: Decimal | None = None
+    sl_price: Decimal | None = None
+    adl: int | None = None
     created_at: int
     updated_at: int
 
@@ -59,9 +58,9 @@ class PositionHistoryModel(X10BaseModel):
     max_position_size: Decimal
     leverage: Decimal
     open_price: Decimal
-    exit_price: Optional[Decimal] = None
+    exit_price: Decimal | None = None
     realised_pnl: Decimal
     realised_pnl_breakdown: RealisedPnlBreakdownModel
     created_time: int
-    exit_type: Optional[ExitType] = None
-    closed_time: Optional[int] = None
+    exit_type: ExitType | None = None
+    closed_time: int | None = None

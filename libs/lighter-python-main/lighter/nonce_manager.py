@@ -1,6 +1,5 @@
 import abc
 import enum
-from typing import Optional, Tuple, List
 
 import requests
 
@@ -21,13 +20,13 @@ def get_nonce_from_api(client: ApiClient, account_index: int, api_key: int) -> i
 
 class NonceManager(abc.ABC):
     def __init__(
-            self,
-            account_index: int,
-            api_client: ApiClient,
-            api_keys_list: List[int],
+        self,
+        account_index: int,
+        api_client: ApiClient,
+        api_keys_list: list[int],
     ):
         if len(api_keys_list) == 0:
-            raise ValidationError(f"No API Key provided")
+            raise ValidationError("No API Key provided")
 
         self.current = 0  # cycle through api keys
         self.account_index = account_index
@@ -46,7 +45,7 @@ class NonceManager(abc.ABC):
         self.nonce[api_key] = get_nonce_from_api(self.api_client, self.account_index, api_key) - 1
 
     @abc.abstractmethod
-    def next_nonce(self, api_key: Optional[int] = None) -> Tuple[int, int]:
+    def next_nonce(self, api_key: int | None = None) -> tuple[int, int]:
         pass
 
     def acknowledge_failure(self, api_key: int) -> None:
@@ -54,15 +53,10 @@ class NonceManager(abc.ABC):
 
 
 class OptimisticNonceManager(NonceManager):
-    def __init__(
-            self,
-            account_index: int,
-            api_client: ApiClient,
-            api_keys_list: List[int]
-    ) -> None:
+    def __init__(self, account_index: int, api_client: ApiClient, api_keys_list: list[int]) -> None:
         super().__init__(account_index, api_client, api_keys_list)
 
-    def next_nonce(self, api_key: Optional[int] = None) -> Tuple[int, int]:
+    def next_nonce(self, api_key: int | None = None) -> tuple[int, int]:
         if api_key is None:
             self.current = (self.current + 1) % len(self.api_keys_list)
             api_key = self.api_keys_list[self.current]
@@ -76,14 +70,14 @@ class OptimisticNonceManager(NonceManager):
 
 class ApiNonceManager(NonceManager):
     def __init__(
-            self,
-            account_index: int,
-            api_client: ApiClient,
-            api_keys_list: List[int],
+        self,
+        account_index: int,
+        api_client: ApiClient,
+        api_keys_list: list[int],
     ) -> None:
         super().__init__(account_index, api_client, api_keys_list)
 
-    def next_nonce(self, api_key: Optional[int] = None) -> Tuple[int, int]:
+    def next_nonce(self, api_key: int | None = None) -> tuple[int, int]:
         """
         It is recommended to wait at least 350ms before using the same api key.
         Please be mindful of your transaction frequency when using this nonce manager.
@@ -103,10 +97,10 @@ class NonceManagerType(enum.Enum):
 
 
 def nonce_manager_factory(
-        nonce_manager_type: NonceManagerType,
-        account_index: int,
-        api_client: ApiClient,
-        api_keys_list: List[int],
+    nonce_manager_type: NonceManagerType,
+    account_index: int,
+    api_client: ApiClient,
+    api_keys_list: list[int],
 ) -> NonceManager:
     if nonce_manager_type == NonceManagerType.OPTIMISTIC:
         return OptimisticNonceManager(

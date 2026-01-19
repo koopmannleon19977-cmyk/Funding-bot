@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-import pytest
-
 
 def test_lighter_wsclient_updates_meta_and_filters_zero_size():
     from funding_bot.adapters.exchanges.lighter.ws_client import WsClient

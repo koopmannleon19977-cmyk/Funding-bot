@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -22,7 +21,6 @@ from funding_bot.services.execution import ExecutionEngine
 
 @pytest.mark.asyncio
 class TestExecutionFlow:
-
     async def test_successful_execution_flow(self):
         """Verify state transitions for a successful trade."""
         # Setup Mocks
@@ -43,7 +41,7 @@ class TestExecutionFlow:
         lighter.get_available_balance.return_value.total = Decimal("1000")
         x10.get_available_balance.return_value.available = Decimal("1000")
         x10.get_available_balance.return_value.total = Decimal("1000")
-        store.list_open_trades.return_value = [] # BEFORE execution
+        store.list_open_trades.return_value = []  # BEFORE execution
 
         # Configure Settings
         settings.trading.max_spread_filter_percent = Decimal("0.01")
@@ -71,7 +69,7 @@ class TestExecutionFlow:
         market_data.get_price.return_value.x10_price = Decimal("2000")
         fresh_ob = MagicMock()
         market_data.get_fresh_orderbook.return_value = fresh_ob
-        fresh_ob.entry_spread_pct.return_value = Decimal("0.001") # Low spread
+        fresh_ob.entry_spread_pct.return_value = Decimal("0.001")  # Low spread
         fresh_ob.lighter_bid = Decimal("1999")
         fresh_ob.lighter_ask = Decimal("2001")
         fresh_ob.x10_bid = Decimal("1999")
@@ -90,10 +88,10 @@ class TestExecutionFlow:
             order_type=OrderType.LIMIT,
             avg_fill_price=Decimal("2000"),
             filled_qty=Decimal("1"),
-            fee=Decimal("1")
+            fee=Decimal("1"),
         )
         lighter.place_order.return_value = leg1_order
-        lighter.get_order.return_value = leg1_order # Immediate fill for test
+        lighter.get_order.return_value = leg1_order  # Immediate fill for test
 
         # Leg 2
         leg2_order = Order(
@@ -106,7 +104,7 @@ class TestExecutionFlow:
             order_type=OrderType.LIMIT,
             avg_fill_price=Decimal("2000"),
             filled_qty=Decimal("1"),
-            fee=Decimal("1")
+            fee=Decimal("1"),
         )
         x10.place_order.return_value = leg2_order
         x10.get_order.return_value = leg2_order
@@ -135,7 +133,7 @@ class TestExecutionFlow:
             lighter_rate=Decimal("0"),
             x10_rate=Decimal("0.001"),
             net_funding_hourly=Decimal("0.001"),
-            apy=Decimal("0.5"), # 50%
+            apy=Decimal("0.5"),  # 50%
             spread_pct=Decimal("0.001"),
             mid_price=Decimal("2000"),
             lighter_best_bid=Decimal("1999"),
@@ -147,7 +145,7 @@ class TestExecutionFlow:
             expected_value_usd=Decimal("10"),
             breakeven_hours=Decimal("10"),
             long_exchange=Exchange.LIGHTER,
-            short_exchange=Exchange.X10
+            short_exchange=Exchange.X10,
         )
 
         # Patch internal wait methods to avoid sleep
@@ -207,8 +205,8 @@ class TestExecutionFlow:
 
         # Market Data Sync Returns
         market_data.get_market_info.return_value.step_size = Decimal("0.0001")
-        market_data.get_market_info.return_value.tick_size = Decimal("0.01") # FIX
-        market_data.get_market_info.return_value.min_qty = Decimal("0") # FIX
+        market_data.get_market_info.return_value.tick_size = Decimal("0.01")  # FIX
+        market_data.get_market_info.return_value.min_qty = Decimal("0")  # FIX
         market_data.get_market_info.return_value.lighter_max_leverage = Decimal("10")
         market_data.get_market_info.return_value.x10_max_leverage = Decimal("20")
 
@@ -230,8 +228,16 @@ class TestExecutionFlow:
 
         # Orders
         leg1_order = Order(
-            order_id="l1_id", symbol="ETH", exchange=Exchange.LIGHTER, side=Side.BUY,
-            qty=Decimal("1"), status=OrderStatus.FILLED, order_type=OrderType.LIMIT, avg_fill_price=Decimal("2000"), filled_qty=Decimal("1"), fee=Decimal("1")
+            order_id="l1_id",
+            symbol="ETH",
+            exchange=Exchange.LIGHTER,
+            side=Side.BUY,
+            qty=Decimal("1"),
+            status=OrderStatus.FILLED,
+            order_type=OrderType.LIMIT,
+            avg_fill_price=Decimal("2000"),
+            filled_qty=Decimal("1"),
+            fee=Decimal("1"),
         )
 
         # Mock Leg 1 Fill
@@ -242,8 +248,16 @@ class TestExecutionFlow:
 
         # Mock Rollback Order
         rollback_order = Order(
-            order_id="rb_id", symbol="ETH", exchange=Exchange.LIGHTER, side=Side.SELL,
-            qty=Decimal("1"), status=OrderStatus.FILLED, order_type=OrderType.LIMIT, avg_fill_price=Decimal("1995"), filled_qty=Decimal("1"), fee=Decimal("1")
+            order_id="rb_id",
+            symbol="ETH",
+            exchange=Exchange.LIGHTER,
+            side=Side.SELL,
+            qty=Decimal("1"),
+            status=OrderStatus.FILLED,
+            order_type=OrderType.LIMIT,
+            avg_fill_price=Decimal("1995"),
+            filled_qty=Decimal("1"),
+            fee=Decimal("1"),
         )
 
         # Helper mocks
@@ -268,7 +282,7 @@ class TestExecutionFlow:
             expected_value_usd=Decimal("10"),
             breakeven_hours=Decimal("10"),
             long_exchange=Exchange.LIGHTER,
-            short_exchange=Exchange.X10
+            short_exchange=Exchange.X10,
         )
 
         # Execute
@@ -333,9 +347,15 @@ class TestExecutionFlow:
         lighter.get_position = AsyncMock(
             side_effect=[
                 None,  # initial snapshot
-                Position(symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("0"), entry_price=Decimal("0")),  # ghost fill check (attempt 1)
-                Position(symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("1"), entry_price=Decimal("0")),  # pre-attempt (attempt 2)
-                Position(symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("1"), entry_price=Decimal("0")),  # reconcile
+                Position(
+                    symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("0"), entry_price=Decimal("0")
+                ),  # ghost fill check (attempt 1)
+                Position(
+                    symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("1"), entry_price=Decimal("0")
+                ),  # pre-attempt (attempt 2)
+                Position(
+                    symbol="TEST", exchange=Exchange.LIGHTER, side=Side.BUY, qty=Decimal("1"), entry_price=Decimal("0")
+                ),  # reconcile
             ]
         )
 
@@ -439,4 +459,3 @@ class TestExecutionFlow:
         assert trade.execution_state == ExecutionState.LEG1_FILLED
         assert trade.leg1.filled_qty == Decimal("1")
         assert trade.target_qty == Decimal("1")
-

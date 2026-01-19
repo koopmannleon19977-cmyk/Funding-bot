@@ -76,15 +76,9 @@ async def stop(self: Supervisor) -> None:
         with contextlib.suppress(Exception):
             shutdown_cfg = getattr(self.settings, "shutdown", None)
             close_positions = bool(
-                getattr(shutdown_cfg, "close_positions_on_exit", False)
-                if shutdown_cfg is not None
-                else False
+                getattr(shutdown_cfg, "close_positions_on_exit", False) if shutdown_cfg is not None else False
             )
-            timeout = float(
-                getattr(shutdown_cfg, "timeout_seconds", 20.0)
-                if shutdown_cfg is not None
-                else 20.0
-            )
+            timeout = float(getattr(shutdown_cfg, "timeout_seconds", 20.0) if shutdown_cfg is not None else 20.0)
             await self.shutdown_service.shutdown(
                 close_positions=close_positions,
                 timeout=timeout,
@@ -140,6 +134,7 @@ async def _init_adapters(self: Supervisor) -> None:
     # X10 Adapter (optional - SDK may not be installed)
     try:
         from funding_bot.adapters.exchanges.x10 import X10Adapter
+
         self.x10 = X10Adapter(self.settings)
         await self.x10.initialize()
         # Note: adapter.py logs "X10 adapter initialized with N markets"

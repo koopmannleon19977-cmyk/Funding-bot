@@ -32,6 +32,7 @@ async def debug_x10_positions():
     try:
         from x10.perpetual.accounts import StarkPerpetualAccount
         from x10.perpetual.trading_client import PerpetualTradingClient
+
         print("\n✅ X10 SDK imported successfully")
     except ImportError as e:
         print(f"\n❌ X10 SDK import failed: {e}")
@@ -46,7 +47,7 @@ async def debug_x10_positions():
         print("\n❌ X10 API credentials not configured in settings")
         return
 
-    print(f"\n📡 Connecting to X10...")
+    print("\n📡 Connecting to X10...")
     print(f"   Environment: {'TESTNET' if x10_cfg.testnet else 'MAINNET'}")
 
     try:
@@ -59,8 +60,7 @@ async def debug_x10_positions():
         )
 
         trading_client = await PerpetualTradingClient.create(
-            stark_account,
-            env="testnet" if x10_cfg.testnet else "mainnet"
+            stark_account, env="testnet" if x10_cfg.testnet else "mainnet"
         )
 
         print("✅ Connected to X10")
@@ -80,27 +80,35 @@ async def debug_x10_positions():
         # Analyze each position
         results = []
         for i, p in enumerate(positions_data):
-            print(f"\n{'='*50}")
-            print(f"Position {i+1}: {getattr(p, 'market', 'UNKNOWN')}")
-            print(f"{'='*50}")
+            print(f"\n{'=' * 50}")
+            print(f"Position {i + 1}: {getattr(p, 'market', 'UNKNOWN')}")
+            print(f"{'=' * 50}")
 
             # Get all public attributes
-            attrs = [a for a in dir(p) if not a.startswith('_')]
+            attrs = [a for a in dir(p) if not a.startswith("_")]
 
             result = {
                 "index": i + 1,
                 "market": getattr(p, "market", None),
                 "all_attributes": attrs,
                 "attribute_values": {},
-                "liquidation_analysis": {}
+                "liquidation_analysis": {},
             }
 
             # Key attributes we care about
             key_attrs = [
-                "market", "side", "size", "leverage",
-                "open_price", "mark_price", "liquidation_price",
-                "unrealised_pnl", "realised_pnl",
-                "liq_price", "liquidation", "liquidationPrice",  # Alternative names
+                "market",
+                "side",
+                "size",
+                "leverage",
+                "open_price",
+                "mark_price",
+                "liquidation_price",
+                "unrealised_pnl",
+                "realised_pnl",
+                "liq_price",
+                "liquidation",
+                "liquidationPrice",  # Alternative names
             ]
 
             print("\n📋 Key Attributes:")
@@ -176,10 +184,7 @@ async def debug_x10_positions():
         output_file = Path(__file__).parent.parent.parent / "logs" / "x10_liquidation_debug.json"
         output_file.parent.mkdir(exist_ok=True)
 
-        output_data = {
-            "timestamp": datetime.now().isoformat(),
-            "positions": results
-        }
+        output_data = {"timestamp": datetime.now().isoformat(), "positions": results}
 
         with open(output_file, "w") as f:
             json.dump(output_data, f, indent=2, default=str)
@@ -189,10 +194,11 @@ async def debug_x10_positions():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
     finally:
-        if 'trading_client' in locals():
+        if "trading_client" in locals():
             try:
                 await trading_client.close()
             except:

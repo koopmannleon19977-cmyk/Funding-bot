@@ -50,4 +50,3 @@ async def test_x10_adapter_rounds_qty_to_step_multiple():
     called_qty = adapter._trading_client.place_order.call_args.kwargs["amount_of_synthetic"]
     assert called_qty == Decimal("17700")
     assert order.qty == Decimal("17700")
-

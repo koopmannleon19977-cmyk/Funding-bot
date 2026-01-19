@@ -32,4 +32,3 @@ async def test_trade_closed_notification_uses_net_pnl_for_emoji_and_headline():
     assert "Net PnL: <b>$1.00</b>" in msg
     assert "Realized (after fees): $-1.00" in msg
     assert msg.startswith("💰")
-

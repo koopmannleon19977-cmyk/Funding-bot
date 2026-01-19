@@ -7,13 +7,19 @@ while None is treated as "disabled/not configured".
 
 from __future__ import annotations
 
-import pytest
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from funding_bot.adapters.exchanges.lighter.adapter import LighterAdapter
-from funding_bot.config.settings import Settings, ExchangeSettings, TradingSettings, ExecutionSettings, WebSocketSettings
-from funding_bot.domain.models import Balance, Position
+from funding_bot.config.settings import (
+    ExchangeSettings,
+    ExecutionSettings,
+    Settings,
+    TradingSettings,
+    WebSocketSettings,
+)
 
 
 @pytest.fixture
@@ -474,4 +480,4 @@ class TestDefensiveLogging:
 
         # The implementation doesn't explicitly log "No funding payments found"
         # It just returns 0. The test validates that this doesn't crash.
-        assert result == Decimal("0") if 'result' in locals() else True
+        assert result == Decimal("0") if "result" in locals() else True

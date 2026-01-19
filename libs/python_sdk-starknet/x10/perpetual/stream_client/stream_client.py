@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional, Type
-
 from x10.perpetual.accounts import AccountStreamDataModel
 from x10.perpetual.candles import CandleInterval, CandleModel, CandleType
 from x10.perpetual.funding_rates import FundingRateModel
@@ -24,7 +22,7 @@ class PerpetualStreamClient:
 
         self.__api_url = api_url
 
-    def subscribe_to_orderbooks(self, market_name: Optional[str] = None, depth: int | None = None):
+    def subscribe_to_orderbooks(self, market_name: str | None = None, depth: int | None = None):
         """
         https://api.docs.extended.exchange/#orderbooks-stream
         """
@@ -32,15 +30,15 @@ class PerpetualStreamClient:
         url = self.__get_url("/orderbooks/<market?>" + (f"?depth={depth}" if depth else ""), market=market_name)
         return self.__connect(url, WrappedStreamResponse[OrderbookUpdateModel])
 
-    def subscribe_to_public_trades(self, market_name: Optional[str] = None):
+    def subscribe_to_public_trades(self, market_name: str | None = None):
         """
         https://api.docs.extended.exchange/#trades-stream
         """
 
         url = self.__get_url("/publicTrades/<market?>", market=market_name)
-        return self.__connect(url, WrappedStreamResponse[List[PublicTradeModel]])
+        return self.__connect(url, WrappedStreamResponse[list[PublicTradeModel]])
 
-    def subscribe_to_funding_rates(self, market_name: Optional[str] = None):
+    def subscribe_to_funding_rates(self, market_name: str | None = None):
         """
         https://api.docs.extended.exchange/#funding-rates-stream
         """
@@ -61,7 +59,7 @@ class PerpetualStreamClient:
                 "interval": interval,
             },
         )
-        return self.__connect(url, WrappedStreamResponse[List[CandleModel]])
+        return self.__connect(url, WrappedStreamResponse[list[CandleModel]])
 
     def subscribe_to_account_updates(self, api_key: str):
         """
@@ -71,13 +69,13 @@ class PerpetualStreamClient:
         url = self.__get_url("/account")
         return self.__connect(url, WrappedStreamResponse[AccountStreamDataModel], api_key)
 
-    def __get_url(self, path: str, *, query: Optional[Dict[str, str | List[str]]] = None, **path_params) -> str:
+    def __get_url(self, path: str, *, query: dict[str, str | list[str]] | None = None, **path_params) -> str:
         return get_url(f"{self.__api_url}{path}", query=query, **path_params)
 
     @staticmethod
     def __connect(
         stream_url: str,
-        msg_model_class: Type[StreamMsgResponseType],
-        api_key: Optional[str] = None,
+        msg_model_class: type[StreamMsgResponseType],
+        api_key: str | None = None,
     ) -> PerpetualStreamConnection[StreamMsgResponseType]:
         return PerpetualStreamConnection(stream_url, msg_model_class, api_key)

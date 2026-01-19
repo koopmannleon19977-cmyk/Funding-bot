@@ -76,7 +76,13 @@ def test_entry_passes_when_profitable():
 
 
 def test_maintenance_flags_drop_flip_and_vol():
-    guard = ConstitutionGuard(Constitution(min_maintenance_apy=Decimal("0.20"), funding_flip_hours_threshold=Decimal("4"), volatility_panic_threshold=Decimal("8")))
+    guard = ConstitutionGuard(
+        Constitution(
+            min_maintenance_apy=Decimal("0.20"),
+            funding_flip_hours_threshold=Decimal("4"),
+            volatility_panic_threshold=Decimal("8"),
+        )
+    )
 
     low_apy = guard.check_maintenance(
         funding_apy=Decimal("0.10"),

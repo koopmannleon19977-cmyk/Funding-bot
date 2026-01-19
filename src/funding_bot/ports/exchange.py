@@ -165,9 +165,7 @@ class ExchangePort(ABC):
         ...
 
     @abstractmethod
-    async def get_realized_funding(
-        self, symbol: str, start_time: datetime | None = None
-    ) -> Decimal:
+    async def get_realized_funding(self, symbol: str, start_time: datetime | None = None) -> Decimal:
         """
         Get cumulative realized funding payment for a symbol since start_time.
 
@@ -256,9 +254,7 @@ class ExchangePort(ABC):
     # WebSocket (optional - for implementations that support it)
     # =========================================================================
 
-    async def subscribe_positions(
-        self, callback: PositionCallback
-    ) -> None:
+    async def subscribe_positions(self, callback: PositionCallback) -> None:
         """
         Subscribe to position updates.
 
@@ -266,9 +262,7 @@ class ExchangePort(ABC):
         """
         return
 
-    async def subscribe_orders(
-        self, callback: OrderCallback
-    ) -> None:
+    async def subscribe_orders(self, callback: OrderCallback) -> None:
         """
         Subscribe to order updates.
 
@@ -276,9 +270,7 @@ class ExchangePort(ABC):
         """
         return
 
-    async def subscribe_funding(
-        self, callback: FundingCallback
-    ) -> None:
+    async def subscribe_funding(self, callback: FundingCallback) -> None:
         """
         Subscribe to funding rate updates.
 
@@ -311,4 +303,3 @@ class ExchangePort(ABC):
 PositionCallback = Callable[[Position], Awaitable[None]]
 OrderCallback = Callable[[Order], Awaitable[None]]
 FundingCallback = Callable[[FundingRate], Awaitable[None]]
-

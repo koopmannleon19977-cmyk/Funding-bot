@@ -285,13 +285,9 @@ def _try_use_stale_cache(
         return None
 
     cached_age_lighter = (
-        (datetime.now(UTC) - cached.lighter_updated).total_seconds()
-        if cached.lighter_updated else float("inf")
+        (datetime.now(UTC) - cached.lighter_updated).total_seconds() if cached.lighter_updated else float("inf")
     )
-    cached_age_x10 = (
-        (datetime.now(UTC) - cached.x10_updated).total_seconds()
-        if cached.x10_updated else float("inf")
-    )
+    cached_age_x10 = (datetime.now(UTC) - cached.x10_updated).total_seconds() if cached.x10_updated else float("inf")
     max_cached_age = max(cached_age_lighter, cached_age_x10)
 
     if max_cached_age < max_stale_age:
@@ -408,9 +404,7 @@ async def get_fresh_price(self, symbol: str) -> PriceSnapshot:
     # Explicitly fetch fresh prices from adapters
     # This bypasses the service cache and forces adapter to get latest data
     lighter_price, x10_price = await asyncio.gather(
-        self.lighter.get_mark_price(symbol),
-        self.x10.get_mark_price(x10_symbol),
-        return_exceptions=True
+        self.lighter.get_mark_price(symbol), self.x10.get_mark_price(x10_symbol), return_exceptions=True
     )
 
     # Handle exceptions
@@ -534,8 +528,19 @@ async def get_fresh_orderbook(self, symbol: str) -> OrderbookSnapshot:
         # Log validation failure on last attempt or debug mode
         if attempt == config.attempts - 1 or logger.isEnabledFor(10):
             _log_validation_failure(
-                symbol, l_bid, l_ask, l_bq, l_aq, x_bid, x_ask, x_bq, x_aq,
-                lighter_updated, x10_updated, now, config.fallback_max_age
+                symbol,
+                l_bid,
+                l_ask,
+                l_bq,
+                l_aq,
+                x_bid,
+                x_ask,
+                x_bq,
+                x_aq,
+                lighter_updated,
+                x10_updated,
+                now,
+                config.fallback_max_age,
             )
 
         # Retry with backoff
@@ -544,9 +549,7 @@ async def get_fresh_orderbook(self, symbol: str) -> OrderbookSnapshot:
 
     # Graceful degradation: try stale cache
     max_stale_age = config.fallback_max_age * 3
-    stale = _try_use_stale_cache(
-        self._orderbooks, symbol, max_stale_age, "orderbook", config.attempts
-    )
+    stale = _try_use_stale_cache(self._orderbooks, symbol, max_stale_age, "orderbook", config.attempts)
     if stale:
         return stale  # type: ignore[return-value]
 
@@ -660,11 +663,12 @@ async def get_fresh_orderbook_depth(self, symbol: str, *, levels: int) -> Orderb
             snapshot.x10_bids, snapshot.x10_asks
         )
         if ok and config.fallback_max_age > 0:
-            if not snapshot.lighter_updated or not snapshot.x10_updated:
-                ok = False
-            elif (now - snapshot.lighter_updated).total_seconds() > config.fallback_max_age:
-                ok = False
-            elif (now - snapshot.x10_updated).total_seconds() > config.fallback_max_age:
+            if (
+                not snapshot.lighter_updated
+                or not snapshot.x10_updated
+                or (now - snapshot.lighter_updated).total_seconds() > config.fallback_max_age
+                or (now - snapshot.x10_updated).total_seconds() > config.fallback_max_age
+            ):
                 ok = False
 
         if ok:
@@ -679,9 +683,7 @@ async def get_fresh_orderbook_depth(self, symbol: str, *, levels: int) -> Orderb
     max_stale_age = config.fallback_max_age * 3
     cached = self._orderbook_depth.get(symbol)
     if cached and cached.lighter_bids and cached.x10_bids:
-        stale = _try_use_stale_cache(
-            self._orderbook_depth, symbol, max_stale_age, "depth", config.attempts
-        )
+        stale = _try_use_stale_cache(self._orderbook_depth, symbol, max_stale_age, "depth", config.attempts)
         if stale:
             return stale  # type: ignore[return-value]
 

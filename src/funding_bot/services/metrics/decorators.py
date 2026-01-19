@@ -115,23 +115,18 @@ def track_latency(
                     # For sync functions, we need to handle the async collector
                     # Create a new event loop if none exists
                     import asyncio
+
                     try:
                         loop = asyncio.get_event_loop()
                         if loop.is_running():
                             # Running in async context, schedule the coroutine
-                            asyncio.create_task(
-                                _record_latency_async(op_name, duration_ms, metadata)
-                            )
+                            asyncio.create_task(_record_latency_async(op_name, duration_ms, metadata))
                         else:
                             # No loop or not running, run in new loop
-                            asyncio.run(
-                                _record_latency_async(op_name, duration_ms, metadata)
-                            )
+                            asyncio.run(_record_latency_async(op_name, duration_ms, metadata))
                     except RuntimeError:
                         # No event loop, create one
-                        asyncio.run(
-                            _record_latency_async(op_name, duration_ms, metadata)
-                        )
+                        asyncio.run(_record_latency_async(op_name, duration_ms, metadata))
                 except Exception as e:
                     # Don't let metrics recording break the function
                     logger.debug(f"Failed to record latency: {e}")
@@ -143,11 +138,8 @@ def track_latency(
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 try:
                     import asyncio
-                    asyncio.run(
-                        _record_latency_async(
-                            f"{op_name}.failed", duration_ms, {"error": str(e)}
-                        )
-                    )
+
+                    asyncio.run(_record_latency_async(f"{op_name}.failed", duration_ms, {"error": str(e)}))
                 except Exception:
                     pass
 
@@ -265,11 +257,8 @@ def track_operation(
                 try:
                     # For sync functions, schedule async recording
                     import asyncio
-                    asyncio.create_task(
-                        _record_operation_sync(
-                            operation_type, exchange, func, duration_ms
-                        )
-                    )
+
+                    asyncio.create_task(_record_operation_sync(operation_type, exchange, func, duration_ms))
                 except Exception as e:
                     logger.debug(f"Failed to record operation: {e}")
 
@@ -279,10 +268,9 @@ def track_operation(
                 duration_ms = (time.perf_counter() - start_time) * 1000
                 try:
                     import asyncio
+
                     asyncio.create_task(
-                        _record_operation_sync(
-                            operation_type, exchange, func, duration_ms, failed=True
-                        )
+                        _record_operation_sync(operation_type, exchange, func, duration_ms, failed=True)
                     )
                 except Exception:
                     pass
@@ -320,9 +308,7 @@ async def _record_operation_sync(
             await collector.record_db_query(query_type, duration_ms)
         else:
             op_name = (
-                f"{exchange}.{operation_type}.{func.__name__}"
-                if exchange
-                else f"{operation_type}.{func.__name__}"
+                f"{exchange}.{operation_type}.{func.__name__}" if exchange else f"{operation_type}.{func.__name__}"
             )
             await collector.record_latency(op_name, duration_ms)
 

@@ -71,4 +71,3 @@ class EventBusPort(ABC):
     def subscriber_count(self, event_type: type[DomainEvent]) -> int:
         """Get number of subscribers for an event type."""
         ...
-

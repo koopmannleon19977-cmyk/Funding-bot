@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List, Optional
 
 from x10.perpetual.candles import CandleInterval, CandleModel, CandleType
 from x10.perpetual.funding_rates import FundingRateModel
@@ -11,13 +10,13 @@ from x10.utils.http import send_get_request
 
 
 class MarketsInformationModule(BaseModule):
-    async def get_markets(self, *, market_names: Optional[List[str]] = None):
+    async def get_markets(self, *, market_names: list[str] | None = None):
         """
         https://api.docs.extended.exchange/#get-markets
         """
 
         url = self._get_url("/info/markets", query={"market": market_names})
-        return await send_get_request(await self.get_session(), url, List[MarketModel])
+        return await send_get_request(await self.get_session(), url, list[MarketModel])
 
     async def get_markets_dict(self):
         markets = await self.get_markets()
@@ -37,8 +36,8 @@ class MarketsInformationModule(BaseModule):
         market_name: str,
         candle_type: CandleType,
         interval: CandleInterval,
-        limit: Optional[int] = None,
-        end_time: Optional[datetime] = None,
+        limit: int | None = None,
+        end_time: datetime | None = None,
     ):
         """
         https://api.docs.extended.exchange/#get-candles-history
@@ -54,7 +53,7 @@ class MarketsInformationModule(BaseModule):
                 "endTime": to_epoch_millis(end_time) if end_time else None,
             },
         )
-        return await send_get_request(await self.get_session(), url, List[CandleModel])
+        return await send_get_request(await self.get_session(), url, list[CandleModel])
 
     async def get_funding_rates_history(self, *, market_name: str, start_time: datetime, end_time: datetime):
         """
@@ -69,7 +68,7 @@ class MarketsInformationModule(BaseModule):
                 "endTime": to_epoch_millis(end_time),
             },
         )
-        return await send_get_request(await self.get_session(), url, List[FundingRateModel])
+        return await send_get_request(await self.get_session(), url, list[FundingRateModel])
 
     async def get_orderbook_snapshot(self, *, market_name: str):
         """

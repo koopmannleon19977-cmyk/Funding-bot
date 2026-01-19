@@ -167,7 +167,7 @@ def _load_spread_check_config(settings: Any, opp_apy: Decimal) -> SpreadCheckCon
 
 
 async def _apply_smart_pricing_spread(
-    market_data: "MarketDataService",
+    market_data: MarketDataService,
     symbol: str,
     long_exchange: str,
     suggested_qty: Decimal,
@@ -209,7 +209,7 @@ async def _apply_smart_pricing_spread(
 
 
 async def _revalidate_orderbook_for_guard(
-    market_data: "MarketDataService",
+    market_data: MarketDataService,
     symbol: str,
     long_exchange: str,
     entry_spread: Decimal,
@@ -445,8 +445,14 @@ async def _execute_impl_pre(
     await self._kpi_update_attempt(
         attempt_id,
         _build_spread_kpi_data(
-            opp, fresh_ob, long_exchange, entry_spread, spread_cost,
-            config.max_spread, config.smart_pricing, used_smart_pricing or depth_ob is not None
+            opp,
+            fresh_ob,
+            long_exchange,
+            entry_spread,
+            spread_cost,
+            config.max_spread,
+            config.smart_pricing,
+            used_smart_pricing or depth_ob is not None,
         ),
     )
 
@@ -484,9 +490,7 @@ async def _execute_impl_pre(
     # 8. Fetch depth orderbook if needed for gating (reuse if already fetched)
     if getattr(ts, "depth_gate_enabled", False) and config.use_impact and depth_ob is None:
         try:
-            depth_ob = await self.market_data.get_fresh_orderbook_depth(
-                opp.symbol, levels=config.depth_levels
-            )
+            depth_ob = await self.market_data.get_fresh_orderbook_depth(opp.symbol, levels=config.depth_levels)
         except Exception as e:
             logger.warning(f"Failed to fetch depth orderbook for {opp.symbol}; falling back to L1: {e}")
             depth_ob = None
@@ -497,9 +501,7 @@ async def _execute_impl_pre(
 
     # 10. Preflight liquidity check
     if bool(getattr(ts, "preflight_liquidity_enabled", True)):
-        liquidity_result = await _run_preflight_liquidity_check(
-            self, opp, trade, attempt_id
-        )
+        liquidity_result = await _run_preflight_liquidity_check(self, opp, trade, attempt_id)
         if liquidity_result is not None:
             return liquidity_result
 

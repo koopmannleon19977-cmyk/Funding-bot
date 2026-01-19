@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from funding_bot.domain.models import Exchange, Opportunity
-from funding_bot.services.market_data import OrderbookSnapshot
 from funding_bot.services.execution import ExecutionEngine
+from funding_bot.services.market_data import OrderbookSnapshot
 
 
 @pytest.mark.asyncio

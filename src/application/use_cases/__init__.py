@@ -1,6 +1,6 @@
-from .open_trade import OpenTradeUseCase, OpenTradeRequest
-from .close_trade import CloseTradeUseCase, CloseTradeRequest
-from .manage_position import ManagePositionUseCase, ManagePositionRequest
+from .close_trade import CloseTradeRequest, CloseTradeUseCase
+from .manage_position import ManagePositionRequest, ManagePositionUseCase
+from .open_trade import OpenTradeRequest, OpenTradeUseCase
 
 __all__ = [
     "OpenTradeUseCase",

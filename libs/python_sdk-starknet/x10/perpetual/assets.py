@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from decimal import Context, Decimal
-from typing import Optional
 
 from strenum import StrEnum
 
@@ -68,5 +67,5 @@ class AssetOperationModel(X10BaseModel):
     account_id: int
 
     # When operation type is `TRANSFER`
-    counterparty_account_id: Optional[int] = None
-    transaction_hash: Optional[HexValue] = None
+    counterparty_account_id: int | None = None
+    transaction_hash: HexValue | None = None

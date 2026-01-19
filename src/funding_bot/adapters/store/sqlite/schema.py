@@ -207,6 +207,33 @@ CREATE TABLE IF NOT EXISTS schema_version (
 );
 INSERT OR IGNORE INTO schema_version (version) VALUES (2);
 
+-- Surge Pro single-leg trades
+CREATE TABLE IF NOT EXISTS surge_trades (
+    trade_id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    exchange TEXT NOT NULL,
+    side TEXT NOT NULL,
+    qty DECIMAL NOT NULL,
+    entry_price DECIMAL DEFAULT '0',
+    exit_price DECIMAL DEFAULT '0',
+    fees DECIMAL DEFAULT '0',
+    status TEXT NOT NULL,
+    entry_order_id TEXT,
+    entry_client_order_id TEXT,
+    exit_order_id TEXT,
+    exit_client_order_id TEXT,
+    entry_reason TEXT,
+    exit_reason TEXT,
+    created_at TEXT NOT NULL,
+    opened_at TEXT,
+    closed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_surge_trades_symbol ON surge_trades(symbol);
+CREATE INDEX IF NOT EXISTS idx_surge_trades_status ON surge_trades(status);
+CREATE INDEX IF NOT EXISTS idx_surge_trades_opened_at ON surge_trades(opened_at);
+CREATE INDEX IF NOT EXISTS idx_surge_trades_closed_at ON surge_trades(closed_at);
+
 -- ============================================================================
 -- HISTORICAL ANALYSIS TABLES (v2)
 -- ============================================================================

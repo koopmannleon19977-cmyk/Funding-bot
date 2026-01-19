@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import time
+
 import eth_account
 import lighter
 
@@ -60,12 +61,10 @@ async def main():
     eth_address = eth_acc.address
 
     try:
-        response = await lighter.AccountApi(api_client).accounts_by_l1_address(
-            l1_address=eth_address
-        )
+        response = await lighter.AccountApi(api_client).accounts_by_l1_address(l1_address=eth_address)
     except lighter.ApiException as e:
         if e.data.message == "account not found":
-            print(f"error: account not found for {eth_address}", file=__import__('sys').stderr)
+            print(f"error: account not found for {eth_address}", file=__import__("sys").stderr)
             await api_client.close()
             return
         else:
@@ -73,7 +72,7 @@ async def main():
             raise e
 
     if len(response.sub_accounts) == 0:
-        print(f"error: no accounts found for {eth_address}", file=__import__('sys').stderr)
+        print(f"error: no accounts found for {eth_address}", file=__import__("sys").stderr)
         await api_client.close()
         return
 
@@ -96,15 +95,20 @@ async def main():
             accounts.append(result)
 
     if not accounts:
-        print("error: failed to setup any accounts", file=__import__('sys').stderr)
+        print("error: failed to setup any accounts", file=__import__("sys").stderr)
         await api_client.close()
         return
 
     with open(config_file, "w", encoding="utf-8") as f:
-        json.dump({
-            "BASE_URL": BASE_URL,
-            "ACCOUNTS": accounts,
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "BASE_URL": BASE_URL,
+                "ACCOUNTS": accounts,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
     await api_client.close()
 

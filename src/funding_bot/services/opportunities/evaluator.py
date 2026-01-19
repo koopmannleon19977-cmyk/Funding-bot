@@ -48,11 +48,11 @@ class MarketDataBundle:
     """Bundle of market data for symbol evaluation."""
 
     symbol: str
-    price: "PriceSnapshot | None" = None
-    funding: "FundingData | None" = None
-    orderbook: "OrderbookSnapshot | None" = None
-    lighter_info: "MarketInfo | None" = None
-    x10_info: "MarketInfo | None" = None
+    price: PriceSnapshot | None = None
+    funding: FundingData | None = None
+    orderbook: OrderbookSnapshot | None = None
+    lighter_info: MarketInfo | None = None
+    x10_info: MarketInfo | None = None
 
 
 @dataclass
@@ -94,7 +94,7 @@ class EvaluationResult:
 
 
 def _determine_direction(
-    funding: "FundingData",
+    funding: FundingData,
 ) -> tuple[Exchange, Exchange, Decimal, Decimal]:
     """
     Determine trade direction based on funding rates.
@@ -119,8 +119,8 @@ def _determine_direction(
 def _calculate_sizing(
     settings: Any,
     available_equity: Decimal,
-    lighter_info: "MarketInfo | None",
-    x10_info: "MarketInfo | None",
+    lighter_info: MarketInfo | None,
+    x10_info: MarketInfo | None,
     mid_price: Decimal,
 ) -> SizingConfig:
     """Calculate position sizing based on equity and leverage."""
@@ -188,7 +188,7 @@ def _load_depth_sizing_config(settings: Any) -> DepthSizingConfig:
 
 
 def _has_depth_qty(
-    orderbook: "OrderbookSnapshot",
+    orderbook: OrderbookSnapshot,
     exchange: Exchange,
     side: Side,
 ) -> bool:
@@ -203,9 +203,9 @@ def _has_depth_qty(
 
 
 async def _apply_depth_cap(
-    self: "OpportunityEngine",
+    self: OpportunityEngine,
     symbol: str,
-    orderbook: "OrderbookSnapshot",
+    orderbook: OrderbookSnapshot,
     lighter_side: Side,
     mid_price: Decimal,
     suggested_notional: Decimal,
@@ -221,9 +221,8 @@ async def _apply_depth_cap(
 
     # Check if cached depth is valid
     x10_side = lighter_side.inverse()
-    cached_depth_ok = (
-        _has_depth_qty(orderbook, Exchange.LIGHTER, lighter_side)
-        and _has_depth_qty(orderbook, Exchange.X10, x10_side)
+    cached_depth_ok = _has_depth_qty(orderbook, Exchange.LIGHTER, lighter_side) and _has_depth_qty(
+        orderbook, Exchange.X10, x10_side
     )
 
     if not cached_depth_ok:
@@ -320,7 +319,7 @@ async def _apply_depth_cap(
 
 
 async def _fetch_historical_apy(
-    self: "OpportunityEngine",
+    self: OpportunityEngine,
     symbol: str,
 ) -> list[Decimal] | None:
     """Fetch historical APY data for velocity forecast."""
@@ -346,9 +345,9 @@ async def _fetch_historical_apy(
 
 
 def _validate_ev_and_breakeven(
-    self: "OpportunityEngine",
+    self: OpportunityEngine,
     ev: dict[str, Any],
-    funding: "FundingData",
+    funding: FundingData,
     suggested_notional: Decimal,
     include_reject_info: bool,
 ) -> dict[str, str] | None:
@@ -410,8 +409,8 @@ def _validate_ev_and_breakeven(
 
 def _build_opportunity(
     symbol: str,
-    funding: "FundingData",
-    orderbook: "OrderbookSnapshot | None",
+    funding: FundingData,
+    orderbook: OrderbookSnapshot | None,
     long_exchange: Exchange,
     short_exchange: Exchange,
     lighter_rate: Decimal,
@@ -424,9 +423,7 @@ def _build_opportunity(
     liquidity_score: Decimal,
 ) -> Opportunity:
     """Build the Opportunity object from evaluation results."""
-    observed_spread = (
-        orderbook.entry_spread_pct(long_exchange.value) if orderbook else Decimal("1")
-    )
+    observed_spread = orderbook.entry_spread_pct(long_exchange.value) if orderbook else Decimal("1")
     confidence = Decimal("1") - (observed_spread * Decimal("10"))
     confidence = max(Decimal("0"), min(confidence, Decimal("1")))
 
@@ -471,8 +468,7 @@ def _log_missing_historical_data_once(symbol: str, lookback_hours: int) -> None:
         _missing_historical_data_logged.add(symbol)
         # Log at DEBUG level for individual symbols - summary logged elsewhere
         logger.debug(
-            f"Insufficient historical APY data for {symbol}: "
-            f"need {lookback_hours} hours for velocity forecast."
+            f"Insufficient historical APY data for {symbol}: need {lookback_hours} hours for velocity forecast."
         )
 
 
@@ -496,9 +492,7 @@ def log_missing_historical_data_summary() -> None:
 
 
 async def _evaluate_symbol(
-    self: OpportunityEngine,
-    symbol: str,
-    available_equity: Decimal = Decimal("0")
+    self: OpportunityEngine, symbol: str, available_equity: Decimal = Decimal("0")
 ) -> Opportunity | None:
     """Evaluate a single symbol for opportunity.
 
@@ -515,7 +509,7 @@ async def _evaluate_symbol(
 
 
 async def _evaluate_symbol_with_reject_info(
-    self: "OpportunityEngine",
+    self: OpportunityEngine,
     symbol: str,
     *,
     available_equity: Decimal = Decimal("0"),
@@ -632,9 +626,7 @@ async def _evaluate_symbol_with_reject_info(
     )
 
     # Step 9: Validate EV and breakeven
-    ev_reject = _validate_ev_and_breakeven(
-        self, ev, funding, suggested_notional, include_reject_info
-    )
+    ev_reject = _validate_ev_and_breakeven(self, ev, funding, suggested_notional, include_reject_info)
     if ev_reject is not None:
         return None, ev_reject
 

@@ -42,6 +42,7 @@ _rebalance_skip_warned: set[str] = set()
 # STRUCTURED LOGGING: Final Execution Metrics (post-close)
 # =============================================================================
 
+
 def _log_final_execution_metrics(
     trade: Trade,
     leg1_vwap: Decimal,
@@ -147,23 +148,24 @@ def _log_close_order_placed(
     This event is critical for T3 post-close readback, which reconstructs
     final VWAP and fees from exchange API by collecting all close order IDs.
     """
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "CLOSE_ORDER_PLACED",
-        "exchange": exchange.value,
-        "leg": leg,
-        "order_id": str(order_id),
-        "client_order_id": str(client_order_id) if client_order_id else None,
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-        "time_in_force": time_in_force.value,
-        "post_only": post_only,
-        "attempt_id": attempt_id,
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "CLOSE_ORDER_PLACED",
+            "exchange": exchange.value,
+            "leg": leg,
+            "order_id": str(order_id),
+            "client_order_id": str(client_order_id) if client_order_id else None,
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+            "time_in_force": time_in_force.value,
+            "post_only": post_only,
+            "attempt_id": attempt_id,
+        }
+    )
     logger.debug(
-        f"Close order logged: {exchange.value} {leg} order_id={order_id} "
-        f"side={side.value} qty={qty} price={price}"
+        f"Close order logged: {exchange.value} {leg} order_id={order_id} side={side.value} qty={qty} price={price}"
     )
 
 
@@ -176,15 +178,17 @@ def _log_rebalance_start(
     rebalance_notional: Decimal,
 ) -> None:
     """Log rebalance start event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_START",
-        "net_delta": str(net_delta),
-        "leg1_notional": str(leg1_notional),
-        "leg2_notional": str(leg2_notional),
-        "rebalance_exchange": rebalance_exchange.value,
-        "rebalance_notional": str(rebalance_notional),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_START",
+            "net_delta": str(net_delta),
+            "leg1_notional": str(leg1_notional),
+            "leg2_notional": str(leg2_notional),
+            "rebalance_exchange": rebalance_exchange.value,
+            "rebalance_notional": str(rebalance_notional),
+        }
+    )
     logger.info(f"Rebalance start logged: {rebalance_exchange.value} notional=${rebalance_notional:.2f}")
 
 
@@ -199,17 +203,19 @@ def _log_rebalance_order_placed(
     post_only: bool = False,
 ) -> None:
     """Log rebalance order placement event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_ORDER_PLACED",
-        "exchange": exchange.value,
-        "order_id": str(order_id),
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-        "time_in_force": time_in_force.value,
-        "post_only": post_only,
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_ORDER_PLACED",
+            "exchange": exchange.value,
+            "order_id": str(order_id),
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+            "time_in_force": time_in_force.value,
+            "post_only": post_only,
+        }
+    )
     logger.info(f"Rebalance order logged: {exchange.value} order_id={order_id} side={side.value} qty={qty}")
 
 
@@ -220,22 +226,26 @@ def _log_rebalance_complete(
     fee: Decimal,
 ) -> None:
     """Log rebalance complete event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_COMPLETE",
-        "filled_qty": str(filled_qty),
-        "avg_price": str(avg_price),
-        "fee": str(fee),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_COMPLETE",
+            "filled_qty": str(filled_qty),
+            "avg_price": str(avg_price),
+            "fee": str(fee),
+        }
+    )
     logger.info(f"Rebalance complete logged: filled={filled_qty} @ {avg_price:.2f}")
 
 
 def _log_coordinated_close_start(trade: Trade) -> None:
     """Log coordinated close start event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_START",
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_START",
+        }
+    )
     logger.info(f"Coordinated close start logged for {trade.symbol}")
 
 
@@ -249,16 +259,18 @@ def _log_coordinated_close_maker_placed(
     price: Decimal,
 ) -> None:
     """Log coordinated close maker order placement event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_MAKER_PLACED",
-        "exchange": exchange.value,
-        "leg": leg,
-        "order_id": str(order_id),
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_MAKER_PLACED",
+            "exchange": exchange.value,
+            "leg": leg,
+            "order_id": str(order_id),
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+        }
+    )
     logger.info(f"Coordinated close maker logged: {exchange.value} {leg} order_id={order_id}")
 
 
@@ -267,11 +279,13 @@ def _log_coordinated_close_ioc_escalate(
     legs: list[str],
 ) -> None:
     """Log coordinated close IOC escalation event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_IOC_ESCALATE",
-        "legs": legs,
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_IOC_ESCALATE",
+            "legs": legs,
+        }
+    )
     logger.info(f"Coordinated close IOC escalate logged: legs={legs}")
 
 
@@ -280,11 +294,13 @@ def _log_coordinated_close_complete(
     filled_legs: set[str],
 ) -> None:
     """Log coordinated close complete event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_COMPLETE",
-        "filled_legs": list(filled_legs),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_COMPLETE",
+            "filled_legs": list(filled_legs),
+        }
+    )
     logger.info(f"Coordinated close complete logged: legs={filled_legs}")
 
 
@@ -309,15 +325,16 @@ def _is_x10_reduce_only_missing_position_error(exc: Exception) -> bool:
     msg = str(exc).lower()
     return (
         "position is missing for reduce-only order" in msg
-        or "code\":1137" in msg
+        or 'code":1137' in msg
         or "code 1137" in msg
-        or "error\":{\"code\":1137" in msg
+        or 'error":{"code":1137' in msg
     )
 
 
 # =============================================================================
 # Helper Classes for Lighter Close Configuration
 # =============================================================================
+
 
 class _LighterCloseConfig:
     """Configuration for Lighter close operations."""
@@ -342,15 +359,11 @@ def _get_lighter_close_config(self, trade: Trade) -> _LighterCloseConfig:
     close_reason = trade.close_reason or ""
     is_early_tp = close_reason.startswith("EARLY_TAKE_PROFIT")
     is_apy_crash = "APY crashed" in close_reason
-    fast_close_enabled = bool(
-        getattr(self.settings.trading, "early_tp_fast_close_enabled", True)
-    )
+    fast_close_enabled = bool(getattr(self.settings.trading, "early_tp_fast_close_enabled", True))
     use_fast_close = (is_early_tp or is_apy_crash) and fast_close_enabled
 
     if use_fast_close:
-        use_taker_directly = bool(
-            getattr(self.settings.trading, "early_tp_fast_close_use_taker_directly", False)
-        )
+        use_taker_directly = bool(getattr(self.settings.trading, "early_tp_fast_close_use_taker_directly", False))
         if use_taker_directly:
             return _LighterCloseConfig(
                 max_attempts=0,
@@ -360,15 +373,9 @@ def _get_lighter_close_config(self, trade: Trade) -> _LighterCloseConfig:
                 use_taker_directly=True,
             )
 
-        max_attempts = int(getattr(
-            self.settings.trading, "early_tp_fast_close_max_attempts", 2
-        ))
-        attempt_timeout = float(getattr(
-            self.settings.trading, "early_tp_fast_close_attempt_timeout_seconds", 5.0
-        ))
-        total_timeout = float(getattr(
-            self.settings.trading, "early_tp_fast_close_total_timeout_seconds", 30.0
-        ))
+        max_attempts = int(getattr(self.settings.trading, "early_tp_fast_close_max_attempts", 2))
+        attempt_timeout = float(getattr(self.settings.trading, "early_tp_fast_close_attempt_timeout_seconds", 5.0))
+        total_timeout = float(getattr(self.settings.trading, "early_tp_fast_close_total_timeout_seconds", 30.0))
         return _LighterCloseConfig(
             max_attempts=max_attempts,
             attempt_timeout=attempt_timeout,
@@ -472,6 +479,7 @@ def _calculate_close_price(
 # Grid Step Close Configuration
 # =============================================================================
 
+
 class _GridStepConfig:
     """Configuration for grid step close operation."""
 
@@ -497,11 +505,11 @@ async def _get_l1_depth_usd(self, symbol: str, close_side: Side) -> Decimal:
 
         if close_side == Side.BUY:
             # Closing Short: need Ask depth
-            l1_qty = ob.lighter_ask_qty if hasattr(ob, 'lighter_ask_qty') else Decimal("0")
+            l1_qty = ob.lighter_ask_qty if hasattr(ob, "lighter_ask_qty") else Decimal("0")
             l1_price = ob.lighter_ask if ob.lighter_ask > 0 else Decimal("1")
         else:
             # Closing Long: need Bid depth
-            l1_qty = ob.lighter_bid_qty if hasattr(ob, 'lighter_bid_qty') else Decimal("0")
+            l1_qty = ob.lighter_bid_qty if hasattr(ob, "lighter_bid_qty") else Decimal("0")
             l1_price = ob.lighter_bid if ob.lighter_bid > 0 else Decimal("1")
 
         if l1_price <= 0:
@@ -540,9 +548,9 @@ async def _get_recent_volatility(self, symbol: str) -> Decimal:
         # Fallback: Use symbol-specific default volatility
         # Different symbols have different inherent volatility
         symbol_defaults = {
-            "BTC": Decimal("0.008"),   # 0.8% - Bitcoin is less volatile
-            "ETH": Decimal("0.012"),   # 1.2% - Ethereum moderately volatile
-            "SOL": Decimal("0.02"),    # 2.0% - Solana more volatile
+            "BTC": Decimal("0.008"),  # 0.8% - Bitcoin is less volatile
+            "ETH": Decimal("0.012"),  # 1.2% - Ethereum moderately volatile
+            "SOL": Decimal("0.02"),  # 2.0% - Solana more volatile
             "DOGE": Decimal("0.025"),  # 2.5% - Memecoins volatile
         }
 
@@ -572,15 +580,13 @@ async def _should_use_grid_step_async(
     """
     try:
         es = self.settings.execution
-        if not getattr(es, 'grid_step_enabled', False):
+        if not getattr(es, "grid_step_enabled", False):
             return False
 
         # Check minimum notional
-        min_notional = getattr(es, 'grid_step_min_notional_usd', Decimal("200.0"))
+        min_notional = getattr(es, "grid_step_min_notional_usd", Decimal("200.0"))
         if qty_usd < min_notional:
-            logger.debug(
-                f"Grid Step: Position too small ${qty_usd:.2f} < ${min_notional:.2f}"
-            )
+            logger.debug(f"Grid Step: Position too small ${qty_usd:.2f} < ${min_notional:.2f}")
             return False
 
         # Check L1 depth
@@ -590,18 +596,15 @@ async def _should_use_grid_step_async(
             logger.debug(f"Grid Step: No L1 depth data for {trade.symbol}")
             return False
 
-        l1_trigger = getattr(es, 'grid_step_l1_depth_trigger', Decimal("0.5"))
+        l1_trigger = getattr(es, "grid_step_l1_depth_trigger", Decimal("0.5"))
         l1_threshold = qty_usd * l1_trigger
 
         if l1_depth_usd >= l1_threshold:
-            logger.debug(
-                f"Grid Step: L1 depth sufficient ${l1_depth_usd:.2f} >= ${l1_threshold:.2f}"
-            )
+            logger.debug(f"Grid Step: L1 depth sufficient ${l1_depth_usd:.2f} >= ${l1_threshold:.2f}")
             return False
 
         logger.info(
-            f"Grid Step: Enabled for {trade.symbol} "
-            f"(pos=${qty_usd:.2f}, L1=${l1_depth_usd:.2f} < ${l1_threshold:.2f})"
+            f"Grid Step: Enabled for {trade.symbol} (pos=${qty_usd:.2f}, L1=${l1_depth_usd:.2f} < ${l1_threshold:.2f})"
         )
         return True
 
@@ -631,47 +634,38 @@ async def _calculate_grid_step_config(
     # Calculate adaptive grid step based on volatility
     grid_step = Decimal("0.0005")  # Default 0.05%
 
-    if getattr(es, 'grid_step_adaptive', True):
+    if getattr(es, "grid_step_adaptive", True):
         volatility = await _get_recent_volatility(self, trade.symbol)
 
-        vol_high = getattr(es, 'grid_step_volatility_threshold_high', Decimal("0.01"))
-        vol_low = getattr(es, 'grid_step_volatility_threshold_low', Decimal("0.005"))
+        vol_high = getattr(es, "grid_step_volatility_threshold_high", Decimal("0.01"))
+        vol_low = getattr(es, "grid_step_volatility_threshold_low", Decimal("0.005"))
 
-        step_min = getattr(es, 'grid_step_min_pct', Decimal("0.0002"))
-        step_max = getattr(es, 'grid_step_max_pct', Decimal("0.001"))
+        step_min = getattr(es, "grid_step_min_pct", Decimal("0.0002"))
+        step_max = getattr(es, "grid_step_max_pct", Decimal("0.001"))
 
         if volatility >= vol_high:
             # High volatility: use max step
             grid_step = step_max
-            logger.debug(
-                f"Grid Step: High volatility {volatility:.2%}, using max step {grid_step:.2%}"
-            )
+            logger.debug(f"Grid Step: High volatility {volatility:.2%}, using max step {grid_step:.2%}")
         elif volatility >= vol_low:
             # Medium volatility: use balanced step
             grid_step = (step_min + step_max) / Decimal("2")
-            logger.debug(
-                f"Grid Step: Medium volatility {volatility:.2%}, using balanced step {grid_step:.2%}"
-            )
+            logger.debug(f"Grid Step: Medium volatility {volatility:.2%}, using balanced step {grid_step:.2%}")
         else:
             # Low volatility: use min step
             grid_step = step_min
-            logger.debug(
-                f"Grid Step: Low volatility {volatility:.2%}, using min step {grid_step:.2%}"
-            )
+            logger.debug(f"Grid Step: Low volatility {volatility:.2%}, using min step {grid_step:.2%}")
     else:
         # Fixed grid step
-        grid_step = getattr(es, 'grid_step_max_pct', Decimal("0.001"))
+        grid_step = getattr(es, "grid_step_max_pct", Decimal("0.001"))
 
     # Calculate number of levels
-    max_levels = getattr(es, 'grid_step_max_levels', 5)
+    max_levels = getattr(es, "grid_step_max_levels", 5)
     l1_depth_usd = await _get_l1_depth_usd(self, trade.symbol, close_side)
 
     if l1_depth_usd > 0:
         # Calculate levels needed based on L1 depth
-        levels_needed = min(
-            max_levels,
-            int((qty_usd / l1_depth_usd).quantize(Decimal("1")))
-        )
+        levels_needed = min(max_levels, int((qty_usd / l1_depth_usd).quantize(Decimal("1"))))
         num_levels = max(2, min(levels_needed, max_levels))  # At least 2, at most max_levels
     else:
         num_levels = max_levels
@@ -777,10 +771,7 @@ async def _close_verify_and_finalize(
         # Recovery: Reset trade status and retry the full close flow (once).
         if _recovery_attempt:
             # Already tried recovery once, don't loop infinitely
-            logger.error(
-                f"Recovery close also failed for {trade.symbol}: {e}. "
-                f"Manual intervention may be required."
-            )
+            logger.error(f"Recovery close also failed for {trade.symbol}: {e}. Manual intervention may be required.")
             return CloseResult(
                 success=False,
                 reason=reason,
@@ -997,8 +988,7 @@ async def _fallback_readback_from_trades(
     """
     try:
         logger.info(
-            f"Fallback readback for {trade.symbol} {leg_name}: "
-            f"querying trade history API from {adapter.exchange}"
+            f"Fallback readback for {trade.symbol} {leg_name}: querying trade history API from {adapter.exchange}"
         )
 
         # Get close side (inverse of position side)
@@ -1008,9 +998,7 @@ async def _fallback_readback_from_trades(
         trades_data = await self._fetch_recent_trades(adapter, trade.symbol)
 
         if not trades_data:
-            logger.warning(
-                f"Fallback readback: no trades found for {trade.symbol} on {adapter.exchange}"
-            )
+            logger.warning(f"Fallback readback: no trades found for {trade.symbol} on {adapter.exchange}")
             return False
 
         # Extract close order IDs from events for precise filtering
@@ -1204,9 +1192,7 @@ async def _readback_leg(
     corrected = False
     if api_vwap > 0:
         price_diff_pct = (
-            abs(api_vwap - current_exit_price) / current_exit_price
-            if current_exit_price > 0
-            else Decimal("1")
+            abs(api_vwap - current_exit_price) / current_exit_price if current_exit_price > 0 else Decimal("1")
         )
         fee_diff_usd = abs(total_fees - current_fees)
 
@@ -1283,12 +1269,14 @@ async def _close_impl(self, trade: Trade, reason: str) -> CloseResult:
         # For ECON/OPT exits: Use coordinated close to minimize unhedged window.
         # EMERGENCY, CRASH, and Early-TP fast-close bypass coordinated close for speed.
         coordinated_enabled = bool(getattr(self.settings.trading, "coordinated_close_enabled", True))
-        is_emergency_or_fast = (reason or "").startswith((
-            "EMERGENCY",
-            "EARLY_TAKE_PROFIT",
-            "VELOCITY",  # Funding Velocity Exit (APY crash proactive)
-            "Z-SCORE",  # APY crash exits should be fast
-        )) or ("APY crashed" in (reason or ""))  # Also check substring for APY crash without prefix
+        is_emergency_or_fast = (reason or "").startswith(
+            (
+                "EMERGENCY",
+                "EARLY_TAKE_PROFIT",
+                "VELOCITY",  # Funding Velocity Exit (APY crash proactive)
+                "Z-SCORE",  # APY crash exits should be fast
+            )
+        ) or ("APY crashed" in (reason or ""))  # Also check substring for APY crash without prefix
         use_coordinated = coordinated_enabled and not is_emergency_or_fast
 
         # Smart Exit Strategy (default):
@@ -1300,12 +1288,8 @@ async def _close_impl(self, trade: Trade, reason: str) -> CloseResult:
         is_early_tp = (reason or "").startswith("EARLY_TAKE_PROFIT") or (
             (trade.close_reason or "").startswith("EARLY_TAKE_PROFIT")
         )
-        early_tp_fast_enabled = bool(
-            getattr(self.settings.trading, "early_tp_fast_close_enabled", True)
-        )
-        early_tp_taker_direct = bool(
-            getattr(self.settings.trading, "early_tp_fast_close_use_taker_directly", False)
-        )
+        early_tp_fast_enabled = bool(getattr(self.settings.trading, "early_tp_fast_close_enabled", True))
+        early_tp_taker_direct = bool(getattr(self.settings.trading, "early_tp_fast_close_use_taker_directly", False))
 
         if is_early_tp and early_tp_fast_enabled and early_tp_taker_direct:
             await asyncio.gather(
@@ -1494,11 +1478,7 @@ async def _close_lighter_smart(self, trade: Trade) -> None:
     # Step 6: Execute maker close with retries
     close_start_time = time.monotonic()
     close_side = trade.leg1.side.inverse()
-    qty = (
-        pos.qty
-        if (pos_fetch_ok and pos and pos.qty > qty_threshold)
-        else trade.leg1.filled_qty
-    )
+    qty = pos.qty if (pos_fetch_ok and pos and pos.qty > qty_threshold) else trade.leg1.filled_qty
 
     result = await self._execute_lighter_maker_close(
         trade=trade,
@@ -1558,14 +1538,10 @@ async def _execute_lighter_maker_close(
 
         # Check Grid Step eligibility (only first attempt)
         if result.attempts_made == 0:
-            use_grid_step = await _should_use_grid_step_async(
-                self, trade, close_side, qty_usd
-            )
+            use_grid_step = await _should_use_grid_step_async(self, trade, close_side, qty_usd)
 
             if use_grid_step:
-                grid_config = await _calculate_grid_step_config(
-                    self, trade, remaining_qty, close_side
-                )
+                grid_config = await _calculate_grid_step_config(self, trade, remaining_qty, close_side)
                 logger.info(
                     f"Grid Step Activated: {trade.symbol} "
                     f"step={grid_config.grid_step:.2%}, "
@@ -1663,10 +1639,7 @@ async def _execute_lighter_maker_close(
 
     # If we reach here, Maker failed. Force Taker Close.
     if config.use_fast_close:
-        logger.warning(
-            f"Early-TP Fast Close: Maker failed after {result.attempts_made} attempts, "
-            f"forcing Taker Exit"
-        )
+        logger.warning(f"Early-TP Fast Close: Maker failed after {result.attempts_made} attempts, forcing Taker Exit")
     else:
         logger.warning("Lighter Smart Close failed, forcing Market Exit")
 
@@ -1755,11 +1728,7 @@ async def _execute_lighter_close_attempt(
                 filled = None
 
             last_seen = filled
-            if (
-                filled
-                and filled.order_id
-                and not str(filled.order_id).startswith("pending_")
-            ):
+            if filled and filled.order_id and not str(filled.order_id).startswith("pending_"):
                 active_order_id = str(filled.order_id)
 
             if filled and filled.filled_qty > order_filled_qty:
@@ -1854,7 +1823,7 @@ class _GridStepCloseResult:
 def _calculate_grid_price_levels(
     base_price: Decimal,
     close_side: Side,
-    grid_config: "_GridStepConfig",
+    grid_config: _GridStepConfig,
     tick: Decimal,
 ) -> list[Decimal]:
     """
@@ -1881,11 +1850,7 @@ def _calculate_grid_price_levels(
             price_multiplier = Decimal("1") + (grid_config.grid_step * Decimal(str(i)))
             rounding = "ceil"
 
-        level_price = _round_price_to_tick(
-            base_price * price_multiplier,
-            tick,
-            rounding=rounding
-        )
+        level_price = _round_price_to_tick(base_price * price_multiplier, tick, rounding=rounding)
         price_levels.append(level_price)
 
     return price_levels
@@ -1896,7 +1861,7 @@ async def _place_grid_orders(
     trade: Trade,
     close_side: Side,
     price_levels: list[Decimal],
-    grid_config: "_GridStepConfig",
+    grid_config: _GridStepConfig,
     qty_threshold: Decimal,
     remaining_qty: Decimal,
 ) -> tuple[dict[str, tuple[Decimal, Decimal]], list[str]]:
@@ -1954,19 +1919,18 @@ async def _place_grid_orders(
             current_remaining -= level_qty
 
             logger.debug(
-                f"Grid Step: Placed level {i+1}/{grid_config.num_levels} "
-                f"@ {level_price:.4f} qty={level_qty}"
+                f"Grid Step: Placed level {i + 1}/{grid_config.num_levels} @ {level_price:.4f} qty={level_qty}"
             )
 
         except Exception as e:
-            logger.warning(f"Grid Step: Failed to place order level {i+1}: {e}")
+            logger.warning(f"Grid Step: Failed to place order level {i + 1}: {e}")
 
     return active_orders, order_ids_to_cancel
 
 
 def _process_order_fill_delta(
     order_id: str,
-    filled: "Order",
+    filled: Order,
     level_price: Decimal,
     order_qty_seen: dict[str, Decimal],
     order_fee_seen: dict[str, Decimal],
@@ -2324,13 +2288,13 @@ def _get_rebalance_price(
 async def _execute_rebalance_maker(
     self,
     trade: Trade,
-    adapter: "ExchangePort",
+    adapter: ExchangePort,
     rebalance_exchange: Exchange,
     rebalance_side: Side,
     rebalance_qty: Decimal,
     order_price: Decimal,
     maker_timeout: float,
-) -> tuple["Order | None", Decimal]:
+) -> tuple[Order | None, Decimal]:
     """
     Execute maker order for rebalance with timeout.
 
@@ -2398,12 +2362,12 @@ async def _execute_rebalance_maker(
 async def _execute_rebalance_ioc(
     self,
     trade: Trade,
-    adapter: "ExchangePort",
+    adapter: ExchangePort,
     rebalance_exchange: Exchange,
     rebalance_side: Side,
     remaining_qty: Decimal,
     tick: Decimal,
-) -> "Order | None":
+) -> Order | None:
     """Execute IOC fallback for rebalance."""
     ob = self.market_data.get_orderbook(trade.symbol)
     price_data = self.market_data.get_price(trade.symbol)
@@ -2507,8 +2471,7 @@ async def _rebalance_trade(
             if not leg2_mark_price and price_data.x10_price > 0:
                 leg2_mark_price = price_data.x10_price
             logger.debug(
-                f"Rebalance using fetched mark prices for {trade.symbol}: "
-                f"L1=${leg1_mark_price}, L2=${leg2_mark_price}"
+                f"Rebalance using fetched mark prices for {trade.symbol}: L1=${leg1_mark_price}, L2=${leg2_mark_price}"
             )
 
     # 1. Calculate rebalance target
@@ -2532,8 +2495,7 @@ async def _rebalance_trade(
         if trade.symbol not in _rebalance_skip_warned:
             _rebalance_skip_warned.add(trade.symbol)
             logger.info(
-                f"Rebalance skipped for {trade.symbol}: "
-                f"notional=${rebalance_notional:.2f} < min=${notional_floor:.2f}"
+                f"Rebalance skipped for {trade.symbol}: notional=${rebalance_notional:.2f} < min=${notional_floor:.2f}"
             )
         return
 
@@ -2575,8 +2537,7 @@ async def _rebalance_trade(
     try:
         # 4. Execute maker order
         updated, remaining_qty = await _execute_rebalance_maker(
-            self, trade, adapter, rebalance_exchange, rebalance_side,
-            rebalance_qty, order_price, maker_timeout
+            self, trade, adapter, rebalance_exchange, rebalance_side, rebalance_qty, order_price, maker_timeout
         )
 
         # Handle maker fill
@@ -2714,9 +2675,7 @@ async def _build_coordinated_close_context(
     leg1_maker_price = _calculate_leg_maker_price(
         ob, price_data, leg1_close_qty, leg1_close_side, "lighter", lighter_tick
     )
-    leg2_maker_price = _calculate_leg_maker_price(
-        ob, price_data, leg2_close_qty, leg2_close_side, "x10", x10_tick
-    )
+    leg2_maker_price = _calculate_leg_maker_price(ob, price_data, leg2_close_qty, leg2_close_side, "x10", x10_tick)
 
     return _CoordinatedCloseContext(
         trade=trade,
@@ -2781,24 +2740,22 @@ async def _submit_coordinated_maker_orders(
 
     if ctx.leg1_close_qty > 0 and ctx.leg1_maker_price > 0:
         logger.info(
-            f"Submitting Lighter maker: {ctx.leg1_close_side.value} "
-            f"{ctx.leg1_close_qty} @ {ctx.leg1_maker_price}"
+            f"Submitting Lighter maker: {ctx.leg1_close_side.value} {ctx.leg1_close_qty} @ {ctx.leg1_maker_price}"
         )
         maker_tasks["leg1"] = self._submit_maker_order(
-            ctx.trade, Exchange.LIGHTER, "leg1",
-            ctx.leg1_close_side, ctx.leg1_close_qty,
-            ctx.leg1_maker_price, ctx.lighter_tick
+            ctx.trade,
+            Exchange.LIGHTER,
+            "leg1",
+            ctx.leg1_close_side,
+            ctx.leg1_close_qty,
+            ctx.leg1_maker_price,
+            ctx.lighter_tick,
         )
 
     if ctx.leg2_close_qty > 0 and ctx.leg2_maker_price > 0 and ctx.x10_use_maker:
-        logger.info(
-            f"Submitting X10 maker: {ctx.leg2_close_side.value} "
-            f"{ctx.leg2_close_qty} @ {ctx.leg2_maker_price}"
-        )
+        logger.info(f"Submitting X10 maker: {ctx.leg2_close_side.value} {ctx.leg2_close_qty} @ {ctx.leg2_maker_price}")
         maker_tasks["leg2"] = self._submit_maker_order(
-            ctx.trade, Exchange.X10, "leg2",
-            ctx.leg2_close_side, ctx.leg2_close_qty,
-            ctx.leg2_maker_price, ctx.x10_tick
+            ctx.trade, Exchange.X10, "leg2", ctx.leg2_close_side, ctx.leg2_close_qty, ctx.leg2_maker_price, ctx.x10_tick
         )
 
     if maker_tasks:
@@ -2844,9 +2801,7 @@ async def _wait_for_coordinated_fills(
                     continue
 
                 if updated.is_filled or updated.status == OrderStatus.FILLED:
-                    logger.info(
-                        f"Maker filled for {leg}: {updated.filled_qty} @ {updated.avg_fill_price}"
-                    )
+                    logger.info(f"Maker filled for {leg}: {updated.filled_qty} @ {updated.avg_fill_price}")
                     filled_legs.add(leg)
                     legs_to_close.remove(leg)
                     # Update trade leg
@@ -2861,9 +2816,7 @@ async def _wait_for_coordinated_fills(
                     # This means CANCELLED, REJECTED, or EXPIRED
                     # Do NOT remove from legs_to_close - let IOC escalation handle it
                     if updated.status in (OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED):
-                        logger.warning(
-                            f"Maker order {leg} was {updated.status.value}, will escalate to IOC"
-                        )
+                        logger.warning(f"Maker order {leg} was {updated.status.value}, will escalate to IOC")
                         # Keep in legs_to_close for IOC escalation
                     else:
                         logger.warning(f"Maker order {leg} no longer active: {updated.status}")
@@ -2887,24 +2840,22 @@ async def _escalate_unfilled_to_ioc(
     ioc_tasks = []
 
     if "leg1" in legs_to_close and ctx.leg1_close_qty > 0:
-        ioc_price = _calculate_ioc_price(
-            ctx.ob, ctx.price_data, ctx.leg1_close_side, "lighter", ctx.lighter_tick
-        )
+        ioc_price = _calculate_ioc_price(ctx.ob, ctx.price_data, ctx.leg1_close_side, "lighter", ctx.lighter_tick)
         if ioc_price > 0:
-            ioc_tasks.append(self._execute_ioc_close(
-                ctx.trade, Exchange.LIGHTER, "leg1",
-                ctx.leg1_close_side, ctx.leg1_close_qty, ioc_price
-            ))
+            ioc_tasks.append(
+                self._execute_ioc_close(
+                    ctx.trade, Exchange.LIGHTER, "leg1", ctx.leg1_close_side, ctx.leg1_close_qty, ioc_price
+                )
+            )
 
     if "leg2" in legs_to_close and ctx.leg2_close_qty > 0:
-        ioc_price = _calculate_ioc_price(
-            ctx.ob, ctx.price_data, ctx.leg2_close_side, "x10", ctx.x10_tick
-        )
+        ioc_price = _calculate_ioc_price(ctx.ob, ctx.price_data, ctx.leg2_close_side, "x10", ctx.x10_tick)
         if ioc_price > 0:
-            ioc_tasks.append(self._execute_ioc_close(
-                ctx.trade, Exchange.X10, "leg2",
-                ctx.leg2_close_side, ctx.leg2_close_qty, ioc_price
-            ))
+            ioc_tasks.append(
+                self._execute_ioc_close(
+                    ctx.trade, Exchange.X10, "leg2", ctx.leg2_close_side, ctx.leg2_close_qty, ioc_price
+                )
+            )
 
     if ioc_tasks:
         results = await asyncio.gather(*ioc_tasks, return_exceptions=True)
@@ -2988,9 +2939,7 @@ async def _close_both_legs_coordinated(self, trade: Trade) -> None:
         _, maker_order_ids = await _submit_coordinated_maker_orders(self, ctx)
 
         # Step 2: Wait for fills
-        filled_legs = await _wait_for_coordinated_fills(
-            self, trade, legs_to_close, maker_order_ids, ctx.maker_timeout
-        )
+        filled_legs = await _wait_for_coordinated_fills(self, trade, legs_to_close, maker_order_ids, ctx.maker_timeout)
 
         # Fix: Check filled_legs instead of legs_to_close to detect CANCELLED/REJECTED orders
         # Previously, CANCELLED orders were removed from legs_to_close but not added to filled_legs,
@@ -3177,11 +3126,7 @@ async def _close_x10_smart(self, trade: Trade) -> None:
             return
 
     close_side = trade.leg2.side.inverse()
-    qty = (
-        pos.qty
-        if (pos_fetch_ok and pos and pos.qty > qty_threshold)
-        else trade.leg2.filled_qty
-    )
+    qty = pos.qty if (pos_fetch_ok and pos and pos.qty > qty_threshold) else trade.leg2.filled_qty
 
     # Get price (prefer X10 L1 to ensure marketable IOC)
     price_data = self.market_data.get_price(trade.symbol)
@@ -3323,8 +3268,7 @@ async def _close_x10_smart(self, trade: Trade) -> None:
 
     if remaining_qty > qty_threshold:
         logger.error(
-            f"X10 Smart Close incomplete for {trade.symbol}; remaining={remaining_qty}. "
-            f"Last error: {last_error}"
+            f"X10 Smart Close incomplete for {trade.symbol}; remaining={remaining_qty}. Last error: {last_error}"
         )
         # Fallback: force market close for remaining size
         await self._close_leg(self.x10, trade, trade.leg2, override_qty=remaining_qty)
@@ -3493,9 +3437,7 @@ async def _verify_closed(self, trade: Trade) -> None:
 
     # Check both exchanges in parallel
     results = await asyncio.gather(
-        self.lighter.get_position(trade.symbol),
-        self.x10.get_position(trade.symbol),
-        return_exceptions=True
+        self.lighter.get_position(trade.symbol), self.x10.get_position(trade.symbol), return_exceptions=True
     )
 
     # Handle exceptions from gather with proper typing

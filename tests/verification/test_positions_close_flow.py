@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
-import asyncio
 import pytest
 
 from funding_bot.domain.models import (
@@ -276,7 +276,9 @@ async def test_close_trade_still_closes_x10_when_lighter_get_order_hangs(monkeyp
     settings.trading = MagicMock()
     settings.trading.early_tp_fast_close_enabled = True
     settings.trading.early_tp_fast_close_use_taker_directly = False
-    settings.trading.early_tp_fast_close_total_timeout_seconds = 0.0  # force direct taker fallback in _close_lighter_smart
+    settings.trading.early_tp_fast_close_total_timeout_seconds = (
+        0.0  # force direct taker fallback in _close_lighter_smart
+    )
     settings.trading.early_tp_fast_close_attempt_timeout_seconds = 0.0
     settings.trading.early_tp_fast_close_max_attempts = 1
 

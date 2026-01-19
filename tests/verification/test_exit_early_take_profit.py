@@ -69,10 +69,10 @@ def test_early_take_profit_exits_when_pnl_exceeds_effective_threshold():
 def test_early_take_profit_does_not_exit_when_pnl_below_effective_threshold():
     """
     BUGFIX 2026-01-01: Even if pnl > base threshold, should NOT exit if pnl < effective threshold.
-    
+
     With threshold=0.30, exit_cost=0.20, slippage_multiple=1.5:
     effective_threshold = 0.30 + (0.20 * 1.5) = 0.60
-    
+
     pnl=0.50 is above base (0.30) but below effective (0.60) -> should NOT exit
     """
     trade = _make_trade_opened_recently(hours_ago=1)

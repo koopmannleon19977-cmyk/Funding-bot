@@ -1,5 +1,7 @@
 import asyncio
+
 from lighter.signer_client import CreateOrderTxReq
+
 from utils import default_example_setup
 
 
@@ -51,6 +53,7 @@ async def main():
     print("Create Grouped Order Tx:", transaction)
     await client.close()
     await api_client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

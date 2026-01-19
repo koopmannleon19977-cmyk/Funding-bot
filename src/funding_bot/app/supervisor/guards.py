@@ -79,9 +79,7 @@ async def _pause_trading(
             )
         )
 
-    logger.warning(
-        f"Trading paused: {reason} (cooldown={cooldown_seconds}s, indefinite={indefinite})"
-    )
+    logger.warning(f"Trading paused: {reason} (cooldown={cooldown_seconds}s, indefinite={indefinite})")
 
 
 def _compact_error(err: Exception, *, max_chars: int = 240) -> str:
@@ -113,9 +111,7 @@ async def _on_broken_hedge(self: Supervisor, event: BrokenHedgeDetected) -> None
     self._broken_hedge_symbol = event.symbol
 
     # Get cooldown from config (default 15 min)
-    cooldown_seconds = float(
-        getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900)
-    )
+    cooldown_seconds = float(getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900))
 
     await self._pause_trading(
         reason=f"BROKEN HEDGE: {event.symbol} missing {event.missing_exchange.value}",
@@ -183,9 +179,7 @@ async def _maybe_resume_trading(self: Supervisor) -> None:
                 # Both must be balanced: either both present or both absent
                 if has_lighter != has_x10:
                     # Still unbalanced! Extend the pause.
-                    cooldown_seconds = float(
-                        getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900)
-                    )
+                    cooldown_seconds = float(getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900))
                     self._trading_paused_until = time.time() + cooldown_seconds
                     logger.warning(
                         f"Self-Healing: Positions still unbalanced for {symbol} "
@@ -208,20 +202,15 @@ async def _maybe_resume_trading(self: Supervisor) -> None:
                     return  # Don't resume yet
                 else:
                     # Positions are balanced! Clear the broken hedge tracking.
-                    logger.info(
-                        f"Self-Healing: Positions balanced for {symbol}. Resuming trading."
-                    )
+                    logger.info(f"Self-Healing: Positions balanced for {symbol}. Resuming trading.")
                     self._broken_hedge_symbol = None
 
             except Exception as e:
                 # Verification failed - extend pause to be safe
-                cooldown_seconds = float(
-                    getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900)
-                )
+                cooldown_seconds = float(getattr(self.settings.risk, "broken_hedge_cooldown_seconds", 900))
                 self._trading_paused_until = time.time() + cooldown_seconds
                 logger.warning(
-                    f"Self-Healing: Verification failed for {symbol}: {e}. "
-                    f"Extending pause for {cooldown_seconds}s."
+                    f"Self-Healing: Verification failed for {symbol}: {e}. Extending pause for {cooldown_seconds}s."
                 )
                 return  # Don't resume yet
 
@@ -230,9 +219,7 @@ async def _maybe_resume_trading(self: Supervisor) -> None:
         self._consecutive_trade_failures = 0
 
     if self.event_bus:
-        await self.event_bus.publish(
-            AlertEvent(level="INFO", message="Trading resumed", details={})
-        )
+        await self.event_bus.publish(AlertEvent(level="INFO", message="Trading resumed", details={}))
     logger.info("Trading resumed")
 
 

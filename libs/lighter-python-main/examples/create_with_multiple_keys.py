@@ -1,5 +1,6 @@
-import time
 import asyncio
+import time
+
 from utils import default_example_setup
 
 

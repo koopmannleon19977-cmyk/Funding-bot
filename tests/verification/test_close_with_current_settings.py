@@ -53,9 +53,7 @@ async def test_current_settings_early_take_profit_rule_triggers_with_effective_t
 
     estimated_exit_cost = Decimal("0.35")
     slippage_buffer = estimated_exit_cost * settings.trading.early_take_profit_slippage_multiple
-    effective_threshold = settings.trading.early_take_profit_net_usd + max(
-        slippage_buffer, Decimal("0.50")
-    )
+    effective_threshold = settings.trading.early_take_profit_net_usd + max(slippage_buffer, Decimal("0.50"))
 
     decision = evaluate_exit_rules(
         trade=trade,
@@ -132,7 +130,9 @@ async def test_current_settings_early_take_profit_closes_both_legs_taker_direct(
     # X10 position exists initially, then is gone at verify.
     x10.get_position = AsyncMock(
         side_effect=[
-            Position(symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("2"), entry_price=Decimal("100")),
+            Position(
+                symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("2"), entry_price=Decimal("100")
+            ),
             None,  # _verify_closed()
         ]
     )
@@ -292,10 +292,18 @@ async def test_current_settings_x10_close_falls_back_to_market_on_ioc_failures(m
     # Stay open through all IOC attempts, then be gone at verify (after market fallback).
     x10.get_position = AsyncMock(
         side_effect=[
-            Position(symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")),
-            Position(symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")),
-            Position(symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")),
-            Position(symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")),
+            Position(
+                symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")
+            ),
+            Position(
+                symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")
+            ),
+            Position(
+                symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")
+            ),
+            Position(
+                symbol="TEST", exchange=Exchange.X10, side=trade.leg2.side, qty=Decimal("3"), entry_price=Decimal("100")
+            ),
             None,
         ]
     )

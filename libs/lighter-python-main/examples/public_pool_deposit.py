@@ -15,7 +15,7 @@ async def main():
 
     tx_info, response, err = await client.mint_shares(public_pool_index=POOL_ACCOUNT_INDEX, share_amount=10_000)
     if err is not None:
-        raise Exception(f'failed to mint shares {err}')
+        raise Exception(f"failed to mint shares {err}")
 
     await client.close()
     await api_client.close()

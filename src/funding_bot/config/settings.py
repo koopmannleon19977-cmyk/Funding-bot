@@ -12,6 +12,7 @@ import os
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -35,9 +36,9 @@ class ExchangeSettings(BaseModel):
         default=Decimal("1"),
         ge=Decimal("0.1"),
         description="Funding rate normalization interval in hours (default: 1 = hourly). "
-                    "Both exchanges return HOURLY rates directly (API formula includes /8). "
-                    "Set to 8 ONLY if API changes to return 8h rates in the future. "
-                    "We divide raw rate by this value to normalize to hourly storage."
+        "Both exchanges return HOURLY rates directly (API formula includes /8). "
+        "Set to 8 ONLY if API changes to return 8h rates in the future. "
+        "We divide raw rate by this value to normalize to hourly storage.",
     )
 
     def validate_for_live_trading(self, exchange_name: str) -> list[str]:
@@ -239,11 +240,11 @@ class TradingSettings(BaseModel):
     maker_fill_probability: dict[str, str] = Field(
         default={
             "lighter_standard": "0.70",  # 70% for Lighter Standard
-            "lighter_premium": "0.80",   # 80% for Lighter Premium (better liquidity)
-            "x10": "0.50",               # 50% for X10 (less liquid)
+            "lighter_premium": "0.80",  # 80% for Lighter Premium (better liquidity)
+            "x10": "0.50",  # 50% for X10 (less liquid)
         },
         description="Maker fill probability by exchange/account type. "
-                    "Used for weighted exit cost calculation in EV model."
+        "Used for weighted exit cost calculation in EV model.",
     )
     switching_cost_latency_usd: Decimal = Decimal("0.20")  # Latency penalty for rotation
 
@@ -533,6 +534,53 @@ class HistoricalSettings(BaseModel):
     volatility_lookback_days: int = 90
 
 
+class SurgeProSettings(BaseModel):
+    """Settings for Surge Pro strategy."""
+
+    # === Existing taker-mode settings ===
+    scan_interval_seconds: Decimal = Decimal("1.0")
+    symbol_limit: int = 10
+    symbol_refresh_seconds: Decimal = Decimal("60.0")
+    depth_levels: int = 20
+    entry_imbalance_threshold: Decimal = Decimal("0.30")
+    exit_imbalance_threshold: Decimal = Decimal("0.10")
+    stop_loss_bps: Decimal = Decimal("20")
+    take_profit_bps: Decimal = Decimal("15")
+    max_open_trades: int = 3
+    max_trade_notional_usd: Decimal = Decimal("200")
+    daily_loss_cap_usd: Decimal = Decimal("5")
+    max_trades_per_hour: int = 100
+    cooldown_seconds: int = 5
+    max_spread_bps: Decimal = Decimal("10")
+    min_depth_usd: Decimal = Decimal("100")
+    entry_slippage_bps: Decimal = Decimal("75")
+    exit_slippage_bps: Decimal = Decimal("75")
+    slippage_bps_min: Decimal = Decimal("5")
+    slippage_bps_max: Decimal = Decimal("200")
+    paper_mode: bool = True
+    close_on_missing_position: bool = True
+    close_fill_timeout_seconds: Decimal = Decimal("3.0")
+    position_refresh_seconds: Decimal = Decimal("1.0")
+
+    # === NEW: Maker mode settings ===
+    order_mode: Literal["taker", "maker"] = "taker"
+    symbols: list[str] = Field(
+        default_factory=lambda: ["BTC", "ETH", "SOL", "XRP", "DOGE", "LINK", "AVAX", "SUI"],
+        description="Whitelist of symbols for maker strategy (liquid markets only)",
+    )
+    maker_entry_timeout_s: float = 2.0
+    maker_exit_timeout_s: float = 1.5
+    maker_exit_max_retries: int = 3
+    maker_reprice_delay_ms: int = 100
+    max_hold_seconds: int = 60
+
+    # === NEW: Risk guard settings ===
+    hourly_loss_pause_usd: Decimal = Decimal("2.0")
+    loss_streak_pause_count: int = 5
+    min_fill_rate_percent: int = 20
+    pause_duration_minutes: int = 30
+
+
 class ShutdownSettings(BaseModel):
     """Shutdown behavior settings."""
 
@@ -567,6 +615,7 @@ class Settings(BaseSettings):
     telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     shutdown: ShutdownSettings = Field(default_factory=ShutdownSettings)
     historical: HistoricalSettings = Field(default_factory=HistoricalSettings)
+    surge_pro: SurgeProSettings = Field(default_factory=SurgeProSettings)
 
     model_config = {
         "env_prefix": "BOT_",

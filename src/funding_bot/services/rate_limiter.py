@@ -31,8 +31,8 @@ class RateLimitAwareExecutor:
         self,
         exchange_name: str,
         requests_per_minute: int = 24000,  # Lighter Premium default
-        warning_threshold: float = 0.8,      # 80% = Backoff starten
-        critical_threshold: float = 0.95,    # 95% = Stopp
+        warning_threshold: float = 0.8,  # 80% = Backoff starten
+        critical_threshold: float = 0.95,  # 95% = Stopp
     ):
         """
         Initialize rate limiter.
@@ -106,11 +106,9 @@ class RateLimitAwareExecutor:
         now = time.time()
         if now < self.backoff_until:
             wait_time = self.backoff_until - now
-            logger.info(
-                f"[RateLimit:{self.exchange_name}] In backoff, "
-                f"waiting {wait_time:.1f}s (label={label})"
-            )
+            logger.info(f"[RateLimit:{self.exchange_name}] In backoff, waiting {wait_time:.1f}s (label={label})")
             import asyncio
+
             await asyncio.sleep(wait_time)
 
         # 2. Check rate limit usage
@@ -125,6 +123,7 @@ class RateLimitAwareExecutor:
                     f"waiting {wait_time:.1f}s (label={label})"
                 )
                 import asyncio
+
                 await asyncio.sleep(wait_time)
 
         elif usage_pct >= self.warning_threshold:
@@ -137,6 +136,7 @@ class RateLimitAwareExecutor:
                 )
                 self.total_backoffs += 1
                 import asyncio
+
                 await asyncio.sleep(backoff)
 
         # 3. Execute request
@@ -164,7 +164,7 @@ class RateLimitAwareExecutor:
 
                 # Parse Retry-After header if available
                 retry_after = 5  # Default 5 seconds
-                if hasattr(e, 'response') and hasattr(e.response, 'headers'):
+                if hasattr(e, "response") and hasattr(e.response, "headers"):
                     retry_after_header = e.response.headers.get("Retry-After")
                     if retry_after_header:
                         with contextlib.suppress(ValueError):
@@ -178,6 +178,7 @@ class RateLimitAwareExecutor:
                 )
 
                 import asyncio
+
                 await asyncio.sleep(retry_after)
 
                 # Retry once
@@ -187,9 +188,7 @@ class RateLimitAwareExecutor:
                     self.consecutive_errors = 0
                     return response
                 except Exception as retry_e:
-                    logger.error(
-                        f"[RateLimit:{self.exchange_name}] Retry failed: {retry_e}"
-                    )
+                    logger.error(f"[RateLimit:{self.exchange_name}] Retry failed: {retry_e}")
                     raise
 
             # Not a rate limit error or retry exhausted
@@ -225,12 +224,7 @@ class RateLimiterManager:
     def __init__(self):
         self.limiters = {}
 
-    def get_limiter(
-        self,
-        exchange: str,
-        endpoint: str = "default",
-        **kwargs
-    ) -> RateLimitAwareExecutor:
+    def get_limiter(self, exchange: str, endpoint: str = "default", **kwargs) -> RateLimitAwareExecutor:
         """
         Get or create rate limiter for exchange/endpoint.
 
@@ -249,12 +243,12 @@ class RateLimiterManager:
             if exchange == "LIGHTER":
                 requests_per_minute = kwargs.get(
                     "requests_per_minute",
-                    24000  # Premium Tier
+                    24000,  # Premium Tier
                 )
             elif exchange == "X10":
                 requests_per_minute = kwargs.get(
                     "requests_per_minute",
-                    10000  # X10 has no published limit, use conservative
+                    10000,  # X10 has no published limit, use conservative
                 )
             else:
                 requests_per_minute = kwargs.get("requests_per_minute", 1000)
@@ -262,7 +256,7 @@ class RateLimiterManager:
             self.limiters[key] = RateLimitAwareExecutor(
                 exchange_name=key,
                 requests_per_minute=requests_per_minute,
-                **{k: v for k, v in kwargs.items() if k != "requests_per_minute"}
+                **{k: v for k, v in kwargs.items() if k != "requests_per_minute"},
             )
 
         return self.limiters[key]

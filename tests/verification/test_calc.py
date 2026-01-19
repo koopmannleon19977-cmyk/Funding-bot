@@ -1,4 +1,3 @@
-
 from decimal import Decimal
 
 from funding_bot.domain.models import Exchange, FundingRate
@@ -6,7 +5,6 @@ from funding_bot.services.market_data import FundingSnapshot
 
 
 class TestCalculations:
-
     def test_apy_calculation(self):
         """Verify APY calculation: Hourly Rate * 24 * 365."""
         # 0.01% hourly -> 0.24% daily -> 87.6% APY
@@ -14,7 +12,7 @@ class TestCalculations:
         snapshot = FundingSnapshot(
             symbol="ETH-USD",
             lighter_rate=FundingRate("ETH-USD", Exchange.LIGHTER, Decimal("0")),
-            x10_rate=FundingRate("ETH-USD", Exchange.X10, Decimal("0.0001")), # Net +0.01%
+            x10_rate=FundingRate("ETH-USD", Exchange.X10, Decimal("0.0001")),  # Net +0.01%
         )
 
         # Manually set the net rate for testing the property logic if needed,
@@ -38,12 +36,12 @@ class TestCalculations:
         """Verify EV calculation logic."""
         # Setup
         notional = Decimal("1000")
-        funding_rate = Decimal("0.0001") # 0.01% hourly
+        funding_rate = Decimal("0.0001")  # 0.01% hourly
         entry_cost = Decimal("5.0")
         hold_hours = Decimal("24")
 
-        funding_income_per_hour = notional * funding_rate # 0.1
-        total_funding = funding_income_per_hour * hold_hours # 2.4
+        funding_income_per_hour = notional * funding_rate  # 0.1
+        total_funding = funding_income_per_hour * hold_hours  # 2.4
 
         # EV = Total Funding - Entry Cost
         # Here: 2.4 - 5.0 = -2.6 (Negative EV)
@@ -85,4 +83,3 @@ class TestCalculations:
         l2_pnl_div = (l2_exit_diverged - l2_entry) * qty
         assert l2_pnl_div == Decimal("-110")
         assert l1_pnl + l2_pnl_div == Decimal("-10")
-

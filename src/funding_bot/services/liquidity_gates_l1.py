@@ -47,28 +47,36 @@ def _check_single_exchange_l1(
 
     # Missing L1 data
     if price <= 0 or qty <= 0:
-        return False, f"missing {exchange} L1 {side.value}", {
-            "exchange": exchange,
-            "side": side.value,
-            "l1_price": str(price),
-            "l1_qty": str(qty),
-            "l1_notional_usd": "0",
-            "utilization": None,
-        }
+        return (
+            False,
+            f"missing {exchange} L1 {side.value}",
+            {
+                "exchange": exchange,
+                "side": side.value,
+                "l1_price": str(price),
+                "l1_qty": str(qty),
+                "l1_notional_usd": "0",
+                "utilization": None,
+            },
+        )
 
     l1_notional = price * qty
     utilization: Decimal | None = target_qty / qty if qty > 0 else None
 
     # Notional check
     if required_notional > 0 and l1_notional < required_notional:
-        return False, f"{exchange} L1 notional too low", {
-            "exchange": exchange,
-            "side": side.value,
-            "l1_price": str(price),
-            "l1_qty": str(qty),
-            "l1_notional_usd": str(l1_notional),
-            "utilization": None if utilization is None else str(utilization),
-        }
+        return (
+            False,
+            f"{exchange} L1 notional too low",
+            {
+                "exchange": exchange,
+                "side": side.value,
+                "l1_price": str(price),
+                "l1_qty": str(qty),
+                "l1_notional_usd": str(l1_notional),
+                "utilization": None if utilization is None else str(utilization),
+            },
+        )
 
     # Utilization check
     if (
@@ -77,24 +85,32 @@ def _check_single_exchange_l1(
         and utilization is not None
         and utilization > max_l1_qty_utilization
     ):
-        return False, f"{exchange} L1 utilization too high", {
+        return (
+            False,
+            f"{exchange} L1 utilization too high",
+            {
+                "exchange": exchange,
+                "side": side.value,
+                "l1_price": str(price),
+                "l1_qty": str(qty),
+                "l1_notional_usd": str(l1_notional),
+                "utilization": str(utilization),
+            },
+        )
+
+    # Passed
+    return (
+        True,
+        "",
+        {
             "exchange": exchange,
             "side": side.value,
             "l1_price": str(price),
             "l1_qty": str(qty),
             "l1_notional_usd": str(l1_notional),
-            "utilization": str(utilization),
-        }
-
-    # Passed
-    return True, "", {
-        "exchange": exchange,
-        "side": side.value,
-        "l1_price": str(price),
-        "l1_qty": str(qty),
-        "l1_notional_usd": str(l1_notional),
-        "utilization": None if utilization is None else str(utilization),
-    }
+            "utilization": None if utilization is None else str(utilization),
+        },
+    )
 
 
 def _compute_required_notional(
@@ -255,9 +271,7 @@ def check_l1_depth_for_entry(
     if target_qty <= 0 or target_notional_usd <= 0:
         return L1DepthGateResult(False, "invalid target size", metrics={})
 
-    required_notional = _compute_required_notional(
-        min_l1_notional_usd, min_l1_notional_multiple, target_notional_usd
-    )
+    required_notional = _compute_required_notional(min_l1_notional_usd, min_l1_notional_multiple, target_notional_usd)
 
     # Check both exchanges using shared helper
     ok_l, reason_l, m_l = _check_single_exchange_l1(
@@ -297,9 +311,7 @@ def check_x10_l1_compliance(
     if target_qty <= 0 or target_notional_usd <= 0:
         return L1DepthGateResult(False, "invalid target size", metrics={})
 
-    required_notional = _compute_required_notional(
-        min_l1_notional_usd, min_l1_notional_multiple, target_notional_usd
-    )
+    required_notional = _compute_required_notional(min_l1_notional_usd, min_l1_notional_multiple, target_notional_usd)
 
     # Check only X10 using shared helper
     ok_x, reason_x, m_x = _check_single_exchange_l1(

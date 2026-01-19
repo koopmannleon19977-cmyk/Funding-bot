@@ -185,6 +185,7 @@ class PositionManager:
 
             # Only subscribe to new symbols
             if new_symbols:
+
                 async def _ensure_one(sym: str) -> None:
                     with contextlib.suppress(Exception):
                         if callable(ensure_ob_fn_lighter):
@@ -193,10 +194,7 @@ class PositionManager:
                         if callable(ensure_ob_fn_x10):
                             await ensure_ob_fn_x10(sym, timeout=0.0)  # type: ignore[misc]
 
-                await asyncio.gather(
-                    *(_ensure_one(sym) for sym in new_symbols),
-                    return_exceptions=True
-                )
+                await asyncio.gather(*(_ensure_one(sym) for sym in new_symbols), return_exceptions=True)
                 logger.debug(f"Subscribed to orderbook for {len(new_symbols)} new symbols: {new_symbols}")
 
             # Clean up stale subscriptions (symbols no longer in open trades)
@@ -389,15 +387,10 @@ class PositionManager:
                 return await evaluate_single_trade(trade)
 
         # Process all trades in parallel with concurrency limit
-        results = await asyncio.gather(*[
-            evaluate_with_limit(trade) for trade in trades
-        ], return_exceptions=True)
+        results = await asyncio.gather(*[evaluate_with_limit(trade) for trade in trades], return_exceptions=True)
 
         # Filter out any exceptions from gather
-        valid_results = [
-            r for r in results
-            if isinstance(r, tuple) and len(r) == 4
-        ]
+        valid_results = [r for r in results if isinstance(r, tuple) and len(r) == 4]
 
         return valid_results
 

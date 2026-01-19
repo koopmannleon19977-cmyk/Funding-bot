@@ -10,22 +10,19 @@ OFFLINE-FIRST: These tests do NOT require exchange SDK or network access.
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
-
-import pytest
+from unittest.mock import MagicMock
 
 from funding_bot.services.execution_impl_sizing import (
     BalanceData,
     DepthGateConfig,
     LeverageConfig,
     RiskCapacity,
-    SlotAllocation,
     SizingResult,
+    SlotAllocation,
     _calculate_leverage,
     _calculate_slot_allocation,
     _load_depth_gate_config,
 )
-
 
 # =============================================================================
 # DATACLASS TESTS
@@ -219,6 +216,7 @@ class TestCalculateLeverage:
 
         def get_market_info(symbol, exchange):
             from funding_bot.domain.models import Exchange
+
             if exchange == Exchange.LIGHTER:
                 return lighter_info
             return x10_info

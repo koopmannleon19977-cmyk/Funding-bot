@@ -11,7 +11,6 @@ from funding_bot.domain.models import (
     Order,
     OrderRequest,
     OrderStatus,
-    OrderType,
     Side,
     TimeInForce,
     Trade,

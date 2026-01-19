@@ -1,11 +1,12 @@
 from decimal import Decimal
-from src.utils import safe_decimal
+
 from src.core.orderbook_validator import (
-    OrderbookValidator,
-    OrderbookValidationResult,
-    OrderbookQuality,
     OrderbookDepthLevel,
+    OrderbookQuality,
+    OrderbookValidationResult,
+    OrderbookValidator,
 )
+from src.utils import safe_decimal
 
 
 def validate_orderbook_for_maker(

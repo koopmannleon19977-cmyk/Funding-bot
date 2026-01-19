@@ -17,12 +17,18 @@ from funding_bot.ports.notification import NotificationPort
 logger = get_logger(__name__)
 
 _ALLOWED_HTML_TAGS: tuple[str, ...] = (
-    "<b>", "</b>",
-    "<i>", "</i>",
-    "<u>", "</u>",
-    "<s>", "</s>",
-    "<code>", "</code>",
-    "<pre>", "</pre>",
+    "<b>",
+    "</b>",
+    "<i>",
+    "</i>",
+    "<u>",
+    "</u>",
+    "<s>",
+    "</s>",
+    "<code>",
+    "</code>",
+    "<pre>",
+    "</pre>",
 )
 
 
@@ -81,7 +87,7 @@ class TelegramAdapter(NotificationPort):
             return False
 
         if not self._session or self._session.closed:
-             # Lazy init or restart if closed
+            # Lazy init or restart if closed
             self._session = aiohttp.ClientSession()
 
         try:

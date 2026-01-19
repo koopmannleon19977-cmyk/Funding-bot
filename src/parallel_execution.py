@@ -1,7 +1,8 @@
 """Compatibility wrapper exposing parallel execution utilities under a flat module path."""
+
 from src.application.parallel_execution import (
-    ParallelExecutionManager,
     ExecutionState,
+    ParallelExecutionManager,
     calculate_common_quantity,
 )
 

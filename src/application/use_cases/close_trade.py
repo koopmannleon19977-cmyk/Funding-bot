@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
+
 from src.domain.entities import Trade
-from src.domain.value_objects import TradeStatus
-from src.infrastructure.messaging.event_bus import TradeClosed, EventBus
+from src.infrastructure.messaging.event_bus import EventBus, TradeClosed
 
 
 @dataclass
@@ -19,5 +19,7 @@ class CloseTradeUseCase:
         closed = request.trade.mark_closed(datetime.utcnow())
         await self.repo.save(closed)
         if self.event_bus:
-            await self.event_bus.publish(TradeClosed(trade_id=closed.id, symbol=closed.symbol, timestamp=datetime.utcnow()))
+            await self.event_bus.publish(
+                TradeClosed(trade_id=closed.id, symbol=closed.symbol, timestamp=datetime.utcnow())
+            )
         return closed

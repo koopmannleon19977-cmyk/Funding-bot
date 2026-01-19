@@ -49,9 +49,7 @@ async def _process_leg1_fill(
 
     state.total_filled += fill_increment
     fill_price = (
-        filled_order.avg_fill_price
-        if filled_order.avg_fill_price and filled_order.avg_fill_price > 0
-        else ctx.price
+        filled_order.avg_fill_price if filled_order.avg_fill_price and filled_order.avg_fill_price > 0 else ctx.price
     )
     state.total_notional += fill_increment * fill_price
 
@@ -67,10 +65,7 @@ async def _process_leg1_fill(
     trade.leg1.fees = state.total_fees
     await self._update_trade(trade)
 
-    logger.info(
-        f"Leg1 partial fill: {fill_increment:.6f}. "
-        f"Running total: {state.total_filled:.6f}"
-    )
+    logger.info(f"Leg1 partial fill: {fill_increment:.6f}. Running total: {state.total_filled:.6f}")
 
 
 async def _ghost_fill_reconcile(
@@ -84,10 +79,7 @@ async def _ghost_fill_reconcile(
     # [Safety Check] Ghost Fill Verification
     # If Order API says "Not Filled" (or partial), but Position API
     # says "Full Position Delta", trust the Position.
-    req_check = (
-        initial_pos_qty is not None and
-        state.total_filled < trade.target_qty
-    )
+    req_check = initial_pos_qty is not None and state.total_filled < trade.target_qty
     if not req_check:
         return
 
@@ -99,12 +91,8 @@ async def _ghost_fill_reconcile(
             if mi and mi.step_size:
                 step_size = mi.step_size
 
-        current_pos = await self.lighter.get_position(
-            trade.symbol
-        )
-        current_pos_qty = (
-            current_pos.qty if current_pos else Decimal("0")
-        )
+        current_pos = await self.lighter.get_position(trade.symbol)
+        current_pos_qty = current_pos.qty if current_pos else Decimal("0")
 
         # Calculate detected position change
         # (absolute, assuming uni-directional trade opening)
@@ -145,15 +133,11 @@ async def _ghost_fill_reconcile(
 
             # Update Trade
             trade.leg1.filled_qty = state.total_filled
-            trade.leg1.entry_price = (
-                state.total_notional / state.total_filled
-            )
+            trade.leg1.entry_price = state.total_notional / state.total_filled
             await self._update_trade(trade)
 
     except Exception as pg_err:
-        logger.warning(
-            f"Failed ghost fill check (position): {pg_err}"
-        )
+        logger.warning(f"Failed ghost fill check (position): {pg_err}")
 
 
 async def _apply_leg1_escalation(
@@ -194,6 +178,5 @@ async def _apply_leg1_escalation(
         await self._update_trade(trade)
 
         logger.info(
-            f"Leg1 taker fill (escalation): {taker_filled.filled_qty:.6f}. "
-            f"Running total: {state.total_filled:.6f}"
+            f"Leg1 taker fill (escalation): {taker_filled.filled_qty:.6f}. Running total: {state.total_filled:.6f}"
         )

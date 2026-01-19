@@ -7,7 +7,7 @@ Tests:
 """
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -25,10 +25,10 @@ from funding_bot.domain.models import (
     TradeStatus,
 )
 
-
 # ============================================================================
 # Test Helpers
 # ============================================================================
+
 
 def _make_test_trade(
     leg1_qty: Decimal = Decimal("0.1"),
@@ -86,6 +86,7 @@ def _make_mock_order(
 # ============================================================================
 # Rebalance Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_rebalance_reduces_delta_without_full_exit():
@@ -190,7 +191,6 @@ async def test_rebalance_identifies_smaller_leg_correctly():
     Scenario: Lighter SELL leg is larger than X10 BUY leg
     - Need to add more to X10 BUY leg to restore neutrality
     """
-    from funding_bot.services.positions.close import _rebalance_trade
 
     # Create mock service
     service = MagicMock()
@@ -206,9 +206,7 @@ async def test_rebalance_identifies_smaller_leg_correctly():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.return_value = MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.return_value = MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.100"),  # Lighter: SELL 0.1 BTC = $5,000
@@ -233,11 +231,16 @@ async def test_rebalance_identifies_smaller_leg_correctly():
     service.x10.place_order = AsyncMock(side_effect=mock_place_order)
 
     # Mock get_order to return filled
-    service.lighter.get_order = AsyncMock(return_value=_make_mock_order("rebalance_123", Decimal("0.002"), Decimal("50000"), Decimal("0")))
-    service.x10.get_order = AsyncMock(return_value=_make_mock_order("rebalance_123", Decimal("0.002"), Decimal("50000"), Decimal("0")))
+    service.lighter.get_order = AsyncMock(
+        return_value=_make_mock_order("rebalance_123", Decimal("0.002"), Decimal("50000"), Decimal("0"))
+    )
+    service.x10.get_order = AsyncMock(
+        return_value=_make_mock_order("rebalance_123", Decimal("0.002"), Decimal("50000"), Decimal("0"))
+    )
 
     # Bind the method to the mock service
     from funding_bot.services.positions import close
+
     await close._rebalance_trade(service, trade)
 
     # Verify rebalance was attempted (exchange-specific logic would determine which leg)
@@ -249,6 +252,7 @@ async def test_rebalance_identifies_smaller_leg_correctly():
 # Coordinated Close Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_coordinated_close_submits_parallel_maker_orders():
     """
@@ -258,7 +262,6 @@ async def test_coordinated_close_submits_parallel_maker_orders():
     - Minimizes unhedged exposure (both legs close in parallel)
     - Uses maker orders on X10 (post_only flag) for fee savings
     """
-    from funding_bot.services.positions.close import _close_both_legs_coordinated
 
     # Create mock service
     service = MagicMock()
@@ -278,9 +281,7 @@ async def test_coordinated_close_submits_parallel_maker_orders():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.1"),
@@ -312,8 +313,12 @@ async def test_coordinated_close_submits_parallel_maker_orders():
     service.x10.place_order = AsyncMock(side_effect=mock_x10_place_order)
 
     # Mock get_order to return filled immediately (simulating instant fill)
-    service.lighter.get_order = AsyncMock(return_value=_make_mock_order("lighter_close_123", Decimal("0.1"), Decimal("50000"), Decimal("1")))
-    service.x10.get_order = AsyncMock(return_value=_make_mock_order("x10_close_456", Decimal("0.1"), Decimal("50000"), Decimal("0")))
+    service.lighter.get_order = AsyncMock(
+        return_value=_make_mock_order("lighter_close_123", Decimal("0.1"), Decimal("50000"), Decimal("1"))
+    )
+    service.x10.get_order = AsyncMock(
+        return_value=_make_mock_order("x10_close_456", Decimal("0.1"), Decimal("50000"), Decimal("0"))
+    )
 
     # Mock fallback methods (in case of error)
     service._close_lighter_smart = AsyncMock()
@@ -322,8 +327,10 @@ async def test_coordinated_close_submits_parallel_maker_orders():
 
     # Bind the _submit_maker_order function to the service as a method
     # This allows it to be called properly via self._submit_maker_order
-    from funding_bot.services.positions import close
     import types
+
+    from funding_bot.services.positions import close
+
     service._submit_maker_order = types.MethodType(close._submit_maker_order, service)
     service._execute_ioc_close = types.MethodType(close._execute_ioc_close, service)
 
@@ -342,7 +349,6 @@ async def test_coordinated_close_esculates_unfilled_to_ioc():
     This ensures no unhedged window: BOTH legs are either filled by maker
     or escalated to IOC simultaneously.
     """
-    from funding_bot.services.positions.close import _close_both_legs_coordinated
 
     # Create mock service
     service = MagicMock()
@@ -362,9 +368,7 @@ async def test_coordinated_close_esculates_unfilled_to_ioc():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade()
 
@@ -402,8 +406,10 @@ async def test_coordinated_close_esculates_unfilled_to_ioc():
 
     # Bind the _submit_maker_order function to the service as a method
     # This allows it to be called properly via self._submit_maker_order
-    from funding_bot.services.positions import close
     import types
+
+    from funding_bot.services.positions import close
+
     service._submit_maker_order = types.MethodType(close._submit_maker_order, service)
     service._execute_ioc_close = types.MethodType(close._execute_ioc_close, service)
 
@@ -419,7 +425,6 @@ async def test_coordinated_close_disabled_falls_back_to_sequential():
     """
     Test that coordinated close falls back to sequential close when disabled.
     """
-    from funding_bot.services.positions.close import _close_both_legs_coordinated
 
     # Create mock service
     service = MagicMock()
@@ -446,6 +451,7 @@ async def test_coordinated_close_disabled_falls_back_to_sequential():
 
     # Bind the method to the mock service
     from funding_bot.services.positions import close
+
     await close._close_both_legs_coordinated(service, trade)
 
     # Verify sequential close was used
@@ -461,13 +467,10 @@ async def test_coordinated_close_x10_uses_post_only_flag():
 
     X10-specific: post_only is a separate boolean flag, not a TimeInForce value.
     """
-    from funding_bot.services.positions.close import _submit_maker_order
 
     # Create mock service
     service = MagicMock()
-    service.market_data.get_market_info.return_value = MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.return_value = MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade()
 
@@ -483,6 +486,7 @@ async def test_coordinated_close_x10_uses_post_only_flag():
 
     # Bind the method to the mock service
     from funding_bot.services.positions import close
+
     await close._submit_maker_order(
         service, trade, Exchange.X10, "leg2", Side.SELL, Decimal("0.1"), Decimal("50000"), Decimal("0.01")
     )
@@ -497,6 +501,7 @@ async def test_coordinated_close_x10_uses_post_only_flag():
 # Integration Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_rebalance_with_coordinated_close_flow():
     """
@@ -505,7 +510,7 @@ async def test_rebalance_with_coordinated_close_flow():
     Rebalance preserves the position, so coordinated close should NOT be triggered
     in the same evaluation cycle.
     """
-    from funding_bot.domain.rules import check_delta_bound, evaluate_exit_rules
+    from funding_bot.domain.rules import evaluate_exit_rules
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.100"),
@@ -542,6 +547,7 @@ async def test_rebalance_with_coordinated_close_flow():
 # T3: _close_impl Routing Tests (NEW)
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_close_rebalance_path_called_for_rebalance_reason():
     """
@@ -551,8 +557,6 @@ async def test_close_rebalance_path_called_for_rebalance_reason():
 
     Critical: Rebalance is a REDUCE-ONLY operation that keeps the trade OPEN.
     """
-    from funding_bot.services.positions.close import _close_impl
-    from funding_bot.services.positions.types import CloseResult
 
     # Create mock service
     service = MagicMock()
@@ -579,6 +583,7 @@ async def test_close_rebalance_path_called_for_rebalance_reason():
 
     # Mock _rebalance_trade to track if it was called
     rebalance_called = False
+
     async def mock_rebalance(trade, leg1_mark_price=None, leg2_mark_price=None):
         nonlocal rebalance_called
         rebalance_called = True
@@ -587,7 +592,9 @@ async def test_close_rebalance_path_called_for_rebalance_reason():
 
     # Bind the method to the mock service
     import types
+
     from funding_bot.services.positions import close
+
     service._close_impl = types.MethodType(close._close_impl, service)
 
     # Create test trade
@@ -621,8 +628,6 @@ async def test_close_uses_coordinated_close_when_enabled():
 
     Verify that EMERGENCY and EARLY_TAKE_PROFIT reasons bypass coordinated close.
     """
-    from funding_bot.services.positions.close import _close_impl
-    from funding_bot.services.positions.types import CloseResult
 
     # Create mock service
     service = MagicMock()
@@ -645,9 +650,7 @@ async def test_close_uses_coordinated_close_when_enabled():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(tick_size=Decimal("0.01"))
 
     service.event_bus = MagicMock()
     service.event_bus.publish = AsyncMock()
@@ -699,7 +702,9 @@ async def test_close_uses_coordinated_close_when_enabled():
 
     # Bind the method to the mock service
     import types
+
     from funding_bot.services.positions import close
+
     service._close_impl = types.MethodType(close._close_impl, service)
 
     # Test 1: NetEV reason (ECON exit) → should use coordinated close
@@ -734,6 +739,7 @@ async def test_close_uses_coordinated_close_when_enabled():
 # Wiring Tests (NEW)
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_position_manager_binds_rebalance_and_coordinated_methods():
     """
@@ -743,15 +749,17 @@ async def test_position_manager_binds_rebalance_and_coordinated_methods():
 
     # Verify all critical methods are bound
     assert hasattr(PositionManager, "_rebalance_trade"), "PositionManager should have _rebalance_trade method"
-    assert hasattr(PositionManager, "_close_both_legs_coordinated"), "PositionManager should have _close_both_legs_coordinated method"
+    assert hasattr(PositionManager, "_close_both_legs_coordinated"), (
+        "PositionManager should have _close_both_legs_coordinated method"
+    )
     assert hasattr(PositionManager, "_submit_maker_order"), "PositionManager should have _submit_maker_order method"
     assert hasattr(PositionManager, "_execute_ioc_close"), "PositionManager should have _execute_ioc_close method"
 
     # Verify methods are callable
-    assert callable(getattr(PositionManager, "_rebalance_trade")), "_rebalance_trade should be callable"
-    assert callable(getattr(PositionManager, "_close_both_legs_coordinated")), "_close_both_legs_coordinated should be callable"
-    assert callable(getattr(PositionManager, "_submit_maker_order")), "_submit_maker_order should be callable"
-    assert callable(getattr(PositionManager, "_execute_ioc_close")), "_execute_ioc_close should be callable"
+    assert callable(PositionManager._rebalance_trade), "_rebalance_trade should be callable"
+    assert callable(PositionManager._close_both_legs_coordinated), "_close_both_legs_coordinated should be callable"
+    assert callable(PositionManager._submit_maker_order), "_submit_maker_order should be callable"
+    assert callable(PositionManager._execute_ioc_close), "_execute_ioc_close should be callable"
 
 
 @pytest.mark.asyncio
@@ -765,10 +773,10 @@ async def test_check_trades_does_not_count_rebalance_as_closed():
     NOTE: This test uses direct async functions instead of MagicMock + MethodType
     binding to work properly with the parallel exit evaluation implementation.
     """
-    from funding_bot.services.positions.manager import PositionManager
-    from funding_bot.services.positions.types import CloseResult
-    from funding_bot.domain.rules import ExitDecision
     import asyncio
+
+    from funding_bot.domain.rules import ExitDecision
+    from funding_bot.services.positions.types import CloseResult
 
     # Create test trade
     trade = _make_test_trade()
@@ -797,14 +805,18 @@ async def test_check_trades_does_not_count_rebalance_as_closed():
 
     # Bind the check_trades method using the actual implementation
     import types
+
     from funding_bot.services.positions import manager
+
     service.check_trades = types.MethodType(manager.PositionManager.check_trades, service)
 
     # Call check_trades
     closed_trades = await service.check_trades()
 
     # Verify rebalanced trade is NOT counted as closed
-    assert len(closed_trades) == 0, f"Rebalanced trade (status=OPEN) should not be counted as closed, got {len(closed_trades)}"
+    assert len(closed_trades) == 0, (
+        f"Rebalanced trade (status=OPEN) should not be counted as closed, got {len(closed_trades)}"
+    )
     assert trade.status == TradeStatus.OPEN, "Trade should remain OPEN after rebalance"
 
     # Now test with a truly closed trade
@@ -840,6 +852,7 @@ async def test_check_trades_does_not_count_rebalance_as_closed():
 # D4: Robustness Tests (NEW) - Bug Fixes for D1/D2
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_rebalance_ioc_fallback_when_maker_submit_fails_does_not_raise():
     """
@@ -849,7 +862,6 @@ async def test_rebalance_ioc_fallback_when_maker_submit_fails_does_not_raise():
     When adapter.place_order() returns None (network/API error), the IOC
     fallback should still work without crashing on undefined variables.
     """
-    from funding_bot.services.positions.close import _rebalance_trade
 
     # Create mock service
     service = MagicMock()
@@ -865,9 +877,7 @@ async def test_rebalance_ioc_fallback_when_maker_submit_fails_does_not_raise():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.return_value = MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.return_value = MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.100"),  # Lighter: SELL 0.1 BTC
@@ -893,7 +903,9 @@ async def test_rebalance_ioc_fallback_when_maker_submit_fails_does_not_raise():
 
     # Bind the method
     import types
+
     from funding_bot.services.positions import close
+
     service._rebalance_trade = types.MethodType(close._rebalance_trade, service)
     service._update_trade = AsyncMock()
 
@@ -918,7 +930,6 @@ async def test_rebalance_cancels_maker_before_ioc():
     Critical: Prevents double-fill if maker fills during IOC submission.
     The maker must be cancelled BEFORE placing the IOC order.
     """
-    from funding_bot.services.positions.close import _rebalance_trade
 
     # Create mock service
     service = MagicMock()
@@ -934,9 +945,7 @@ async def test_rebalance_cancels_maker_before_ioc():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.return_value = MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.return_value = MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.100"),
@@ -976,7 +985,9 @@ async def test_rebalance_cancels_maker_before_ioc():
 
     # Bind methods
     import types
+
     from funding_bot.services.positions import close
+
     service._rebalance_trade = types.MethodType(close._rebalance_trade, service)
     service._update_trade = AsyncMock()
 
@@ -996,7 +1007,6 @@ async def test_coordinated_close_bypass_for_velocity_reason():
     use fast close (sequential) instead of coordinated close to minimize
     exposure during rapid APY deterioration.
     """
-    from funding_bot.services.positions.close import _close_impl
 
     # Create mock service
     service = MagicMock()
@@ -1052,7 +1062,9 @@ async def test_coordinated_close_bypass_for_velocity_reason():
 
     # Bind the method to the mock service
     import types
+
     from funding_bot.services.positions import close
+
     service._close_impl = types.MethodType(close._close_impl, service)
 
     # Test: VELOCITY reason → should NOT use coordinated close
@@ -1067,6 +1079,7 @@ async def test_coordinated_close_bypass_for_velocity_reason():
 # D5: Robustness Tests - IOC Fallback with get_order()=None (NEW)
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none():
     """
@@ -1076,7 +1089,6 @@ async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none
     When adapter.get_order() returns None, we must still cancel the maker order
     before placing IOC to prevent both orders filling simultaneously.
     """
-    from funding_bot.services.positions.close import _rebalance_trade
 
     # Create mock service
     service = MagicMock()
@@ -1092,9 +1104,7 @@ async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.return_value = MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.return_value = MagicMock(tick_size=Decimal("0.01"))
 
     trade = _make_test_trade(
         leg1_qty=Decimal("0.100"),
@@ -1134,7 +1144,9 @@ async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none
 
     # Bind methods
     import types
+
     from funding_bot.services.positions import close
+
     service._rebalance_trade = types.MethodType(close._rebalance_trade, service)
     service._update_trade = AsyncMock()
 
@@ -1149,6 +1161,7 @@ async def test_rebalance_cancels_maker_before_ioc_even_if_get_order_returns_none
 # D6: Fast-Close Bypass Tests - APY Crashed Substring (NEW)
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_coordinated_close_not_used_for_apy_crash_reason_without_prefix():
     """
@@ -1161,7 +1174,6 @@ async def test_coordinated_close_not_used_for_apy_crash_reason_without_prefix():
     The reason may be generated without a VELOCITY/Z-SCORE prefix, so we
     check for substring "APY crashed" in addition to startswith() checks.
     """
-    from funding_bot.services.positions.close import _close_impl
 
     # Create mock service
     service = MagicMock()
@@ -1217,7 +1229,9 @@ async def test_coordinated_close_not_used_for_apy_crash_reason_without_prefix():
 
     # Bind the method to the mock service
     import types
+
     from funding_bot.services.positions import close
+
     service._close_impl = types.MethodType(close._close_impl, service)
 
     # Test: "APY crashed" reason WITHOUT prefix → should NOT use coordinated close

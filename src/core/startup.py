@@ -11,18 +11,11 @@ This module handles:
 
 import asyncio
 import logging
-import os
-import sys
 import time
-import traceback
-from datetime import datetime, timezone
-from typing import Optional, List
 
-import aiohttp
 import aiosqlite
 
 import config
-from src.utils import safe_float
 from src.application.reconciliation import reconcile_positions_atomic
 
 # Logger is obtained from main.py's setup
@@ -42,6 +35,7 @@ telegram_bot = None
 async def setup_database():
     """Initialize async database"""
     from src.infrastructure.database import get_database
+
     db = await get_database()
     logger.info("✅ Async database initialized")
 
@@ -67,12 +61,12 @@ async def migrate_database():
                 )
             """)
             await conn.commit()
-            
+
             # Check if migration needed
             cursor = await conn.execute("PRAGMA table_info(trade_history)")
             columns = await cursor.fetchall()
-            has_account_label = any(col[1] == 'account_label' for col in columns)
-            
+            has_account_label = any(col[1] == "account_label" for col in columns)
+
             if not has_account_label:
                 logger.info("🔄 Migrating database schema...")
                 try:
@@ -87,7 +81,7 @@ async def migrate_database():
                 logger.info("✅ Database migration complete")
             else:
                 logger.debug("✅ Database schema up to date")
-                
+
     except Exception as e:
         logger.error(f"❌ Migration failed: {e}")
         logger.warning("⚠️ Continuing without migration...")
@@ -95,28 +89,24 @@ async def migrate_database():
 
 async def close_all_open_positions_on_start(lighter, x10):
     """EMERGENCY: Close all open positions on bot start."""
-    from src.core.state import get_open_trades, close_trade_in_state
-    
+    from src.core.state import get_open_trades
+
     logger.warning("🚨 EMERGENCY: Closing ALL open positions...")
-    
+
     open_trades = await get_open_trades()
-    
+
     if not open_trades:
         logger.info("✓ No open positions to close")
         return
-    
+
     logger.info(f"⚠️  Found {len(open_trades)} open positions, closing...")
-    
+
     for trade in open_trades:
-        symbol = trade['symbol']
+        symbol = trade["symbol"]
         try:
             from src.position_manager import close_position_with_reason
-            success = await close_position_with_reason(
-                symbol,
-                "EMERGENCY_CLEANUP_ON_START",
-                lighter,
-                x10
-            )
+
+            success = await close_position_with_reason(symbol, "EMERGENCY_CLEANUP_ON_START", lighter, x10)
             if success:
                 logger.info(f"✓ Closed {symbol}")
             else:
@@ -124,7 +114,7 @@ async def close_all_open_positions_on_start(lighter, x10):
             await asyncio.sleep(2)
         except Exception as e:
             logger.error(f"✗ Error closing {symbol}: {e}")
-    
+
     logger.info("✓ Emergency cleanup complete")
 
 
@@ -136,59 +126,63 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     Main bot entry point with full task supervision and component wiring.
     """
     global SHUTDOWN_FLAG, state_manager
-    
+
     logger.info("🔍 run_bot_v5() entry point called")
-    
+
     # Lazy imports to avoid circular dependencies
-    from src.adapters.x10_adapter import X10Adapter
     from src.adapters.lighter_adapter import LighterAdapter
-    from src.infrastructure.state_manager import get_state_manager, close_state_manager
-    from src.infrastructure.database import close_database
-    from src.application.fee_manager import init_fee_manager, get_fee_manager, stop_fee_manager
+    from src.adapters.x10_adapter import X10Adapter
+    from src.application.fee_manager import init_fee_manager, stop_fee_manager
     from src.application.funding_tracker import FundingTracker
     from src.application.parallel_execution import ParallelExecutionManager
-    from src.core.event_loop import BotEventLoop, TaskPriority, get_event_loop
-    from src.core.open_interest_tracker import init_oi_tracker
-    from src.infrastructure.websocket_manager import init_websocket_manager
     from src.application.shutdown import get_shutdown_orchestrator
+    from src.core.event_loop import TaskPriority, get_event_loop
+    from src.core.open_interest_tracker import init_oi_tracker
     from src.core.trading import set_event_handler
-    
+    from src.infrastructure.database import close_database
+    from src.infrastructure.state_manager import close_state_manager, get_state_manager
+    from src.infrastructure.websocket_manager import init_websocket_manager
+
     # Setup core event handler if event bus provided
     if event_bus:
         set_event_handler(event_bus.publish)
         logger.info("✅ Core Event Handler initialized")
-    
+
     # Import loop functions from core modules (not main.py to avoid circular import!)
     from src.core.monitoring import (
-        logic_loop, trade_management_loop, farm_loop, 
-        maintenance_loop, connection_watchdog, cleanup_finished_tasks,
-        health_reporter
+        cleanup_finished_tasks,
+        connection_watchdog,
+        farm_loop,
+        health_reporter,
+        logic_loop,
+        maintenance_loop,
+        trade_management_loop,
     )
-    from src.core.state import get_open_trades, close_trade_in_state
-    
+
     logger.info("🔥 BOT V5 (Architected) STARTING...")
-    
+
     # 1. INIT INFRASTRUCTURE
     from src.core.state import set_state_manager
+
     infra_sm = await get_state_manager()
     set_state_manager(infra_sm)
     state_manager = infra_sm
     logger.info("✅ State Manager started")
-        
+
     await setup_database()
     await migrate_database()
-    
+
     x10 = X10Adapter()
     lighter = LighterAdapter()
-    
+
     if bot_instance:
         bot_instance.x10 = x10
         bot_instance.lighter = lighter
-    
+
     price_event = asyncio.Event()
     x10.price_update_event = price_event
     lighter.price_update_event = price_event
-    
+
     # Balance check
     logger.info("💰 Checking exchange balances at startup...")
     try:
@@ -196,31 +190,29 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
         bal_x10 = await x10.get_real_available_balance()
         bal_lit = await lighter.get_real_available_balance()
         logger.info(f"💰 STARTUP BALANCE CHECK: X10=${bal_x10:.2f}, Lighter=${bal_lit:.2f}")
-        
+
         if bal_x10 == 0 and bal_lit == 0:
             logger.critical("🚨 CRITICAL: BOTH exchange balances are $0!")
         else:
             logger.info("✅ Exchange balances OK - Bot can trade!")
     except Exception as e:
         logger.error(f"❌ STARTUP BALANCE CHECK FAILED: {e}", exc_info=True)
-    
+
     # Init FeeManager
     fee_manager = await init_fee_manager(x10, lighter)
     logger.info("✅ FeeManager started")
-    
+
     # Init FundingTracker
     interval = int(getattr(config, "FUNDING_TRACK_INTERVAL_SECONDS", 300))
     funding_tracker = FundingTracker(x10, lighter, state_manager, update_interval_seconds=interval)
     await funding_tracker.start()
     logger.info("✅ FundingTracker started")
-    
+
     # Load market data
     logger.info("📊 Loading Market Data via REST...")
     try:
         await asyncio.gather(
-            x10.load_market_cache(force=True),
-            lighter.load_market_cache(force=True),
-            return_exceptions=True
+            x10.load_market_cache(force=True), lighter.load_market_cache(force=True), return_exceptions=True
         )
         logger.info(f"✅ Markets loaded: X10={len(x10.market_info)}, Lighter={len(lighter.market_info)}")
     except Exception as e:
@@ -238,7 +230,7 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
 
     # Init OI Tracker
     common_symbols = list(set(x10.market_info.keys()) & set(lighter.market_info.keys()))
-    
+
     # ═══════════════════════════════════════════════════════════════
     # Initialize Stream Clients for real-time updates
     # ═══════════════════════════════════════════════════════════════
@@ -266,23 +258,22 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     # Init OI Tracker
     logger.info(f"🚀 Starting OI Tracker for {len(common_symbols)} symbols...")
     oi_tracker = await init_oi_tracker(x10, lighter, symbols=common_symbols)
-    
+
     # Init WebSocket Manager
     logger.info("🌐 Starting WebSocket Manager...")
     ws_manager = await init_websocket_manager(
-        x10, lighter, symbols=common_symbols,
-        ping_interval=None, ping_timeout=None
+        x10, lighter, symbols=common_symbols, ping_interval=None, ping_timeout=None
     )
     ws_manager.set_oi_tracker(oi_tracker)
     ws_wait = float(getattr(config, "LIGHTER_WAIT_FOR_WS_MARKET_STATS_SECONDS", 10.0))
     ws_ready = False
     if hasattr(lighter, "wait_for_ws_market_stats_ready"):
         ws_ready = await lighter.wait_for_ws_market_stats_ready(timeout=ws_wait)
-    
+
     # Load Lighter funding rates from REST API (baseline).
     # Note: Lighter WS market_stats funding_rate is PERCENT and must be normalized (/100) before use.
     await lighter.load_funding_rates_and_prices(force=True)
-    
+
     if ws_ready:
         logger.info("✅ Lighter WS ready (prices from WS, funding from REST)")
     else:
@@ -295,12 +286,9 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     logger.info("⚖️ Starting Atomic Reconciliation (Adoption Mode)...")
     try:
         recon_result = await reconcile_positions_atomic(
-            state_manager=state_manager,
-            x10_adapter=x10,
-            lighter_adapter=lighter,
-            auto_fix=True
+            state_manager=state_manager, x10_adapter=x10, lighter_adapter=lighter, auto_fix=True
         )
-        
+
         if recon_result.errors:
             logger.error(f"❌ Reconciliation errors: {recon_result.errors}")
         else:
@@ -310,7 +298,7 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
                 f"ZombiesFixed={len(recon_result.zombies_found)}, "
                 f"GhostsAdopted={len(recon_result.ghosts_found)}"
             )
-            
+
     except Exception as e:
         logger.error(f"❌ Critical Reconciliation Failure: {e}", exc_info=True)
 
@@ -320,7 +308,7 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     # ═══════════════════════════════════════════════════════════════
     # Dashboard API removed (2025-12-22)
     # ═══════════════════════════════════════════════════════════════
-    
+
     # Setup Event Loop
     logger.info("🔧 Setting up Event Loop...")
     event_loop = get_event_loop()
@@ -344,103 +332,165 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
         close_database_fn=close_database,
         stop_fee_manager_fn=stop_fee_manager,
     )
-    
+
     # Register tasks
     logger.info("📝 Registering tasks with Event Loop...")
     event_loop.register_task(
         "logic_loop",
         lambda: logic_loop(lighter, x10, price_event, parallel_exec),
         priority=TaskPriority.HIGH,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     from src.core.trade_management import manage_open_trades
+
     event_loop.register_task(
         "trade_management_loop",
         lambda: trade_management_loop(lighter, x10, manage_open_trades),
         priority=TaskPriority.HIGH,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     event_loop.register_task(
         "farm_loop",
         lambda: farm_loop(lighter, x10, parallel_exec),
         priority=TaskPriority.NORMAL,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     event_loop.register_task(
         "maintenance_loop",
         lambda: maintenance_loop(lighter, x10, parallel_exec),
         priority=TaskPriority.LOW,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     event_loop.register_task(
-        "cleanup_finished_tasks",
-        lambda: cleanup_finished_tasks(),
-        priority=TaskPriority.LOW,
-        restart_on_failure=True
+        "cleanup_finished_tasks", lambda: cleanup_finished_tasks(), priority=TaskPriority.LOW, restart_on_failure=True
     )
-    
+
     event_loop.register_task(
         "health_reporter",
         lambda: health_reporter(event_loop, parallel_exec),
         priority=TaskPriority.LOW,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     event_loop.register_task(
         "connection_watchdog",
         lambda: connection_watchdog(ws_manager, x10, lighter),
         priority=TaskPriority.CRITICAL,
-        restart_on_failure=True
+        restart_on_failure=True,
     )
-    
+
     # Start event loop
-    from src.core.trading import publish_event
     from src.core.events import NotificationEvent
-    await publish_event(NotificationEvent(
-        level="INFO",
-        message="🚀 **Funding Bot V5 Started**\nOI Tracker: Active\nMode: Centralized Event Loop"
-    ))
-    
+    from src.core.trading import publish_event
+
+    await publish_event(
+        NotificationEvent(
+            level="INFO", message="🚀 **Funding Bot V5 Started**\nOI Tracker: Active\nMode: Centralized Event Loop"
+        )
+    )
+
     logger.info("═══════════════════════════════════════════════════════════")
     logger.info("   BOT V5 RUNNING 24/7 - SUPERVISED | Ctrl+C = Stop   ")
     logger.info("═══════════════════════════════════════════════════════════")
     # Get task count safely
-    task_count = len(getattr(event_loop, '_tasks', {}))
+    task_count = len(getattr(event_loop, "_tasks", {}))
     logger.info(f"🔍 About to call event_loop.start() - tasks registered: {task_count}")
-    
+
     # #region agent log
     import json
+
     DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
     try:
         with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:398", "message": "Before event_loop.start()", "data": {"event_loop": str(event_loop), "event_loop_running": event_loop.is_running() if hasattr(event_loop, "is_running") else None}, "timestamp": int(time.time() * 1000)}) + "\n")
-    except: pass
+            f.write(
+                json.dumps(
+                    {
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "H1",
+                        "location": "startup.py:398",
+                        "message": "Before event_loop.start()",
+                        "data": {
+                            "event_loop": str(event_loop),
+                            "event_loop_running": event_loop.is_running()
+                            if hasattr(event_loop, "is_running")
+                            else None,
+                        },
+                        "timestamp": int(time.time() * 1000),
+                    }
+                )
+                + "\n"
+            )
+    except:
+        pass
     # #endregion
-    
+
     try:
         # #region agent log
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:410", "message": "Calling event_loop.start()", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except: pass
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H1",
+                            "location": "startup.py:410",
+                            "message": "Calling event_loop.start()",
+                            "data": {},
+                            "timestamp": int(time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
         # #endregion
         await event_loop.start()
         # #region agent log
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H1", "location": "startup.py:416", "message": "event_loop.start() returned", "data": {}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except: pass
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H1",
+                            "location": "startup.py:416",
+                            "message": "event_loop.start() returned",
+                            "data": {},
+                            "timestamp": int(time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
         # #endregion
     except KeyboardInterrupt as e:
         # #region agent log
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:420", "message": "KeyboardInterrupt in event_loop.start()", "data": {"error": str(e)}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except: pass
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H4",
+                            "location": "startup.py:420",
+                            "message": "KeyboardInterrupt in event_loop.start()",
+                            "data": {"error": str(e)},
+                            "timestamp": int(time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
         # #endregion
         logger.info("🛑 KeyboardInterrupt detected")
         raise
@@ -448,35 +498,66 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
         # #region agent log
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:428", "message": "CancelledError in event_loop.start()", "data": {"error": str(e)}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except: pass
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H4",
+                            "location": "startup.py:428",
+                            "message": "CancelledError in event_loop.start()",
+                            "data": {"error": str(e)},
+                            "timestamp": int(time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
         # #endregion
         logger.info("🛑 Shutdown requested (CancelledError)")
     except Exception as e:
         # #region agent log
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
-                f.write(json.dumps({"sessionId": "debug-session", "runId": "run1", "hypothesisId": "H4", "location": "startup.py:436", "message": "Exception in event_loop.start()", "data": {"error": str(e), "error_type": type(e).__name__}, "timestamp": int(time.time() * 1000)}) + "\n")
-        except: pass
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "H4",
+                            "location": "startup.py:436",
+                            "message": "Exception in event_loop.start()",
+                            "data": {"error": str(e), "error_type": type(e).__name__},
+                            "timestamp": int(time.time() * 1000),
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
         # #endregion
         logger.error(f"❌ Exception in event_loop.start(): {e}", exc_info=True)
         raise
     finally:
         SHUTDOWN_FLAG = True
         logger.info("🛑 Shutting down...")
-        
+
         await event_loop.stop()
-    
+
     # Cleanup
     # #region agent log
     import json
+
     DEBUG_LOG_PATH = r"c:\Users\koopm\funding-bot\.cursor\debug.log"
+
     def _write_debug_log(entry):
         try:
             with open(DEBUG_LOG_PATH, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry) + "\n")
         except Exception:
             pass
+
     # #endregion
     # api_server removed (2025-12-22)
     await parallel_exec.stop()
@@ -489,22 +570,22 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
     await close_state_manager()
     await close_database()
     await stop_fee_manager()
-    
+
     logger.info("🔌 Closing adapters...")
     # Stop Stream Clients before closing adapters
     try:
         await x10.stop_stream_client()
     except Exception as e:
         logger.warning(f"⚠️ Error stopping X10 Stream Client: {e}")
-    
+
     try:
         await lighter.stop_stream_client()
     except Exception as e:
         logger.warning(f"⚠️ Error stopping Lighter Stream Client: {e}")
-    
+
     await x10.aclose()
     await lighter.aclose()
-    
+
     logger.info("✅ Bot V5 shutdown complete")
 
 
@@ -513,7 +594,7 @@ async def run_bot_v5(bot_instance=None, event_bus=None):
 # ============================================================
 class FundingBot:
     """Main bot class with graceful shutdown support."""
-    
+
     def __init__(self):
         self.x10 = None
         self.lighter = None
@@ -528,13 +609,13 @@ class FundingBot:
     async def graceful_shutdown(self):
         """Execute graceful shutdown - close all positions."""
         global state_manager
-        
+
+        from src.application.fee_manager import stop_fee_manager
         from src.application.shutdown import get_shutdown_orchestrator
         from src.infrastructure.database import close_database
-        from src.application.fee_manager import stop_fee_manager
-        
+
         logger.info("🛑 GRACEFUL SHUTDOWN: Closing all positions...")
-        
+
         shutdown = get_shutdown_orchestrator()
         shutdown.configure(
             x10=self.x10,

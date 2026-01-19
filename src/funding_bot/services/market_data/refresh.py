@@ -165,12 +165,10 @@ async def _refresh_symbols_parallel(
 
     # Process in batches to avoid overwhelming memory/CPU
     for i in range(0, len(symbol_list), batch_size):
-        batch = symbol_list[i:i + batch_size]
+        batch = symbol_list[i : i + batch_size]
 
         # Process batch in parallel
-        await asyncio.gather(*[
-            self._refresh_symbol(symbol) for symbol in batch
-        ], return_exceptions=True)
+        await asyncio.gather(*[self._refresh_symbol(symbol) for symbol in batch], return_exceptions=True)
 
 
 async def _batch_refresh_adapters(self) -> tuple[bool, bool]:

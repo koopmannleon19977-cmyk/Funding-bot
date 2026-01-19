@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger("funding_bot.services.execution")
 
 
-async def cleanup_stale_watchers(engine: "ExecutionEngine") -> None:
+async def cleanup_stale_watchers(engine: ExecutionEngine) -> None:
     """
     Clean up stale order watchers and cached order updates.
 
@@ -33,10 +33,7 @@ async def cleanup_stale_watchers(engine: "ExecutionEngine") -> None:
     """
     async with engine._ws_orders_lock:
         # Clean up empty watcher sets
-        stale_keys = [
-            key for key, watchers in engine._order_watchers.items()
-            if not watchers
-        ]
+        stale_keys = [key for key, watchers in engine._order_watchers.items() if not watchers]
         for key in stale_keys:
             engine._order_watchers.pop(key, None)
 
@@ -44,10 +41,7 @@ async def cleanup_stale_watchers(engine: "ExecutionEngine") -> None:
         max_cached_per_exchange = 100
         for exchange in (engine.lighter.exchange, engine.x10.exchange):
             # Get all keys for this exchange
-            exchange_keys = [
-                key for key in engine._last_order_update
-                if key[0] == exchange
-            ]
+            exchange_keys = [key for key in engine._last_order_update if key[0] == exchange]
             # Sort by some criterion (here: by key string) and keep only the newest
             if len(exchange_keys) > max_cached_per_exchange:
                 # Remove oldest entries (first in the sorted list)
@@ -56,12 +50,11 @@ async def cleanup_stale_watchers(engine: "ExecutionEngine") -> None:
                     engine._last_order_update.pop(key, None)
 
     logger.debug(
-        f"Cleanup complete. Watchers: {len(engine._order_watchers)}, "
-        f"Cached orders: {len(engine._last_order_update)}"
+        f"Cleanup complete. Watchers: {len(engine._order_watchers)}, Cached orders: {len(engine._last_order_update)}"
     )
 
 
-async def ensure_ws_order_subscriptions(engine: "ExecutionEngine") -> None:
+async def ensure_ws_order_subscriptions(engine: ExecutionEngine) -> None:
     """
     Register WS order callbacks once (best-effort).
 
@@ -89,7 +82,7 @@ async def ensure_ws_order_subscriptions(engine: "ExecutionEngine") -> None:
         engine._ws_orders_ready = True
 
 
-async def on_ws_order_update(engine: "ExecutionEngine", order: Order) -> None:
+async def on_ws_order_update(engine: ExecutionEngine, order: Order) -> None:
     """
     Dispatch WS order updates to any in-flight waiters.
 

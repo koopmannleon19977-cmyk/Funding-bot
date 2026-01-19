@@ -14,7 +14,7 @@ def main():
     account_index = sys.argv[1]
 
     # Load pre-generated tokens
-    with open('auth-tokens.json') as f:
+    with open("auth-tokens.json") as f:
         auth_tokens = json.load(f)
 
     # Get current aligned timestamp (6-hour boundary)

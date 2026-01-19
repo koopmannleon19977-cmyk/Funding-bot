@@ -1,10 +1,10 @@
 # src/domain/services/adaptive_threshold.py
 # Note: This file has been moved to domain/services/ for better organization
-import time
 import logging
+import time
 from collections import deque
 from statistics import mean
-from typing import Optional
+
 import config
 
 logger = logging.getLogger(__name__)
@@ -22,25 +22,25 @@ class AdaptiveThresholdManager:
 
     def __init__(self, window_size: int = 100):
         self.rate_history = deque(maxlen=window_size)
-        self.current_threshold = getattr(config, 'MIN_APY_FILTER', 0.10)
+        self.current_threshold = getattr(config, "MIN_APY_FILTER", 0.10)
         self.last_update = 0
-        self.update_interval = getattr(config, 'THRESHOLD_UPDATE_INTERVAL', 300)
-        self.min_limit = getattr(config, 'MIN_APY_FALLBACK', 0.05)
+        self.update_interval = getattr(config, "THRESHOLD_UPDATE_INTERVAL", 300)
+        self.min_limit = getattr(config, "MIN_APY_FALLBACK", 0.05)
 
         # Known rebate/high-liquidity symbols (can be overridden by config)
-        self.rebate_pairs = set(getattr(config, 'REBATE_PAIRS', {"BTC-USD", "ETH-USD", "SOL-USD", "ARB-USD"}))
+        self.rebate_pairs = set(getattr(config, "REBATE_PAIRS", {"BTC-USD", "ETH-USD", "SOL-USD", "ARB-USD"}))
         # Optional prefixes to match (like 'BTC' matches 'BTC-USD')
-        self.rebate_prefixes = tuple(getattr(config, 'REBATE_PREFIXES', ("BTC", "ETH")))
+        self.rebate_prefixes = tuple(getattr(config, "REBATE_PREFIXES", ("BTC", "ETH")))
 
         # Fee settings (per-trade fraction: e.g. 0.0005 = 0.05%)
         # Prefer newer generic names but fall back to older exchange-specific keys
-        self.taker_fee = getattr(config, 'TAKER_FEE', getattr(config, 'TAKER_FEE_X10', 0.0005))
-        self.maker_fee = getattr(config, 'MAKER_FEE', getattr(config, 'MAKER_FEE_X10', 0.0))
+        self.taker_fee = getattr(config, "TAKER_FEE", getattr(config, "TAKER_FEE_X10", 0.0005))
+        self.maker_fee = getattr(config, "MAKER_FEE", getattr(config, "MAKER_FEE_X10", 0.0))
 
         # Rebate annualization settings
-        self.rebate_trades_per_day = getattr(config, 'REBATE_TRADES_PER_DAY', 1)
-        self.rebate_max_annual_discount = getattr(config, 'REBATE_MAX_ANNUAL_DISCOUNT', 0.05)
-        self.rebate_min_annual_discount = getattr(config, 'REBATE_MIN_ANNUAL_DISCOUNT', 0.001)
+        self.rebate_trades_per_day = getattr(config, "REBATE_TRADES_PER_DAY", 1)
+        self.rebate_max_annual_discount = getattr(config, "REBATE_MAX_ANNUAL_DISCOUNT", 0.05)
+        self.rebate_min_annual_discount = getattr(config, "REBATE_MIN_ANNUAL_DISCOUNT", 0.001)
 
     def update_metrics(self, funding_rates: list):
         """Append recent funding rate magnitudes and recalc threshold periodically."""
@@ -65,8 +65,8 @@ class AdaptiveThresholdManager:
         # Die alten Werte (6%, 10%, 15%) lehnten 60%+ APY Trades ab.
         # NEU: Thresholds sind jetzt viel niedriger und respektieren MIN_APY_FILTER
         # ═══════════════════════════════════════════════════════════════════════
-        min_apy_config = getattr(config, 'MIN_APY_FILTER', 0.05)
-        
+        min_apy_config = getattr(config, "MIN_APY_FILTER", 0.05)
+
         if market_avg_apy > 0.25:  # HOT market (>25% avg APY)
             new_threshold = min_apy_config  # Use config minimum
             regime = "HOT"
@@ -83,11 +83,11 @@ class AdaptiveThresholdManager:
         self.current_threshold = max(min_apy_config, self.current_threshold)
 
         logger.info(
-            f"REGIME: {regime} (Avg APY: {market_avg_apy*100:.2f}%) | "
-            f"Base Threshold: {self.current_threshold*100:.2f}%"
+            f"REGIME: {regime} (Avg APY: {market_avg_apy * 100:.2f}%) | "
+            f"Base Threshold: {self.current_threshold * 100:.2f}%"
         )
 
-    def should_trade_for_rebate(self, symbol: Optional[str], is_maker: bool) -> bool:
+    def should_trade_for_rebate(self, symbol: str | None, is_maker: bool) -> bool:
         """Return True if conditions suggest lowering threshold to capture maker rebate.
 
         This is a convenience wrapper around `get_rebate_discount` returning whether
@@ -95,7 +95,7 @@ class AdaptiveThresholdManager:
         """
         return self.get_rebate_discount(symbol, is_maker) > 0.0
 
-    def get_rebate_discount(self, symbol: Optional[str], is_maker: bool) -> float:
+    def get_rebate_discount(self, symbol: str | None, is_maker: bool) -> float:
         """Compute an annualized APY discount (fraction) from maker/taker fee differences.
 
         The returned value is an absolute APY discount (e.g. 0.02 for 2% APY) that can be
@@ -129,7 +129,7 @@ class AdaptiveThresholdManager:
 
         return float(discount)
 
-    def get_threshold(self, symbol: Optional[str] = None, is_maker: bool = False) -> float:
+    def get_threshold(self, symbol: str | None = None, is_maker: bool = False) -> float:
         """Return the effective APY threshold taking symbol-specific and rebate discounts into account.
 
         - Applies conservative adjustments for large-cap prefixes (BTC/ETH)
@@ -144,19 +144,21 @@ class AdaptiveThresholdManager:
             # REMOVED: BTC/ETH discount (user wants strict MIN_APY)
             # if symbol.startswith(("BTC", "ETH")):
             #     base = max(self.min_limit, base * 0.8)
-            
-            if symbol in getattr(config, 'HIGH_RISK_SYMBOLS', ["HYPE-USD", "MEME-USD"]):
+
+            if symbol in getattr(config, "HIGH_RISK_SYMBOLS", ["HYPE-USD", "MEME-USD"]):
                 base = base * 1.5
 
         # Maker/Rebate Discount: compute dynamic discount rather than a fixed block
         discount = self.get_rebate_discount(symbol, is_maker)
         if discount > 0:
             # Lower threshold by the computed annual discount but don't drop below a safe floor
-            safe_floor = getattr(config, 'MIN_SAFE_THRESHOLD', 0.03)
+            safe_floor = getattr(config, "MIN_SAFE_THRESHOLD", 0.03)
             new_base = base - discount
             base = max(self.min_limit, max(safe_floor, new_base))
             if discount > 0.01:
-                logger.info(f"Rebate discount {symbol or 'unknown'}: -{discount*100:.2f}% APY -> threshold {base*100:.2f}%")
+                logger.info(
+                    f"Rebate discount {symbol or 'unknown'}: -{discount * 100:.2f}% APY -> threshold {base * 100:.2f}%"
+                )
 
         return max(self.min_limit, base)
 
@@ -165,11 +167,11 @@ class AdaptiveThresholdManager:
         return {
             "current_threshold": self.current_threshold,
             "samples": len(self.rate_history),
-            "market_avg_apy": (mean(self.rate_history) * 24 * 365) if self.rate_history else 0.0
+            "market_avg_apy": (mean(self.rate_history) * 24 * 365) if self.rate_history else 0.0,
         }
 
 
-_manager: Optional[AdaptiveThresholdManager] = None
+_manager: AdaptiveThresholdManager | None = None
 
 
 def get_threshold_manager() -> AdaptiveThresholdManager:

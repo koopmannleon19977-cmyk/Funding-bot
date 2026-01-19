@@ -52,10 +52,7 @@ class InMemoryEventBus(EventBusPort):
             return
 
         self._running = True
-        self._processor_task = asyncio.create_task(
-            self._process_events(),
-            name="event_bus_processor"
-        )
+        self._processor_task = asyncio.create_task(self._process_events(), name="event_bus_processor")
         logger.debug("Event bus started")
 
     async def stop(self) -> None:
@@ -125,10 +122,7 @@ class InMemoryEventBus(EventBusPort):
         """Background task to process events."""
         while self._running:
             try:
-                event = await asyncio.wait_for(
-                    self._queue.get(),
-                    timeout=1.0
-                )
+                event = await asyncio.wait_for(self._queue.get(), timeout=1.0)
                 await self._dispatch(event)
 
                 # 🚀 PERFORMANCE: Periodic cleanup of completed tasks
@@ -183,10 +177,7 @@ class InMemoryEventBus(EventBusPort):
     ) -> None:
         """Dispatch handlers with manual task cleanup for older Python versions."""
         # Create tasks
-        tasks = [
-            asyncio.create_task(self._safe_call(handler, event))
-            for handler in handlers
-        ]
+        tasks = [asyncio.create_task(self._safe_call(handler, event)) for handler in handlers]
 
         # Track tasks for cleanup
         async with self._task_cleanup_lock:
@@ -218,10 +209,7 @@ class InMemoryEventBus(EventBusPort):
             # Wait for pending tasks to complete (with timeout)
             if active_tasks:
                 try:
-                    await asyncio.wait_for(
-                        asyncio.gather(*active_tasks, return_exceptions=True),
-                        timeout=timeout
-                    )
+                    await asyncio.wait_for(asyncio.gather(*active_tasks, return_exceptions=True), timeout=timeout)
                 except TimeoutError:
                     # Cancel any still-running tasks
                     for task in active_tasks:
@@ -246,7 +234,4 @@ class InMemoryEventBus(EventBusPort):
             await handler(event)
         except Exception as e:
             handler_name = getattr(handler, "__name__", repr(handler))
-            logger.exception(
-                f"Handler {handler_name} failed for {type(event).__name__}: {e}"
-            )
-
+            logger.exception(f"Handler {handler_name} failed for {type(event).__name__}: {e}")

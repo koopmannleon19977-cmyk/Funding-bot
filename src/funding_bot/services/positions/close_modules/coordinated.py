@@ -94,9 +94,7 @@ def build_coordinated_close_context(
     leg1_maker_price = calculate_leg_maker_price(
         ob, price_data, leg1_close_qty, leg1_close_side, "lighter", lighter_tick
     )
-    leg2_maker_price = calculate_leg_maker_price(
-        ob, price_data, leg2_close_qty, leg2_close_side, "x10", x10_tick
-    )
+    leg2_maker_price = calculate_leg_maker_price(ob, price_data, leg2_close_qty, leg2_close_side, "x10", x10_tick)
 
     return CoordinatedCloseContext(
         trade=trade,
@@ -212,10 +210,7 @@ async def submit_maker_order(
             price=price,
         )
 
-        logger.info(
-            f"Maker order submitted: {exchange.value} {leg} {side.value} "
-            f"{qty} @ {price} = {order.order_id}"
-        )
+        logger.info(f"Maker order submitted: {exchange.value} {leg} {side.value} {qty} @ {price} = {order.order_id}")
 
         # Log the close order event (for post-close readback)
         log_close_order_placed(
@@ -245,8 +240,7 @@ async def submit_coordinated_maker_orders(
 
     if ctx.leg1_close_qty > 0 and ctx.leg1_maker_price > 0:
         logger.info(
-            f"Submitting Lighter maker: {ctx.leg1_close_side.value} "
-            f"{ctx.leg1_close_qty} @ {ctx.leg1_maker_price}"
+            f"Submitting Lighter maker: {ctx.leg1_close_side.value} {ctx.leg1_close_qty} @ {ctx.leg1_maker_price}"
         )
         maker_tasks["leg1"] = submit_maker_order(
             manager,
@@ -260,10 +254,7 @@ async def submit_coordinated_maker_orders(
         )
 
     if ctx.leg2_close_qty > 0 and ctx.leg2_maker_price > 0 and ctx.x10_use_maker:
-        logger.info(
-            f"Submitting X10 maker: {ctx.leg2_close_side.value} "
-            f"{ctx.leg2_close_qty} @ {ctx.leg2_maker_price}"
-        )
+        logger.info(f"Submitting X10 maker: {ctx.leg2_close_side.value} {ctx.leg2_close_qty} @ {ctx.leg2_maker_price}")
         maker_tasks["leg2"] = submit_maker_order(
             manager,
             ctx.trade,
@@ -318,10 +309,7 @@ async def wait_for_coordinated_fills(
                     continue
 
                 if updated.is_filled or updated.status == OrderStatus.FILLED:
-                    logger.info(
-                        f"Maker filled for {leg}: {updated.filled_qty} "
-                        f"@ {updated.avg_fill_price}"
-                    )
+                    logger.info(f"Maker filled for {leg}: {updated.filled_qty} @ {updated.avg_fill_price}")
                     filled_legs.add(leg)
                     legs_to_close.remove(leg)
                     # Update trade leg
@@ -332,9 +320,7 @@ async def wait_for_coordinated_fills(
                         trade.leg2.exit_price = updated.avg_fill_price
                         trade.leg2.fees += updated.fee
                 elif not updated.is_active:
-                    logger.warning(
-                        f"Maker order {leg} no longer active: {updated.status}"
-                    )
+                    logger.warning(f"Maker order {leg} no longer active: {updated.status}")
                     legs_to_close.remove(leg)
             except Exception as e:
                 logger.warning(f"Failed to check maker order for {leg}: {e}")
@@ -380,10 +366,7 @@ async def execute_ioc_close(
             time_in_force=TimeInForce.IOC,
             post_only=False,
         )
-        logger.info(
-            f"IOC order placed: {exchange.value} {leg} {side.value} "
-            f"{qty} @ {price} = {order.order_id}"
-        )
+        logger.info(f"IOC order placed: {exchange.value} {leg} {side.value} {qty} @ {price} = {order.order_id}")
 
     return order
 
@@ -396,16 +379,12 @@ async def escalate_unfilled_to_ioc(
 ) -> None:
     """Escalate unfilled legs to IOC orders."""
     log_coordinated_close_ioc_escalate(trade=ctx.trade, legs=list(legs_to_close))
-    logger.info(
-        f"Escalating to IOC for unfilled legs: {', '.join(legs_to_close)} (synchronous)"
-    )
+    logger.info(f"Escalating to IOC for unfilled legs: {', '.join(legs_to_close)} (synchronous)")
 
     ioc_tasks = []
 
     if "leg1" in legs_to_close and ctx.leg1_close_qty > 0:
-        ioc_price = calculate_ioc_price(
-            ctx.ob, ctx.price_data, ctx.leg1_close_side, "lighter", ctx.lighter_tick
-        )
+        ioc_price = calculate_ioc_price(ctx.ob, ctx.price_data, ctx.leg1_close_side, "lighter", ctx.lighter_tick)
         if ioc_price > 0:
             ioc_tasks.append(
                 execute_ioc_close(
@@ -420,9 +399,7 @@ async def escalate_unfilled_to_ioc(
             )
 
     if "leg2" in legs_to_close and ctx.leg2_close_qty > 0:
-        ioc_price = calculate_ioc_price(
-            ctx.ob, ctx.price_data, ctx.leg2_close_side, "x10", ctx.x10_tick
-        )
+        ioc_price = calculate_ioc_price(ctx.ob, ctx.price_data, ctx.leg2_close_side, "x10", ctx.x10_tick)
         if ioc_price > 0:
             ioc_tasks.append(
                 execute_ioc_close(
@@ -461,10 +438,7 @@ async def close_both_legs_coordinated(manager, trade: Trade) -> None:
     coordinated_enabled = bool(getattr(ts, "coordinated_close_enabled", True))
 
     if not coordinated_enabled:
-        logger.info(
-            f"Coordinated close disabled for {trade.symbol}, "
-            "falling back to sequential"
-        )
+        logger.info(f"Coordinated close disabled for {trade.symbol}, falling back to sequential")
         await manager._close_lighter_smart(trade)
         await manager._update_trade(trade)
         await manager._close_x10_smart(trade)
@@ -472,9 +446,7 @@ async def close_both_legs_coordinated(manager, trade: Trade) -> None:
         return
 
     log_coordinated_close_start(trade)
-    logger.info(
-        f"Coordinated close for {trade.symbol} - parallel maker orders on both legs"
-    )
+    logger.info(f"Coordinated close for {trade.symbol} - parallel maker orders on both legs")
 
     # Build context
     ctx = build_coordinated_close_context(manager, trade)
@@ -503,10 +475,7 @@ async def close_both_legs_coordinated(manager, trade: Trade) -> None:
             log_coordinated_close_complete(trade=trade, filled_legs=filled_legs)
             return
 
-        logger.info(
-            f"Maker timeout: {len(legs_to_close)} legs remaining "
-            f"({', '.join(legs_to_close)})"
-        )
+        logger.info(f"Maker timeout: {len(legs_to_close)} legs remaining ({', '.join(legs_to_close)})")
 
         # Step 3: Escalate to IOC
         if ctx.escalate_to_ioc:

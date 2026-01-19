@@ -141,6 +141,7 @@ async def run_bot(
         def win_handler(signum: int, frame) -> None:
             received_signal.append(f"signal-{signum}")
             shutdown_event.set()
+
         signal.signal(signal.SIGINT, win_handler)
         signal.signal(signal.SIGTERM, win_handler)
     else:
@@ -206,6 +207,7 @@ async def run_doctor() -> int:
 
     # Check 3: Database directory
     from pathlib import Path
+
     db_dir = Path(settings.database.path).parent
     if db_dir.exists() or not settings.database.path:
         logger.info("[OK] Database directory exists")
@@ -515,4 +517,3 @@ async def run_backfill(
                 await x10_adapter.close()
 
         return 1
-

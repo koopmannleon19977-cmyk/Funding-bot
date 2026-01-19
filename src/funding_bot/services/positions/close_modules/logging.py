@@ -57,8 +57,7 @@ def log_final_execution_metrics(
 
     # Log as info (for monitoring/dashboards/trade reconciliation)
     logger.info(
-        "CLOSE_FINAL: %s %s VWAP(leg1)=%.4f VWAP(leg2)=%.4f "
-        "fees(leg1)=$%.2f fees(leg2)=$%.2f net=$%.2f",
+        "CLOSE_FINAL: %s %s VWAP(leg1)=%.4f VWAP(leg2)=%.4f fees(leg1)=$%.2f fees(leg2)=$%.2f net=$%.2f",
         trade.symbol,
         trade.trade_id[:8],
         leg1_vwap if leg1_vwap > 0 else 0,
@@ -89,23 +88,24 @@ def log_close_order_placed(
     This event is critical for T3 post-close readback, which reconstructs
     final VWAP and fees from exchange API by collecting all close order IDs.
     """
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "CLOSE_ORDER_PLACED",
-        "exchange": exchange.value,
-        "leg": leg,
-        "order_id": str(order_id),
-        "client_order_id": str(client_order_id) if client_order_id else None,
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-        "time_in_force": time_in_force.value,
-        "post_only": post_only,
-        "attempt_id": attempt_id,
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "CLOSE_ORDER_PLACED",
+            "exchange": exchange.value,
+            "leg": leg,
+            "order_id": str(order_id),
+            "client_order_id": str(client_order_id) if client_order_id else None,
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+            "time_in_force": time_in_force.value,
+            "post_only": post_only,
+            "attempt_id": attempt_id,
+        }
+    )
     logger.debug(
-        f"Close order logged: {exchange.value} {leg} order_id={order_id} "
-        f"side={side.value} qty={qty} price={price}"
+        f"Close order logged: {exchange.value} {leg} order_id={order_id} side={side.value} qty={qty} price={price}"
     )
 
 
@@ -118,19 +118,18 @@ def log_rebalance_start(
     rebalance_notional: Decimal,
 ) -> None:
     """Log rebalance start event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_START",
-        "net_delta": str(net_delta),
-        "leg1_notional": str(leg1_notional),
-        "leg2_notional": str(leg2_notional),
-        "rebalance_exchange": rebalance_exchange.value,
-        "rebalance_notional": str(rebalance_notional),
-    })
-    logger.info(
-        f"Rebalance start logged: {rebalance_exchange.value} "
-        f"notional=${rebalance_notional:.2f}"
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_START",
+            "net_delta": str(net_delta),
+            "leg1_notional": str(leg1_notional),
+            "leg2_notional": str(leg2_notional),
+            "rebalance_exchange": rebalance_exchange.value,
+            "rebalance_notional": str(rebalance_notional),
+        }
     )
+    logger.info(f"Rebalance start logged: {rebalance_exchange.value} notional=${rebalance_notional:.2f}")
 
 
 def log_rebalance_order_placed(
@@ -144,21 +143,20 @@ def log_rebalance_order_placed(
     post_only: bool = False,
 ) -> None:
     """Log rebalance order placement event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_ORDER_PLACED",
-        "exchange": exchange.value,
-        "order_id": str(order_id),
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-        "time_in_force": time_in_force.value,
-        "post_only": post_only,
-    })
-    logger.info(
-        f"Rebalance order logged: {exchange.value} order_id={order_id} "
-        f"side={side.value} qty={qty}"
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_ORDER_PLACED",
+            "exchange": exchange.value,
+            "order_id": str(order_id),
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+            "time_in_force": time_in_force.value,
+            "post_only": post_only,
+        }
     )
+    logger.info(f"Rebalance order logged: {exchange.value} order_id={order_id} side={side.value} qty={qty}")
 
 
 def log_rebalance_complete(
@@ -168,22 +166,26 @@ def log_rebalance_complete(
     fee: Decimal,
 ) -> None:
     """Log rebalance complete event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "REBALANCE_COMPLETE",
-        "filled_qty": str(filled_qty),
-        "avg_price": str(avg_price),
-        "fee": str(fee),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "REBALANCE_COMPLETE",
+            "filled_qty": str(filled_qty),
+            "avg_price": str(avg_price),
+            "fee": str(fee),
+        }
+    )
     logger.info(f"Rebalance complete logged: filled={filled_qty} @ {avg_price:.2f}")
 
 
 def log_coordinated_close_start(trade: Trade) -> None:
     """Log coordinated close start event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_START",
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_START",
+        }
+    )
     logger.info(f"Coordinated close start logged for {trade.symbol}")
 
 
@@ -197,19 +199,19 @@ def log_coordinated_close_maker_placed(
     price: Decimal,
 ) -> None:
     """Log coordinated close maker order placement event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_MAKER_PLACED",
-        "exchange": exchange.value,
-        "leg": leg,
-        "order_id": str(order_id),
-        "side": side.value,
-        "qty": str(qty),
-        "price": str(price),
-    })
-    logger.info(
-        f"Coordinated close maker logged: {exchange.value} {leg} order_id={order_id}"
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_MAKER_PLACED",
+            "exchange": exchange.value,
+            "leg": leg,
+            "order_id": str(order_id),
+            "side": side.value,
+            "qty": str(qty),
+            "price": str(price),
+        }
     )
+    logger.info(f"Coordinated close maker logged: {exchange.value} {leg} order_id={order_id}")
 
 
 def log_coordinated_close_ioc_escalate(
@@ -217,11 +219,13 @@ def log_coordinated_close_ioc_escalate(
     legs: list[str],
 ) -> None:
     """Log coordinated close IOC escalation event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_IOC_ESCALATE",
-        "legs": legs,
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_IOC_ESCALATE",
+            "legs": legs,
+        }
+    )
     logger.info(f"Coordinated close IOC escalate logged: legs={legs}")
 
 
@@ -230,9 +234,11 @@ def log_coordinated_close_complete(
     filled_legs: set[str],
 ) -> None:
     """Log coordinated close complete event to trade.events."""
-    trade.events.append({
-        "timestamp": datetime.now(UTC).isoformat(),
-        "event_type": "COORDINATED_CLOSE_COMPLETE",
-        "filled_legs": list(filled_legs),
-    })
+    trade.events.append(
+        {
+            "timestamp": datetime.now(UTC).isoformat(),
+            "event_type": "COORDINATED_CLOSE_COMPLETE",
+            "filled_legs": list(filled_legs),
+        }
+    )
     logger.info(f"Coordinated close complete logged: legs={filled_legs}")

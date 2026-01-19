@@ -1,5 +1,7 @@
 import asyncio
+
 import websockets
+
 from utils import default_example_setup, ws_send_tx
 
 
@@ -18,7 +20,7 @@ async def main():
     tx_type, tx_info, tx_hash, err = client.sign_update_margin(
         market_index=0,
         usdc_amount=5_000_000,  # 5 USDC
-        direction=client.ISOLATED_MARGIN_REMOVE_COLLATERAL
+        direction=client.ISOLATED_MARGIN_REMOVE_COLLATERAL,
     )
     if err is not None:
         raise Exception(err)

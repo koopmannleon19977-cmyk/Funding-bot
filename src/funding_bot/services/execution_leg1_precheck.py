@@ -52,8 +52,6 @@ async def _pre_attempt_position_check(
                     trade.leg1.entry_price = state.total_notional / state.total_filled
                 await self._update_trade(trade)
 
-                logger.info(
-                    f"Updated total_filled to {state.total_filled:.6f} after pre-attempt position check"
-                )
+                logger.info(f"Updated total_filled to {state.total_filled:.6f} after pre-attempt position check")
         except Exception as pos_check_err:
             logger.warning(f"Pre-attempt position check failed: {pos_check_err}")

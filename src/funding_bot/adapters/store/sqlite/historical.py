@@ -32,24 +32,28 @@ async def insert_funding_candles(
     # Build batch insert rows
     rows = []
     for candle in candles:
-        rows.append((
-            candle.timestamp.isoformat(),
-            str(candle.symbol),
-            candle.exchange,
-            str(candle.mark_price) if candle.mark_price is not None else None,
-            str(candle.index_price) if candle.index_price is not None else None,
-            str(candle.spread_bps) if candle.spread_bps is not None else None,
-            str(candle.funding_rate_hourly),
-            str(candle.funding_apy),
-            now,
-            "backfill",
-        ))
+        rows.append(
+            (
+                candle.timestamp.isoformat(),
+                str(candle.symbol),
+                candle.exchange,
+                str(candle.mark_price) if candle.mark_price is not None else None,
+                str(candle.index_price) if candle.index_price is not None else None,
+                str(candle.spread_bps) if candle.spread_bps is not None else None,
+                str(candle.funding_rate_hourly),
+                str(candle.funding_apy),
+                now,
+                "backfill",
+            )
+        )
 
     # Execute batch insert with UPSERT
-    await self._write_queue.put({
-        "action": "insert_funding_candles",
-        "rows": rows,
-    })
+    await self._write_queue.put(
+        {
+            "action": "insert_funding_candles",
+            "rows": rows,
+        }
+    )
 
     return len(rows)
 
@@ -60,22 +64,24 @@ async def update_volatility_profile(
     profile: dict[str, object],
 ) -> None:
     """Update volatility metrics for a symbol."""
-    await self._write_queue.put({
-        "action": "update_volatility_profile",
-        "symbol": symbol,
-        "period_days": profile["period_days"],
-        "calculated_at": datetime.now(UTC).isoformat(),
-        "hourly_std_dev": str(profile["hourly_std_dev"]),
-        "hourly_range_avg": str(profile["hourly_range_avg"]),
-        "crash_frequency": profile["crash_frequency"],
-        "avg_crash_duration_minutes": str(profile["avg_crash_duration_minutes"]),
-        "avg_recovery_time_minutes": str(profile["avg_recovery_time_minutes"]),
-        "p25_apy": str(profile["p25_apy"]),
-        "p50_apy": str(profile["p50_apy"]),
-        "p75_apy": str(profile["p75_apy"]),
-        "p90_apy": str(profile["p90_apy"]),
-        "p95_apy": str(profile["p95_apy"]),
-    })
+    await self._write_queue.put(
+        {
+            "action": "update_volatility_profile",
+            "symbol": symbol,
+            "period_days": profile["period_days"],
+            "calculated_at": datetime.now(UTC).isoformat(),
+            "hourly_std_dev": str(profile["hourly_std_dev"]),
+            "hourly_range_avg": str(profile["hourly_range_avg"]),
+            "crash_frequency": profile["crash_frequency"],
+            "avg_crash_duration_minutes": str(profile["avg_crash_duration_minutes"]),
+            "avg_recovery_time_minutes": str(profile["avg_recovery_time_minutes"]),
+            "p25_apy": str(profile["p25_apy"]),
+            "p50_apy": str(profile["p50_apy"]),
+            "p75_apy": str(profile["p75_apy"]),
+            "p90_apy": str(profile["p90_apy"]),
+            "p95_apy": str(profile["p95_apy"]),
+        }
+    )
 
 
 async def get_volatility_profile(

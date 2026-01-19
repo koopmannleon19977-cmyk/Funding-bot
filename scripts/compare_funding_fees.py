@@ -1,7 +1,6 @@
 import csv
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Tuple, List
 
 
 def normalize_market(m: str) -> str:
@@ -26,8 +25,8 @@ def parse_exchange_timestamp(ts: str) -> datetime:
     return datetime.strptime(ts.strip(), "%Y-%m-%d %H:%M:%S")
 
 
-def read_our_csv(path: Path) -> Dict[Tuple[str, datetime], Dict]:
-    result: Dict[Tuple[str, datetime], Dict] = {}
+def read_our_csv(path: Path) -> dict[tuple[str, datetime], dict]:
+    result: dict[tuple[str, datetime], dict] = {}
     with path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -56,8 +55,8 @@ def read_our_csv(path: Path) -> Dict[Tuple[str, datetime], Dict]:
     return result
 
 
-def read_exchange_csv(path: Path) -> Dict[Tuple[str, datetime], Dict]:
-    result: Dict[Tuple[str, datetime], Dict] = {}
+def read_exchange_csv(path: Path) -> dict[tuple[str, datetime], dict]:
+    result: dict[tuple[str, datetime], dict] = {}
     with path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -92,8 +91,8 @@ def read_exchange_csv(path: Path) -> Dict[Tuple[str, datetime], Dict]:
     return result
 
 
-def compare(ours: Dict[Tuple[str, datetime], Dict], ex: Dict[Tuple[str, datetime], Dict]) -> List[Dict]:
-    comparisons: List[Dict] = []
+def compare(ours: dict[tuple[str, datetime], dict], ex: dict[tuple[str, datetime], dict]) -> list[dict]:
+    comparisons: list[dict] = []
     keys = set(ours.keys()) & set(ex.keys())
     for key in sorted(keys, key=lambda k: (k[1], k[0])):
         o = ours[key]
@@ -112,21 +111,23 @@ def compare(ours: Dict[Tuple[str, datetime], Dict], ex: Dict[Tuple[str, datetime
             # ratio of magnitudes
             denom = abs(ex_pay) if abs(ex_pay) > 0 else None
             ratio = (abs(our_pay) / denom) if denom else None
-        comparisons.append({
-            "market": key[0],
-            "time": key[1].isoformat(sep=" "),
-            "our_side": o.get("side"),
-            "ex_side": e.get("side"),
-            "side_mismatch": side_mismatch,
-            "our_payment": our_pay,
-            "ex_payment": ex_pay,
-            "our_rate": o.get("rate"),
-            "ex_rate": e.get("rate"),
-            "our_value": o.get("value"),
-            "theoretical_our_payment": theo,
-            "abs_diff_vs_neg_ex": diff,
-            "abs_ratio_vs_ex": ratio,
-        })
+        comparisons.append(
+            {
+                "market": key[0],
+                "time": key[1].isoformat(sep=" "),
+                "our_side": o.get("side"),
+                "ex_side": e.get("side"),
+                "side_mismatch": side_mismatch,
+                "our_payment": our_pay,
+                "ex_payment": ex_pay,
+                "our_rate": o.get("rate"),
+                "ex_rate": e.get("rate"),
+                "our_value": o.get("value"),
+                "theoretical_our_payment": theo,
+                "abs_diff_vs_neg_ex": diff,
+                "abs_ratio_vs_ex": ratio,
+            }
+        )
     return comparisons
 
 
@@ -144,7 +145,9 @@ def main():
         print("No overlapping records found to compare.")
         return
     # Print a compact report
-    print("Market,Time,OurSide,ExSide,SideMismatch,OurPay,ExPay,OurRate,ExRate,OurValue,TheoOurPay,Diff(our-(-ex)),Ratio(|our|/|ex|)")
+    print(
+        "Market,Time,OurSide,ExSide,SideMismatch,OurPay,ExPay,OurRate,ExRate,OurValue,TheoOurPay,Diff(our-(-ex)),Ratio(|our|/|ex|)"
+    )
     for c in comps:
         print(
             f"{c['market']},{c['time']},{c['our_side']},{c['ex_side']},{c['side_mismatch']}"

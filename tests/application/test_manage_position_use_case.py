@@ -1,12 +1,12 @@
+import asyncio
 from decimal import Decimal
 
-import asyncio
 import pytest
 
 from src.application.use_cases.manage_position import ManagePositionRequest, ManagePositionUseCase
 from src.domain.entities import Trade
-from src.domain.services import ConstitutionGuard
 from src.domain.rules import Constitution
+from src.domain.services import ConstitutionGuard
 from src.domain.value_objects import Price, Side, TradeStatus
 from src.infrastructure.messaging.event_bus import EventBus, MaintenanceViolation
 

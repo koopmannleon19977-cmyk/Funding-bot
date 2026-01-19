@@ -2,8 +2,9 @@ import asyncio
 import json
 import logging
 import os
-import time
 import sys
+import time
+
 import lighter
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -58,7 +59,7 @@ async def main():
         config_file = sys.argv[1]
 
     try:
-        with open(config_file, "r") as f:
+        with open(config_file) as f:
             config = json.load(f)
     except FileNotFoundError:
         logging.error(f"Config file '{config_file}' not found")

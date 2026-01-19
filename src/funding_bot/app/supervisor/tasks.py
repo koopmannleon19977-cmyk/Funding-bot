@@ -8,7 +8,8 @@ They are defined externally and assigned to the class in manager.py.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Coroutine
+from collections.abc import Coroutine
+from typing import TYPE_CHECKING, Any
 
 from funding_bot.domain.events import AlertEvent
 from funding_bot.observability.logging import get_logger
@@ -82,9 +83,7 @@ async def _restart_task_after_delay(self: Supervisor, name: str, delay_seconds: 
             logger.error(f"No task factory registered for {name}; cannot restart")
             return
 
-        logger.warning(
-            f"Restarting task {name} after {delay_seconds:.1f}s (reason={reason})"
-        )
+        logger.warning(f"Restarting task {name} after {delay_seconds:.1f}s (reason={reason})")
 
         if self.event_bus:
             await self.event_bus.publish(
@@ -131,10 +130,7 @@ async def _cancel_all_tasks(self: Supervisor) -> None:
 
     # Wait for all tasks to finish with timeout
     if self._tasks:
-        results = await asyncio.gather(
-            *self._tasks.values(),
-            return_exceptions=True
-        )
+        results = await asyncio.gather(*self._tasks.values(), return_exceptions=True)
 
         # Log any unexpected exceptions (not CancelledError)
         for name, result in zip(self._tasks.keys(), results, strict=True):

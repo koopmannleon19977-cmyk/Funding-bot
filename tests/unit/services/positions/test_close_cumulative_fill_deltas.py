@@ -9,11 +9,11 @@ This is critical for correct VWAP and fee accounting, especially in grid-step
 close operations where multiple price levels are used.
 """
 
+from decimal import Decimal
+
 import pytest
-from decimal import Decimal, getcontext
 
 from funding_bot.services.positions.close import _delta_from_cumulative_fill
-
 
 pytestmark = pytest.mark.unit
 
@@ -131,8 +131,7 @@ def test_delta_from_cumulative_fill_vwap_matches_expected():
     expected = (D("49.89") * D("2.1306") + D("91.11") * D("2.1455")) / D("141.00")
 
     # Use a tolerance; Decimals can be exact but we keep it robust
-    assert abs(vwap - expected) < D("0.0000001"), \
-        f"Expected VWAP≈{expected:.6f}, got {vwap:.6f}"
+    assert abs(vwap - expected) < D("0.0000001"), f"Expected VWAP≈{expected:.6f}, got {vwap:.6f}"
 
 
 def test_delta_from_cumulative_fill_guards_negative_resets():
@@ -325,4 +324,3 @@ def test_delta_from_cumulative_fill_high_precision():
     expected_delta_qty = D("234.56789012") - D("123.45678901")
     assert d_qty2 == expected_delta_qty
     assert d_fee2 == D("0.234567890") - D("0.123456789")
-

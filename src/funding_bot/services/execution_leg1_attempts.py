@@ -43,7 +43,7 @@ async def _handle_maker_to_taker_escalation(
     trade: Trade,
     state: Leg1State,
     config: Leg1Config,
-    ctx: "Leg1AttemptContext",
+    ctx: Leg1AttemptContext,
     attempt_timeout: float,
     maker_wait_timeout: float,
 ) -> tuple[bool, int]:
@@ -61,16 +61,11 @@ async def _handle_maker_to_taker_escalation(
     if not do_escalate:
         return True, 0
 
-    cancel_success, cancel_attempts = await _cancel_lighter_order_if_active(
-        self, trade, state.active_order_id
-    )
+    cancel_success, cancel_attempts = await _cancel_lighter_order_if_active(self, trade, state.active_order_id)
 
     if not cancel_success:
         state.cancel_failures += 1
-        logger.error(
-            f"CRITICAL: Could not verify cancellation of order "
-            f"{state.active_order_id}. Possible zombie."
-        )
+        logger.error(f"CRITICAL: Could not verify cancellation of order {state.active_order_id}. Possible zombie.")
     else:
         await _apply_leg1_escalation(
             self,
@@ -98,30 +93,19 @@ async def _handle_cancel_or_defer_modify(
     should_cancel = True
     state.use_modify_next = False
 
-    if (
-        attempt < config.max_attempts - 1
-        and hasattr(self.lighter, "modify_order")
-        and state.active_order_id
-    ):
+    if attempt < config.max_attempts - 1 and hasattr(self.lighter, "modify_order") and state.active_order_id:
         state.use_modify_next = True
         should_cancel = False
-        logger.info(
-            f"Deferring cancel for {state.active_order_id} to use modify_order next attempt"
-        )
+        logger.info(f"Deferring cancel for {state.active_order_id} to use modify_order next attempt")
 
     if not should_cancel:
         return True, 0
 
-    cancel_success, cancel_attempts = await _cancel_lighter_order_if_active(
-        self, trade, state.active_order_id
-    )
+    cancel_success, cancel_attempts = await _cancel_lighter_order_if_active(self, trade, state.active_order_id)
 
     if not cancel_success:
         state.cancel_failures += 1
-        logger.error(
-            f"CRITICAL: Could not verify cancellation of order "
-            f"{state.active_order_id}. Possible zombie."
-        )
+        logger.error(f"CRITICAL: Could not verify cancellation of order {state.active_order_id}. Possible zombie.")
 
     return cancel_success, cancel_attempts
 
@@ -129,7 +113,7 @@ async def _handle_cancel_or_defer_modify(
 async def _handle_insufficient_balance_error(
     self,
     trade: Trade,
-    ctx: "Leg1AttemptContext",
+    ctx: Leg1AttemptContext,
     config: Leg1Config,
     state: Leg1State,
     attempt: int,
@@ -163,7 +147,7 @@ async def _handle_insufficient_balance_error(
 async def _handle_hedge_evaporated_error(
     self,
     trade: Trade,
-    ctx: "Leg1AttemptContext",
+    ctx: Leg1AttemptContext,
     config: Leg1Config,
     state: Leg1State,
     attempt: int,
@@ -213,7 +197,7 @@ async def _handle_hedge_evaporated_error(
 async def _handle_generic_error(
     self,
     trade: Trade,
-    ctx: "Leg1AttemptContext",
+    ctx: Leg1AttemptContext,
     config: Leg1Config,
     state: Leg1State,
     attempt: int,
@@ -291,9 +275,7 @@ async def _execute_leg1_attempts(
         )
 
         attempt_timeout = (
-            config.attempt_timeouts[attempt]
-            if attempt < len(config.attempt_timeouts)
-            else config.attempt_timeouts[-1]
+            config.attempt_timeouts[attempt] if attempt < len(config.attempt_timeouts) else config.attempt_timeouts[-1]
         )
 
         try:
@@ -317,23 +299,33 @@ async def _execute_leg1_attempts(
 
             # 7. Process fill
             await _process_leg1_fill(
-                self, trade, ctx, state, filled_order,
+                self,
+                trade,
+                ctx,
+                state,
+                filled_order,
                 initial_pos_qty=config.initial_pos_qty,
                 pos_tolerance=config.pos_tolerance,
             )
 
             # 8. Ghost fill reconciliation
-            await _ghost_fill_reconcile(
-                self, trade, ctx, state, initial_pos_qty=config.initial_pos_qty
-            )
+            await _ghost_fill_reconcile(self, trade, ctx, state, initial_pos_qty=config.initial_pos_qty)
 
             # 9. Check success after processing
             if state.total_filled >= trade.target_qty * Decimal("0.999"):
                 await _record_leg1_attempt(
-                    self, trade, ctx, config, state,
-                    attempt_id=attempt_id, order_id=state.active_order_id,
-                    wait_seconds=wait_seconds, filled_order=filled_order,
-                    cancel_success=None, cancel_attempts=0, include_smart=True,
+                    self,
+                    trade,
+                    ctx,
+                    config,
+                    state,
+                    attempt_id=attempt_id,
+                    order_id=state.active_order_id,
+                    wait_seconds=wait_seconds,
+                    filled_order=filled_order,
+                    cancel_success=None,
+                    cancel_attempts=0,
+                    include_smart=True,
                 )
                 state.success = True
                 break
@@ -352,39 +344,47 @@ async def _execute_leg1_attempts(
             if state.total_filled >= trade.target_qty * Decimal("0.999"):
                 state.success = True
                 await _record_leg1_attempt(
-                    self, trade, ctx, config, state,
-                    attempt_id=attempt_id, order_id=state.active_order_id,
-                    wait_seconds=wait_seconds, filled_order=filled_order,
-                    cancel_success=escalate_cancel_success, cancel_attempts=escalate_cancel_attempts,
-                    escalated_to_taker=True, include_smart=False,
+                    self,
+                    trade,
+                    ctx,
+                    config,
+                    state,
+                    attempt_id=attempt_id,
+                    order_id=state.active_order_id,
+                    wait_seconds=wait_seconds,
+                    filled_order=filled_order,
+                    cancel_success=escalate_cancel_success,
+                    cancel_attempts=escalate_cancel_attempts,
+                    escalated_to_taker=True,
+                    include_smart=False,
                 )
                 break
 
             # 11. Cancel unfilled portion or defer for modify
-            cancel_success, cancel_attempts = await _handle_cancel_or_defer_modify(
-                self, trade, state, config, attempt
-            )
+            cancel_success, cancel_attempts = await _handle_cancel_or_defer_modify(self, trade, state, config, attempt)
 
             # 12. Record attempt
             await _record_leg1_attempt(
-                self, trade, ctx, config, state,
-                attempt_id=attempt_id, order_id=state.active_order_id,
-                wait_seconds=wait_seconds, filled_order=filled_order,
-                cancel_success=cancel_success, cancel_attempts=cancel_attempts,
-                escalated_to_taker=did_escalate, include_smart=True,
+                self,
+                trade,
+                ctx,
+                config,
+                state,
+                attempt_id=attempt_id,
+                order_id=state.active_order_id,
+                wait_seconds=wait_seconds,
+                filled_order=filled_order,
+                cancel_success=cancel_success,
+                cancel_attempts=cancel_attempts,
+                escalated_to_taker=did_escalate,
+                include_smart=True,
             )
 
         except InsufficientBalanceError as e:
-            await _handle_insufficient_balance_error(
-                self, trade, ctx, config, state, attempt, attempt_id, e
-            )
+            await _handle_insufficient_balance_error(self, trade, ctx, config, state, attempt, attempt_id, e)
 
         except Leg1HedgeEvaporatedError as e:
-            await _handle_hedge_evaporated_error(
-                self, trade, ctx, config, state, attempt, attempt_id, e
-            )
+            await _handle_hedge_evaporated_error(self, trade, ctx, config, state, attempt, attempt_id, e)
 
         except Exception as e:
-            await _handle_generic_error(
-                self, trade, ctx, config, state, attempt, attempt_id, e
-            )
+            await _handle_generic_error(self, trade, ctx, config, state, attempt, attempt_id, e)

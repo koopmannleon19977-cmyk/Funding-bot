@@ -1,10 +1,8 @@
 import dataclasses
-from typing import List
 
 import pytest
 from aiohttp import web
 from hamcrest import assert_that, equal_to, has_length
-
 from x10.perpetual.assets import AssetOperationModel
 from x10.perpetual.configuration import TESTNET_CONFIG
 from x10.perpetual.markets import MarketModel
@@ -23,7 +21,7 @@ async def test_get_markets(aiohttp_server, create_btc_usd_market):
     from x10.perpetual.trading_client import PerpetualTradingClient
 
     expected_market = create_btc_usd_market()
-    expected_markets = WrappedApiResponse[List[MarketModel]].model_validate(
+    expected_markets = WrappedApiResponse[list[MarketModel]].model_validate(
         {"status": "OK", "data": [expected_market.model_dump()]}
     )
 
@@ -122,7 +120,7 @@ async def test_get_asset_operations(aiohttp_server, create_asset_operations, cre
     from x10.perpetual.trading_client import PerpetualTradingClient
 
     expected_operations = create_asset_operations()
-    expected_response = WrappedApiResponse[List[AssetOperationModel]].model_validate(
+    expected_response = WrappedApiResponse[list[AssetOperationModel]].model_validate(
         {"status": "OK", "data": [op.model_dump() for op in expected_operations]}
     )
 

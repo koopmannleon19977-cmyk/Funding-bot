@@ -1,5 +1,6 @@
 import json
 import logging
+
 import lighter
 
 logging.basicConfig(level=logging.INFO)

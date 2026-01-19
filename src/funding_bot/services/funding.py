@@ -60,10 +60,7 @@ class FundingTracker:
 
         logger.info("Starting FundingTracker...")
         self._running = True
-        self._task = asyncio.create_task(
-            self._track_loop(),
-            name="funding_tracker"
-        )
+        self._task = asyncio.create_task(self._track_loop(), name="funding_tracker")
 
     async def stop(self) -> None:
         """Stop the funding tracker."""
@@ -150,7 +147,7 @@ class FundingTracker:
         results = await asyncio.gather(
             self.lighter.get_realized_funding(trade.symbol, start_time),
             self.x10.get_realized_funding(trade.symbol, start_time),
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Check for exceptions
@@ -273,12 +270,8 @@ class FundingTracker:
         leg1_ex = self.lighter if trade.leg1.exchange == Exchange.LIGHTER else self.x10
         leg2_ex = self.lighter if trade.leg2.exchange == Exchange.LIGHTER else self.x10
         await asyncio.gather(
-            _refresh_leg(
-                "leg1", leg1_ex, trade.leg1.exchange, trade.leg1.order_id, trade.leg1.fees
-            ),
-            _refresh_leg(
-                "leg2", leg2_ex, trade.leg2.exchange, trade.leg2.order_id, trade.leg2.fees
-            ),
+            _refresh_leg("leg1", leg1_ex, trade.leg1.exchange, trade.leg1.order_id, trade.leg1.fees),
+            _refresh_leg("leg2", leg2_ex, trade.leg2.exchange, trade.leg2.order_id, trade.leg2.fees),
             return_exceptions=True,
         )
 
@@ -298,9 +291,9 @@ class FundingTracker:
 
         # Calculate unrealized PnL
         if trade.leg1.side.value == "BUY":
-             leg1_pnl = (current_price - trade.leg1.entry_price) * trade.leg1.filled_qty
+            leg1_pnl = (current_price - trade.leg1.entry_price) * trade.leg1.filled_qty
         else:
-             leg1_pnl = (trade.leg1.entry_price - current_price) * trade.leg1.filled_qty
+            leg1_pnl = (trade.leg1.entry_price - current_price) * trade.leg1.filled_qty
 
         # Leg 2 is usually visually hedged (inverse logic or same?)
         # Convention: If we are Long X10 (Buy), PnL = (Mark - Entry) * Qty
@@ -309,9 +302,9 @@ class FundingTracker:
         # NOTE: X10 price might differ slightly, but using mid_price for both is a fair approximation
         # for "Estimated uPnL". For precision, we should fetch X10 mark price specifically if available.
         if trade.leg2.side.value == "BUY":
-             leg2_pnl = (current_price - trade.leg2.entry_price) * trade.leg2.filled_qty
+            leg2_pnl = (current_price - trade.leg2.entry_price) * trade.leg2.filled_qty
         else:
-             leg2_pnl = (trade.leg2.entry_price - current_price) * trade.leg2.filled_qty
+            leg2_pnl = (trade.leg2.entry_price - current_price) * trade.leg2.filled_qty
 
         unrealized_pnl = leg1_pnl + leg2_pnl
 
@@ -319,10 +312,7 @@ class FundingTracker:
         trade.unrealized_pnl = unrealized_pnl
 
         # Persist ONLY to the trade table (fast update)
-        await self.store.update_trade(
-            trade_id=trade.trade_id,
-            updates={"unrealized_pnl": unrealized_pnl}
-        )
+        await self.store.update_trade(trade_id=trade.trade_id, updates={"unrealized_pnl": unrealized_pnl})
 
     async def save_pnl_snapshot(self, trade: Trade) -> None:
         """Save a PnL snapshot for a trade (Historical)."""

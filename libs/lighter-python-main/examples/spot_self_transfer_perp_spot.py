@@ -1,4 +1,5 @@
 import asyncio
+
 from utils import default_example_setup
 
 ETH_PRIVATE_KEY = "1234567812345678123456781234567812345678123456781234567812345678"
@@ -24,11 +25,12 @@ async def main():
         memo="0x" + "00" * 32,
     )
     if err is not None:
-       raise Exception(f"error transferring {err}")
+        raise Exception(f"error transferring {err}")
     print(transfer_tx, response)
 
     lev_tx, response, err = await client.update_leverage(4, client.CROSS_MARGIN_MODE, 3)
     print(lev_tx, response, err)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

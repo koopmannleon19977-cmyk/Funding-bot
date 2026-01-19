@@ -3,19 +3,18 @@
 Export funding history and totals from the database to CSV.
 """
 
-import sys
 import os
 import sqlite3
-
+import sys
 from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import config
 
 DB_PATH = Path("data/funding.db")
 HISTORY_EXPORT_FILE = "exports/funding_history_export.csv"
 TOTALS_EXPORT_FILE = "exports/funding_totals_export.csv"
+
 
 def export_funding():
     if not DB_PATH.exists():
@@ -25,7 +24,7 @@ def export_funding():
     print(f"📂 Connecting to database: {DB_PATH}")
     try:
         conn = sqlite3.connect(DB_PATH)
-        
+
         # 1. Export Funding History (Granular)
         print("📊 Exporting Funding History...")
         try:
@@ -42,8 +41,8 @@ def export_funding():
         print("\n📊 Exporting Trade Funding Totals...")
         try:
             df_trades = pd.read_sql_query(
-                "SELECT symbol, status, funding_collected, pnl, created_at, closed_at FROM trades WHERE funding_collected != 0 ORDER BY created_at DESC", 
-                conn
+                "SELECT symbol, status, funding_collected, pnl, created_at, closed_at FROM trades WHERE funding_collected != 0 ORDER BY created_at DESC",
+                conn,
             )
             if df_trades.empty:
                 print("   ⚠️  No trades found with non-zero funding_collected.")
@@ -52,11 +51,12 @@ def export_funding():
                 print(f"   ✅ Saved {len(df_trades)} rows to {TOTALS_EXPORT_FILE}")
         except Exception as e:
             print(f"   ❌ Error exporting trade totals: {e}")
-            
+
         conn.close()
-        
+
     except Exception as e:
         print(f"❌ Database error: {e}")
+
 
 if __name__ == "__main__":
     # Check if pandas is installed
@@ -68,17 +68,17 @@ if __name__ == "__main__":
         # Actually let's implement fallback since I know pandas failed earlier in the env check!
         print("🔄 Switching to pure Python CSV export...")
         import csv
-        
+
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
-        
+
         # History
         try:
             cursor.execute("SELECT * FROM funding_history ORDER BY timestamp DESC")
             rows = cursor.fetchall()
             if rows:
                 col_names = [description[0] for description in cursor.description]
-                with open(HISTORY_EXPORT_FILE, 'w', newline='', encoding='utf-8') as f:
+                with open(HISTORY_EXPORT_FILE, "w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
                     writer.writerow(col_names)
                     writer.writerows(rows)
@@ -87,14 +87,16 @@ if __name__ == "__main__":
                 print("   ⚠️  funding_history table is EMPTY.")
         except Exception as e:
             print(f"   ❌ Error: {e}")
-            
+
         # Totals
         try:
-            cursor.execute("SELECT symbol, status, funding_collected, pnl, created_at, closed_at FROM trades WHERE funding_collected != 0 ORDER BY created_at DESC")
+            cursor.execute(
+                "SELECT symbol, status, funding_collected, pnl, created_at, closed_at FROM trades WHERE funding_collected != 0 ORDER BY created_at DESC"
+            )
             rows = cursor.fetchall()
             if rows:
                 col_names = [description[0] for description in cursor.description]
-                with open(TOTALS_EXPORT_FILE, 'w', newline='', encoding='utf-8') as f:
+                with open(TOTALS_EXPORT_FILE, "w", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
                     writer.writerow(col_names)
                     writer.writerows(rows)
@@ -102,8 +104,8 @@ if __name__ == "__main__":
             else:
                 print("   ⚠️  No trades with funding found.")
         except Exception as e:
-             print(f"   ❌ Error: {e}")
-             
+            print(f"   ❌ Error: {e}")
+
         conn.close()
         sys.exit(0)
 

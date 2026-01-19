@@ -168,12 +168,7 @@ class TestClampFundingRate:
     def test_symbol_and_exchange_logged(self):
         """Should accept symbol and exchange for logging (no assertion, just verify no crash)."""
         rate = Decimal("0.10")  # Exceeds cap, warning logged
-        result = clamp_funding_rate(
-            rate,
-            LIGHTER_FUNDING_RATE_CAP,
-            symbol="BTC",
-            exchange="LIGHTER"
-        )
+        result = clamp_funding_rate(rate, LIGHTER_FUNDING_RATE_CAP, symbol="BTC", exchange="LIGHTER")
         # Should return original rate, not clamped value
         assert result == rate
 
@@ -244,10 +239,10 @@ class TestRealWorldScenarios:
     def test_reasonable_rates_unchanged(self):
         """Normal funding rates should pass through unchanged."""
         normal_rates = [
-            Decimal("0.0001"),   # 0.01% per hour - typical
-            Decimal("-0.0005"), # -0.05% per hour - normal negative
-            Decimal("0.003"),   # 0.3% per hour - high but valid for Lighter
-            Decimal("0.025"),   # 2.5% per hour - high but valid for X10
+            Decimal("0.0001"),  # 0.01% per hour - typical
+            Decimal("-0.0005"),  # -0.05% per hour - normal negative
+            Decimal("0.003"),  # 0.3% per hour - high but valid for Lighter
+            Decimal("0.025"),  # 2.5% per hour - high but valid for X10
         ]
 
         for rate in normal_rates:
@@ -290,14 +285,10 @@ class TestAPIRateConversion:
         apy = net_rate * Decimal("24") * Decimal("365")
 
         # APY should be ~77 (meaning 77%), NOT ~7700 (7700%)
-        assert Decimal("76") < apy < Decimal("78"), (
-            f"APY should be ~77 (77%), got {apy}"
-        )
+        assert Decimal("76") < apy < Decimal("78"), f"APY should be ~77 (77%), got {apy}"
 
         # Verify it's NOT 100x too high (the bug would give ~7700 for 7700%)
-        assert apy < Decimal("100"), (
-            f"APY {apy} is way too high - should be ~77 (77%), not 7700 (7700%)"
-        )
+        assert apy < Decimal("100"), f"APY {apy} is way too high - should be ~77 (77%), not 7700 (7700%)"
 
     def test_positive_rate_conversion(self):
         """Test conversion of positive rates from percent to decimal."""

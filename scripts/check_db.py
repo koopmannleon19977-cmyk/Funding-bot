@@ -8,21 +8,22 @@ Features:
 - Provides summary statistics
 - Outputs to both console and file
 """
+
 import argparse
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Default paths
 DEFAULT_DB_PATH = Path(__file__).parent.parent / "data" / "trades.db"
 DEFAULT_OUTPUT_FILE = Path(__file__).parent.parent / "db_report.txt"
 
 
-def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str, Any]:
+def check_database(db_path: str, output_file: str | None = None) -> dict[str, Any]:
     """
     Check database for PnL issues and generate report.
-    
+
     Returns:
         Dict with statistics and issue lists
     """
@@ -37,27 +38,27 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         "total_pnl": 0.0,
         "total_funding": 0.0,
     }
-    
+
     try:
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        
+
         # Count all trades
         cur.execute("SELECT COUNT(*) FROM trades")
         results["total_trades"] = cur.fetchone()[0]
         output.append(f"Total trades: {results['total_trades']}")
-        
+
         # Count open trades
         cur.execute("SELECT COUNT(*) FROM trades WHERE status = 'open'")
         results["open_trades"] = cur.fetchone()[0]
         output.append(f"Open trades: {results['open_trades']}")
-        
+
         # Count closed trades
         cur.execute("SELECT COUNT(*) FROM trades WHERE status = 'closed'")
         results["closed_trades"] = cur.fetchone()[0]
         output.append(f"Closed trades: {results['closed_trades']}")
-        
+
         # Get total PnL and funding
         cur.execute("""
             SELECT 
@@ -71,14 +72,14 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         results["total_funding"] = float(row["total_funding"] or 0)
         output.append(f"\nTotal Realized PnL: ${results['total_pnl']:.4f}")
         output.append(f"Total Funding Collected: ${results['total_funding']:.4f}")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # OPEN TRADES DETAIL
         # ═══════════════════════════════════════════════════════════════
         output.append("\n" + "=" * 60)
         output.append("🟢 CURRENT OPEN POSITIONS")
         output.append("=" * 60)
-        
+
         cur.execute("""
             SELECT symbol, funding_collected, created_at, pnl
             FROM trades 
@@ -86,30 +87,29 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
             ORDER BY created_at DESC
         """)
         open_rows = cur.fetchall()
-        
+
         if not open_rows:
             output.append("No open positions.")
         else:
             import time
+
             now_ms = time.time() * 1000
-            
+
             # Header
             output.append(f"{'SYMBOL':<15} | {'AGE':<10} | {'FUNDING':<12} | {'EST. PNL':<12}")
             output.append("-" * 55)
-            
+
             for row in open_rows:
                 # Calculate age
-                created_at = row['created_at'] or now_ms
+                created_at = row["created_at"] or now_ms
                 age_ms = now_ms - created_at
                 age_hours = age_ms / (1000 * 3600)
                 age_str = f"{age_hours:.1f}h"
-                
-                funding = row['funding_collected'] or 0.0
-                pnl = row['pnl'] or 0.0 # Note: PnL in DB for open trades might be 0 or stale snapshot
-                
-                output.append(
-                    f"{row['symbol']:<15} | {age_str:<10} | ${funding:<11.4f} | ${pnl:<11.4f}"
-                )
+
+                funding = row["funding_collected"] or 0.0
+                pnl = row["pnl"] or 0.0  # Note: PnL in DB for open trades might be 0 or stale snapshot
+
+                output.append(f"{row['symbol']:<15} | {age_str:<10} | ${funding:<11.4f} | ${pnl:<11.4f}")
 
         # ═══════════════════════════════════════════════════════════════
         # Find closed trades with PnL = 0
@@ -117,7 +117,7 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         output.append("\n" + "=" * 60)
         output.append("CLOSED TRADES WITH ZERO PNL")
         output.append("=" * 60)
-        
+
         cur.execute("""
             SELECT symbol, pnl, funding_collected, status, created_at, closed_at
             FROM trades 
@@ -126,25 +126,24 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         """)
         zero_pnl_rows = cur.fetchall()
         results["zero_pnl_trades"] = [dict(r) for r in zero_pnl_rows]
-        
+
         output.append(f"Count: {len(zero_pnl_rows)}")
         if zero_pnl_rows:
             output.append("")
             for row in zero_pnl_rows[:20]:  # Limit to first 20
                 output.append(
-                    f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, "
-                    f"Funding=${row['funding_collected'] or 0:.4f}"
+                    f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, Funding=${row['funding_collected'] or 0:.4f}"
                 )
             if len(zero_pnl_rows) > 20:
                 output.append(f"  ... and {len(zero_pnl_rows) - 20} more")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # Find closed trades with Funding = 0
         # ═══════════════════════════════════════════════════════════════
         output.append("\n" + "=" * 60)
         output.append("CLOSED TRADES WITH ZERO FUNDING")
         output.append("=" * 60)
-        
+
         cur.execute("""
             SELECT symbol, pnl, funding_collected, status, created_at, closed_at
             FROM trades 
@@ -153,25 +152,24 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         """)
         zero_funding_rows = cur.fetchall()
         results["zero_funding_trades"] = [dict(r) for r in zero_funding_rows]
-        
+
         output.append(f"Count: {len(zero_funding_rows)}")
         if zero_funding_rows:
             output.append("")
             for row in zero_funding_rows[:20]:  # Limit to first 20
                 output.append(
-                    f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, "
-                    f"Funding=${row['funding_collected'] or 0:.4f}"
+                    f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, Funding=${row['funding_collected'] or 0:.4f}"
                 )
             if len(zero_funding_rows) > 20:
                 output.append(f"  ... and {len(zero_funding_rows) - 20} more")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # Find closed trades with BOTH PnL = 0 AND Funding = 0
         # ═══════════════════════════════════════════════════════════════
         output.append("\n" + "=" * 60)
         output.append("⚠️ CLOSED TRADES WITH BOTH PNL AND FUNDING = 0")
         output.append("=" * 60)
-        
+
         cur.execute("""
             SELECT symbol, pnl, funding_collected, status, created_at, closed_at
             FROM trades 
@@ -182,26 +180,24 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         """)
         both_zero_rows = cur.fetchall()
         results["both_zero_trades"] = [dict(r) for r in both_zero_rows]
-        
+
         output.append(f"Count: {len(both_zero_rows)}")
         if both_zero_rows:
             output.append("")
             output.append("These trades may have PnL recording issues!")
             output.append("")
             for row in both_zero_rows[:30]:  # Show more for these critical cases
-                output.append(
-                    f"  {row['symbol']}: closed_at={row['closed_at']}"
-                )
+                output.append(f"  {row['symbol']}: closed_at={row['closed_at']}")
             if len(both_zero_rows) > 30:
                 output.append(f"  ... and {len(both_zero_rows) - 30} more")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # Show recent closed trades (sample)
         # ═══════════════════════════════════════════════════════════════
         output.append("\n" + "=" * 60)
         output.append("RECENT CLOSED TRADES (Sample)")
         output.append("=" * 60)
-        
+
         cur.execute("""
             SELECT symbol, pnl, funding_collected, status, created_at, closed_at
             FROM trades 
@@ -210,13 +206,12 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
             LIMIT 10
         """)
         recent_rows = cur.fetchall()
-        
+
         for row in recent_rows:
             output.append(
-                f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, "
-                f"Funding=${row['funding_collected'] or 0:.4f}"
+                f"  {row['symbol']}: PnL=${row['pnl'] or 0:.4f}, Funding=${row['funding_collected'] or 0:.4f}"
             )
-        
+
         # ═══════════════════════════════════════════════════════════════
         # Summary
         # ═══════════════════════════════════════════════════════════════
@@ -226,61 +221,52 @@ def check_database(db_path: str, output_file: Optional[str] = None) -> Dict[str,
         output.append(f"Total Trades: {results['total_trades']}")
         output.append(f"  Open: {results['open_trades']}")
         output.append(f"  Closed: {results['closed_trades']}")
-        output.append(f"")
+        output.append("")
         output.append(f"Closed trades with zero PnL: {len(results['zero_pnl_trades'])}")
         output.append(f"Closed trades with zero funding: {len(results['zero_funding_trades'])}")
         output.append(f"Closed trades with BOTH zero: {len(results['both_zero_trades'])} ⚠️")
-        output.append(f"")
+        output.append("")
         output.append(f"Total Realized PnL: ${results['total_pnl']:.4f}")
         output.append(f"Total Funding: ${results['total_funding']:.4f}")
         output.append(f"Combined: ${results['total_pnl'] + results['total_funding']:.4f}")
-        
+
         conn.close()
-        
+
     except Exception as e:
         output.append(f"Error: {e}")
         results["error"] = str(e)
-    
+
     # Write to file if specified
     if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(output))
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(output))
         print(f"Report written to: {output_file}")
-    
+
     # Print to console
-    print('\n'.join(output))
+    print("\n".join(output))
     sys.stdout.flush()
-    
+
     return results
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Check database PnL values and identify issues.'
+    parser = argparse.ArgumentParser(description="Check database PnL values and identify issues.")
+    parser.add_argument(
+        "--db", type=str, default=str(DEFAULT_DB_PATH), help=f"Path to trades.db (default: {DEFAULT_DB_PATH})"
     )
     parser.add_argument(
-        '--db',
-        type=str,
-        default=str(DEFAULT_DB_PATH),
-        help=f'Path to trades.db (default: {DEFAULT_DB_PATH})'
-    )
-    parser.add_argument(
-        '--output',
+        "--output",
         type=str,
         default=str(DEFAULT_OUTPUT_FILE),
-        help=f'Output file path (default: {DEFAULT_OUTPUT_FILE})'
+        help=f"Output file path (default: {DEFAULT_OUTPUT_FILE})",
     )
-    parser.add_argument(
-        '--no-file',
-        action='store_true',
-        help='Do not write output to file'
-    )
-    
+    parser.add_argument("--no-file", action="store_true", help="Do not write output to file")
+
     args = parser.parse_args()
-    
+
     output_file = None if args.no_file else args.output
     results = check_database(args.db, output_file)
-    
+
     # Exit code based on issues found
     if results.get("both_zero_trades"):
         sys.exit(1)

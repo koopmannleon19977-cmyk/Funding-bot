@@ -1,4 +1,5 @@
 import asyncio
+
 from utils import default_example_setup
 
 
@@ -11,9 +12,7 @@ async def main():
     # this was kept this way to not break backwards compatibility. Ideally, they would be consistent.
 
     tx, tx_hash, err = await client.update_margin(
-        market_index=0,
-        usdc_amount=10.5,
-        direction=client.ISOLATED_MARGIN_ADD_COLLATERAL
+        market_index=0, usdc_amount=10.5, direction=client.ISOLATED_MARGIN_ADD_COLLATERAL
     )
 
     print(f"Update Margin {tx=} {tx_hash=} {err=}")
@@ -26,4 +25,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

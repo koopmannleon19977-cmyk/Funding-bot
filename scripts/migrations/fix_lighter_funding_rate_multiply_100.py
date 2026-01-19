@@ -54,6 +54,7 @@ def backup_database(db_path: Path) -> Path:
     backup_path = db_path.parent / f"{db_path.stem}_backup_{timestamp}.db"
 
     import shutil
+
     shutil.copy2(db_path, backup_path)
 
     print(f"[BACKUP] Created backup: {backup_path}")
@@ -181,9 +182,9 @@ def migrate_lighter_rates(db_path: Path, dry_run: bool = False) -> bool:
         # Commit transaction
         conn.commit()
 
-        print(f"\n[MIGRATION] Success!")
+        print("\n[MIGRATION] Success!")
         print(f"  Records Updated: {updated_count}")
-        print(f"  Validation:")
+        print("  Validation:")
         print(f"    Hourly Rate Range: {validation[1]:.6f} to {validation[2]:.6f}")
         print(f"    APY Range: {validation[3]:.2f}% to {validation[4]:.2f}%")
         print(f"    Outliers (>100% hourly): {outliers}")
@@ -248,7 +249,7 @@ def verify_after_migration(db_path: Path) -> dict:
         print(f"  {symbol:<10} {ts} | hourly={rate_hourly:>10.6f} | apy={rate_apy:>10.2f}%")
 
     if bera_stats:
-        print(f"\n  BERA Statistics (AFTER):")
+        print("\n  BERA Statistics (AFTER):")
         print(f"    Avg Hourly Rate: {bera_stats[1]:.6f}")
         print(f"    Avg APY: {bera_stats[2]:.2f}%")
 

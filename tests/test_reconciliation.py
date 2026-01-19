@@ -23,6 +23,7 @@ from funding_bot.domain.models import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_settings():
     """Create mock settings."""
@@ -128,6 +129,7 @@ def sample_x10_position():
 # Reconciliation Scenario Tests
 # =============================================================================
 
+
 class TestReconciliationScenarios:
     """Tests for different reconciliation scenarios."""
 
@@ -179,6 +181,7 @@ class TestReconciliationScenarios:
 # =============================================================================
 # Zombie Handling Tests
 # =============================================================================
+
 
 class TestZombieHandling:
     """Tests for zombie position handling."""
@@ -237,6 +240,7 @@ class TestZombieHandling:
 # Ghost Handling Tests
 # =============================================================================
 
+
 class TestGhostHandling:
     """Tests for ghost position handling."""
 
@@ -270,6 +274,7 @@ class TestGhostHandling:
 # Late Fill Detection Tests
 # =============================================================================
 
+
 class TestLateFillDetection:
     """Tests for late fill detection."""
 
@@ -296,6 +301,7 @@ class TestLateFillDetection:
 # =============================================================================
 # Size Mismatch Tests
 # =============================================================================
+
 
 class TestSizeMismatch:
     """Tests for position size mismatch detection."""
@@ -324,6 +330,7 @@ class TestSizeMismatch:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestReconcilerEdgeCases:
     """Tests for edge cases in reconciliation."""

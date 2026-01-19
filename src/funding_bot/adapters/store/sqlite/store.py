@@ -40,6 +40,18 @@ from funding_bot.adapters.store.sqlite.historical import (
 from funding_bot.adapters.store.sqlite.migrations import _apply_schema_migrations
 from funding_bot.adapters.store.sqlite.schema import SCHEMA_SQL
 from funding_bot.adapters.store.sqlite.stats import cleanup_old_data, get_stats, save_pnl_snapshot
+from funding_bot.adapters.store.sqlite.surge_trades import (
+    _row_to_surge_trade,
+    _surge_trade_to_row,
+    create_surge_trade,
+    get_daily_pnl,
+    get_hourly_fill_rate,
+    get_hourly_pnl,
+    get_recent_trades,
+    get_surge_trade,
+    list_open_surge_trades,
+    update_surge_trade,
+)
 from funding_bot.adapters.store.sqlite.trades import (
     _load_open_trades,
     _row_to_trade,
@@ -97,9 +109,7 @@ class SQLiteTradeStore(TradeStorePort):
         # Write-behind queue with backpressure (bounded queue)
         # 🚀 PERFORMANCE: Bounded queue prevents unbounded memory growth
         max_queue_size = getattr(settings.database, "write_queue_max_size", 1000)
-        self._write_queue: asyncio.Queue[dict[str, object] | None] = asyncio.Queue(
-            maxsize=max_queue_size
-        )
+        self._write_queue: asyncio.Queue[dict[str, object] | None] = asyncio.Queue(maxsize=max_queue_size)
         self._writer_task: asyncio.Task | None = None
 
         # Statistics for backpressure monitoring
@@ -147,10 +157,7 @@ class SQLiteTradeStore(TradeStorePort):
         await self._load_open_trades()
 
         # Start background writer
-        self._writer_task = asyncio.create_task(
-            self._write_loop(),
-            name="sqlite_writer"
-        )
+        self._writer_task = asyncio.create_task(self._write_loop(), name="sqlite_writer")
 
         self._initialized = True
         logger.info(f"SQLite store initialized with {len(self._trade_cache)} cached trades")
@@ -246,9 +253,7 @@ class SQLiteTradeStore(TradeStorePort):
             "total_puts": self._write_queue_total_puts,
             "full_count": self._write_queue_full_count,
             "full_rate": (
-                self._write_queue_full_count / self._write_queue_total_puts
-                if self._write_queue_total_puts > 0
-                else 0
+                self._write_queue_full_count / self._write_queue_total_puts if self._write_queue_total_puts > 0 else 0
             ),
         }
 
@@ -288,13 +293,11 @@ class SQLiteTradeStore(TradeStorePort):
         Cache is automatically invalidated when trades are updated.
         """
         import time
+
         now = time.time()
 
         # Check if cache is valid
-        if (
-            self._open_trades_cache is not None
-            and (now - self._open_trades_cache_time) < self._open_trades_cache_ttl
-        ):
+        if self._open_trades_cache is not None and (now - self._open_trades_cache_time) < self._open_trades_cache_ttl:
             return self._open_trades_cache
 
         # Cache miss or expired - fetch from database
@@ -334,3 +337,17 @@ class SQLiteTradeStore(TradeStorePort):
     insert_funding_candles = insert_funding_candles
     update_volatility_profile = update_volatility_profile
     get_volatility_profile = get_volatility_profile
+
+    # Surge Pro trade methods
+    _row_to_surge_trade = _row_to_surge_trade
+    _surge_trade_to_row = _surge_trade_to_row
+    create_surge_trade = create_surge_trade
+    update_surge_trade = update_surge_trade
+    get_surge_trade = get_surge_trade
+    list_open_surge_trades = list_open_surge_trades
+
+    # Surge Pro risk guard query methods
+    get_daily_pnl = get_daily_pnl
+    get_hourly_pnl = get_hourly_pnl
+    get_recent_trades = get_recent_trades
+    get_hourly_fill_rate = get_hourly_fill_rate

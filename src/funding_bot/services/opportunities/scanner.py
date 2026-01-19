@@ -30,6 +30,7 @@ _historical_data_summary_logged = False
 # COOLDOWN (Entry & Exit)
 # =============================================================================
 
+
 def mark_cooldown(self, symbol: str) -> None:
     """Mark a symbol as on cooldown after exit."""
     minutes = getattr(self.settings.trading, "cooldown_minutes", 60)
@@ -120,7 +121,7 @@ async def scan(
 
     # Process in batches with asyncio.gather for parallelism
     for i in range(0, len(symbols_to_evaluate), batch_size):
-        batch = symbols_to_evaluate[i:i + batch_size]
+        batch = symbols_to_evaluate[i : i + batch_size]
         results = await asyncio.gather(*[_evaluate_single(sym) for sym in batch], return_exceptions=True)
 
         for result in results:
@@ -159,10 +160,7 @@ async def scan(
     else:
         # Throttled diagnostics so "0 opportunities" isn't silent.
         now = datetime.now(UTC)
-        if (
-            self._last_zero_scan_log_at is None
-            or (now - self._last_zero_scan_log_at).total_seconds() >= 60
-        ):
+        if self._last_zero_scan_log_at is None or (now - self._last_zero_scan_log_at).total_seconds() >= 60:
             self._last_zero_scan_log_at = now
             await self._log_zero_scan_diagnostics(
                 open_symbols=open_symbols,
@@ -210,12 +208,8 @@ async def get_best_opportunity(
 
             # Phase 4 Fix: Check if returned data has valid depth (not just partial/empty)
             # Graceful degradation returns partial data instead of raising, so we must check here
-            has_lighter_depth = (
-                ob_snap.lighter_bid_qty > 0 or ob_snap.lighter_ask_qty > 0
-            ) if ob_snap else False
-            has_x10_depth = (
-                ob_snap.x10_bid_qty > 0 or ob_snap.x10_ask_qty > 0
-            ) if ob_snap else False
+            has_lighter_depth = (ob_snap.lighter_bid_qty > 0 or ob_snap.lighter_ask_qty > 0) if ob_snap else False
+            has_x10_depth = (ob_snap.x10_bid_qty > 0 or ob_snap.x10_ask_qty > 0) if ob_snap else False
 
             if not has_lighter_depth or not has_x10_depth:
                 logger.debug(
@@ -244,9 +238,7 @@ async def get_best_opportunity(
         if not fresh_opp:
             # Keep the exact substring "rejected after fresh data fetch" for dashboard parsing.
             reason = reject.get("reason", "unknown")
-            details = " ".join(
-                f"{k}={v}" for k, v in reject.items() if k != "reason"
-            )
+            details = " ".join(f"{k}={v}" for k, v in reject.items() if k != "reason")
             suffix = f": {reason}" + (f" ({details})" if details else "")
             if await self._reserve_candidate_log(symbol, suppress=suppress_candidate_logs):
                 logger.info(f"Candidate {symbol} rejected after fresh data fetch{suffix}")
@@ -373,9 +365,7 @@ async def get_best_opportunity(
                 )
             if not depth_result.passed:
                 if await self._reserve_candidate_log(symbol, suppress=suppress_candidate_logs):
-                    logger.info(
-                        f"Candidate {symbol} validated REJECTED: insufficient depth ({depth_result.reason})"
-                    )
+                    logger.info(f"Candidate {symbol} validated REJECTED: insufficient depth ({depth_result.reason})")
                 # Phase 4 Fix: Record depth failures for skip logic
                 # Low-volume symbols consistently fail depth checks, so track them
                 if hasattr(self, "record_symbol_failure"):
@@ -397,6 +387,7 @@ async def get_best_opportunity(
 # =============================================================================
 # PHASE 4: ROTATION LOGIC (Switching Cost + NetEV Comparison)
 # =============================================================================
+
 
 async def calculate_switching_cost(
     self,
@@ -437,30 +428,24 @@ async def calculate_switching_cost(
     price_data = self.market_data.get_price(current_trade.symbol)
     current_price = price_data.mid_price if price_data else Decimal("0")
     if current_price == 0:
-        current_price = (
-            current_trade.leg1.entry_price +
-            current_trade.leg2.entry_price
-        ) / Decimal("2")
+        current_price = (current_trade.leg1.entry_price + current_trade.leg2.entry_price) / Decimal("2")
 
     current_notional = current_trade.leg1.filled_qty * current_price
 
     # Weighted exit fees for current position
     lighter_exit = current_notional * (
-        p_maker * fees.get("lighter_maker", Decimal("0.00002")) +
-        p_ioc * fees.get("lighter_taker", Decimal("0.0002"))
+        p_maker * fees.get("lighter_maker", Decimal("0.00002")) + p_ioc * fees.get("lighter_taker", Decimal("0.0002"))
     )
     x10_exit = current_notional * (
-        p_maker * fees.get("x10_maker", Decimal("0")) +
-        p_ioc * fees.get("x10_taker", Decimal("0.000225"))
+        p_maker * fees.get("x10_maker", Decimal("0")) + p_ioc * fees.get("x10_taker", Decimal("0.000225"))
     )
     exit_cost = lighter_exit + x10_exit
 
     # === 2. Entry cost of new position ===
     # Entry fees for new position (same structure as current)
-    entry_fees = (
-        new_opp.suggested_notional * fees.get("lighter_maker", Decimal("0.00002")) +
-        new_opp.suggested_notional * fees.get("x10_taker", Decimal("0.000225"))
-    )
+    entry_fees = new_opp.suggested_notional * fees.get(
+        "lighter_maker", Decimal("0.00002")
+    ) + new_opp.suggested_notional * fees.get("x10_taker", Decimal("0.000225"))
 
     # Entry spread cost (from opportunity's spread_pct)
     entry_spread_cost = new_opp.suggested_notional * new_opp.spread_pct
@@ -516,15 +501,13 @@ async def should_rotate_to(
     # NetEV_current = (current_funding_remaining) - (exit_cost_current)
     # For simplicity, use current_apy as proxy for remaining value
     current_funding_hourly = (
-        current_trade.current_funding_hourly
-        if hasattr(current_trade, "current_funding_hourly")
-        else Decimal("0")
+        current_trade.current_funding_hourly if hasattr(current_trade, "current_funding_hourly") else Decimal("0")
     )
 
     # Estimate remaining hold time (up to max_hold_hours)
     remaining_hold_hours = min(
         Decimal("24"),  # Assume 24h remaining for conservative estimate
-        getattr(ts, "max_hold_hours", Decimal("240")) - Decimal(current_trade.hold_duration_seconds) / Decimal("3600")
+        getattr(ts, "max_hold_hours", Decimal("240")) - Decimal(current_trade.hold_duration_seconds) / Decimal("3600"),
     )
     remaining_hold_hours = max(Decimal("1"), remaining_hold_hours)
 
@@ -562,4 +545,3 @@ async def should_rotate_to(
             f"Rotation not profitable: New NetEV=${net_ev_new_after_switching:.2f} < "
             f"Required ${required_ev:.2f}. Shortfall: ${shortfall:.2f}"
         )
-

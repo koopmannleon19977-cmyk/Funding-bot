@@ -25,6 +25,7 @@ from funding_bot.utils.decimals import safe_decimal as _safe_decimal
 
 logger = get_logger("funding_bot.services.execution")
 
+
 async def _rollback(self, trade: Trade, reason: str = "Leg2 failed") -> None:
     """Rollback Leg1 due to failed Leg2."""
     trade.status = TradeStatus.ROLLBACK
@@ -132,7 +133,6 @@ async def _rollback(self, trade: Trade, reason: str = "Leg2 failed") -> None:
                 )
             )
 
-
             # CRITICAL FIX: Verify position is actually closed after MARKET order
             # The fill confirmation may be stale/cached - always verify actual position
             if not pos_closed:
@@ -157,17 +157,13 @@ async def _rollback(self, trade: Trade, reason: str = "Leg2 failed") -> None:
                         )
                         return
 
-            logger.info(
-                f"Rollback complete: notional=${notional_closed:.2f}, "
-                f"slippage_loss=${abs(slippage_loss):.4f}"
-            )
+            logger.info(f"Rollback complete: notional=${notional_closed:.2f}, slippage_loss=${abs(slippage_loss):.4f}")
 
             # Safety: if Leg2 partially filled before rollback, flatten X10 too to avoid naked exposure.
             if trade.leg2.filled_qty and trade.leg2.filled_qty > 0:
                 try:
                     logger.warning(
-                        f"Rollback: closing partial Leg2 exposure on X10: "
-                        f"{trade.leg2.filled_qty} {trade.symbol}"
+                        f"Rollback: closing partial Leg2 exposure on X10: {trade.leg2.filled_qty} {trade.symbol}"
                     )
                     x10_close_req = OrderRequest(
                         symbol=trade.symbol,
@@ -195,10 +191,7 @@ async def _rollback(self, trade: Trade, reason: str = "Leg2 failed") -> None:
                         timeout=x10_timeout,
                     )
                 except Exception as e:
-                    logger.error(
-                        "Rollback: failed to close partial Leg2 on X10 "
-                        f"(MANUAL ACTION REQUIRED): {e}"
-                    )
+                    logger.error(f"Rollback: failed to close partial Leg2 on X10 (MANUAL ACTION REQUIRED): {e}")
 
         else:
             # If the position is already flat, treat rollback as successful even if we couldn't

@@ -10,6 +10,7 @@ from websockets.client import connect as connect_async
 # Older versions (<12.0) don't have websockets.sync, so we gracefully degrade
 try:
     from websockets.sync.client import connect as connect_sync
+
     _SYNC_CLIENT_AVAILABLE = True
 except ImportError:
     # websockets<12.0 doesn't have sync client
@@ -22,6 +23,7 @@ except ImportError:
 # This allows offline unit tests to run without the Lighter SDK installed.
 try:
     from lighter.configuration import Configuration
+
     _LIGHTER_SDK_AVAILABLE = True
 except ImportError:
     # Lighter SDK not installed - acceptable if host is always provided by adapter
@@ -183,10 +185,7 @@ class WsClient:
 
         # Rebuild list with non-zero orders only - O(n)
         # This also removes orders with size=0 efficiently
-        existing_orders[:] = [
-            order for order in price_to_order.values()
-            if float(order.get("size", 0)) > 0
-        ]
+        existing_orders[:] = [order for order in price_to_order.values() if float(order.get("size", 0)) > 0]
 
     def handle_subscribed_account(self, message: dict[str, Any]) -> None:
         account_id = message["channel"].split(":")[1]

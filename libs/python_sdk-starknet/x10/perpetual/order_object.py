@@ -1,7 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Callable, Optional, Tuple
 
 from x10.perpetual.accounts import StarkPerpetualAccount
 from x10.perpetual.configuration import StarknetDomain
@@ -43,18 +43,18 @@ def create_order_object(
     side: OrderSide,
     starknet_domain: StarknetDomain,
     post_only: bool = False,
-    previous_order_external_id: Optional[str] = None,
-    expire_time: Optional[datetime] = None,
-    order_external_id: Optional[str] = None,
+    previous_order_external_id: str | None = None,
+    expire_time: datetime | None = None,
+    order_external_id: str | None = None,
     time_in_force: TimeInForce = TimeInForce.GTT,
     self_trade_protection_level: SelfTradeProtectionLevel = SelfTradeProtectionLevel.ACCOUNT,
-    nonce: Optional[int] = None,
-    builder_fee: Optional[Decimal] = None,
-    builder_id: Optional[int] = None,
+    nonce: int | None = None,
+    builder_fee: Decimal | None = None,
+    builder_id: int | None = None,
     reduce_only: bool = False,
-    tp_sl_type: Optional[OrderTpslType] = None,
-    take_profit: Optional[OrderTpslTriggerParam] = None,
-    stop_loss: Optional[OrderTpslTriggerParam] = None,
+    tp_sl_type: OrderTpslType | None = None,
+    take_profit: OrderTpslTriggerParam | None = None,
+    stop_loss: OrderTpslTriggerParam | None = None,
 ) -> NewOrderModel:
     """
     Creates an order object to be placed on the exchange using the `place_order` method.
@@ -115,23 +115,23 @@ def __create_order_object(
     side: OrderSide,
     collateral_position_id: int,
     fees: TradingFeeModel,
-    signer: Callable[[int], Tuple[int, int]],
+    signer: Callable[[int], tuple[int, int]],
     public_key: int,
     starknet_domain: StarknetDomain,
     exact_only: bool = False,
-    expire_time: Optional[datetime] = None,
+    expire_time: datetime | None = None,
     post_only: bool = False,
-    previous_order_external_id: Optional[str] = None,
-    order_external_id: Optional[str] = None,
+    previous_order_external_id: str | None = None,
+    order_external_id: str | None = None,
     time_in_force: TimeInForce = TimeInForce.GTT,
     self_trade_protection_level: SelfTradeProtectionLevel = SelfTradeProtectionLevel.ACCOUNT,
-    nonce: Optional[int] = None,
-    builder_fee: Optional[Decimal] = None,
-    builder_id: Optional[int] = None,
+    nonce: int | None = None,
+    builder_fee: Decimal | None = None,
+    builder_id: int | None = None,
     reduce_only: bool = False,
-    tp_sl_type: Optional[OrderTpslType] = None,
-    take_profit: Optional[OrderTpslTriggerParam] = None,
-    stop_loss: Optional[OrderTpslTriggerParam] = None,
+    tp_sl_type: OrderTpslType | None = None,
+    take_profit: OrderTpslTriggerParam | None = None,
+    stop_loss: OrderTpslTriggerParam | None = None,
 ) -> NewOrderModel:
     if side not in OrderSide:
         raise ValueError(f"Unexpected order side value: {side}")

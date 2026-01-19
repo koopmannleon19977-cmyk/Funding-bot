@@ -50,8 +50,7 @@ def pytest_collection_modifyitems(config, items):
         if "integration" in item.keywords and not has_integration_env:
             item.add_marker(
                 pytest.mark.skip(
-                    reason="Integration test skipped: set required env vars "
-                    f"({', '.join(required_env_vars)}) to run"
+                    reason=f"Integration test skipped: set required env vars ({', '.join(required_env_vars)}) to run"
                 )
             )
 
@@ -65,5 +64,5 @@ def pytest_collection_modifyitems(config, items):
 def sample_decimal():
     """Sample Decimal fixture for financial calculations."""
     from decimal import Decimal
-    return Decimal("100.00")
 
+    return Decimal("100.00")

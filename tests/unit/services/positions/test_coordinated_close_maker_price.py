@@ -4,6 +4,7 @@ Unit tests for coordinated close maker price calculation.
 Tests that POST_ONLY maker orders are placed on the correct side of the spread
 to avoid immediate rejection.
 """
+
 from decimal import Decimal
 from unittest.mock import MagicMock
 
@@ -146,12 +147,11 @@ async def test_cancelled_order_triggers_ioc_escalation():
     This causes the check `if not legs_to_close` to falsely conclude
     all legs were filled.
     """
-    from unittest.mock import AsyncMock
     import types
+    from unittest.mock import AsyncMock
 
-    from funding_bot.domain.models import Exchange, OrderStatus, TimeInForce
+    from funding_bot.domain.models import OrderStatus
     from funding_bot.services.positions import close
-    from funding_bot.services.positions.close import _close_both_legs_coordinated
 
     # Create mock service
     service = MagicMock()
@@ -171,9 +171,7 @@ async def test_cancelled_order_triggers_ioc_escalation():
         x10_bid=Decimal("49990"),
         x10_ask=Decimal("50010"),
     )
-    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
-        tick_size=Decimal("0.01")
-    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(tick_size=Decimal("0.01"))
 
     # Create test trade with proper Side objects that have inverse() method
     trade = MagicMock()
@@ -254,14 +252,11 @@ async def test_cancelled_order_triggers_ioc_escalation():
     # The key assertion: IOC escalation OR fallback should be called
     # because CANCELLED/REJECTED orders are NOT filled
     ioc_or_fallback_called = (
-        service._execute_ioc_close.called or
-        service._close_lighter_smart.called or
-        service._close_x10_smart.called
+        service._execute_ioc_close.called or service._close_lighter_smart.called or service._close_x10_smart.called
     )
 
     assert ioc_or_fallback_called, (
-        "CANCELLED/REJECTED orders should trigger IOC escalation or fallback, "
-        "not be treated as filled"
+        "CANCELLED/REJECTED orders should trigger IOC escalation or fallback, not be treated as filled"
     )
 
 
@@ -275,10 +270,10 @@ async def test_eden_scenario_from_log():
     - leg1 CANCELLED, leg2 REJECTED
     - Should NOT log "All legs filled", should escalate/fallback
     """
-    from unittest.mock import AsyncMock
     import types
+    from unittest.mock import AsyncMock
 
-    from funding_bot.domain.models import Exchange, OrderStatus, Side
+    from funding_bot.domain.models import OrderStatus, Side
     from funding_bot.services.positions import close
 
     service = MagicMock()
@@ -295,13 +290,11 @@ async def test_eden_scenario_from_log():
     )
     service.market_data.get_orderbook.return_value = MagicMock(
         lighter_bid=Decimal("0.06675"),  # From log: bid
-        lighter_ask=Decimal("0.0668"),   # From log: ask
+        lighter_ask=Decimal("0.0668"),  # From log: ask
         x10_bid=Decimal("0.06675"),
         x10_ask=Decimal("0.0668"),
     )
-    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(
-        tick_size=Decimal("0.00001")
-    )
+    service.market_data.get_market_info.side_effect = lambda symbol, exchange: MagicMock(tick_size=Decimal("0.00001"))
 
     # EDEN trade: leg1=SELL on Lighter, leg2=BUY on X10
     trade = MagicMock()
@@ -346,12 +339,8 @@ async def test_eden_scenario_from_log():
 
     service.lighter.place_order = AsyncMock(side_effect=mock_place_order)
     service.x10.place_order = AsyncMock(side_effect=mock_place_order)
-    service.lighter.get_order = AsyncMock(
-        return_value=make_status_order("order_LIGHTER", OrderStatus.CANCELLED)
-    )
-    service.x10.get_order = AsyncMock(
-        return_value=make_status_order("order_X10", OrderStatus.REJECTED)
-    )
+    service.lighter.get_order = AsyncMock(return_value=make_status_order("order_LIGHTER", OrderStatus.CANCELLED))
+    service.x10.get_order = AsyncMock(return_value=make_status_order("order_X10", OrderStatus.REJECTED))
 
     service._close_lighter_smart = AsyncMock()
     service._close_x10_smart = AsyncMock()

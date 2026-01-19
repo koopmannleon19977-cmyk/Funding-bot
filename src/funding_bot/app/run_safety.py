@@ -56,9 +56,7 @@ def apply_run_safety(
     if mode == "live":
         live_confirmed = confirm_live_flag or _env_is_yes("BOT_CONFIRM_LIVE")
         if not live_confirmed:
-            errors.append(
-                "LIVE mode requested but not confirmed. Use --confirm-live or set BOT_CONFIRM_LIVE=YES."
-            )
+            errors.append("LIVE mode requested but not confirmed. Use --confirm-live or set BOT_CONFIRM_LIVE=YES.")
 
         if updated.testing_mode and not allow_testing_live:
             errors.append(
@@ -86,4 +84,3 @@ def apply_run_safety(
         errors=errors,
         warnings=warnings,
     )
-

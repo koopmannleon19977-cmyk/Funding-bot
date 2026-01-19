@@ -69,7 +69,11 @@ from funding_bot.services.execution_orders import (
 from funding_bot.services.execution_types import ExecutionResult
 from funding_bot.services.execution_ws import (
     cleanup_stale_watchers as _cleanup_stale_watchers_ws,
+)
+from funding_bot.services.execution_ws import (
     ensure_ws_order_subscriptions as _ensure_ws_order_subscriptions_ws,
+)
+from funding_bot.services.execution_ws import (
     on_ws_order_update as _on_ws_order_update_ws,
 )
 from funding_bot.services.market_data import (
@@ -171,7 +175,6 @@ class ExecutionEngine:
         """
         return await _execute_impl_flow(self, opp)
 
-
     async def _preflight_checks(self, trade: Trade, opp: Opportunity) -> None:
         """Run preflight checks before execution."""
 
@@ -187,36 +190,25 @@ class ExecutionEngine:
 
         if lighter_balance.available < min_required:
             raise ExecutionError(
-                f"Insufficient Lighter balance for any trade: "
-                f"{lighter_balance.available:.2f} < {min_required}",
+                f"Insufficient Lighter balance for any trade: {lighter_balance.available:.2f} < {min_required}",
                 symbol=trade.symbol,
             )
 
         if x10_balance.available < min_required:
             raise ExecutionError(
-                f"Insufficient X10 balance for any trade: "
-                f"{x10_balance.available:.2f} < {min_required}",
+                f"Insufficient X10 balance for any trade: {x10_balance.available:.2f} < {min_required}",
                 symbol=trade.symbol,
             )
 
-        logger.debug(
-            f"Preflight passed: Lighter=${lighter_balance.available:.2f}, "
-            f"X10=${x10_balance.available:.2f}"
-        )
+        logger.debug(f"Preflight passed: Lighter=${lighter_balance.available:.2f}, X10=${x10_balance.available:.2f}")
 
-    async def _calculate_quantity(
-        self, trade: Trade, opp: Opportunity
-    ) -> Decimal:
+    async def _calculate_quantity(self, trade: Trade, opp: Opportunity) -> Decimal:
         """Calculate common quantity respecting both exchange step sizes."""
-        lighter_info = self.market_data.get_market_info(
-            trade.symbol, Exchange.LIGHTER
-        )
+        lighter_info = self.market_data.get_market_info(trade.symbol, Exchange.LIGHTER)
         x10_info = self.market_data.get_market_info(trade.symbol, Exchange.X10)
 
         # Get step sizes
-        lighter_step = (
-            lighter_info.step_size if lighter_info else Decimal("0.0001")
-        )
+        lighter_step = lighter_info.step_size if lighter_info else Decimal("0.0001")
         x10_step = x10_info.step_size if x10_info else Decimal("0.0001")
 
         # Use larger step size for compatibility
@@ -274,7 +266,6 @@ class ExecutionEngine:
         """
         return await _execute_leg1_flow(self, trade, opp, attempt_id=attempt_id)
 
-
     async def _execute_leg2(
         self,
         trade: Trade,
@@ -299,13 +290,11 @@ class ExecutionEngine:
             attempt_id=attempt_id,
         )
 
-
     async def _rollback(self, trade: Trade, reason: str = "Leg2 failed") -> None:
         """
         Rollback Leg1 due to failed Leg2.
         """
         return await _rollback_flow(self, trade, reason)
-
 
     async def _place_lighter_taker_ioc(
         self,
@@ -334,7 +323,6 @@ class ExecutionEngine:
             purpose=purpose,
         )
 
-
     async def _wait_for_fill(
         self,
         adapter: ExchangePort,
@@ -353,7 +341,6 @@ class ExecutionEngine:
             check_callback=check_callback,
         )
 
-
     async def _wait_for_fill_polling(
         self,
         adapter: ExchangePort,
@@ -371,7 +358,6 @@ class ExecutionEngine:
             timeout=timeout,
             check_callback=check_callback,
         )
-
 
     async def _ensure_ws_order_subscriptions(self) -> None:
         """Register WS order callbacks once (best-effort)."""
@@ -395,7 +381,6 @@ class ExecutionEngine:
             max_age_seconds=max_age_seconds,
         )
 
-
     async def _get_best_effort_x10_orderbook(
         self,
         symbol: str,
@@ -407,7 +392,6 @@ class ExecutionEngine:
             symbol,
             max_age_seconds=max_age_seconds,
         )
-
 
     async def _get_best_effort_orderbook(self, symbol: str, *, max_age_seconds: float) -> object:
         """

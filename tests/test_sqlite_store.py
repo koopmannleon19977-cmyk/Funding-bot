@@ -20,6 +20,7 @@ from funding_bot.domain.models import (
 # Trade CRUD Tests
 # =============================================================================
 
+
 class TestTradeCRUD:
     """Tests for trade create/read/update/delete operations."""
 
@@ -83,6 +84,7 @@ class TestTradeCRUD:
 # Funding Records Tests
 # =============================================================================
 
+
 class TestFundingRecords:
     """Tests for funding payment recording."""
 
@@ -115,6 +117,7 @@ class TestFundingRecords:
 # =============================================================================
 # Execution Attempt Tests
 # =============================================================================
+
 
 class TestExecutionAttempts:
     """Tests for execution attempt tracking."""
@@ -152,6 +155,7 @@ class TestExecutionAttempts:
 # =============================================================================
 # Query Tests
 # =============================================================================
+
 
 class TestDatabaseQueries:
     """Tests for database query logic."""
@@ -198,6 +202,7 @@ class TestDatabaseQueries:
 # Aggregation Tests
 # =============================================================================
 
+
 class TestAggregations:
     """Tests for database aggregations."""
 
@@ -228,9 +233,9 @@ class TestAggregations:
         trades = [
             {"realized_pnl": Decimal("10.50")},  # Win
             {"realized_pnl": Decimal("-2.30")},  # Loss
-            {"realized_pnl": Decimal("5.80")},   # Win
+            {"realized_pnl": Decimal("5.80")},  # Win
             {"realized_pnl": Decimal("-1.00")},  # Loss
-            {"realized_pnl": Decimal("3.00")},   # Win
+            {"realized_pnl": Decimal("3.00")},  # Win
         ]
 
         wins = len([t for t in trades if t["realized_pnl"] > 0])
@@ -243,6 +248,7 @@ class TestAggregations:
 # =============================================================================
 # Write Queue Tests
 # =============================================================================
+
 
 class TestWriteQueue:
     """Tests for async write queue behavior."""
@@ -280,6 +286,7 @@ class TestWriteQueue:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestStoreEdgeCases:
     """Tests for edge cases in store operations."""
@@ -345,6 +352,7 @@ class TestStoreEdgeCases:
 # =============================================================================
 # Schema Tests
 # =============================================================================
+
 
 class TestDatabaseSchema:
     """Tests for database schema validation."""

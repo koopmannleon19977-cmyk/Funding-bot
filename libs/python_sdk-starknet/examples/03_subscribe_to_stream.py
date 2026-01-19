@@ -3,10 +3,11 @@ import logging
 from asyncio import run
 from signal import SIGINT, SIGTERM
 
-from examples.init_env import init_env
 from x10.config import ETH_USD_MARKET
 from x10.perpetual.configuration import MAINNET_CONFIG
 from x10.perpetual.stream_client import PerpetualStreamClient
+
+from examples.init_env import init_env
 
 LOGGER = logging.getLogger()
 MARKET_NAME = ETH_USD_MARKET
@@ -23,7 +24,7 @@ async def subscribe_to_streams(stop_event: asyncio.Event):
                 try:
                     msg = await asyncio.wait_for(orderbook_stream.recv(), timeout=1)
                     LOGGER.info("Orderbook: %s#%s", msg.type, msg.seq)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
     async def subscribe_to_account():
@@ -32,7 +33,7 @@ async def subscribe_to_streams(stop_event: asyncio.Event):
                 try:
                     msg = await asyncio.wait_for(account_stream.recv(), timeout=1)
                     LOGGER.info("Account: %s#%s", msg.type, msg.seq)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
     LOGGER.info("Press Ctrl+C to stop")

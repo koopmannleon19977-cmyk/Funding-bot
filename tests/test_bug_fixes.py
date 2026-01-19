@@ -69,7 +69,7 @@ class TestBug2_X10FundingPagination:
         # Simulate API returning 3 pages
         page1 = [{"fundingFee": "0.001"} for _ in range(100)]  # Full page
         page2 = [{"fundingFee": "0.001"} for _ in range(100)]  # Full page
-        page3 = [{"fundingFee": "0.001"} for _ in range(50)]   # Partial page (end)
+        page3 = [{"fundingFee": "0.001"} for _ in range(50)]  # Partial page (end)
 
         # Total funding should be all 250 payments
         total_payments = len(page1) + len(page2) + len(page3)

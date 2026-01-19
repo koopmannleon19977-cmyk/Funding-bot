@@ -1,4 +1,3 @@
-
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
@@ -48,21 +47,12 @@ async def test_close_failure_positions_still_open_sends_throttled_critical_alert
     result1 = await mgr.close_trade(trade, "test_close")
     assert result1.success is False
 
-    alerts = [
-        call.args[0]
-        for call in event_bus.publish.await_args_list
-        if isinstance(call.args[0], AlertEvent)
-    ]
+    alerts = [call.args[0] for call in event_bus.publish.await_args_list if isinstance(call.args[0], AlertEvent)]
     assert any(a.level == "CRITICAL" and "Close failed" in a.message for a in alerts)
 
     # Immediate retry should not spam (throttled)
     event_bus.publish.reset_mock()
     result2 = await mgr.close_trade(trade, "test_close_retry")
     assert result2.success is False
-    alerts2 = [
-        call.args[0]
-        for call in event_bus.publish.await_args_list
-        if isinstance(call.args[0], AlertEvent)
-    ]
+    alerts2 = [call.args[0] for call in event_bus.publish.await_args_list if isinstance(call.args[0], AlertEvent)]
     assert alerts2 == []
-

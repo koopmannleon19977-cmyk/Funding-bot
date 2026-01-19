@@ -11,15 +11,12 @@ All business logic has been moved to src/core/ modules:
 - src/core/startup.py: Bot initialization
 """
 
-import sys
-import os
-import time
 import asyncio
 import logging
+import os
+import sys
+import time
 import traceback
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any, Set, Tuple
-from decimal import Decimal
 
 # ============================================================
 # SETUP PATH FIRST
@@ -39,55 +36,32 @@ config.validate_runtime_config(logger)
 
 # Initialize JSON Logger (B5: Structured logging for Grafana/ELK)
 from src.utils.json_logger import JSONLogger, LogLevel
+
 json_logger = None
-if getattr(config, 'JSON_LOGGING_ENABLED', False):
-    log_level_str = getattr(config, 'JSON_LOG_MIN_LEVEL', 'INFO')
+if getattr(config, "JSON_LOGGING_ENABLED", False):
+    log_level_str = getattr(config, "JSON_LOG_MIN_LEVEL", "INFO")
     log_level = LogLevel[log_level_str.upper()] if log_level_str else LogLevel.INFO
-    json_log_file = getattr(config, 'JSON_LOG_FILE', None)
-    json_logger = JSONLogger.get_instance(
-        log_file=json_log_file,
-        enabled=True,
-        min_level=log_level
-    )
+    json_log_file = getattr(config, "JSON_LOG_FILE", None)
+    json_logger = JSONLogger.get_instance(log_file=json_log_file, enabled=True, min_level=log_level)
     logger.info(f"✅ JSON Logger initialized: {json_log_file or 'default'}")
 
 # Noise Reduction for verbose modules
 logging.getLogger("websockets").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 logging.getLogger("aiosqlite").setLevel(logging.WARNING)
-logging.getLogger('fee_manager').setLevel(logging.WARNING)
-logging.getLogger('position_cache').setLevel(logging.WARNING)
+logging.getLogger("fee_manager").setLevel(logging.WARNING)
+logging.getLogger("position_cache").setLevel(logging.WARNING)
 
 # ============================================================
 # NOW IMPORT OTHER MODULES (after logging is setup)
 # ============================================================
-from src.infrastructure.telegram_bot import get_telegram_bot
-from src.infrastructure.api_server import DashboardApi
-from src.adapters.lighter_adapter import LighterAdapter
-from src.adapters.x10_adapter import X10Adapter
-from src.core.latency_arb import get_detector, is_latency_arb_enabled
-from src.infrastructure.state_manager import (
-    InMemoryStateManager,
-    get_state_manager,
-    close_state_manager,
-    TradeState,
-    TradeStatus
-)
-from src.core.adaptive_threshold import get_threshold_manager
-from src.application.fee_manager import get_fee_manager, init_fee_manager, stop_fee_manager
-from src.application.parallel_execution import ParallelExecutionManager
-from src.application.account_manager import get_account_manager
-from src.infrastructure.websocket_manager import WebSocketManager
-
+from src.application.fee_manager import stop_fee_manager
 from src.infrastructure.database import (
-    get_database,
-    get_trade_repository,
-    get_funding_repository,
-    get_execution_repository,
-    close_database
+    close_database,
 )
+from src.infrastructure.telegram_bot import get_telegram_bot
+
 # from src.application.funding_tracker import create_funding_tracker
-from src.utils import safe_float, safe_decimal, quantize_usd
 
 # ============================================================
 # GLOBALS
@@ -96,7 +70,7 @@ FAILED_COINS = {}
 ACTIVE_TASKS: dict[str, asyncio.Task] = {}
 SYMBOL_LOCKS: dict[str, asyncio.Lock] = {}
 SHUTDOWN_FLAG = False
-POSITION_CACHE = {'x10': [], 'lighter': [], 'last_update': 0.0}
+POSITION_CACHE = {"x10": [], "lighter": [], "last_update": 0.0}
 POSITION_CACHE_TTL = 10.0
 LOCK_MANAGER_LOCK = asyncio.Lock()
 EXECUTION_LOCKS = {}
@@ -105,10 +79,10 @@ OPPORTUNITY_LOG_CACHE = {}
 LAST_ARBITRAGE_LAUNCH = 0.0
 LAST_DATA_UPDATE = time.time()
 WATCHDOG_TIMEOUT = 120
-RECENTLY_OPENED_TRADES: Dict[str, float] = {}
+RECENTLY_OPENED_TRADES: dict[str, float] = {}
 RECENTLY_OPENED_LOCK = asyncio.Lock()
 RECENTLY_OPENED_PROTECTION_SECONDS = 120.0  # FIX (2025-12-19): Extended to 120s to match zombie check & allow for Exchange API latency (Lighter takes 3-5s to show new positions)
-IN_FLIGHT_MARGIN = {'X10': 0.0, 'Lighter': 0.0}
+IN_FLIGHT_MARGIN = {"X10": 0.0, "Lighter": 0.0}
 IN_FLIGHT_LOCK = asyncio.Lock()
 
 # State Manager
@@ -120,41 +94,35 @@ telegram_bot = None
 # ============================================================
 from src.core import (
     # ... other imports ...
-    run_bot_v5,
     FundingBot,
-    setup_database,
-    migrate_database,
-    close_all_open_positions_on_start,
 )
-from src.infrastructure.event_bus import EventBus
 from src.core.events import CriticalError, NotificationEvent
+from src.infrastructure.event_bus import EventBus
+
 
 async def main_entry():
     """Main entry point with clean shutdown handling and EventBus setup."""
-    from src.infrastructure.database import close_database
-    from src.application.fee_manager import stop_fee_manager
-    from src.infrastructure.telegram_bot import get_telegram_bot
-    
+
     logger.info("🚀 main_entry() called - setting up EventBus...")
-    
+
     # 1. Setup EventBus
     event_bus = EventBus()
     await event_bus.start()
-    
+
     # 2. Setup Telegram handler
     telegram = get_telegram_bot()
     if telegram and telegram.enabled:
         await telegram.start()
-        
+
         async def telegram_handler(event):
             if isinstance(event, CriticalError):
                 await telegram.send_error(f"🚨 CRITICAL: {event.message}\nDetails: {event.details}")
             elif isinstance(event, NotificationEvent):
-                if event.level in ['ERROR', 'CRITICAL']:
+                if event.level in ["ERROR", "CRITICAL"]:
                     await telegram.send_error(f"⚠️ {event.level}: {event.message}")
                 else:
                     await telegram.send_message(f"ℹ️ {event.level}: {event.message}")
-        
+
         event_bus.subscribe(CriticalError, telegram_handler)
         event_bus.subscribe(NotificationEvent, telegram_handler)
         logger.info("📱 Telegram handler subscribed to EventBus")
@@ -163,7 +131,7 @@ async def main_entry():
     bot = FundingBot()
     bot_task = asyncio.create_task(bot.run(event_bus=event_bus))
     logger.info("✅ Bot task created, waiting for completion...")
-    
+
     try:
         await bot_task
         logger.info("✅ Bot task completed normally")
@@ -174,10 +142,10 @@ async def main_entry():
         raise
     finally:
         logger.info("🛑 Main entry: Bot task completed")
-        
+
         # Stop EventBus
         await event_bus.stop()
-        
+
         # Final cleanup
         # ═══════════════════════════════════════════════════════════════
         # FIX (2025-12-22): Use close_state_manager() instead of get_state_manager()
@@ -188,16 +156,18 @@ async def main_entry():
         logger.info("🛑 Stopping Infrastructure...")
         try:
             from src.infrastructure.state_manager import close_state_manager
+
             await close_state_manager()
             await close_database()
             await stop_fee_manager()
-            
+
             if bot and bot.x10:
                 await bot.x10.aclose()
             if bot and bot.lighter:
                 await bot.lighter.aclose()
         except Exception as e:
             logger.debug(f"Infrastructure cleanup error: {e}")
+
 
 # ============================================================
 # HELPER FUNCTIONS (kept here for backwards compatibility)
@@ -235,15 +205,15 @@ async def process_fee_update(adapter, symbol: str, order_id: str):
                     await state_manager.update_fee_stats(
                         exchange=adapter.name,
                         symbol=symbol,
-                        fee_rate=fee_rate if fee_rate > 0 else config.TAKER_FEE_X10
+                        fee_rate=fee_rate if fee_rate > 0 else config.TAKER_FEE_X10,
                     )
                 return
 
             await asyncio.sleep(2)
 
-        except Exception as e:
+        except Exception:
             if retry == 1:
-                fallback = config.TAKER_FEE_X10 if adapter.name == 'X10' else 0.0
+                fallback = config.TAKER_FEE_X10 if adapter.name == "X10" else 0.0
                 if state_manager:
                     await state_manager.update_fee_stats(adapter.name, symbol, fallback)
             await asyncio.sleep(1)
@@ -256,7 +226,7 @@ def get_estimated_fee_rate(exchange: str, symbol: str) -> float:
             return state_manager.get_fee_estimate(exchange, symbol)
         except Exception:
             pass
-    return config.TAKER_FEE_X10 if exchange == 'X10' else 0.0
+    return config.TAKER_FEE_X10 if exchange == "X10" else 0.0
 
 
 # ============================================================
@@ -264,7 +234,7 @@ def get_estimated_fee_rate(exchange: str, symbol: str) -> float:
 # ============================================================
 if __name__ == "__main__":
     # Windows-Fix für Event Loop
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     try:

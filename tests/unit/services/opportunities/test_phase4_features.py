@@ -18,13 +18,13 @@ from funding_bot.config.settings import Settings
 from funding_bot.domain.models import Exchange, Opportunity, Side, Trade, TradeLeg
 from funding_bot.services.opportunities.scoring import _calculate_funding_velocity
 
-
 pytestmark = pytest.mark.unit
 
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def sample_fees():
@@ -93,6 +93,7 @@ def sample_opportunity():
 # Phase 4: Weighted Exit Cost Tests
 # =============================================================================
 
+
 class TestWeightedExitCost:
     """Tests for weighted exit cost calculation."""
 
@@ -107,10 +108,7 @@ class TestWeightedExitCost:
         p_ioc = Decimal("0.30")
 
         # Lighter exit: weighted
-        lighter_exit = notional * (
-            p_maker * sample_fees["lighter_maker"] +
-            p_ioc * sample_fees["lighter_taker"]
-        )
+        lighter_exit = notional * (p_maker * sample_fees["lighter_maker"] + p_ioc * sample_fees["lighter_taker"])
 
         # Pure taker (conservative)
         lighter_taker_only = notional * sample_fees["lighter_taker"]
@@ -137,10 +135,7 @@ class TestWeightedExitCost:
         p_ioc = Decimal("0.30")
 
         # X10 has free maker - use weighted
-        x10_exit_weighted = notional * (
-            p_maker * sample_fees["x10_maker"] +
-            p_ioc * sample_fees["x10_taker"]
-        )
+        x10_exit_weighted = notional * (p_maker * sample_fees["x10_maker"] + p_ioc * sample_fees["x10_taker"])
 
         # Pure taker
         x10_taker_only = notional * sample_fees["x10_taker"]
@@ -166,14 +161,8 @@ class TestWeightedExitCost:
         p_ioc = Decimal("0.30")
 
         # Weighted exit (both legs)
-        lighter_exit = notional * (
-            p_maker * sample_fees["lighter_maker"] +
-            p_ioc * sample_fees["lighter_taker"]
-        )
-        x10_exit = notional * (
-            p_maker * sample_fees["x10_maker"] +
-            p_ioc * sample_fees["x10_taker"]
-        )
+        lighter_exit = notional * (p_maker * sample_fees["lighter_maker"] + p_ioc * sample_fees["lighter_taker"])
+        x10_exit = notional * (p_maker * sample_fees["x10_maker"] + p_ioc * sample_fees["x10_taker"])
         total_weighted = lighter_exit + x10_exit
 
         # Pure taker/taker
@@ -197,6 +186,7 @@ class TestWeightedExitCost:
 # =============================================================================
 # Phase 4: Velocity Forecast Tests
 # =============================================================================
+
 
 class TestVelocityCalculation:
     """Tests for funding velocity (slope) calculation."""
@@ -222,16 +212,14 @@ class TestVelocityCalculation:
         #     historical_apy = None
         should_disable = historical_apy is None or len(historical_apy) < lookback
 
-        assert should_disable, \
-            f"Should disable velocity with {len(historical_apy)} samples < {lookback} lookback"
+        assert should_disable, f"Should disable velocity with {len(historical_apy)} samples < {lookback} lookback"
 
         # Velocity function itself works on whatever data it gets (min 3 points)
         # The guard prevents calling it with insufficient samples
         velocity = _calculate_funding_velocity(historical_apy, lookback_hours=lookback)
         # With only 3 points, velocity is calculated (not 0) - this is correct
         # The evaluator's guard prevents using this result
-        assert velocity != Decimal("0"), \
-            f"Velocity function calculates with available data (guard is in evaluator)"
+        assert velocity != Decimal("0"), "Velocity function calculates with available data (guard is in evaluator)"
 
     def test_velocity_guard_exact_lookback_samples(self):
         """
@@ -254,13 +242,13 @@ class TestVelocityCalculation:
         # The guard in evaluator.py:288 checks this
         should_disable = historical_apy is None or len(historical_apy) < lookback
 
-        assert not should_disable, \
+        assert not should_disable, (
             f"Should NOT disable velocity with {len(historical_apy)} samples >= {lookback} lookback"
+        )
 
         # Verify velocity calculation works
         velocity = _calculate_funding_velocity(historical_apy, lookback_hours=lookback)
-        assert velocity > Decimal("0"), \
-            f"Velocity should be positive with increasing rates, got {velocity}"
+        assert velocity > Decimal("0"), f"Velocity should be positive with increasing rates, got {velocity}"
 
     def test_velocity_increasing_funding(self):
         """
@@ -397,8 +385,7 @@ class TestVelocityCalculation:
         # Calculate velocity
         velocity = _calculate_funding_velocity(historical_apy, lookback_hours=lookback)
         # Slope ~0.05 APY/h
-        assert velocity > Decimal("0.04") and velocity < Decimal("0.06"), \
-            f"Expected slope ~0.05 APY/h, got {velocity}"
+        assert velocity > Decimal("0.04") and velocity < Decimal("0.06"), f"Expected slope ~0.05 APY/h, got {velocity}"
 
         # BEFORE FIX BUG: Would add 0.05 * 2.0 = 0.10 directly to hourly rate
         # bug_adjustment = velocity * velocity_weight  # 0.10 APY/h (wrong unit!)
@@ -412,28 +399,31 @@ class TestVelocityCalculation:
 
         # ASSERT: Velocity adjustment is SMALL (hourly units), not MASSIVE (APY units)
         # The bug would give 0.10 adjustment; correct gives ~0.0000114
-        assert velocity_adjustment_hourly < Decimal("0.001"), \
+        assert velocity_adjustment_hourly < Decimal("0.001"), (
             f"Velocity adjustment should be small (hourly), got {velocity_adjustment_hourly}"
+        )
 
         # ASSERT: Adjusted rate is only slightly higher than base
         # The bug would give 0.1001; correct gives ~0.0001114
-        assert adjusted_net_rate < Decimal("0.001"), \
+        assert adjusted_net_rate < Decimal("0.001"), (
             f"Adjusted rate should be ~0.00011, not 0.10 (unit mismatch bug), got {adjusted_net_rate}"
+        )
 
         # ASSERT: Adjusted rate is higher than base (velocity boost)
-        assert adjusted_net_rate > base_hourly, \
-            f"Adjusted rate should be higher than base with positive velocity"
+        assert adjusted_net_rate > base_hourly, "Adjusted rate should be higher than base with positive velocity"
 
         # Quantitative check: adjustment should be ~11.4% of base (0.10 / 0.876 = 11.4%)
         # 0.0001114 / 0.0001 = 1.114
         adjustment_ratio = adjusted_net_rate / base_hourly
-        assert adjustment_ratio > Decimal("1.1") and adjustment_ratio < Decimal("1.2"), \
+        assert adjustment_ratio > Decimal("1.1") and adjustment_ratio < Decimal("1.2"), (
             f"Adjustment ratio should be ~1.114, got {adjustment_ratio}"
+        )
 
 
 # =============================================================================
 # Phase 4: Rotation Cooldown Tests
 # =============================================================================
+
 
 class TestRotationCooldown:
     """Tests for rotation cooldown enforcement."""
@@ -525,6 +515,7 @@ class TestRotationCooldown:
 # Phase 4: NetEV Rotation Tests
 # =============================================================================
 
+
 class TestNetEVRotation:
     """Tests for NetEV-based rotation decisions."""
 
@@ -594,8 +585,10 @@ class TestNetEVRotation:
         p_ioc = Decimal("0.30")
 
         exit_cost = current_notional * (
-            p_maker * fees["lighter_maker"] + p_ioc * fees["lighter_taker"] +
-            p_maker * fees["x10_maker"] + p_ioc * fees["x10_taker"]
+            p_maker * fees["lighter_maker"]
+            + p_ioc * fees["lighter_taker"]
+            + p_maker * fees["x10_maker"]
+            + p_ioc * fees["x10_taker"]
         )
 
         # Entry cost for new position (same notional)
@@ -622,6 +615,7 @@ class TestNetEVRotation:
 # Phase 4: Integration Tests
 # =============================================================================
 
+
 class TestPhase4Integration:
     """Integration tests for Phase-4 features working together."""
 
@@ -643,8 +637,10 @@ class TestPhase4Integration:
 
         # Weighted exit cost
         weighted_exit = notional * (
-            p_maker * fees["lighter_maker"] + p_ioc * fees["lighter_taker"] +
-            p_maker * fees["x10_maker"] + p_ioc * fees["x10_taker"]
+            p_maker * fees["lighter_maker"]
+            + p_ioc * fees["lighter_taker"]
+            + p_maker * fees["x10_maker"]
+            + p_ioc * fees["x10_taker"]
         )
 
         # Pure taker exit (old conservative model)
@@ -719,14 +715,15 @@ class TestVelocityForecastConfig:
         settings = Settings.from_yaml(env="prod")
 
         # These values should match config.yaml (line 206-207)
-        assert settings.trading.velocity_forecast_enabled is True, \
-            "Velocity forecast should be enabled in prod config"
+        assert settings.trading.velocity_forecast_enabled is True, "Velocity forecast should be enabled in prod config"
 
-        assert settings.trading.velocity_forecast_lookback_hours == 6, \
+        assert settings.trading.velocity_forecast_lookback_hours == 6, (
             f"velocity_forecast_lookback_hours should be 6, got {settings.trading.velocity_forecast_lookback_hours}"
+        )
 
-        assert settings.trading.velocity_forecast_weight == Decimal("2.0"), \
+        assert settings.trading.velocity_forecast_weight == Decimal("2.0"), (
             f"velocity_forecast_weight should be 2.0, got {settings.trading.velocity_forecast_weight}"
+        )
 
     def test_velocity_forecast_config_defaults(self):
         """
@@ -743,14 +740,15 @@ class TestVelocityForecastConfig:
         settings = Settings(**data)
 
         # Defaults from settings.py line 205-206
-        assert settings.trading.velocity_forecast_enabled is True, \
-            "Default: velocity_forecast_enabled should be True"
+        assert settings.trading.velocity_forecast_enabled is True, "Default: velocity_forecast_enabled should be True"
 
-        assert settings.trading.velocity_forecast_lookback_hours == 6, \
+        assert settings.trading.velocity_forecast_lookback_hours == 6, (
             "Default: velocity_forecast_lookback_hours should be 6"
+        )
 
-        assert settings.trading.velocity_forecast_weight == Decimal("2.0"), \
+        assert settings.trading.velocity_forecast_weight == Decimal("2.0"), (
             "Default: velocity_forecast_weight should be 2.0"
+        )
 
 
 # =============================================================================
@@ -788,7 +786,7 @@ class TestUnknownKeyWarnings:
                 "velocity_forecast_enabled": True,
                 "velocity_forecast_lookback_hours": 6,  # CORRECT key name
                 "velocity_weight": "2.0",  # TYPO: Should be velocity_forecast_weight
-            }
+            },
         }
 
         with caplog.at_level("WARNING"):
@@ -799,13 +797,13 @@ class TestUnknownKeyWarnings:
 
         # Check that the warning mentions the unknown key (velocity_weight is wrong)
         warning_text = caplog.text
-        assert "trading.velocity_weight" in warning_text, \
-            f"Warning should mention the unknown key, got: {warning_text}"
+        assert "trading.velocity_weight" in warning_text, f"Warning should mention the unknown key, got: {warning_text}"
 
         # velocity_forecast_lookback_hours should NOT be in warning (it's valid)
         # but velocity_weight SHOULD be in warning (it's a typo)
-        assert "trading.velocity_forecast_lookback_hours" not in warning_text, \
+        assert "trading.velocity_forecast_lookback_hours" not in warning_text, (
             f"Warning should not mention valid key, got: {warning_text}"
+        )
 
     def test_valid_keys_no_warning(self, caplog):
         """
@@ -821,12 +819,11 @@ class TestUnknownKeyWarnings:
                 "velocity_forecast_enabled": True,
                 "velocity_forecast_lookback_hours": 6,  # CORRECT key name
                 "velocity_forecast_weight": "2.0",  # CORRECT key name
-            }
+            },
         }
 
         with caplog.at_level("WARNING"):
             _warn_unknown_keys(valid_config, Settings)
 
         # Should have no warnings
-        assert len(caplog.records) == 0, \
-            f"Should not warn for valid config keys, got: {caplog.text}"
+        assert len(caplog.records) == 0, f"Should not warn for valid config keys, got: {caplog.text}"

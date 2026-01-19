@@ -34,6 +34,7 @@ from funding_bot.utils.decimals import safe_decimal as _safe_decimal
 
 logger = get_logger("funding_bot.services.execution")
 
+
 async def _place_lighter_taker_ioc(
     self,
     *,
@@ -77,9 +78,7 @@ async def _place_lighter_taker_ioc(
     es = self.settings.execution
     smart_enabled = bool(getattr(es, "smart_pricing_enabled", False))
     smart_levels = int(
-        getattr(es, "smart_pricing_depth_levels", 0)
-        or getattr(self.settings.trading, "depth_gate_levels", 20)
-        or 20
+        getattr(es, "smart_pricing_depth_levels", 0) or getattr(self.settings.trading, "depth_gate_levels", 20) or 20
     )
     smart_levels = max(1, min(smart_levels, 250))
     smart_impact = _safe_decimal(
@@ -166,6 +165,7 @@ async def _place_lighter_taker_ioc(
         timeout=timeout_seconds,
     )
     return filled
+
 
 async def _wait_for_fill(
     self,
@@ -298,6 +298,7 @@ async def _wait_for_fill(
             if watchers is not None and not watchers:
                 self._order_watchers.pop(watch_key, None)
 
+
 async def _wait_for_fill_polling(
     self,
     adapter: ExchangePort,
@@ -321,12 +322,9 @@ async def _wait_for_fill_polling(
             # CRITICAL FIX: Check filled quantity FIRST.
             # IOC orders on X10 might return status=EXPIRED
             # even if filled. Trust `filled_qty` as source of truth.
-            is_effectively_done = (
-                order.is_filled
-                or order.status in (
-                    OrderStatus.EXPIRED,
-                    OrderStatus.CANCELLED,
-                )
+            is_effectively_done = order.is_filled or order.status in (
+                OrderStatus.EXPIRED,
+                OrderStatus.CANCELLED,
             )
             if order.filled_qty > 0 and is_effectively_done:
                 return order
@@ -339,15 +337,9 @@ async def _wait_for_fill_polling(
                 OrderStatus.REJECTED,
             ):
                 if order.filled_qty == 0:
-                    logger.warning(
-                        f"Order {order_id} ended early without fill: "
-                        f"status={order.status}"
-                    )
+                    logger.warning(f"Order {order_id} ended early without fill: status={order.status}")
                 else:
-                    logger.debug(
-                        f"Order {order_id} ended early: "
-                        f"status={order.status}"
-                    )
+                    logger.debug(f"Order {order_id} ended early: status={order.status}")
                 return order
 
             if order.status.is_terminal():
@@ -359,4 +351,3 @@ async def _wait_for_fill_polling(
             await check_callback()
 
     return await adapter.get_order(symbol, order_id)
-

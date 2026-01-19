@@ -1,11 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Any
+
 
 @dataclass(frozen=True)
 class Event:
     """Base event type."""
+
     pass
+
 
 @dataclass(frozen=True)
 class TradeOpened(Event):
@@ -13,21 +16,23 @@ class TradeOpened(Event):
     size_usd: float
     timestamp: datetime = datetime.now()
 
+
 @dataclass(frozen=True)
 class TradeClosed(Event):
     symbol: str
     pnl_usd: float
     timestamp: datetime = datetime.now()
 
+
 @dataclass(frozen=True)
 class CriticalError(Event):
     message: str
-    details: Optional[Dict[str, Any]] = None
+    details: dict[str, Any] | None = None
     timestamp: datetime = datetime.now()
+
 
 @dataclass(frozen=True)
 class NotificationEvent(Event):
     level: str  # 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
     message: str
     timestamp: datetime = datetime.now()
-

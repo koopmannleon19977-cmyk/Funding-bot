@@ -65,6 +65,7 @@ def clamp_funding_rate(
 
     # Import here to avoid circular dependency
     from funding_bot.observability.logging import get_logger
+
     logger = get_logger(__name__)
 
     clamped = max(-cap, min(cap, rate))
@@ -74,4 +75,3 @@ def clamp_funding_rate(
     )
     # Return original rate, not clamped value
     return rate
-

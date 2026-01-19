@@ -277,4 +277,3 @@ class WebSocketError(ExchangeError):
     """WebSocket connection error."""
 
     error_code = "WEBSOCKET_ERROR"
-

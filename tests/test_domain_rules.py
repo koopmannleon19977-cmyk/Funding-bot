@@ -20,9 +20,6 @@ from funding_bot.domain.models import (
     TradeStatus,
 )
 from funding_bot.domain.rules import (
-    RuleResult,
-    # REMOVED 2026-01-10: check_apy_crash_smart - replaced by FundingVelocityExitStrategy
-    # REMOVED 2026-01-10: check_trailing_stop - replaced by ATRTrailingStopStrategy
     check_balance,
     check_funding_flip,
     check_max_hold_time,

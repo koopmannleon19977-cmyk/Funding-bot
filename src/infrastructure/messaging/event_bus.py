@@ -1,8 +1,8 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Awaitable, Callable, Dict, List, Type, TypeVar
-
+from typing import TypeVar
 
 TEvent = TypeVar("TEvent")
 Handler = Callable[[TEvent], Awaitable[None]]
@@ -32,12 +32,12 @@ class MaintenanceViolation:
 
 class EventBus:
     def __init__(self) -> None:
-        self._handlers: Dict[Type, List[Handler]] = {}
+        self._handlers: dict[type, list[Handler]] = {}
         self._queue: asyncio.Queue = asyncio.Queue()
         self._running = False
         self._task: asyncio.Task | None = None
 
-    def subscribe(self, event_type: Type[TEvent], handler: Handler[TEvent]) -> None:
+    def subscribe(self, event_type: type[TEvent], handler: Handler[TEvent]) -> None:
         self._handlers.setdefault(event_type, []).append(handler)
 
     async def publish(self, event: TEvent) -> None:
@@ -66,4 +66,3 @@ class EventBus:
     async def _dispatch(self, event: TEvent) -> None:
         handlers = self._handlers.get(type(event), [])
         await asyncio.gather(*(h(event) for h in handlers))
-

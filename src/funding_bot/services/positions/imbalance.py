@@ -38,9 +38,7 @@ async def _check_position_imbalance(self, trade: Trade) -> None:
     try:
         # Parallel fetch for speed
         lighter_pos, x10_pos = await asyncio.gather(
-            self.lighter.get_position(trade.symbol),
-            self.x10.get_position(trade.symbol),
-            return_exceptions=True
+            self.lighter.get_position(trade.symbol), self.x10.get_position(trade.symbol), return_exceptions=True
         )
 
         # Handle exceptions from gather

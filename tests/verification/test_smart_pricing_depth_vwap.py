@@ -77,4 +77,3 @@ def test_estimate_entry_spread_pct_by_impact_rejects_if_insufficient_depth_in_wi
 
     assert metrics["ok"] is False
     assert spread == Decimal("1.0")
-

@@ -117,6 +117,7 @@ def setup_logging(settings: Settings | None = None) -> logging.Logger:
     """
     if settings is None:
         from funding_bot.config.settings import get_settings
+
         settings = get_settings()
 
     # Get log level
@@ -149,17 +150,11 @@ def setup_logging(settings: Settings | None = None) -> logging.Logger:
     logs_dir.mkdir(exist_ok=True)
 
     timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-    file_handler = logging.FileHandler(
-        logs_dir / f"funding_bot_{timestamp}.log",
-        encoding="utf-8"
-    )
+    file_handler = logging.FileHandler(logs_dir / f"funding_bot_{timestamp}.log", encoding="utf-8")
     file_handler.setLevel(level)
 
     # Keep standard format for files (no colors, full timestamp)
-    file_fmt = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S"
-    )
+    file_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
     file_handler.setFormatter(file_fmt)
     file_handler.addFilter(sensitive_filter)
     root_logger.addHandler(file_handler)
@@ -228,39 +223,19 @@ class BotLogFormatter(logging.Formatter):
         super().__init__(datefmt="%H:%M:%S")
         # P1: Cache all formatter instances to avoid creating new ones on every format() call
         self._formatters: dict[str, logging.Formatter] = {
-            "DEBUG": logging.Formatter(
-                f"{self.GREY}%(asctime)s [DEBUG] %(message)s{self.RESET}",
-                datefmt="%H:%M:%S"
-            ),
-            "INFO": logging.Formatter(
-                f"{self.GREEN}%(asctime)s [INFO]{self.RESET} %(message)s",
-                datefmt="%H:%M:%S"
-            ),
+            "DEBUG": logging.Formatter(f"{self.GREY}%(asctime)s [DEBUG] %(message)s{self.RESET}", datefmt="%H:%M:%S"),
+            "INFO": logging.Formatter(f"{self.GREEN}%(asctime)s [INFO]{self.RESET} %(message)s", datefmt="%H:%M:%S"),
             "WARNING": logging.Formatter(
-                f"{self.YELLOW}%(asctime)s [WARN] %(message)s{self.RESET}",
-                datefmt="%H:%M:%S"
+                f"{self.YELLOW}%(asctime)s [WARN] %(message)s{self.RESET}", datefmt="%H:%M:%S"
             ),
-            "ERROR": logging.Formatter(
-                f"{self.RED}%(asctime)s [ERROR] %(message)s{self.RESET}",
-                datefmt="%H:%M:%S"
-            ),
+            "ERROR": logging.Formatter(f"{self.RED}%(asctime)s [ERROR] %(message)s{self.RESET}", datefmt="%H:%M:%S"),
             "CRITICAL": logging.Formatter(
-                f"{self.BOLD_RED}%(asctime)s [CRITICAL] %(message)s{self.RESET}",
-                datefmt="%H:%M:%S"
+                f"{self.BOLD_RED}%(asctime)s [CRITICAL] %(message)s{self.RESET}", datefmt="%H:%M:%S"
             ),
             # Special tag formatters
-            "TRADE": logging.Formatter(
-                f"{self.CYAN}%(asctime)s [TRADE]{self.RESET} %(message)s",
-                datefmt="%H:%M:%S"
-            ),
-            "HEALTH": logging.Formatter(
-                f"{self.BLUE}%(asctime)s [HEALTH]{self.RESET} %(message)s",
-                datefmt="%H:%M:%S"
-            ),
-            "SCAN": logging.Formatter(
-                f"{self.GREY}%(asctime)s [SCAN]{self.RESET} %(message)s",
-                datefmt="%H:%M:%S"
-            ),
+            "TRADE": logging.Formatter(f"{self.CYAN}%(asctime)s [TRADE]{self.RESET} %(message)s", datefmt="%H:%M:%S"),
+            "HEALTH": logging.Formatter(f"{self.BLUE}%(asctime)s [HEALTH]{self.RESET} %(message)s", datefmt="%H:%M:%S"),
+            "SCAN": logging.Formatter(f"{self.GREY}%(asctime)s [SCAN]{self.RESET} %(message)s", datefmt="%H:%M:%S"),
         }
 
     def format(self, record: logging.LogRecord) -> str:

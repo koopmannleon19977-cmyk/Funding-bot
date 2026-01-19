@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from strenum import StrEnum
 
@@ -128,7 +127,7 @@ class CreateOrderTpslTriggerModel(X10BaseModel):
     price: Decimal
     price_type: OrderPriceType
     settlement: StarkSettlementModel
-    debugging_amounts: Optional[StarkDebuggingOrderAmountsModel] = None
+    debugging_amounts: StarkDebuggingOrderAmountsModel | None = None
 
 
 class NewOrderModel(X10BaseModel):
@@ -145,15 +144,15 @@ class NewOrderModel(X10BaseModel):
     fee: Decimal
     nonce: Decimal
     self_trade_protection_level: SelfTradeProtectionLevel
-    cancel_id: Optional[str] = None
-    settlement: Optional[StarkSettlementModel] = None
-    trigger: Optional[CreateOrderConditionalTriggerModel] = None
-    tp_sl_type: Optional[OrderTpslType] = None
-    take_profit: Optional[CreateOrderTpslTriggerModel] = None
-    stop_loss: Optional[CreateOrderTpslTriggerModel] = None
-    debugging_amounts: Optional[StarkDebuggingOrderAmountsModel] = None
-    builderFee: Optional[Decimal] = None
-    builderId: Optional[int] = None
+    cancel_id: str | None = None
+    settlement: StarkSettlementModel | None = None
+    trigger: CreateOrderConditionalTriggerModel | None = None
+    tp_sl_type: OrderTpslType | None = None
+    take_profit: CreateOrderTpslTriggerModel | None = None
+    stop_loss: CreateOrderTpslTriggerModel | None = None
+    debugging_amounts: StarkDebuggingOrderAmountsModel | None = None
+    builderFee: Decimal | None = None
+    builderId: int | None = None
 
 
 class PlacedOrderModel(X10BaseModel):
@@ -166,7 +165,7 @@ class OpenOrderTpslTriggerModel(X10BaseModel):
     trigger_price_type: OrderTriggerPriceType
     price: Decimal
     price_type: OrderPriceType
-    status: Optional[OrderStatus] = None
+    status: OrderStatus | None = None
 
 
 class OpenOrderModel(X10BaseModel):
@@ -177,18 +176,18 @@ class OpenOrderModel(X10BaseModel):
     type: OrderType
     side: OrderSide
     status: OrderStatus
-    status_reason: Optional[OrderStatusReason] = None
+    status_reason: OrderStatusReason | None = None
     price: Decimal
-    average_price: Optional[Decimal] = None
+    average_price: Decimal | None = None
     qty: Decimal
-    filled_qty: Optional[Decimal] = None
+    filled_qty: Decimal | None = None
     reduce_only: bool
     post_only: bool
-    payed_fee: Optional[Decimal] = None
+    payed_fee: Decimal | None = None
     created_time: int
     updated_time: int
-    expiry_time: Optional[int] = None
+    expiry_time: int | None = None
     time_in_force: TimeInForce
-    tp_sl_type: Optional[OrderTpslType] = None
-    take_profit: Optional[OpenOrderTpslTriggerModel] = None
-    stop_loss: Optional[OpenOrderTpslTriggerModel] = None
+    tp_sl_type: OrderTpslType | None = None
+    take_profit: OpenOrderTpslTriggerModel | None = None
+    stop_loss: OpenOrderTpslTriggerModel | None = None

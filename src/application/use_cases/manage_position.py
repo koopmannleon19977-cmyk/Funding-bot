@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from decimal import Decimal
+
 from src.domain.entities import Trade
 from src.domain.services import ConstitutionGuard, ManageDecision
-from src.infrastructure.messaging.event_bus import MaintenanceViolation, EventBus
+from src.infrastructure.messaging.event_bus import EventBus, MaintenanceViolation
 
 
 @dataclass

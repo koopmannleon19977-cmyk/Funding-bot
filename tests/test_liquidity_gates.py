@@ -15,6 +15,7 @@ from funding_bot.services.market_data import OrderbookSnapshot
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def deep_orderbook():
     """Create orderbook with deep liquidity."""
@@ -73,6 +74,7 @@ def asymmetric_orderbook():
 # L1 Depth Calculation Tests
 # =============================================================================
 
+
 class TestL1DepthCalculations:
     """Tests for L1 depth calculations."""
 
@@ -114,6 +116,7 @@ class TestL1DepthCalculations:
 # =============================================================================
 # L1 Depth Gate Tests
 # =============================================================================
+
 
 class TestL1DepthGate:
     """Tests for L1 depth gate logic."""
@@ -157,6 +160,7 @@ class TestL1DepthGate:
 # X10 Specific Compliance Tests
 # =============================================================================
 
+
 class TestX10Compliance:
     """Tests for X10 specifically L1 compliance."""
 
@@ -196,6 +200,7 @@ class TestX10Compliance:
 # Entry Spread Tests
 # =============================================================================
 
+
 class TestEntrySpread:
     """Tests for entry spread calculations."""
 
@@ -213,7 +218,7 @@ class TestEntrySpread:
     def test_negative_spread_favorable(self):
         """Negative spread means we're paid to enter!"""
         lighter_bid = Decimal("2005")  # Lighter bid HIGHER
-        x10_ask = Decimal("2000")      # X10 ask lower
+        x10_ask = Decimal("2000")  # X10 ask lower
         mid = (lighter_bid + x10_ask) / 2
 
         # We sell at 2005, buy at 2000 = profit on entry!
@@ -225,6 +230,7 @@ class TestEntrySpread:
 # =============================================================================
 # Notional Requirements Tests
 # =============================================================================
+
 
 class TestNotionalRequirements:
     """Tests for minimum notional requirements."""
@@ -257,6 +263,7 @@ class TestNotionalRequirements:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestLiquidityGatesEdgeCases:
     """Tests for edge cases in liquidity gate logic."""

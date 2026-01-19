@@ -253,13 +253,9 @@ def record_close_operation(
         duration_seconds: Time taken to complete the close
         pnl_usd: Realized PnL in USD
     """
-    close_operations_total.labels(
-        symbol=symbol, reason=reason, success=str(success).lower()
-    ).inc()
+    close_operations_total.labels(symbol=symbol, reason=reason, success=str(success).lower()).inc()
 
-    close_duration_seconds.labels(symbol=symbol, reason=reason).observe(
-        duration_seconds
-    )
+    close_duration_seconds.labels(symbol=symbol, reason=reason).observe(duration_seconds)
 
     if pnl_usd:
         pnl_float = float(pnl_usd) if isinstance(pnl_usd, Decimal) else pnl_usd
@@ -281,14 +277,10 @@ def record_rebalance_operation(
         success: Whether the rebalance was successful
         notional_usd: Notional value rebalanced in USD
     """
-    rebalance_operations_total.labels(
-        symbol=symbol, exchange=exchange, success=str(success).lower()
-    ).inc()
+    rebalance_operations_total.labels(symbol=symbol, exchange=exchange, success=str(success).lower()).inc()
 
     if notional_usd:
-        notional_float = (
-            float(notional_usd) if isinstance(notional_usd, Decimal) else notional_usd
-        )
+        notional_float = float(notional_usd) if isinstance(notional_usd, Decimal) else notional_usd
         rebalance_notional_usd.labels(symbol=symbol).observe(notional_float)
 
 
@@ -329,9 +321,7 @@ def record_close_order(
         order_type: Type of order
         outcome: Order outcome
     """
-    close_orders_total.labels(
-        symbol=symbol, exchange=exchange, order_type=order_type, outcome=outcome
-    ).inc()
+    close_orders_total.labels(symbol=symbol, exchange=exchange, order_type=order_type, outcome=outcome).inc()
 
 
 def record_close_fees(
@@ -363,9 +353,7 @@ def update_active_positions(symbol: str, count: int) -> None:
 
 
 @contextmanager
-def track_close_duration(
-    symbol: str, reason: str
-) -> Generator[dict[str, Any], None, None]:
+def track_close_duration(symbol: str, reason: str) -> Generator[dict[str, Any], None, None]:
     """
     Context manager to track close operation duration.
 
@@ -419,14 +407,10 @@ def record_execution(
         notional_usd: Trade notional value in USD
     """
     execution_total.labels(symbol=symbol, outcome=outcome).inc()
-    execution_duration_seconds.labels(symbol=symbol, outcome=outcome).observe(
-        duration_seconds
-    )
+    execution_duration_seconds.labels(symbol=symbol, outcome=outcome).observe(duration_seconds)
 
     if notional_usd:
-        notional_float = (
-            float(notional_usd) if isinstance(notional_usd, Decimal) else notional_usd
-        )
+        notional_float = float(notional_usd) if isinstance(notional_usd, Decimal) else notional_usd
         trade_notional_usd.labels(symbol=symbol).observe(notional_float)
 
 

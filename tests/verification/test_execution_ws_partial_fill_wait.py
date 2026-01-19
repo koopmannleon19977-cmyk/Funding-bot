@@ -78,4 +78,3 @@ async def test_wait_for_fill_does_not_return_on_partial_fill_ws_update():
 
     assert result.status == OrderStatus.CANCELLED
     assert result.filled_qty == Decimal("0.1")
-

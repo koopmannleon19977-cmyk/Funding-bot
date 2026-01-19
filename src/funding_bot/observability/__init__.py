@@ -45,4 +45,3 @@ __all__ = [
     "update_active_positions",
     "update_active_executions",
 ]
-

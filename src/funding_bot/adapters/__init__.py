@@ -6,4 +6,3 @@ This layer contains all external integrations:
 - Storage adapters (SQLite)
 - Messaging adapters (EventBus)
 """
-

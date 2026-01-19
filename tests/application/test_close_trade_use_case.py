@@ -1,10 +1,9 @@
 import asyncio
 from datetime import datetime, timedelta
 from decimal import Decimal
-from uuid import UUID
+from unittest.mock import AsyncMock
 
 import pytest
-from unittest.mock import AsyncMock
 
 from src.application.use_cases import CloseTradeRequest, CloseTradeUseCase
 from src.domain.entities import Trade

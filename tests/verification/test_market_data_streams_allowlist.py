@@ -47,4 +47,3 @@ async def test_market_data_streams_enabled_without_symbols_is_noop():
     await mds._start_market_data_streams()
 
     lighter.subscribe_orderbook_l1.assert_not_called()
-

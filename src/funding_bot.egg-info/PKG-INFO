@@ -33,99 +33,248 @@ Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: mypy>=1.7.0; extra == "dev"
 
-# funding-bot
+# Funding Bot
 
-Delta-neutral funding rate arbitrage bot across **Lighter** and **X10**.
+**Delta-neutral Funding Rate Arbitrage Bot for Lighter and X10 Exchanges**
 
-This bot can run in **PAPER** (scan-only) or **LIVE** (places real orders).
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
-## What it does
+## Overview
 
-- Scans common markets, ranks opportunities (APY/spread/EV), and enforces risk + liquidity gates.
-- Executes a 2-leg entry (maker-first on Lighter, hedge on X10) with rollback handling.
-- Manages exits (min-hold, funding flip logic, trailing stop, net-EV exit), reconciles DB vs exchange, and tracks funding + PnL.
-- Telegram notifications for critical events and a local dashboard.
+Funding Bot is a sophisticated delta-neutral arbitrage system that exploits funding rate differentials between **Lighter** and **X10** perpetual futures exchanges. The bot maintains market-neutral positions by simultaneously going long on one exchange and short on the other, capturing the funding rate spread while hedging price risk.
 
-## Requirements
+### Key Features
 
-- Python `>=3.11`
-- Exchange SDKs: **Optional for development/testing**, required for live trading
-  - The bot's default install (`pip install -e ".[dev]"`) includes all core dependencies
-  - Exchange SDKs are only needed for:
-    - Live trading on real exchanges
-    - WebSocket connections to live market data
-  - For offline development and unit tests, the Exchange SDKs are **not required**
-  - See `requirements-exchange.txt` for Exchange SDK installation if needed
+- **Delta-Neutral Strategy**: Automatically hedges positions across exchanges
+- **Real-time WebSocket Data**: Low-latency market data via WebSocket streams
+- **Smart Execution**: Maker-first orders with intelligent IOC escalation
+- **Advanced Exit Strategies**: Z-Score crash detection, funding velocity analysis, basis convergence
+- **Risk Management**: Circuit breakers, liquidation monitoring, delta rebalancing
+- **Coordinated Close**: Parallel close of both legs for optimal execution
+- **SQLite Persistence**: Trade history, funding rates, and execution metrics
 
-## Safety / Disclaimer
+## Architecture
 
-- This project can place **real** orders and can lose money.
-- Funding arbitrage is not “risk free”: spreads, slippage, execution failures, margin constraints, and liquidations are real.
-- Run PAPER first, then use tiny LIVE sizing and monitor alerts.
+```
+funding-bot/
+├── main.py                    # Entry point
+├── config/                    # Environment config
+├── src/
+│   ├── adapters/              # Exchange adapters (Lighter, X10)
+│   ├── application/           # Application services (fees, reconciliation)
+│   ├── core/                  # Core business logic (startup, trading, state)
+│   ├── domain/                # Domain entities and rules
+│   ├── funding_bot/           # Main bot package
+│   │   ├── adapters/          # Exchange-specific implementations
+│   │   ├── app/               # Application layer (run, supervisor)
+│   │   ├── config/            # Settings and YAML config
+│   │   ├── domain/            # Domain models (Trade, Position, Order)
+│   │   ├── ports/             # Interface definitions (ExchangePort)
+│   │   ├── services/          # Business services
+│   │   │   ├── execution*.py  # Trade execution engine (Leg1/Leg2)
+│   │   │   ├── opportunities/ # Opportunity scanning and scoring
+│   │   │   ├── positions/     # Position management and exits
+│   │   │   └── market_data/   # Market data service
+│   │   └── observability/     # Logging and metrics
+│   ├── infrastructure/        # Infrastructure (DB, WebSocket, Telegram)
+│   └── utils/                 # Utilities
+└── tests/                     # Unit and integration tests
+```
 
-## Install (recommended)
+## Quick Start
+
+### Prerequisites
+
+- Python 3.11 or higher
+- Lighter Exchange API credentials
+- X10 Exchange API credentials
+- (Optional) Telegram Bot token for notifications
+
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/your-org/funding-bot.git
+cd funding-bot
+
+# Create virtual environment
 python -m venv venv
-venv\Scripts\activate
-python -m pip install -U pip
-pip install -e ".[dev]"
+source venv/bin/activate  # Linux/Mac
+# or
+.\venv\Scripts\activate   # Windows
+
+# Install dependencies
+pip install -e .
+
+# Install exchange SDKs
+pip install x10-python-trading-starknet>=0.0.17
+pip install git+https://github.com/elliottech/lighter-python.git
 ```
 
-## Configuration
+### Configuration
 
-- Main config: `src/funding_bot/config/config.yaml`
-- Secrets via env vars (typically via a local `.env`, which is ignored by git).
+1. **Create `.env` file** with your API credentials:
 
-Common env vars used by the bot:
+```env
+# Lighter Exchange
+LIGHTER_PRIVATE_KEY=your_private_key_here
+LIGHTER_ACCOUNT_INDEX=0
 
-- Lighter: `LIGHTER_PRIVATE_KEY` (legacy) or `LIGHTER_API_KEY_PRIVATE_KEY`, plus `LIGHTER_ACCOUNT_INDEX`, `LIGHTER_API_KEY_INDEX`, `LIGHTER_L1_ADDRESS`
-- X10: `X10_API_KEY`, `X10_PRIVATE_KEY`, `X10_PUBLIC_KEY`, `X10_VAULT_ID`
-- Optional Telegram: `TELEGRAM_ENABLED`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+# X10 Exchange
+X10_API_KEY=your_api_key_here
+X10_API_SECRET=your_api_secret_here
+X10_STARK_PRIVATE_KEY=your_stark_key_here
 
-## Alerts (Telegram)
+# Telegram (Optional)
+TELEGRAM_BOT_TOKEN=your_bot_token
+TELEGRAM_CHAT_ID=your_chat_id
+```
 
-The bot sends Telegram alerts for:
+2. **Adjust `src/funding_bot/config/config.yaml`** for your trading parameters:
 
-- Broken hedge (one leg missing / liquidation/manual close) → immediate unwind attempt
-- Reconciler interventions (zombie/ghost/conflict)
-- Close failures / “positions still open”
-- Repeated execution failures (before circuit breaker pauses new trades)
+```yaml
+# Key settings
+live_trading: true           # false = paper trading (dry-run)
+trading:
+  desired_notional_usd: "350.0"  # Position size in USD
+  max_open_trades: 1             # Maximum concurrent positions
+  min_apy_filter: "0.35"         # Minimum 35% APY to enter
+  min_hold_seconds: 172800       # 48 hours minimum hold time
+```
 
-## Run
-
-Paper mode:
+### Running the Bot
 
 ```bash
-set PYTHONPATH=%CD%\src
-python -m funding_bot run --paper
+# Start the bot
+python main.py
+
+# Or use the CLI
+funding-bot
+
+# Or use batch files (Windows)
+start.bat
 ```
 
-Live mode requires explicit confirmation:
+## Core Concepts
+
+### Trading Strategy
+
+1. **Opportunity Scanning**: Continuously monitors funding rates across both exchanges
+2. **Entry Logic**: Enters when funding rate differential exceeds minimum APY threshold
+3. **Position Opening**:
+   - **Leg 1 (Lighter)**: Opens maker order on the paying side
+   - **Leg 2 (X10)**: Hedges with IOC order on the receiving side
+4. **Position Monitoring**: Tracks funding accrual, PnL, and exit conditions
+5. **Exit Execution**: Coordinated close of both legs when exit criteria are met
+
+### Exit Strategies
+
+| Strategy | Description | Trigger |
+|----------|-------------|---------|
+| **Minimum Hold** | Basic time-based exit | After `min_hold_seconds` |
+| **Early Take-Profit** | Price dislocation capture | Net PnL >= `early_take_profit_net_usd` |
+| **Funding Flip** | Funding direction reversal | Funding turns unfavorable |
+| **Z-Score Crash** | Statistical APY crash detection | Z-Score < -2.0 (2-sigma event) |
+| **Funding Velocity** | Proactive crash prediction | Negative velocity + acceleration |
+| **Basis Convergence** | Spread collapse detection | 80% spread reduction |
+| **Net EV Exit** | Expected value negative | Exit costs > projected funding |
+| **Opportunity Cost** | Better opportunity available | APY diff > 80% |
+| **Delta Bound** | Hedge drift protection | Delta > 3% |
+
+### Position Management
+
+- **Delta Rebalancing**: Automatically rebalances when hedge drifts 1-3%
+- **Coordinated Close**: Parallel execution on both legs
+- **Ghost Position Handling**: Auto-import or close orphaned positions
+- **Broken Hedge Recovery**: 15-minute cooldown after hedge failures
+
+## Configuration Reference
+
+See `src/funding_bot/config/config.yaml` for all available settings:
+
+| Section | Key Settings |
+|---------|--------------|
+| `trading` | Position sizing, entry/exit thresholds, fees |
+| `execution` | Order timeouts, maker/taker escalation, slippage |
+| `risk` | Circuit breakers, drawdown limits, margin reserves |
+| `websocket` | Connection parameters, health checks |
+| `database` | SQLite path, pool size, WAL mode |
+| `historical` | Backfill days, crash detection parameters |
+| `telegram` | Notification settings |
+
+## CLI Commands
 
 ```bash
-set PYTHONPATH=%CD%\src
-python -m funding_bot run --env prod --live --confirm-live
+# Standard run
+python main.py
+
+# Doctor mode (diagnostics)
+python -m funding_bot doctor
+
+# Reconcile positions
+python -m funding_bot reconcile
+
+# Close all positions
+python -m funding_bot close-all
+
+# Backfill historical data
+python -m funding_bot backfill
 ```
 
-Windows helpers:
-
-- `START_BOT.bat` (paper)
-- `START_LIVE_BOT.bat` (live, confirmed)
-- `CLEAN_RESTART.bat`
-
-## State / Files
-
-- Logs: `logs/` (ignored by git)
-- SQLite DB: `data/funding_v2.db` (ignored by git; contains local trade state)
-
-## Tests
+## Testing
 
 ```bash
-set PYTHONPATH=%CD%\src
-pytest -q
+# Run all tests
+pytest
+
+# Run unit tests only
+pytest -m unit
+
+# Run with coverage
+pytest --cov=src/funding_bot --cov-report=html
+
+# Run specific test file
+pytest tests/unit/test_execution.py -v
 ```
+
+## Project Status
+
+- **Version**: 2.0.0
+- **Status**: Production-ready (Phase 1 Complete)
+- **Tests**: 273+ unit tests passing
+
+### Recent Improvements (2026-01)
+
+- Performance optimizations (parallel evaluation, batch parallelization)
+- Depth cache TTL (5s) for faster market data
+- Reentrant logging fix for Windows Ctrl+C
+- Code cleanup and linting (F401, E501)
+
+## Documentation
+
+- [Technical Documentation](docs/TECHNICAL.md) - Architecture and implementation details
+- [User Guide](docs/USER_GUIDE.md) - Setup and operation guide
+- [API Reference](docs/API_REFERENCE.md) - Module and class documentation
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please follow:
+- [Conventional Commits](https://www.conventionalcommits.org/) for commit messages
+- `ruff` for code formatting and linting
+- Type hints for all new code
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Disclaimer
 
-This project can place real orders. Use at your own risk.
+**This software is for educational and research purposes only.** Trading cryptocurrencies and derivatives carries significant risk. Past performance does not guarantee future results. Always conduct your own research and consider your risk tolerance before trading.

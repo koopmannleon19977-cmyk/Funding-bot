@@ -6,30 +6,31 @@ Usage: python scripts/fetch_trade_history.py EDEN
 
 import asyncio
 import sys
-import os
+from datetime import UTC, datetime
 from decimal import Decimal
-from datetime import datetime, timedelta, UTC
 
 # Add src to path
 sys.path.insert(0, "src")
 
 # Load .env file from project root
 from pathlib import Path
+
 from dotenv import load_dotenv
+
 env_path = Path(__file__).parent.parent / ".env"
 load_dotenv(env_path)
 print(f"Loading .env from: {env_path}")
 
-from funding_bot.config import Settings
 from funding_bot.adapters.exchanges.lighter.adapter import LighterAdapter
 from funding_bot.adapters.exchanges.x10.adapter import X10Adapter
+from funding_bot.config import Settings
 
 
 async def fetch_lighter_trades(adapter: LighterAdapter, symbol: str, days_back: int = 7):
     """Fetch trades from Lighter API."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"LIGHTER TRADES for {symbol}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         market_id = adapter._get_market_index(symbol)
@@ -101,15 +102,16 @@ async def fetch_lighter_trades(adapter: LighterAdapter, symbol: str, days_back: 
     except Exception as e:
         print(f"Error fetching Lighter trades: {e}")
         import traceback
+
         traceback.print_exc()
         return []
 
 
 async def fetch_x10_trades(adapter: X10Adapter, symbol: str, days_back: int = 7):
     """Fetch trades from X10 API."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"X10 TRADES for {symbol}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     try:
         market_name = f"{symbol}-USD"
@@ -174,6 +176,7 @@ async def fetch_x10_trades(adapter: X10Adapter, symbol: str, days_back: int = 7)
     except Exception as e:
         print(f"Error fetching X10 trades: {e}")
         import traceback
+
         traceback.print_exc()
         return []
 

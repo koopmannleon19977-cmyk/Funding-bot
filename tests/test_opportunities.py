@@ -15,6 +15,7 @@ from funding_bot.domain.models import Opportunity
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def high_apy_opportunity():
     """Create high APY opportunity."""
@@ -88,6 +89,7 @@ def negative_spread_opportunity():
 # Opportunity Ranking Tests
 # =============================================================================
 
+
 class TestOpportunityRanking:
     """Tests for opportunity ranking logic."""
 
@@ -120,6 +122,7 @@ class TestOpportunityRanking:
 # =============================================================================
 # EV Calculation Tests
 # =============================================================================
+
 
 class TestEVCalculation:
     """Tests for Expected Value calculation."""
@@ -162,6 +165,7 @@ class TestEVCalculation:
 # =============================================================================
 # Filtering Tests
 # =============================================================================
+
 
 class TestOpportunityFiltering:
     """Tests for opportunity filters."""
@@ -206,13 +210,14 @@ class TestOpportunityFiltering:
 # Direction Detection Tests
 # =============================================================================
 
+
 class TestDirectionDetection:
     """Tests for trade direction detection."""
 
     def test_short_lighter_long_x10(self):
         """Should detect short Lighter, long X10 direction."""
         lighter_rate = Decimal("0.0005")  # Positive = longs pay shorts
-        x10_rate = Decimal("-0.0002")     # Negative = shorts pay longs
+        x10_rate = Decimal("-0.0002")  # Negative = shorts pay longs
 
         # We want to be short where longs pay us: Lighter
         # We want to be long where shorts pay us: X10
@@ -225,7 +230,7 @@ class TestDirectionDetection:
     def test_opposite_direction(self):
         """Should detect opposite direction when rates flip."""
         lighter_rate = Decimal("-0.0003")  # Negative = shorts pay longs
-        x10_rate = Decimal("0.0004")       # Positive = longs pay shorts
+        x10_rate = Decimal("0.0004")  # Positive = longs pay shorts
 
         # Now we want to be long Lighter, short X10
         should_long_lighter = lighter_rate < 0
@@ -238,6 +243,7 @@ class TestDirectionDetection:
 # =============================================================================
 # Sizing Tests
 # =============================================================================
+
 
 class TestOpportunitySizing:
     """Tests for opportunity sizing."""
@@ -273,6 +279,7 @@ class TestOpportunitySizing:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestOpportunityEdgeCases:
     """Tests for edge cases in opportunity detection."""

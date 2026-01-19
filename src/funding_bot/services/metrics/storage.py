@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class MetricPoint:
     """A single metric data point."""
+
     operation: str
     value: float
     unit: str  # "ms", "count", "percent", etc.
@@ -39,10 +40,7 @@ class InMemoryRingBuffer:
     async def get_recent(self, operation: str, limit: int = 100) -> list[MetricPoint]:
         """Get recent metrics for an operation."""
         async with self._lock:
-            return [
-                p for p in self._buffer
-                if p.operation == operation
-            ][-limit:]
+            return [p for p in self._buffer if p.operation == operation][-limit:]
 
     async def get_all_recent(self, limit: int = 100) -> list[MetricPoint]:
         """Get all recent metrics."""

@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from types import SimpleNamespace
+
 from src.domain.entities import Opportunity, Trade
+from src.domain.rules import Constitution
 from src.domain.services import (
+    ConstitutionGuard,
     OpportunityScorer,
     PositionSizer,
-    TradeInvariants,
     RiskEvaluator,
-    ConstitutionGuard,
     TradeFactory,
+    TradeInvariants,
 )
-from src.domain.rules import Constitution
 from src.domain.value_objects import Side
 
 
@@ -28,7 +28,18 @@ class OpenTradeRequest:
 
 
 class OpenTradeUseCase:
-    def __init__(self, lighter, x10, repo, scorer: OpportunityScorer, sizer: PositionSizer, invariants: TradeInvariants, rules: Constitution, risk: RiskEvaluator | None = None, guard: ConstitutionGuard | None = None):
+    def __init__(
+        self,
+        lighter,
+        x10,
+        repo,
+        scorer: OpportunityScorer,
+        sizer: PositionSizer,
+        invariants: TradeInvariants,
+        rules: Constitution,
+        risk: RiskEvaluator | None = None,
+        guard: ConstitutionGuard | None = None,
+    ):
         self.lighter = lighter
         self.x10 = x10
         self.repo = repo

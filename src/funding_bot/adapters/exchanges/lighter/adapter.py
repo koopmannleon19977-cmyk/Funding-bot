@@ -538,7 +538,7 @@ class LighterAdapter(ExchangePort):
         # Refresh if token is older than 7 hours (25200 seconds)
         # Token expires at 8 hours (28800 seconds), so we have 1 hour buffer
         if token_age > 25200:
-            logger.info(f"Token age {token_age/3600:.1f}h > 7h, proactively refreshing...")
+            logger.info(f"Token age {token_age / 3600:.1f}h > 7h, proactively refreshing...")
             return await self._refresh_auth_token()
 
         return False
@@ -796,6 +796,7 @@ class LighterAdapter(ExchangePort):
         try:
             from lighter.exceptions import ApiException  # type: ignore
         except ImportError:
+
             class ApiException(Exception):  # type: ignore
                 status: int | None = None
 
@@ -1045,8 +1046,9 @@ class LighterAdapter(ExchangePort):
             getattr(
                 getattr(getattr(self.settings, "market_data", None), "market_cache_ttl_seconds", None),
                 "market_cache_ttl_seconds",
-                3600.0
-            ) or 3600.0
+                3600.0,
+            )
+            or 3600.0
         )
 
         # Check if cache has expired
@@ -1207,8 +1209,7 @@ class LighterAdapter(ExchangePort):
                 if last_update:
                     age = (now - last_update).total_seconds()
                     cache_has_depth = (
-                        cached.get("bid_qty", Decimal("0")) > 0
-                        and cached.get("ask_qty", Decimal("0")) > 0
+                        cached.get("bid_qty", Decimal("0")) > 0 and cached.get("ask_qty", Decimal("0")) > 0
                     )
                     if age < 2.0 and cache_has_depth:
                         return cached
@@ -2203,10 +2204,7 @@ class LighterAdapter(ExchangePort):
         """
         now = time.time()
         async with self._ws_fill_cache_lock:
-            stale_keys = [
-                k for k, (_, ts) in self._ws_fill_cache.items()
-                if now - ts > self._ws_fill_cache_ttl_seconds
-            ]
+            stale_keys = [k for k, (_, ts) in self._ws_fill_cache.items() if now - ts > self._ws_fill_cache_ttl_seconds]
             for k in stale_keys:
                 del self._ws_fill_cache[k]
             if stale_keys:

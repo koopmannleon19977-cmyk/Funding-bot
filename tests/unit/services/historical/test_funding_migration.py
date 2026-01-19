@@ -11,10 +11,8 @@ handles both legacy NET format and new per-exchange format.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from datetime import UTC, datetime
-
-import pytest
+from decimal import Decimal
 
 
 class TestFundingMigration:

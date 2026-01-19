@@ -162,4 +162,3 @@ class AlertEvent(DomainEvent):
     level: str = "INFO"  # INFO, WARNING, ERROR, CRITICAL
     message: str = ""
     details: dict[str, Any] = field(default_factory=dict)
-

@@ -219,9 +219,7 @@ async def test_early_tp_uses_execution_buffer_to_avoid_false_positive_exit():
         )
     )
     market_data.get_fresh_orderbook = AsyncMock(side_effect=AssertionError("unexpected L1 fallback"))
-    market_data.get_fee_schedule = AsyncMock(
-        return_value={"lighter_taker": Decimal("0"), "x10_taker": Decimal("0")}
-    )
+    market_data.get_fee_schedule = AsyncMock(return_value={"lighter_taker": Decimal("0"), "x10_taker": Decimal("0")})
     market_data.get_orderbook = MagicMock(side_effect=AssertionError("unexpected cached orderbook access"))
 
     mgr = PositionManager(settings, lighter, x10, store, event_bus, market_data, opportunity_engine=None)

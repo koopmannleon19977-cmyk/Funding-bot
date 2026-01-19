@@ -34,9 +34,7 @@ async def _handle_broken_hedge_if_needed(self, trade: Trade) -> bool:
     try:
         # Parallel fetch for speed
         lighter_pos, x10_pos = await asyncio.gather(
-            self.lighter.get_position(trade.symbol),
-            self.x10.get_position(trade.symbol),
-            return_exceptions=True
+            self.lighter.get_position(trade.symbol), self.x10.get_position(trade.symbol), return_exceptions=True
         )
 
         # Handle exceptions from gather
@@ -45,9 +43,7 @@ async def _handle_broken_hedge_if_needed(self, trade: Trade) -> bool:
         if isinstance(x10_pos, Exception):
             x10_pos = None
     except Exception as e:
-        logger.warning(
-            f"Broken-hedge check skipped for {trade.symbol}: failed to fetch positions ({e})"
-        )
+        logger.warning(f"Broken-hedge check skipped for {trade.symbol}: failed to fetch positions ({e})")
         return False
 
     has_lighter = bool(lighter_pos and lighter_pos.qty > qty_threshold)
@@ -73,8 +69,7 @@ async def _handle_broken_hedge_if_needed(self, trade: Trade) -> bool:
 
     if hits < 2:
         logger.warning(
-            f"Potential broken hedge for {trade.symbol}: missing {missing_exchange.value} "
-            f"(confirming {hits}/2)"
+            f"Potential broken hedge for {trade.symbol}: missing {missing_exchange.value} (confirming {hits}/2)"
         )
         return False
 

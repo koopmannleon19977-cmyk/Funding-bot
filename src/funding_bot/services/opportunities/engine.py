@@ -132,9 +132,7 @@ class OpportunityEngine:
         failures = self._symbol_failures[symbol]
 
         if failures >= self._max_symbol_failures:
-            cooldown_until = datetime.now(UTC) + timedelta(
-                minutes=self._symbol_cooldown_minutes
-            )
+            cooldown_until = datetime.now(UTC) + timedelta(minutes=self._symbol_cooldown_minutes)
             self._symbol_cooldown[symbol] = cooldown_until
             logger.warning(
                 f"[{symbol}] Entering {self._symbol_cooldown_minutes}min cooldown "

@@ -1,5 +1,6 @@
+from collections.abc import AsyncIterator
 from types import TracebackType
-from typing import AsyncIterator, Generic, Optional, Type, TypeVar
+from typing import Generic, TypeVar
 
 import websockets
 from websockets import WebSocketClientProtocol
@@ -16,16 +17,16 @@ StreamMsgResponseType = TypeVar("StreamMsgResponseType", bound=X10BaseModel)
 
 class PerpetualStreamConnection(Generic[StreamMsgResponseType]):
     __stream_url: str
-    __msg_model_class: Type[StreamMsgResponseType]
-    __api_key: Optional[str]
+    __msg_model_class: type[StreamMsgResponseType]
+    __api_key: str | None
     __msgs_count: int
-    __websocket: Optional[WebSocketClientProtocol]
+    __websocket: WebSocketClientProtocol | None
 
     def __init__(
         self,
         stream_url: str,
-        msg_model_class: Type[StreamMsgResponseType],
-        api_key: Optional[str],
+        msg_model_class: type[StreamMsgResponseType],
+        api_key: str | None,
     ):
         super().__init__()
 
@@ -89,9 +90,9 @@ class PerpetualStreamConnection(Generic[StreamMsgResponseType]):
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ):
         await self.close()
 

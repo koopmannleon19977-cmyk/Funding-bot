@@ -1,9 +1,8 @@
-
 import pytest
 
-
 cb_mod = pytest.importorskip("src.circuit_breaker")
-CircuitBreaker = getattr(cb_mod, "CircuitBreaker")
+CircuitBreaker = cb_mod.CircuitBreaker
+
 
 def test_circuit_breaker_failure_trigger(circuit_breaker_config):
     """Test trigger after consecutive failures"""
@@ -20,29 +19,31 @@ def test_circuit_breaker_failure_trigger(circuit_breaker_config):
     assert cb.is_triggered
     assert "Too many consecutive" in cb._trigger_reason
 
+
 def test_circuit_breaker_reset(circuit_breaker_config):
     """Test failure count reset on success"""
     cb = CircuitBreaker(circuit_breaker_config)
-    
+
     cb.record_trade_result(False, "BTC-USD")
     assert cb.failure_count == 1
-    
+
     cb.record_trade_result(True, "ETH-USD")
     assert cb.failure_count == 0
     assert not cb.is_triggered
 
+
 def test_circuit_breaker_drawdown(circuit_breaker_config):
     """Test drawdown trigger"""
     cb = CircuitBreaker(circuit_breaker_config)
-    
+
     # Base equity
-    cb.update_equity(1000.0) # Peak
+    cb.update_equity(1000.0)  # Peak
     assert not cb.is_triggered
-    
+
     # Drop 5% (Limit is 10%)
     cb.update_equity(950.0)
     assert not cb.is_triggered
-    
+
     # Drop 15% (Limit is 10%)
     cb.update_equity(850.0)
     assert cb.is_triggered

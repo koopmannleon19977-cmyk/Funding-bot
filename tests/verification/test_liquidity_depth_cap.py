@@ -57,7 +57,7 @@ def test_calculate_l1_depth_cap_fails_when_min_notional_usd_not_met():
     cap = calculate_l1_depth_cap(
         ob,
         lighter_side=Side.SELL,  # lighter_bid side
-        x10_side=Side.BUY,       # x10_ask side ($100 notional) still below min below? depends on price; use bid here.
+        x10_side=Side.BUY,  # x10_ask side ($100 notional) still below min below? depends on price; use bid here.
         mid_price=Decimal("100"),
         min_l1_notional_usd=Decimal("150"),
         min_l1_notional_multiple=Decimal("0"),

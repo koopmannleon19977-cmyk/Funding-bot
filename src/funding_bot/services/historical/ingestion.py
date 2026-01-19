@@ -109,7 +109,7 @@ class HistoricalIngestionService:
             try:
                 val = getattr(obj, attr, default)
                 # Check if it's a real value (not a MagicMock)
-                if val is None or (hasattr(val, '_mock_name') and val._mock_name):
+                if val is None or (hasattr(val, "_mock_name") and val._mock_name):
                     return default
                 return float(val) if isinstance(default, float) else int(val)
             except (TypeError, ValueError):
@@ -203,6 +203,7 @@ class HistoricalIngestionService:
                 return None
 
             import json
+
             with open(config_path) as f:
                 config = json.load(f)
 
@@ -285,6 +286,7 @@ class HistoricalIngestionService:
         timeout = aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
 
         async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
+
             async def _backfill_single(symbol: str) -> tuple[str, int]:
                 """Backfill a single symbol with error handling and retry."""
                 last_error = None
@@ -298,7 +300,7 @@ class HistoricalIngestionService:
                         # P2.1: Only retry on transient errors
                         if attempt < self._max_retries - 1:
                             # Exponential backoff: 1s, 2s, 4s, ...
-                            delay = (self._retry_base_delay_ms / 1000.0) * (2 ** attempt)
+                            delay = (self._retry_base_delay_ms / 1000.0) * (2**attempt)
                             logger.warning(
                                 f"Backfill {symbol} failed (attempt {attempt + 1}/{self._max_retries}): {e}. "
                                 f"Retrying in {delay:.1f}s"
@@ -310,16 +312,13 @@ class HistoricalIngestionService:
 
             # Process in batches with asyncio.gather
             for i in range(0, len(symbols), batch_size):
-                batch = symbols[i:i + batch_size]
+                batch = symbols[i : i + batch_size]
                 batch_num = (i // batch_size) + 1
                 total_batches = (len(symbols) + batch_size - 1) // batch_size
 
                 logger.info(f"Processing batch {batch_num}/{total_batches}: {batch}")
 
-                batch_results = await asyncio.gather(
-                    *[_backfill_single(sym) for sym in batch],
-                    return_exceptions=True
-                )
+                batch_results = await asyncio.gather(*[_backfill_single(sym) for sym in batch], return_exceptions=True)
 
                 for result in batch_results:
                     if isinstance(result, tuple):
@@ -368,7 +367,9 @@ class HistoricalIngestionService:
 
         try:
             lighter_data = await self._fetch_lighter_candles(
-                symbol, start_time, end_time,
+                symbol,
+                start_time,
+                end_time,
                 count_back=min(hours_needed, MAX_LIGHTER_CANDLES),
                 session=session,
             )
@@ -433,13 +434,13 @@ class HistoricalIngestionService:
             if self.lighter_adapter:
                 try:
                     # Use adapter's market indices which has all loaded markets
-                    market_indices = getattr(self.lighter_adapter, '_market_indices', {})
+                    market_indices = getattr(self.lighter_adapter, "_market_indices", {})
                     market_id = market_indices.get(symbol)
 
                     if market_id is None:
                         # Try loading markets if not loaded yet (side effect: populates _market_indices)
                         _ = await self.lighter_adapter.load_markets()
-                        market_indices = getattr(self.lighter_adapter, '_market_indices', {})
+                        market_indices = getattr(self.lighter_adapter, "_market_indices", {})
                         market_id = market_indices.get(symbol)
 
                 except Exception as e:
@@ -477,16 +478,17 @@ class HistoricalIngestionService:
                         return resp.status, await resp.json() if resp.status == 200 else await resp.text()
                 else:
                     # Fallback for direct calls without session
-                    async with aiohttp.ClientSession() as fallback_session:
-                        async with fallback_session.get(
+                    async with (
+                        aiohttp.ClientSession() as fallback_session,
+                        fallback_session.get(
                             url, params=params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
-                        ) as resp:
-                            return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+                        ) as resp,
+                    ):
+                        return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
             # Execute with rate limiting
             status, data = await self._lighter_rate_limiter.execute(
-                _fetch_lighter_api,
-                label=f"lighter_fundings_{symbol}"
+                _fetch_lighter_api, label=f"lighter_fundings_{symbol}"
             )
 
             if status == 200:
@@ -552,17 +554,19 @@ class HistoricalIngestionService:
                     # Convert to APY (hourly -> annual, simple multiplication)
                     funding_apy = rate_hourly * 24 * 365
 
-                    candles.append(FundingCandle(
-                        timestamp=timestamp,
-                        symbol=symbol,
-                        exchange="LIGHTER",
-                        mark_price=None,
-                        index_price=None,
-                        spread_bps=None,
-                        funding_rate_hourly=rate_hourly,
-                        funding_apy=funding_apy,
-                        fetched_at=datetime.now(UTC),
-                    ))
+                    candles.append(
+                        FundingCandle(
+                            timestamp=timestamp,
+                            symbol=symbol,
+                            exchange="LIGHTER",
+                            mark_price=None,
+                            index_price=None,
+                            spread_bps=None,
+                            funding_rate_hourly=rate_hourly,
+                            funding_apy=funding_apy,
+                            fetched_at=datetime.now(UTC),
+                        )
+                    )
 
                 logger.info(f"Fetched {len(fundings)} hourly funding records from Lighter for {symbol}")
                 if skipped_extreme:
@@ -624,11 +628,7 @@ class HistoricalIngestionService:
                         for market in markets:
                             # Handle different possible response structures
                             market_id = market.get("id") or market.get("marketId")
-                            symbol_name = (
-                                market.get("symbol") or
-                                market.get("name") or
-                                market.get("pair", "")
-                            )
+                            symbol_name = market.get("symbol") or market.get("name") or market.get("pair", "")
 
                             # Normalize symbol (remove -USD, /USD, etc.)
                             symbol_name = symbol_name.replace("-USD", "").replace("/USD", "").upper()
@@ -651,13 +651,15 @@ class HistoricalIngestionService:
 
             # Fallback: try to use common market IDs based on known Lighter markets
             # This is a temporary fallback if the API call fails
-            self._market_id_cache.update({
-                "ETH": 1,
-                "BTC": 2,
-                "SOL": 3,
-                "DOGE": 4,
-                "PEPE": 5,
-            })
+            self._market_id_cache.update(
+                {
+                    "ETH": 1,
+                    "BTC": 2,
+                    "SOL": 3,
+                    "DOGE": 4,
+                    "PEPE": 5,
+                }
+            )
             logger.warning("Using fallback market ID mapping")
 
     async def _fetch_x10_candles(
@@ -713,11 +715,13 @@ class HistoricalIngestionService:
                     async with session.get(url, params=_params) as resp:
                         return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
-                async with aiohttp.ClientSession() as fallback_session:
-                    async with fallback_session.get(
+                async with (
+                    aiohttp.ClientSession() as fallback_session,
+                    fallback_session.get(
                         url, params=_params, timeout=aiohttp.ClientTimeout(total=API_TIMEOUT_SECONDS)
-                    ) as resp:
-                        return resp.status, await resp.json() if resp.status == 200 else await resp.text()
+                    ) as resp,
+                ):
+                    return resp.status, await resp.json() if resp.status == 200 else await resp.text()
 
             label = f"x10_funding_{symbol}_{start_time.date()}_{end_time.date()}_p{page_count}"
 
@@ -778,7 +782,9 @@ class HistoricalIngestionService:
 
                 # Unknown/non-retryable HTTP response.
                 snippet = str(data)[:200] if data is not None else ""
-                logger.warning(f"X10 returned {status} for {symbol} ({start_time.date()} - {end_time.date()}): {snippet}")
+                logger.warning(
+                    f"X10 returned {status} for {symbol} ({start_time.date()} - {end_time.date()}): {snippet}"
+                )
                 return list(candles_by_ts.values())
 
             if status != 200:
@@ -847,7 +853,9 @@ class HistoricalIngestionService:
 
             # Safety: avoid infinite loops on buggy cursors.
             if cursor is not None and next_cursor_int == cursor:
-                logger.warning(f"X10 funding history pagination cursor did not advance for {symbol}; stopping pagination.")
+                logger.warning(
+                    f"X10 funding history pagination cursor did not advance for {symbol}; stopping pagination."
+                )
                 break
 
             # If we got fewer than the max page size, we are done.
@@ -907,4 +915,3 @@ class HistoricalIngestionService:
                     results[symbol] = 0
 
         return results
-

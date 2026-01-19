@@ -1,11 +1,11 @@
 import inspect
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from pydantic.fields import AliasChoices, FieldInfo
 from pydantic.functional_serializers import PlainSerializer
 from pydantic.functional_validators import BeforeValidator
-from typing_extensions import Annotated
 
 
 class X10BaseModel(BaseModel):

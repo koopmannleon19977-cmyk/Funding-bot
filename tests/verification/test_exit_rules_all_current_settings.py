@@ -3,11 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-import pytest
-
 from funding_bot.config.settings import Settings
-from funding_bot.domain.models import Exchange, Side, Trade
-from funding_bot.domain.models import TradeStatus
+from funding_bot.domain.models import Exchange, Side, Trade, TradeStatus
 from funding_bot.domain.rules import evaluate_exit_rules
 
 
@@ -108,13 +105,13 @@ def _decide(
 
 
 def _assert_exit(decision: object, prefix: str) -> None:
-    assert getattr(decision, "should_exit") is True
-    assert str(getattr(decision, "reason")).startswith(prefix)
+    assert decision.should_exit is True
+    assert str(decision.reason).startswith(prefix)
 
 
 def _assert_hold(decision: object, prefix: str) -> None:
-    assert getattr(decision, "should_exit") is False
-    assert str(getattr(decision, "reason")).startswith(prefix)
+    assert decision.should_exit is False
+    assert str(decision.reason).startswith(prefix)
 
 
 def test_emergency_catastrophic_funding_flip_exits_even_before_min_hold():
@@ -181,7 +178,7 @@ def test_early_edge_exit_triggers_on_apy_crash_after_min_age():
         price_pnl=Decimal("0"),
         current_apy=Decimal("0.0"),
         lighter_rate=Decimal("0.00010"),  # Lighter positive
-        x10_rate=Decimal("0.00000"),      # X10 zero (lighter > x10 means we PAY for Side.BUY)
+        x10_rate=Decimal("0.00000"),  # X10 zero (lighter > x10 means we PAY for Side.BUY)
         estimated_exit_cost_usd=Decimal("0.50"),
     )
     _assert_exit(decision, "EARLY_EDGE:")
@@ -241,6 +238,7 @@ def test_max_hold_exits_after_min_hold():
 # Reason: volatility_panic_threshold removed - market-neutral strategy doesn't need price volatility checks
 # We're long one exchange, short the other - price movements affect both legs equally.
 
+
 def test_exit_ev_negative_funding_loss_triggers_exit_without_funding_flip():
     s = _settings()
     assert s.trading.exit_ev_enabled is True
@@ -289,6 +287,7 @@ def test_exit_ev_positive_but_too_small_triggers_exit():
 # REMOVED 2026-01-10: test_trailing_stop_triggers_exit
 # Reason: trailing_stop_activation_usd and trailing_stop_callback_pct removed
 # Replaced by ATRTrailingStopStrategy (volatility-adaptive, professional strategy)
+
 
 def test_profit_target_is_skipped_when_exit_ev_holds_edge_good():
     s = _settings()

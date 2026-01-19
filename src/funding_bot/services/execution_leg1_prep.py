@@ -68,9 +68,7 @@ async def _prepare_leg1_execution(
     escalate_after_seconds = float(
         _safe_decimal(getattr(es, "leg1_escalate_to_taker_after_seconds", None), Decimal("0"))
     )
-    escalate_slippage = _safe_decimal(
-        getattr(es, "leg1_escalate_to_taker_slippage", None), Decimal("0")
-    )
+    escalate_slippage = _safe_decimal(getattr(es, "leg1_escalate_to_taker_slippage", None), Decimal("0"))
     escalate_fill_timeout = float(
         _safe_decimal(getattr(es, "leg1_escalate_to_taker_fill_timeout_seconds", None), Decimal("6.0"))
     )
@@ -100,9 +98,7 @@ async def _prepare_leg1_execution(
         initial_pos = await self.lighter.get_position(trade.symbol)
         initial_pos_qty = initial_pos.qty if initial_pos else Decimal("0")
     except Exception as e:
-        logger.warning(
-            f"Failed to snapshot initial position for {trade.symbol}: {e}"
-        )
+        logger.warning(f"Failed to snapshot initial position for {trade.symbol}: {e}")
 
     # Best-effort tolerance for position-delta reconciliation (avoid overcounting fills).
     pos_tolerance = Decimal("0.0001")

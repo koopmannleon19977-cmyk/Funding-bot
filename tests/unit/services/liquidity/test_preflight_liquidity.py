@@ -5,14 +5,13 @@ Tests run offline with mocks - no exchange SDK required.
 """
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from funding_bot.domain.models import Side
 from funding_bot.services.liquidity_gates_preflight import (
     PreflightLiquidityConfig,
-    PreflightLiquidityResult,
     _aggregate_liquidity,
     _calculate_spread_bps,
     _extract_best_prices,
@@ -146,9 +145,7 @@ async def test_preflight_liquidity_both_exchanges_sufficient():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is True
@@ -187,9 +184,7 @@ async def test_preflight_liquidity_lighter_insufficient():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is False
@@ -226,9 +221,7 @@ async def test_preflight_liquidity_x10_insufficient():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is False
@@ -247,9 +240,7 @@ async def test_preflight_liquidity_disabled():
     config = PreflightLiquidityConfig(enabled=False)
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is True
@@ -267,9 +258,7 @@ async def test_preflight_liquidity_invalid_quantity():
     config = PreflightLiquidityConfig()
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is False
@@ -304,9 +293,7 @@ async def test_preflight_liquidity_min_threshold():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is False
@@ -332,9 +319,7 @@ async def test_preflight_liquidity_orderbook_fetch_failure():
     config = PreflightLiquidityConfig()
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is False
@@ -369,9 +354,7 @@ async def test_preflight_liquidity_sell_side():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.SELL, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.SELL, config)
 
     # Assert
     assert result.passed is True
@@ -407,9 +390,7 @@ async def test_preflight_liquidity_metrics():
     )
 
     # Act
-    result = await check_preflight_liquidity(
-        lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config
-    )
+    result = await check_preflight_liquidity(lighter_adapter, x10_adapter, "BTC-PERP", required_qty, Side.BUY, config)
 
     # Assert
     assert result.passed is True

@@ -22,10 +22,7 @@ async def _write_loop(self) -> None:
         try:
             # Wait for item or timeout
             try:
-                item = await asyncio.wait_for(
-                    self._write_queue.get(),
-                    timeout=1.0
-                )
+                item = await asyncio.wait_for(self._write_queue.get(), timeout=1.0)
             except TimeoutError:
                 # Flush any pending batch
                 if batch:
@@ -102,8 +99,7 @@ async def _flush_batch(self, batch: list[dict[str, Any]]) -> None:
         # Operations that don't benefit from batching (already bulk or unique)
         for item in batch:
             action = item.get("action")
-            if action in ("upsert_trade", "append_event", "record_funding",
-                          "save_snapshot", "record_funding_history"):
+            if action in ("upsert_trade", "append_event", "record_funding", "save_snapshot", "record_funding_history"):
                 continue  # Already handled above
             elif action == "replace_funding_events":
                 await self._replace_funding_events_rows(item["data"])
@@ -333,6 +329,7 @@ async def _upsert_volatility_profile_row(self, data: dict[str, Any]) -> None:
 # PREMIUM-OPTIMIZED: Batch operations using executemany (10x faster)
 # =============================================================================
 
+
 async def _upsert_trade_rows_batch(self, items: list[dict[str, Any]]) -> None:
     """
     Batch upsert multiple trade rows using executemany.
@@ -377,13 +374,15 @@ async def _insert_event_rows_batch(self, items: list[dict[str, Any]]) -> None:
     batch_values = []
     for item in items:
         data = item["data"]
-        batch_values.append((
-            data["event_id"],
-            data["trade_id"],
-            data["event_type"],
-            data["timestamp"],
-            data["payload"],
-        ))
+        batch_values.append(
+            (
+                data["event_id"],
+                data["trade_id"],
+                data["event_type"],
+                data["timestamp"],
+                data["payload"],
+            )
+        )
 
     await self._conn.executemany(
         """
@@ -406,12 +405,14 @@ async def _insert_funding_rows_batch(self, items: list[dict[str, Any]]) -> None:
     batch_values = []
     for item in items:
         data = item["data"]
-        batch_values.append((
-            data["trade_id"],
-            data["exchange"],
-            str(data["amount"]),
-            data["timestamp"],
-        ))
+        batch_values.append(
+            (
+                data["trade_id"],
+                data["exchange"],
+                str(data["amount"]),
+                data["timestamp"],
+            )
+        )
 
     await self._conn.executemany(
         """
@@ -434,14 +435,16 @@ async def _insert_snapshot_rows_batch(self, items: list[dict[str, Any]]) -> None
     batch_values = []
     for item in items:
         data = item["data"]
-        batch_values.append((
-            data["trade_id"],
-            str(data["realized_pnl"]),
-            str(data["unrealized_pnl"]),
-            str(data["funding"]),
-            str(data["fees"]),
-            data["timestamp"],
-        ))
+        batch_values.append(
+            (
+                data["trade_id"],
+                str(data["realized_pnl"]),
+                str(data["unrealized_pnl"]),
+                str(data["funding"]),
+                str(data["fees"]),
+                data["timestamp"],
+            )
+        )
 
     await self._conn.executemany(
         """
@@ -464,15 +467,17 @@ async def _insert_funding_history_rows_batch(self, items: list[dict[str, Any]]) 
     batch_values = []
     for item in items:
         data = item["data"]
-        batch_values.append((
-            data["timestamp"],
-            data["symbol"],
-            data["exchange"],
-            str(data["rate_hourly"]),
-            str(data["rate_apy"]) if data.get("rate_apy") is not None else None,
-            data.get("next_funding_time"),
-            data.get("created_at", datetime.now(UTC).isoformat()),
-        ))
+        batch_values.append(
+            (
+                data["timestamp"],
+                data["symbol"],
+                data["exchange"],
+                str(data["rate_hourly"]),
+                str(data["rate_apy"]) if data.get("rate_apy") is not None else None,
+                data.get("next_funding_time"),
+                data.get("created_at", datetime.now(UTC).isoformat()),
+            )
+        )
 
     await self._conn.executemany(
         """

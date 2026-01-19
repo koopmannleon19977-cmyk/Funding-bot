@@ -103,4 +103,3 @@ async def test_leg1_falls_back_to_attempt_price_when_avg_fill_is_zero():
 
     assert trade.leg1.filled_qty == Decimal("1")
     assert trade.leg1.entry_price == Decimal("100")
-

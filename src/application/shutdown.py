@@ -1,18 +1,20 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import config
 from src.infrastructure.rate_limiter import shutdown_all_rate_limiters
 from src.utils.pnl_utils import compute_hedge_pnl
+
 # Note: This file has been moved to application/lifecycle/ for better organization
 
 logger = logging.getLogger(__name__)
 
 
-class ShutdownResult(Dict[str, Any]):
+class ShutdownResult(dict[str, Any]):
     """Typed-ish result object for shutdown attempts."""
+
     pass
 
 
@@ -41,31 +43,31 @@ class ShutdownOrchestrator:
         self.verify_delay = verify_delay
         self.base_slippage = base_slippage
 
-        self._components: Dict[str, Any] = {}
+        self._components: dict[str, Any] = {}
         self._lock = asyncio.Lock()
         self._in_progress = False
-        self._last_result: Optional[ShutdownResult] = None
+        self._last_result: ShutdownResult | None = None
         self._shutdown_started = False
-        self._positions_at_start: Dict[str, List] = {}
-        
+        self._positions_at_start: dict[str, list] = {}
+
         # ═══════════════════════════════════════════════════════════════
         # FIX: Track if shutdown has already completed to prevent duplicate runs
         # This prevents multiple shutdown calls from re-running teardown/persist
         # ═══════════════════════════════════════════════════════════════
         self._shutdown_completed = False
-        
+
         # ═══════════════════════════════════════════════════════════════
         # FIX: Track closed positions to prevent duplicate close attempts
         # This prevents "Position is missing for reduce-only order" (1137)
         # ═══════════════════════════════════════════════════════════════
-        self._closed_positions: Dict[str, set] = {"x10": set(), "lighter": set()}
+        self._closed_positions: dict[str, set] = {"x10": set(), "lighter": set()}
         self._closed_positions_lock = asyncio.Lock()  # Thread-safe access to _closed_positions
-        
+
         # ═══════════════════════════════════════════════════════════════
         # PNL FIX: Store Lighter PnL data when positions are closed
         # This data is then passed to state_manager.close_trade()
         # ═══════════════════════════════════════════════════════════════
-        self._position_pnl_data: Dict[str, Dict[str, float]] = {}
+        self._position_pnl_data: dict[str, dict[str, float]] = {}
 
     def configure(self, **components: Any) -> None:
         """Register/override components lazily; ignore None."""
@@ -92,7 +94,7 @@ class ShutdownOrchestrator:
             if self._shutdown_completed and self._last_result:
                 logger.info(f"✅ Shutdown already completed (reason={reason}), returning cached result")
                 return self._last_result
-            
+
             if self._in_progress:
                 return self._last_result or {
                     "success": False,
@@ -105,8 +107,8 @@ class ShutdownOrchestrator:
             self._shutdown_started = True
 
         start = time.monotonic()
-        errors: List[str] = []
-        remaining: Dict[str, Any] = {}
+        errors: list[str] = []
+        remaining: dict[str, Any] = {}
 
         try:
             # ═══════════════════════════════════════════════════════════
@@ -118,7 +120,7 @@ class ShutdownOrchestrator:
                 pass
 
             logger.info(f"🛑 Shutdown orchestrator start (reason={reason})")
-            
+
             # ═══════════════════════════════════════════════════════════
             # PHASE 0.5: Shutdown rate limiters FIRST
             # This cancels all waiting tasks to prevent hanging during shutdown
@@ -146,29 +148,29 @@ class ShutdownOrchestrator:
                 # This is CRITICAL - let active trades complete or rollback
                 # ═══════════════════════════════════════════════════════
                 await self._wait_for_active_executions(errors)
-                
+
                 # ═══════════════════════════════════════════════════════
                 # PHASE 3: Cancel any remaining open orders
                 # ═══════════════════════════════════════════════════════
                 await self._cancel_open_orders(errors)
-                
+
                 # ═══════════════════════════════════════════════════════
                 # PHASE 4: Close positions with verification loop
                 # ═══════════════════════════════════════════════════════
                 await self._close_and_verify_positions(errors)
-                
+
                 # ═══════════════════════════════════════════════════════
                 # PHASE 5: Final safety check - any orphaned positions?
                 # ═══════════════════════════════════════════════════════
                 await self._final_position_sweep(errors)
-                
+
                 # ═══════════════════════════════════════════════════════
                 # PHASE 6: Persist state and cleanup
                 # ═══════════════════════════════════════════════════════
                 await self._persist_state(errors)
                 await self._teardown_components(errors)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             errors.append("shutdown_timeout")
             logger.error("❌ Shutdown exceeded global timeout")
         except Exception as e:  # noqa: BLE001
@@ -186,7 +188,7 @@ class ShutdownOrchestrator:
             # Calculate success
             remaining_count = len(remaining.get("lighter", [])) + len(remaining.get("x10", []))
             success = remaining_count == 0 and "shutdown_timeout" not in errors
-            
+
             result: ShutdownResult = {
                 "success": success,
                 "errors": errors,
@@ -196,7 +198,7 @@ class ShutdownOrchestrator:
             }
             self._last_result = result
             self._in_progress = False
-            
+
             # ═══════════════════════════════════════════════════════════════
             # FIX: Mark shutdown as completed to prevent duplicate runs
             # ═══════════════════════════════════════════════════════════════
@@ -204,34 +206,31 @@ class ShutdownOrchestrator:
                 self._shutdown_completed = True
                 logger.info(f"✅ All positions closed. Bye! (elapsed={elapsed:.2f}s)")
             else:
-                logger.error(
-                    f"⚠️ Shutdown incomplete! {remaining_count} positions remain. "
-                    f"Errors: {errors}"
-                )
-            
+                logger.error(f"⚠️ Shutdown incomplete! {remaining_count} positions remain. Errors: {errors}")
+
             return result
 
-    async def _wait_for_active_executions(self, errors: List[str]) -> None:
+    async def _wait_for_active_executions(self, errors: list[str]) -> None:
         """Wait for ParallelExecutionManager to gracefully stop active executions."""
         parallel_exec = self._components.get("parallel_exec")
-        
+
         if not parallel_exec:
             logger.info("ℹ️ No ParallelExecutionManager registered")
             return
-        
-        active_count = len(getattr(parallel_exec, 'active_executions', {}))
+
+        active_count = len(getattr(parallel_exec, "active_executions", {}))
         if active_count == 0:
             logger.info("✅ No active executions to wait for")
             return
-        
+
         logger.info(f"⏳ Waiting for {active_count} active executions to complete or rollback...")
-        
+
         try:
             # Give ParallelExecutionManager time to gracefully stop
             # This calls its stop() which handles rollback internally
             async with asyncio.timeout(45.0):  # 45s for graceful stop
                 await parallel_exec.stop(force=False)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("⚠️ Graceful execution stop timed out, forcing...")
             errors.append("execution_graceful_timeout")
             try:
@@ -242,29 +241,29 @@ class ShutdownOrchestrator:
             errors.append(f"execution_stop_error:{e}")
             logger.error(f"❌ Error stopping executions: {e}")
 
-    async def _final_position_sweep(self, errors: List[str]) -> None:
+    async def _final_position_sweep(self, errors: list[str]) -> None:
         """
         Final safety check for any orphaned positions.
-        
+
         This catches positions that:
         - Were opened by fills during shutdown
         - Were missed by earlier close attempts
         - Appeared due to race conditions
-        
+
         FIX: Now respects position tracking to avoid duplicate close attempts.
         """
         logger.info("🔍 Final position sweep...")
-        
+
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # FIX 2 (2025-12-13): FINAL ImmediateCancelAll BEFORE position sweep
         # This catches any orders placed AFTER the first CancelAll during:
         # 1. Retry attempts that slipped through
         # 2. Orders placed with later nonces (e.g., 7632 after 7631 CancelAll)
         # 3. Race conditions between shutdown phases
-        # 
+        #
         # Pattern from lighter-ts-main/examples/cancel_all_orders.ts:
         # - Execute ImmediateCancelAll with TIF=0, Time=0
         # - Wait for confirmation
@@ -278,63 +277,63 @@ class ShutdownOrchestrator:
                     symbols = await self._collect_relevant_symbols()
                     if symbols:
                         # Reset the dedup flag to force a new CancelAll
-                        if hasattr(lighter, '_shutdown_cancel_done'):
+                        if hasattr(lighter, "_shutdown_cancel_done"):
                             lighter._shutdown_cancel_done = False
                         await lighter.cancel_all_orders(symbols[0])
                         logger.info("✅ [FINAL] ImmediateCancelAll executed")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning("⚠️ [FINAL] ImmediateCancelAll timed out")
             except Exception as e:
                 logger.warning(f"⚠️ [FINAL] ImmediateCancelAll error: {e}")
-        
+
         # ═══════════════════════════════════════════════════════════════
         # FIX: Fetch FRESH positions from exchange for final sweep
         # This prevents using stale cached positions
         # ═══════════════════════════════════════════════════════════════
         positions = await self._fetch_positions()
-        
+
         all_positions = []
         for pos in positions.get("lighter", []):
             all_positions.append(("lighter", lighter, pos))
         for pos in positions.get("x10", []):
             all_positions.append(("x10", x10, pos))
-        
+
         if not all_positions:
             logger.info("✅ Final sweep: No positions found")
             return
-        
+
         # Filter out already-closed positions
         positions_to_close = []
         for exchange_name, adapter, pos in all_positions:
             symbol = pos.get("symbol")
             size = self._safe_float(pos.get("size", 0))
-            
+
             if abs(size) < 1e-8:
                 continue
-            
+
             # ═══════════════════════════════════════════════════════════════
             # FIX: Skip positions already closed in this shutdown cycle
             # ═══════════════════════════════════════════════════════════════
             if await self._is_closed(exchange_name, symbol):
                 logger.debug(f"⏭️ Final sweep: {exchange_name} {symbol} already closed, skipping")
                 continue
-            
+
             positions_to_close.append((exchange_name, adapter, pos))
-        
+
         if not positions_to_close:
             logger.info("✅ Final sweep: All positions already handled")
             return
-        
+
         logger.warning(f"⚠️ Final sweep found {len(positions_to_close)} positions to close!")
-        
+
         for exchange_name, adapter, pos in positions_to_close:
             symbol = pos.get("symbol")
             size = self._safe_float(pos.get("size", 0))
-            
+
             if not adapter:
                 errors.append(f"final_close_no_adapter:{exchange_name}:{symbol}")
                 continue
-            
+
             # ═══════════════════════════════════════════════════════════════
             # PNL FIX: Also extract PnL data in final sweep for Lighter positions
             # ═══════════════════════════════════════════════════════════════
@@ -347,7 +346,7 @@ class ShutdownOrchestrator:
                     # Fallback: invert paid_out (paid_out > 0 is cost)
                     total_funding = -self._safe_float(pos.get("total_funding_paid_out", 0))
                 avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
-                
+
                 self._position_pnl_data[symbol] = {
                     "unrealized_pnl": unrealized_pnl,
                     "realized_pnl": realized_pnl,
@@ -357,7 +356,7 @@ class ShutdownOrchestrator:
                     # Keep a snapshot of the lighter position size if provided
                     "lighter_size": self._safe_float(pos.get("size", 0)),
                 }
-                
+
                 if unrealized_pnl != 0 or realized_pnl != 0:
                     logger.info(
                         f"📊 {symbol} Final Sweep PnL: uPnL=${unrealized_pnl:.4f}, "
@@ -377,28 +376,26 @@ class ShutdownOrchestrator:
                     # Store side from position for correct PnL sign
                     data["x10_side"] = pos.get("side", "")
                     self._position_pnl_data[symbol] = data
-            
+
             try:
                 # original_side is the side of the POSITION (BUY for long, SELL for short)
                 original_side = "BUY" if size > 0 else "SELL"
                 close_side = "SELL" if size > 0 else "BUY"
-                
+
                 # Calculate notional_usd from size and cached price
                 price = self._get_cached_price(symbol)
                 if price:
                     notional_usd = abs(size) * price
                 else:
                     notional_usd = abs(size) * 100  # Conservative fallback
-                
-                logger.info(f"🚨 Final close: {exchange_name} {symbol} {close_side} {abs(size)} (notional=${notional_usd:.2f})")
-                
+
+                logger.info(
+                    f"🚨 Final close: {exchange_name} {symbol} {close_side} {abs(size)} (notional=${notional_usd:.2f})"
+                )
+
                 # Use close_live_position with POSITIONAL arguments (symbol, original_side, notional_usd)
-                if hasattr(adapter, 'close_live_position'):
-                    success, _ = await adapter.close_live_position(
-                        symbol,
-                        original_side,
-                        notional_usd
-                    )
+                if hasattr(adapter, "close_live_position"):
+                    success, _ = await adapter.close_live_position(symbol, original_side, notional_usd)
                 else:
                     success, _ = await adapter.open_live_position(
                         symbol=symbol,
@@ -406,18 +403,18 @@ class ShutdownOrchestrator:
                         notional_usd=0,
                         amount=abs(size),
                         reduce_only=True,
-                        time_in_force="IOC"
+                        time_in_force="IOC",
                     )
-                
+
                 if success:
                     # Track successful close
                     await self._mark_closed(exchange_name, symbol)
                 else:
                     errors.append(f"final_close_failed:{exchange_name}:{symbol}")
-                    
+
             except Exception as e:
                 err_str = str(e)
-                
+
                 # ═══════════════════════════════════════════════════════════════
                 # FIX: Handle "position missing" errors gracefully in final sweep
                 # ═══════════════════════════════════════════════════════════════
@@ -425,22 +422,22 @@ class ShutdownOrchestrator:
                     logger.info(f"✅ Final sweep: {exchange_name} {symbol} already closed")
                     await self._mark_closed(exchange_name, symbol)
                     continue
-                
+
                 errors.append(f"final_close_error:{exchange_name}:{symbol}:{e}")
                 logger.error(f"❌ Final close error {symbol}: {e}")
-        
+
         # Verify all closed
         await asyncio.sleep(1.0)
         final_check = await self._fetch_positions()
         final_count = len(final_check.get("lighter", [])) + len(final_check.get("x10", []))
-        
+
         if final_count > 0:
             logger.error(f"❌ CRITICAL: {final_count} positions still remain after final sweep!")
         else:
             logger.info("✅ Final sweep complete - all positions closed")
 
     # ----- Phases -----------------------------------------------------
-    async def _cancel_open_orders(self, errors: List[str]) -> None:
+    async def _cancel_open_orders(self, errors: list[str]) -> None:
         """Cancel open orders for relevant symbols with timeout - OPTIMIZED for parallel batch operations."""
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
@@ -451,19 +448,14 @@ class ShutdownOrchestrator:
             return
 
         tasks = []
-        
+
         # Phase 1: Lighter - Single global ImmediateCancelAll (cancels ALL orders across all symbols)
         if lighter and hasattr(lighter, "cancel_all_orders") and symbols:
             try:
                 # Use first symbol to trigger global cancel attempt (ImmediateCancelAll cancels ALL orders)
                 first_sym = symbols[0]
                 logger.info("⚡ Attempting global Lighter cancel (ImmediateCancelAll)...")
-                tasks.append(
-                    asyncio.create_task(
-                        lighter.cancel_all_orders(first_sym),
-                        name="lighter_global_cancel"
-                    )
-                )
+                tasks.append(asyncio.create_task(lighter.cancel_all_orders(first_sym), name="lighter_global_cancel"))
             except Exception as e:
                 logger.warning(f"⚠️ Global Lighter cancel task creation failed: {e}")
 
@@ -471,22 +463,14 @@ class ShutdownOrchestrator:
         if x10 and hasattr(x10, "mass_cancel_orders"):
             batch_size = 50
             for i in range(0, len(symbols), batch_size):
-                batch = symbols[i:i + batch_size]
+                batch = symbols[i : i + batch_size]
                 tasks.append(
-                    asyncio.create_task(
-                        self._cancel_x10_batch(x10, batch, errors),
-                        name=f"x10_cancel_batch_{i}"
-                    )
+                    asyncio.create_task(self._cancel_x10_batch(x10, batch, errors), name=f"x10_cancel_batch_{i}")
                 )
         elif x10 and hasattr(x10, "cancel_all_orders"):
             # Fallback: Individual cancels if mass_cancel_orders not available
             for sym in symbols:
-                tasks.append(
-                    asyncio.create_task(
-                        x10.cancel_all_orders(sym),
-                        name=f"x10_cancel_{sym}"
-                    )
-                )
+                tasks.append(asyncio.create_task(x10.cancel_all_orders(sym), name=f"x10_cancel_{sym}"))
 
         if not tasks:
             return
@@ -500,15 +484,15 @@ class ShutdownOrchestrator:
                 # Log any exceptions but don't fail shutdown
                 for i, result in enumerate(results):
                     if isinstance(result, Exception):
-                        task_name = tasks[i].get_name() if hasattr(tasks[i], 'get_name') else f"task_{i}"
+                        task_name = tasks[i].get_name() if hasattr(tasks[i], "get_name") else f"task_{i}"
                         logger.debug(f"⚠️ Cancel task {task_name} failed: {result}")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             errors.append("cancel_orders_timeout")
             logger.warning("⚠️ Cancel orders timed out (some batches may still be processing)")
-    
-    async def _cancel_x10_batch(self, x10, symbols: List[str], errors: List[str]) -> None:
+
+    async def _cancel_x10_batch(self, x10, symbols: list[str], errors: list[str]) -> None:
         """Cancel X10 orders for a batch of symbols using mass_cancel_orders - OPTIMIZED for parallel execution.
-        
+
         FIX (2025-12-22): Filter symbols to only include markets that exist on X10.
         This prevents "Market not found" (error 1001) errors during shutdown.
         """
@@ -521,24 +505,24 @@ class ShutdownOrchestrator:
             x10_markets = set()
             if hasattr(x10, "market_info") and x10.market_info:
                 x10_markets = set(x10.market_info.keys())
-            
+
             # Filter symbols to only those that exist on X10
             valid_symbols = [s for s in symbols if s in x10_markets] if x10_markets else symbols
-            
+
             if not valid_symbols:
                 logger.debug(f"⏭️ [X10 Mass Cancel] No valid X10 markets in batch of {len(symbols)} symbols")
                 return
-            
+
             if len(valid_symbols) < len(symbols):
                 logger.debug(f"🔍 [X10 Mass Cancel] Filtered {len(symbols)} -> {len(valid_symbols)} valid X10 markets")
-            
+
             if hasattr(x10, "mass_cancel_orders"):
                 # Use mass_cancel_orders with markets list (supports multiple symbols)
                 result = await x10.mass_cancel_orders(markets=valid_symbols)
                 if result:
                     logger.debug(f"✅ [X10 Mass Cancel] Successfully cancelled orders in {len(valid_symbols)} markets")
                     return  # Success, no fallback needed
-                
+
                 # Mass cancel failed - check if it's due to delisted markets
                 # If all markets are delisted, skip fallback (waste of time)
                 # Only fallback if we think there are real orders to cancel
@@ -549,13 +533,9 @@ class ShutdownOrchestrator:
                 return
             else:
                 # Fallback if mass_cancel_orders not available - parallelize individual cancels
-                logger.debug(f"⚠️ [X10] mass_cancel_orders not available, using parallel individual cancels")
+                logger.debug("⚠️ [X10] mass_cancel_orders not available, using parallel individual cancels")
                 cancel_tasks = [
-                    asyncio.create_task(
-                        x10.cancel_all_orders(sym),
-                        name=f"x10_cancel_{sym}"
-                    )
-                    for sym in valid_symbols
+                    asyncio.create_task(x10.cancel_all_orders(sym), name=f"x10_cancel_{sym}") for sym in valid_symbols
                 ]
                 if cancel_tasks:
                     # Execute all individual cancels in parallel
@@ -565,9 +545,9 @@ class ShutdownOrchestrator:
             errors.append(error_msg)
             logger.warning(f"⚠️ [X10] Batch cancel error: {e}")
 
-    async def _close_and_verify_positions(self, errors: List[str]) -> None:
+    async def _close_and_verify_positions(self, errors: list[str]) -> None:
         """Close positions with retries and verification.
-        
+
         FIX: Now checks if position still exists before attempting close,
         preventing "Position is missing for reduce-only order" (error 1137).
         """
@@ -610,19 +590,16 @@ class ShutdownOrchestrator:
                 original_side = "BUY" if size > 0 else "SELL"
 
                 # Best-effort notional (used for logging / future semantics; adapter re-checks live position anyway)
-                px = (
-                    self._get_cached_price(symbol)
-                    or self._safe_float(
-                        pos.get("markPrice")
-                        or pos.get("mark_price")
-                        or pos.get("indexPrice")
-                        or pos.get("index_price")
-                        or pos.get("price")
-                        or 0
-                    )
+                px = self._get_cached_price(symbol) or self._safe_float(
+                    pos.get("markPrice")
+                    or pos.get("mark_price")
+                    or pos.get("indexPrice")
+                    or pos.get("index_price")
+                    or pos.get("price")
+                    or 0
                 )
                 notional_usd = abs(size) * px if px else abs(size) * 100
-                
+
                 # ═══════════════════════════════════════════════════════════════
                 # FIX: Skip if already closed in this shutdown cycle
                 # ═══════════════════════════════════════════════════════════════
@@ -646,9 +623,11 @@ class ShutdownOrchestrator:
                         self._position_pnl_data[symbol] = data
                 except Exception:
                     pass
-                
+
                 try:
-                    logger.info(f"🛑 Closing X10 {symbol} (pos={original_side} size={abs(size)} notional≈${notional_usd:.2f})")
+                    logger.info(
+                        f"🛑 Closing X10 {symbol} (pos={original_side} size={abs(size)} notional≈${notional_usd:.2f})"
+                    )
                     x10_tasks.append(self._close_x10_with_tracking(x10, symbol, original_side, notional_usd, errors))
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"x10_close_prepare:{symbol}:{e}")
@@ -662,14 +641,14 @@ class ShutdownOrchestrator:
                 symbol = pos.get("symbol")
                 if not symbol:
                     continue
-                
+
                 # ═══════════════════════════════════════════════════════════════
                 # FIX: Skip if already closed in this shutdown cycle
                 # ═══════════════════════════════════════════════════════════════
                 if await self._is_closed("lighter", symbol):
                     logger.debug(f"⏭️ Lighter {symbol} already closed this cycle, skipping")
                     continue
-                
+
                 # ═══════════════════════════════════════════════════════════════
                 # PNL FIX: Extract REAL PnL data from Lighter position BEFORE closing
                 # These values are calculated by Lighter and are accurate!
@@ -681,7 +660,7 @@ class ShutdownOrchestrator:
                 if total_funding == 0:
                     total_funding = -self._safe_float(pos.get("total_funding_paid_out", 0))
                 avg_entry = self._safe_float(pos.get("avg_entry_price", 0))
-                
+
                 # Store PnL data for this symbol (will be used in _persist_state)
                 self._position_pnl_data[symbol] = {
                     "unrealized_pnl": unrealized_pnl,
@@ -691,13 +670,13 @@ class ShutdownOrchestrator:
                     "avg_entry_price": avg_entry,
                     "lighter_size": self._safe_float(pos.get("size", 0)),
                 }
-                
+
                 if unrealized_pnl != 0 or realized_pnl != 0:
                     logger.info(
                         f"📊 {symbol} Pre-Close PnL: uPnL=${unrealized_pnl:.4f}, "
                         f"rPnL=${realized_pnl:.4f}, funding=${total_funding:.4f}, entry=${avg_entry:.6f}"
                     )
-                
+
                 close_side = "SELL" if size > 0 else "BUY"
                 price = self._get_cached_price(symbol)
 
@@ -706,8 +685,7 @@ class ShutdownOrchestrator:
                 # We pass the raw price and let the adapter apply LIGHTER_MAX_SLIPPAGE_PCT
                 try:
                     logger.info(
-                        f"🛑 Closing Lighter {symbol}: {close_side} {abs(size)} "
-                        f"(IOC reduce_only, price={price})"
+                        f"🛑 Closing Lighter {symbol}: {close_side} {abs(size)} (IOC reduce_only, price={price})"
                     )
                     lighter_tasks.append(
                         self._close_lighter_with_tracking(lighter, symbol, close_side, abs(size), price, errors)
@@ -733,7 +711,7 @@ class ShutdownOrchestrator:
                         for i, result in enumerate(results):
                             if isinstance(result, Exception):
                                 logger.debug(f"⚠️ Close task {i} failed: {result}")
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     errors.append("close_positions_timeout")
                     logger.warning("⚠️ Close positions timed out")
 
@@ -743,16 +721,11 @@ class ShutdownOrchestrator:
         # Final verification handled by caller via _fetch_positions_safely
 
     async def _close_x10_with_tracking(
-        self, 
-        x10, 
-        symbol: str, 
-        original_side: str,
-        notional_usd: float,
-        errors: List[str]
-    ) -> Tuple[bool, Optional[str]]:
+        self, x10, symbol: str, original_side: str, notional_usd: float, errors: list[str]
+    ) -> tuple[bool, str | None]:
         """
         Close X10 position with tracking to prevent duplicate close attempts.
-        
+
         Handles error 1137 "Position is missing for reduce-only order" gracefully
         by marking the position as closed.
         """
@@ -763,20 +736,20 @@ class ShutdownOrchestrator:
         if await self._is_closed("x10", symbol):
             logger.debug(f"✅ X10 {symbol}: Already tracked as closed, skipping API call")
             return True, None
-        
+
         try:
             success, order_id = await x10.close_live_position(symbol, original_side, notional_usd)
-            
+
             if success:
                 # Mark as closed
                 await self._mark_closed("x10", symbol)
                 logger.info(f"✅ X10 {symbol} closed and tracked")
-            
+
             return success, order_id
-            
+
         except Exception as e:
             err_str = str(e)
-            
+
             # ═══════════════════════════════════════════════════════════════
             # FIX: Handle X10 error codes 1137 and 1138 gracefully
             # 1137: "Position is missing for reduce-only order" - position already closed
@@ -786,29 +759,23 @@ class ShutdownOrchestrator:
                 logger.info(f"✅ X10 {symbol}: Position already closed (1137)")
                 await self._mark_closed("x10", symbol)
                 return True, None
-                
+
             if "1138" in err_str or "same side" in err_str.lower():
                 logger.warning(f"⚠️ X10 {symbol}: Position side mismatch (1138) - verifying state...")
                 # Position might be closed or side changed - mark as handled
                 await self._mark_closed("x10", symbol)
                 return True, None
-            
+
             errors.append(f"x10_close_error:{symbol}:{e}")
             logger.error(f"❌ X10 close error {symbol}: {e}")
             return False, None
 
     async def _close_lighter_with_tracking(
-        self, 
-        lighter, 
-        symbol: str, 
-        close_side: str, 
-        size: float, 
-        price: Optional[float],
-        errors: List[str]
-    ) -> Tuple[bool, Optional[str]]:
+        self, lighter, symbol: str, close_side: str, size: float, price: float | None, errors: list[str]
+    ) -> tuple[bool, str | None]:
         """
         Close Lighter position with tracking to prevent duplicate close attempts.
-        
+
         ENHANCED: Now handles dust positions by using exact coin amount + reduce_only
         which bypasses min_notional validation in the adapter.
         """
@@ -818,21 +785,17 @@ class ShutdownOrchestrator:
         if await self._is_closed("lighter", symbol):
             logger.debug(f"✅ Lighter {symbol}: Already tracked as closed, skipping API call")
             return True, None
-        
+
         try:
             # ═══════════════════════════════════════════════════════════════
             # CRITICAL FIX: Use close_live_position which handles dust positions
             # It now uses reduce_only=True + IOC + exact coin amount
             # ═══════════════════════════════════════════════════════════════
-            if hasattr(lighter, 'close_live_position'):
+            if hasattr(lighter, "close_live_position"):
                 # close_live_position handles everything internally
                 original_side = "SELL" if close_side == "BUY" else "BUY"  # Position side is opposite of close side
                 notional_usd = abs(size) * price if price else abs(size) * 100
-                success, order_id = await lighter.close_live_position(
-                    symbol,
-                    original_side,
-                    notional_usd
-                )
+                success, order_id = await lighter.close_live_position(symbol, original_side, notional_usd)
             else:
                 # Fallback: Direct open_live_position call
                 success, order_id = await lighter.open_live_position(
@@ -845,12 +808,12 @@ class ShutdownOrchestrator:
                     reduce_only=True,
                     time_in_force="IOC",
                 )
-            
+
             if success:
                 # Mark as closed
                 await self._mark_closed("lighter", symbol)
                 logger.info(f"✅ Lighter {symbol} closed and tracked")
-                
+
                 # ═══════════════════════════════════════════════════════════════
                 # PNL FIX: Try Lighter API first (Grok's suggestion), then X10 proxy
                 # Priority:
@@ -860,15 +823,15 @@ class ShutdownOrchestrator:
                 # ═══════════════════════════════════════════════════════════════
                 try:
                     await asyncio.sleep(0.5)  # Wait for fills to settle
-                    
+
                     pre_close_data = self._position_pnl_data.get(symbol, {})
                     entry_price = pre_close_data.get("avg_entry_price", 0.0)
                     position_size = abs(size)
-                    
+
                     closed_pnl = None
                     pnl_source = "unknown"
                     close_price = 0.0
-                    
+
                     # ═══════════════════════════════════════════════════════════════
                     # PRIORITY 1: Try Lighter accountInactiveOrders for the REAL close fill price
                     #
@@ -886,7 +849,7 @@ class ShutdownOrchestrator:
                             except Exception:
                                 entry_time = now_ts - 600
 
-                            def _ts_to_sec(v) -> Optional[float]:
+                            def _ts_to_sec(v) -> float | None:
                                 """Best-effort timestamp normalizer for accountTrades."""
                                 if v is None:
                                     return None
@@ -917,7 +880,7 @@ class ShutdownOrchestrator:
                             for _ in range(10):
                                 trades = await lighter.fetch_my_trades(symbol, limit=50, force=True)
                                 parsed = []
-                                for t in (trades or []):
+                                for t in trades or []:
                                     try:
                                         p = float(t.get("price") or 0)
                                         if p <= 0:
@@ -945,49 +908,51 @@ class ShutdownOrchestrator:
                                     break
 
                                 if close_price > 0:
-                                    logger.info(f"✅ {symbol} Using Lighter accountTrades close price: ${close_price:.6f}")
+                                    logger.info(
+                                        f"✅ {symbol} Using Lighter accountTrades close price: ${close_price:.6f}"
+                                    )
                                     break
 
                                 await asyncio.sleep(0.75)
                         except Exception as api_err:
                             logger.debug(f"Lighter accountTrades close-price fetch failed: {api_err}")
-                    
+
                     # ═══════════════════════════════════════════════════════════════
                     # PRIORITY 2: X10 fill price as close price proxy (fallback only)
                     # Only use if we didn't get Lighter close price from PRIORITY 1
                     # ═══════════════════════════════════════════════════════════════
                     if close_price == 0.0:
                         x10 = self._components.get("x10")
-                        if x10 and hasattr(x10, 'get_last_close_price'):
+                        if x10 and hasattr(x10, "get_last_close_price"):
                             x10_price, x10_qty, x10_fee = x10.get_last_close_price(symbol)
                             if x10_price > 0:
                                 close_price = x10_price
                                 pnl_source = "x10_fill_proxy"
                                 logger.debug(f"[PNL] {symbol}: Using X10 fill price ${x10_price:.6f} (fallback)")
-                    
+
                     # ═══════════════════════════════════════════════════════════════
                     # PRIORITY 3: Orderbook mid-price (last resort)
                     # ═══════════════════════════════════════════════════════════════
                     if closed_pnl is None and close_price == 0.0:
-                        if hasattr(lighter, '_rest_get'):
+                        if hasattr(lighter, "_rest_get"):
                             try:
                                 market = lighter.market_info.get(symbol, {})
-                                market_index = market.get('i') or market.get('market_id')
+                                market_index = market.get("i") or market.get("market_id")
                                 if market_index:
                                     resp = await lighter._rest_get(
-                                        "/api/v1/orderBookDetails", 
+                                        "/api/v1/orderBookDetails",
                                         params={"market_index": int(market_index)},
-                                        force=True
+                                        force=True,
                                     )
                                     if resp:
-                                        best_bid = float(resp.get('best_bid_price', 0) or 0)
-                                        best_ask = float(resp.get('best_ask_price', 0) or 0)
+                                        best_bid = float(resp.get("best_bid_price", 0) or 0)
+                                        best_ask = float(resp.get("best_ask_price", 0) or 0)
                                         if best_bid > 0 and best_ask > 0:
                                             close_price = (best_bid + best_ask) / 2
                                             pnl_source = "orderbook_mid"
                             except Exception:
                                 pass
-                        
+
                         # Ultimate fallback
                         if close_price == 0.0:
                             try:
@@ -995,14 +960,14 @@ class ShutdownOrchestrator:
                                 pnl_source = "cached_price"
                             except Exception:
                                 close_price = 0.0
-                    
+
                     # Calculate PnL if not from direct API
                     if closed_pnl is None and entry_price > 0 and close_price > 0 and position_size > 0:
                         if close_side.upper() == "BUY":  # Closing a SHORT
                             closed_pnl = (entry_price - close_price) * position_size
                         else:  # Closing a LONG
                             closed_pnl = (close_price - entry_price) * position_size
-                    
+
                     # Store result
                     if closed_pnl is not None:
                         self._position_pnl_data[symbol] = {
@@ -1013,28 +978,28 @@ class ShutdownOrchestrator:
                             "closed_size": position_size,
                             "entry_price": entry_price,
                             "close_price": close_price,
-                            "source": pnl_source
+                            "source": pnl_source,
                         }
                         logger.info(
                             f"💰 {symbol} Lighter Closed PnL: ${closed_pnl:.4f} "
                             f"(entry=${entry_price:.6f}, close=${close_price:.6f}, "
                             f"size={position_size:.4f}, source={pnl_source})"
                         )
-                            
+
                 except Exception as pnl_err:
                     logger.debug(f"⚠️ {symbol} Could not calculate post-close PnL: {pnl_err}")
-            
+
             return success, order_id
-            
+
         except Exception as e:
             err_str = str(e)
-            
+
             # Check for "no position" type errors from Lighter
             if any(msg in err_str.lower() for msg in ["no position", "position not found", "reduce only"]):
                 logger.info(f"✅ Lighter {symbol}: Position already closed")
                 await self._mark_closed("lighter", symbol)
                 return True, None
-            
+
             # ═══════════════════════════════════════════════════════════════
             # CRITICAL: Handle dust rejection from exchange gracefully
             # If the exchange rejects due to min size, log and mark as handled
@@ -1042,16 +1007,18 @@ class ShutdownOrchestrator:
             # naturally decay or can be manually closed later.
             # ═══════════════════════════════════════════════════════════════
             if any(msg in err_str.lower() for msg in ["min", "minimum", "too small", "invalid size"]):
-                logger.warning(f"⚠️ Lighter {symbol}: Exchange rejected dust close (${size * (price or 100):.2f}) - marking as handled")
+                logger.warning(
+                    f"⚠️ Lighter {symbol}: Exchange rejected dust close (${size * (price or 100):.2f}) - marking as handled"
+                )
                 await self._mark_closed("lighter", symbol)
                 errors.append(f"lighter_dust_stuck:{symbol}")
                 return True, "DUST_EXCHANGE_REJECTED"  # Return success to prevent retry loops
-            
+
             errors.append(f"lighter_close_error:{symbol}:{e}")
             logger.error(f"❌ Lighter close error {symbol}: {e}")
             return False, None
 
-    async def _persist_state(self, errors: List[str]) -> None:
+    async def _persist_state(self, errors: list[str]) -> None:
         """Persist state and db using compute_hedge_pnl for accurate calculations."""
         state_manager = self._components.get("state_manager")
         close_database_fn = self._components.get("close_database_fn")
@@ -1079,7 +1046,7 @@ class ShutdownOrchestrator:
             # Thread-safe access to closed positions
             async with self._closed_positions_lock:
                 closed_on_both = self._closed_positions.get("x10", set()) & self._closed_positions.get("lighter", set())
-            
+
             for symbol in closed_on_both:
                 try:
                     pnl_data = self._position_pnl_data.get(symbol, {})
@@ -1099,12 +1066,12 @@ class ShutdownOrchestrator:
                     if trade_obj is None and hasattr(state_manager, "_trades"):
                         # Direct access to internal dict as fallback
                         trade_obj = state_manager._trades.get(symbol)
-                    
+
                     # ═══════════════════════════════════════════════════════════════
                     # FIX: Use funding from trade object if available (it has the latest update)
                     # ═══════════════════════════════════════════════════════════════
                     if trade_obj:
-                        funding_from_state = getattr(trade_obj, 'funding_collected', 0.0)
+                        funding_from_state = getattr(trade_obj, "funding_collected", 0.0)
                         # If state has more data (or non-zero when pnl_data is zero), use it
                         if abs(funding_from_state) > abs(total_funding):
                             total_funding = funding_from_state
@@ -1114,19 +1081,19 @@ class ShutdownOrchestrator:
                     lighter_entry_price = self._safe_float(pnl_data.get("avg_entry_price", 0.0))
                     lighter_close_price = self._safe_float(pnl_data.get("close_price", 0.0))
                     lighter_size = self._safe_float(pnl_data.get("lighter_size", 0.0))
-                    
+
                     # Fallback to trade object for Lighter entry if pnl_data is empty
                     if lighter_entry_price <= 0 and trade_obj:
                         lighter_entry_price = self._safe_float(
-                            getattr(trade_obj, 'entry_price_lighter', 0) or
-                            (trade_obj.get('entry_price_lighter', 0) if isinstance(trade_obj, dict) else 0)
+                            getattr(trade_obj, "entry_price_lighter", 0)
+                            or (trade_obj.get("entry_price_lighter", 0) if isinstance(trade_obj, dict) else 0)
                         )
                     if lighter_size == 0 and trade_obj:
                         lighter_size = -self._safe_float(
-                            getattr(trade_obj, 'entry_qty_lighter', 0) or
-                            (trade_obj.get('entry_qty_lighter', 0) if isinstance(trade_obj, dict) else 0)
+                            getattr(trade_obj, "entry_qty_lighter", 0)
+                            or (trade_obj.get("entry_qty_lighter", 0) if isinstance(trade_obj, dict) else 0)
                         )  # Negative because typically SHORT on Lighter
-                    
+
                     # Determine Lighter side from size sign (positive = LONG, negative = SHORT)
                     lighter_side = "LONG" if lighter_size >= 0 else "SHORT"
                     lighter_qty = abs(lighter_size)
@@ -1138,26 +1105,26 @@ class ShutdownOrchestrator:
                     x10_entry_price = 0.0
                     x10_size = 0.0
                     x10_side = "LONG"
-                    
+
                     # First try: trade object (most reliable - stored during trade open)
                     if trade_obj:
                         x10_entry_price = self._safe_float(
-                            getattr(trade_obj, 'entry_price_x10', 0) or
-                            (trade_obj.get('entry_price_x10', 0) if isinstance(trade_obj, dict) else 0)
+                            getattr(trade_obj, "entry_price_x10", 0)
+                            or (trade_obj.get("entry_price_x10", 0) if isinstance(trade_obj, dict) else 0)
                         )
                         x10_size = self._safe_float(
-                            getattr(trade_obj, 'entry_qty_x10', 0) or
-                            (trade_obj.get('entry_qty_x10', 0) if isinstance(trade_obj, dict) else 0)
+                            getattr(trade_obj, "entry_qty_x10", 0)
+                            or (trade_obj.get("entry_qty_x10", 0) if isinstance(trade_obj, dict) else 0)
                         )
                         # X10 is typically opposite of Lighter, so LONG on X10 when SHORT on Lighter
                         x10_side = "SHORT" if lighter_side == "LONG" else "LONG"
-                    
+
                     # Second try: pnl_data snapshots (fallback)
                     if x10_entry_price <= 0:
                         x10_entry_price = self._safe_float(pnl_data.get("x10_entry_price", 0.0))
                     if x10_size <= 0:
                         x10_size = self._safe_float(pnl_data.get("x10_size", 0.0))
-                    
+
                     # Prefer stored side from position if available
                     stored_x10_side = pnl_data.get("x10_side", "")
                     if stored_x10_side:
@@ -1165,15 +1132,15 @@ class ShutdownOrchestrator:
                     elif x10_size != 0 and x10_entry_price <= 0:
                         # Fallback to size-based detection only if no entry price
                         x10_side = "LONG" if x10_size >= 0 else "SHORT"
-                    
+
                     x10_qty = abs(x10_size)
-                    
+
                     x10_close_price = 0.0
                     x10_fee_close = 0.0
-                    
+
                     # Get X10 close fill data
                     x10 = self._components.get("x10")
-                    if x10 and hasattr(x10, 'get_last_close_price'):
+                    if x10 and hasattr(x10, "get_last_close_price"):
                         try:
                             # WS fill updates can arrive slightly after the close completes.
                             # Retry briefly so shutdown PnL uses actual avgFill/fee instead of 0.
@@ -1199,6 +1166,7 @@ class ShutdownOrchestrator:
                     if x10_entry_price > 0 and x10_qty > 0:
                         try:
                             import config as _cfg
+
                             fee_rate = float(getattr(_cfg, "TAKER_FEE_X10", 0.000225))
                             x10_entry_fee_est = (x10_qty * x10_entry_price) * fee_rate
                         except Exception:
@@ -1208,6 +1176,7 @@ class ShutdownOrchestrator:
                     lighter_fees = 0.0
                     try:
                         import config as _cfg
+
                         # Lighter config models entry as maker and exit as taker (conservative).
                         lighter_fee_entry = float(getattr(_cfg, "MAKER_FEE_LIGHTER", 0.0))
                         lighter_fee_exit = float(getattr(_cfg, "TAKER_FEE_LIGHTER", 0.0))
@@ -1229,7 +1198,7 @@ class ShutdownOrchestrator:
                             f"lighter=${lighter_entry_price:.6f}, "
                             f"source={'trade_obj' if trade_obj else 'pnl_data'}"
                         )
-                    
+
                     # Use compute_hedge_pnl for accurate calculation
                     hedge_result = compute_hedge_pnl(
                         symbol=symbol,
@@ -1271,21 +1240,21 @@ class ShutdownOrchestrator:
                             f"(lighter_pnl=${float(hedge_result['lighter_pnl']):.4f}, x10_pnl=${float(hedge_result['x10_pnl']):.4f}, "
                             f"fees=${float(hedge_result['fee_total']):.4f})"
                         )
-                    
+
                     await state_manager.close_trade(symbol, pnl=total_pnl, funding=total_funding)
-                    logger.info(f"📝 Shutdown: Marked {symbol} as closed in DB (PnL=${total_pnl:.4f}, Funding=${total_funding:.4f})")
+                    logger.info(
+                        f"📝 Shutdown: Marked {symbol} as closed in DB (PnL=${total_pnl:.4f}, Funding=${total_funding:.4f})"
+                    )
                 except Exception as e:
                     logger.warning(f"⚠️ Shutdown: Could not mark {symbol} as closed: {e}")
-            
+
             if closed_on_both:
                 # Log summary of all PnL data
                 total_session_pnl = sum(
-                    self._position_pnl_data.get(s, {}).get("total_pnl", 0.0) 
-                    for s in closed_on_both
+                    self._position_pnl_data.get(s, {}).get("total_pnl", 0.0) for s in closed_on_both
                 )
                 total_session_funding = sum(
-                    self._position_pnl_data.get(s, {}).get("total_funding", 0.0) 
-                    for s in closed_on_both
+                    self._position_pnl_data.get(s, {}).get("total_funding", 0.0) for s in closed_on_both
                 )
                 logger.info(
                     f"📝 Shutdown: Marked {len(closed_on_both)} trades as closed in DB | "
@@ -1295,7 +1264,7 @@ class ShutdownOrchestrator:
         if state_manager and hasattr(state_manager, "stop"):
             try:
                 await asyncio.wait_for(state_manager.stop(), timeout=5.0)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 errors.append("state_manager_stop:timeout")
                 logger.warning("⚠️ State manager stop timed out (5s)")
             except asyncio.CancelledError:
@@ -1321,7 +1290,7 @@ class ShutdownOrchestrator:
 
         logger.info("💾 Persist phase complete")
 
-    async def _teardown_components(self, errors: List[str]) -> None:
+    async def _teardown_components(self, errors: list[str]) -> None:
         """Stop WS, execution, telegram, adapters."""
         ws_manager = self._components.get("ws_manager")
         parallel_exec = self._components.get("parallel_exec")
@@ -1334,7 +1303,7 @@ class ShutdownOrchestrator:
             try:
                 coro = coro_factory()
                 await asyncio.wait_for(coro, timeout=timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 errors.append(f"{label}_timeout")
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{label}_error:{e}")
@@ -1368,7 +1337,7 @@ class ShutdownOrchestrator:
         logger.info("✅ Teardown complete")
 
     # ----- Helpers ----------------------------------------------------
-    async def _collect_relevant_symbols(self) -> List[str]:
+    async def _collect_relevant_symbols(self) -> list[str]:
         """Gather symbols from state, active executions, and current positions."""
         symbols: set[str] = set()
         state_manager = self._components.get("state_manager")
@@ -1414,7 +1383,7 @@ class ShutdownOrchestrator:
 
         return list(symbols)
 
-    async def _fetch_positions(self) -> Dict[str, List[Dict[str, Any]]]:
+    async def _fetch_positions(self) -> dict[str, list[dict[str, Any]]]:
         """Fetch positions from both exchanges with safety - OPTIMIZED for fast shutdown."""
         lighter = self._components.get("lighter")
         x10 = self._components.get("x10")
@@ -1441,17 +1410,17 @@ class ShutdownOrchestrator:
 
         # Use return_exceptions=True to prevent "exception was never retrieved" errors
         results = await asyncio.gather(fetch_lighter(), fetch_x10(), return_exceptions=True)
-        
+
         # Handle potential exceptions in results
         lighter_pos = results[0] if not isinstance(results[0], Exception) else []
         x10_pos = results[1] if not isinstance(results[1], Exception) else []
-        
+
         positions["lighter"] = lighter_pos
         positions["x10"] = x10_pos
 
         return positions
 
-    async def _fetch_positions_safely(self) -> Dict[str, List[Dict[str, Any]]]:
+    async def _fetch_positions_safely(self) -> dict[str, list[dict[str, Any]]]:
         """Same as _fetch_positions but swallow all exceptions."""
         try:
             return await self._fetch_positions()
@@ -1462,7 +1431,7 @@ class ShutdownOrchestrator:
         """Thread-safe helper to mark a position as closed."""
         async with self._closed_positions_lock:
             self._closed_positions[exchange_name].add(symbol)
-    
+
     async def _is_closed(self, exchange_name: str, symbol: str) -> bool:
         """Thread-safe helper to check if a position is already closed."""
         async with self._closed_positions_lock:
@@ -1475,7 +1444,7 @@ class ShutdownOrchestrator:
         except Exception:
             return 0.0
 
-    def _get_cached_price(self, symbol: str) -> Optional[float]:
+    def _get_cached_price(self, symbol: str) -> float | None:
         """Prefer WebSocket/cache price; do not call REST to avoid delays/rate limits."""
         lighter = self._components.get("lighter")
         if not lighter:
@@ -1487,7 +1456,7 @@ class ShutdownOrchestrator:
             return None
 
 
-_SHUTDOWN_SINGLETON: Optional[ShutdownOrchestrator] = None
+_SHUTDOWN_SINGLETON: ShutdownOrchestrator | None = None
 
 
 def get_shutdown_orchestrator() -> ShutdownOrchestrator:
@@ -1495,4 +1464,3 @@ def get_shutdown_orchestrator() -> ShutdownOrchestrator:
     if _SHUTDOWN_SINGLETON is None:
         _SHUTDOWN_SINGLETON = ShutdownOrchestrator()
     return _SHUTDOWN_SINGLETON
-

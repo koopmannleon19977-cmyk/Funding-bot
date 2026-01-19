@@ -11,6 +11,7 @@ from decimal import Decimal
 # Price Snapshot Tests
 # =============================================================================
 
+
 class TestPriceSnapshot:
     """Tests for PriceSnapshot model."""
 
@@ -46,13 +47,14 @@ class TestPriceSnapshot:
 # Funding Snapshot Tests
 # =============================================================================
 
+
 class TestFundingSnapshot:
     """Tests for FundingSnapshot calculations."""
 
     def test_net_rate_calculation(self):
         """Should calculate net funding rate correctly."""
         lighter_rate_hourly = Decimal("0.0005")  # We receive 0.05%/h
-        x10_rate_hourly = Decimal("-0.0002")     # We pay -0.02%/h
+        x10_rate_hourly = Decimal("-0.0002")  # We pay -0.02%/h
 
         # For short Lighter, long X10:
         # Net = |lighter - x10| = |0.0005 - (-0.0002)| = 0.0007
@@ -81,6 +83,7 @@ class TestFundingSnapshot:
 # =============================================================================
 # Orderbook Snapshot Tests
 # =============================================================================
+
 
 class TestOrderbookSnapshot:
     """Tests for OrderbookSnapshot calculations."""
@@ -133,6 +136,7 @@ class TestOrderbookSnapshot:
 # Data Freshness Tests
 # =============================================================================
 
+
 class TestDataFreshness:
     """Tests for data staleness detection."""
 
@@ -167,6 +171,7 @@ class TestDataFreshness:
 # =============================================================================
 # Symbol Common Tests
 # =============================================================================
+
 
 class TestCommonSymbols:
     """Tests for common symbol detection."""
@@ -205,6 +210,7 @@ class TestCommonSymbols:
 # Rate Limit Tests
 # =============================================================================
 
+
 class TestRateLimiting:
     """Tests for rate limiting logic."""
 
@@ -229,6 +235,7 @@ class TestRateLimiting:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestMarketDataEdgeCases:
     """Tests for edge cases in market data."""

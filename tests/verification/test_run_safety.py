@@ -81,4 +81,3 @@ def test_testing_mode_allowed_in_live_with_allow_flag(monkeypatch):
 
     assert decision.mode == "live"
     assert decision.errors == []
-

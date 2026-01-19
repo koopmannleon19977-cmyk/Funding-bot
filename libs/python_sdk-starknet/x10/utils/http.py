@@ -1,6 +1,7 @@
 import itertools
 import re
-from typing import Any, Dict, Generic, List, Optional, Sequence, Type, TypeVar, Union
+from collections.abc import Sequence
+from typing import Any, Generic, TypeVar
 
 import aiohttp
 from aiohttp import ClientResponse, ClientTimeout
@@ -16,7 +17,7 @@ from x10.utils.model import X10BaseModel
 LOGGER = get_logger(__name__)
 CLIENT_TIMEOUT = ClientTimeout(total=DEFAULT_REQUEST_TIMEOUT_SECONDS)
 
-ApiResponseType = TypeVar("ApiResponseType", bound=Union[int, X10BaseModel, Sequence[X10BaseModel]])
+ApiResponseType = TypeVar("ApiResponseType", bound=int | X10BaseModel | Sequence[X10BaseModel])
 
 
 class RateLimitException(X10Error):
@@ -42,19 +43,19 @@ class ResponseStatus(StrEnum):
 class ResponseError(X10BaseModel):
     code: int
     message: str
-    debug_info: Optional[str] = None
+    debug_info: str | None = None
 
 
 class Pagination(X10BaseModel):
-    cursor: Optional[int] = None
+    cursor: int | None = None
     count: int
 
 
 class WrappedApiResponse(X10BaseModel, Generic[ApiResponseType]):
     status: ResponseStatus
-    data: Optional[ApiResponseType] = None
-    error: Optional[ResponseError] = None
-    pagination: Optional[Pagination] = None
+    data: ApiResponseType | None = None
+    error: ResponseError | None = None
+    pagination: Pagination | None = None
 
 
 class StreamDataType(StrEnum):
@@ -77,22 +78,22 @@ class StreamDataType(StrEnum):
 
 
 class WrappedStreamResponse(X10BaseModel, Generic[ApiResponseType]):
-    type: Optional[StreamDataType] = None
-    data: Optional[ApiResponseType] = None
-    error: Optional[str] = None
+    type: StreamDataType | None = None
+    data: ApiResponseType | None = None
+    error: str | None = None
     ts: int
     seq: int
 
 
 def parse_response_to_model(
-    response_text: str, model_class: Type[ApiResponseType]
+    response_text: str, model_class: type[ApiResponseType]
 ) -> WrappedApiResponse[ApiResponseType]:
     # Read this to get more context re the type ignore:
     # https://github.com/python/mypy/issues/13619
     return WrappedApiResponse[model_class].model_validate_json(response_text)  # type: ignore[valid-type]
 
 
-def get_url(template: str, *, query: Optional[Dict[str, str | List[str]]] = None, **path_params):
+def get_url(template: str, *, query: dict[str, str | list[str]] | None = None, **path_params):
     def replace_path_param(match: re.Match[str]):
         matched_value = match.group(1)
         is_param_optional = matched_value.endswith("?")
@@ -101,14 +102,12 @@ def get_url(template: str, *, query: Optional[Dict[str, str | List[str]]] = None
 
         return str(param_value) if param_value is not None else ""
 
-    def serialize_query_param(param_key: str, param_value: Union[str, List[str]]):
+    def serialize_query_param(param_key: str, param_value: str | list[str]):
         if isinstance(param_value, list):
             return itertools.chain.from_iterable(
                 [serialize_query_param(param_key, item) for item in param_value if item is not None]
             )
-        elif isinstance(param_value, StrEnum):
-            return [f"{param_key}={param_value}"]
-        elif param_value is not None:
+        elif isinstance(param_value, StrEnum) or param_value is not None:
             return [f"{param_key}={param_value}"]
         else:
             return []
@@ -130,11 +129,11 @@ def get_url(template: str, *, query: Optional[Dict[str, str | List[str]]] = None
 async def send_get_request(
     session: aiohttp.ClientSession,
     url: str,
-    model_class: Type[ApiResponseType],
+    model_class: type[ApiResponseType],
     *,
-    api_key: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-    response_code_to_exception: Optional[Dict[int, Type[Exception]]] = None,
+    api_key: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    response_code_to_exception: dict[int, type[Exception]] | None = None,
 ) -> WrappedApiResponse[ApiResponseType]:
     headers = __get_headers(api_key=api_key, request_headers=request_headers)
 
@@ -149,12 +148,12 @@ async def send_get_request(
 async def send_post_request(
     session: aiohttp.ClientSession,
     url: str,
-    model_class: Type[ApiResponseType],
+    model_class: type[ApiResponseType],
     *,
     json: Any = None,
-    api_key: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-    response_code_to_exception: Optional[Dict[int, Type[Exception]]] = None,
+    api_key: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    response_code_to_exception: dict[int, type[Exception]] | None = None,
 ) -> WrappedApiResponse[ApiResponseType]:
     headers = __get_headers(api_key=api_key, request_headers=request_headers)
 
@@ -175,12 +174,12 @@ async def send_post_request(
 async def send_patch_request(
     session: aiohttp.ClientSession,
     url: str,
-    model_class: Type[ApiResponseType],
+    model_class: type[ApiResponseType],
     *,
     json: Any = None,
-    api_key: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-    response_code_to_exception: Optional[Dict[int, Type[Exception]]] = None,
+    api_key: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    response_code_to_exception: dict[int, type[Exception]] | None = None,
 ) -> WrappedApiResponse[ApiResponseType]:
     headers = __get_headers(api_key=api_key, request_headers=request_headers)
 
@@ -200,11 +199,11 @@ async def send_patch_request(
 async def send_delete_request(
     session: aiohttp.ClientSession,
     url: str,
-    model_class: Type[ApiResponseType],
+    model_class: type[ApiResponseType],
     *,
-    api_key: Optional[str] = None,
-    request_headers: Optional[Dict[str, str]] = None,
-    response_code_to_exception: Optional[Dict[int, Type[Exception]]] = None,
+    api_key: str | None = None,
+    request_headers: dict[str, str] | None = None,
+    response_code_to_exception: dict[int, type[Exception]] | None = None,
 ):
     headers = __get_headers(api_key=api_key, request_headers=request_headers)
 
@@ -217,7 +216,7 @@ async def send_delete_request(
 
 
 def handle_known_errors(
-    url, response_code_handler: Optional[Dict[int, Type[Exception]]], response: ClientResponse, response_text: str
+    url, response_code_handler: dict[int, type[Exception]] | None, response: ClientResponse, response_text: str
 ):
     if response.status == 401:
         LOGGER.error("Unauthorized response from POST %s: %s", url, response_text)
@@ -235,7 +234,7 @@ def handle_known_errors(
         raise ValueError(f"Error response from {url}: code {response.status} - {response_text}")
 
 
-def __get_headers(*, api_key: Optional[str] = None, request_headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def __get_headers(*, api_key: str | None = None, request_headers: dict[str, str] | None = None) -> dict[str, str]:
     headers: dict[str, str] = {
         RequestHeader.ACCEPT: "application/json",
         RequestHeader.CONTENT_TYPE: "application/json",

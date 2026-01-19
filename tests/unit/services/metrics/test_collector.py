@@ -4,25 +4,25 @@ Unit tests for the metrics collector and tracking system.
 These tests run offline without requiring exchange SDKs or external dependencies.
 """
 
-import pytest
 import asyncio
-from datetime import datetime, UTC
-from decimal import Decimal
+from datetime import datetime
+
+import pytest
 
 from funding_bot.services.metrics.collector import (
+    EXCHANGE_LIMITS,
     MetricsCollector,
     get_metrics_collector,
-    EXCHANGE_LIMITS,
-)
-from funding_bot.services.metrics.storage import (
-    MetricsStorage,
-    MetricPoint,
-    InMemoryRingBuffer,
 )
 from funding_bot.services.metrics.decorators import (
     track_latency,
     track_operation,
     track_operation_context,
+)
+from funding_bot.services.metrics.storage import (
+    InMemoryRingBuffer,
+    MetricPoint,
+    MetricsStorage,
 )
 
 

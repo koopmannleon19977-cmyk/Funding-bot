@@ -24,13 +24,8 @@ async def _finalize_leg1_execution(
     # Final Evaluation after Loop
     if state.total_filled > 0:
         price = trade.leg1.entry_price
-        min_hedge_usd = _safe_decimal(
-            self.settings.execution.microfill_max_unhedged_usd, Decimal("5.0")
-        )
-        min_hedge_qty = (
-            min_hedge_usd / price
-            if (price and price > 0) else Decimal("0")
-        )
+        min_hedge_usd = _safe_decimal(self.settings.execution.microfill_max_unhedged_usd, Decimal("5.0"))
+        min_hedge_qty = min_hedge_usd / price if (price and price > 0) else Decimal("0")
 
         if state.success or state.total_filled >= min_hedge_qty:
             # If we proceed with a partial maker fill, clamp the trade sizing to the
@@ -60,21 +55,12 @@ async def _finalize_leg1_execution(
                     fee=state.total_fees,
                 )
             )
-            logger.info(
-                f"Leg1 finalized: {state.total_filled:.6f} @ "
-                f"{trade.leg1.entry_price:.6f}"
-            )
+            logger.info(f"Leg1 finalized: {state.total_filled:.6f} @ {trade.leg1.entry_price:.6f}")
             return
 
         # ABORT AND CLEANUP (Too small to hedge)
-        logger.warning(
-            f"Final fill too small to hedge: {state.total_filled:.6f} < "
-            f"{min_hedge_qty:.6f}. Closing dust."
-        )
-        await self._rollback(
-            trade,
-            f"Aggregate fill too small to hedge ({state.total_filled})"
-        )
+        logger.warning(f"Final fill too small to hedge: {state.total_filled:.6f} < {min_hedge_qty:.6f}. Closing dust.")
+        await self._rollback(trade, f"Aggregate fill too small to hedge ({state.total_filled})")
         raise Leg1FailedError(
             f"Fill too small to hedge ({state.total_filled})",
             symbol=trade.symbol,

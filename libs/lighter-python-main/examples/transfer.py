@@ -1,5 +1,7 @@
 import asyncio
+
 import lighter
+
 from utils import default_example_setup
 
 ETH_PRIVATE_KEY = "1234567812345678123456781234567812345678123456781234567812345678"
@@ -14,7 +16,9 @@ async def main():
     if err:
         raise Exception(f"Auth token failed: {err}")
 
-    fee_info = await info_api.transfer_fee_info(client.account_index, authorization=auth_token, auth=auth_token, to_account_index=TO_ACCOUNT_INDEX)
+    fee_info = await info_api.transfer_fee_info(
+        client.account_index, authorization=auth_token, auth=auth_token, to_account_index=TO_ACCOUNT_INDEX
+    )
 
     # You can find more notes on transfers in the README.md file, under `Transfer Notes`
     transfer_tx, response, err = await client.transfer(

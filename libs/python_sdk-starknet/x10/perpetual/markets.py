@@ -1,6 +1,5 @@
 from decimal import ROUND_CEILING, Decimal
 from functools import cached_property
-from typing import List
 
 from x10.perpetual.assets import Asset
 from x10.utils.model import X10BaseModel
@@ -43,7 +42,7 @@ class TradingConfigModel(X10BaseModel):
     max_num_orders: int
     limit_price_cap: Decimal
     limit_price_floor: Decimal
-    risk_factor_config: List[RiskFactorConfig]
+    risk_factor_config: list[RiskFactorConfig]
 
     @cached_property
     def price_precision(self) -> int:

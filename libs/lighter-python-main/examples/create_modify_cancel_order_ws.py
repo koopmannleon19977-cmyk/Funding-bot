@@ -1,5 +1,7 @@
-import websockets
 import asyncio
+
+import websockets
+
 from utils import default_example_setup, ws_send_tx
 
 

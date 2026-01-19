@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -47,7 +46,7 @@ async def test_close_leg_sets_exit_price_when_position_flat_but_order_unavailabl
         )
     )
     # Simulate get_order repeatedly timing out / being unavailable
-    lighter.get_order = AsyncMock(side_effect=asyncio.TimeoutError())
+    lighter.get_order = AsyncMock(side_effect=TimeoutError())
     # Position already flat -> close succeeded, but we couldn't fetch fills
     lighter.get_position = AsyncMock(return_value=None)
     lighter.get_fee_schedule = AsyncMock(return_value={"maker_fee": Decimal("0.00002"), "taker_fee": Decimal("0.0002")})

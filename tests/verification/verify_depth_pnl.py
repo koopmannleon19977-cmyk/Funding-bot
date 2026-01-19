@@ -18,11 +18,10 @@ async def verify_depth_pnl():
     settings = MagicMock()
     # Mock fee schedule
     mock_market_data = MagicMock()
+
     async def mock_get_fees(symbol):
-        return {
-            "lighter_taker": Decimal("0.0005"),
-            "x10_taker": Decimal("0.0005")
-        }
+        return {"lighter_taker": Decimal("0.0005"), "x10_taker": Decimal("0.0005")}
+
     mock_market_data.get_fee_schedule = mock_get_fees
 
     manager = PositionManager(
@@ -31,7 +30,7 @@ async def verify_depth_pnl():
         x10=MagicMock(),
         store=MagicMock(),
         event_bus=MagicMock(),
-        market_data=mock_market_data
+        market_data=mock_market_data,
     )
 
     # 2. Setup Trade (Long Lighter, Short X10)
@@ -48,7 +47,7 @@ async def verify_depth_pnl():
             entry_price=Decimal("100"),
             qty=Decimal("100"),
             filled_qty=Decimal("100"),
-            fees=Decimal("0")
+            fees=Decimal("0"),
         ),
         leg2=TradeLeg(
             exchange=Exchange.X10,
@@ -56,8 +55,8 @@ async def verify_depth_pnl():
             entry_price=Decimal("100"),
             qty=Decimal("100"),
             filled_qty=Decimal("100"),
-            fees=Decimal("0")
-        )
+            fees=Decimal("0"),
+        ),
     )
 
     # 3. Scenario: Shallow Book (Price Crash)
@@ -89,7 +88,7 @@ async def verify_depth_pnl():
         x10_bids=[(Decimal("98"), Decimal("100"))],
         x10_asks=[(Decimal("99"), Decimal("100"))],
         lighter_updated=MagicMock(),
-        x10_updated=MagicMock()
+        x10_updated=MagicMock(),
     )
 
     # Temporary monkey-patch to test the NEW logic (which doesn't exist yet, so we verify fail first via AttributeError or similar if we tried to call it,
@@ -111,11 +110,12 @@ async def verify_depth_pnl():
 
     # Let's perform a rough assertion
     if pnl > 0:
-         print("FAIL: PnL is positive (Legacy L1 behavior?)")
+        print("FAIL: PnL is positive (Legacy L1 behavior?)")
     elif pnl < -700:
-         print("PASS: PnL reflects depth crash.")
+        print("PASS: PnL reflects depth crash.")
     else:
-         print(f"WARN: PnL {pnl} unexpected.")
+        print(f"WARN: PnL {pnl} unexpected.")
+
 
 if __name__ == "__main__":
     asyncio.run(verify_depth_pnl())

@@ -8,14 +8,12 @@ CRITICAL: Lighter REST API returns DECIMAL format (e.g., 0.0001 = 0.01%).
 NO division by 100 is needed - the API already returns decimal format.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch, Mock
-import aiohttp
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from funding_bot.domain.historical import FundingCandle
 from funding_bot.services.historical.ingestion import HistoricalIngestionService
 
 
@@ -47,7 +45,7 @@ async def test_lighter_ingestion_with_interval_1_no_division():
         "fundings": [
             {
                 "timestamp": 1736750400,  # 2025-01-13 00:00:00 UTC
-                "rate": "0.0011"  # DECIMAL format (0.11% hourly)
+                "rate": "0.0011",  # DECIMAL format (0.11% hourly)
             }
         ]
     }
@@ -64,9 +62,7 @@ async def test_lighter_ingestion_with_interval_1_no_division():
     # Mock aiohttp.ClientSession.get
     with patch("aiohttp.ClientSession.get", return_value=mock_session_get_result):
         candles = await service._fetch_lighter_candles(
-            "BTC",
-            datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC),
-            datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
+            "BTC", datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC), datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
         )
 
     # Verify: With interval=1, raw rate is used directly (NO division)
@@ -104,7 +100,7 @@ async def test_lighter_ingestion_with_interval_8_divides_by_8():
         "fundings": [
             {
                 "timestamp": 1736750400,  # 2025-01-13 00:00:00 UTC
-                "rate": "0.0088"  # DECIMAL format (8h cumulative = 0.88%)
+                "rate": "0.0088",  # DECIMAL format (8h cumulative = 0.88%)
             }
         ]
     }
@@ -121,9 +117,7 @@ async def test_lighter_ingestion_with_interval_8_divides_by_8():
     # Mock aiohttp.ClientSession.get
     with patch("aiohttp.ClientSession.get", return_value=mock_session_get_result):
         candles = await service._fetch_lighter_candles(
-            "BTC",
-            datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC),
-            datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
+            "BTC", datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC), datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
         )
 
     # Verify: With interval=8, raw rate is divided by 8
@@ -154,7 +148,7 @@ async def test_lighter_ingestion_apy_calculation_correct():
         "fundings": [
             {
                 "timestamp": 1736750400,
-                "rate": "0.001"  # DECIMAL format (0.1% hourly)
+                "rate": "0.001",  # DECIMAL format (0.1% hourly)
             }
         ]
     }
@@ -171,9 +165,7 @@ async def test_lighter_ingestion_apy_calculation_correct():
     # Mock aiohttp.ClientSession.get
     with patch("aiohttp.ClientSession.get", return_value=mock_session_get_result):
         candles = await service._fetch_lighter_candles(
-            "BTC",
-            datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC),
-            datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
+            "BTC", datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC), datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
         )
 
     # Verify APY calculation
@@ -205,7 +197,7 @@ async def test_lighter_ingestion_handles_missing_interval_setting():
         "fundings": [
             {
                 "timestamp": 1736750400,
-                "rate": "0.001"  # DECIMAL format (0.1% hourly)
+                "rate": "0.001",  # DECIMAL format (0.1% hourly)
             }
         ]
     }
@@ -222,9 +214,7 @@ async def test_lighter_ingestion_handles_missing_interval_setting():
     # Mock aiohttp.ClientSession.get
     with patch("aiohttp.ClientSession.get", return_value=mock_session_get_result):
         candles = await service._fetch_lighter_candles(
-            "BTC",
-            datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC),
-            datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
+            "BTC", datetime(2025, 1, 13, 0, 0, 0, tzinfo=UTC), datetime(2025, 1, 13, 1, 0, 0, tzinfo=UTC)
         )
 
     # Verify: Falls back to interval=1 (no division)

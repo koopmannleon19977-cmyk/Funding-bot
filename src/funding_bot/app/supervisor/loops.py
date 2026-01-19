@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+
 from funding_bot.domain.events import AlertEvent
 from funding_bot.observability.logging import get_logger
 
@@ -72,10 +73,7 @@ async def _check_ws_readiness(self, symbol: str) -> bool:
     es = getattr(self.settings, "execution", None)
 
     # Skip check if WS gate is disabled
-    if not (
-        bool(getattr(es, "ws_ready_gate_enabled", True))
-        and bool(getattr(es, "ws_fill_wait_enabled", True))
-    ):
+    if not (bool(getattr(es, "ws_ready_gate_enabled", True)) and bool(getattr(es, "ws_fill_wait_enabled", True))):
         return True
 
     timeout_s = float(getattr(es, "ws_ready_gate_timeout_seconds", Decimal("2.0")) or 2.0)
@@ -117,34 +115,27 @@ async def _start_loops(self) -> None:
 
     # Opportunity scanning loop
     self._tasks["opportunity_scan"] = self._create_task(
-        self._task_factories["opportunity_scan"](),
-        name="opportunity_scan"
+        self._task_factories["opportunity_scan"](), name="opportunity_scan"
     )
 
     # Position management loop
     self._tasks["position_management"] = self._create_task(
-        self._task_factories["position_management"](),
-        name="position_management"
+        self._task_factories["position_management"](), name="position_management"
     )
 
     # Health/heartbeat loop
-    self._tasks["heartbeat"] = self._create_task(
-        self._task_factories["heartbeat"](),
-        name="heartbeat"
-    )
+    self._tasks["heartbeat"] = self._create_task(self._task_factories["heartbeat"](), name="heartbeat")
 
     # Historical data loop (optional, only if enabled)
     hist_cfg = getattr(self.settings, "historical", None)
     if hist_cfg and getattr(hist_cfg, "enabled", False):
         self._tasks["historical_data"] = self._create_task(
-            self._task_factories["historical_data"](),
-            name="historical_data"
+            self._task_factories["historical_data"](), name="historical_data"
         )
 
         # Adapter health monitoring loop
         self._tasks["adapter_health"] = self._create_task(
-            self._task_factories["adapter_health"](),
-            name="adapter_health"
+            self._task_factories["adapter_health"](), name="adapter_health"
         )
 
     logger.info("Main loops started")
@@ -159,18 +150,14 @@ async def _opportunity_loop(self) -> None:
     """
     logger.info("Opportunity scanning loop started")
 
-    scan_interval = float(
-        getattr(self.settings.trading, "opportunity_scan_interval_seconds", 5.0) or 5.0
-    )
+    scan_interval = float(getattr(self.settings.trading, "opportunity_scan_interval_seconds", 5.0) or 5.0)
     scan_interval = max(0.2, min(scan_interval, 30.0))
     failed_cooldowns: dict[str, float] = {}  # symbol -> expiry_timestamp
     COOLDOWN_DURATION = 300.0  # 5 minutes
 
     while not self._shutdown_event.is_set():
         try:
-            await self._opportunity_loop_iteration(
-                scan_interval, failed_cooldowns, COOLDOWN_DURATION
-            )
+            await self._opportunity_loop_iteration(scan_interval, failed_cooldowns, COOLDOWN_DURATION)
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -386,7 +373,7 @@ async def _position_management_loop(self) -> None:
     logger.info("Position management loop started (event-driven)")
 
     # Create event for position check triggers
-    if not hasattr(self, '_position_check_event'):
+    if not hasattr(self, "_position_check_event"):
         self._position_check_event = asyncio.Event()
 
     check_interval = 5.0  # Increased from 1.0s - safety net polling
@@ -412,10 +399,7 @@ async def _position_management_loop(self) -> None:
         # Wait for event OR timeout (hybrid approach)
         try:
             # Wait for event trigger with timeout as safety net
-            await asyncio.wait_for(
-                self._position_check_event.wait(),
-                timeout=check_interval
-            )
+            await asyncio.wait_for(self._position_check_event.wait(), timeout=check_interval)
             # Event was triggered
             event_triggered_count += 1
             self._position_check_event.clear()  # Reset for next trigger
@@ -427,7 +411,7 @@ async def _position_management_loop(self) -> None:
         f"Position management loop stopped: "
         f"{check_count} total checks, "
         f"{event_triggered_count} event-triggered"
-        + (f" ({event_triggered_count/check_count*100:.1f}% event-driven)" if check_count > 0 else "")
+        + (f" ({event_triggered_count / check_count * 100:.1f}% event-driven)" if check_count > 0 else "")
     )
 
 
@@ -452,9 +436,7 @@ async def _heartbeat_loop(self) -> None:
                 l_bal, x_bal = await self._fetch_balances_with_retry(attempts=2, base_delay_seconds=0.5)
                 total_equity = l_bal.total + x_bal.total
                 free_margin_pct = (
-                    (l_bal.available + x_bal.available) / total_equity
-                    if total_equity > 0
-                    else Decimal("0")
+                    (l_bal.available + x_bal.available) / total_equity if total_equity > 0 else Decimal("0")
                 )
             except Exception as e:
                 balances_ok = False
@@ -474,9 +456,9 @@ async def _heartbeat_loop(self) -> None:
                 f"[HEALTH] {state_icon} Trades: {len(open_trades)} | "
                 f"Equity: ${total_equity:.2f} | "
                 f"Margin: {free_margin_pct:.1%} | "
-                f"Exp: ${exposure:.2f}" +
-                (f" | [WARN] Errors: {self._stats['errors']}" if self._stats['errors'] > 0 else "") +
-                (" | [PAUSED]" if paused else "")
+                f"Exp: ${exposure:.2f}"
+                + (f" | [WARN] Errors: {self._stats['errors']}" if self._stats["errors"] > 0 else "")
+                + (" | [PAUSED]" if paused else "")
             )
 
             # Periodic cleanup of stale order watchers (memory management)
@@ -488,7 +470,7 @@ async def _heartbeat_loop(self) -> None:
 
             await asyncio.wait_for(
                 self._shutdown_event.wait(),
-                timeout=15.0  # Frequent updates for dashboard
+                timeout=15.0,  # Frequent updates for dashboard
             )
             break
         except TimeoutError:
@@ -626,10 +608,7 @@ async def _historical_data_loop(self) -> None:
                     # Convert to sorted list for consistent ordering
                     symbols = sorted(list(all_symbols))
                     suffix = "..." if len(symbols) > 20 else ""
-                    logger.info(
-                        f"Updating historical data for {len(symbols)} symbols: "
-                        f"{symbols[:20]}{suffix}"
-                    )
+                    logger.info(f"Updating historical data for {len(symbols)} symbols: {symbols[:20]}{suffix}")
 
                     results = await self.historical_ingestion.daily_update(symbols)
 
@@ -647,17 +626,14 @@ async def _historical_data_loop(self) -> None:
                 last_ingestion_date = current_date
 
             # Calculate sleep until next check
-            next_check = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+            next_check = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
             sleep_seconds = min(3600, (next_check - now).total_seconds())
 
-            await asyncio.wait_for(
-                self._shutdown_event.wait(),
-                timeout=sleep_seconds
-            )
+            await asyncio.wait_for(self._shutdown_event.wait(), timeout=sleep_seconds)
 
         except asyncio.CancelledError:
             break
-        except Exception as e:
+        except Exception:
             self._stats["errors"] += 1
             logger.exception("Historical data loop error")
             await asyncio.sleep(300)  # 5 min on error
@@ -690,7 +666,7 @@ async def _adapter_health_loop(self) -> None:
 
             # Log health status for all adapters
             for adapter in adapters_list:
-                if hasattr(adapter, 'log_health_status'):
+                if hasattr(adapter, "log_health_status"):
                     try:
                         await adapter.log_health_status()
                     except Exception as e:
@@ -703,8 +679,7 @@ async def _adapter_health_loop(self) -> None:
                     fr_validation = await self.x10.validate_funding_rate_cache(sample_size=3)
                     if fr_validation.get("status") == "discrepancies_found":
                         logger.warning(
-                            f"X10 funding rate cache validation failed: "
-                            f"{fr_validation['discrepancies']} discrepancies"
+                            f"X10 funding rate cache validation failed: {fr_validation['discrepancies']} discrepancies"
                         )
                         # Optionally trigger full refresh on validation failure
                         # await self.x10.refresh_all_market_data(force_full_refresh=True)
@@ -713,8 +688,7 @@ async def _adapter_health_loop(self) -> None:
                     price_validation = await self.x10.validate_price_cache(sample_size=3)
                     if price_validation.get("status") == "discrepancies_found":
                         logger.warning(
-                            f"X10 price cache validation failed: "
-                            f"{price_validation['discrepancies']} discrepancies"
+                            f"X10 price cache validation failed: {price_validation['discrepancies']} discrepancies"
                         )
 
                 except Exception as e:
@@ -722,10 +696,7 @@ async def _adapter_health_loop(self) -> None:
 
             # Wait for next check or shutdown
             try:
-                await asyncio.wait_for(
-                    self._shutdown_event.wait(),
-                    timeout=health_check_interval
-                )
+                await asyncio.wait_for(self._shutdown_event.wait(), timeout=health_check_interval)
                 break  # Event was set, exit loop
             except TimeoutError:
                 # Timeout is expected - continue to next iteration

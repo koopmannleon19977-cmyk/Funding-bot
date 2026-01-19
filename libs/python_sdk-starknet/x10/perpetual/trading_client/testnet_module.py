@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import tenacity
 
 from x10.perpetual.assets import AssetOperationModel, AssetOperationStatus
@@ -18,8 +16,8 @@ class TestnetModule(BaseModule):
     def __init__(
         self,
         endpoint_config: EndpointConfig,
-        api_key: Optional[str] = None,
-        account_module: Optional[AccountModule] = None,
+        api_key: str | None = None,
+        account_module: AccountModule | None = None,
     ):
         super().__init__(endpoint_config, api_key=api_key)
         self._account_module = account_module
@@ -57,7 +55,7 @@ class TestnetModule(BaseModule):
                 ),
                 reraise=False,
             )
-            async def wait_for_claim_to_complete() -> List[AssetOperationModel]:
+            async def wait_for_claim_to_complete() -> list[AssetOperationModel]:
                 asset_ops = (await account_module.asset_operations(id=claim_to_check)).data
                 return asset_ops or []
 

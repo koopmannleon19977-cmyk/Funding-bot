@@ -12,6 +12,7 @@ from funding_bot.services.market_data import FundingSnapshot, OrderbookSnapshot,
 # PHASE 4: VELOCITY CALCULATION (Slope-based APY adjustment)
 # =============================================================================
 
+
 def _calculate_funding_velocity(
     historical_apy: list[Decimal] | None,
     lookback_hours: int = 6,
@@ -176,18 +177,12 @@ def _calculate_expected_value(
     x10_maker_fee = fees.get("x10_maker", Decimal("0"))
 
     # Lighter exit: weighted maker + IOC fallback (exchange-specific probability)
-    lighter_exit = notional * (
-        p_maker_lighter * fees["lighter_maker"] +
-        p_ioc_lighter * fees["lighter_taker"]
-    )
+    lighter_exit = notional * (p_maker_lighter * fees["lighter_maker"] + p_ioc_lighter * fees["lighter_taker"])
 
     # X10 exit: depends on coordinated close mode
     if x10_can_make_maker and x10_maker_fee == Decimal("0"):
         # X10 has free maker orders - use weighted (exchange-specific probability)
-        x10_exit = notional * (
-            p_maker_x10 * x10_maker_fee +
-            p_ioc_x10 * fees["x10_taker"]
-        )
+        x10_exit = notional * (p_maker_x10 * x10_maker_fee + p_ioc_x10 * fees["x10_taker"])
     else:
         # X10 pure taker (no maker option)
         x10_exit = notional * fees["x10_taker"]
@@ -302,10 +297,7 @@ def _calculate_liquidity_score(
 
     # Average available liquidity at L1
     avg_qty = (
-        orderbook.lighter_bid_qty
-        + orderbook.lighter_ask_qty
-        + orderbook.x10_bid_qty
-        + orderbook.x10_ask_qty
+        orderbook.lighter_bid_qty + orderbook.lighter_ask_qty + orderbook.x10_bid_qty + orderbook.x10_ask_qty
     ) / Decimal("4")
 
     if avg_qty == 0:

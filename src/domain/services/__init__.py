@@ -1,17 +1,18 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from uuid import uuid4
+
 from src.domain.entities import Opportunity, Trade
 from src.domain.rules import Constitution
 from src.domain.value_objects import (
     Decision,
     DecisionResult,
-    SizeResult,
-    RiskResult,
     InvariantResult,
     MaintenanceDecision,
     Price,
+    RiskResult,
     Side,
+    SizeResult,
     TradeStatus,
 )
 
@@ -58,7 +59,9 @@ class PositionSizer:
 
 class PnLCalculator:
     @staticmethod
-    def unrealized(long_entry: Price, short_entry: Price, long_current: Price, short_current: Price, quantity: Decimal) -> Decimal:
+    def unrealized(
+        long_entry: Price, short_entry: Price, long_current: Price, short_current: Price, quantity: Decimal
+    ) -> Decimal:
         if quantity <= 0:
             raise ValueError("Quantity must be positive")
         long_pnl = (long_current.value - long_entry.value) * quantity
@@ -74,7 +77,9 @@ class RiskEvaluator:
     def __init__(self, rules: Constitution):
         self.rules = rules
 
-    def evaluate(self, drawdown_pct: Decimal, exposure_usd: Decimal, max_exposure_usd: Decimal, volatility_pct_24h: Decimal) -> RiskResult:
+    def evaluate(
+        self, drawdown_pct: Decimal, exposure_usd: Decimal, max_exposure_usd: Decimal, volatility_pct_24h: Decimal
+    ) -> RiskResult:
         if drawdown_pct > self.rules.max_drawdown_pct:
             return RiskResult(False, "drawdown_exceeded")
         if exposure_usd > max_exposure_usd:
@@ -110,7 +115,9 @@ class ConstitutionGuard:
     def __init__(self, rules: Constitution):
         self.rules = rules
 
-    def check_entry(self, opportunity: Opportunity, desired_notional_usd: Decimal, est_fees_usd: Decimal, hold_hours: Decimal) -> EntryDecision:
+    def check_entry(
+        self, opportunity: Opportunity, desired_notional_usd: Decimal, est_fees_usd: Decimal, hold_hours: Decimal
+    ) -> EntryDecision:
         if opportunity.expected_apy < self.rules.min_apy_filter:
             return EntryDecision(False, "apy_below_min")
         if opportunity.spread > self.rules.max_spread_filter_percent:
@@ -127,7 +134,9 @@ class ConstitutionGuard:
             return EntryDecision(False, "min_profit_not_met")
         return EntryDecision(True)
 
-    def check_maintenance(self, funding_apy: Decimal, funding_flip_hours: Decimal, volatility_pct_24h: Decimal, age_hours: Decimal) -> EntryDecision:
+    def check_maintenance(
+        self, funding_apy: Decimal, funding_flip_hours: Decimal, volatility_pct_24h: Decimal, age_hours: Decimal
+    ) -> EntryDecision:
         if funding_apy < self.rules.min_maintenance_apy:
             return EntryDecision(False, "apy_below_maintenance")
         if funding_flip_hours > self.rules.funding_flip_hours_threshold:

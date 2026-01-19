@@ -1,10 +1,11 @@
+import asyncio
 import json
 import logging
-import asyncio
-import websockets
 
+import websockets
 from lighter.models import WSAccountAssets
-from utils import default_example_setup, ws_subscribe, ws_ping
+
+from utils import default_example_setup, ws_ping, ws_subscribe
 
 
 async def consume_messages(ws):
@@ -21,10 +22,12 @@ async def consume_messages(ws):
             continue
 
         # handle account_all_assets updates -- just print stuff
-        if msg["type"] == "subscribed/account_all_assets" or msg["type"] == "update/account_all_assets" :
+        if msg["type"] == "subscribed/account_all_assets" or msg["type"] == "update/account_all_assets":
             o = WSAccountAssets.from_dict(msg)
             for asset in o.assets.values():
-                print(f"{asset.symbol} total: {asset.balance} available: {float(asset.balance) - float(asset.locked_balance)} accountId: {o.account_id}")
+                print(
+                    f"{asset.symbol} total: {asset.balance} available: {float(asset.balance) - float(asset.locked_balance)} accountId: {o.account_id}"
+                )
 
 
 async def main():

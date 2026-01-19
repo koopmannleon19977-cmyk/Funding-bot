@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Callable, Dict, List, Optional
+from datetime import UTC, datetime
 
 import aiohttp
 from eth_account import Account
@@ -42,7 +42,7 @@ class OnBoardedAccount:
 class UserClient:
     __endpoint_config: EndpointConfig
     __l1_private_key: Callable[[], str]
-    __session: Optional[aiohttp.ClientSession] = None
+    __session: aiohttp.ClientSession | None = None
 
     def __init__(
         self,
@@ -53,7 +53,7 @@ class UserClient:
         self.__endpoint_config = endpoint_config
         self.__l1_private_key = l1_private_key
 
-    def _get_url(self, base_url: str, path: str, *, query: Optional[Dict] = None, **path_params) -> str:
+    def _get_url(self, base_url: str, path: str, *, query: dict | None = None, **path_params) -> str:
         return get_url(f"{base_url}{path}", query=query, **path_params)
 
     async def get_session(self) -> aiohttp.ClientSession:
@@ -68,7 +68,7 @@ class UserClient:
             await self.__session.close()
             self.__session = None
 
-    async def onboard(self, referral_code: Optional[str] = None):
+    async def onboard(self, referral_code: str | None = None):
         signing_account: LocalAccount = Account.from_key(self.__l1_private_key())
         key_pair = get_l2_keys_from_l1_account(
             l1_account=signing_account, account_index=0, signing_domain=self.__endpoint_config.signing_domain
@@ -97,9 +97,9 @@ class UserClient:
             description = f"Subaccount {account_index}"
 
         signing_account: LocalAccount = Account.from_key(self.__l1_private_key())
-        time = datetime.now(timezone.utc)
-        auth_time_string = time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        l1_message = f"{request_path}@{auth_time_string}".encode(encoding="utf-8")
+        time = datetime.now(UTC)
+        auth_time_string = time.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        l1_message = f"{request_path}@{auth_time_string}".encode()
         signable_message = encode_defunct(l1_message)
         l1_signature = signing_account.sign_message(signable_message)
         key_pair = get_l2_keys_from_l1_account(
@@ -142,12 +142,12 @@ class UserClient:
             raise ValueError("No account data returned from onboarding")
         return OnBoardedAccount(account=onboarded_account, l2_key_pair=key_pair)
 
-    async def get_accounts(self) -> List[OnBoardedAccount]:
+    async def get_accounts(self) -> list[OnBoardedAccount]:
         request_path = "/api/v1/user/accounts"
         signing_account: LocalAccount = Account.from_key(self.__l1_private_key())
-        time = datetime.now(timezone.utc)
-        auth_time_string = time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        l1_message = f"{request_path}@{auth_time_string}".encode(encoding="utf-8")
+        time = datetime.now(UTC)
+        auth_time_string = time.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        l1_message = f"{request_path}@{auth_time_string}".encode()
         signable_message = encode_defunct(l1_message)
         l1_signature = signing_account.sign_message(signable_message)
         headers = {
@@ -155,7 +155,7 @@ class UserClient:
             L1_MESSAGE_TIME_HEADER: auth_time_string,
         }
         url = self._get_url(self.__endpoint_config.onboarding_url, path=request_path)
-        response = await send_get_request(await self.get_session(), url, List[AccountModel], request_headers=headers)
+        response = await send_get_request(await self.get_session(), url, list[AccountModel], request_headers=headers)
         accounts = response.data or []
 
         return [
@@ -173,12 +173,12 @@ class UserClient:
     async def create_account_api_key(self, account: AccountModel, description: str | None) -> str:
         request_path = "/api/v1/user/account/api-key"
         if description is None:
-            description = "trading api key for account {}".format(account.id)
+            description = f"trading api key for account {account.id}"
 
         signing_account: LocalAccount = Account.from_key(self.__l1_private_key())
-        time = datetime.now(timezone.utc)
-        auth_time_string = time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        l1_message = f"{request_path}@{auth_time_string}".encode(encoding="utf-8")
+        time = datetime.now(UTC)
+        auth_time_string = time.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        l1_message = f"{request_path}@{auth_time_string}".encode()
         signable_message = encode_defunct(l1_message)
         l1_signature = signing_account.sign_message(signable_message)
         headers = {

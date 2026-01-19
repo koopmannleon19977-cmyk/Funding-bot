@@ -136,10 +136,7 @@ class MarketDataService:
         await self._start_market_data_streams()
 
         # Start background refresh
-        self._refresh_task = asyncio.create_task(
-            self._refresh_loop(),
-            name="market_data_refresh"
-        )
+        self._refresh_task = asyncio.create_task(self._refresh_loop(), name="market_data_refresh")
 
         logger.info(f"MarketDataService started with {len(self._common_symbols)} symbols")
 

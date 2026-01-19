@@ -1,7 +1,10 @@
 import json
-from websockets.sync.client import connect
+
 from websockets.client import connect as connect_async
+from websockets.sync.client import connect
+
 from lighter.configuration import Configuration
+
 
 class WsClient:
     def __init__(
@@ -70,27 +73,15 @@ class WsClient:
 
     def handle_connected(self, ws):
         for market_id in self.subscriptions["order_books"]:
-            ws.send(
-                json.dumps({"type": "subscribe", "channel": f"order_book/{market_id}"})
-            )
+            ws.send(json.dumps({"type": "subscribe", "channel": f"order_book/{market_id}"}))
         for account_id in self.subscriptions["accounts"]:
-            ws.send(
-                json.dumps(
-                    {"type": "subscribe", "channel": f"account_all/{account_id}"}
-                )
-            )
+            ws.send(json.dumps({"type": "subscribe", "channel": f"account_all/{account_id}"}))
 
     async def handle_connected_async(self, ws):
         for market_id in self.subscriptions["order_books"]:
-            await ws.send(
-                json.dumps({"type": "subscribe", "channel": f"order_book/{market_id}"})
-            )
+            await ws.send(json.dumps({"type": "subscribe", "channel": f"order_book/{market_id}"}))
         for account_id in self.subscriptions["accounts"]:
-            await ws.send(
-                json.dumps(
-                    {"type": "subscribe", "channel": f"account_all/{account_id}"}
-                )
-            )
+            await ws.send(json.dumps({"type": "subscribe", "channel": f"account_all/{account_id}"}))
 
     def handle_subscribed_order_book(self, message):
         market_id = message["channel"].split(":")[1]
@@ -105,12 +96,8 @@ class WsClient:
             self.on_order_book_update(market_id, self.order_book_states[market_id])
 
     def update_order_book_state(self, market_id, order_book):
-        self.update_orders(
-            order_book["asks"], self.order_book_states[market_id]["asks"]
-        )
-        self.update_orders(
-            order_book["bids"], self.order_book_states[market_id]["bids"]
-        )
+        self.update_orders(order_book["asks"], self.order_book_states[market_id]["asks"])
+        self.update_orders(order_book["bids"], self.order_book_states[market_id]["bids"])
 
     def update_orders(self, new_orders, existing_orders):
         for new_order in new_orders:
@@ -125,9 +112,7 @@ class WsClient:
             if is_new_order:
                 existing_orders.append(new_order)
 
-        existing_orders = [
-            order for order in existing_orders if float(order["size"]) > 0
-        ]
+        existing_orders = [order for order in existing_orders if float(order["size"]) > 0]
 
     def handle_subscribed_account(self, message):
         account_id = message["channel"].split(":")[1]

@@ -96,15 +96,19 @@ def _load_leg2_config(settings, x10_info, ob, trade: Trade) -> Leg2Config:
     except Exception:
         max_attempts = 1
 
-    fill_timeout = float(_safe_decimal(
-        getattr(es, "hedge_ioc_fill_timeout_seconds", None),
-        default=Decimal("8.0"),
-    ))
+    fill_timeout = float(
+        _safe_decimal(
+            getattr(es, "hedge_ioc_fill_timeout_seconds", None),
+            default=Decimal("8.0"),
+        )
+    )
 
-    retry_delay = float(_safe_decimal(
-        getattr(es, "hedge_ioc_retry_delay_seconds", None),
-        default=Decimal("0.2"),
-    ))
+    retry_delay = float(
+        _safe_decimal(
+            getattr(es, "hedge_ioc_retry_delay_seconds", None),
+            default=Decimal("0.2"),
+        )
+    )
 
     slippage_step = _safe_decimal(
         getattr(es, "hedge_ioc_slippage_step", None),
@@ -117,17 +121,11 @@ def _load_leg2_config(settings, x10_info, ob, trade: Trade) -> Leg2Config:
     )
 
     # Apply profitability-aware slippage adjustment
-    max_slippage = _adjust_slippage_for_leg1_spread(
-        trade, ob, base_slippage, max_slippage
-    )
+    max_slippage = _adjust_slippage_for_leg1_spread(trade, ob, base_slippage, max_slippage)
 
     # Smart Pricing config
     smart_enabled = bool(getattr(es, "smart_pricing_enabled", False))
-    smart_levels = int(
-        getattr(es, "smart_pricing_depth_levels", 0)
-        or getattr(ts, "depth_gate_levels", 20)
-        or 20
-    )
+    smart_levels = int(getattr(es, "smart_pricing_depth_levels", 0) or getattr(ts, "depth_gate_levels", 20) or 20)
     smart_levels = max(1, min(smart_levels, 250))
 
     smart_impact = _safe_decimal(
@@ -150,14 +148,18 @@ def _load_leg2_config(settings, x10_info, ob, trade: Trade) -> Leg2Config:
 
     # Dynamic timing config
     dyn_enabled = bool(getattr(es, "hedge_dynamic_timing_enabled", True))
-    dyn_min_delay = float(_safe_decimal(
-        getattr(es, "hedge_dynamic_timing_min_retry_delay_seconds", None),
-        default=Decimal("0.05"),
-    ))
-    dyn_max_delay = float(_safe_decimal(
-        getattr(es, "hedge_dynamic_timing_max_retry_delay_seconds", None),
-        default=Decimal("0.8"),
-    ))
+    dyn_min_delay = float(
+        _safe_decimal(
+            getattr(es, "hedge_dynamic_timing_min_retry_delay_seconds", None),
+            default=Decimal("0.05"),
+        )
+    )
+    dyn_max_delay = float(
+        _safe_decimal(
+            getattr(es, "hedge_dynamic_timing_max_retry_delay_seconds", None),
+            default=Decimal("0.8"),
+        )
+    )
     dyn_low_vol = _safe_decimal(
         getattr(es, "hedge_dynamic_timing_low_volatility_pct", None),
         default=Decimal("0.0002"),
@@ -274,10 +276,12 @@ def _calculate_dynamic_retry_delay(
     if spread > Decimal("0.0015"):
         factor = max(factor, Decimal("1.2"))
 
-    return float(max(
-        Decimal(str(cfg.dyn_min_delay)),
-        min(Decimal(str(cfg.dyn_max_delay)), Decimal(str(cfg.retry_delay)) * factor)
-    ))
+    return float(
+        max(
+            Decimal(str(cfg.dyn_min_delay)),
+            min(Decimal(str(cfg.dyn_max_delay)), Decimal(str(cfg.retry_delay)) * factor),
+        )
+    )
 
 
 # =============================================================================
@@ -343,10 +347,7 @@ def _calculate_limit_price(
     attempt: int,
 ) -> Decimal:
     """Calculate the limit price with slippage and tick rounding."""
-    slippage = min(
-        cfg.base_slippage + (cfg.slippage_step * Decimal(attempt)),
-        cfg.max_slippage
-    )
+    slippage = min(cfg.base_slippage + (cfg.slippage_step * Decimal(attempt)), cfg.max_slippage)
 
     if side == Side.BUY:
         price = base_price * (Decimal("1") + slippage)
@@ -356,13 +357,9 @@ def _calculate_limit_price(
     # Tick rounding
     if cfg.tick_size > 0:
         if side == Side.BUY:
-            price = (price / cfg.tick_size).quantize(
-                Decimal("1"), rounding="ROUND_CEILING"
-            ) * cfg.tick_size
+            price = (price / cfg.tick_size).quantize(Decimal("1"), rounding="ROUND_CEILING") * cfg.tick_size
         else:
-            price = (price / cfg.tick_size).quantize(
-                Decimal("1"), rounding="ROUND_FLOOR"
-            ) * cfg.tick_size
+            price = (price / cfg.tick_size).quantize(Decimal("1"), rounding="ROUND_FLOOR") * cfg.tick_size
 
     return price
 
@@ -387,10 +384,12 @@ async def _record_hedge_latency(
     if leg1_filled_monotonic is not None:
         leg1_to_submit_ms = Decimal(str(max(0.0, (t_submit0 - leg1_filled_monotonic) * 1000.0)))
         leg1_to_ack_ms = Decimal(str(max(0.0, (t_submit1 - leg1_filled_monotonic) * 1000.0)))
-        metrics.update({
-            "leg1_to_leg2_submit_ms": str(leg1_to_submit_ms),
-            "leg1_to_leg2_place_ack_ms": str(leg1_to_ack_ms),
-        })
+        metrics.update(
+            {
+                "leg1_to_leg2_submit_ms": str(leg1_to_submit_ms),
+                "leg1_to_leg2_place_ack_ms": str(leg1_to_ack_ms),
+            }
+        )
         logger.info(
             f"Hedge latency {trade.symbol}: "
             f"leg1->leg2_submit={float(leg1_to_submit_ms):.0f}ms "
@@ -405,16 +404,14 @@ async def _record_hedge_latency(
             "leg1_to_leg2_ack_ms": leg1_to_ack_ms,
         }
     else:
-        logger.info(
-            f"Hedge latency {trade.symbol}: "
-            f"place_ack={float(place_ack_ms):.0f}ms (no leg1 timestamp)"
-        )
+        logger.info(f"Hedge latency {trade.symbol}: place_ack={float(place_ack_ms):.0f}ms (no leg1 timestamp)")
         kpi_update = {
             "data": {"hedge_latency": metrics},
             "leg2_place_ack_ms": place_ack_ms,
         }
 
     await self._kpi_update_attempt(attempt_id, kpi_update)
+
 
 # =============================================================================
 # Fill Processing Helpers
@@ -449,14 +446,11 @@ def _process_fill_result(
     should_cancel = bool(filled_order and filled_order.is_active)
     if should_cancel:
         logger.warning(
-            f"Leg2 order {order_id} active after wait ({filled_order.status}). "
-            f"Will cancel remainder (Rule 7)."
+            f"Leg2 order {order_id} active after wait ({filled_order.status}). Will cancel remainder (Rule 7)."
         )
 
     if not filled_order or filled_qty <= 0:
-        logger.warning(
-            f"Leg2 IOC not filled (attempt {attempt + 1}/{max_attempts}): {status_info}"
-        )
+        logger.warning(f"Leg2 IOC not filled (attempt {attempt + 1}/{max_attempts}): {status_info}")
 
     return FillResult(
         filled_qty=filled_qty,
@@ -559,8 +553,7 @@ def _handle_partial_fill(
         return True, False
 
     logger.warning(
-        f"Leg2 partial hedge: {total_filled:.6f}/{desired_qty:.6f}. "
-        f"Will retry remainder {remaining_qty:.6f}..."
+        f"Leg2 partial hedge: {total_filled:.6f}/{desired_qty:.6f}. Will retry remainder {remaining_qty:.6f}..."
     )
     return False, True
 
@@ -607,10 +600,7 @@ async def _execute_leg2(
 
     # Skip if already hedged (e.g. salvage flow)
     if trade.leg2.filled_qty and trade.leg2.filled_qty >= desired_qty and trade.leg2.entry_price > 0:
-        logger.info(
-            f"Leg2 already hedged for {trade.symbol}: "
-            f"{trade.leg2.filled_qty:.6f}/{desired_qty:.6f}"
-        )
+        logger.info(f"Leg2 already hedged for {trade.symbol}: {trade.leg2.filled_qty:.6f}/{desired_qty:.6f}")
         return
 
     # Initialize attempt state
@@ -626,9 +616,7 @@ async def _execute_leg2(
 
             # Calculate dynamic retry delay based on volatility
             cached_ob = self.market_data.get_orderbook(trade.symbol)
-            dynamic_retry_delay = _calculate_dynamic_retry_delay(
-                cfg, base_price, state.prev_base_price, cached_ob
-            )
+            dynamic_retry_delay = _calculate_dynamic_retry_delay(cfg, base_price, state.prev_base_price, cached_ob)
 
             # Apply smart pricing if L1 is thin
             base_price, smart_used = await _apply_smart_pricing(
@@ -664,19 +652,13 @@ async def _execute_leg2(
             # Record hedge latency (first attempt only)
             if not state.hedge_latency_recorded:
                 state.hedge_latency_recorded = True
-                await _record_hedge_latency(
-                    self, trade, attempt_id, t_submit0, t_submit1, leg1_filled_monotonic
-                )
+                await _record_hedge_latency(self, trade, attempt_id, t_submit0, t_submit1, leg1_filled_monotonic)
 
             # Wait for fill
-            filled_order = await self._wait_for_fill(
-                self.x10, trade.symbol, order.order_id, timeout=cfg.fill_timeout
-            )
+            filled_order = await self._wait_for_fill(self.x10, trade.symbol, order.order_id, timeout=cfg.fill_timeout)
 
             # Handle fill result
-            fill_result = _process_fill_result(
-                filled_order, trade, order.order_id, attempt, cfg.max_attempts
-            )
+            fill_result = _process_fill_result(filled_order, trade, order.order_id, attempt, cfg.max_attempts)
 
             # Cancel remainder if order still active (Rule 7)
             if fill_result.should_cancel:
@@ -721,8 +703,7 @@ async def _execute_leg2(
             # Handle partial fill
             remaining_qty = desired_qty - state.total_filled
             should_break, should_continue = _handle_partial_fill(
-                self, trade, state.total_filled, desired_qty, remaining_qty,
-                fill_result.avg_price, base_price
+                self, trade, state.total_filled, desired_qty, remaining_qty, fill_result.avg_price, base_price
             )
             if should_break:
                 break
@@ -742,15 +723,12 @@ async def _execute_leg2(
         # Finalize trade with accumulated values
         trade.leg2.filled_qty = state.total_filled
         trade.leg2.entry_price = (
-            (state.weighted_price_sum / state.total_filled)
-            if state.total_filled > 0
-            else Decimal("0")
+            (state.weighted_price_sum / state.total_filled) if state.total_filled > 0 else Decimal("0")
         )
         trade.leg2.fees = (trade.leg2.fees or Decimal("0")) + state.total_fee
 
         logger.info(
-            f"Leg2 finalized: {trade.leg2.filled_qty:.6f} @ {trade.leg2.entry_price:.6f} "
-            f"(fee=${trade.leg2.fees:.6f})"
+            f"Leg2 finalized: {trade.leg2.filled_qty:.6f} @ {trade.leg2.entry_price:.6f} (fee=${trade.leg2.fees:.6f})"
         )
 
     except Exception as e:

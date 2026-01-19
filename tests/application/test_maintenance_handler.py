@@ -42,7 +42,14 @@ async def test_handler_closes_on_violation():
     wire_maintenance_auto_close(bus, fetch_trade, closer)
     await bus.start()
 
-    await bus.publish(MaintenanceViolation(trade_id="t1", symbol="BTC-USD", reason="volatility_panic", timestamp=__import__("datetime").datetime.utcnow()))
+    await bus.publish(
+        MaintenanceViolation(
+            trade_id="t1",
+            symbol="BTC-USD",
+            reason="volatility_panic",
+            timestamp=__import__("datetime").datetime.utcnow(),
+        )
+    )
 
     for _ in range(5):
         await asyncio.sleep(0.02)
@@ -69,7 +76,14 @@ async def test_handler_no_trade_noop():
     wire_maintenance_auto_close(bus, fetch_trade, closer)
     await bus.start()
 
-    await bus.publish(MaintenanceViolation(trade_id="missing", symbol="BTC-USD", reason="funding_flip", timestamp=__import__("datetime").datetime.utcnow()))
+    await bus.publish(
+        MaintenanceViolation(
+            trade_id="missing",
+            symbol="BTC-USD",
+            reason="funding_flip",
+            timestamp=__import__("datetime").datetime.utcnow(),
+        )
+    )
     await asyncio.sleep(0.05)
     await bus.stop()
 

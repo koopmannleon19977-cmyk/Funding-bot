@@ -20,9 +20,7 @@ def _scan_signature(self, opp: Opportunity) -> tuple[str, str, str]:
 
 
 async def _reserve_scan_log(self, top: Opportunity | None) -> bool:
-    interval = float(
-        getattr(self.settings.trading, "opportunity_scan_log_interval_seconds", 30.0) or 30.0
-    )
+    interval = float(getattr(self.settings.trading, "opportunity_scan_log_interval_seconds", 30.0) or 30.0)
     if interval <= 0:
         return True
     now = datetime.now(UTC)
@@ -46,9 +44,7 @@ async def _reserve_scan_log(self, top: Opportunity | None) -> bool:
 async def _reserve_candidate_log(self, symbol: str, *, suppress: bool = False) -> bool:
     if suppress:
         return False
-    interval = float(
-        getattr(self.settings.trading, "candidate_log_interval_seconds", 20.0) or 20.0
-    )
+    interval = float(getattr(self.settings.trading, "candidate_log_interval_seconds", 20.0) or 20.0)
     if interval <= 0:
         return True
     now = datetime.now(UTC)
@@ -116,19 +112,14 @@ async def _log_zero_scan_diagnostics(
                 "required",
                 "spread_cost",
             )
-            details = ", ".join(
-                f"{k}={reject[k]}" for k in details_keys if k in reject
-            )
+            details = ", ".join(f"{k}={reject[k]}" for k in details_keys if k in reject)
             reasons.append(f"{symbol}={reason}" + (f" ({details})" if details else ""))
         except Exception as e:
             reasons.append(f"{symbol}=error({e})")
 
     best = sample[0] if sample else "None"
     first_reason = reasons[0] if reasons else "No candidates"
-    logger.info(
-        f"[SCAN] No opportunities. Best: {best} - {first_reason} | "
-        f"Available: ${available_equity:.0f}"
-    )
+    logger.info(f"[SCAN] No opportunities. Best: {best} - {first_reason} | Available: ${available_equity:.0f}")
     logger.debug(
         "Scan details: "
         f"min_apy={ts.min_apy_filter:.1%} "

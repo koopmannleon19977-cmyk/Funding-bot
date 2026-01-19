@@ -1,7 +1,6 @@
 import datetime
 
 from eth_account import Account
-
 from x10.perpetual.user_client.onboarding import get_l2_keys_from_l1_account
 
 
@@ -24,7 +23,7 @@ def test_onboarding_object_generation():
             hour=16,
             minute=1,
             second=2,
-            tzinfo=datetime.timezone.utc,
+            tzinfo=datetime.UTC,
         ),
         host="host",
         key_pair=key_pair,

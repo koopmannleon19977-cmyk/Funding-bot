@@ -22,13 +22,13 @@ import pytest
 
 from funding_bot.adapters.exchanges.lighter.adapter import LighterAdapter
 from funding_bot.adapters.exchanges.x10.adapter import X10Adapter
-from funding_bot.config.settings import TradingSettings, ExchangeSettings
+from funding_bot.config.settings import ExchangeSettings
 from funding_bot.domain.models import Side
+from funding_bot.observability.logging import get_logger
 from funding_bot.services.liquidity_gates_preflight import (
     PreflightLiquidityConfig,
     check_preflight_liquidity,
 )
-from funding_bot.observability.logging import get_logger
 
 logger = get_logger("funding_bot.tests.integration")
 
@@ -86,14 +86,14 @@ async def test_lighter_orderbook_depth_levels():
 
         # Show sample of first few levels
         if bid_levels > 0:
-            logger.info(f"  Sample bids (top 3):")
+            logger.info("  Sample bids (top 3):")
             for i, (price, qty) in enumerate(orderbook["bids"][:3]):
-                logger.info(f"    Level {i+1}: {price} @ {qty}")
+                logger.info(f"    Level {i + 1}: {price} @ {qty}")
 
         if ask_levels > 0:
-            logger.info(f"  Sample asks (top 3):")
+            logger.info("  Sample asks (top 3):")
             for i, (price, qty) in enumerate(orderbook["asks"][:3]):
-                logger.info(f"    Level {i+1}: {price} @ {qty}")
+                logger.info(f"    Level {i + 1}: {price} @ {qty}")
 
         # Assert minimum liquidity exists
         assert bid_levels > 0, "Should have at least 1 bid level"
@@ -133,14 +133,14 @@ async def test_x10_orderbook_depth_levels():
 
         # Show sample of first few levels
         if bid_levels > 0:
-            logger.info(f"  Sample bids (top 3):")
+            logger.info("  Sample bids (top 3):")
             for i, (price, qty) in enumerate(orderbook["bids"][:3]):
-                logger.info(f"    Level {i+1}: {price} @ {qty}")
+                logger.info(f"    Level {i + 1}: {price} @ {qty}")
 
         if ask_levels > 0:
-            logger.info(f"  Sample asks (top 3):")
+            logger.info("  Sample asks (top 3):")
             for i, (price, qty) in enumerate(orderbook["asks"][:3]):
-                logger.info(f"    Level {i+1}: {price} @ {qty}")
+                logger.info(f"    Level {i + 1}: {price} @ {qty}")
 
         # Assert minimum liquidity exists
         assert bid_levels > 0, "Should have at least 1 bid level"
@@ -249,7 +249,7 @@ async def test_preflight_liquidity_real_btc():
         logger.info(f"  Latency: {result.latency_ms:.1f}ms")
 
         if result.passed:
-            logger.info(f"  ✅ Pre-flight check PASSED")
+            logger.info("  ✅ Pre-flight check PASSED")
         else:
             logger.warning(f"  ❌ Pre-flight check FAILED: {result.failure_reason}")
 
@@ -313,7 +313,7 @@ async def test_preflight_liquidity_real_eth():
         logger.info(f"  Latency: {result.latency_ms:.1f}ms")
 
         if result.passed:
-            logger.info(f"  ✅ Pre-flight check PASSED")
+            logger.info("  ✅ Pre-flight check PASSED")
         else:
             logger.warning(f"  ❌ Pre-flight check FAILED: {result.failure_reason}")
 

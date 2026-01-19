@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from funding_bot.domain.models import Order, OrderStatus, Side, OrderType, Exchange
+from funding_bot.domain.models import Exchange, Order, OrderStatus, OrderType, Side
 
 
 class TestRaceConditionDetection:
@@ -94,7 +94,7 @@ class TestRaceConditionDetection:
 
                     # Verify: New order was cancelled
                     lighter.cancel_order.assert_called_once_with(symbol, new_order_id)
-            except Exception as e:
+            except Exception:
                 # Don't fail on verification errors
                 pass
 
@@ -161,9 +161,7 @@ class TestRaceConditionDetection:
         symbol = "BTC-USD"
 
         # Mock: get_order raises exception
-        lighter.get_order = AsyncMock(
-            side_effect=Exception("Network timeout during verification")
-        )
+        lighter.get_order = AsyncMock(side_effect=Exception("Network timeout during verification"))
 
         # ACT: Simulate the post-replacement verification with try/except
         error_logged = False
@@ -173,7 +171,7 @@ class TestRaceConditionDetection:
                 old_order_status = await lighter.get_order(symbol, old_order_id)
                 if old_order_status and old_order_status.status == OrderStatus.FILLED:
                     await lighter.cancel_order(symbol, new_order_id)
-            except Exception as e:
+            except Exception:
                 # Don't fail on verification errors - log and continue
                 error_logged = True
 
@@ -221,9 +219,7 @@ class TestDoubleExposurePrevention:
         lighter.get_order = AsyncMock(return_value=filled_order)
 
         # Mock: Cancellation FAILS
-        lighter.cancel_order = AsyncMock(
-            side_effect=Exception("Network error during cancellation")
-        )
+        lighter.cancel_order = AsyncMock(side_effect=Exception("Network error during cancellation"))
 
         # ACT: Verify the race condition logic
         cancellation_failed = False

@@ -14,15 +14,12 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-import pytest
-
 from funding_bot.domain.models import Exchange, Side, TradeLeg
 from funding_bot.services.positions.close import (
     _calculate_grid_price_levels,
     _calculate_rebalance_target,
     _update_leg_after_fill,
 )
-
 
 # =============================================================================
 # GRID STEP HELPER TESTS
@@ -157,9 +154,7 @@ class TestCalculateRebalanceTarget:
             leg2_side=Side.SELL,
         )
 
-        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(
-            trade, None, None
-        )
+        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(trade, None, None)
 
         # Net delta: BUY 10*100 = +1000, SELL 10*100 = -1000, net = 0
         assert net_delta == Decimal("0")
@@ -176,9 +171,7 @@ class TestCalculateRebalanceTarget:
             leg2_side=Side.SELL,
         )
 
-        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(
-            trade, None, None
-        )
+        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(trade, None, None)
 
         # Net delta: BUY 12*100 = +1200, SELL 10*100 = -1000, net = +200
         assert net_delta == Decimal("200")
@@ -197,9 +190,7 @@ class TestCalculateRebalanceTarget:
             leg2_side=Side.SELL,
         )
 
-        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(
-            trade, None, None
-        )
+        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(trade, None, None)
 
         # Net delta: BUY 10*100 = +1000, SELL 12*100 = -1200, net = -200
         assert net_delta == Decimal("-200")
@@ -251,9 +242,7 @@ class TestCalculateRebalanceTarget:
             leg2_side=Side.BUY,  # Long on X10
         )
 
-        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(
-            trade, None, None
-        )
+        exchange, leg, rebalance_notional, net_delta = _calculate_rebalance_target(trade, None, None)
 
         # Net delta: SELL 10*100 = -1000, BUY 12*100 = +1200, net = +200
         assert net_delta == Decimal("200")

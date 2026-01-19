@@ -98,28 +98,18 @@ def _load_depth_gate_config(settings: Any) -> DepthGateConfig:
     gate_mode = getattr(ts, "depth_gate_mode", "L1")
     use_impact = gate_mode == "IMPACT"
 
-    fast_hedge_enabled = _safe_bool(
-        getattr(es, "hedge_submit_immediately_on_fill_enabled", None), False
-    )
-    post_leg1_impact_enabled = _safe_bool(
-        getattr(es, "hedge_post_leg1_impact_depth_enabled", None), False
-    )
+    fast_hedge_enabled = _safe_bool(getattr(es, "hedge_submit_immediately_on_fill_enabled", None), False)
+    post_leg1_impact_enabled = _safe_bool(getattr(es, "hedge_post_leg1_impact_depth_enabled", None), False)
     use_impact_post_leg1 = use_impact and (not fast_hedge_enabled or post_leg1_impact_enabled)
 
     return DepthGateConfig(
         enabled=getattr(ts, "depth_gate_enabled", False),
         mode=gate_mode,
         levels=int(getattr(ts, "depth_gate_levels", 20) or 20),
-        max_price_impact_pct=_safe_decimal(
-            getattr(ts, "depth_gate_max_price_impact_percent", None), Decimal("0.0015")
-        ),
+        max_price_impact_pct=_safe_decimal(getattr(ts, "depth_gate_max_price_impact_percent", None), Decimal("0.0015")),
         min_l1_notional_usd=_safe_decimal(getattr(ts, "min_l1_notional_usd", None), Decimal("0")),
-        min_l1_notional_multiple=_safe_decimal(
-            getattr(ts, "min_l1_notional_multiple", None), Decimal("0")
-        ),
-        max_l1_qty_utilization=_safe_decimal(
-            getattr(ts, "max_l1_qty_utilization", None), Decimal("1.0")
-        ),
+        min_l1_notional_multiple=_safe_decimal(getattr(ts, "min_l1_notional_multiple", None), Decimal("0")),
+        max_l1_qty_utilization=_safe_decimal(getattr(ts, "max_l1_qty_utilization", None), Decimal("1.0")),
         use_impact_post_leg1=use_impact_post_leg1,
     )
 
@@ -130,12 +120,8 @@ def _load_salvage_config(settings: Any) -> SalvageConfig:
 
     return SalvageConfig(
         enabled=_safe_bool(getattr(es, "hedge_depth_salvage_enabled", None), False),
-        min_fraction=_safe_decimal(
-            getattr(es, "hedge_depth_salvage_min_fraction", None), Decimal("0")
-        ),
-        close_slippage=_safe_decimal(
-            getattr(es, "hedge_depth_salvage_close_slippage", None), Decimal("0.002")
-        ),
+        min_fraction=_safe_decimal(getattr(es, "hedge_depth_salvage_min_fraction", None), Decimal("0")),
+        close_slippage=_safe_decimal(getattr(es, "hedge_depth_salvage_close_slippage", None), Decimal("0.002")),
         close_timeout=float(
             _safe_decimal(
                 getattr(es, "hedge_depth_salvage_close_fill_timeout_seconds", None),
@@ -149,7 +135,7 @@ def _load_salvage_config(settings: Any) -> SalvageConfig:
 async def _check_depth_compliance(
     self,
     trade: Trade,
-    x10_ob: "OrderbookSnapshot",
+    x10_ob: OrderbookSnapshot,
     cfg: DepthGateConfig,
 ) -> DepthCheckResult:
     """Check X10 depth compliance using configured mode."""
@@ -171,9 +157,7 @@ async def _check_depth_compliance(
                 max_price_impact_pct=cfg.max_price_impact_pct,
             )
         except Exception as e:
-            logger.warning(
-                f"Depth hedge gate fallback to X10 L1 for {trade.symbol} (post-leg1): {e}"
-            )
+            logger.warning(f"Depth hedge gate fallback to X10 L1 for {trade.symbol} (post-leg1): {e}")
             result = check_x10_l1_compliance(
                 x10_ob,
                 x10_side=trade.leg2.side,
@@ -205,7 +189,7 @@ async def _check_depth_compliance(
 def _calculate_salvage_quantities(
     trade: Trade,
     depth_result: DepthCheckResult,
-    x10_ob: "OrderbookSnapshot",
+    x10_ob: OrderbookSnapshot,
     depth_cfg: DepthGateConfig,
 ) -> tuple[Decimal, Decimal, Decimal, bool]:
     """
@@ -262,11 +246,7 @@ async def _execute_salvage_close(
     salvage_cfg: SalvageConfig,
 ) -> SalvageResult:
     """Execute salvage close orders to reduce Leg1 position."""
-    dust_qty = (
-        (salvage_cfg.dust_usd / trade.leg1.entry_price)
-        if trade.leg1.entry_price > 0
-        else Decimal("0")
-    )
+    dust_qty = (salvage_cfg.dust_usd / trade.leg1.entry_price) if trade.leg1.entry_price > 0 else Decimal("0")
 
     closed_qty_total = Decimal("0")
     close_fee_total = Decimal("0")
@@ -295,13 +275,9 @@ async def _execute_salvage_close(
 
         # Conservative accounting: treat adverse price move as additional cost
         if trade.leg1.side == Side.BUY:
-            pnl_wo_fee = (
-                filled_close.avg_fill_price - trade.leg1.entry_price
-            ) * filled_close.filled_qty
+            pnl_wo_fee = (filled_close.avg_fill_price - trade.leg1.entry_price) * filled_close.filled_qty
         else:
-            pnl_wo_fee = (
-                trade.leg1.entry_price - filled_close.avg_fill_price
-            ) * filled_close.filled_qty
+            pnl_wo_fee = (trade.leg1.entry_price - filled_close.avg_fill_price) * filled_close.filled_qty
         if pnl_wo_fee < 0:
             extra_cost_total += -pnl_wo_fee
 
@@ -335,9 +311,7 @@ async def _handle_salvage_failure(
     salvage_data: dict[str, Any],
 ) -> ExecutionResult:
     """Handle salvage failure - rollback and update status."""
-    logger.warning(
-        f"SALVAGE FAILED: could not shrink Leg1 sufficiently. Rolling back."
-    )
+    logger.warning("SALVAGE FAILED: could not shrink Leg1 sufficiently. Rolling back.")
     await self._rollback(trade, reason="Hedge depth salvage failed (could not shrink Leg1)")
     trade.status = TradeStatus.FAILED
     trade.error = f"Insufficient hedge depth: {depth_result.reason}"
@@ -544,11 +518,7 @@ async def _execute_impl_post_leg1(
 
                 if can_salvage:
                     desired_full_qty = trade.leg1.filled_qty
-                    fraction = (
-                        (desired_open_qty / desired_full_qty)
-                        if desired_full_qty > 0
-                        else Decimal("0")
-                    )
+                    fraction = (desired_open_qty / desired_full_qty) if desired_full_qty > 0 else Decimal("0")
 
                     # Check if salvage is viable
                     if (
@@ -565,9 +535,7 @@ async def _execute_impl_post_leg1(
                         )
 
                         # Execute salvage close orders
-                        salvage_result = await _execute_salvage_close(
-                            self, trade, remainder_qty, salvage_cfg
-                        )
+                        salvage_result = await _execute_salvage_close(self, trade, remainder_qty, salvage_cfg)
 
                         if not salvage_result.success:
                             return await _handle_salvage_failure(
@@ -615,9 +583,7 @@ async def _execute_impl_post_leg1(
 
     risk_limit = max_spread * Decimal("1.2")
     if realized_spread > risk_limit:
-        return await _handle_slippage_failure(
-            self, trade, attempt_id, realized_spread, risk_limit, hedge_p
-        ), 0.0
+        return await _handle_slippage_failure(self, trade, attempt_id, realized_spread, risk_limit, hedge_p), 0.0
 
     # Step 6: Record successful guard passage
     await self._kpi_update_attempt(

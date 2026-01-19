@@ -40,7 +40,7 @@ async def _execute_impl_entry_guard(
     # Final entry guard: L1 depth/liquidity (avoid APY traps / thin books)
     ts = self.settings.trading
     gate_mode = getattr(ts, "depth_gate_mode", "L1")
-    use_impact = (gate_mode == "IMPACT")
+    use_impact = gate_mode == "IMPACT"
     depth_levels = int(getattr(ts, "depth_gate_levels", 20) or 20)
     depth_impact = _safe_decimal(getattr(ts, "depth_gate_max_price_impact_percent", None), Decimal("0.0015"))
     depth_ob = prefetched_depth_ob
@@ -98,9 +98,7 @@ async def _execute_impl_entry_guard(
             mult = Decimal("1.0")
         checks = int(getattr(es, "hedge_depth_preflight_checks", 1) or 1)
         checks = max(1, min(checks, 5))
-        delay_s = float(
-            _safe_decimal(getattr(es, "hedge_depth_preflight_delay_seconds", None), Decimal("0.0"))
-        )
+        delay_s = float(_safe_decimal(getattr(es, "hedge_depth_preflight_delay_seconds", None), Decimal("0.0")))
         delay_s = max(0.0, min(delay_s, 5.0))
 
         # Scale thresholds up (more strict) and utilization down (more strict).
@@ -142,11 +140,7 @@ async def _execute_impl_entry_guard(
                     )
                 except Exception as e:
                     logger.debug(f"Depth preflight fallback to L1 for {opp.symbol}: {e}")
-                    ob = (
-                        fresh_ob
-                        if i == 0
-                        else await self._get_best_effort_orderbook(opp.symbol, max_age_seconds=1.0)
-                    )
+                    ob = fresh_ob if i == 0 else await self._get_best_effort_orderbook(opp.symbol, max_age_seconds=1.0)
                     strict = check_l1_depth_for_entry(
                         ob,
                         lighter_side=trade.leg1.side,
@@ -158,11 +152,7 @@ async def _execute_impl_entry_guard(
                         max_l1_qty_utilization=strict_max_util,
                     )
             else:
-                ob = (
-                    fresh_ob
-                    if i == 0
-                    else await self._get_best_effort_orderbook(opp.symbol, max_age_seconds=1.0)
-                )
+                ob = fresh_ob if i == 0 else await self._get_best_effort_orderbook(opp.symbol, max_age_seconds=1.0)
                 strict = check_l1_depth_for_entry(
                     ob,
                     lighter_side=trade.leg1.side,
@@ -209,9 +199,7 @@ async def _execute_impl_entry_guard(
         )
 
         if not strict_ok:
-            logger.warning(
-                f"Rejecting {opp.symbol}: insufficient hedge depth (preflight strict) ({strict_reason})"
-            )
+            logger.warning(f"Rejecting {opp.symbol}: insufficient hedge depth (preflight strict) ({strict_reason})")
             trade.status = TradeStatus.REJECTED
             trade.execution_state = ExecutionState.ABORTED
             trade.error = f"Insufficient hedge depth (preflight strict): {strict_reason}"

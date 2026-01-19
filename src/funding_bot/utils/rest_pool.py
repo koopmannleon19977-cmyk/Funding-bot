@@ -111,10 +111,7 @@ class RESTAPIPool:
                 connector=self._connector,
                 timeout=timeout,
             )
-            logger.info(
-                f"REST API pool initialized: "
-                f"max_concurrent={self._max_concurrent}"
-            )
+            logger.info(f"REST API pool initialized: max_concurrent={self._max_concurrent}")
 
     async def close(self) -> None:
         """Close the HTTP session and cleanup resources."""
@@ -224,7 +221,7 @@ class RESTAPIPool:
                 logger.warning(f"Request error on attempt {attempt + 1}: {e}")
                 if attempt < max_retries:
                     # Exponential backoff
-                    delay = retry_base_delay * (2 ** attempt)
+                    delay = retry_base_delay * (2**attempt)
                     await asyncio.sleep(delay)
                     self._stats["retried_requests"] += 1
                 else:
@@ -259,10 +256,7 @@ class RESTAPIPool:
                 method, url, kwargs = req
                 return await self.fetch(method, url, **(kwargs or {}))
 
-        results = await asyncio.gather(
-            *[fetch_one(req) for req in requests],
-            return_exceptions=True
-        )
+        results = await asyncio.gather(*[fetch_one(req) for req in requests], return_exceptions=True)
 
         # Handle exceptions
         final_results = []
@@ -278,6 +272,7 @@ class RESTAPIPool:
     def _extract_host(self, url: str) -> str:
         """Extract host from URL for rate limiting and circuit breaker."""
         from urllib.parse import urlparse
+
         parsed = urlparse(url)
         return parsed.netloc or parsed.path
 

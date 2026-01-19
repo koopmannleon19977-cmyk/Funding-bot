@@ -19,4 +19,5 @@ async def setup_maintenance_wiring(repo, close_use_case, event_bus: EventBus | N
 def teardown_event_bus(event_bus: EventBus):
     async def stop():
         await event_bus.stop()
+
     return stop

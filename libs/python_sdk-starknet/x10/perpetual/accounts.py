@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
 
 from fast_stark_crypto import sign
 from pydantic import AliasChoices, Field
@@ -17,7 +16,7 @@ class StarkPerpetualAccount:
     __vault: int
     __private_key: int
     __public_key: int
-    __trading_fee: Dict[str, TradingFeeModel]
+    __trading_fee: dict[str, TradingFeeModel]
 
     def __init__(self, vault: int | str, private_key: str, public_key: str, api_key: str):
         assert is_hex_string(private_key)
@@ -52,15 +51,15 @@ class StarkPerpetualAccount:
     def trading_fee(self):
         return self.__trading_fee
 
-    def sign(self, msg_hash: int) -> Tuple[int, int]:
+    def sign(self, msg_hash: int) -> tuple[int, int]:
         return sign(private_key=self.__private_key, msg_hash=msg_hash)
 
 
 class AccountStreamDataModel(X10BaseModel):
-    orders: Optional[List[OpenOrderModel]] = None
-    positions: Optional[List[PositionModel]] = None
-    trades: Optional[List[AccountTradeModel]] = None
-    balance: Optional[BalanceModel] = None
+    orders: list[OpenOrderModel] | None = None
+    positions: list[PositionModel] | None = None
+    trades: list[AccountTradeModel] | None = None
+    balance: BalanceModel | None = None
 
 
 class AccountLeverage(X10BaseModel):
@@ -75,8 +74,8 @@ class AccountModel(X10BaseModel):
     status: str
     l2_key: str
     l2_vault: int
-    bridge_starknet_address: Optional[str] = None
-    api_keys: Optional[List[str]] = None
+    bridge_starknet_address: str | None = None
+    api_keys: list[str] | None = None
 
 
 class ApiKeyResponseModel(X10BaseModel):

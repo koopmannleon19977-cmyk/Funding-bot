@@ -1,5 +1,7 @@
-import websockets
 import asyncio
+
+import websockets
+
 from utils import default_example_setup, ws_send_tx
 
 
@@ -16,9 +18,7 @@ async def main():
     # this was kept this way to not break backwards compatibility. Ideally, they would be consistent.
 
     tx_type, tx_info, tx_hash, err = client.sign_update_leverage(
-        market_index=0,
-        fraction=10_000 // 50,
-        margin_mode=client.ISOLATED_MARGIN_MODE
+        market_index=0, fraction=10_000 // 50, margin_mode=client.ISOLATED_MARGIN_MODE
     )
     if err is not None:
         raise Exception(err)

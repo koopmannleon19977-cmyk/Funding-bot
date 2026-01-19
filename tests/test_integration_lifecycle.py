@@ -23,6 +23,7 @@ from funding_bot.domain.models import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def sample_opportunity():
     """Create a sample trading opportunity."""
@@ -49,6 +50,7 @@ def sample_opportunity():
 # =============================================================================
 # Trade Lifecycle State Tests
 # =============================================================================
+
 
 class TestTradeLifecycleStates:
     """Tests for trade state transitions throughout lifecycle."""
@@ -173,6 +175,7 @@ class TestTradeLifecycleStates:
 # Rollback Scenarios
 # =============================================================================
 
+
 class TestRollbackScenarios:
     """Tests for rollback when leg2 fails."""
 
@@ -241,6 +244,7 @@ class TestRollbackScenarios:
 # PnL Calculation During Lifecycle
 # =============================================================================
 
+
 class TestPnLDuringLifecycle:
     """Tests for PnL calculations at different stages."""
 
@@ -300,6 +304,7 @@ class TestPnLDuringLifecycle:
 # =============================================================================
 # Full Lifecycle Simulation
 # =============================================================================
+
 
 class TestFullLifecycleSimulation:
     """End-to-end lifecycle simulation."""
@@ -416,6 +421,7 @@ class TestFullLifecycleSimulation:
 # Edge Cases
 # =============================================================================
 
+
 class TestLifecycleEdgeCases:
     """Edge cases in trade lifecycle."""
 
@@ -483,6 +489,7 @@ class TestLifecycleEdgeCases:
 # =============================================================================
 # End-to-End Integration Tests
 # =============================================================================
+
 
 class TestEndToEndScenarios:
     """End-to-end integration tests simulating real trading scenarios."""
@@ -668,6 +675,7 @@ class TestEndToEndScenarios:
 # PnL Calculation Tests
 # =============================================================================
 
+
 class TestPnLCalculations:
     """Tests for profit and loss calculations in various scenarios."""
 
@@ -753,6 +761,7 @@ class TestPnLCalculations:
 # Exit Strategy Tests
 # =============================================================================
 
+
 class TestExitStrategies:
     """Tests for different exit strategy triggers."""
 
@@ -814,6 +823,7 @@ class TestExitStrategies:
 # =============================================================================
 # State Persistence Tests
 # =============================================================================
+
 
 class TestStatePersistence:
     """Tests for state persistence across restarts."""

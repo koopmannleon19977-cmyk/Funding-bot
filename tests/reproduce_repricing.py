@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -7,10 +6,12 @@ from decimal import Decimal
 class MockMarketInfo:
     tick_size: Decimal = Decimal("0.01")
 
+
 @dataclass
 class MockOrderbook:
     lighter_bid: Decimal
     lighter_ask: Decimal
+
 
 class MockMarketData:
     def __init__(self, bid, ask):
@@ -27,7 +28,9 @@ class MockMarketData:
         @dataclass
         class Price:
             lighter_price: Decimal
-        return Price((self.ob.lighter_bid + self.ob.lighter_ask)/2)
+
+        return Price((self.ob.lighter_bid + self.ob.lighter_ask) / 2)
+
 
 # Replicating the logic to be implemented for testing purposes
 # This allows us to TDD the logic before pasting it into the main file
@@ -36,7 +39,8 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
     # Target Price = Start Price + (Gap * Aggressiveness)
 
     # 0. Safety for max_attempts
-    if max_attempts < 1: max_attempts = 1
+    if max_attempts < 1:
+        max_attempts = 1
 
     # 1. Calculate Aggressiveness (0.0 to 1.0)
     # If max_attempts is 1, aggressiveness is 1.0 immediately? Or 0.0?
@@ -45,7 +49,7 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
     if max_attempts > 1:
         aggressiveness = Decimal(attempt) / Decimal(max_attempts - 1)
     else:
-        aggressiveness = Decimal("0") # Default to passive if only 1 attempt
+        aggressiveness = Decimal("0")  # Default to passive if only 1 attempt
 
     print(f"Attempt {attempt}/{max_attempts} Aggressiveness: {aggressiveness:.2f}")
 
@@ -62,7 +66,7 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
 
         # If spread is crossed or locked
         if start_price >= target_max:
-             return start_price
+            return start_price
 
         gap = target_max - start_price
 
@@ -76,7 +80,7 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
 
         return final_price
 
-    else: # SELL
+    else:  # SELL
         best_bid = ob.lighter_bid
         best_ask = ob.lighter_ask
 
@@ -87,7 +91,7 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
             return start_price
 
         # Gap is negative direction
-        gap = target_min - start_price # e.g. 100 - 110 = -10
+        gap = target_min - start_price  # e.g. 100 - 110 = -10
 
         raw_price = start_price + (gap * aggressiveness)
 
@@ -100,6 +104,7 @@ def calculate_price_dynamic(attempt, max_attempts, side, ob, tick_size):
         final_price = (raw_price / tick_size).quantize(Decimal("1")) * tick_size
 
         return final_price
+
 
 def test_repricing():
     bid = Decimal("100.00")
@@ -126,6 +131,7 @@ def test_repricing():
     for i in range(5):
         p = calculate_price_dynamic(i, 5, "BUY", ob, Decimal("0.01"))
         print(f"Attempt {i}: {p:.2f}")
+
 
 if __name__ == "__main__":
     test_repricing()

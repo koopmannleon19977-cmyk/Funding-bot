@@ -41,7 +41,7 @@ async def _start_market_data_streams(self) -> None:
 
     max_symbols = int(getattr(ws, "market_data_streams_max_symbols", 0) or 0)
     if max_symbols > 0:
-        normalized = normalized[: max_symbols]
+        normalized = normalized[:max_symbols]
 
     lighter_symbols = sorted(set(normalized) & set(self._common_symbols))
     if not lighter_symbols:

@@ -13,26 +13,21 @@ Tests critical failure scenarios that the bot must handle gracefully:
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from funding_bot.domain.events import BrokenHedgeDetected
 from funding_bot.domain.models import (
     Exchange,
-    ExecutionState,
-    Order,
-    OrderStatus,
-    OrderType,
     Side,
     Trade,
-    TradeStatus,
 )
-
 
 # =============================================================================
 # Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def mock_settings():
@@ -76,6 +71,7 @@ def sample_trade():
 # WebSocket Disconnect Tests
 # =============================================================================
 
+
 class TestWebSocketDisconnection:
     """Tests for WebSocket connection failures."""
 
@@ -113,7 +109,7 @@ class TestWebSocketDisconnection:
 
         delays = []
         for attempt in range(5):
-            delay = min(initial_delay * (2 ** attempt), max_delay)
+            delay = min(initial_delay * (2**attempt), max_delay)
             delays.append(delay)
 
         # Should exponentially increase up to max
@@ -127,6 +123,7 @@ class TestWebSocketDisconnection:
 # =============================================================================
 # API Rate Limiting Tests
 # =============================================================================
+
 
 class TestAPIRateLimiting:
     """Tests for handling API rate limits."""
@@ -151,7 +148,6 @@ class TestAPIRateLimiting:
         retry_after = 5  # seconds
 
         # Simulate waiting for retry_after seconds
-        import asyncio
         wait_time = retry_after
 
         # In real code: await asyncio.sleep(wait_time)
@@ -178,6 +174,7 @@ class TestAPIRateLimiting:
 # =============================================================================
 # API Timeout Tests
 # =============================================================================
+
 
 class TestAPITimeouts:
     """Tests for handling API timeouts."""
@@ -220,6 +217,7 @@ class TestAPITimeouts:
 # Partial Fill Tests
 # =============================================================================
 
+
 class TestPartialFills:
     """Tests for handling partial order fills."""
 
@@ -260,6 +258,7 @@ class TestPartialFills:
 # Order Failure Tests
 # =============================================================================
 
+
 class TestOrderFailures:
     """Tests for handling order placement failures."""
 
@@ -296,6 +295,7 @@ class TestOrderFailures:
 # =============================================================================
 # Broken Hedge Tests
 # =============================================================================
+
 
 class TestBrokenHedgeDetection:
     """Tests for broken hedge detection and handling."""
@@ -353,6 +353,7 @@ class TestBrokenHedgeDetection:
 # Circuit Breaker Tests
 # =============================================================================
 
+
 class TestCircuitBreaker:
     """Tests for circuit breaker functionality."""
 
@@ -392,6 +393,7 @@ class TestCircuitBreaker:
 # =============================================================================
 # Database Failure Tests
 # =============================================================================
+
 
 class TestDatabaseFailures:
     """Tests for handling database failures."""
@@ -442,6 +444,7 @@ class TestDatabaseFailures:
 # Network Error Tests
 # =============================================================================
 
+
 class TestNetworkErrors:
     """Tests for handling network errors."""
 
@@ -483,6 +486,7 @@ class TestNetworkErrors:
 # Concurrent Error Tests
 # =============================================================================
 
+
 class TestConcurrentErrors:
     """Tests for handling multiple simultaneous errors."""
 
@@ -516,6 +520,7 @@ class TestConcurrentErrors:
 # =============================================================================
 # Recovery Tests
 # =============================================================================
+
 
 class TestErrorRecovery:
     """Tests for recovering from error states."""
@@ -562,6 +567,7 @@ class TestErrorRecovery:
 # =============================================================================
 # Error Logging Tests
 # =============================================================================
+
 
 class TestErrorLogging:
     """Tests for proper error logging and monitoring."""

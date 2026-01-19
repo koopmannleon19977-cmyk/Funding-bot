@@ -4,10 +4,10 @@ Unit tests for liquidation distance monitoring.
 
 from decimal import Decimal
 
-from funding_bot.domain.models import Exchange, Position, Side, Trade, TradeLeg
-from funding_bot.domain.rules import check_liquidation_distance
-
 import pytest
+
+from funding_bot.domain.models import Exchange, Side, Trade, TradeLeg
+from funding_bot.domain.rules import check_liquidation_distance
 
 pytestmark = pytest.mark.unit
 

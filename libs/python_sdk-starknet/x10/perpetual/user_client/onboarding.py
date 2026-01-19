@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from eth_account.messages import SignableMessage, encode_typed_data
 from eth_account.signers.local import LocalAccount
@@ -42,7 +42,7 @@ class AccountRegistration:
     host: str
 
     def __post_init__(self):
-        self.time_string = self.time.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.time_string = self.time.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def to_signable_message(self, signing_domain) -> SignableMessage:
         domain = {"name": signing_domain}
@@ -190,7 +190,7 @@ def get_onboarding_payload(
     referral_code: str | None = None,
 ) -> OnboardingPayLoad:
     if time is None:
-        time = datetime.now(timezone.utc)
+        time = datetime.now(UTC)
 
     registration_payload = get_registration_struct_to_sign(
         account_index=0, address=account.address, timestamp=time, action=register_action, host=host
@@ -221,7 +221,7 @@ def get_sub_account_creation_payload(
     time: datetime | None = None,
 ):
     if time is None:
-        time = datetime.now(timezone.utc)
+        time = datetime.now(UTC)
 
     registration_payload = get_registration_struct_to_sign(
         account_index=account_index, address=l1_address, timestamp=time, action=sub_account_action, host=host

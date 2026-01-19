@@ -1,8 +1,10 @@
 import asyncio
+
 from utils import default_example_setup
 
 ETH_PRIVATE_KEY = "1234567812345678123456781234567812345678123456781234567812345678"
 TO_ACCOUNT_INDEX = 281474976710649
+
 
 async def main():
     client, api_client, _ = default_example_setup()
@@ -24,7 +26,7 @@ async def main():
         memo="0x" + "00" * 32,
     )
     if err is not None:
-       raise Exception(f"error transferring {err}")
+        raise Exception(f"error transferring {err}")
     print(transfer_tx, response)
 
 

@@ -21,6 +21,7 @@ from funding_bot.domain.models import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def balanced_trade():
     """Create a balanced trade (equal sizes both legs)."""
@@ -114,6 +115,7 @@ def partial_fill_trade():
 # =============================================================================
 # Position Balance Tests
 # =============================================================================
+
 
 class TestPositionBalance:
     """Tests for position balance calculations."""
@@ -278,6 +280,7 @@ class TestLegSideConsistency:
 # Trade Status Tests
 # =============================================================================
 
+
 class TestTradeStatus:
     """Tests for trade status management."""
 
@@ -306,6 +309,7 @@ class TestTradeStatus:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestEdgeCases:
     """Tests for edge cases in position management."""

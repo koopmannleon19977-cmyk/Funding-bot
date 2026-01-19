@@ -19,10 +19,10 @@ import pytest
 pytestmark = pytest.mark.unit
 
 
-from funding_bot.domain.models import Side, TradeStatus, TradeLeg, Exchange
+from funding_bot.domain.models import Exchange, Side, TradeLeg, TradeStatus
+from funding_bot.domain.rules import ExitDecision
 from funding_bot.services.positions.manager import PositionManager
 from funding_bot.services.positions.types import CloseResult
-from funding_bot.domain.rules import ExitDecision
 
 
 def _make_test_trade(
@@ -120,7 +120,9 @@ async def test_check_trades_does_not_count_rebalance_as_closed():
 
     # Bind the method to the mock service
     import types
+
     from funding_bot.services.positions import manager
+
     service.check_trades = types.MethodType(manager.PositionManager.check_trades, service)
 
     # Call check_trades
@@ -168,7 +170,7 @@ async def test_check_trades_counts_full_close_as_closed():
                 trade,
                 ExitDecision(should_exit=True, reason="NetEV: Funding no longer covers exit cost"),
                 False,  # broken_hedge
-                True,   # imbalance_checked
+                True,  # imbalance_checked
             )
         ]
 
@@ -187,16 +189,16 @@ async def test_check_trades_counts_full_close_as_closed():
 
     # Bind the check_trades method using the actual implementation
     import types
+
     from funding_bot.services.positions import manager
+
     service.check_trades = types.MethodType(manager.PositionManager.check_trades, service)
 
     # Call check_trades
     closed_trades = await service.check_trades()
 
     # Verify CLOSED trade IS counted
-    assert len(closed_trades) == 1, (
-        f"Trade with status=CLOSED should be counted as closed, got {len(closed_trades)}"
-    )
+    assert len(closed_trades) == 1, f"Trade with status=CLOSED should be counted as closed, got {len(closed_trades)}"
     assert closed_trades[0] == trade, "Closed trade should be the same object"
     assert trade.status == TradeStatus.CLOSED, "Trade should be marked as CLOSED"
 
@@ -258,7 +260,9 @@ async def test_check_trades_handles_rebalance_then_full_close():
 
     # Bind the check_trades method using the actual implementation
     import types
+
     from funding_bot.services.positions import manager
+
     service.check_trades = types.MethodType(manager.PositionManager.check_trades, service)
 
     # First cycle: rebalance (call_count starts at 0, becomes 1 during evaluation)
@@ -343,7 +347,9 @@ async def test_check_trades_processes_closing_and_open_trades():
     service._evaluate_exit = mock_evaluate_exit
 
     import types
+
     from funding_bot.services.positions import manager
+
     service.check_trades = types.MethodType(manager.PositionManager.check_trades, service)
 
     # Call check_trades

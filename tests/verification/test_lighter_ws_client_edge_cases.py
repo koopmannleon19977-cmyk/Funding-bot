@@ -11,7 +11,6 @@ import pytest
 
 from funding_bot.adapters.exchanges.lighter.ws_client import WsClient
 
-
 # =============================================================================
 # Initialization Tests
 # =============================================================================
@@ -179,6 +178,7 @@ class TestWsClientOrderBookState:
 
     def test_handle_subscribed_order_book_handles_callback_exception(self):
         """Should log and continue when callback raises exception."""
+
         def failing_callback(market_id: str, state: dict) -> None:
             raise ValueError("Test error in callback")
 

@@ -273,10 +273,12 @@ async def update_trade(self, trade_id: str, updates: dict[str, Any]) -> bool:
                     setattr(trade.leg2, leg_attr, value)
 
     # Queue for write
-    await self._write_queue.put({
-        "action": "upsert_trade",
-        "data": self._trade_to_row(trade),
-    })
+    await self._write_queue.put(
+        {
+            "action": "upsert_trade",
+            "data": self._trade_to_row(trade),
+        }
+    )
 
     return True
 
@@ -285,7 +287,8 @@ async def list_open_trades(self) -> list[Trade]:
     """Get all trades with status OPEN or OPENING."""
     async with self._cache_lock:
         return [
-            trade for trade in self._trade_cache.values()
+            trade
+            for trade in self._trade_cache.values()
             if trade.status in (TradeStatus.PENDING, TradeStatus.OPENING, TradeStatus.OPEN, TradeStatus.CLOSING)
         ]
 

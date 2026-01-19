@@ -1,8 +1,10 @@
 import asyncio
 import logging
 import time
+
 import eth_account
 import lighter
+
 from utils import save_api_key_config
 
 logging.basicConfig(level=logging.DEBUG)
@@ -18,6 +20,7 @@ NUM_API_KEYS = 5
 # This is useful if you have multiple accounts on the same L1 address or are the owner of a public pool.
 # You need to use the private key associated to the master account or the owner of the public pool to change the API keys.
 ACCOUNT_INDEX = None
+
 
 async def main():
     # verify that the account exists & fetch account index
@@ -47,7 +50,6 @@ async def main():
         else:
             account_index = response.sub_accounts[0].index
 
-
     # create a private/public key pair for the new API key
     # pass any string to be used as seed for create_api_key like
     # create_api_key("Hello world random seed to make things more secure")
@@ -71,9 +73,7 @@ async def main():
     # change all API keys
     for i in range(NUM_API_KEYS):
         response, err = await tx_client.change_api_key(
-            eth_private_key=ETH_PRIVATE_KEY,
-            new_pubkey=public_keys[i],
-            api_key_index=API_KEY_INDEX + i
+            eth_private_key=ETH_PRIVATE_KEY, new_pubkey=public_keys[i], api_key_index=API_KEY_INDEX + i
         )
         if err is not None:
             raise Exception(err)

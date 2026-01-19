@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RateLimitTracker:
     """Track rate limit usage for an exchange."""
+
     requests_made: int = 0
     window_start: float = field(default_factory=time.monotonic)
     window_duration: float = 60.0  # 1 minute rolling window
@@ -27,6 +28,7 @@ class RateLimitTracker:
 @dataclass
 class ExchangeLimits:
     """Rate limits for an exchange."""
+
     exchange: str
     rest_requests_per_minute: int
     ws_messages_per_minute: int
@@ -80,9 +82,7 @@ class MetricsCollector:
         )
 
         # Rate limit tracking
-        self._rate_limit_tracking: dict[str, RateLimitTracker] = defaultdict(
-            lambda: RateLimitTracker()
-        )
+        self._rate_limit_tracking: dict[str, RateLimitTracker] = defaultdict(lambda: RateLimitTracker())
 
         # Request counters
         self._request_counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))

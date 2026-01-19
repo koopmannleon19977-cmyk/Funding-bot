@@ -7,7 +7,9 @@ from src.domain.value_objects import Decision, Price
 
 
 def test_high_apy_scores_take():
-    scorer = OpportunityScorer(rules=Constitution(min_apy_filter=Decimal("0.20"), max_spread_filter_percent=Decimal("0.002")))
+    scorer = OpportunityScorer(
+        rules=Constitution(min_apy_filter=Decimal("0.20"), max_spread_filter_percent=Decimal("0.002"))
+    )
     opp = Opportunity(
         symbol="BTC-USD",
         expected_apy=Decimal("0.80"),
@@ -22,7 +24,9 @@ def test_high_apy_scores_take():
 
 
 def test_low_apy_rejects():
-    scorer = OpportunityScorer(rules=Constitution(min_apy_filter=Decimal("0.20"), max_spread_filter_percent=Decimal("0.002")))
+    scorer = OpportunityScorer(
+        rules=Constitution(min_apy_filter=Decimal("0.20"), max_spread_filter_percent=Decimal("0.002"))
+    )
     opp = Opportunity(
         symbol="BTC-USD",
         expected_apy=Decimal("0.10"),  # below threshold

@@ -1,10 +1,10 @@
 from decimal import Decimal
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
 from pytest import raises
-from unittest.mock import AsyncMock
 
 from src.application.use_cases import OpenTradeRequest, OpenTradeUseCase
 from src.domain.entities import Opportunity
@@ -90,7 +90,9 @@ async def test_rejects_when_sizer_returns_zero():
         hold_hours=Decimal("8"),
     )
 
-    uc = OpenTradeUseCase(SimpleNamespace(), SimpleNamespace(), repo, scorer, sizer, invariants, rules, risk, guard=guard)
+    uc = OpenTradeUseCase(
+        SimpleNamespace(), SimpleNamespace(), repo, scorer, sizer, invariants, rules, risk, guard=guard
+    )
     with raises(ValueError):
         await uc.execute(req)
 

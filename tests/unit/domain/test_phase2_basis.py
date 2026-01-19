@@ -13,7 +13,6 @@ import pytest
 from funding_bot.domain.models import Exchange, Side, Trade, TradeLeg, TradeStatus
 from funding_bot.domain.rules import check_basis_convergence
 
-
 pytestmark = pytest.mark.unit
 
 

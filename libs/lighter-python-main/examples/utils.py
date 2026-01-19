@@ -1,8 +1,8 @@
-from typing import Tuple, Optional
-import logging
 import json
-import websockets
+import logging
+
 import lighter
+import websockets
 
 
 def trim_exception(e: Exception) -> str:
@@ -11,11 +11,16 @@ def trim_exception(e: Exception) -> str:
 
 def save_api_key_config(base_url, account_index, private_keys, config_file="./api_key_config.json"):
     with open(config_file, "w", encoding="utf-8") as f:
-        json.dump({
-            "baseUrl": base_url,
-            "accountIndex": account_index,
-            "privateKeys": private_keys,
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(
+            {
+                "baseUrl": base_url,
+                "accountIndex": account_index,
+                "privateKeys": private_keys,
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
 
 def get_api_key_config(config_file="./api_key_config.json"):
@@ -30,7 +35,9 @@ def get_api_key_config(config_file="./api_key_config.json"):
     return cfg["baseUrl"], cfg["accountIndex"], private_key
 
 
-def default_example_setup(config_file="./api_key_config.json") -> Optional[Tuple[lighter.SignerClient, lighter.ApiClient, websockets.connect]]:
+def default_example_setup(
+    config_file="./api_key_config.json",
+) -> tuple[lighter.SignerClient, lighter.ApiClient, websockets.connect] | None:
     logging.basicConfig(level=logging.DEBUG)
 
     base_url, account_index, private_keys = get_api_key_config(config_file)
@@ -52,11 +59,13 @@ def default_example_setup(config_file="./api_key_config.json") -> Optional[Tuple
 async def ws_ping(ws_client: websockets.ClientConnection):
     await ws_client.send(json.dumps({"type": "pong"}))
 
-async def ws_subscribe(ws_client: websockets.ClientConnection, channel: str, auth: Optional[str] = None):
+
+async def ws_subscribe(ws_client: websockets.ClientConnection, channel: str, auth: str | None = None):
     if auth is None:
         await ws_client.send(json.dumps({"type": "subscribe", "channel": channel}))
     else:
         await ws_client.send(json.dumps({"type": "subscribe", "channel": channel, "auth": auth}))
+
 
 async def ws_send_tx(ws_client: websockets.ClientConnection, tx_type, tx_info, tx_hash):
     # Note: you have the TX Hash from signing the TX

@@ -15,8 +15,6 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-import pytest
-
 from funding_bot.services.market_data.fresh import (
     OrderbookFetchConfig,
     _book_has_depth,
@@ -27,7 +25,6 @@ from funding_bot.services.market_data.fresh import (
     _snapshot_depth_ok,
 )
 from funding_bot.services.market_data.models import OrderbookSnapshot
-
 
 # =============================================================================
 # DATACLASS TESTS

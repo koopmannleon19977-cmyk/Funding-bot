@@ -9,8 +9,6 @@ Ref: docs/FUNDING_CADENCE_RESEARCH.md
 
 from decimal import Decimal
 
-import pytest
-
 from funding_bot.config.settings import ExchangeSettings, Settings
 
 

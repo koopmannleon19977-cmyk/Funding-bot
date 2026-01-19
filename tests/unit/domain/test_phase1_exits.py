@@ -17,7 +17,6 @@ from funding_bot.domain.rules import (
     check_z_score_crash,
 )
 
-
 pytestmark = pytest.mark.unit
 
 

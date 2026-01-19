@@ -13,9 +13,10 @@ and appropriate logging.
 from __future__ import annotations
 
 import asyncio
-import pytest
-from decimal import Decimal
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+
+import pytest
 
 from funding_bot.adapters.store.sqlite.store import SQLiteTradeStore
 
@@ -42,9 +43,7 @@ class TestGetRecentApyHistory:
     PROOF TESTS: get_recent_apy_history fetches and computes net APY correctly.
     """
 
-    async def test_returns_empty_list_when_no_data(
-        self, empty_store
-    ):
+    async def test_returns_empty_list_when_no_data(self, empty_store):
         """
         PROOF: Returns empty list when no funding history exists.
 
@@ -53,14 +52,11 @@ class TestGetRecentApyHistory:
         """
         result = await empty_store.get_recent_apy_history("BTC-USD", hours_back=24)
 
-        assert result == [], \
-            "Should return empty list when no funding history data exists"
+        assert result == [], "Should return empty list when no funding history data exists"
 
-        print(f"\n✅ PROVEN: Empty data returns empty list")
+        print("\n✅ PROVEN: Empty data returns empty list")
 
-    async def test_computes_net_apy_as_absolute_difference(
-        self, empty_store
-    ):
+    async def test_computes_net_apy_as_absolute_difference(self, empty_store):
         """
         PROOF: Net APY = abs(lighter_apy - x10_apy) at each timestamp.
 
@@ -108,24 +104,19 @@ class TestGetRecentApyHistory:
         result = await empty_store.get_recent_apy_history("BTC-USD", hours_back=24)
 
         # ASSERT: Got 2 hourly data points
-        assert len(result) == 2, \
-            f"Should have 2 hourly data points, got {len(result)}"
+        assert len(result) == 2, f"Should have 2 hourly data points, got {len(result)}"
 
         # ASSERT: Net APY is absolute difference
         # Hour 1 (oldest): abs(0.80 - 0.20) = 0.60
         # Hour 2 (newest): abs(0.70 - 0.30) = 0.40
-        assert result[0] == Decimal("0.60"), \
-            f"Hour 1 (oldest) net APY should be 0.60, got {result[0]}"
-        assert result[1] == Decimal("0.40"), \
-            f"Hour 2 (newest) net APY should be 0.40, got {result[1]}"
+        assert result[0] == Decimal("0.60"), f"Hour 1 (oldest) net APY should be 0.60, got {result[0]}"
+        assert result[1] == Decimal("0.40"), f"Hour 2 (newest) net APY should be 0.40, got {result[1]}"
 
-        print(f"\n✅ PROVEN: Net APY computed as abs(lighter - x10)")
+        print("\n✅ PROVEN: Net APY computed as abs(lighter - x10)")
         print(f"  Hour 1 (oldest): {result[0]} (expected 0.60)")
         print(f"  Hour 2 (newest): {result[1]} (expected 0.40)")
 
-    async def test_handles_missing_exchange_data_gracefully(
-        self, empty_store
-    ):
+    async def test_handles_missing_exchange_data_gracefully(self, empty_store):
         """
         PROOF: When one exchange has no data, returns empty list (NO artificial spikes).
 
@@ -152,15 +143,12 @@ class TestGetRecentApyHistory:
         result = await empty_store.get_recent_apy_history("BTC-USD", hours_back=24)
 
         # ASSERT: Returns empty list (no artificial spike from 0-fallback)
-        assert len(result) == 0, \
-            f"When X10 missing, should return empty list (no spikes), got {result}"
+        assert len(result) == 0, f"When X10 missing, should return empty list (no spikes), got {result}"
 
-        print(f"\n✅ PROVEN: Missing exchange data returns empty (no spikes)")
+        print("\n✅ PROVEN: Missing exchange data returns empty (no spikes)")
         print(f"  Result: {result} (expected [])")
 
-    async def test_intersection_not_union(
-        self, empty_store
-    ):
+    async def test_intersection_not_union(self, empty_store):
         """
         PROOF: Only timestamps with data from BOTH exchanges are included.
 
@@ -200,17 +188,13 @@ class TestGetRecentApyHistory:
         result = await empty_store.get_recent_apy_history("BTC-USD", hours_back=24)
 
         # ASSERT: Only Hour 1 included (intersection), Hour 2 excluded
-        assert len(result) == 1, \
-            f"Should only include timestamps with both exchanges, got {len(result)}"
-        assert result[0] == Decimal("0.60"), \
-            f"Hour 1 net APY should be 0.60, got {result[0]}"
+        assert len(result) == 1, f"Should only include timestamps with both exchanges, got {len(result)}"
+        assert result[0] == Decimal("0.60"), f"Hour 1 net APY should be 0.60, got {result[0]}"
 
-        print(f"\n✅ PROVEN: Intersection excludes missing exchange data")
+        print("\n✅ PROVEN: Intersection excludes missing exchange data")
         print(f"  Result: {result} (only Hour 1, Hour 2 excluded)")
 
-    async def test_returns_oldest_first(
-        self, empty_store
-    ):
+    async def test_returns_oldest_first(self, empty_store):
         """
         PROOF: Results are ordered oldest first (ASC timestamp).
 
@@ -248,17 +232,13 @@ class TestGetRecentApyHistory:
         # Hour 1: abs(0.1 - 0.05) = 0.05
         # Hour 0 (newest): abs(0.0 - 0.05) = 0.05
         assert len(result) == 3
-        assert result[0] == Decimal("0.15"), \
-            f"Oldest hour should be first, got {result[0]}"
-        assert result[2] == Decimal("0.05"), \
-            f"Newest hour should be last, got {result[2]}"
+        assert result[0] == Decimal("0.15"), f"Oldest hour should be first, got {result[0]}"
+        assert result[2] == Decimal("0.05"), f"Newest hour should be last, got {result[2]}"
 
-        print(f"\n✅ PROVEN: Results ordered oldest first")
+        print("\n✅ PROVEN: Results ordered oldest first")
         print(f"  Order: {[float(r) for r in result]}")
 
-    async def test_respects_hours_back_parameter(
-        self, empty_store
-    ):
+    async def test_respects_hours_back_parameter(self, empty_store):
         """
         PROOF: hours_back parameter limits the returned data range.
         """
@@ -289,10 +269,9 @@ class TestGetRecentApyHistory:
         result = await empty_store.get_recent_apy_history("BTC-USD", hours_back=5)
 
         # ASSERT: Returns only 5 hours (most recent)
-        assert len(result) == 5, \
-            f"Should return 5 hours, got {len(result)}"
+        assert len(result) == 5, f"Should return 5 hours, got {len(result)}"
 
-        print(f"\n✅ PROVEN: hours_back parameter respected")
+        print("\n✅ PROVEN: hours_back parameter respected")
         print(f"  Requested 5 hours, got {len(result)}")
 
 
@@ -302,9 +281,7 @@ class TestGetRecentApyHistoryEdgeCases:
     EDGE CASE TESTS: Verify robustness against unusual data patterns.
     """
 
-    async def test_handles_null_rate_apy(
-        self, empty_store
-    ):
+    async def test_handles_null_rate_apy(self, empty_store):
         """
         PROOF: NULL rate_apy values are skipped (not included in calculation).
 
@@ -339,11 +316,9 @@ class TestGetRecentApyHistoryEdgeCases:
         assert len(result) == 1
         assert result[0] == Decimal("0.60")  # abs(0.80 - 0.20)
 
-        print(f"\n✅ PROVEN: NULL rate_apy handled correctly")
+        print("\n✅ PROVEN: NULL rate_apy handled correctly")
 
-    async def test_handles_zero_apy_values(
-        self, empty_store
-    ):
+    async def test_handles_zero_apy_values(self, empty_store):
         """
         PROOF: Zero APY values are included in calculation.
 
@@ -374,23 +349,19 @@ class TestGetRecentApyHistoryEdgeCases:
 
         # ASSERT: abs(0 - 0) = 0
         assert len(result) == 1
-        assert result[0] == Decimal("0"), \
-            f"Zero APY should give net APY of 0, got {result[0]}"
+        assert result[0] == Decimal("0"), f"Zero APY should give net APY of 0, got {result[0]}"
 
-        print(f"\n✅ PROVEN: Zero APY handled correctly")
+        print("\n✅ PROVEN: Zero APY handled correctly")
 
-    async def test_returns_empty_for_unknown_symbol(
-        self, empty_store
-    ):
+    async def test_returns_empty_for_unknown_symbol(self, empty_store):
         """
         PROOF: Returns empty list for symbols with no funding history.
         """
         result = await empty_store.get_recent_apy_history("UNKNOWN-SYMBOL", hours_back=24)
 
-        assert result == [], \
-            "Unknown symbol should return empty list"
+        assert result == [], "Unknown symbol should return empty list"
 
-        print(f"\n✅ PROVEN: Unknown symbol returns empty list")
+        print("\n✅ PROVEN: Unknown symbol returns empty list")
 
 
 @pytest.mark.asyncio
@@ -399,9 +370,7 @@ class TestGetRecentApyHistoryIntegration:
     INTEGRATION TESTS: Verify the full data path works end-to-end.
     """
 
-    async def test_full_round_trip_from_record_to_retrieve(
-        self, empty_store
-    ):
+    async def test_full_round_trip_from_record_to_retrieve(self, empty_store):
         """
         PROOF: Full round-trip: record → retrieve → compute net APY.
 
@@ -415,9 +384,9 @@ class TestGetRecentApyHistoryIntegration:
         # Expected result should be oldest-first (2h ago, 1h ago, now)
         hourly_data = []
         for i in range(3):
-            ts = now - timedelta(hours=2-i)  # 2h ago, 1h ago, now
+            ts = now - timedelta(hours=2 - i)  # 2h ago, 1h ago, now
 
-            lighter_apy = Decimal(f"0.{8-i}")  # 0.8, 0.7, 0.6
+            lighter_apy = Decimal(f"0.{8 - i}")  # 0.8, 0.7, 0.6
             x10_apy = Decimal("0.2")
             expected_net = abs(lighter_apy - x10_apy)
             hourly_data.append((ts, lighter_apy, x10_apy, expected_net))
@@ -448,12 +417,10 @@ class TestGetRecentApyHistoryIntegration:
         result = await empty_store.get_recent_apy_history("ETH-USD", hours_back=24)
 
         # ASSERT: Round-trip successful
-        assert len(result) == 3, \
-            f"Round-trip: should have 3 hours, got {len(result)}"
-        assert result == expected_net_apy, \
-            f"Round-trip: net APY mismatch. Expected {expected_net_apy}, got {result}"
+        assert len(result) == 3, f"Round-trip: should have 3 hours, got {len(result)}"
+        assert result == expected_net_apy, f"Round-trip: net APY mismatch. Expected {expected_net_apy}, got {result}"
 
-        print(f"\n✅ PROVEN: Full round-trip successful")
+        print("\n✅ PROVEN: Full round-trip successful")
         print(f"  Expected: {[float(n) for n in expected_net_apy]}")
         print(f"  Got:      {[float(n) for n in result]}")
 

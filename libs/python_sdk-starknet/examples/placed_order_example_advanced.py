@@ -5,7 +5,6 @@ import logging.handlers
 from asyncio import run
 from collections.abc import Awaitable
 from decimal import Decimal
-from typing import Dict, Optional, Tuple
 
 from x10.config import ADA_USD_MARKET
 from x10.perpetual.accounts import StarkPerpetualAccount
@@ -29,11 +28,11 @@ PRIVATE_KEY = "<PRIVATE_KEY>"
 PUBLIC_KEY = "<PUBLIC_KEY"
 VAULT_ID = 12345677890
 
-order_condtions: Dict[str, asyncio.Condition] = {}
+order_condtions: dict[str, asyncio.Condition] = {}
 socket_connect_condition = asyncio.Condition()
 socket_connected = False
 order_loop_finished = False
-stream: Optional[PerpetualStreamConnection] = None
+stream: PerpetualStreamConnection | None = None
 
 
 stark_account = StarkPerpetualAccount(vault=VAULT_ID, private_key=PRIVATE_KEY, public_key=PUBLIC_KEY, api_key=API_KEY)
@@ -100,7 +99,7 @@ async def place_order(
     i: int,
     trading_client: PerpetualTradingClient,
     markets_cache: dict[str, MarketModel],
-) -> Tuple[str, WrappedApiResponse[PlacedOrderModel]]:
+) -> tuple[str, WrappedApiResponse[PlacedOrderModel]]:
     should_buy = i % 2 == 0
     price = Decimal("0.660") - Decimal("0.00" + str(i)) if should_buy else Decimal("0.6601") + Decimal("0.00" + str(i))
     order_side = OrderSide.BUY if should_buy else OrderSide.SELL

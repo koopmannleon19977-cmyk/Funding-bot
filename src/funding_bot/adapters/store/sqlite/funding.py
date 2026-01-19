@@ -29,15 +29,17 @@ async def record_funding(
     timestamp: datetime,
 ) -> None:
     """Record a funding payment for a trade."""
-    await self._write_queue.put({
-        "action": "record_funding",
-        "data": {
-            "trade_id": trade_id,
-            "exchange": exchange,
-            "amount": amount,
-            "timestamp": timestamp.isoformat(),
-        },
-    })
+    await self._write_queue.put(
+        {
+            "action": "record_funding",
+            "data": {
+                "trade_id": trade_id,
+                "exchange": exchange,
+                "amount": amount,
+                "timestamp": timestamp.isoformat(),
+            },
+        }
+    )
 
     # Also update the trade's total funding
     async with self._cache_lock:
@@ -158,17 +160,19 @@ async def record_funding_history(
     if rate_apy is None:
         rate_apy = rate_hourly * HOURS_PER_YEAR
 
-    await self._write_queue.put({
-        "action": "record_funding_history",
-        "data": {
-            "timestamp": ts_str,
-            "symbol": symbol,
-            "exchange": exchange,
-            "rate_hourly": rate_hourly,
-            "rate_apy": rate_apy,
-            "next_funding_time": next_funding_time.isoformat() if next_funding_time else None,
-        },
-    })
+    await self._write_queue.put(
+        {
+            "action": "record_funding_history",
+            "data": {
+                "timestamp": ts_str,
+                "symbol": symbol,
+                "exchange": exchange,
+                "rate_hourly": rate_hourly,
+                "rate_apy": rate_apy,
+                "next_funding_time": next_funding_time.isoformat() if next_funding_time else None,
+            },
+        }
+    )
 
 
 async def get_recent_apy_history(
@@ -229,7 +233,7 @@ async def get_recent_apy_history(
             )
             ORDER BY timestamp DESC
             """,
-            (symbol, since_str, symbol, since_str)
+            (symbol, since_str, symbol, since_str),
         )
         lighter_rows = await lighter_cursor.fetchall()
 
@@ -251,7 +255,7 @@ async def get_recent_apy_history(
             )
             ORDER BY timestamp DESC
             """,
-            (symbol, since_str, symbol, since_str)
+            (symbol, since_str, symbol, since_str),
         )
         x10_rows = await x10_cursor.fetchall()
 
@@ -285,4 +289,3 @@ async def get_recent_apy_history(
     except Exception as e:
         logger.warning(f"Failed to fetch historical APY for {symbol}: {e}")
         return []
-

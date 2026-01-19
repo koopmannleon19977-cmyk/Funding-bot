@@ -96,10 +96,7 @@ class Reconciler:
         await self.reconcile(startup=True)
 
         # Start periodic task
-        self._task = asyncio.create_task(
-            self._reconcile_loop(),
-            name="reconciler"
-        )
+        self._task = asyncio.create_task(self._reconcile_loop(), name="reconciler")
 
     async def stop(self) -> None:
         """Stop the reconciler."""
@@ -177,9 +174,7 @@ class Reconciler:
             await self._handle_zombies(zombies, db_trades, result, startup=startup)
 
             # Phase 6: Handle ghosts
-            await self._handle_ghosts(
-                ghosts, lighter_positions, x10_positions, result
-            )
+            await self._handle_ghosts(ghosts, lighter_positions, x10_positions, result)
 
             # Phase 7: Log results
             self._log_reconciliation_result(result)
@@ -204,18 +199,12 @@ class Reconciler:
         for symbol, reason in conflicts.items():
             try:
                 logger.warning(f"Closing conflict position: {symbol} reason={reason}")
-                closed = await self._close_symbol_positions(
-                    symbol, lighter_positions, x10_positions
-                )
+                closed = await self._close_symbol_positions(symbol, lighter_positions, x10_positions)
                 if closed:
-                    await self._mark_db_trades_resolved(
-                        symbol, db_trades, reason=reason, startup=startup
-                    )
+                    await self._mark_db_trades_resolved(symbol, db_trades, reason=reason, startup=startup)
                     result.ghosts_closed += 1
                 else:
-                    result.errors.append(
-                        f"Conflict {symbol}: no matching on-exchange positions found to close"
-                    )
+                    result.errors.append(f"Conflict {symbol}: no matching on-exchange positions found to close")
             except Exception as e:
                 result.errors.append(f"Conflict {symbol}: {e}")
 
@@ -263,14 +252,11 @@ class Reconciler:
             try:
                 if not auto_close_ghosts and not auto_import_ghosts:
                     logger.warning(
-                        f"Ghost position {symbol} detected but auto-close and "
-                        f"auto-import are disabled - SKIPPING"
+                        f"Ghost position {symbol} detected but auto-close and auto-import are disabled - SKIPPING"
                     )
                     continue
 
-                closed = await self._handle_ghost(
-                    symbol, lighter_positions, x10_positions, action="closed_ghost"
-                )
+                closed = await self._handle_ghost(symbol, lighter_positions, x10_positions, action="closed_ghost")
                 if closed:
                     result.ghosts_closed += 1
                 else:
@@ -334,9 +320,7 @@ class Reconciler:
                 Decimal("60.0"),
             )
         )
-        maker_retries = int(
-            getattr(self.settings.execution, "maker_order_max_retries", 3)
-        )
+        maker_retries = int(getattr(self.settings.execution, "maker_order_max_retries", 3))
         opening_stale_seconds = max(
             600.0,  # hard safety floor
             (maker_timeout * max(1, maker_retries)) + 120.0,
@@ -437,16 +421,10 @@ class Reconciler:
             # Check side mismatch
             side_mismatch = False
             if l_pos and l_pos.side != t.leg1.side:
-                logger.warning(
-                    f"Side mismatch for {t.symbol} on LIGHTER: "
-                    f"Exchange={l_pos.side}, DB={t.leg1.side}"
-                )
+                logger.warning(f"Side mismatch for {t.symbol} on LIGHTER: Exchange={l_pos.side}, DB={t.leg1.side}")
                 side_mismatch = True
             if x_pos and x_pos.side != t.leg2.side:
-                logger.warning(
-                    f"Side mismatch for {t.symbol} on X10: "
-                    f"Exchange={x_pos.side}, DB={t.leg2.side}"
-                )
+                logger.warning(f"Side mismatch for {t.symbol} on X10: Exchange={x_pos.side}, DB={t.leg2.side}")
                 side_mismatch = True
 
             if side_mismatch:
@@ -467,7 +445,7 @@ class Reconciler:
                 logger.warning(
                     f"QUANTITY MISMATCH for {t.symbol}: "
                     f"Lighter={l_qty}, X10={x_qty} "
-                    f"(delta={delta:.4f}, {delta/max_qty*100:.1f}%)"
+                    f"(delta={delta:.4f}, {delta / max_qty * 100:.1f}%)"
                 )
                 conflicts.setdefault(t.symbol, "reconciliation_quantity_mismatch")
 
@@ -481,16 +459,14 @@ class Reconciler:
                             "lighter_qty": str(l_qty),
                             "x10_qty": str(x_qty),
                             "delta": str(delta),
-                            "delta_pct": f"{delta/max_qty*100:.1f}%",
+                            "delta_pct": f"{delta / max_qty * 100:.1f}%",
                         },
                     )
                 )
 
         return conflicts
 
-    async def _handle_zombie(
-        self, symbol: str, db_trades: list[Trade], *, startup: bool = False
-    ) -> None:
+    async def _handle_zombie(self, symbol: str, db_trades: list[Trade], *, startup: bool = False) -> None:
         """
         Handle zombie position (in DB but not on exchange).
 
@@ -637,21 +613,12 @@ class Reconciler:
         try:
             # Find positions on both exchanges
             target_clean = symbol.replace("-USD", "")
-            lighter_pos = next(
-                (p for p in lighter_positions if p.symbol.replace("-USD", "") == target_clean),
-                None
-            )
-            x10_pos = next(
-                (p for p in x10_positions if p.symbol.replace("-USD", "") == target_clean),
-                None
-            )
+            lighter_pos = next((p for p in lighter_positions if p.symbol.replace("-USD", "") == target_clean), None)
+            x10_pos = next((p for p in x10_positions if p.symbol.replace("-USD", "") == target_clean), None)
 
             # Validation: Both positions must exist
             if not lighter_pos or not x10_pos:
-                logger.warning(
-                    f"Ghost {symbol}: Import failed - "
-                    f"Lighter={bool(lighter_pos)}, X10={bool(x10_pos)}"
-                )
+                logger.warning(f"Ghost {symbol}: Import failed - Lighter={bool(lighter_pos)}, X10={bool(x10_pos)}")
                 return False
 
             # Validation: Quantities must be approximately equal (within 5%)
@@ -674,10 +641,7 @@ class Reconciler:
 
             # Validation: Positions must be opposite sides (hedged)
             if lighter_pos.side == x10_pos.side:
-                logger.warning(
-                    f"Ghost {symbol}: Import failed - both positions on same side "
-                    f"({lighter_pos.side})"
-                )
+                logger.warning(f"Ghost {symbol}: Import failed - both positions on same side ({lighter_pos.side})")
                 return False
 
             # Get current market data for import
@@ -719,7 +683,7 @@ class Reconciler:
             logger.info(
                 f"Ghost {symbol}: Imported successfully - "
                 f"Qty={lighter_qty:.2f}, Notional=${target_notional_usd:.2f}, "
-                f"Funding={current_funding*100:.4f}%, Spread={current_spread:.4f}"
+                f"Funding={current_funding * 100:.4f}%, Spread={current_spread:.4f}"
             )
 
             return True
@@ -757,15 +721,13 @@ class Reconciler:
 
         # Check auto-import setting
         auto_import = bool(
-            getattr(self.settings, "reconciliation", None) and
-            getattr(self.settings.reconciliation, "auto_import_ghosts", False)
+            getattr(self.settings, "reconciliation", None)
+            and getattr(self.settings.reconciliation, "auto_import_ghosts", False)
         )
 
         if auto_import:
             # Try to import the ghost position
-            imported = await self._import_ghost_position(
-                symbol, lighter_positions, x10_positions
-            )
+            imported = await self._import_ghost_position(symbol, lighter_positions, x10_positions)
 
             if imported:
                 # Successfully imported - publish event
@@ -917,9 +879,7 @@ class Reconciler:
                     },
                 )
 
-    async def _close_position(
-        self, adapter: ExchangePort, pos: Position, *, allow_soft_close: bool = True
-    ) -> None:
+    async def _close_position(self, adapter: ExchangePort, pos: Position, *, allow_soft_close: bool = True) -> None:
         """Close a single position."""
         if allow_soft_close:
             soft_closed = await self._attempt_soft_close(adapter, pos)
@@ -960,9 +920,7 @@ class Reconciler:
 
             price = await self._get_soft_close_price(adapter, target_pos)
             if price <= 0:
-                logger.warning(
-                    f"Soft close skipped: missing price for {pos.symbol} on {adapter.exchange}"
-                )
+                logger.warning(f"Soft close skipped: missing price for {pos.symbol} on {adapter.exchange}")
                 return False
 
             logger.info(
@@ -987,9 +945,7 @@ class Reconciler:
                 logger.warning(f"Soft close order rejected for {pos.symbol} on {adapter.exchange}: {e}")
                 continue
 
-            filled = await self._wait_for_soft_close_fill(
-                adapter, pos.symbol, order.order_id, timeout
-            )
+            filled = await self._wait_for_soft_close_fill(adapter, pos.symbol, order.order_id, timeout)
             if filled:
                 return True
 
@@ -1121,18 +1077,15 @@ class Reconciler:
 
             # Check if position appeared (parallel fetch for speed)
             results = await asyncio.gather(
-                self.lighter.get_position(trade.symbol),
-                self.x10.get_position(trade.symbol),
-                return_exceptions=True
+                self.lighter.get_position(trade.symbol), self.x10.get_position(trade.symbol), return_exceptions=True
             )
 
             # Handle exceptions from gather with proper typing
             lighter_pos: Position | None = results[0] if not isinstance(results[0], BaseException) else None
             x10_pos: Position | None = results[1] if not isinstance(results[1], BaseException) else None
 
-            has_position = (
-                (lighter_pos and lighter_pos.qty > Decimal("0.0001")) or
-                (x10_pos and x10_pos.qty > Decimal("0.0001"))
+            has_position = (lighter_pos and lighter_pos.qty > Decimal("0.0001")) or (
+                x10_pos and x10_pos.qty > Decimal("0.0001")
             )
 
             if has_position:
@@ -1206,16 +1159,13 @@ class Reconciler:
                         if annual_rate < Decimal("-1.0") or annual_rate > Decimal("10.0"):
                             logger.error(
                                 f"Anomalous funding rate detected for {symbol} on {exchange_name}: "
-                                f"annualized={annual_rate*100:.1f}%"
+                                f"annualized={annual_rate * 100:.1f}%"
                             )
 
                 elif lighter_rate or x10_rate:
                     # Log if only one exchange has data
                     available = "Lighter" if lighter_rate else "X10"
-                    logger.warning(
-                        f"Partial funding rate data for {symbol}: only {available} available"
-                    )
+                    logger.warning(f"Partial funding rate data for {symbol}: only {available} available")
 
         except Exception as e:
             logger.warning(f"Startup check failed (non-critical): {e}")
-

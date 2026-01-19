@@ -70,8 +70,7 @@ class LocalOrderbook:
 
         self.snapshot_loaded = True
         logger.debug(
-            f"[{self.symbol}] Snapshot applied: {len(self.bids)} bids, "
-            f"{len(self.asks)} asks (nonce={self.last_nonce})"
+            f"[{self.symbol}] Snapshot applied: {len(self.bids)} bids, {len(self.asks)} asks (nonce={self.last_nonce})"
         )
 
     def apply_update(self, data: dict[str, Any]) -> None:
@@ -117,18 +116,18 @@ class LocalOrderbook:
         # Offsets usually increment by 1, but sometimes by more?
         # .tmp logic: "if new_offset < expected: Gap".
         if self.last_offset is not None and new_offset is not None:
-             if new_offset <= self.last_offset:
-                  # Duplicate or old message?
-                  logger.debug(f"[{self.symbol}] Ignoring old/duplicate offset: {new_offset} <= {self.last_offset}")
-                  return
-             elif new_offset > self.last_offset + 1:
-                 # NOTE: Lighter offsets are not a strict +1 sequence in practice; large jumps are common,
-                 # especially when the server aggregates updates. The authoritative continuity check is
-                 # the nonce chain (`begin_nonce == last_nonce`).
-                 logger.debug(
-                     f"[{self.symbol}] Non-fatal orderbook offset jump: offset={new_offset} "
-                     f"jumped from last_offset={self.last_offset}"
-                 )
+            if new_offset <= self.last_offset:
+                # Duplicate or old message?
+                logger.debug(f"[{self.symbol}] Ignoring old/duplicate offset: {new_offset} <= {self.last_offset}")
+                return
+            elif new_offset > self.last_offset + 1:
+                # NOTE: Lighter offsets are not a strict +1 sequence in practice; large jumps are common,
+                # especially when the server aggregates updates. The authoritative continuity check is
+                # the nonce chain (`begin_nonce == last_nonce`).
+                logger.debug(
+                    f"[{self.symbol}] Non-fatal orderbook offset jump: offset={new_offset} "
+                    f"jumped from last_offset={self.last_offset}"
+                )
 
         # Apply Updates
         raw_bids = data.get("bids", []) or []
@@ -258,16 +257,10 @@ class LocalOrderbook:
                 best_ask = min(self.asks.keys())
                 ask_qty = self.asks[best_ask]
 
-        return {
-            "best_bid": best_bid,
-            "best_ask": best_ask,
-            "bid_qty": bid_qty,
-            "ask_qty": ask_qty
-        }
+        return {"best_bid": best_bid, "best_ask": best_ask, "bid_qty": bid_qty, "ask_qty": ask_qty}
 
     def get_depth(self, limit: int = 20) -> dict[str, list[tuple[Decimal, Decimal]]]:
         """Get depth (bids/asks sorted)."""
         bids = sorted(self.bids.items(), key=lambda x: x[0], reverse=True)[:limit]
         asks = sorted(self.asks.items(), key=lambda x: x[0])[:limit]
         return {"bids": bids, "asks": asks}
-

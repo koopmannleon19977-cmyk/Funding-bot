@@ -1,8 +1,7 @@
 import asyncio
 import dataclasses
 import decimal
-from collections.abc import Awaitable
-from typing import Callable, Iterable, Tuple
+from collections.abc import Awaitable, Callable, Iterable
 
 from sortedcontainers import SortedDict
 
@@ -53,8 +52,8 @@ class OrderBook:
         self.__stream_client = PerpetualStreamClient(api_url=endpoint_config.stream_url)
         self.__market_name = market_name
         self.__task: asyncio.Task | None = None
-        self._bid_prices: "SortedDict[decimal.Decimal, OrderBookEntry]" = SortedDict()  # type: ignore
-        self._ask_prices: "SortedDict[decimal.Decimal, OrderBookEntry]" = SortedDict()  # type: ignore
+        self._bid_prices: SortedDict[decimal.Decimal, OrderBookEntry] = SortedDict()  # type: ignore
+        self._ask_prices: SortedDict[decimal.Decimal, OrderBookEntry] = SortedDict()  # type: ignore
         self.best_ask_change_callback = best_ask_change_callback
         self.best_bid_change_callback = best_bid_change_callback
         self.depth = depth
@@ -160,7 +159,7 @@ class OrderBook:
             return None
 
     def __price_impact_notional(
-        self, notional: decimal.Decimal, levels: Iterable[Tuple[decimal.Decimal, OrderBookEntry]]
+        self, notional: decimal.Decimal, levels: Iterable[tuple[decimal.Decimal, OrderBookEntry]]
     ):
         remaining_to_spend = notional
         total_amount = decimal.Decimal(0)
@@ -183,7 +182,7 @@ class OrderBook:
         average_price = weighted_sum / total_amount
         return ImpactDetails(price=average_price, amount=total_amount)
 
-    def __price_impact_qty(self, qty: decimal.Decimal, levels: Iterable[Tuple[decimal.Decimal, OrderBookEntry]]):
+    def __price_impact_qty(self, qty: decimal.Decimal, levels: Iterable[tuple[decimal.Decimal, OrderBookEntry]]):
         remaining_qty = qty
         total_amount = decimal.Decimal(0)
         total_spent = decimal.Decimal(0)

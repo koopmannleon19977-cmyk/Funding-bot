@@ -34,11 +34,11 @@ def pytest_configure(config):
             for line in f:
                 line = line.strip()
                 # Skip comments and empty lines
-                if not line or line.startswith('#'):
+                if not line or line.startswith("#"):
                     continue
                 # Parse KEY=VALUE format
-                if '=' in line:
-                    key, value = line.split('=', 1)
+                if "=" in line:
+                    key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip()
                     os.environ[key] = value
@@ -50,11 +50,12 @@ def pytest_collection_modifyitems(config, items):
     This runs AFTER pytest_configure, so environment variables are loaded.
     """
     import sys
+
     lighter_key = os.getenv("LIGHTER_API_KEY_PRIVATE_KEY")
     x10_key = os.getenv("X10_API_KEY")
 
     # Debug output
-    print(f"\n[DEBUG] pytest_collection_modifyitems called", file=sys.stderr)
+    print("\n[DEBUG] pytest_collection_modifyitems called", file=sys.stderr)
     print(f"[DEBUG] lighter_key value: {repr(lighter_key[:20] if lighter_key else None)}", file=sys.stderr)
     print(f"[DEBUG] x10_key value: {repr(x10_key[:20] if x10_key else None)}", file=sys.stderr)
     print(f"[DEBUG] bool(lighter_key): {bool(lighter_key)}", file=sys.stderr)
@@ -62,7 +63,7 @@ def pytest_collection_modifyitems(config, items):
     print(f"[DEBUG] Condition 'not lighter_key or not x10_key': {not lighter_key or not x10_key}", file=sys.stderr)
 
     if not lighter_key or not x10_key:
-        print(f"[DEBUG] Skipping tests because condition is True", file=sys.stderr)
+        print("[DEBUG] Skipping tests because condition is True", file=sys.stderr)
         # Skip all integration tests
         skip_marker = pytest.mark.skip(
             reason="Missing API keys - set LIGHTER_API_KEY_PRIVATE_KEY and X10_API_KEY to run"

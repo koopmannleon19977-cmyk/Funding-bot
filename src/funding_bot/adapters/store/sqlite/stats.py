@@ -23,17 +23,19 @@ async def save_pnl_snapshot(
     timestamp: datetime,
 ) -> None:
     """Save a PnL snapshot for a trade."""
-    await self._write_queue.put({
-        "action": "save_snapshot",
-        "data": {
-            "trade_id": trade_id,
-            "realized_pnl": realized_pnl,
-            "unrealized_pnl": unrealized_pnl,
-            "funding": funding,
-            "fees": fees,
-            "timestamp": timestamp.isoformat(),
-        },
-    })
+    await self._write_queue.put(
+        {
+            "action": "save_snapshot",
+            "data": {
+                "trade_id": trade_id,
+                "realized_pnl": realized_pnl,
+                "unrealized_pnl": unrealized_pnl,
+                "funding": funding,
+                "fees": fees,
+                "timestamp": timestamp.isoformat(),
+            },
+        }
+    )
 
 
 async def get_stats(self) -> dict[str, Any]:
@@ -71,9 +73,7 @@ async def cleanup_old_data(self, days: int = 30) -> int:
     if not self._conn:
         return 0
 
-    cutoff = (datetime.now(UTC) - timedelta(days=days)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    cutoff = (datetime.now(UTC) - timedelta(days=days)).replace(hour=0, minute=0, second=0, microsecond=0)
     cutoff_str = cutoff.isoformat()
 
     # Delete old snapshots

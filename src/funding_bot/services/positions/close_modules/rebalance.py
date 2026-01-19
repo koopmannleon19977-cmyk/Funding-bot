@@ -65,16 +65,8 @@ def calculate_rebalance_target(
         - rebalance_notional: USD value to reduce
         - net_delta: Current net delta (positive = net long)
     """
-    leg1_px = (
-        leg1_mark_price
-        if leg1_mark_price and leg1_mark_price > 0
-        else trade.leg1.entry_price
-    )
-    leg2_px = (
-        leg2_mark_price
-        if leg2_mark_price and leg2_mark_price > 0
-        else trade.leg2.entry_price
-    )
+    leg1_px = leg1_mark_price if leg1_mark_price and leg1_mark_price > 0 else trade.leg1.entry_price
+    leg2_px = leg2_mark_price if leg2_mark_price and leg2_mark_price > 0 else trade.leg2.entry_price
 
     leg1_notional = trade.leg1.filled_qty * leg1_px
     leg2_notional = trade.leg2.filled_qty * leg2_px
@@ -97,7 +89,7 @@ def calculate_rebalance_target(
 
 
 def get_rebalance_price(
-    market_data: "MarketDataService",
+    market_data: MarketDataService,
     trade: Trade,
     rebalance_exchange: Exchange,
     rebalance_side: Side,
@@ -122,7 +114,7 @@ def get_rebalance_price(
 
 async def execute_rebalance_maker(
     trade: Trade,
-    adapter: "ExchangePort",
+    adapter: ExchangePort,
     rebalance_exchange: Exchange,
     rebalance_side: Side,
     rebalance_qty: Decimal,
@@ -162,10 +154,7 @@ async def execute_rebalance_maker(
         post_only=True,
     )
 
-    logger.info(
-        f"Rebalance maker order placed: {maker_order.order_id} "
-        f"on {rebalance_exchange.value}"
-    )
+    logger.info(f"Rebalance maker order placed: {maker_order.order_id} on {rebalance_exchange.value}")
 
     # Wait for fill with timeout
     start_time = time.time()
@@ -183,9 +172,7 @@ async def execute_rebalance_maker(
     # Cancel maker if not filled
     if maker_order and (not updated or updated.is_active):
         try:
-            logger.info(
-                f"Cancelling maker order {maker_order.order_id} before IOC fallback"
-            )
+            logger.info(f"Cancelling maker order {maker_order.order_id} before IOC fallback")
             await adapter.cancel_order(maker_order.order_id, trade.symbol)
         except Exception as e:
             logger.warning(f"Failed to cancel maker order {maker_order.order_id}: {e}")
@@ -199,9 +186,9 @@ async def execute_rebalance_maker(
 
 
 async def execute_rebalance_ioc(
-    market_data: "MarketDataService",
+    market_data: MarketDataService,
     trade: Trade,
-    adapter: "ExchangePort",
+    adapter: ExchangePort,
     rebalance_exchange: Exchange,
     rebalance_side: Side,
     remaining_qty: Decimal,
@@ -217,16 +204,12 @@ async def execute_rebalance_ioc(
 
     if rebalance_side == Side.BUY:
         if rebalance_exchange == Exchange.LIGHTER:
-            base_price = (
-                ob.lighter_ask if ob and ob.lighter_ask > 0 else fallback_lighter
-            )
+            base_price = ob.lighter_ask if ob and ob.lighter_ask > 0 else fallback_lighter
         else:
             base_price = ob.x10_ask if ob and ob.x10_ask > 0 else fallback_x10
     else:
         if rebalance_exchange == Exchange.LIGHTER:
-            base_price = (
-                ob.lighter_bid if ob and ob.lighter_bid > 0 else fallback_lighter
-            )
+            base_price = ob.lighter_bid if ob and ob.lighter_bid > 0 else fallback_lighter
         else:
             base_price = ob.x10_bid if ob and ob.x10_bid > 0 else fallback_x10
 
@@ -316,48 +299,32 @@ async def rebalance_trade(
             if not leg2_mark_price and price_data.x10_price > 0:
                 leg2_mark_price = price_data.x10_price
             logger.debug(
-                f"Rebalance using fetched mark prices for {trade.symbol}: "
-                f"L1=${leg1_mark_price}, L2=${leg2_mark_price}"
+                f"Rebalance using fetched mark prices for {trade.symbol}: L1=${leg1_mark_price}, L2=${leg2_mark_price}"
             )
 
     # 1. Calculate rebalance target
-    rebalance_exchange, rebalance_leg, rebalance_notional, net_delta = (
-        calculate_rebalance_target(trade, leg1_mark_price, leg2_mark_price)
+    rebalance_exchange, rebalance_leg, rebalance_notional, net_delta = calculate_rebalance_target(
+        trade, leg1_mark_price, leg2_mark_price
     )
 
     # Calculate notionals for logging
-    leg1_px = (
-        leg1_mark_price
-        if leg1_mark_price and leg1_mark_price > 0
-        else trade.leg1.entry_price
-    )
-    leg2_px = (
-        leg2_mark_price
-        if leg2_mark_price and leg2_mark_price > 0
-        else trade.leg2.entry_price
-    )
+    leg1_px = leg1_mark_price if leg1_mark_price and leg1_mark_price > 0 else trade.leg1.entry_price
+    leg2_px = leg2_mark_price if leg2_mark_price and leg2_mark_price > 0 else trade.leg2.entry_price
     leg1_notional = trade.leg1.filled_qty * leg1_px
     leg2_notional = trade.leg2.filled_qty * leg2_px
 
-    min_notional_usd = safe_decimal(
-        getattr(ts, "rebalance_min_notional_usd", None), Decimal("0")
-    )
-    min_notional_pct = safe_decimal(
-        getattr(ts, "rebalance_min_notional_pct", None), Decimal("0")
-    )
+    min_notional_usd = safe_decimal(getattr(ts, "rebalance_min_notional_usd", None), Decimal("0"))
+    min_notional_pct = safe_decimal(getattr(ts, "rebalance_min_notional_pct", None), Decimal("0"))
     notional_floor = max(
         min_notional_usd,
-        (max(leg1_notional, leg2_notional) * min_notional_pct)
-        if min_notional_pct > 0
-        else Decimal("0"),
+        (max(leg1_notional, leg2_notional) * min_notional_pct) if min_notional_pct > 0 else Decimal("0"),
     )
 
     if rebalance_notional < notional_floor:
         if trade.symbol not in _rebalance_skip_warned:
             _rebalance_skip_warned.add(trade.symbol)
             logger.info(
-                f"Rebalance skipped for {trade.symbol}: "
-                f"notional=${rebalance_notional:.2f} < min=${notional_floor:.2f}"
+                f"Rebalance skipped for {trade.symbol}: notional=${rebalance_notional:.2f} < min=${notional_floor:.2f}"
             )
         return
 
@@ -373,9 +340,7 @@ async def rebalance_trade(
     # 2. Calculate rebalancing quantity
     rebalance_px = leg1_px if rebalance_exchange == Exchange.LIGHTER else leg2_px
     if rebalance_px <= 0:
-        logger.warning(
-            f"Cannot rebalance {trade.symbol}: invalid price for {rebalance_exchange.value}"
-        )
+        logger.warning(f"Cannot rebalance {trade.symbol}: invalid price for {rebalance_exchange.value}")
         return
 
     rebalance_qty = rebalance_notional / rebalance_px
@@ -386,13 +351,9 @@ async def rebalance_trade(
     market_info = manager.market_data.get_market_info(trade.symbol, rebalance_exchange)
     tick = market_info.tick_size if market_info else Decimal("0.01")
 
-    base_price = get_rebalance_price(
-        manager.market_data, trade, rebalance_exchange, rebalance_side
-    )
+    base_price = get_rebalance_price(manager.market_data, trade, rebalance_exchange, rebalance_side)
     if not base_price:
-        logger.warning(
-            f"Cannot rebalance {trade.symbol}: no price data for {rebalance_exchange.value}"
-        )
+        logger.warning(f"Cannot rebalance {trade.symbol}: no price data for {rebalance_exchange.value}")
         return
 
     order_price = _round_price_to_tick(base_price, tick, rounding="down")
@@ -423,25 +384,18 @@ async def rebalance_trade(
             )
             update_leg_after_fill(rebalance_leg, updated.filled_qty, updated.fee)
             await manager._update_trade(trade)
-            log_rebalance_complete(
-                trade, updated.filled_qty, updated.avg_fill_price, updated.fee
-            )
+            log_rebalance_complete(trade, updated.filled_qty, updated.avg_fill_price, updated.fee)
             return
 
         # Handle partial fill
         if updated and updated.filled_qty > 0:
-            logger.info(
-                f"Maker partially filled: {updated.filled_qty}/{rebalance_qty}, "
-                f"IOC qty: {remaining_qty}"
-            )
+            logger.info(f"Maker partially filled: {updated.filled_qty}/{rebalance_qty}, IOC qty: {remaining_qty}")
             update_leg_after_fill(rebalance_leg, updated.filled_qty, updated.fee)
             await manager._update_trade(trade)
 
         # 5. IOC fallback
         if use_ioc_fallback and remaining_qty > 0:
-            logger.info(
-                f"Rebalance maker not filled within {maker_timeout}s, trying IOC fallback"
-            )
+            logger.info(f"Rebalance maker not filled within {maker_timeout}s, trying IOC fallback")
 
             ioc_order = await execute_rebalance_ioc(
                 manager.market_data,
@@ -458,9 +412,7 @@ async def rebalance_trade(
                     f"Rebalance IOC filled: {ioc_order.filled_qty}/{remaining_qty} "
                     f"@ {ioc_order.avg_fill_price:.2f} on {rebalance_exchange.value}"
                 )
-                update_leg_after_fill(
-                    rebalance_leg, ioc_order.filled_qty, ioc_order.fee
-                )
+                update_leg_after_fill(rebalance_leg, ioc_order.filled_qty, ioc_order.fee)
                 await manager._update_trade(trade)
                 log_rebalance_complete(
                     trade,
@@ -469,10 +421,7 @@ async def rebalance_trade(
                     ioc_order.fee,
                 )
             elif ioc_order and not ioc_order.is_filled:
-                logger.warning(
-                    f"Rebalance IOC not filled: {ioc_order.order_id} "
-                    f"on {rebalance_exchange.value}"
-                )
+                logger.warning(f"Rebalance IOC not filled: {ioc_order.order_id} on {rebalance_exchange.value}")
             else:
                 logger.warning(f"Rebalance IOC failed on {rebalance_exchange.value}")
 

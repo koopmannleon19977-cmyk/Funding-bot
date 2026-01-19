@@ -10,7 +10,7 @@ Tests T1-T5 Phase-2 improvements:
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -31,10 +31,10 @@ from funding_bot.services.positions.close import (
     _collect_close_order_ids,
 )
 
-
 # ============================================================================
 # Test Helpers
 # ============================================================================
+
 
 def _make_test_trade(
     status: TradeStatus = TradeStatus.OPEN,
@@ -89,6 +89,7 @@ def _make_mock_order(
 # ============================================================================
 # T1: Close Order Logging Tests
 # ============================================================================
+
 
 def test_log_close_order_placed_adds_event_to_trade():
     """Test that close order placement adds an event to trade.events."""
@@ -158,6 +159,7 @@ def test_log_close_order_handles_market_orders():
 # T2: Idempotent Close Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_close_idempotent_does_not_duplicate_orders():
     """
@@ -175,9 +177,7 @@ async def test_close_idempotent_does_not_duplicate_orders():
     # In the actual implementation, _close_impl would detect this state
     # and call _close_verify_and_finalize instead of placing new orders
     # This test verifies the condition check:
-    should_skip_order_placement = (
-        trade.status == TradeStatus.CLOSING and trade.close_reason is not None
-    )
+    should_skip_order_placement = trade.status == TradeStatus.CLOSING and trade.close_reason is not None
     assert should_skip_order_placement is True
 
 
@@ -192,9 +192,7 @@ async def test_close_first_time_sets_closing_status():
 
     # After first close call, status should be CLOSING
     # (This would be set by _close_impl before placing orders)
-    should_proceed_with_orders = not (
-        trade.status == TradeStatus.CLOSING and trade.close_reason
-    )
+    should_proceed_with_orders = not (trade.status == TradeStatus.CLOSING and trade.close_reason)
     assert should_proceed_with_orders is True
 
 
@@ -202,39 +200,42 @@ async def test_close_first_time_sets_closing_status():
 # T3: Post-Close Readback Tests
 # ============================================================================
 
+
 def test_extract_close_order_ids_from_events():
     """Test extraction of close order IDs from trade.events."""
     trade = _make_test_trade()
 
     # Add some close order events
-    trade.events.extend([
-        {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "event_type": "CLOSE_ORDER_PLACED",
-            "exchange": "lighter",
-            "leg": "leg1",
-            "order_id": "lighter_order_1",
-        },
-        {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "event_type": "CLOSE_ORDER_PLACED",
-            "exchange": "lighter",
-            "leg": "leg1",
-            "order_id": "lighter_order_2",
-        },
-        {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "event_type": "CLOSE_ORDER_PLACED",
-            "exchange": "x10",
-            "leg": "leg2",
-            "order_id": "x10_order_1",
-        },
-        {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "event_type": "OTHER_EVENT",  # Should be ignored
-            "order_id": "should_be_ignored",
-        },
-    ])
+    trade.events.extend(
+        [
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event_type": "CLOSE_ORDER_PLACED",
+                "exchange": "lighter",
+                "leg": "leg1",
+                "order_id": "lighter_order_1",
+            },
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event_type": "CLOSE_ORDER_PLACED",
+                "exchange": "lighter",
+                "leg": "leg1",
+                "order_id": "lighter_order_2",
+            },
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event_type": "CLOSE_ORDER_PLACED",
+                "exchange": "x10",
+                "leg": "leg2",
+                "order_id": "x10_order_1",
+            },
+            {
+                "timestamp": datetime.now(UTC).isoformat(),
+                "event_type": "OTHER_EVENT",  # Should be ignored
+                "order_id": "should_be_ignored",
+            },
+        ]
+    )
 
     lighter_ids, x10_ids = _collect_close_order_ids(trade)
 
@@ -324,7 +325,7 @@ async def test_readback_handles_negative_deltas():
     d_qty, d_notional, d_fee = _delta_from_cumulative_fill(
         order_id="order_1",
         cum_qty=Decimal("0.05"),  # Lower than seen (0.10)
-        cum_fee=Decimal("25"),     # Lower than seen (51)
+        cum_fee=Decimal("25"),  # Lower than seen (51)
         fill_price=Decimal("50000"),
         qty_seen=qty_seen,
         fee_seen=fee_seen,
@@ -339,6 +340,7 @@ async def test_readback_handles_negative_deltas():
 # ============================================================================
 # T4: Finalize Uses Readback Data Tests
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_readback_updates_leg_when_discrepancy_exceeds_tolerance():
@@ -409,15 +411,18 @@ async def test_readback_skips_update_when_within_tolerance():
 # Edge Cases
 # ============================================================================
 
+
 def test_extract_close_order_ids_filters_non_close_events():
     """Test that non-CLOSE_ORDER_PLACED events are filtered out."""
     trade = _make_test_trade()
 
-    trade.events.extend([
-        {"event_type": "ORDER_FILLED", "order_id": "filled_order"},
-        {"event_type": "POSITION_OPENED", "order_id": "open_order"},
-        {"event_type": "CLOSE_ORDER_PLACED", "exchange": "lighter", "leg": "leg1", "order_id": "close_order"},
-    ])
+    trade.events.extend(
+        [
+            {"event_type": "ORDER_FILLED", "order_id": "filled_order"},
+            {"event_type": "POSITION_OPENED", "order_id": "open_order"},
+            {"event_type": "CLOSE_ORDER_PLACED", "exchange": "lighter", "leg": "leg1", "order_id": "close_order"},
+        ]
+    )
 
     lighter_ids, x10_ids = _collect_close_order_ids(trade)
 

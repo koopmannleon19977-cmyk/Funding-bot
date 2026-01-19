@@ -10,4 +10,3 @@ from funding_bot.ports.exchange import ExchangePort
 from funding_bot.ports.store import TradeStorePort
 
 __all__ = ["ExchangePort", "TradeStorePort", "EventBusPort"]
-

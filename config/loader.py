@@ -1,7 +1,8 @@
+import os
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-import os
+
 import yaml
 
 
@@ -42,4 +43,3 @@ def load_settings() -> Settings:
         logging=LoggingSettings(level=str(logging_cfg.get("level", "INFO"))),
     )
     return _apply_env_override(settings)
-

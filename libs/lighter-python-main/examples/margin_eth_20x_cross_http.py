@@ -1,4 +1,5 @@
 import asyncio
+
 from utils import default_example_setup
 
 
@@ -10,11 +11,7 @@ async def main():
     # receives `fraction` as the argument, which is 10_000 / leverage
     # this was kept this way to not break backwards compatibility. Ideally, they would be consistent.
 
-    tx, tx_hash, err = await client.update_leverage(
-        market_index=0,
-        leverage=20,
-        margin_mode=client.CROSS_MARGIN_MODE
-    )
+    tx, tx_hash, err = await client.update_leverage(market_index=0, leverage=20, margin_mode=client.CROSS_MARGIN_MODE)
 
     print(f"Update Leverage {tx=} {tx_hash=} {err=}")
     if err is not None:
@@ -26,4 +23,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

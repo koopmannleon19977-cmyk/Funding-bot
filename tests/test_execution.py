@@ -30,6 +30,7 @@ from funding_bot.domain.models import (
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def mock_settings():
     """Create mock settings."""
@@ -50,36 +51,42 @@ def mock_lighter():
     """Create mock Lighter adapter."""
     lighter = AsyncMock()
     lighter.name = "LIGHTER"
-    lighter.get_market = MagicMock(return_value=MagicMock(
-        step_size=Decimal("0.01"),
-        min_order_size=Decimal("0.01"),
-        tick_size=Decimal("0.01"),
-    ))
-    lighter.place_order = AsyncMock(return_value=Order(
-        order_id="lighter-order-001",
-        symbol="ETH",
-        side=Side.SELL,
-        order_type=OrderType.LIMIT,
-        price=Decimal("2000"),
-        quantity=Decimal("0.25"),
-        filled_quantity=Decimal("0.25"),
-        status=OrderStatus.FILLED,
-        exchange=Exchange.LIGHTER,
-        created_at=datetime.now(UTC),
-    ))
+    lighter.get_market = MagicMock(
+        return_value=MagicMock(
+            step_size=Decimal("0.01"),
+            min_order_size=Decimal("0.01"),
+            tick_size=Decimal("0.01"),
+        )
+    )
+    lighter.place_order = AsyncMock(
+        return_value=Order(
+            order_id="lighter-order-001",
+            symbol="ETH",
+            side=Side.SELL,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2000"),
+            quantity=Decimal("0.25"),
+            filled_quantity=Decimal("0.25"),
+            status=OrderStatus.FILLED,
+            exchange=Exchange.LIGHTER,
+            created_at=datetime.now(UTC),
+        )
+    )
     lighter.cancel_order = AsyncMock(return_value=True)
-    lighter.get_order = AsyncMock(return_value=Order(
-        order_id="lighter-order-001",
-        symbol="ETH",
-        side=Side.SELL,
-        order_type=OrderType.LIMIT,
-        price=Decimal("2000"),
-        quantity=Decimal("0.25"),
-        filled_quantity=Decimal("0.25"),
-        status=OrderStatus.FILLED,
-        exchange=Exchange.LIGHTER,
-        created_at=datetime.now(UTC),
-    ))
+    lighter.get_order = AsyncMock(
+        return_value=Order(
+            order_id="lighter-order-001",
+            symbol="ETH",
+            side=Side.SELL,
+            order_type=OrderType.LIMIT,
+            price=Decimal("2000"),
+            quantity=Decimal("0.25"),
+            filled_quantity=Decimal("0.25"),
+            status=OrderStatus.FILLED,
+            exchange=Exchange.LIGHTER,
+            created_at=datetime.now(UTC),
+        )
+    )
     return lighter
 
 
@@ -88,35 +95,41 @@ def mock_x10():
     """Create mock X10 adapter."""
     x10 = AsyncMock()
     x10.name = "X10"
-    x10.get_market = MagicMock(return_value=MagicMock(
-        step_size=Decimal("0.01"),
-        min_order_size=Decimal("0.01"),
-        tick_size=Decimal("0.01"),
-    ))
-    x10.place_order = AsyncMock(return_value=Order(
-        order_id="x10-order-001",
-        symbol="ETH-USD",
-        side=Side.BUY,
-        order_type=OrderType.MARKET,
-        price=Decimal("2000"),
-        quantity=Decimal("0.25"),
-        filled_quantity=Decimal("0.25"),
-        status=OrderStatus.FILLED,
-        exchange=Exchange.X10,
-        created_at=datetime.now(UTC),
-    ))
-    x10.get_order = AsyncMock(return_value=Order(
-        order_id="x10-order-001",
-        symbol="ETH-USD",
-        side=Side.BUY,
-        order_type=OrderType.MARKET,
-        price=Decimal("2000"),
-        quantity=Decimal("0.25"),
-        filled_quantity=Decimal("0.25"),
-        status=OrderStatus.FILLED,
-        exchange=Exchange.X10,
-        created_at=datetime.now(UTC),
-    ))
+    x10.get_market = MagicMock(
+        return_value=MagicMock(
+            step_size=Decimal("0.01"),
+            min_order_size=Decimal("0.01"),
+            tick_size=Decimal("0.01"),
+        )
+    )
+    x10.place_order = AsyncMock(
+        return_value=Order(
+            order_id="x10-order-001",
+            symbol="ETH-USD",
+            side=Side.BUY,
+            order_type=OrderType.MARKET,
+            price=Decimal("2000"),
+            quantity=Decimal("0.25"),
+            filled_quantity=Decimal("0.25"),
+            status=OrderStatus.FILLED,
+            exchange=Exchange.X10,
+            created_at=datetime.now(UTC),
+        )
+    )
+    x10.get_order = AsyncMock(
+        return_value=Order(
+            order_id="x10-order-001",
+            symbol="ETH-USD",
+            side=Side.BUY,
+            order_type=OrderType.MARKET,
+            price=Decimal("2000"),
+            quantity=Decimal("0.25"),
+            filled_quantity=Decimal("0.25"),
+            status=OrderStatus.FILLED,
+            exchange=Exchange.X10,
+            created_at=datetime.now(UTC),
+        )
+    )
     return x10
 
 
@@ -145,18 +158,22 @@ def mock_event_bus():
 def mock_market_data():
     """Create mock market data service."""
     market_data = MagicMock()
-    market_data.get_orderbook = MagicMock(return_value=MagicMock(
-        lighter_bid=Decimal("1999"),
-        lighter_ask=Decimal("2001"),
-        x10_bid=Decimal("1998"),
-        x10_ask=Decimal("2002"),
-        mid_price=Decimal("2000"),
-        timestamp=datetime.now(UTC),
-    ))
-    market_data.get_funding = MagicMock(return_value=MagicMock(
-        lighter_rate=MagicMock(rate=Decimal("0.0005")),
-        x10_rate=MagicMock(rate=Decimal("-0.0002")),
-    ))
+    market_data.get_orderbook = MagicMock(
+        return_value=MagicMock(
+            lighter_bid=Decimal("1999"),
+            lighter_ask=Decimal("2001"),
+            x10_bid=Decimal("1998"),
+            x10_ask=Decimal("2002"),
+            mid_price=Decimal("2000"),
+            timestamp=datetime.now(UTC),
+        )
+    )
+    market_data.get_funding = MagicMock(
+        return_value=MagicMock(
+            lighter_rate=MagicMock(rate=Decimal("0.0005")),
+            x10_rate=MagicMock(rate=Decimal("-0.0002")),
+        )
+    )
     return market_data
 
 
@@ -186,6 +203,7 @@ def sample_opportunity():
 # =============================================================================
 # Trade Creation Tests
 # =============================================================================
+
 
 class TestTradeCreation:
     """Tests for trade creation logic."""
@@ -229,6 +247,7 @@ class TestTradeCreation:
 # =============================================================================
 # Execution State Machine Tests
 # =============================================================================
+
 
 class TestExecutionStateMachine:
     """Tests for execution state transitions."""
@@ -284,6 +303,7 @@ class TestExecutionStateMachine:
 # =============================================================================
 # Rollback Logic Tests
 # =============================================================================
+
 
 class TestRollbackLogic:
     """Tests for rollback behavior when leg2 fails."""
@@ -347,6 +367,7 @@ class TestRollbackLogic:
 # Quantity Calculation Tests
 # =============================================================================
 
+
 class TestQuantityCalculation:
     """Tests for order quantity calculation."""
 
@@ -380,6 +401,7 @@ class TestQuantityCalculation:
 # Order Placement Tests
 # =============================================================================
 
+
 class TestOrderPlacement:
     """Tests for order placement logic."""
 
@@ -412,6 +434,7 @@ class TestOrderPlacement:
 # =============================================================================
 # Edge Cases
 # =============================================================================
+
 
 class TestExecutionEdgeCases:
     """Tests for edge cases in execution."""

@@ -10,7 +10,6 @@ import pytest
 
 from funding_bot.adapters.exchanges.lighter.ws_client import WsClient
 
-
 # =============================================================================
 # Lighter SDK Import Guard Tests
 # =============================================================================
@@ -54,7 +53,6 @@ class TestWsClientLighterSdkImportGuard:
         The adapter always passes an explicit host, so the bot should work fine
         without the Lighter SDK installed (for offline testing).
         """
-        from funding_bot.adapters.exchanges.lighter.ws_client import _LIGHTER_SDK_AVAILABLE
 
         # Should work regardless of SDK availability when host is explicit
         client = WsClient(
@@ -80,10 +78,7 @@ class TestWsClientLighterSdkImportGuard:
         # Only test this path if SDK is actually not available
         # If SDK IS available, we can't test the error path
         if not _LIGHTER_SDK_AVAILABLE:
-            with pytest.raises(
-                RuntimeError,
-                match="WsClient with host=None requires the Lighter SDK to be installed"
-            ):
+            with pytest.raises(RuntimeError, match="WsClient with host=None requires the Lighter SDK to be installed"):
                 WsClient(
                     host=None,
                     order_book_ids=[1],

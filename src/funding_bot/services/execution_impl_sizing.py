@@ -204,8 +204,8 @@ class SizingResult:
 
 
 async def _fetch_balances(
-    lighter: "LighterExchangeAdapter",
-    x10: "X10ExchangeAdapter",
+    lighter: LighterExchangeAdapter,
+    x10: X10ExchangeAdapter,
 ) -> BalanceData:
     """
     Fetch balance data from both exchanges.
@@ -230,8 +230,8 @@ async def _fetch_balances(
 
 def _calculate_leverage(
     trade: Trade,
-    settings: "Settings",
-    market_data: "MarketDataService",
+    settings: Settings,
+    market_data: MarketDataService,
 ) -> LeverageConfig:
     """
     Calculate effective leverage for both exchanges.
@@ -272,7 +272,7 @@ def _calculate_leverage(
 async def _calculate_risk_capacity(
     balance: BalanceData,
     leverage: LeverageConfig,
-    settings: "Settings",
+    settings: Settings,
     store: Any,
     current_trade_id: str,
 ) -> RiskCapacity:
@@ -322,7 +322,7 @@ async def _calculate_risk_capacity(
 
 def _calculate_slot_allocation(
     risk: RiskCapacity,
-    settings: "Settings",
+    settings: Settings,
     opp: Opportunity,
     num_other_trades: int,
 ) -> SlotAllocation:
@@ -366,7 +366,7 @@ def _calculate_slot_allocation(
     )
 
 
-def _load_depth_gate_config(settings: "Settings") -> DepthGateConfig:
+def _load_depth_gate_config(settings: Settings) -> DepthGateConfig:
     """
     Load depth gate configuration from settings.
 
@@ -427,7 +427,7 @@ async def _apply_depth_cap(
     fresh_ob: OrderbookSnapshot,
     prefetched_depth_ob: OrderbookDepthSnapshot | None,
     depth_config: DepthGateConfig,
-    market_data: "MarketDataService",
+    market_data: MarketDataService,
 ) -> tuple[Decimal, OrderbookDepthSnapshot | None, dict[str, Any], bool, str | None]:
     """
     Apply depth cap to target notional.
@@ -535,9 +535,7 @@ async def _apply_margin_adjustment(
 
     req_margin = trade.target_notional_usd / lev
     if lighter_available < req_margin:
-        logger.warning(
-            f"Sizing reduced by Lighter Margin: {lighter_available} * Lev"
-        )
+        logger.warning(f"Sizing reduced by Lighter Margin: {lighter_available} * Lev")
         new_notional = lighter_available * lev * Decimal("0.95")
         trade.target_qty = new_notional / mid_price
         qty = await calculate_quantity_fn(trade, opp)
@@ -579,9 +577,7 @@ async def _execute_impl_sizing(
     )
 
     # 3. Calculate risk capacity
-    risk = await _calculate_risk_capacity(
-        balance, leverage, self.settings, self.store, trade.trade_id
-    )
+    risk = await _calculate_risk_capacity(balance, leverage, self.settings, self.store, trade.trade_id)
     logger.info(
         f"Sizing Check: Equity=${balance.total_equity:.2f} "
         f"RiskCap=${risk.global_risk_cap:.2f} Used=${risk.current_exposure:.2f} "
@@ -629,9 +625,7 @@ async def _execute_impl_sizing(
 
     # 7. Sanity check: minimum trade size
     if target_notional < Decimal("20.0"):
-        logger.warning(
-            f"Insufficient capacity for min trade size: Target=${target_notional:.2f} (Min $20)"
-        )
+        logger.warning(f"Insufficient capacity for min trade size: Target=${target_notional:.2f} (Min $20)")
         trade.status = TradeStatus.REJECTED
         trade.execution_state = ExecutionState.ABORTED
         trade.error = "Insufficient capacity for min trade size"
@@ -685,9 +679,6 @@ async def _execute_impl_sizing(
     )
 
     # 12. Final margin re-check
-    await _apply_margin_adjustment(
-        trade, mid_price, leverage, balance.lighter_available,
-        self._calculate_quantity, opp
-    )
+    await _apply_margin_adjustment(trade, mid_price, leverage, balance.lighter_available, self._calculate_quantity, opp)
 
     return depth_ob

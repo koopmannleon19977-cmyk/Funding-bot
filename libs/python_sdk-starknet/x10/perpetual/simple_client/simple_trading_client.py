@@ -1,8 +1,9 @@
 import asyncio
 import dataclasses
 import time
+from collections.abc import Awaitable
 from decimal import Decimal
-from typing import Awaitable, Dict, Union, cast
+from typing import cast
 
 from x10.perpetual.accounts import AccountStreamDataModel, StarkPerpetualAccount
 from x10.perpetual.configuration import EndpointConfig
@@ -83,14 +84,11 @@ class BlockingTradingClient:
         self.__account = account
         self.__market_module = MarketsInformationModule(endpoint_config, api_key=account.api_key)
         self.__orders_module = OrderManagementModule(endpoint_config, api_key=account.api_key)
-        self.__markets: Union[None, Dict[str, MarketModel]] = None
+        self.__markets: None | dict[str, MarketModel] = None
         self.__stream_client: PerpetualStreamClient = PerpetualStreamClient(api_url=endpoint_config.stream_url)
-        self.__account_stream: Union[
-            None,
-            PerpetualStreamConnection[WrappedStreamResponse[AccountStreamDataModel]],
-        ] = None
-        self.__order_waiters: Dict[str, OrderWaiter] = {}
-        self.__cancel_waiters: Dict[str, CancelWaiter] = {}
+        self.__account_stream: None | PerpetualStreamConnection[WrappedStreamResponse[AccountStreamDataModel]] = None
+        self.__order_waiters: dict[str, OrderWaiter] = {}
+        self.__cancel_waiters: dict[str, CancelWaiter] = {}
         self.__stream_task = asyncio.create_task(self.___order_stream())
 
     @staticmethod
@@ -168,7 +166,7 @@ class BlockingTradingClient:
             operation_ms=(end_nanos - cancel_waiter.start_nanos) / 1_000_000,
         )
 
-    async def get_markets(self) -> Dict[str, MarketModel]:
+    async def get_markets(self) -> dict[str, MarketModel]:
         if not self.__markets:
             markets = await self.__market_module.get_markets()
             market_data = markets.data

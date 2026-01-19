@@ -76,21 +76,23 @@ async def test_live_adapter_and_historical_ingestion_consistency():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [
-                {
-                    "timestamp": 1704067200,
-                    "rate": "0.0001"  # 1h rate in DECIMAL (already hourly)
-                }
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [
+                    {
+                        "timestamp": 1704067200,
+                        "rate": "0.0001",  # 1h rate in DECIMAL (already hourly)
+                    }
+                ]
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="ETH",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     hist_rate = candles[0].funding_rate_hourly
@@ -149,16 +151,18 @@ async def test_live_and_history_consistency_with_interval_8():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [{"timestamp": 1704067200, "rate": "0.0008"}]  # 8h rate
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [{"timestamp": 1704067200, "rate": "0.0008"}]  # 8h rate
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="BTC",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     hist_rate = candles[0].funding_rate_hourly
@@ -215,16 +219,18 @@ async def test_apy_consistency_between_components():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [{"timestamp": 1704067200, "rate": "0.0001"}]  # REST 1h rate
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [{"timestamp": 1704067200, "rate": "0.0001"}]  # REST 1h rate
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="ETH",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     hist_hourly = candles[0].funding_rate_hourly
@@ -233,10 +239,11 @@ async def test_apy_consistency_between_components():
     # Expected: 0.0001 hourly * 24 * 365 = 0.876 APY (87.6% annualized)
     expected_apy = Decimal("0.0001") * Decimal("24") * Decimal("365")
 
-    assert live_hourly == hist_hourly == Decimal("0.0001"), \
+    assert live_hourly == hist_hourly == Decimal("0.0001"), (
         f"Hourly rate mismatch: Live={live_hourly}, Hist={hist_hourly}"
+    )
 
-    assert abs(live_apy - expected_apy) < Decimal("0.01"), \
-        f"Live APY mismatch: {live_apy} vs expected {expected_apy}"
-    assert abs(hist_apy - expected_apy) < Decimal("0.01"), \
+    assert abs(live_apy - expected_apy) < Decimal("0.01"), f"Live APY mismatch: {live_apy} vs expected {expected_apy}"
+    assert abs(hist_apy - expected_apy) < Decimal("0.01"), (
         f"Historical APY mismatch: {hist_apy} vs expected {expected_apy}"
+    )

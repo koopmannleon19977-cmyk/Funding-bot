@@ -2,7 +2,6 @@ import asyncio
 import sqlite3
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class TradeStatus(Enum):
@@ -22,7 +21,7 @@ class TradeState:
     created_at: int
     pnl: float = 0.0
     funding_collected: float = 0.0
-    closed_at: Optional[int] = None
+    closed_at: int | None = None
 
 
 class InMemoryStateManager:

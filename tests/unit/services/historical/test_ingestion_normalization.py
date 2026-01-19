@@ -16,7 +16,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from funding_bot.domain.historical import FundingCandle
 from funding_bot.services.historical.ingestion import HistoricalIngestionService
 
 
@@ -44,21 +43,23 @@ async def test_historical_ingestion_with_interval_1_no_division():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [
-                {
-                    "timestamp": 1704067200,  # 2024-01-01 00:00:00 UTC
-                    "rate": "0.0001"  # DECIMAL format (0.01% hourly)
-                }
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [
+                    {
+                        "timestamp": 1704067200,  # 2024-01-01 00:00:00 UTC
+                        "rate": "0.0001",  # DECIMAL format (0.01% hourly)
+                    }
+                ]
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="ETH",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     # ASSERT: Rate stays as-is (API returns decimal, interval=1 means no division)
@@ -91,21 +92,23 @@ async def test_historical_ingestion_with_interval_8_divides_by_8():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [
-                {
-                    "timestamp": 1704067200,
-                    "rate": "0.0008"  # DECIMAL format (8h rate)
-                }
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [
+                    {
+                        "timestamp": 1704067200,
+                        "rate": "0.0008",  # DECIMAL format (8h rate)
+                    }
+                ]
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="BTC",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     # ASSERT: Division by 8 (0.0008 / 8 = 0.0001)
@@ -136,21 +139,23 @@ async def test_historical_ingestion_fallback_to_interval_1_when_missing():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [
-                {
-                    "timestamp": 1704067200,
-                    "rate": "0.0001"  # DECIMAL format
-                }
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [
+                    {
+                        "timestamp": 1704067200,
+                        "rate": "0.0001",  # DECIMAL format
+                    }
+                ]
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="SOL",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     # ASSERT: Fallback to interval=1 (no division), rate stays as-is
@@ -179,21 +184,23 @@ async def test_historical_ingestion_apy_calculation():
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "fundings": [
-                {
-                    "timestamp": 1704067200,
-                    "rate": "0.0001"  # DECIMAL format (0.01% hourly)
-                }
-            ]
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "fundings": [
+                    {
+                        "timestamp": 1704067200,
+                        "rate": "0.0001",  # DECIMAL format (0.01% hourly)
+                    }
+                ]
+            }
+        )
         mock_get.return_value.__aenter__.return_value = mock_response
 
         candles = await ingestion._fetch_lighter_candles(
             symbol="ETH",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     # ASSERT: APY = hourly_rate * 24 * 365
@@ -224,10 +231,12 @@ async def test_historical_ingestion_multiple_candles_consistency():
     # Mock 24 hours of hourly data in DECIMAL format
     fundings = []
     for i in range(24):
-        fundings.append({
-            "timestamp": 1704067200 + (i * 3600),  # Hourly timestamps
-            "rate": "0.00005"  # Constant 0.005% hourly rate in DECIMAL format
-        })
+        fundings.append(
+            {
+                "timestamp": 1704067200 + (i * 3600),  # Hourly timestamps
+                "rate": "0.00005",  # Constant 0.005% hourly rate in DECIMAL format
+            }
+        )
 
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = MagicMock()
@@ -239,11 +248,12 @@ async def test_historical_ingestion_multiple_candles_consistency():
             symbol="DOGE",
             start_time=datetime(2024, 1, 1, tzinfo=UTC),
             end_time=datetime(2024, 1, 2, tzinfo=UTC),
-            count_back=24
+            count_back=24,
         )
 
     # ASSERT: All 24 candles have correct hourly rate (no division with interval=1)
     assert len(candles) == 24
     for candle in candles:
-        assert candle.funding_rate_hourly == Decimal("0.00005"), \
+        assert candle.funding_rate_hourly == Decimal("0.00005"), (
             f"Candle at {candle.timestamp} has incorrect rate: {candle.funding_rate_hourly}"
+        )

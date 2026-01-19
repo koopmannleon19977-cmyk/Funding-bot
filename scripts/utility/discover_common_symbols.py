@@ -12,12 +12,11 @@ Usage:
 import asyncio
 import json
 from pathlib import Path
-from typing import Set
 
 import aiohttp
 
 
-async def fetch_x10_markets() -> Set[str]:
+async def fetch_x10_markets() -> set[str]:
     """Fetch all active markets from X10 exchange.
 
     Returns:
@@ -35,11 +34,7 @@ async def fetch_x10_markets() -> Set[str]:
                 markets = data.get("data", [])
 
                 # Extract active symbols (remove -USD suffix)
-                symbols = {
-                    m["name"].replace("-USD", "")
-                    for m in markets
-                    if m.get("active", False)
-                }
+                symbols = {m["name"].replace("-USD", "") for m in markets if m.get("active", False)}
 
                 print(f"[OK] X10: {len(symbols)} active markets")
                 return symbols
@@ -49,7 +44,7 @@ async def fetch_x10_markets() -> Set[str]:
         return set()
 
 
-async def fetch_lighter_markets() -> Set[str]:
+async def fetch_lighter_markets() -> set[str]:
     """Fetch all active markets from Lighter exchange.
 
     Returns:
@@ -68,22 +63,14 @@ async def fetch_lighter_markets() -> Set[str]:
                 data = await resp.json()
 
                 # Handle different response formats
-                markets = (
-                    data.get("data", [])
-                    or data.get("markets", [])
-                    or data.get("perpetuals", [])
-                    or []
-                )
+                markets = data.get("data", []) or data.get("markets", []) or data.get("perpetuals", []) or []
 
                 # Extract symbols
                 symbols = set()
                 for market in markets:
                     # Try different possible field names
                     symbol = (
-                        market.get("symbol")
-                        or market.get("name")
-                        or market.get("pair", "")
-                        or market.get("ticker", "")
+                        market.get("symbol") or market.get("name") or market.get("pair", "") or market.get("ticker", "")
                     )
 
                     if not symbol:
@@ -112,7 +99,7 @@ async def fetch_lighter_markets() -> Set[str]:
         return await _fetch_lighter_markets_sdk()
 
 
-async def _fetch_lighter_markets_sdk() -> Set[str]:
+async def _fetch_lighter_markets_sdk() -> set[str]:
     """Fetch Lighter markets using SDK as fallback.
 
     Returns:
@@ -123,9 +110,7 @@ async def _fetch_lighter_markets_sdk() -> Set[str]:
         from lighter import LighterClient, LighterConfig
 
         # Initialize client (no API key needed for public data)
-        config = LighterConfig(
-            base_url="https://mainnet.zklighter.elliot.ai"
-        )
+        config = LighterConfig(base_url="https://mainnet.zklighter.elliot.ai")
 
         async with LighterClient(config=config) as client:
             # Use order_book_details to fetch all market metadata
@@ -151,17 +136,91 @@ async def _fetch_lighter_markets_sdk() -> Set[str]:
         # Fallback: hardcoded list of known Lighter markets
         # This is a subset - update periodically
         known_markets = {
-            "0G", "1000BONK", "1000PEPE", "1000SHIB", "2Z", "4",
-            "AAPL", "AAVE", "ADA", "AERO", "AMZN", "APEX", "APT", "ARB",
-            "ASTER", "AVAX", "BERA", "BNB", "BTC", "CAKE", "CRV", "DOGE",
-            "EDEN", "EIGEN", "ENA", "ETH", "EUR", "FARTCOIN", "GOAT",
-            "GRASS", "HYPE", "INIT", "IP", "JUP", "KAITO", "LDO", "LINK",
-            "LIT", "LTC", "MEGA", "MELANIA", "MKR", "MNT", "MON", "MOODENG",
-            "MSFT", "NEAR", "NFLX", "NVDA", "ONDO", "OP", "PENDLE", "PENGU",
-            "POPCAT", "PUMP", "RESOLV", "S", "SEI", "SNX", "SOL", "SPX",
-            "SPX500m", "STRK", "SUI", "TAO", "TECH100m", "TIA", "TON",
-            "TRUMP", "TRX", "TSLA", "UNI", "VIRTUAL", "WIF", "WLD", "WLFI",
-            "XAG", "XAU", "XBR", "XMR", "XPL", "XRP", "ZEC", "ZORA", "ZRO"
+            "0G",
+            "1000BONK",
+            "1000PEPE",
+            "1000SHIB",
+            "2Z",
+            "4",
+            "AAPL",
+            "AAVE",
+            "ADA",
+            "AERO",
+            "AMZN",
+            "APEX",
+            "APT",
+            "ARB",
+            "ASTER",
+            "AVAX",
+            "BERA",
+            "BNB",
+            "BTC",
+            "CAKE",
+            "CRV",
+            "DOGE",
+            "EDEN",
+            "EIGEN",
+            "ENA",
+            "ETH",
+            "EUR",
+            "FARTCOIN",
+            "GOAT",
+            "GRASS",
+            "HYPE",
+            "INIT",
+            "IP",
+            "JUP",
+            "KAITO",
+            "LDO",
+            "LINK",
+            "LIT",
+            "LTC",
+            "MEGA",
+            "MELANIA",
+            "MKR",
+            "MNT",
+            "MON",
+            "MOODENG",
+            "MSFT",
+            "NEAR",
+            "NFLX",
+            "NVDA",
+            "ONDO",
+            "OP",
+            "PENDLE",
+            "PENGU",
+            "POPCAT",
+            "PUMP",
+            "RESOLV",
+            "S",
+            "SEI",
+            "SNX",
+            "SOL",
+            "SPX",
+            "SPX500m",
+            "STRK",
+            "SUI",
+            "TAO",
+            "TECH100m",
+            "TIA",
+            "TON",
+            "TRUMP",
+            "TRX",
+            "TSLA",
+            "UNI",
+            "VIRTUAL",
+            "WIF",
+            "WLD",
+            "WLFI",
+            "XAG",
+            "XAU",
+            "XBR",
+            "XMR",
+            "XPL",
+            "XRP",
+            "ZEC",
+            "ZORA",
+            "ZRO",
         }
 
         print(f"[OK] Lighter: {len(known_markets)} markets (hardcoded fallback)")
@@ -172,9 +231,24 @@ async def _fetch_lighter_markets_sdk() -> Set[str]:
 
         # Last resort: return hardcoded list
         return {
-            "ETH", "BTC", "SOL", "DOGE", "PEPE", "1000PEPE", "1000SHIB",
-            "1000BONK", "AAPL", "AMZN", "MSFT", "NVDA", "TSLA", "SPX500m",
-            "TECH100m", "EUR", "XAU", "XAG"
+            "ETH",
+            "BTC",
+            "SOL",
+            "DOGE",
+            "PEPE",
+            "1000PEPE",
+            "1000SHIB",
+            "1000BONK",
+            "AAPL",
+            "AMZN",
+            "MSFT",
+            "NVDA",
+            "TSLA",
+            "SPX500m",
+            "TECH100m",
+            "EUR",
+            "XAU",
+            "XAG",
         }
 
 
@@ -189,10 +263,7 @@ async def discover_common_symbols() -> dict:
     print("=" * 60)
 
     # Fetch markets from both exchanges
-    x10_symbols, lighter_symbols = await asyncio.gather(
-        fetch_x10_markets(),
-        fetch_lighter_markets()
-    )
+    x10_symbols, lighter_symbols = await asyncio.gather(fetch_x10_markets(), fetch_lighter_markets())
 
     # Compute intersection (common symbols)
     common_symbols = x10_symbols & lighter_symbols
@@ -234,7 +305,7 @@ async def discover_common_symbols() -> dict:
         sorted_symbols = sorted(common_symbols)
         # Print in columns of 8
         for i in range(0, len(sorted_symbols), 8):
-            row = sorted_symbols[i:i+8]
+            row = sorted_symbols[i : i + 8]
             print(", ".join(f"{s:<10}" for s in row))
 
     if lighter_only and len(lighter_only) <= 20:
@@ -261,15 +332,16 @@ def save_common_symbols_config(results: dict, output_path: str = "config/common_
             "x10_markets": results["x10_count"],
             "lighter_markets": results["lighter_count"],
             "common_symbols": results["common_count"],
-            "discovered_at": None  # Will be set to current time
+            "discovered_at": None,  # Will be set to current time
         },
         "common_symbols": results["common_symbols"],
         "x10_only": results["x10_only"],
-        "lighter_only": results["lighter_only"]
+        "lighter_only": results["lighter_only"],
     }
 
     # Add timestamp
-    from datetime import datetime, UTC
+    from datetime import UTC, datetime
+
     config["metadata"]["discovered_at"] = datetime.now(UTC).isoformat() + "Z"
 
     # Write to file

@@ -1,5 +1,6 @@
 import asyncio
 import time
+
 from utils import default_example_setup, trim_exception
 
 
@@ -144,7 +145,6 @@ async def main():
         print(f"Batch transaction successful: {response} expected: {tx_hashes}")
     except Exception as e:
         print(f"Error sending batch transaction: {trim_exception(e)}")
-
 
     # Clean up
     await client.close()

@@ -47,7 +47,14 @@ async def test_setup_wires_and_closes():
     closer = AsyncMock()
 
     wired_bus = await setup_maintenance_wiring(repo, closer, event_bus=bus)
-    await bus.publish(MaintenanceViolation(trade_id="t1", symbol="BTC-USD", reason="volatility_panic", timestamp=__import__("datetime").datetime.utcnow()))
+    await bus.publish(
+        MaintenanceViolation(
+            trade_id="t1",
+            symbol="BTC-USD",
+            reason="volatility_panic",
+            timestamp=__import__("datetime").datetime.utcnow(),
+        )
+    )
 
     for _ in range(5):
         await asyncio.sleep(0.02)
@@ -69,7 +76,14 @@ async def test_setup_no_trade_noop():
     closer = AsyncMock()
 
     wired_bus = await setup_maintenance_wiring(repo, closer, event_bus=bus)
-    await bus.publish(MaintenanceViolation(trade_id="missing", symbol="BTC-USD", reason="funding_flip", timestamp=__import__("datetime").datetime.utcnow()))
+    await bus.publish(
+        MaintenanceViolation(
+            trade_id="missing",
+            symbol="BTC-USD",
+            reason="funding_flip",
+            timestamp=__import__("datetime").datetime.utcnow(),
+        )
+    )
     await asyncio.sleep(0.05)
     stopper = teardown_event_bus(wired_bus)
     await stopper()

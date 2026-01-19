@@ -65,9 +65,7 @@ class TradeStorePort(ABC):
         ...
 
     @abstractmethod
-    async def update_trade(
-        self, trade_id: str, updates: dict[str, Any]
-    ) -> bool:
+    async def update_trade(self, trade_id: str, updates: dict[str, Any]) -> bool:
         """
         Update a trade with partial data.
 
@@ -109,9 +107,7 @@ class TradeStorePort(ABC):
     # =========================================================================
 
     @abstractmethod
-    async def append_event(
-        self, trade_id: str, event: DomainEvent
-    ) -> None:
+    async def append_event(self, trade_id: str, event: DomainEvent) -> None:
         """
         Append an event to the trade's audit log.
 
@@ -315,9 +311,7 @@ class TradeStorePort(ABC):
     # Historical Data (APY Analysis & Crash Detection)
     # =========================================================================
 
-    async def insert_funding_candles(
-        self, candles: list[FundingCandle]
-    ) -> int:
+    async def insert_funding_candles(self, candles: list[FundingCandle]) -> int:
         """
         Batch insert minute-level funding candles with UPSERT to handle duplicates.
 
@@ -344,5 +338,3 @@ class TradeStorePort(ABC):
         Returns dict with volatility metrics or None if not found.
         """
         raise NotImplementedError
-
-

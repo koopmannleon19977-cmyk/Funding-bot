@@ -1,12 +1,13 @@
 """Fix Entry Price Phantom Profit Issue - v2"""
-filepath = r'c:\Users\koopm\funding-bot\src\core\trading.py'
+
+filepath = r"c:\Users\koopm\funding-bot\src\core\trading.py"
 
 # Read file preserving line endings
-with open(filepath, 'rb') as f:
+with open(filepath, "rb") as f:
     content = f.read()
 
 # Decode
-content_str = content.decode('utf-8')
+content_str = content.decode("utf-8")
 
 # The old code block to find (with CRLF line endings \r\n)
 old_block = """                entry_price_x10 = x10.fetch_mark_price(symbol) or 0.0\r
@@ -46,24 +47,24 @@ new_block = """                # FIX (Phantom Profit): Fetch ACTUAL fill prices 
                 apy_value = opp.get('apy', 0.0)"""
 
 # Replace CRLF with LF in new block to match file style after
-new_block_crlf = new_block.replace('\n', '\r\n')
+new_block_crlf = new_block.replace("\n", "\r\n")
 
 if old_block in content_str:
     new_content = content_str.replace(old_block, new_block_crlf)
-    with open(filepath, 'wb') as f:
-        f.write(new_content.encode('utf-8'))
-    print('SUCCESS: File updated with CRLF matching!')
+    with open(filepath, "wb") as f:
+        f.write(new_content.encode("utf-8"))
+    print("SUCCESS: File updated with CRLF matching!")
 else:
     # Try without CR
-    old_block_lf = old_block.replace('\r\n', '\n').replace('\r', '')
+    old_block_lf = old_block.replace("\r\n", "\n").replace("\r", "")
     if old_block_lf in content_str:
         new_content = content_str.replace(old_block_lf, new_block)
-        with open(filepath, 'wb') as f:
-            f.write(new_content.encode('utf-8'))
-        print('SUCCESS: File updated with LF matching!')
+        with open(filepath, "wb") as f:
+            f.write(new_content.encode("utf-8"))
+        print("SUCCESS: File updated with LF matching!")
     else:
-        print('ERROR: Pattern not found')
+        print("ERROR: Pattern not found")
         # Debug
-        for i, line in enumerate(content_str.split('\n')):
-            if 'entry_price_x10 = x10.fetch_mark_price' in line:
-                print(f'Line {i+1}: {repr(line[:80])}')
+        for i, line in enumerate(content_str.split("\n")):
+            if "entry_price_x10 = x10.fetch_mark_price" in line:
+                print(f"Line {i + 1}: {repr(line[:80])}")

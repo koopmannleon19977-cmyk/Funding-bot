@@ -21,10 +21,8 @@ ACCEPTANCE CRITERIA:
 
 from __future__ import annotations
 
-import pytest
-import asyncio
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 from funding_bot.domain.models import (
     Exchange,
@@ -36,10 +34,10 @@ from funding_bot.domain.models import (
     TradeStatus,
 )
 
-
 # ============================================================================
 # Test Helpers
 # ============================================================================
+
 
 def _make_test_trade(
     leg1_qty: Decimal = Decimal("0.1"),
@@ -96,6 +94,7 @@ def _make_mock_order(
 # Old Buggy Logic Tests (Demonstrate the Bug)
 # ============================================================================
 
+
 class TestOldBuggyLogic:
     """
     REGRESSION TESTS: Demonstrate the old buggy logic.
@@ -112,6 +111,7 @@ class TestOldBuggyLogic:
         With tasks=[leg1_task]:
         - i=0: leg = "leg1" if True or False → "leg1" ✅ CORRECT
         """
+
         def old_buggy_mapping(i, num_tasks):
             """OLD BUGGY CODE: confusing but worked for single task"""
             return "leg1" if i == 0 or (num_tasks == 2 and i == 0) else "leg2"
@@ -120,8 +120,7 @@ class TestOldBuggyLogic:
         num_tasks = 1
         leg_for_task_0 = old_buggy_mapping(0, num_tasks)
 
-        assert leg_for_task_0 == "leg1", \
-            "Old logic: Task 0 should map to leg1"
+        assert leg_for_task_0 == "leg1", "Old logic: Task 0 should map to leg1"
 
     def test_old_logic_single_task_leg2(self):
         """
@@ -135,6 +134,7 @@ class TestOldBuggyLogic:
         This demonstrates the bug: when only leg2 has a task, it's incorrectly
         mapped to leg1 because the condition only checks index, not leg identity.
         """
+
         def old_buggy_mapping(i, num_tasks):
             """OLD BUGGY CODE: couldn't handle leg2-only tasks"""
             return "leg1" if i == 0 or (num_tasks == 2 and i == 0) else "leg2"
@@ -144,11 +144,10 @@ class TestOldBuggyLogic:
         leg_for_task_0 = old_buggy_mapping(0, num_tasks)
 
         # BUG: Task 0 maps to leg1 even though it's actually leg2's task
-        assert leg_for_task_0 == "leg1", \
-            "OLD BUG: Task 0 always mapped to leg1 (even when it's leg2's task)"
+        assert leg_for_task_0 == "leg1", "OLD BUG: Task 0 always mapped to leg1 (even when it's leg2's task)"
 
-        print(f"\n❌ OLD BUG DEMONSTRATED:")
-        print(f"  When only leg2 has a task, old logic incorrectly maps it to leg1")
+        print("\n❌ OLD BUG DEMONSTRATED:")
+        print("  When only leg2 has a task, old logic incorrectly maps it to leg1")
         print(f"  Task index: 0, Mapped to: {leg_for_task_0} (WRONG!)")
 
     def test_old_logic_dual_tasks(self):
@@ -161,6 +160,7 @@ class TestOldBuggyLogic:
         - i=0: leg = "leg1" if True or True → "leg1" ✅ CORRECT
         - i=1: leg = "leg1" if False or False → "leg2" ✅ CORRECT
         """
+
         def old_buggy_mapping(i, num_tasks):
             """OLD BUGGY CODE: worked for dual tasks"""
             return "leg1" if i == 0 or (num_tasks == 2 and i == 0) else "leg2"
@@ -170,15 +170,14 @@ class TestOldBuggyLogic:
         leg_for_task_0 = old_buggy_mapping(0, num_tasks)
         leg_for_task_1 = old_buggy_mapping(1, num_tasks)
 
-        assert leg_for_task_0 == "leg1", \
-            "Old logic: Task 0 should map to leg1"
-        assert leg_for_task_1 == "leg2", \
-            "Old logic: Task 1 should map to leg2"
+        assert leg_for_task_0 == "leg1", "Old logic: Task 0 should map to leg1"
+        assert leg_for_task_1 == "leg2", "Old logic: Task 1 should map to leg2"
 
 
 # ============================================================================
 # New Fixed Logic Tests (Demonstrate the Fix)
 # ============================================================================
+
 
 class TestNewFixedLogic:
     """
@@ -206,14 +205,11 @@ class TestNewFixedLogic:
         # New logic: zip keys with results
         mappings = list(zip(maker_tasks.keys(), results))
 
-        assert len(mappings) == 1, \
-            "Should have 1 mapping"
+        assert len(mappings) == 1, "Should have 1 mapping"
 
         leg, result = mappings[0]
-        assert leg == "leg1", \
-            "New logic: Task should map to leg1"
-        assert result == "result_leg1", \
-            "New logic: Result should correspond to leg1"
+        assert leg == "leg1", "New logic: Task should map to leg1"
+        assert result == "result_leg1", "New logic: Result should correspond to leg1"
 
     def test_new_logic_single_task_leg2(self):
         """
@@ -235,17 +231,14 @@ class TestNewFixedLogic:
         # New logic: zip keys with results
         mappings = list(zip(maker_tasks.keys(), results))
 
-        assert len(mappings) == 1, \
-            "Should have 1 mapping"
+        assert len(mappings) == 1, "Should have 1 mapping"
 
         leg, result = mappings[0]
-        assert leg == "leg2", \
-            "New logic: Task should map to leg2 (FIXED!)"
-        assert result == "result_leg2", \
-            "New logic: Result should correspond to leg2"
+        assert leg == "leg2", "New logic: Task should map to leg2 (FIXED!)"
+        assert result == "result_leg2", "New logic: Result should correspond to leg2"
 
-        print(f"\n✅ NEW FIX VERIFIED:")
-        print(f"  When only leg2 has a task, new logic correctly maps it to leg2")
+        print("\n✅ NEW FIX VERIFIED:")
+        print("  When only leg2 has a task, new logic correctly maps it to leg2")
         print(f"  Mapped to: {leg} (CORRECT!)")
 
     def test_new_logic_dual_tasks(self):
@@ -268,27 +261,27 @@ class TestNewFixedLogic:
         # New logic: zip keys with results
         mappings = list(zip(maker_tasks.keys(), results))
 
-        assert len(mappings) == 2, \
-            "Should have 2 mappings"
+        assert len(mappings) == 2, "Should have 2 mappings"
 
         # Verify both mappings
         leg1_mapping = next((l for l in mappings if l[0] == "leg1"), None)
         leg2_mapping = next((l for l in mappings if l[0] == "leg2"), None)
 
-        assert leg1_mapping is not None, \
-            "New logic: Should have leg1 mapping"
-        assert leg2_mapping is not None, \
-            "New logic: Should have leg2 mapping"
+        assert leg1_mapping is not None, "New logic: Should have leg1 mapping"
+        assert leg2_mapping is not None, "New logic: Should have leg2 mapping"
 
-        assert leg1_mapping[0] == "leg1" and leg1_mapping[1] == "result_leg1", \
+        assert leg1_mapping[0] == "leg1" and leg1_mapping[1] == "result_leg1", (
             "New logic: leg1 should map to result_leg1"
-        assert leg2_mapping[0] == "leg2" and leg2_mapping[1] == "result_leg2", \
+        )
+        assert leg2_mapping[0] == "leg2" and leg2_mapping[1] == "result_leg2", (
             "New logic: leg2 should map to result_leg2"
+        )
 
 
 # ============================================================================
 # Integration-Style Tests (Verify Actual Code Behavior)
 # ============================================================================
+
 
 class TestCoordinatedCloseCodeStructure:
     """
@@ -307,26 +300,26 @@ class TestCoordinatedCloseCodeStructure:
         Note: Logic was refactored into _submit_coordinated_maker_orders helper.
         """
         import inspect
+
         from funding_bot.services.positions import close
 
         # Get the source of _submit_coordinated_maker_orders (where the dict logic now lives)
         source = inspect.getsource(close._submit_coordinated_maker_orders)
 
         # ASSERT: Dict-based task mapping exists
-        assert "maker_tasks:" in source or "maker_tasks =" in source, \
-            "New code should use maker_tasks dict"
+        assert "maker_tasks:" in source or "maker_tasks =" in source, "New code should use maker_tasks dict"
 
         # ASSERT: Dict is typed with str key (leg name)
-        assert "dict[str" in source, \
-            "maker_tasks should be typed as dict[str, ...]"
+        assert "dict[str" in source, "maker_tasks should be typed as dict[str, ...]"
 
         # ASSERT: Uses zip for mapping (not enumerate)
-        assert "zip(maker_tasks.keys()" in source or "zip(maker_tasks" in source, \
+        assert "zip(maker_tasks.keys()" in source or "zip(maker_tasks" in source, (
             "New code should use zip(maker_tasks.keys(), results) for mapping"
+        )
 
-        print(f"\n✅ CODE STRUCTURE VERIFIED:")
-        print(f"  Uses dict-based task mapping: maker_tasks: dict[str, ...]")
-        print(f"  Uses zip for clean leg->result mapping")
+        print("\n✅ CODE STRUCTURE VERIFIED:")
+        print("  Uses dict-based task mapping: maker_tasks: dict[str, ...]")
+        print("  Uses zip for clean leg->result mapping")
 
     def test_no_confusing_index_logic(self):
         """
@@ -335,20 +328,19 @@ class TestCoordinatedCloseCodeStructure:
         Verifies that the old `leg = "leg1" if i == 0 or ...` logic is gone.
         """
         import inspect
+
         from funding_bot.services.positions import close
 
         source = inspect.getsource(close._close_both_legs_coordinated)
 
         # ASSERT: Old confusing condition is NOT present
-        assert 'leg = "leg1" if i == 0' not in source, \
-            "Old confusing index-based logic should be removed"
+        assert 'leg = "leg1" if i == 0' not in source, "Old confusing index-based logic should be removed"
 
         # ASSERT: No redundant condition (len(tasks) == 2 and i == 0)
-        assert "len(tasks) == 2 and i == 0" not in source, \
-            "Old redundant condition should be removed"
+        assert "len(tasks) == 2 and i == 0" not in source, "Old redundant condition should be removed"
 
-        print(f"\n✅ OLD BUGGY LOGIC REMOVED:")
-        print(f"  No more confusing index-based mapping")
+        print("\n✅ OLD BUGGY LOGIC REMOVED:")
+        print("  No more confusing index-based mapping")
 
 
 # ============================================================================

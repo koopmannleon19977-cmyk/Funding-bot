@@ -69,9 +69,7 @@ class FundingSnapshot:
     @property
     def net_rate_hourly(self) -> Decimal:
         """Net funding rate (positive = we earn)."""
-        lighter = (
-            self.lighter_rate.rate_hourly if self.lighter_rate else Decimal("0")
-        )
+        lighter = self.lighter_rate.rate_hourly if self.lighter_rate else Decimal("0")
         x10 = self.x10_rate.rate_hourly if self.x10_rate else Decimal("0")
         # The maximum arbitrage revenue is the absolute difference between rates.
         # OpportunitiesService determines the specific direction to capture it.

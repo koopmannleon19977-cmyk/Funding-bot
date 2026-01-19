@@ -22,9 +22,7 @@ def _compute_leg1_pricing(
 
     # Calculate aggressiveness (0.0 to 1.0)
     aggressiveness = (
-        Decimal(attempt_index) / Decimal(config.max_attempts - 1)
-        if config.max_attempts > 1
-        else Decimal("0")
+        Decimal(attempt_index) / Decimal(config.max_attempts - 1) if config.max_attempts > 1 else Decimal("0")
     )
 
     # 1. Get latest market data
@@ -32,26 +30,16 @@ def _compute_leg1_pricing(
     if not price_data:
         return None, None
 
-    lighter_info = self.market_data.get_market_info(
-        trade.symbol, trade.leg1.exchange
-    )
+    lighter_info = self.market_data.get_market_info(trade.symbol, trade.leg1.exchange)
     tick = lighter_info.tick_size if lighter_info else Decimal("0.01")
 
     ob = None
     if hasattr(self.market_data, "get_orderbook"):
         ob = self.market_data.get_orderbook(trade.symbol)
 
-    best_bid = (
-        ob.lighter_bid
-        if ob and ob.lighter_bid > 0
-        else price_data.lighter_price * Decimal("0.9999")
-    )
+    best_bid = ob.lighter_bid if ob and ob.lighter_bid > 0 else price_data.lighter_price * Decimal("0.9999")
 
-    best_ask = (
-        ob.lighter_ask
-        if ob and ob.lighter_ask > 0
-        else price_data.lighter_price * Decimal("1.0001")
-    )
+    best_ask = ob.lighter_ask if ob and ob.lighter_ask > 0 else price_data.lighter_price * Decimal("1.0001")
 
     if best_bid >= best_ask:
         best_bid = price_data.lighter_price * Decimal("0.9999")
@@ -69,11 +57,7 @@ def _compute_leg1_pricing(
     l1_util: Decimal | None = None
     if config.smart_enabled and config.smart_maker_floor > 0 and ob is not None:
         with contextlib.suppress(Exception):
-            l1_qty = (
-                ob.lighter_bid_qty
-                if trade.leg1.side == Side.BUY
-                else ob.lighter_ask_qty
-            )
+            l1_qty = ob.lighter_bid_qty if trade.leg1.side == Side.BUY else ob.lighter_ask_qty
         l1_util = remaining_qty / l1_qty if l1_qty > 0 else Decimal("1e18")
 
         if l1_util > config.smart_l1_util_trigger:
@@ -102,9 +86,7 @@ def _compute_leg1_pricing(
             gap = target_max - start_price
             raw_price = start_price + (gap * capped_aggr)
             # CEILING to tick size (higher price for buy) is more aggressive
-            price = (raw_price / tick).quantize(
-                Decimal("1"), rounding="ROUND_CEILING"
-            ) * tick
+            price = (raw_price / tick).quantize(Decimal("1"), rounding="ROUND_CEILING") * tick
     else:
         start_price = best_ask
         # Removed: "If final attempt, cross the spread" - this caused market-taking!
@@ -117,11 +99,9 @@ def _compute_leg1_pricing(
             raw_adj = gap_distance * capped_aggr
             raw_price = start_price - raw_adj
             # FLOOR to tick size (lower price for sell) is more aggressive
-            price = (raw_price / tick).quantize(
-                Decimal("1"), rounding="ROUND_FLOOR"
-            ) * tick
+            price = (raw_price / tick).quantize(Decimal("1"), rounding="ROUND_FLOOR") * tick
 
-    is_final_attempt = (attempt_index == config.max_attempts - 1)
+    is_final_attempt = attempt_index == config.max_attempts - 1
     # Default: final attempt uses GTC, earlier attempts use POST_ONLY.
     # If maker_force_post_only=true, always use POST_ONLY (taker prevention).
     if config.force_post_only_setting:

@@ -113,9 +113,7 @@ async def _execute_impl_post_leg2(
 
         if not has_lighter or not has_x10:
             missing_exchange = Exchange.LIGHTER if not has_lighter else Exchange.X10
-            remaining_qty = (
-                last_lighter_qty if has_lighter else last_x10_qty if has_x10 else Decimal("0")
-            )
+            remaining_qty = last_lighter_qty if has_lighter else last_x10_qty if has_x10 else Decimal("0")
             logger.critical(
                 f"POST-ENTRY VERIFICATION FAILED for {trade.symbol} after {max_verify_attempts} attempts: "
                 f"missing {missing_exchange.value}! "
@@ -180,9 +178,7 @@ async def _execute_impl_post_leg2(
                     )
                     await self._wait_for_fill(adapter, trade.symbol, order.order_id, timeout=timeout_s)
                 except Exception as close_err:
-                    logger.error(
-                        f"EMERGENCY CLOSE FAILED for {trade.symbol} on {adapter.exchange.value}: {close_err}"
-                    )
+                    logger.error(f"EMERGENCY CLOSE FAILED for {trade.symbol} on {adapter.exchange.value}: {close_err}")
 
             trade.status = TradeStatus.CLOSING
             trade.close_reason = "post_entry_broken_hedge"

@@ -73,10 +73,7 @@ async def _execute_impl(self, opp: Opportunity) -> ExecutionResult:
     trade = Trade.create(
         symbol=opp.symbol,
         leg1_exchange=Exchange.LIGHTER,
-        leg1_side=(
-            Side.BUY if opp.long_exchange == Exchange.LIGHTER
-            else Side.SELL
-        ),
+        leg1_side=(Side.BUY if opp.long_exchange == Exchange.LIGHTER else Side.SELL),
         leg2_exchange=Exchange.X10,
         target_qty=opp.suggested_qty,
         target_notional_usd=opp.suggested_notional,

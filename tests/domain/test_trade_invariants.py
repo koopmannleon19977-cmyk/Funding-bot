@@ -1,5 +1,5 @@
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 
 import pytest
 
@@ -36,9 +36,7 @@ def test_invariants_pass_on_delta_neutral():
 def test_invariants_fail_on_same_side():
     inv = TradeInvariants()
     trade = make_trade()
-    bad_trade = Trade(
-        **{**trade.__dict__, "leg2_side": Side.BUY}
-    )
+    bad_trade = Trade(**{**trade.__dict__, "leg2_side": Side.BUY})
     result = inv.validate(bad_trade)
     assert not result.ok
     assert "opposite" in (result.reason or "").lower()

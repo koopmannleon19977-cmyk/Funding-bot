@@ -223,9 +223,7 @@ class ShutdownService:
                 open_positions = [p for p in positions if p.qty > Decimal("0.0001")]
 
                 if open_positions:
-                    logger.warning(
-                        f"{adapter.exchange} still has {len(open_positions)} open positions"
-                    )
+                    logger.warning(f"{adapter.exchange} still has {len(open_positions)} open positions")
             except Exception as e:
                 logger.error(f"Failed to verify {adapter.exchange}: {e}")
 
@@ -306,4 +304,3 @@ async def emergency_shutdown(
             pass
 
     logger.critical("Emergency shutdown complete")
-

@@ -1,8 +1,8 @@
 from . import (
-    OrderbookValidator,
-    OrderbookValidationResult,
-    OrderbookQuality,
     OrderbookDepthLevel,
+    OrderbookQuality,
+    OrderbookValidationResult,
+    OrderbookValidator,
     validate_orderbook_for_maker,
 )
 

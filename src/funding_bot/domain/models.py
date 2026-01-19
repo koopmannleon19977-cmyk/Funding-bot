@@ -608,6 +608,7 @@ class SurgeTrade:
     status: SurgeTradeStatus = SurgeTradeStatus.PENDING
     entry_order_id: str | None = None
     entry_client_order_id: str | None = None
+    exit_order_id: str | None = None
     exit_client_order_id: str | None = None
     entry_reason: str | None = None
     exit_reason: str | None = None

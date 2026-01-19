@@ -77,8 +77,7 @@ async def test_reconcile_quantity_mismatch_publishes_event():
     mismatch_events = [
         call.args[0]
         for call in event_bus.publish.await_args_list
-        if isinstance(call.args[0], PositionReconciled)
-        and call.args[0].action == "quantity_mismatch"
+        if isinstance(call.args[0], PositionReconciled) and call.args[0].action == "quantity_mismatch"
     ]
 
     # Assert that a quantity mismatch was detected
@@ -148,8 +147,7 @@ async def test_reconcile_quantity_match_within_tolerance_no_event():
     mismatch_events = [
         call.args[0]
         for call in event_bus.publish.await_args_list
-        if isinstance(call.args[0], PositionReconciled)
-        and call.args[0].action == "quantity_mismatch"
+        if isinstance(call.args[0], PositionReconciled) and call.args[0].action == "quantity_mismatch"
     ]
 
     assert len(mismatch_events) == 0, f"Expected 0 mismatch events, got {len(mismatch_events)}"

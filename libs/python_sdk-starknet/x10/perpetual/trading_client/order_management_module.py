@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from x10.perpetual.orders import NewOrderModel, PlacedOrderModel
 from x10.perpetual.trading_client.base_module import BaseModule
 from x10.utils.http import send_delete_request, send_post_request
@@ -10,10 +8,10 @@ LOGGER = get_logger(__name__)
 
 
 class _MassCancelRequestModel(X10BaseModel):
-    order_ids: Optional[List[int]] = None
-    external_order_ids: Optional[List[str]] = None
-    markets: Optional[List[str]] = None
-    cancel_all: Optional[bool] = None
+    order_ids: list[int] | None = None
+    external_order_ids: list[str] | None = None
+    markets: list[str] | None = None
+    cancel_all: bool | None = None
 
 
 class OrderManagementModule(BaseModule):
@@ -56,10 +54,10 @@ class OrderManagementModule(BaseModule):
     async def mass_cancel(
         self,
         *,
-        order_ids: Optional[List[int]] = None,
-        external_order_ids: Optional[List[str]] = None,
-        markets: Optional[List[str]] = None,
-        cancel_all: Optional[bool] = False,
+        order_ids: list[int] | None = None,
+        external_order_ids: list[str] | None = None,
+        markets: list[str] | None = None,
+        cancel_all: bool | None = False,
     ):
         """
         https://api.docs.extended.exchange/#mass-cancel

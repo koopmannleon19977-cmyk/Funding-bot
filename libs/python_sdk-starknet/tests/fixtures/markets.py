@@ -1,6 +1,3 @@
-from typing import List
-
-
 def get_btc_usd_market_json_data():
     return """
     {
@@ -188,7 +185,7 @@ def create_btc_usd_market(json_data: str):
     from x10.perpetual.markets import MarketModel
     from x10.utils.http import WrappedApiResponse
 
-    result = WrappedApiResponse[List[MarketModel]].model_validate_json(json_data)
+    result = WrappedApiResponse[list[MarketModel]].model_validate_json(json_data)
 
     assert result.data
 

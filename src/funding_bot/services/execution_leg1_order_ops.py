@@ -33,9 +33,7 @@ async def _cancel_lighter_order_if_active(
             if not status_check or not status_check.is_active:
                 return True, cancel_attempts
 
-            logger.debug(
-                f"Cancelling remainder of order {order_id} (Attempt {cancel_attempt + 1})"
-            )
+            logger.debug(f"Cancelling remainder of order {order_id} (Attempt {cancel_attempt + 1})")
             cancelled = await self.lighter.cancel_order(trade.symbol, order_id)
             if cancelled:
                 return True, cancel_attempts
@@ -141,9 +139,7 @@ async def _place_or_modify_leg1_order(
     # IMPORTANT: set `active_order_id` immediately so exception handlers and anti-salvage
     # paths never try to cancel a `None`/empty id.
     state.active_order_id = order.order_id
-    logger.debug(
-        f"Leg1 order placed: {order.order_id} @ {ctx.price:.2f}"
-    )
+    logger.debug(f"Leg1 order placed: {order.order_id} @ {ctx.price:.2f}")
 
     return order, modified
 
@@ -196,9 +192,7 @@ async def _wait_for_leg1_fill_with_guard(
                     depth_impact_raw = getattr(self.settings.trading, "depth_gate_max_price_impact_percent", None)
                     depth_impact = _safe_decimal(depth_impact_raw, Decimal("0.0015"))
 
-                    x10_depth = await self.market_data.get_fresh_orderbook_depth(
-                        trade.symbol, levels=10
-                    )
+                    x10_depth = await self.market_data.get_fresh_orderbook_depth(trade.symbol, levels=10)
                     # Check if we can find the required quantity (80% of pending) within impact limits
                     depth_res = check_x10_depth_compliance_by_impact(
                         x10_depth,
@@ -244,11 +238,7 @@ async def _wait_for_leg1_fill_with_guard(
     )
     wait_seconds = Decimal(str(max(0.0, time.monotonic() - t_wait0)))
     active_order_id = order.order_id
-    if (
-        filled_order
-        and filled_order.order_id
-        and not str(filled_order.order_id).startswith("pending_")
-    ):
+    if filled_order and filled_order.order_id and not str(filled_order.order_id).startswith("pending_"):
         # Prefer the system order_id from WS/polling once available so downstream
         # cancels and persisted state don't depend on placeholder resolution.
         active_order_id = str(filled_order.order_id)

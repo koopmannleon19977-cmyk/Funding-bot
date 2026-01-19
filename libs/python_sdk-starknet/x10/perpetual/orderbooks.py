@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List
 
 from pydantic import AliasChoices, Field
 
@@ -13,5 +12,5 @@ class OrderbookQuantityModel(X10BaseModel):
 
 class OrderbookUpdateModel(X10BaseModel):
     market: str = Field(validation_alias=AliasChoices("market", "m"), serialization_alias="m")
-    bid: List[OrderbookQuantityModel] = Field(validation_alias=AliasChoices("bid", "b"), serialization_alias="b")
-    ask: List[OrderbookQuantityModel] = Field(validation_alias=AliasChoices("ask", "a"), serialization_alias="a")
+    bid: list[OrderbookQuantityModel] = Field(validation_alias=AliasChoices("bid", "b"), serialization_alias="b")
+    ask: list[OrderbookQuantityModel] = Field(validation_alias=AliasChoices("ask", "a"), serialization_alias="a")

@@ -1,6 +1,6 @@
 import pytest
 
-from src.adapters.lighter_adapter import _normalize_lighter_orders_response, LighterAdapter
+from src.adapters.lighter_adapter import LighterAdapter, _normalize_lighter_orders_response
 
 
 def test_normalize_lighter_orders_response_shapes():

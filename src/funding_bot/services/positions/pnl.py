@@ -10,9 +10,7 @@ from funding_bot.domain.models import Side, Trade
 from funding_bot.services.market_data import OrderbookDepthSnapshot, OrderbookSnapshot
 
 
-async def _calculate_unrealized_pnl(
-    self, trade: Trade, current_price: Decimal
-) -> Decimal:
+async def _calculate_unrealized_pnl(self, trade: Trade, current_price: Decimal) -> Decimal:
     """
     Calculate unrealized PnL based on current price (excluding fees).
 
@@ -50,9 +48,7 @@ async def _calculate_unrealized_pnl(
     return leg1_pnl + leg2_pnl - total_fees
 
 
-async def _calculate_realizable_pnl(
-    self, trade: Trade, book: OrderbookSnapshot
-) -> Decimal:
+async def _calculate_realizable_pnl(self, trade: Trade, book: OrderbookSnapshot) -> Decimal:
     """
     Calculate PnL based on realizable prices (Bid/Ask) including fees.
 
@@ -96,9 +92,7 @@ async def _calculate_realizable_pnl(
     return leg1_pnl + leg2_pnl - total_fees
 
 
-async def _calculate_realizable_pnl_depth(
-    self, trade: Trade, book: OrderbookDepthSnapshot
-) -> Decimal:
+async def _calculate_realizable_pnl_depth(self, trade: Trade, book: OrderbookDepthSnapshot) -> Decimal:
     """
     Calculate PnL by walking the orderbook depth (weighted average exit price) including fees.
 
@@ -120,6 +114,7 @@ async def _calculate_realizable_pnl_depth(
     Returns:
         Decimal: Net realizable PnL (gross PnL minus total fees)
     """
+
     # --- Helper to calculate proceeds from walking the book ---
     def _calculate_outcome_usd(
         qty: Decimal,

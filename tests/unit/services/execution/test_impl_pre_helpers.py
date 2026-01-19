@@ -15,8 +15,6 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import MagicMock
 
-import pytest
-
 from funding_bot.services.execution_impl_pre import (
     SmartPricingConfig,
     SpreadCheckConfig,
@@ -24,8 +22,6 @@ from funding_bot.services.execution_impl_pre import (
     _build_spread_kpi_data,
     _load_spread_check_config,
 )
-from funding_bot.services.market_data.models import OrderbookSnapshot
-
 
 # =============================================================================
 # DATACLASS TESTS

@@ -182,27 +182,35 @@ def check_depth_for_entry_by_impact(
             utilization = target_qty / avail_qty
 
         if avail_qty <= 0 or avail_notional <= 0:
-            return False, f"missing {exchange} depth {side.value}", {
-                "exchange": exchange,
-                "side": side.value,
-                "best_price": str(best_price),
-                "available_qty": str(avail_qty),
-                "available_notional_usd": str(avail_notional),
-                "levels_used": used_levels,
-                "utilization": None if utilization is None else str(utilization),
-            }
+            return (
+                False,
+                f"missing {exchange} depth {side.value}",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "utilization": None if utilization is None else str(utilization),
+                },
+            )
 
         if required_notional > 0 and avail_notional < required_notional:
-            return False, f"{exchange} depth notional too low", {
-                "exchange": exchange,
-                "side": side.value,
-                "best_price": str(best_price),
-                "available_qty": str(avail_qty),
-                "available_notional_usd": str(avail_notional),
-                "levels_used": used_levels,
-                "required_notional_usd": str(required_notional),
-                "utilization": None if utilization is None else str(utilization),
-            }
+            return (
+                False,
+                f"{exchange} depth notional too low",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "required_notional_usd": str(required_notional),
+                    "utilization": None if utilization is None else str(utilization),
+                },
+            )
 
         utilization_exceeded = (
             max_l1_qty_utilization
@@ -211,25 +219,33 @@ def check_depth_for_entry_by_impact(
             and utilization > max_l1_qty_utilization
         )
         if utilization_exceeded:
-            return False, f"{exchange} depth utilization too high", {
+            return (
+                False,
+                f"{exchange} depth utilization too high",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "utilization": str(utilization),
+                },
+            )
+
+        return (
+            True,
+            "",
+            {
                 "exchange": exchange,
                 "side": side.value,
                 "best_price": str(best_price),
                 "available_qty": str(avail_qty),
                 "available_notional_usd": str(avail_notional),
                 "levels_used": used_levels,
-                "utilization": str(utilization),
-            }
-
-        return True, "", {
-            "exchange": exchange,
-            "side": side.value,
-            "best_price": str(best_price),
-            "available_qty": str(avail_qty),
-            "available_notional_usd": str(avail_notional),
-            "levels_used": used_levels,
-            "utilization": None if utilization is None else str(utilization),
-        }
+                "utilization": None if utilization is None else str(utilization),
+            },
+        )
 
     ok_l, reason_l, m_l = _one("LIGHTER", lighter_side)
     ok_x, reason_x, m_x = _one("X10", x10_side)
@@ -290,27 +306,35 @@ def check_x10_depth_compliance_by_impact(
             utilization = target_qty / avail_qty
 
         if avail_qty <= 0 or avail_notional <= 0:
-            return False, f"missing {exchange} depth {side.value}", {
-                "exchange": exchange,
-                "side": side.value,
-                "best_price": str(best_price),
-                "available_qty": str(avail_qty),
-                "available_notional_usd": str(avail_notional),
-                "levels_used": used_levels,
-                "utilization": None if utilization is None else str(utilization),
-            }
+            return (
+                False,
+                f"missing {exchange} depth {side.value}",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "utilization": None if utilization is None else str(utilization),
+                },
+            )
 
         if required_notional > 0 and avail_notional < required_notional:
-            return False, f"{exchange} depth notional too low", {
-                "exchange": exchange,
-                "side": side.value,
-                "best_price": str(best_price),
-                "available_qty": str(avail_qty),
-                "available_notional_usd": str(avail_notional),
-                "levels_used": used_levels,
-                "required_notional_usd": str(required_notional),
-                "utilization": None if utilization is None else str(utilization),
-            }
+            return (
+                False,
+                f"{exchange} depth notional too low",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "required_notional_usd": str(required_notional),
+                    "utilization": None if utilization is None else str(utilization),
+                },
+            )
 
         utilization_exceeded = (
             max_l1_qty_utilization
@@ -319,25 +343,33 @@ def check_x10_depth_compliance_by_impact(
             and utilization > max_l1_qty_utilization
         )
         if utilization_exceeded:
-            return False, f"{exchange} depth utilization too high", {
+            return (
+                False,
+                f"{exchange} depth utilization too high",
+                {
+                    "exchange": exchange,
+                    "side": side.value,
+                    "best_price": str(best_price),
+                    "available_qty": str(avail_qty),
+                    "available_notional_usd": str(avail_notional),
+                    "levels_used": used_levels,
+                    "utilization": str(utilization),
+                },
+            )
+
+        return (
+            True,
+            "",
+            {
                 "exchange": exchange,
                 "side": side.value,
                 "best_price": str(best_price),
                 "available_qty": str(avail_qty),
                 "available_notional_usd": str(avail_notional),
                 "levels_used": used_levels,
-                "utilization": str(utilization),
-            }
-
-        return True, "", {
-            "exchange": exchange,
-            "side": side.value,
-            "best_price": str(best_price),
-            "available_qty": str(avail_qty),
-            "available_notional_usd": str(avail_notional),
-            "levels_used": used_levels,
-            "utilization": None if utilization is None else str(utilization),
-        }
+                "utilization": None if utilization is None else str(utilization),
+            },
+        )
 
     ok_x, reason_x, m_x = _one("X10", x10_side)
 

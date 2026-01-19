@@ -1,7 +1,6 @@
 import math
 from datetime import timedelta
 from decimal import Decimal
-from typing import List
 
 from fast_stark_crypto import get_transfer_msg_hash
 
@@ -18,7 +17,7 @@ from x10.utils.nonce import generate_nonce
 ASSET_ID_FEE = 0
 
 
-def find_account_by_id(accounts: List[AccountModel], account_id: int):
+def find_account_by_id(accounts: list[AccountModel], account_id: int):
     return next((account for account in accounts if account.id == account_id), None)
 
 

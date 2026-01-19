@@ -13,11 +13,10 @@ import time
 import pytest
 
 from funding_bot.adapters.exchanges.lighter.adapter import (
+    _get_ws_reconnect_delay,
     _WebSocketCircuitBreaker,
     _WebSocketHealthMonitor,
-    _get_ws_reconnect_delay,
 )
-
 
 # =============================================================================
 # Circuit Breaker Tests
@@ -197,19 +196,16 @@ class TestExponentialBackoff:
         delays = [_get_ws_reconnect_delay(i, base_delay=2.0, max_delay=120.0, jitter_factor=0) for i in range(5)]
 
         # Without jitter, should follow exponential pattern
-        assert delays[0] == 2.0   # 2 * 2^0
-        assert delays[1] == 4.0   # 2 * 2^1
-        assert delays[2] == 8.0   # 2 * 2^2
+        assert delays[0] == 2.0  # 2 * 2^0
+        assert delays[1] == 4.0  # 2 * 2^1
+        assert delays[2] == 8.0  # 2 * 2^2
         assert delays[3] == 16.0  # 2 * 2^3
         assert delays[4] == 32.0  # 2 * 2^4
 
     def test_backoff_respects_max_delay(self):
         """Should cap delay at max_delay value."""
         max_delay = 30.0
-        delays = [
-            _get_ws_reconnect_delay(i, base_delay=2.0, max_delay=max_delay, jitter_factor=0)
-            for i in range(10)
-        ]
+        delays = [_get_ws_reconnect_delay(i, base_delay=2.0, max_delay=max_delay, jitter_factor=0) for i in range(10)]
 
         # All delays should be <= max_delay
         for delay in delays:
@@ -218,10 +214,7 @@ class TestExponentialBackoff:
     def test_backoff_includes_jitter(self):
         """Should add random jitter to prevent connection storms."""
         # Generate multiple delays with same attempt number
-        delays = [
-            _get_ws_reconnect_delay(5, base_delay=2.0, max_delay=120.0, jitter_factor=0.15)
-            for _ in range(20)
-        ]
+        delays = [_get_ws_reconnect_delay(5, base_delay=2.0, max_delay=120.0, jitter_factor=0.15) for _ in range(20)]
 
         # With jitter, delays should vary
         # All should be around 64s (2 * 2^5) ± 15%
@@ -242,10 +235,7 @@ class TestExponentialBackoff:
 
     def test_backoff_zero_jitter_is_deterministic(self):
         """Should be deterministic when jitter_factor is 0."""
-        delays = [
-            _get_ws_reconnect_delay(5, base_delay=2.0, max_delay=120.0, jitter_factor=0)
-            for _ in range(10)
-        ]
+        delays = [_get_ws_reconnect_delay(5, base_delay=2.0, max_delay=120.0, jitter_factor=0) for _ in range(10)]
 
         # All should be exactly the same
         assert len(set(delays)) == 1

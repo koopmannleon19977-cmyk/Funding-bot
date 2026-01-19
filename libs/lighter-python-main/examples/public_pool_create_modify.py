@@ -1,7 +1,9 @@
-import time
-import json
 import asyncio
+import json
+import time
+
 import lighter
+
 from utils import default_example_setup
 
 
@@ -23,7 +25,7 @@ async def main():
         min_operator_share_rate=100,  # 1%
     )
     if err is not None:
-        raise Exception(f'failed to create public pool {err}')
+        raise Exception(f"failed to create public pool {err}")
     tx_hash = response.tx_hash
     print(f"✅ send create public pool tx. hash: {tx_hash}")
 
@@ -34,8 +36,8 @@ async def main():
         try:
             response = await tx_api.tx(by="hash", value=tx_hash)
             event_info_j = json.loads(response.event_info)
-            pool_account_index = event_info_j['a']
-        except Exception as e:
+            pool_account_index = event_info_j["a"]
+        except Exception:
             pass
         if pool_account_index != -1:
             break
@@ -52,7 +54,7 @@ async def main():
         min_operator_share_rate=1000,  # 10%
     )
     if err is not None:
-        raise Exception(f'failed to create update pool {err}')
+        raise Exception(f"failed to create update pool {err}")
 
 
 if __name__ == "__main__":

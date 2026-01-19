@@ -1,5 +1,3 @@
-from typing import Dict, Optional
-
 import aiohttp
 
 from x10.errors import X10Error
@@ -10,16 +8,16 @@ from x10.utils.http import CLIENT_TIMEOUT, get_url
 
 class BaseModule:
     __endpoint_config: EndpointConfig
-    __api_key: Optional[str]
-    __stark_account: Optional[StarkPerpetualAccount]
-    __session: Optional[aiohttp.ClientSession]
+    __api_key: str | None
+    __stark_account: StarkPerpetualAccount | None
+    __session: aiohttp.ClientSession | None
 
     def __init__(
         self,
         endpoint_config: EndpointConfig,
         *,
-        api_key: Optional[str] = None,
-        stark_account: Optional[StarkPerpetualAccount] = None,
+        api_key: str | None = None,
+        stark_account: StarkPerpetualAccount | None = None,
     ):
         super().__init__()
         self.__endpoint_config = endpoint_config
@@ -27,7 +25,7 @@ class BaseModule:
         self.__stark_account = stark_account
         self.__session = None
 
-    def _get_url(self, path: str, *, query: Optional[Dict] = None, **path_params) -> str:
+    def _get_url(self, path: str, *, query: dict | None = None, **path_params) -> str:
         return get_url(f"{self.__endpoint_config.api_base_url}{path}", query=query, **path_params)
 
     def _get_endpoint_config(self) -> EndpointConfig:

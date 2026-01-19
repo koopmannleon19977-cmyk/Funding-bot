@@ -18,16 +18,18 @@ from funding_bot.domain.models import Exchange, ExecutionState, Side, TradeStatu
 
 async def append_event(self, trade_id: str, event: DomainEvent) -> None:
     """Append an event to the trade's audit log."""
-    await self._write_queue.put({
-        "action": "append_event",
-        "data": {
-            "event_id": event.event_id,
-            "trade_id": trade_id,
-            "event_type": event.event_type,
-            "timestamp": event.timestamp.isoformat(),
-            "payload": json.dumps(dataclasses.asdict(event), default=str),
-        },
-    })
+    await self._write_queue.put(
+        {
+            "action": "append_event",
+            "data": {
+                "event_id": event.event_id,
+                "trade_id": trade_id,
+                "event_type": event.event_type,
+                "timestamp": event.timestamp.isoformat(),
+                "payload": json.dumps(dataclasses.asdict(event), default=str),
+            },
+        }
+    )
 
 
 async def list_events(

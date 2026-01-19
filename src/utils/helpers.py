@@ -1,6 +1,6 @@
 import logging
-from typing import Any, Union, Optional, Dict
-from decimal import Decimal, ROUND_HALF_UP, ROUND_FLOOR, InvalidOperation
+from decimal import ROUND_FLOOR, ROUND_HALF_UP, Decimal, InvalidOperation
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -10,35 +10,32 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 # Standard precision for financial calculations (8 decimal places)
-FINANCIAL_PRECISION = Decimal('0.00000001')
+FINANCIAL_PRECISION = Decimal("0.00000001")
 # Display precision for USD values (2 decimal places)
-USD_PRECISION = Decimal('0.01')
+USD_PRECISION = Decimal("0.01")
 # Precision for rates/percentages (6 decimal places)
-RATE_PRECISION = Decimal('0.000001')
+RATE_PRECISION = Decimal("0.000001")
 
 
 def safe_decimal(
-    val: Any, 
-    default: Decimal = Decimal('0'), 
-    precision: Decimal = None,
-    raise_on_error: bool = False
+    val: Any, default: Decimal = Decimal("0"), precision: Decimal = None, raise_on_error: bool = False
 ) -> Decimal:
     """
     Safely convert any value to Decimal for financial calculations.
-    
+
     CRITICAL: Use this for ALL financial calculations to avoid float precision errors.
     Float: 0.1 + 0.2 = 0.30000000000000004
     Decimal: Decimal('0.1') + Decimal('0.2') = Decimal('0.3')
-    
+
     Args:
         val: The value to convert (int, float, str, Decimal, None)
         default: Value to return if conversion fails (default: Decimal('0'))
         precision: Optional Decimal for quantization (e.g., Decimal('0.01') for cents)
         raise_on_error: If True, raise exception instead of returning default
-    
+
     Returns:
         Decimal: The converted value, optionally quantized
-    
+
     Example:
         >>> safe_decimal(0.1) + safe_decimal(0.2)
         Decimal('0.3')
@@ -51,7 +48,7 @@ def safe_decimal(
         if raise_on_error:
             raise ValueError("safe_decimal received None")
         return default
-    
+
     # Already a Decimal - just quantize if needed
     if isinstance(val, Decimal):
         result = val
@@ -68,7 +65,7 @@ def safe_decimal(
     elif isinstance(val, str):
         try:
             s_val = val.strip()
-            if not s_val or s_val.lower() == 'none':
+            if not s_val or s_val.lower() == "none":
                 if raise_on_error:
                     raise ValueError(f"safe_decimal received invalid string: '{val}'")
                 return default
@@ -87,18 +84,18 @@ def safe_decimal(
                 raise ValueError(f"Cannot convert {type(val).__name__} '{val}' to Decimal")
             logger.warning(f"⚠️ safe_decimal failed for value '{val}' (type: {type(val)}). Returning default {default}")
             return default
-    
+
     # Apply precision if specified
     if precision is not None:
         result = result.quantize(precision, rounding=ROUND_HALF_UP)
-    
+
     return result
 
 
 def decimal_to_float(val: Decimal) -> float:
     """
     Convert Decimal to float for APIs that require float.
-    
+
     Use sparingly - only at API boundaries where float is required.
     Internal calculations should stay in Decimal.
     """
@@ -120,20 +117,20 @@ def quantize_rate(val: Decimal) -> Decimal:
 # ============================================================================
 
 # Keywords that indicate sensitive data (case-insensitive)
-SENSITIVE_KEYWORDS = ('key', 'secret', 'token', 'password', 'api_key', 'apikey', 'private', 'credential')
+SENSITIVE_KEYWORDS = ("key", "secret", "token", "password", "api_key", "apikey", "private", "credential")
 
 
 def mask_sensitive_data(data: Any, mask_value: str = "***MASKED***") -> Any:
     """
     Recursively mask sensitive data (API keys, secrets, tokens) for safe logging.
-    
+
     Args:
         data: The data to mask (dict, list, or other).
         mask_value: The string to replace sensitive values with.
-    
+
     Returns:
         A copy of the data with sensitive values masked.
-    
+
     Example:
         >>> mask_sensitive_data({"X-Api-Key": "secret123", "name": "test"})
         {"X-Api-Key": "***MASKED***", "name": "test"}
@@ -142,9 +139,9 @@ def mask_sensitive_data(data: Any, mask_value: str = "***MASKED***") -> Any:
         masked = {}
         for key, value in data.items():
             # Check if key contains any sensitive keyword
-            key_lower = str(key).lower().replace('-', '_').replace(' ', '_')
+            key_lower = str(key).lower().replace("-", "_").replace(" ", "_")
             is_sensitive = any(kw in key_lower for kw in SENSITIVE_KEYWORDS)
-            
+
             if is_sensitive and value is not None:
                 # Mask the value
                 masked[key] = mask_value
@@ -154,18 +151,19 @@ def mask_sensitive_data(data: Any, mask_value: str = "***MASKED***") -> Any:
             else:
                 masked[key] = value
         return masked
-    
+
     elif isinstance(data, list):
         return [mask_sensitive_data(item, mask_value) for item in data]
-    
+
     else:
         # Return non-container types as-is
         return data
 
+
 def safe_float(val: Any, default: float = 0.0, raise_on_error: bool = False) -> float:
     """
     Safely convert a value to float.
-    
+
     Args:
         val: The value to convert.
         default: The value to return if conversion fails (default 0.0).
@@ -176,28 +174,29 @@ def safe_float(val: Any, default: float = 0.0, raise_on_error: bool = False) -> 
     """
     if val is None:
         if raise_on_error:
-             raise ValueError("safe_float received None")
+            raise ValueError("safe_float received None")
         return default
 
     if isinstance(val, (int, float)):
         return float(val)
 
     try:
-        # Handle string "None" or empty string explicitly if needed, 
-        # but float() handles simple strings. 
+        # Handle string "None" or empty string explicitly if needed,
+        # but float() handles simple strings.
         # 'None' string casts to error in float(), so caught below.
         s_val = str(val).strip()
         if not s_val or s_val.lower() == "none":
-             if raise_on_error:
-                 raise ValueError(f"safe_float received invalid string: '{val}'")
-             return default
-             
+            if raise_on_error:
+                raise ValueError(f"safe_float received invalid string: '{val}'")
+            return default
+
         return float(s_val)
     except (ValueError, TypeError) as e:
         if raise_on_error:
             raise e
         logger.warning(f"⚠️ safe_float failed for value '{val}' (type: {type(val)}). Returning default {default}")
         return default
+
 
 def safe_int(val: Any, default: int = 0) -> int:
     """Safely convert value to int."""
@@ -210,22 +209,23 @@ def safe_int(val: Any, default: int = 0) -> int:
     except (ValueError, TypeError):
         return default
 
+
 def quantize_value(value: Any, step_size: Any, rounding: str = ROUND_FLOOR) -> float:
     """
     Quantize value to a specific step size using modulo-based Decimal arithmetic.
-    
+
     FIXED (2025-12-17): Uses modulo division instead of Decimal.quantize(),
     which only works for step sizes = 10^-N. This correctly handles
     arbitrary step sizes like 0.05, 5, 100, etc.
-    
+
     Args:
         value: The value to quantize
         step_size: The step size (e.g. 0.01, 10, 0.05, 100)
         rounding: Rounding mode (default: ROUND_FLOOR)
-        
+
     Returns:
         float: The quantized value
-        
+
     Examples:
         quantize_value(123.47, 0.05) -> 123.45  (floor to nearest 0.05)
         quantize_value(123, 5) -> 120  (floor to nearest 5)
@@ -233,21 +233,21 @@ def quantize_value(value: Any, step_size: Any, rounding: str = ROUND_FLOOR) -> f
     """
     if value is None or step_size is None:
         return 0.0
-        
+
     try:
         d_val = safe_decimal(value)
         d_step = safe_decimal(step_size)
-        
+
         if d_step == 0:
             return float(d_val)
-        
+
         # MODULO-BASED QUANTIZATION:
         # Instead of d_val.quantize(d_step) which only works for 10^-N steps,
         # divide by step, round to integer, multiply back by step
         quotient = d_val / d_step
         rounded_quotient = quotient.to_integral_value(rounding=rounding)
         quantized = rounded_quotient * d_step
-        
+
         return float(quantized)
     except Exception:
         return 0.0

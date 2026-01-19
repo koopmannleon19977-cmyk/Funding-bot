@@ -354,6 +354,7 @@ def check_net_ev_exit(
 # Reason: APY naturally oscillates 50-150%. Ratio-based exits cause premature closures.
 # Professional strategy uses velocity-based proactive detection instead.
 
+
 def check_yield_vs_cost(
     trade: Trade,
     current_apy: Decimal,
@@ -570,9 +571,7 @@ def check_catastrophic_funding_flip(
         return RuleResult(False, "Entry APY was non-positive, no crash possible")
 
     # Calculate current funding difference based on position direction
-    current_diff_hourly = (
-        lighter_rate - x10_rate if trade.leg1.side == Side.SELL else x10_rate - lighter_rate
-    )
+    current_diff_hourly = lighter_rate - x10_rate if trade.leg1.side == Side.SELL else x10_rate - lighter_rate
     current_diff_apy = current_diff_hourly * Decimal("24") * Decimal("365")
 
     if current_diff_apy < severe_crash_threshold:
@@ -627,25 +626,21 @@ def check_liquidation_distance(
 
     if worst_distance_pct < min_distance_pct:
         # Determine which leg triggered the exit
-        triggered_leg = (
-            "Lighter" if leg1_liq_distance_pct <= leg2_liq_distance_pct else "X10"
-        )
+        triggered_leg = "Lighter" if leg1_liq_distance_pct <= leg2_liq_distance_pct else "X10"
         triggered_distance = (
-            leg1_liq_distance_pct
-            if leg1_liq_distance_pct <= leg2_liq_distance_pct
-            else leg2_liq_distance_pct
+            leg1_liq_distance_pct if leg1_liq_distance_pct <= leg2_liq_distance_pct else leg2_liq_distance_pct
         )
         return RuleResult(
             True,
             f"Liquidation risk: {triggered_leg} leg at {triggered_distance:.1%} from liquidation "
             f"(leg1={leg1_liq_distance_pct:.1%}, leg2={leg2_liq_distance_pct:.1%}) "
-            f"< threshold {min_distance_pct:.1%}"
+            f"< threshold {min_distance_pct:.1%}",
         )
 
     return RuleResult(
         False,
         f"Liquidation safe: {worst_distance_pct:.1%} distance "
-        f"(leg1={leg1_liq_distance_pct:.1%}, leg2={leg2_liq_distance_pct:.1%})"
+        f"(leg1={leg1_liq_distance_pct:.1%}, leg2={leg2_liq_distance_pct:.1%})",
     )
 
 
@@ -722,7 +717,7 @@ def check_delta_bound(
             True,
             f"{REASON_REBALANCE}: Delta drift {delta_drift_pct:.2%} in rebalance range "
             f"({min_delta_pct:.2%} - {max_delta_pct:.2%}) "
-            f"(leg1={leg1_delta:.2f} @ {leg1_px:.2f}, leg2={leg2_delta:.2f} @ {leg2_px:.2f})"
+            f"(leg1={leg1_delta:.2f} @ {leg1_px:.2f}, leg2={leg2_delta:.2f} @ {leg2_px:.2f})",
         )
 
     # Emergency exit layer (exceeds max threshold)
@@ -730,13 +725,11 @@ def check_delta_bound(
         return RuleResult(
             True,
             f"{REASON_EMERGENCY}: Delta bound violated: {delta_drift_pct:.2%} > {max_delta_pct:.2%} "
-            f"(leg1_delta={leg1_delta:.2f} @ {leg1_px:.2f}, leg2_delta={leg2_delta:.2f} @ {leg2_px:.2f})"
+            f"(leg1_delta={leg1_delta:.2f} @ {leg1_px:.2f}, leg2_delta={leg2_delta:.2f} @ {leg2_px:.2f})",
         )
 
     return RuleResult(
-        False,
-        f"Delta OK: {delta_drift_pct:.2%} <= {max_delta_pct:.2%} "
-        f"(leg1={leg1_delta:.2f}, leg2={leg2_delta:.2f})"
+        False, f"Delta OK: {delta_drift_pct:.2%} <= {max_delta_pct:.2%} (leg1={leg1_delta:.2f}, leg2={leg2_delta:.2f})"
     )
 
 

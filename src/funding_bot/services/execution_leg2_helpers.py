@@ -36,13 +36,7 @@ async def _leg2_get_base_price(
 
     # Prefer WS-fed MarketData cache if available; fall back to adapter REST.
     cached = self.market_data.get_orderbook(symbol)
-    if (
-        cached
-        and cached.x10_bid > 0
-        and cached.x10_ask > 0
-        and cached.x10_bid < cached.x10_ask
-        and cached.x10_updated
-    ):
+    if cached and cached.x10_bid > 0 and cached.x10_ask > 0 and cached.x10_bid < cached.x10_ask and cached.x10_updated:
         age = (datetime.now(UTC) - cached.x10_updated).total_seconds()
         if age <= 1.0:
             if side == Side.BUY:

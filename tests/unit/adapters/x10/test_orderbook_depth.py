@@ -5,13 +5,14 @@ Tests that the X10 adapter correctly passes the limit parameter to the SDK
 and returns multiple depth levels (not just L1).
 """
 
-import pytest
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from funding_bot.adapters.exchanges.x10.adapter import X10Adapter
+from funding_bot.config.settings import ExchangeSettings, Settings
 from funding_bot.domain.errors import ExchangeError
-from funding_bot.config.settings import Settings, ExchangeSettings
 
 
 @pytest.fixture

@@ -40,4 +40,3 @@ def test_normalize_x10_onboarding_url_strips_api_v1():
 def test_looks_like_x10_testnet_detects_sepolia():
     assert _looks_like_x10_testnet("https://api.starknet.sepolia.extended.exchange") is True
     assert _looks_like_x10_testnet("https://api.starknet.extended.exchange") is False
-

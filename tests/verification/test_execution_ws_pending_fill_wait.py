@@ -33,9 +33,7 @@ async def test_wait_for_fill_uses_ws_client_key_for_pending_lighter_orders(monke
     engine = ExecutionEngine(settings, lighter, x10, store, event_bus, market_data)
 
     pending_order_id = "pending_123_7"
-    task = asyncio.create_task(
-        engine._wait_for_fill(lighter, "ETH", pending_order_id, timeout=1.0)
-    )
+    task = asyncio.create_task(engine._wait_for_fill(lighter, "ETH", pending_order_id, timeout=1.0))
 
     # Wait until _wait_for_fill registered its watcher (avoid race with WS update).
     for _ in range(200):
