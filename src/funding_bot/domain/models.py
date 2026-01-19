@@ -105,6 +105,15 @@ class TradeStatus(str, Enum):
     ROLLBACK = "ROLLBACK"  # Partial fill being rolled back
 
 
+class SurgeTradeStatus(str, Enum):
+    """Lifecycle status for Surge Pro single-leg trades."""
+
+    PENDING = "PENDING"
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+    FAILED = "FAILED"
+
+
 class ExecutionState(str, Enum):
     """Granular execution state machine."""
 
@@ -199,7 +208,7 @@ class MarketInfo:
     # Max Leverage Limits (Documented/IMR based)
     lighter_max_leverage: Decimal = Decimal("3")  # Conservative default
     lighter_min_initial_margin_fraction: int | None = None  # Raw IMR from API (e.g. 1e17 for 10%)
-    x10_max_leverage: Decimal = Decimal("20")     # Optimistic default for X10 (updated from audit)
+    x10_max_leverage: Decimal = Decimal("20")  # Optimistic default for X10 (updated from audit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -488,11 +497,13 @@ class Trade:
 
     def _log_event(self, event_type: str, data: dict[str, Any] | None = None) -> None:
         """Append event to trade log."""
-        self.events.append({
-            "type": event_type,
-            "timestamp": datetime.now(UTC).isoformat(),
-            "data": data or {},
-        })
+        self.events.append(
+            {
+                "type": event_type,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "data": data or {},
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -581,3 +592,34 @@ class ExecutionAttempt:
             data=data or {},
         )
 
+
+@dataclass(slots=True)
+class SurgeTrade:
+    """Single-leg trade used by the Surge Pro strategy."""
+
+    trade_id: str
+    symbol: str
+    exchange: Exchange
+    side: Side
+    qty: Decimal
+    entry_price: Decimal = Decimal("0")
+    exit_price: Decimal = Decimal("0")
+    fees: Decimal = Decimal("0")
+    status: SurgeTradeStatus = SurgeTradeStatus.PENDING
+    entry_order_id: str | None = None
+    entry_client_order_id: str | None = None
+    exit_client_order_id: str | None = None
+    entry_reason: str | None = None
+    exit_reason: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    opened_at: datetime | None = None
+    closed_at: datetime | None = None
+
+    @property
+    def pnl(self) -> Decimal:
+        """Realized PnL including fees (0 if not closed)."""
+        if self.qty == 0 or self.exit_price == 0:
+            return Decimal("0")
+        if self.side == Side.BUY:
+            return (self.exit_price - self.entry_price) * self.qty - self.fees
+        return (self.entry_price - self.exit_price) * self.qty - self.fees
